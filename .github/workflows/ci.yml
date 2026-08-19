@@ -16,5 +16,64 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+
+  e2e:
+    # Only on pull requests: every run takes a Neon branch of its own, and there
+    # is no reason to spend one on a push that no one is reviewing yet.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      NEON_BRANCH: ci-pr-${{ github.event.number }}-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Read the linked Neon project
+        run: echo "NEON_PROJECT_ID=$(jq -r .projectId .neon)" >> "$GITHUB_ENV"
+
+      # A branch of its own means the suite writes nowhere near production, and
+      # that migrations are proven against a database that has only ever seen
+      # them. The expiry is a safety net: if cleanup below never runs, Neon
+      # collects the branch instead of leaving it to pile up.
+      - name: Create a Neon branch for this run
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          npx -y neon@latest branches create \
+            --project-id "$NEON_PROJECT_ID" --name "$NEON_BRANCH" \
+            --expires-at "$(date -u -d '+2 hours' +%Y-%m-%dT%H:%M:%SZ)" --output json > /dev/null
+          url=$(npx -y neon@latest connection-string "$NEON_BRANCH" \
+            --project-id "$NEON_PROJECT_ID" --pooled)
+          echo "::add-mask::$url"
+          echo "DATABASE_URL=$url" >> "$GITHUB_ENV"
+
+      - run: pnpm db:migrate
+
+      # The password only has to outlive the preview server it seals sessions
+      # for, so the run makes its own rather than borrowing a stored secret.
+      - name: Seal sessions with a password for this run only
+        run: echo "NUXT_SESSION_PASSWORD=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
+
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
+
+      - name: Delete the Neon branch
+        if: always()
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          npx -y neon@latest branches delete "$NEON_BRANCH" \
+            --project-id "$NEON_PROJECT_ID" --output json > /dev/null
