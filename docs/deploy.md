@@ -18,7 +18,8 @@ Both providers need a callback URL on the deployed origin:
 - GitHub OAuth app → `https://<origin>/auth/github`
 - Google OAuth client → `https://<origin>/auth/google`
 
-For local development, use `http://localhost:3000/auth/{github,google}`.
+For local development, add `http://localhost:3100/auth/{github,google}` as a
+second redirect URI on each provider — `pnpm dev` serves on 3100.
 
 ## 3. Vercel
 

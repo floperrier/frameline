@@ -12,10 +12,11 @@ import { useDb } from '../db'
  */
 export async function signInAuthor(
   event: H3Event,
+  provider: string,
   identity: { email?: string | null, name?: string | null, email_verified?: boolean },
 ) {
   if (!identity.email || identity.email_verified === false) {
-    return sendRedirect(event, '/?error=unverified-email')
+    return failSignIn(event, provider, 'no email the provider vouches for')
   }
 
   const [author] = await useDb()
@@ -32,4 +33,10 @@ export async function signInAuthor(
   })
 
   return sendRedirect(event, '/stories')
+}
+
+/** Sends the Author back to the landing page, leaving the reason in the log. */
+export function failSignIn(event: H3Event, provider: string, reason: unknown) {
+  console.error(`Signing in with ${provider} failed:`, reason)
+  return sendRedirect(event, '/?error=' + provider)
 }

@@ -1,5 +1,5 @@
 export default defineOAuthGoogleEventHandler({
   config: { scope: ['email', 'profile'] },
-  onSuccess: (event, { user }) => signInAuthor(event, user),
-  onError: event => sendRedirect(event, '/?error=google'),
+  onSuccess: (event, { user }) => signInAuthor(event, 'google', user),
+  onError: (event, error) => failSignIn(event, 'google', error),
 })
