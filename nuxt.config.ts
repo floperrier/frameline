@@ -5,7 +5,7 @@ export default defineNuxtConfig({
   // registered against 3100.
   devServer: { port: 3100 },
   runtimeConfig: {
-    databaseUrl: '',
+    databaseUrl: process.env.DATABASE_URL ?? '',
     oauth: {
       github: { clientId: '', clientSecret: '' },
       google: { clientId: '', clientSecret: '' },
