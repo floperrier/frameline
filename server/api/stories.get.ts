@@ -1,12 +1,13 @@
 import { eq } from 'drizzle-orm'
-import { schema, useDb } from '../db'
+import { stories } from '../db/schema'
+import { useDb } from '../db'
 
 export default defineEventHandler(async (event) => {
-  const { user } = await requireUserSession(event)
+  const { user: author } = await requireUserSession(event)
 
   return useDb()
-    .select({ id: schema.stories.id, title: schema.stories.title })
-    .from(schema.stories)
-    .where(eq(schema.stories.authorId, user.id))
-    .orderBy(schema.stories.createdAt)
+    .select({ id: stories.id, title: stories.title })
+    .from(stories)
+    .where(eq(stories.authorId, author.id))
+    .orderBy(stories.createdAt)
 })

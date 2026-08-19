@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const { loggedIn } = useUserSession()
+const failed = computed(() => Boolean(useRoute().query.error))
 </script>
 
 <template>
@@ -9,6 +10,7 @@ const { loggedIn } = useUserSession()
 
     <NuxtLink v-if="loggedIn" to="/stories">Your Stories</NuxtLink>
     <template v-else>
+      <p v-if="failed">Signing in did not work. Please try again.</p>
       <a href="/auth/github">Sign in with GitHub</a>
       <a href="/auth/google">Sign in with Google</a>
     </template>

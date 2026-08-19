@@ -4,8 +4,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     databaseUrl: '',
     oauth: {
-      github: { clientId: '', clientSecret: '', scope: ['user:email'] },
-      google: { clientId: '', clientSecret: '', scope: ['email', 'profile'] },
+      github: { clientId: '', clientSecret: '' },
+      google: { clientId: '', clientSecret: '' },
     },
   },
 })

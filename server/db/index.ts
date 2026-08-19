@@ -11,5 +11,3 @@ export function useDb() {
   }
   return client
 }
-
-export { schema }

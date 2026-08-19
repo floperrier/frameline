@@ -1,7 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'authenticated' })
 
-const { user, clear } = useUserSession()
+const { user: author, clear } = useUserSession()
 const { data: stories } = await useFetch('/api/stories')
 
 async function signOut() {
@@ -14,7 +14,7 @@ async function signOut() {
   <main>
     <header>
       <h1>Stories</h1>
-      <p>{{ user?.email }}</p>
+      <p>{{ author?.email }}</p>
       <button type="button" @click="signOut">Sign out</button>
     </header>
 

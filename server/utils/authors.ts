@@ -1,19 +1,35 @@
 import { sql } from 'drizzle-orm'
-import { schema, useDb } from '../db'
+import type { H3Event } from 'h3'
+import { authors } from '../db/schema'
+import { useDb } from '../db'
 
 /**
- * Resolves the Author for an OAuth identity, keyed on email so that signing in
- * with GitHub and with Google lands on the same Author.
+ * Signs in the Author behind an OAuth identity. Authors are keyed on email, so
+ * signing in with GitHub and with Google lands on the same Author — which is
+ * only safe for an email the provider vouches for. Google always reports
+ * `email_verified`; GitHub reports it for the primary email it hands back, and
+ * only ever makes a verified email public, so an absent flag is not a rejection.
  */
-export async function resolveAuthor(email: string, name?: string | null) {
+export async function signInAuthor(
+  event: H3Event,
+  identity: { email?: string | null, name?: string | null, email_verified?: boolean },
+) {
+  if (!identity.email || identity.email_verified === false) {
+    return sendRedirect(event, '/?error=unverified-email')
+  }
+
   const [author] = await useDb()
-    .insert(schema.authors)
-    .values({ email, name: name ?? null })
+    .insert(authors)
+    .values({ email: identity.email, name: identity.name ?? null })
     .onConflictDoUpdate({
-      target: schema.authors.email,
-      set: { name: sql`coalesce(excluded.name, ${schema.authors.name})` },
+      target: authors.email,
+      set: { name: sql`coalesce(excluded.name, ${authors.name})` },
     })
     .returning()
 
-  return author!
+  await setUserSession(event, {
+    user: { id: author!.id, email: author!.email, name: author!.name },
+  })
+
+  return sendRedirect(event, '/stories')
 }
