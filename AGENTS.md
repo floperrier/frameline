@@ -19,3 +19,9 @@ The five canonical triage roles, each label string equal to its name. See
 
 Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See
 `docs/agents/domain.md`.
+
+## Running the app
+
+`pnpm dev` after copying `.env.example` to `.env` and filling it in. The Neon
+schema is applied with `pnpm db:migrate`; never edit the database by hand.
+Migrations are generated from `server/db/schema.ts` with `pnpm db:generate`.
