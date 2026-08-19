@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
-import { stories } from '../db/schema'
-import { useDb } from '../db'
+import { stories } from '../../db/schema'
+import { useDb } from '../../db'
 
 export default defineEventHandler(async (event) => {
   const { user: author } = await requireUserSession(event)
