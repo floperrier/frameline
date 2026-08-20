@@ -19,6 +19,10 @@ test('an Author writes, renames and deletes a Story', async ({ request }) => {
 
   expect((await request.delete(`/api/stories/${story.id}`)).status()).toBe(200)
   await expect((await request.get('/api/stories')).json()).resolves.toEqual([])
+
+  // Gone from the list is not the same as gone: the id has to read as absent too.
+  const renameOfDeleted = await request.patch(`/api/stories/${story.id}`, { data: { title: 'Back' } })
+  expect(renameOfDeleted.status()).toBe(404)
 })
 
 test('a Story needs a title', async ({ request }) => {

@@ -6,7 +6,7 @@ import { sealSession, type H3Event } from 'h3'
 const sql = neon(process.env.DATABASE_URL!)
 
 export type Author = { id: string, email: string, name: string | null }
-export type Story = { id: string, title: string }
+type Story = { id: string, title: string }
 
 /**
  * Signs a test Author in without going through OAuth. Driving GitHub's or
@@ -19,9 +19,9 @@ export type Story = { id: string, title: string }
  * Author cannot reach can be written by someone real rather than made up.
  */
 export const test = base.extend<{ author: Author, otherAuthor: Author }>({
-  author: ({}, use) => useFreshAuthor(use),
+  author: ({}, use) => withFreshAuthor(use),
 
-  otherAuthor: ({}, use) => useFreshAuthor(use),
+  otherAuthor: ({}, use) => withFreshAuthor(use),
 
   context: async ({ context, baseURL, author }, use) => {
     await context.addCookies([
@@ -36,7 +36,7 @@ export const test = base.extend<{ author: Author, otherAuthor: Author }>({
 })
 
 /** Seeds an Author for the length of one test, and takes them away after it. */
-async function useFreshAuthor(use: (author: Author) => Promise<void>) {
+async function withFreshAuthor(use: (author: Author) => Promise<void>) {
   const [author] = await sql`
     insert into authors (email, name)
     values (${`e2e-${randomUUID()}@example.test`}, 'An Author')
