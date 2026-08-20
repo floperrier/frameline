@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test'
-import { test } from './author'
+import { readStory, seedStory, test } from './author'
 
-const someoneElsesStoryId = '00000000-0000-4000-8000-000000000000'
+const noStoryId = '00000000-0000-4000-8000-000000000000'
 
 test('an Author writes, renames and deletes a Story', async ({ request }) => {
   await expect((await request.get('/api/stories')).json()).resolves.toEqual([])
@@ -19,6 +19,10 @@ test('an Author writes, renames and deletes a Story', async ({ request }) => {
 
   expect((await request.delete(`/api/stories/${story.id}`)).status()).toBe(200)
   await expect((await request.get('/api/stories')).json()).resolves.toEqual([])
+
+  // Gone from the list is not the same as gone: the id has to read as absent too.
+  const renameOfDeleted = await request.patch(`/api/stories/${story.id}`, { data: { title: 'Back' } })
+  expect(renameOfDeleted.status()).toBe(404)
 })
 
 test('a Story needs a title', async ({ request }) => {
@@ -28,13 +32,30 @@ test('a Story needs a title', async ({ request }) => {
   expect(await response.text()).toContain('A Story needs a title.')
 })
 
-test('a Story this Author does not own reads as absent', async ({ request }) => {
+test('a Story that was never written reads as absent', async ({ request }) => {
   const responses = await Promise.all([
-    request.patch(`/api/stories/${someoneElsesStoryId}`, { data: { title: 'Renamed' } }),
-    request.delete(`/api/stories/${someoneElsesStoryId}`),
+    request.patch(`/api/stories/${noStoryId}`, { data: { title: 'Renamed' } }),
+    request.delete(`/api/stories/${noStoryId}`),
   ])
 
   for (const response of responses) expect(response.status()).toBe(404)
+})
+
+test('a Story belongs to the one Author who wrote it', async ({ request, otherAuthor }) => {
+  const theirs = await seedStory(otherAuthor, 'Their Story')
+
+  await expect((await request.get('/api/stories')).json()).resolves.toEqual([])
+
+  const responses = await Promise.all([
+    request.patch(`/api/stories/${theirs.id}`, { data: { title: 'Mine now' } }),
+    request.delete(`/api/stories/${theirs.id}`),
+  ])
+
+  for (const response of responses) expect(response.status()).toBe(404)
+
+  // The 404s have to mean the Story was left alone, not merely that the answer
+  // said nothing about a Story that was changed anyway.
+  await expect(readStory(theirs.id)).resolves.toEqual(theirs)
 })
 
 test('the Stories page lists what the Author wrote', async ({ page, request }) => {
