@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto'
 import { neon } from '@neondatabase/serverless'
 import { test as base } from '@playwright/test'
+import type { Scene, Shot } from '../../shared/utils/scenes'
 import { sealSession, type H3Event } from 'h3'
 
 const sql = neon(process.env.DATABASE_URL!)
 
 export type Author = { id: string, email: string, name: string | null }
 type Story = { id: string, title: string }
-type Scene = { id: string, name: string }
-type Shot = { id: string, text: string, position: number }
+
 
 /**
  * Signs a test Author in without going through OAuth. Driving GitHub's or
@@ -68,7 +68,7 @@ export async function seedScene(story: Story, name: string) {
   const [scene] = await sql`
     insert into scenes (story_id, name)
     values (${story.id}, ${name})
-    returning id, name` as Scene[]
+    returning id, name` as Pick<Scene, 'id' | 'name'>[]
 
   const [shot] = await sql`
     insert into shots (scene_id, text, position)

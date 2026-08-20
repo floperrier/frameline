@@ -27,7 +27,9 @@ export default defineEventHandler(async (event) => {
     .from(scenes)
     .leftJoin(shots, eq(shots.sceneId, scenes.id))
     .where(eq(scenes.storyId, id))
-    .orderBy(scenes.createdAt, shots.position)
+    // Grouped below by watching the Scene change, so Scenes written in the same
+    // instant have to be broken apart by something: their ids do it.
+    .orderBy(scenes.createdAt, scenes.id, shots.position)
 
   const scenesOfStory: Scene[] = []
   for (const row of rows) {

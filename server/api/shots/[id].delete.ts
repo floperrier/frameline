@@ -21,7 +21,6 @@ export default defineEventHandler(async (event) => {
       update shots set position = shots.position - 1
       from gone
       where shots.scene_id = gone.scene_id and shots.position > gone.position
-      returning shots.id
     )
     select id from gone`)
 

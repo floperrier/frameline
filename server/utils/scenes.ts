@@ -4,9 +4,11 @@ import { scenes, stories } from '../db/schema'
 import { useDb } from '../db'
 
 /**
- * The Stories and the Scenes this Author wrote. Every Scene and Shot statement
- * is scoped by one of these, which is what makes another Author's work
- * unreachable — there is no separate ownership check to forget.
+ * The Stories and the Scenes this Author wrote. Every statement that writes a
+ * Scene or a Shot is scoped by one of these, which is what makes another
+ * Author's work unreachable — there is no ownership check beside the write to
+ * forget. The one read of a whole Story proves it is the Author's first, and
+ * then reads its Scenes by Story alone.
  */
 export function storiesOf(authorId: string) {
   return useDb().select({ id: stories.id }).from(stories).where(eq(stories.authorId, authorId))
@@ -36,35 +38,4 @@ export async function readSceneName(event: H3Event) {
   }
 
   return name
-}
-
-/**
- * Reads a Shot's text. A Shot is added empty and written afterwards, so empty
- * is a Shot the Author has not got to yet rather than a bad request.
- */
-export async function readShotText(event: H3Event) {
-  const body = await readBody<{ text?: unknown }>(event)
-  const text = typeof body?.text === 'string' ? body.text : ''
-
-  if (text.length > SHOT_TEXT_MAX_LENGTH) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: `A Shot cannot hold more than ${SHOT_TEXT_MAX_LENGTH} characters.`,
-    })
-  }
-
-  return text
-}
-
-/** Reads which way a Shot is being moved, as the step to add to its position. */
-export async function readMoveStep(event: H3Event) {
-  const body = await readBody<{ direction?: unknown }>(event)
-
-  if (body?.direction === 'earlier') return -1
-  if (body?.direction === 'later') return 1
-
-  throw createError({
-    statusCode: 400,
-    statusMessage: 'A Shot moves either earlier or later.',
-  })
 }

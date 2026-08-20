@@ -156,3 +156,39 @@ test('the Story page shows a Scene and the Shots in it', async ({ page, request 
   await page.getByRole('button', { name: 'Add Shot' }).click()
   await expect(page.getByRole('textbox', { name: 'Shot 2' })).toBeVisible()
 })
+
+test('an Author writes a Story from the page alone', async ({ page, request }) => {
+  const story = await (await request.post('/api/stories', { data: { title: 'A Story' } })).json()
+  await page.goto(`/stories/${story.id}`)
+
+  await page.getByLabel('Name of a new Scene').fill('The arrival')
+  await page.getByRole('button', { name: 'Create Scene' }).click()
+  await expect(page.getByRole('heading', { name: 'The arrival' })).toBeVisible()
+
+  // Blurring the Shot is what writes it, so each is left before the next is added.
+  for (const [place, line] of ['She steps off the train.', 'The platform is empty.'].entries()) {
+    await page.getByRole('button', { name: 'Add Shot' }).click()
+    const shot = page.getByRole('textbox', { name: `Shot ${place + 1}` })
+    await expect(shot).toBeVisible()
+    await shot.fill(line)
+    await shot.blur()
+    await expect(shot).toHaveValue(line)
+  }
+
+  await page.getByRole('button', { name: 'Move earlier Shot 2' }).click()
+  await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('The platform is empty.')
+  await expect(page.getByRole('textbox', { name: 'Shot 2' })).toHaveValue('She steps off the train.')
+
+  // What the page shows has to be what was written, not what the page remembers.
+  await page.reload()
+  await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('The platform is empty.')
+
+  await page.getByRole('button', { name: 'Delete Shot 1' }).click()
+  await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('She steps off the train.')
+  await expect(page.getByRole('textbox', { name: 'Shot 2' })).toBeHidden()
+
+  // Deleting a Scene takes Shots with it, so it is asked about first.
+  page.once('dialog', dialog => dialog.accept())
+  await page.getByRole('button', { name: 'Delete Scene The arrival' }).click()
+  await expect(page.getByText('No Scenes yet.')).toBeVisible()
+})
