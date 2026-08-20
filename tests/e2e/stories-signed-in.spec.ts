@@ -63,5 +63,5 @@ test('the Stories page lists what the Author wrote', async ({ page, request }) =
 
   await page.goto('/stories')
 
-  await expect(page.getByText('A Listed Story')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Open A Listed Story' })).toBeVisible()
 })

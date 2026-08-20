@@ -23,23 +23,3 @@ export async function readStoryTitle(event: H3Event) {
 
   return title
 }
-
-/**
- * Reads the Story id from the path. Rejecting a malformed id here keeps
- * Postgres from failing the uuid cast, which would read as a server fault
- * rather than a bad request.
- */
-export function readStoryId(event: H3Event) {
-  const id = getRouterParam(event, 'id')
-
-  if (!id || !UUID_PATTERN.test(id)) {
-    throw createError({ statusCode: 400, statusMessage: 'That is not a Story id.' })
-  }
-
-  return id
-}
-
-/** Every Story a signed-in Author never owned reads as absent, not forbidden. */
-export function storyNotFound() {
-  return createError({ statusCode: 404, statusMessage: 'No such Story.' })
-}

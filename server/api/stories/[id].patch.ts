@@ -4,7 +4,7 @@ import { useDb } from '../../db'
 
 export default defineEventHandler(async (event) => {
   const { user: author } = await requireUserSession(event)
-  const id = readStoryId(event)
+  const id = readId(event, 'Story')
   const title = await readStoryTitle(event)
 
   // Scoping by Author is what makes another Author's Story unreachable, here and
@@ -15,6 +15,6 @@ export default defineEventHandler(async (event) => {
     .where(and(eq(stories.id, id), eq(stories.authorId, author.id)))
     .returning({ id: stories.id, title: stories.title })
 
-  if (!story) throw storyNotFound()
+  if (!story) throw notFound('Story')
   return story
 })

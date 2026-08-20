@@ -7,6 +7,8 @@ const sql = neon(process.env.DATABASE_URL!)
 
 export type Author = { id: string, email: string, name: string | null }
 type Story = { id: string, title: string }
+type Scene = { id: string, name: string }
+type Shot = { id: string, text: string, position: number }
 
 /**
  * Signs a test Author in without going through OAuth. Driving GitHub's or
@@ -59,6 +61,29 @@ export async function seedStory(author: Author, title: string) {
     returning id, title` as Story[]
 
   return story!
+}
+
+/** Writes a Scene, and a Shot in it, on behalf of an Author nobody is signed in as. */
+export async function seedScene(story: Story, name: string) {
+  const [scene] = await sql`
+    insert into scenes (story_id, name)
+    values (${story.id}, ${name})
+    returning id, name` as Scene[]
+
+  const [shot] = await sql`
+    insert into shots (scene_id, text, position)
+    values (${scene!.id}, 'Their Shot', 0)
+    returning id, text, position` as Shot[]
+
+  return { ...scene!, shots: [shot!] }
+}
+
+/** Reads a Scene's Shots past the API, in the order the Scene numbers them. */
+export async function readShots(sceneId: string) {
+  return await sql`
+    select id, text, position from shots
+    where scene_id = ${sceneId}
+    order by position` as Shot[]
 }
 
 /** Reads a Story past the API, to see what a refused request left behind. */
