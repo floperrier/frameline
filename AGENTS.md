@@ -20,6 +20,11 @@ The five canonical triage roles, each label string equal to its name. See
 Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See
 `docs/agents/domain.md`.
 
+## Git flow
+
+A pull request per issue, squash-merged into `main`, which deploys to
+production. See `docs/git-flow.md`.
+
 ## Running the app
 
 `pnpm dev` after copying `.env.example` to `.env` and filling it in. The Neon
