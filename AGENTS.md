@@ -5,6 +5,11 @@ Read `CONTEXT.md` before touching anything — the glossary is binding.
 
 ## Agent skills
 
+Skills vendored from other repositories live in `.agents/skills/`, with
+`.claude/skills/` symlinked to them and `skills-lock.json` recording the source
+and content hash of each. Update them through the tool that wrote the lock file
+rather than editing the copies.
+
 ### Issue tracker
 
 Issues and specs live in GitHub Issues for `floperrier/frameline`, via the `gh`
