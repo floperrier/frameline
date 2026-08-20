@@ -49,14 +49,17 @@ jobs:
 
       # A branch of its own means the suite writes nowhere near production, and
       # that migrations are proven against a database that has only ever seen
-      # them. The expiry is a safety net: if cleanup below never runs, Neon
-      # collects the branch instead of leaving it to pile up.
+      # them. It forks `development`, not the default branch, so the run never
+      # holds a copy of production data. The expiry is a safety net: if cleanup
+      # below never runs, Neon collects the branch instead of leaving it to
+      # pile up.
       - name: Create a Neon branch for this run
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
         run: |
           npx -y neon@latest branches create \
             --project-id "$NEON_PROJECT_ID" --name "$NEON_BRANCH" \
+            --parent development \
             --expires-at "$(date -u -d '+2 hours' +%Y-%m-%dT%H:%M:%SZ)" --output json > /dev/null
           url=$(npx -y neon@latest connection-string "$NEON_BRANCH" \
             --project-id "$NEON_PROJECT_ID" --pooled)

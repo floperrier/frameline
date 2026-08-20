@@ -31,6 +31,29 @@ happen:
 Committing straight to `main` skips both and puts the untested commit in
 production.
 
+## Which database a change talks to
+
+The git flow above has a database counterpart, and it matters more here than the
+branch names do: a Neon branch is cheap, but there is only one production
+dataset.
+
+| Where the code runs | Neon branch |
+| --- | --- |
+| production deployment | `production` |
+| `pnpm dev`, Vercel previews | `development` |
+| a CI run | a branch of its own, forked from `development`, deleted at the end |
+
+So `pnpm db:migrate` on your machine touches `development`, never production. A
+migration reaches `production` when you run it against that branch deliberately,
+after the pull request is merged.
+
+When `development` has drifted into a mess, throw it away rather than repairing
+it: `neon branches reset development --parent` refills it from `production`.
+
+One shared `development` branch is enough for one developer. A Neon branch per
+git branch would only add bookkeeping — the disposable CI branch already covers
+the case where isolation actually pays.
+
 ## Squash, not merge
 
 Commit messages here are sentences describing a change ("Let an Author create,
