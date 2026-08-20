@@ -23,6 +23,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+      # Preview deployments are switched off, so this is the only place a
+      # production build is attempted before `main` tries it for real.
+      - run: pnpm build
 
   e2e:
     # Only on pull requests: every run takes a Neon branch of its own, and there

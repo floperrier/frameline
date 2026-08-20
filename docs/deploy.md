@@ -10,7 +10,7 @@ Create a Neon project, then two branches that never mix:
 | Neon branch | Who connects to it |
 | --- | --- |
 | `production` (default) | the production deployment, nothing else |
-| `development` | `pnpm dev`, and every Vercel preview |
+| `development` | `pnpm dev` |
 
 Each CI run forks a third, disposable branch from `development` and deletes it
 afterwards, so the end-to-end suite never touches either of these.
@@ -46,16 +46,16 @@ vercel login
 vercel link
 ```
 
-Set these environment variables on the project. Everything except the database
-URL is the same in all environments:
+`vercel.json` disables Git deployments for every branch but `main`, so the
+project only ever has a Production environment. Set these environment variables
+there:
 
 | Variable | Value |
 | --- | --- |
 | `NUXT_SESSION_PASSWORD` | 32+ random characters, sealing the session cookie |
-| `NUXT_DATABASE_URL` (Production) | pooled connection string of the `production` Neon branch |
-| `NUXT_DATABASE_URL` (Preview, Development) | pooled connection string of the `development` Neon branch |
+| `NUXT_DATABASE_URL` (Production only) | pooled connection string of the `production` Neon branch |
 | `NUXT_OAUTH_GITHUB_CLIENT_ID` / `_SECRET` | from the GitHub OAuth app |
 | `NUXT_OAUTH_GOOGLE_CLIENT_ID` / `_SECRET` | from the Google OAuth client |
 
-Then `vercel --prod`. Subsequent pushes deploy from the repository, with a
-preview per branch.
+Then `vercel --prod`. Afterwards a push to `main` deploys from the repository;
+no other branch does.

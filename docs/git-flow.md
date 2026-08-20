@@ -18,17 +18,20 @@ give the same commits a second place to sit.
 
 ## Why a pull request when nobody reviews it
 
-The pull request is not a review surface here, it is the only place two things
-happen:
+The pull request is not a review surface here, it is the only place the
+end-to-end suite runs. `.github/workflows/ci.yml` runs `e2e` on `pull_request`
+alone, because each run takes a Neon branch of its own and proves the migrations
+against a database that has only ever seen them. A push to a topic branch runs
+nothing.
 
-- **The end-to-end suite runs.** `.github/workflows/ci.yml` runs `e2e` only on
-  `pull_request`, because each run takes a Neon branch of its own and proves the
-  migrations against a database that has only ever seen them. A push to a topic
-  branch runs no tests at all.
-- **Vercel builds a preview.** Clicking through the change on a real deployment
-  catches what Playwright was not asked to look at.
+There are no preview deployments. `vercel.json` disables Git deployments for
+every branch but `main`, because a preview cannot sign anyone in: the OAuth
+callback URLs are registered for the production origin and `localhost:3100`
+only, so a preview shows the signed-out pages and nothing more. What a preview
+did prove — that a production build succeeds — the `check` job now proves with
+`pnpm build`.
 
-Committing straight to `main` skips both and puts the untested commit in
+Committing straight to `main` skips the tests and puts an unproven commit in
 production.
 
 ## Which database a change talks to
@@ -40,7 +43,7 @@ dataset.
 | Where the code runs | Neon branch |
 | --- | --- |
 | production deployment | `production` |
-| `pnpm dev`, Vercel previews | `development` |
+| `pnpm dev` | `development` |
 | a CI run | a branch of its own, forked from `development`, deleted at the end |
 
 So `pnpm db:migrate` on your machine touches `development`, never production. A
