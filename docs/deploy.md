@@ -24,8 +24,10 @@ DATABASE_URL='postgres://…' pnpm db:migrate
 Locally, `neon checkout development` writes the right `DATABASE_URL` into
 `.env` for you — see `docs/git-flow.md` for why the separation matters.
 
-Mark `production` as **protected** in the Neon console. It refuses deletion and
-makes the branch you must not point at hard to reach by accident.
+Neon's branch protection needs a paid plan, so `production` is not protected.
+Nothing enforces the separation above — it holds because `.env` points at
+`development` and because no automation ever names the production branch. Treat
+a command that spells out the production connection string as a deliberate act.
 
 ## 2. OAuth applications
 
