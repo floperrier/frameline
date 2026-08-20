@@ -4,6 +4,12 @@ on:
   push:
   pull_request:
 
+# A force-push can leave two runs racing over the same commit, each holding a
+# Neon branch. Only the newest is worth finishing.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -22,6 +28,10 @@ jobs:
     # is no reason to spend one on a push that no one is reviewing yet.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    # The whole job takes about four minutes. Left unbounded, a stalled step —
+    # `playwright install` waiting on apt has done it once — runs for the six
+    # hours GitHub allows before anyone notices.
+    timeout-minutes: 20
     env:
       NEON_BRANCH: ci-pr-${{ github.event.number }}-${{ github.run_id }}
     steps:
