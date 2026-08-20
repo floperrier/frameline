@@ -2,6 +2,7 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 # A force-push can leave two runs racing over the same commit, each holding a
