@@ -1,12 +1,18 @@
 import type { H3Event } from 'h3'
 
 /**
- * Reads a Shot's text. A Shot is added empty and written afterwards, so empty
- * is a Shot the Author has not got to yet rather than a bad request.
+ * Reads a Shot's text. A Shot is added empty and written afterwards, so empty is
+ * a Shot the Author has not got to yet rather than a bad request — but text that
+ * is missing altogether is, because writing it as empty would erase the Shot.
  */
 export async function readShotText(event: H3Event) {
   const body = await readBody<{ text?: unknown }>(event)
-  const text = typeof body?.text === 'string' ? body.text : ''
+
+  if (typeof body?.text !== 'string') {
+    throw createError({ statusCode: 400, statusMessage: 'A Shot holds text.' })
+  }
+
+  const text = body.text
 
   if (text.length > SHOT_TEXT_MAX_LENGTH) {
     throw createError({

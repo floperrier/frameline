@@ -1,7 +1,5 @@
 import type { H3Event } from 'h3'
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 /**
  * Reads a Story title from the request body. A trust boundary: the title
  * reaches the database and every Reader, so length is capped here rather than
