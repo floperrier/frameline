@@ -12,6 +12,21 @@ const { data: story, refresh } = await useAsyncData(
 )
 const { problem, change } = useEditing(refresh)
 
+/**
+ * The public link a Publish hands out. Built from the Story's own id, so it is
+ * the same link every time — an Author who unpublishes and publishes again has
+ * not invalidated what they sent anyone.
+ */
+const publicLink = `${useRequestURL().origin}/read/${id}`
+
+function publish() {
+  return change(() => send(`/api/stories/${id}/publish`, { method: 'POST' }))
+}
+
+function unpublish() {
+  return change(() => send(`/api/stories/${id}/publish`, { method: 'DELETE' }))
+}
+
 const newSceneName = ref('')
 /** Which Scene each node's Cut form is aimed at, kept per Scene by its id. */
 const cutTargets = reactive<Record<string, string>>({})
@@ -172,6 +187,16 @@ function anchor(sceneId: string) {
       <h1>{{ story?.title }}</h1>
       <NuxtLink :to="`/stories/${id}/preview`">Preview this Story</NuxtLink>
     </header>
+
+    <!-- Published or not is the whole of it: one button either way, and the link
+         shown in full so it can be copied out of the page. -->
+    <p v-if="story?.publishedAt">
+      Anyone can read this Story at <a :href="publicLink">{{ publicLink }}</a>
+      <button type="button" @click="unpublish">Unpublish this Story</button>
+    </p>
+    <p v-else>
+      <button type="button" @click="publish">Publish this Story</button>
+    </p>
 
     <form @submit.prevent="createScene">
       <label for="new-scene-name">Name of a new Scene</label>
