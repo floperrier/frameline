@@ -30,6 +30,12 @@ Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See
 A pull request per issue, squash-merged into `main`, which deploys to
 production. See `docs/git-flow.md`.
 
+## Tests
+
+`pnpm test` runs the Vitest suite over the Reading engine, which needs no
+database. `pnpm test:e2e` runs Playwright against a built app and a real Neon
+branch. See `docs/git-flow.md` for which database each one talks to.
+
 ## Running the app
 
 `pnpm dev` after copying `.env.example` to `.env` and filling it in. The Neon

@@ -58,6 +58,12 @@ _Avoid_: variable, switch, toggle, key
 One traversal of a published Story by one Reader, carrying its own State.
 _Avoid_: session, playthrough, run, visit
 
+**Position**:
+How far one Reading has got: the Cuts it has taken, in order, and how many Shots
+of the Scene it stands in are behind it. Everything else about a Reading — the
+Scene, the Shot on screen, the Cuts on offer, the State — is computed from it.
+_Avoid_: cursor, pointer, progress, step, index
+
 ### The people
 
 **Author**:
