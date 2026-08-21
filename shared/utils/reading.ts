@@ -12,6 +12,18 @@ export type StoryToRead = {
 }
 
 /**
+ * A Story as a screen shows it, whether the screen is an Author's Preview or a
+ * Reader's Reading: the engine's Story, plus the name of each Scene. The name is
+ * there for a Cut nobody has phrased yet, which has to stay takeable — a Reading
+ * that cannot go on is worse than one offered a Cut named after where it lands.
+ */
+export type StoryToShow = {
+  openingSceneId: string | null
+  scenes: { id: string, name: string, shots: Shot[] }[]
+  cuts: Cut[]
+}
+
+/**
  * Where one Reading has got to: the Cuts it has taken, in order, and how many
  * Shots of the Scene it is standing in have been left behind. Everything else —
  * which Scene that is, what is on screen, what State has accumulated — is

@@ -12,12 +12,19 @@ export const authors = pgTable('authors', {
 // makes "one opening Scene" true by construction: a column cannot name two
 // Scenes. It is null until the Story has a Scene, and again if that Scene is
 // deleted.
+//
+// `published_at` is what makes the Story readable at its public link, and null
+// is what keeps it the Author's alone. A timestamp rather than a flag because it
+// says when as well as whether, at no more cost. Nothing else changes on a
+// Publish — the link is the Story's own id, so it is the same link every time
+// the Story is published again.
 export const stories = pgTable('stories', {
   id: uuid('id').primaryKey().defaultRandom(),
   authorId: uuid('author_id').notNull().references(() => authors.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   openingSceneId: uuid('opening_scene_id')
     .references((): AnyPgColumn => scenes.id, { onDelete: 'set null' }),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 

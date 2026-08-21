@@ -43,7 +43,9 @@ export const NODES_PER_COLUMN = 20
  * A Story as the Author edits it: Scenes in the order they were written, each a
  * run of Shots and a node in the graph, and the Cuts that join them. A Story
  * with no Scenes has no opening Scene, and neither has one whose opening Scene
- * was deleted.
+ * was deleted. `publishedAt` is null until the Story is published, and null
+ * again once it is unpublished; it arrives as a string because that is what JSON
+ * makes of a timestamp.
  */
 export type Shot = { id: string, text: string, position: number }
 export type Scene = { id: string, name: string, x: number, y: number, shots: Shot[] }
@@ -52,6 +54,7 @@ export type StoryInEditor = {
   id: string
   title: string
   openingSceneId: string | null
+  publishedAt: string | null
   scenes: Scene[]
   cuts: Cut[]
 }

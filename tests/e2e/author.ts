@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { neon } from '@neondatabase/serverless'
-import { test as base } from '@playwright/test'
+import { test as base, type APIRequestContext } from '@playwright/test'
 import type { Cut, Scene, Shot } from '../../shared/utils/scenes'
 import { NODE_GAP, NODE_SPACING, NODE_WIDTH, NODES_PER_COLUMN } from '../../shared/utils/scenes'
 import { sealSession, type H3Event } from 'h3'
@@ -149,4 +149,36 @@ async function sealAuthorSession(author: Author) {
     name: 'nuxt-session',
     password: process.env.NUXT_SESSION_PASSWORD!,
   })
+}
+
+/**
+ * A Story of two Scenes joined by a Cut, written through the API the way the
+ * Author's own hands would write it — so a Preview and a Reading both have real
+ * Shots to play. Shared by the two specs that need a readable Story, because a
+ * Reader must meet exactly what a Preview showed.
+ */
+export async function writeStory(request: APIRequestContext) {
+  const story = await (await request.post('/api/stories', { data: { title: 'A Story' } })).json()
+
+  const scenes = []
+  for (const [name, texts] of [
+    ['The street', ['A door opens.', 'She steps out.']],
+    ['The bar', ['Smoke, and no one she knows.']],
+  ] as const) {
+    const scene = await (await request.post(`/api/stories/${story.id}/scenes`, {
+      data: { name },
+    })).json()
+    for (const text of texts) {
+      const shot = await (await request.post(`/api/scenes/${scene.id}/shots`)).json()
+      await request.patch(`/api/shots/${shot.id}`, { data: { text } })
+    }
+    scenes.push(scene)
+  }
+
+  const cut = await (await request.post(`/api/scenes/${scenes[0]!.id}/cuts`, {
+    data: { toSceneId: scenes[1]!.id },
+  })).json()
+  await request.patch(`/api/cuts/${cut.id}`, { data: { text: 'Follow her out' } })
+
+  return story as { id: string, title: string }
 }

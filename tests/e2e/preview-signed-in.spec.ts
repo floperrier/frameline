@@ -1,36 +1,5 @@
-import type { APIRequestContext } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { test } from './author'
-
-/**
- * A Story of two Scenes joined by a Cut, written through the API the way the
- * Author's own hands would write it — the preview then has real Shots to play.
- */
-async function writeStory(request: APIRequestContext) {
-  const story = await (await request.post('/api/stories', { data: { title: 'A Story' } })).json()
-
-  const scenes = []
-  for (const [name, texts] of [
-    ['The street', ['A door opens.', 'She steps out.']],
-    ['The bar', ['Smoke, and no one she knows.']],
-  ] as const) {
-    const scene = await (await request.post(`/api/stories/${story.id}/scenes`, {
-      data: { name },
-    })).json()
-    for (const text of texts) {
-      const shot = await (await request.post(`/api/scenes/${scene.id}/shots`)).json()
-      await request.patch(`/api/shots/${shot.id}`, { data: { text } })
-    }
-    scenes.push(scene)
-  }
-
-  const cut = await (await request.post(`/api/scenes/${scenes[0]!.id}/cuts`, {
-    data: { toSceneId: scenes[1]!.id },
-  })).json()
-  await request.patch(`/api/cuts/${cut.id}`, { data: { text: 'Follow her out' } })
-
-  return story
-}
+import { test, writeStory } from './author'
 
 test('an Author plays their own Story before anyone else can see it', async ({ page, request }) => {
   const story = await writeStory(request)
