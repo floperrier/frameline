@@ -23,6 +23,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+      # The Reading engine is a pure module, so its suite needs no database and
+      # belongs here rather than in the job that rents a Neon branch.
+      - run: pnpm test
       # Preview deployments are switched off, so this is the only place a
       # production build is attempted before `main` tries it for real.
       - run: pnpm build

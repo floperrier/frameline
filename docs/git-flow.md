@@ -31,6 +31,10 @@ only, so a preview shows the signed-out pages and nothing more. What a preview
 did prove — that a production build succeeds — the `check` job now proves with
 `pnpm build`.
 
+The `check` job also runs `pnpm test`, the Vitest suite over the Reading engine.
+That one needs no database at all, so it runs on every push rather than waiting
+for a Neon branch it would not use.
+
 Committing straight to `main` skips the tests and puts an unproven commit in
 production.
 

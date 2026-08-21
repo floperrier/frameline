@@ -170,6 +170,7 @@ function anchor(sceneId: string) {
     <header>
       <NuxtLink to="/stories">All Stories</NuxtLink>
       <h1>{{ story?.title }}</h1>
+      <NuxtLink :to="`/stories/${id}/preview`">Preview this Story</NuxtLink>
     </header>
 
     <form @submit.prevent="createScene">

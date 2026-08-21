@@ -58,6 +58,12 @@ _Avoid_: variable, switch, toggle, key
 One traversal of a published Story by one Reader, carrying its own State.
 _Avoid_: session, playthrough, run, visit
 
+**Position**:
+How far one Reading has got: the Cuts it has taken, in order, and how many Shots
+of the Scene it stands in are behind it. Everything else about a Reading — the
+Scene, the Shot on screen, the Cuts on offer, the State — is computed from it.
+_Avoid_: cursor, pointer, progress, step, index
+
 ### The people
 
 **Author**:
@@ -67,6 +73,12 @@ _Avoid_: user, creator, owner, writer, director
 **Reader**:
 Anyone who plays a published Story. Needs no account.
 _Avoid_: user, player, viewer, visitor, audience
+
+**Preview**:
+An Author reading their own Story before it is published, on the same engine a
+Reader runs. Not a mode of the editor and not a Publish: nothing about the Story
+changes, and nobody else can reach it.
+_Avoid_: test, play mode, simulate, dry run, rehearse
 
 **Publish**:
 To make a Story readable by Readers at a public link. A Story that has never been
