@@ -33,10 +33,18 @@ Story needs to be taken away from a particular Reader for good, this decision ha
 to be reopened — a token per Publish is where it would go.
 
 **Nothing on the public link may be cached beyond the Publish.** `nuxt.config.ts`
-serves `/read/**` and `/api/read/**` with `cache-control: no-store`, because a
-Reader's own browser holding the page is enough to make an unpublished Story go on
-answering. Without the header the link keeps working for as long as the cache
-does, which is the one acceptance criterion this scheme could otherwise fail.
+serves `/read/**` and `/api/read/**` with `cache-control: no-store`. A Reader's own
+browser holding the page is enough to make an unpublished Story go on answering,
+and revocation is the one thing this scheme has instead of a new token — so it
+cannot be left to a heuristic in someone else's cache. Precaution rather than a
+cure: nothing was observed serving a stale Story, and Nitro already answers a
+not-found with `no-cache` of its own.
+
+**The public link answers nobody for an unpublished Story, not even its Author.**
+`/read/<id>` never reads a session, so there is one answer per link rather than
+one per visitor. The Author's door to an unpublished Story is the Preview, which
+is what the glossary says a Preview is for; giving them a second door here would
+buy nothing and would make the not-found depend on who asked.
 
 **A Reading is not stored.** The Reader is handed the published Story and keeps
 their Position in the browser, so every Reading starts with empty State and two
