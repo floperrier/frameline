@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { imageTypeOf } from '../../shared/utils/shots'
+import { imageTypeOf } from '../../shared/utils/scenes'
 
 /** The first bytes of one file of each format a Shot may carry, and of some it may not. */
 const heads = {

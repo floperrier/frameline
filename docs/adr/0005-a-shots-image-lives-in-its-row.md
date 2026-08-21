@@ -33,7 +33,7 @@ upload from the Neon branch it already rents, with no token, no secret and no
 files left behind after the branch is dropped.
 
 The size cap is what makes this defensible rather than reckless. Two megabytes is
-a frame at screen size; a `bytea` that big is TOASTed out of the row by Postgres
+a photograph at screen size; a `bytea` that big is TOASTed out of the row by Postgres
 and never touched by a query that does not select it, which is why
 `readStoryGraph` selects `image is not null` and never the column itself.
 

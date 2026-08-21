@@ -80,6 +80,21 @@ function moveShot(shot: Shot, direction: 'earlier' | 'later') {
 }
 
 /**
+ * When each Shot's still was last attached, kept by the Shot's id. A still is
+ * served at an address made of the Shot's own id, so replacing one leaves `src`
+ * byte-identical and the browser goes on drawing the image it already has — the
+ * very one the Author has just replaced. Asking for it under a different address
+ * is what makes the new still the one on screen.
+ */
+const attachedAt = reactive<Record<string, number>>({})
+
+function stillOf(shot: Shot) {
+  const at = attachedAt[shot.id]
+
+  return at ? `${shot.image}?at=${at}` : shot.image!
+}
+
+/**
  * Attaches the still the Author picked, sent as the whole request body. The input
  * is cleared afterwards so picking the same file twice is a change twice — an
  * Author whose first upload was refused would otherwise have to pick another file
@@ -91,7 +106,10 @@ function attachImage(shot: Shot, event: Event) {
   if (!picked) return
   picker.value = ''
 
-  return change(() => send(`/api/shots/${shot.id}/image`, { method: 'PUT', body: picked }))
+  return change(async () => {
+    await send(`/api/shots/${shot.id}/image`, { method: 'PUT', body: picked })
+    attachedAt[shot.id] = Date.now()
+  })
 }
 
 function deleteShot(shot: Shot) {
@@ -357,7 +375,7 @@ function anchor(sceneId: string) {
               >
               <!-- The still as the Author will meet it in a Reading, so a wrong
                    image is seen here rather than in the published Story. -->
-              <img v-if="shot.image" :src="shot.image" :alt="`The still of Shot ${place + 1}`">
+              <img v-if="shot.image" :src="stillOf(shot)" :alt="`The still of Shot ${place + 1}`">
 
               <button type="button" :disabled="place === 0" @click="moveShot(shot, 'earlier')">
                 Move earlier <span class="visually-hidden">Shot {{ place + 1 }}</span>

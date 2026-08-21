@@ -8,6 +8,53 @@ export const SCENE_NAME_MAX_LENGTH = 200
 export const SHOT_TEXT_MAX_LENGTH = 2000
 
 /**
+ * The still formats a Shot may carry, each named by the bytes a file of it starts
+ * with: an offset, and the bytes that must sit at it. Which formats there are and
+ * how each is recognised is one statement rather than two, so a format added here
+ * cannot be a format the picker offers and the server refuses.
+ *
+ * An animated GIF is left out on purpose: a Shot is one still image and its text,
+ * so a moving one would be a beat that plays itself.
+ */
+const SHOT_IMAGE_SIGNATURES: Record<string, [number, number[]][]> = {
+  'image/jpeg': [[0, [0xFF, 0xD8, 0xFF]]],
+  'image/png': [[0, [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]]],
+  // A WebP is a RIFF container, and the form name that makes it one sits four
+  // bytes past the length that follows the tag.
+  'image/webp': [[0, [0x52, 0x49, 0x46, 0x46]], [8, [0x57, 0x45, 0x42, 0x50]]],
+}
+
+export const SHOT_IMAGE_TYPES = Object.keys(SHOT_IMAGE_SIGNATURES)
+
+/**
+ * The most one still may weigh. Two megabytes is a photograph at screen size and
+ * not a master: enough for what a Shot shows, and small enough that the bytes can
+ * sit in the Shot's own row.
+ */
+export const SHOT_IMAGE_MAX_BYTES = 2 * 1024 * 1024
+
+/**
+ * What an image really is, read from its own first bytes rather than from what the
+ * upload said it was. The content type of an upload is the client's to write, and
+ * the bytes are served back under whatever type we believe, so trusting it would
+ * let a Shot serve one thing under the name of another. A head none of the
+ * formats owns is what "rejects anything else" refuses.
+ */
+export function imageTypeOf(bytes: Uint8Array) {
+  return SHOT_IMAGE_TYPES.find(type => SHOT_IMAGE_SIGNATURES[type]!.every(
+    ([offset, signature]) => signature.every((byte, at) => bytes[offset + at] === byte)))
+}
+
+/**
+ * Where a Shot's still is served. The bytes never travel with the Story — a Story
+ * of fifty Shots would be fifty images in one response — so what the Story
+ * carries is this address, and null for a Shot that has no still.
+ */
+export function shotImageUrl(shotId: string) {
+  return `/api/shots/${shotId}/image`
+}
+
+/**
  * The longest text a Cut may carry. A Cut is one line the Reader is offered at
  * the end of a Scene, so it is capped far below a Shot.
  */

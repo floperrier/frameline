@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test'
 import { ONE_PIXEL, seedScene, seedStory, test, writeStory } from './author'
-import { SHOT_IMAGE_MAX_BYTES } from '../../shared/utils/shots'
+import { SHOT_IMAGE_MAX_BYTES } from '../../shared/utils/scenes'
 import type { APIRequestContext } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
@@ -40,8 +40,8 @@ test('an Author attaches a still to a Shot, and it is served where the Shot says
   expect(Buffer.compare(await served.body(), ONE_PIXEL)).toBe(0)
 })
 
-test('a Shot keeps the still attached last', async ({ request }) => {
-  const { shots } = await openShots(request)
+test('a Shot keeps the still attached last, and shows it', async ({ page, request }) => {
+  const { story, shots } = await openShots(request)
   // A WebP, so what is served proves which of the two uploads the Shot kept.
   const webp = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WEBPnothing')])
 
@@ -50,6 +50,18 @@ test('a Shot keeps the still attached last', async ({ request }) => {
 
   const served = await request.get(`/api/shots/${shots[0]!.id}/image`)
   expect(served.headers()['content-type']).toBe('image/webp')
+
+  // Replacing a still in the editor has to reach the screen and not only the
+  // database: the address of a still is the Shot's own, so the second upload
+  // would otherwise leave the browser drawing the image it already had.
+  await page.goto(`/stories/${story.id}`)
+  const street = page.getByRole('article', { name: 'The street' })
+  const shown = () => street.locator('img').getAttribute('src')
+
+  const first = await shown()
+  await street.getByLabel('Image of Shot 1')
+    .setInputFiles({ name: 'other.png', mimeType: 'image/png', buffer: ONE_PIXEL })
+  await expect.poll(shown).not.toBe(first)
 })
 
 test('an upload of the wrong kind, or too heavy, is refused by its reason', async ({ request }) => {
@@ -127,7 +139,7 @@ test('the Author picks a file in the editor, and a refused one says why', async 
   await expect(street.locator('img')).toBeVisible()
 })
 
-test('the still and the text of a Shot are one beat on screen', async ({ page, request }) => {
+test('the still and the text of a Shot are one beat on screen', async ({ browser, page, request }) => {
   const { story, shots } = await openShots(request)
   await request.put(`/api/shots/${shots[0]!.id}/image`, { data: ONE_PIXEL })
 
@@ -142,4 +154,13 @@ test('the still and the text of a Shot are one beat on screen', async ({ page, r
   await page.getByRole('button', { name: 'Next Shot' }).click()
   await expect(page.getByText('She steps out.')).toBeVisible()
   await expect(still).toBeHidden()
+
+  // And the Reader meets at the public link exactly what the Preview showed —
+  // the same component on the same engine, so it could hardly be otherwise, but
+  // the still is fetched over a door with no session behind it.
+  await request.post(`/api/stories/${story.id}/publish`)
+  const reader = await (await browser.newContext({ extraHTTPHeaders: {} })).newPage()
+  await reader.goto(`/read/${story.id}`)
+  await expect(reader.locator(`img[src^="/api/shots/${shots[0]!.id}/image"]`)).toBeVisible()
+  await expect(reader.getByText('A door opens.')).toBeVisible()
 })

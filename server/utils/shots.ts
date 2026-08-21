@@ -60,7 +60,7 @@ export async function readShotImage(event: H3Event) {
   if (bytes.length > SHOT_IMAGE_MAX_BYTES) {
     throw createError({
       statusCode: 400,
-      statusMessage: `An image cannot weigh more than ${SHOT_IMAGE_MAX_MB} MB.`,
+      statusMessage: `An image cannot weigh more than ${SHOT_IMAGE_MAX_BYTES / 1024 / 1024} MB.`,
     })
   }
   if (!imageTypeOf(bytes)) {
