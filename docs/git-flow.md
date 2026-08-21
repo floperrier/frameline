@@ -47,8 +47,12 @@ dataset.
 | a CI run | a branch of its own, forked from `development`, deleted at the end |
 
 So `pnpm db:migrate` on your machine touches `development`, never production. A
-migration reaches `production` when you run it against that branch deliberately,
-after the pull request is merged.
+migration reaches `production` in the deploy that carries the code needing it:
+`vercel.json` builds with `pnpm db:migrate && pnpm build`, so a migration that
+fails takes the deploy down with it and the previous one keeps serving. Nobody
+runs a migration against production by hand — see
+`docs/adr/0002-the-schema-moves-with-the-deploy.md`, which also says what that
+demands of a migration that drops something.
 
 When `development` has drifted into a mess, throw it away rather than repairing
 it: `neon branches reset development --parent` refills it from `production`.
