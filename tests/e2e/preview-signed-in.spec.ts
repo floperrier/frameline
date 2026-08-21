@@ -25,3 +25,37 @@ test('an Author plays their own Story before anyone else can see it', async ({ p
   await page.getByRole('button', { name: 'Read again from the start' }).click()
   await expect(page.getByText('A door opens.')).toBeVisible()
 })
+
+test('a Cut whose Condition fails is not among the ones offered', async ({ page, request }) => {
+  const story = await writeStory(request)
+  const { scenes, cuts } = await (await request.get(`/api/stories/${story.id}`)).json()
+  const street = scenes[0]
+
+  // The street puts her coat on, and the way into the bar asks for it.
+  await request.put(`/api/scenes/${street.id}/flags`, { data: { sets: { coat: 'on' } } })
+  await request.put(`/api/cuts/${cuts[0].id}/condition`, {
+    data: { condition: { flag: 'coat', is: 'on' } },
+  })
+
+  // A second way out of the street, asking for the coat she is wearing to be off.
+  const alley = await (await request.post(`/api/stories/${story.id}/scenes`, {
+    data: { name: 'The alley' },
+  })).json()
+  const shut = await (await request.post(`/api/scenes/${street.id}/cuts`, {
+    data: { toSceneId: alley.id },
+  })).json()
+  await request.patch(`/api/cuts/${shut.id}`, { data: { text: 'Stay outside' } })
+  await request.put(`/api/cuts/${shut.id}/condition`, {
+    data: { condition: { flag: 'coat', is: 'off' } },
+  })
+
+  await page.goto(`/stories/${story.id}/preview`)
+  await page.getByRole('button', { name: 'Next Shot' }).click()
+  await page.getByRole('button', { name: 'Next Shot' }).click()
+
+  // The Author is offered the one Cut whose Condition the Flags let through, and
+  // is never shown the other — a failing Condition hides a Cut rather than
+  // refusing it once taken.
+  await expect(page.getByRole('button', { name: 'Follow her out' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Stay outside' })).toBeHidden()
+})

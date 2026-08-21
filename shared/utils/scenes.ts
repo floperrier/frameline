@@ -14,6 +14,18 @@ export const SHOT_TEXT_MAX_LENGTH = 2000
 export const CUT_TEXT_MAX_LENGTH = 200
 
 /**
+ * The longest a Flag's name and its value may be, and how many Flags one Scene
+ * may set on entry. A Flag is a short named value, not a place to keep prose,
+ * and a Scene setting a score of them is a Story keeping State its graph should
+ * be keeping. The most visits a Condition may count is bounded for the same
+ * reason: a Story nobody can read round a hundred times cannot need more.
+ */
+export const FLAG_NAME_MAX_LENGTH = 60
+export const FLAG_VALUE_MAX_LENGTH = 200
+export const FLAGS_PER_SCENE = 20
+export const VISITS_MAX = 100
+
+/**
  * How far a Scene's node may sit from the graph's top left, in pixels. A bound
  * on both sides of the wire: the server refuses anything beyond it, and dragging
  * stops there, so a Scene cannot be dropped somewhere nobody can scroll to.
@@ -41,15 +53,73 @@ export const NODES_PER_COLUMN = 20
 
 /**
  * A Story as the Author edits it: Scenes in the order they were written, each a
- * run of Shots and a node in the graph, and the Cuts that join them. A Story
- * with no Scenes has no opening Scene, and neither has one whose opening Scene
- * was deleted. `publishedAt` is null until the Story is published, and null
- * again once it is unpublished; it arrives as a string because that is what JSON
- * makes of a timestamp.
+ * run of Shots, a node in the graph and the Flags it sets, and the Cuts that
+ * join them, each with the Condition it is offered under. A Story with no Scenes
+ * has no opening Scene, and neither has one whose opening Scene was deleted.
+ * `publishedAt` is null until the Story is published, and null again once it is
+ * unpublished; it arrives as a string because that is what JSON makes of a
+ * timestamp.
  */
 export type Shot = { id: string, text: string, position: number }
-export type Scene = { id: string, name: string, x: number, y: number, shots: Shot[] }
-export type Cut = { id: string, fromSceneId: string, toSceneId: string, text: string }
+export type Scene = {
+  id: string
+  name: string
+  x: number
+  y: number
+  sets: Flags
+  shots: Shot[]
+}
+export type Cut = {
+  id: string
+  fromSceneId: string
+  toSceneId: string
+  text: string
+  condition: Condition | null
+}
+
+/**
+ * The Flags a Scene sets the moment a Reading enters it, as names to values.
+ * Flat, because a Flag is a single named value: nothing here holds another map.
+ */
+export type Flags = Record<string, string>
+
+/**
+ * What separates a Flag's name from its value where an Author types them. Here
+ * rather than in the editor, because the server refuses a name holding it — a
+ * name that did could not be shown back as the line it was typed on — and one
+ * module has to own the format both sides obey.
+ */
+export const FLAG_SEPARATOR = '='
+
+/** The Flags a Scene sets, as one `name = value` a line, for an Author to read. */
+export function flagLines(sets: Flags) {
+  return Object.entries(sets).map(pair => pair.join(` ${FLAG_SEPARATOR} `)).join('\n')
+}
+
+/**
+ * The Flags an Author typed. Split on the first separator alone, so a value may
+ * hold one; a line missing it is a name with no value, which the server refuses,
+ * and a name typed twice holds what the later line gave it.
+ */
+export function flagsTyped(typed: string): Flags {
+  return Object.fromEntries(typed.split('\n').filter(line => line.trim()).map((line) => {
+    const [name, ...held] = line.split(FLAG_SEPARATOR)
+    return [name!.trim(), held.join(FLAG_SEPARATOR).trim()]
+  }))
+}
+
+/**
+ * A flat test on the State of one Reading, carried by a Cut: the Cut is offered
+ * only where the test passes. Two things can be tested and nothing else — what a
+ * Flag holds, or how often a Scene has been entered — with no arithmetic and no
+ * nesting, so a Condition is one row of a form and one comparison in the engine.
+ * A Flag that was never set reads as the empty value, which is how a Condition
+ * asks for the absence of one.
+ */
+export type Condition =
+  | { flag: string, is: string }
+  | { scene: string, visits: 'at least' | 'fewer than', times: number }
+
 export type StoryInEditor = {
   id: string
   title: string

@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
   // business, so it does not leave the editor.
   return {
     ...story,
-    scenes: scenes.map(({ id, name, shots }) => ({ id, name, shots })),
+    scenes: scenes.map(({ id, name, sets, shots }) => ({ id, name, sets, shots })),
     cuts,
   }
 })

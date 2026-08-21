@@ -1,5 +1,6 @@
-import { integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
+import type { Condition, Flags } from '../../shared/utils/scenes'
 
 export const authors = pgTable('authors', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -32,12 +33,20 @@ export const stories = pgTable('stories', {
 // pixels from the graph's top left. They say nothing about the Story itself —
 // two Scenes may sit on top of each other — so nothing constrains them beyond
 // the reach of the graph.
+//
+// `sets` is the Flags the Scene sets on every entry, as one flat object of names
+// to values. A table of its own would be the orthodox shape, but a Scene's Flags
+// are only ever read and written whole, with the Scene — never queried across
+// Stories, never joined to anything — so a row apiece would buy a join and
+// nothing else. What keeps the shape honest is the validation at the request
+// boundary, since Postgres will take any jsonb at all.
 export const scenes = pgTable('scenes', {
   id: uuid('id').primaryKey().defaultRandom(),
   storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   x: integer('x').notNull().default(0),
   y: integer('y').notNull().default(0),
+  sets: jsonb('sets').$type<Flags>().notNull().default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
@@ -63,12 +72,19 @@ export const shots = pgTable('shots', {
 // A Cut is an edge of the Story graph: it leaves one Scene for another and
 // carries the text the Reader is offered. Both ends cascade, so deleting a Scene
 // takes the Cuts that touch it with it. Two Cuts may join the same pair of
-// Scenes — one day they will differ by their Conditions — so nothing here is
-// unique.
+// Scenes — they differ by their Conditions — so nothing here is unique.
+//
+// `condition` is the flat test the Cut is offered under, null being a Cut always
+// offered. Held as jsonb for the same reason as a Scene's Flags: it is read and
+// written whole with the Cut, and the shape is kept by the request boundary
+// rather than by columns. A Condition naming a Scene holds its id in the json,
+// where no foreign key reaches — a Scene deleted out from under it leaves a
+// Condition counting visits to nowhere, which is a Condition that never passes.
 export const cuts = pgTable('cuts', {
   id: uuid('id').primaryKey().defaultRandom(),
   fromSceneId: uuid('from_scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
   toSceneId: uuid('to_scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
   text: text('text').notNull().default(''),
+  condition: jsonb('condition').$type<Condition>(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })

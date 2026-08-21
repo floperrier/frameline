@@ -1,4 +1,4 @@
-import type { Cut, Shot } from './scenes'
+import type { Condition, Cut, Flags, Shot } from './scenes'
 
 /**
  * A Story as a Reader receives it. Narrower than the Story an Author edits — no
@@ -7,7 +7,7 @@ import type { Cut, Shot } from './scenes'
  */
 export type StoryToRead = {
   openingSceneId: string | null
-  scenes: { id: string, shots: Shot[] }[]
+  scenes: { id: string, sets: Flags, shots: Shot[] }[]
   cuts: Cut[]
 }
 
@@ -18,7 +18,7 @@ export type StoryToRead = {
  * that cannot go on is worse than one offered a Cut named after where it lands.
  */
 export type StoryToShow = Omit<StoryToRead, 'scenes'> & {
-  scenes: { id: string, name: string, shots: Shot[] }[]
+  scenes: { id: string, name: string, sets: Flags, shots: Shot[] }[]
 }
 
 /**
@@ -30,6 +30,26 @@ export type StoryToShow = Omit<StoryToRead, 'scenes'> & {
  * makes the engine a pure function and the whole of it testable.
  */
 export type Position = { taken: string[], shot: number }
+
+/**
+ * Everything one Reading has accumulated: what each Flag holds, and how often
+ * each Scene has been entered. Computed from the Position on every read and kept
+ * nowhere, so no two Readings can reach the same State.
+ */
+export type State = { flags: Flags, visits: Record<string, number> }
+
+/**
+ * Whether a Cut's Condition passes against this State, an absent Condition being
+ * a Cut the Reader is always offered. One comparison and no recursion: a
+ * Condition is flat by construction, so this is the whole of the language.
+ */
+export function holds(condition: Condition | null, state: State) {
+  if (!condition) return true
+  if ('flag' in condition) return (state.flags[condition.flag] ?? '') === condition.is
+
+  const visits = state.visits[condition.scene] ?? 0
+  return condition.visits === 'at least' ? visits >= condition.times : visits < condition.times
+}
 
 /** Every Reading starts here: the opening Scene, first Shot, nothing taken. */
 export const OPENING: Position = { taken: [], shot: 0 }
@@ -47,43 +67,56 @@ export type Shown = {
   shot: Shot | undefined
   cuts: Cut[]
   ended: boolean
-  visits: Record<string, number>
+  state: State
 }
 
 /**
- * Walks the taken Cuts from the opening Scene, counting arrivals on the way.
- * A Cut that does not leave the Scene the Reading stands in is not one it could
- * have been offered — a stale link, or a hand-written one — and stops the walk
- * where it is rather than teleporting the Reader.
+ * Walks the taken Cuts from the opening Scene, accumulating State on the way:
+ * every arrival is counted and sets the Flags of the Scene it arrives at, so the
+ * State a Cut is judged against is the one the Reader had when they were offered
+ * it. A Cut that does not leave the Scene the Reading stands in, or whose
+ * Condition did not hold there, is not one it could have been offered — a stale
+ * link, or a hand-written one — and stops the walk where it is rather than
+ * teleporting the Reader.
  *
  * The walk is as long as the Cuts taken, never as long as the Story's cycles, so
  * a Story that comes back on itself is read round and round without the engine
  * ever looping forever.
  */
 function walk(story: StoryToRead, taken: string[]) {
-  const visits: Record<string, number> = {}
-  let sceneId = story.openingSceneId
-  if (sceneId) visits[sceneId] = 1
+  const state: State = { flags: {}, visits: {} }
 
-  for (const takenId of taken) {
-    const cut = story.cuts.find(cut => cut.id === takenId && cut.fromSceneId === sceneId)
-    if (!cut) break
-    sceneId = cut.toSceneId
-    visits[sceneId] = (visits[sceneId] ?? 0) + 1
+  function enter(id: string) {
+    state.visits[id] = (state.visits[id] ?? 0) + 1
+    Object.assign(state.flags, story.scenes.find(scene => scene.id === id)?.sets)
   }
 
-  return { sceneId, visits }
+  let sceneId = story.openingSceneId
+  if (sceneId) enter(sceneId)
+
+  for (const takenId of taken) {
+    const cut = story.cuts.find(cut =>
+      cut.id === takenId && cut.fromSceneId === sceneId && holds(cut.condition, state))
+    if (!cut) break
+    sceneId = cut.toSceneId
+    enter(sceneId)
+  }
+
+  return { sceneId, state }
 }
 
 /** What this Story shows a Reading standing at this Position. */
 export function reading(story: StoryToRead, at: Position): Shown {
-  const { sceneId, visits } = walk(story, at.taken)
+  const { sceneId, state } = walk(story, at.taken)
   const shot = story.scenes.find(scene => scene.id === sceneId)?.shots[at.shot]
   // A Story with no opening Scene has no Cuts to offer either, so the empty
-  // Scene and the missing one both end the path.
-  const cuts = shot ? [] : story.cuts.filter(cut => cut.fromSceneId === sceneId)
+  // Scene and the missing one both end the path. A Cut whose Condition fails is
+  // not among them, which is what makes it invisible rather than refused.
+  const cuts = shot
+    ? []
+    : story.cuts.filter(cut => cut.fromSceneId === sceneId && holds(cut.condition, state))
 
-  return { sceneId, shot, cuts, ended: !shot && cuts.length === 0, visits }
+  return { sceneId, shot, cuts, ended: !shot && cuts.length === 0, state }
 }
 
 /** The Reader asks for the next Shot of the Scene. */

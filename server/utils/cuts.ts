@@ -52,3 +52,56 @@ export async function readTargetSceneId(event: H3Event) {
 
   return toSceneId
 }
+
+/**
+ * Reads the Condition a Cut is offered under, an absent or null one being a Cut
+ * offered to everyone. A trust boundary that matters more than most: what is
+ * written here lands in a jsonb column, which would take any shape at all, and
+ * the engine then reads it back as a Condition — so only the two flat shapes get
+ * through, and neither of them can hold another.
+ */
+export async function readCutCondition(event: H3Event): Promise<Condition | null> {
+  const body = await readBody<{ condition?: unknown }>(event)
+  const condition = body?.condition
+
+  if (condition === null || condition === undefined) return null
+  if (typeof condition !== 'object' || Array.isArray(condition)) throw badCondition()
+
+  // A Condition holds its own two or three keys and nothing besides: anything
+  // else is a Condition trying to carry a second one, and flatness is the whole
+  // point of the language.
+  const parts = Object.keys(condition).length
+
+  if ('flag' in condition) {
+    if (parts !== 2) throw badCondition()
+
+    const { flag, is } = condition as { flag: unknown, is: unknown }
+    const name = typeof flag === 'string' ? flag.trim() : ''
+
+    if (!name || name.length > FLAG_NAME_MAX_LENGTH) throw badCondition()
+    if (typeof is !== 'string' || is.length > FLAG_VALUE_MAX_LENGTH) throw badCondition()
+
+    // Trimmed on both sides of the comparison the engine will make: a Flag is
+    // stored trimmed, so a Condition asking for `on ` could never match one.
+    return { flag: name, is: is.trim() }
+  }
+
+  const { scene, visits, times } = condition as { scene: unknown, visits: unknown, times: unknown }
+
+  if (parts !== 3) throw badCondition()
+  if (typeof scene !== 'string' || !UUID_PATTERN.test(scene)) throw badCondition()
+  if (visits !== 'at least' && visits !== 'fewer than') throw badCondition()
+  if (!Number.isInteger(times) || (times as number) < 1 || (times as number) > VISITS_MAX) {
+    throw badCondition()
+  }
+
+  return { scene, visits, times: times as number }
+}
+
+function badCondition() {
+  return createError({
+    statusCode: 400,
+    statusMessage: 'A Condition tests what one Flag holds, '
+      + `or how often one Scene has been entered, up to ${VISITS_MAX} times.`,
+  })
+}

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { neon } from '@neondatabase/serverless'
 import { test as base, type APIRequestContext } from '@playwright/test'
-import type { Cut, Scene, Shot } from '../../shared/utils/scenes'
+import type { Cut, Flags, Scene, Shot } from '../../shared/utils/scenes'
 import { NODE_GAP, NODE_SPACING, NODE_WIDTH, NODES_PER_COLUMN } from '../../shared/utils/scenes'
 import { sealSession, type H3Event } from 'h3'
 
@@ -97,20 +97,28 @@ export async function seedScenes(story: Story, names: string[]) {
 
 /** Draws a Cut on behalf of an Author nobody is signed in as. */
 export async function seedCut(fromSceneId: string, toSceneId: string, text = 'Their Cut') {
-  const [cut] = await sql`
+  const drawn = await sql`
     insert into cuts (from_scene_id, to_scene_id, text)
     values (${fromSceneId}, ${toSceneId}, ${text})
-    returning id, from_scene_id as "fromSceneId", to_scene_id as "toSceneId", text` as Cut[]
+    returning id, from_scene_id as "fromSceneId", to_scene_id as "toSceneId", text, condition`
 
-  return cut!
+  return (drawn as Cut[])[0]!
 }
 
 /** Reads the Cuts leaving a Scene past the API. */
 export async function readCuts(fromSceneId: string) {
   return await sql`
-    select id, from_scene_id as "fromSceneId", to_scene_id as "toSceneId", text
+    select id, from_scene_id as "fromSceneId", to_scene_id as "toSceneId", text, condition
     from cuts where from_scene_id = ${fromSceneId}
     order by created_at, id` as Cut[]
+}
+
+/** Reads the Flags a Scene sets on entry, past the API. */
+export async function readFlags(sceneId: string) {
+  const [scene] = await sql`
+    select sets from scenes where id = ${sceneId}` as { sets: Flags }[]
+
+  return scene!.sets
 }
 
 /** Reads where a Scene sits in the graph, and which Scene its Story opens on. */

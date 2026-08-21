@@ -51,7 +51,8 @@ a visit count per Scene. Never shared between Readings.
 _Avoid_: variables, memory, save, progress, context, session data
 
 **Flag**:
-A single named value in State, set by the Author and tested by Conditions.
+A single named value in State, set by the Author and tested by Conditions. A
+Scene carries the Flags it sets, and sets them on every entry.
 _Avoid_: variable, switch, toggle, key
 
 **Reading**:
