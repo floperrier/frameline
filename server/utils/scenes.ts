@@ -59,3 +59,46 @@ export async function readScenePlacement(event: H3Event) {
 
   return { x, y }
 }
+
+/**
+ * Reads the Flags a Scene sets on entry, as a flat object of names to values. A
+ * Flag is a name *and* a value, so neither half may be blank: a Flag set to
+ * nothing is one the engine cannot tell from a Flag never set. Names and values
+ * hold no newline and no separator, which is what lets the editor show them back
+ * as one `name = value` line apiece.
+ */
+export async function readSceneFlags(event: H3Event): Promise<Flags> {
+  const body = await readBody<{ sets?: unknown }>(event)
+  const sets = body?.sets
+
+  if (typeof sets !== 'object' || sets === null || Array.isArray(sets)) throw badFlags()
+
+  const entries = Object.entries(sets)
+  if (entries.length > FLAGS_PER_SCENE) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: `A Scene cannot set more than ${FLAGS_PER_SCENE} Flags.`,
+    })
+  }
+
+  const flags: Flags = {}
+  for (const [name, value] of entries) {
+    const flag = name.trim()
+    const held = typeof value === 'string' ? value.trim() : ''
+
+    if (!flag || !held) throw badFlags()
+    if (flag.length > FLAG_NAME_MAX_LENGTH || held.length > FLAG_VALUE_MAX_LENGTH) throw badFlags()
+    if (flag.includes(FLAG_SEPARATOR) || `${flag}${held}`.includes('\n')) throw badFlags()
+
+    flags[flag] = held
+  }
+
+  return flags
+}
+
+function badFlags() {
+  return createError({
+    statusCode: 400,
+    statusMessage: `A Flag is a name and a value, written “courage ${FLAG_SEPARATOR} high”.`,
+  })
+}

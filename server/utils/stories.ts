@@ -40,6 +40,7 @@ export async function readStoryGraph(storyId: string) {
       name: scenes.name,
       x: scenes.x,
       y: scenes.y,
+      sets: scenes.sets,
       shotId: shots.id,
       text: shots.text,
       position: shots.position,
@@ -55,7 +56,14 @@ export async function readStoryGraph(storyId: string) {
   for (const row of rows) {
     let scene = scenesOfStory.at(-1)
     if (scene?.id !== row.sceneId) {
-      scene = { id: row.sceneId, name: row.name, x: row.x, y: row.y, shots: [] }
+      scene = {
+        id: row.sceneId,
+        name: row.name,
+        x: row.x,
+        y: row.y,
+        sets: row.sets,
+        shots: [],
+      }
       scenesOfStory.push(scene)
     }
     if (row.shotId !== null) {
@@ -71,6 +79,7 @@ export async function readStoryGraph(storyId: string) {
       fromSceneId: cuts.fromSceneId,
       toSceneId: cuts.toSceneId,
       text: cuts.text,
+      condition: cuts.condition,
     })
     .from(cuts)
     .innerJoin(scenes, eq(cuts.fromSceneId, scenes.id))

@@ -1,28 +1,34 @@
 import { describe, expect, it } from 'vitest'
+import type { Condition, Flags } from '../../shared/utils/scenes'
 import type { Position, StoryToRead } from '../../shared/utils/reading'
 import { OPENING, advance, reading, take } from '../../shared/utils/reading'
 
 /**
  * A Story built from the shots of each Scene and the Cuts between them, in the
  * shape the engine reads. Ids are the names, so a failing assertion says which
- * Scene it was standing in rather than which uuid.
+ * Scene it was standing in rather than which uuid. A Cut carries a Condition
+ * only where the test states one, and a Scene sets Flags only where `sets` names
+ * them, so a Story about anything else stays as short as it was.
  */
 function story(
   scenes: Record<string, string[]>,
-  cuts: [from: string, text: string, to: string][] = [],
+  cuts: [from: string, text: string, to: string, condition?: Condition][] = [],
   openingSceneId: string | null = Object.keys(scenes)[0] ?? null,
+  sets: Record<string, Flags> = {},
 ): StoryToRead {
   return {
     openingSceneId,
     scenes: Object.entries(scenes).map(([id, texts]) => ({
       id,
+      sets: sets[id] ?? {},
       shots: texts.map((text, position) => ({ id: `${id}-${position}`, text, position })),
     })),
-    cuts: cuts.map(([fromSceneId, text, toSceneId], index) => ({
+    cuts: cuts.map(([fromSceneId, text, toSceneId, condition], index) => ({
       id: `cut-${index}`,
       fromSceneId,
       toSceneId,
       text,
+      condition: condition ?? null,
     })),
   }
 }
@@ -123,13 +129,13 @@ describe('a Reading that comes back somewhere', () => {
   })
 
   it('counts every visit to a Scene, and the opening Scene as visited once', () => {
-    expect(reading(loop, OPENING).visits).toEqual({ Street: 1 })
-    expect(reading(loop, around(3)).visits).toEqual({ Street: 4, Bar: 3 })
+    expect(reading(loop, OPENING).state.visits).toEqual({ Street: 1 })
+    expect(reading(loop, around(3)).state.visits).toEqual({ Street: 4, Bar: 3 })
   })
 
   it('carries no State from one Reading to another', () => {
-    reading(loop, around(2)).visits.Street = 99
-    expect(reading(loop, OPENING).visits).toEqual({ Street: 1 })
+    reading(loop, around(2)).state.visits.Street = 99
+    expect(reading(loop, OPENING).state.visits).toEqual({ Street: 1 })
   })
 })
 
@@ -146,5 +152,159 @@ describe('a Reading given a Cut it was never offered', () => {
       offered: [],
       ended: false,
     })
+  })
+})
+
+describe('a Scene that sets Flags on entry', () => {
+  const setting = story(
+    { Street: ['A door opens.'], Bar: ['Smoke.'] },
+    [['Street', 'Go in', 'Bar']],
+    'Street',
+    { Street: { coat: 'on' }, Bar: { coat: 'off', drink: 'whisky' } },
+  )
+
+  const endOfStreet = advance(OPENING)
+
+  it('sets them the moment the Reading arrives, opening Scene included', () => {
+    expect(reading(setting, OPENING).state.flags).toEqual({ coat: 'on' })
+  })
+
+  it('keeps the Flags of the Scenes behind it, and lets a later Scene write over one', () => {
+    const inTheBar = take(endOfStreet, reading(setting, endOfStreet).cuts[0]!)
+    expect(reading(setting, inTheBar).state.flags).toEqual({ coat: 'off', drink: 'whisky' })
+  })
+
+  it('sets nothing where the Author named no Flags', () => {
+    expect(reading(story({ Street: ['A door opens.'] }), OPENING).state.flags).toEqual({})
+  })
+})
+
+describe('a Cut carrying a Condition', () => {
+  /**
+   * One Scene the Reading stands in and two ways out of it, the second one
+   * conditional — so what is offered says whether the Condition passed.
+   */
+  function ways(condition: Condition, sets: Record<string, Flags> = {}) {
+    return story(
+      { Street: ['A door opens.'], Bar: ['Smoke.'], Alley: ['Rain.'] },
+      [['Street', 'Stay outside', 'Alley'], ['Street', 'Go in', 'Bar', condition]],
+      'Street',
+      sets,
+    )
+  }
+
+  const endOfStreet = advance(OPENING)
+
+  it('is offered where the Flag holds what the Condition asks', () => {
+    const carrying = ways({ flag: 'key', is: 'found' }, { Street: { key: 'found' } })
+    expect(shown(carrying, endOfStreet).offered).toEqual(['Stay outside', 'Go in'])
+  })
+
+  it('is not offered where the Flag holds something else', () => {
+    const carrying = ways({ flag: 'key', is: 'found' }, { Street: { key: 'lost' } })
+    expect(shown(carrying, endOfStreet).offered).toEqual(['Stay outside'])
+  })
+
+  it('reads a Flag nobody set as the empty value, which is how absence is tested', () => {
+    expect(shown(ways({ flag: 'key', is: '' }), endOfStreet).offered)
+      .toEqual(['Stay outside', 'Go in'])
+    expect(shown(ways({ flag: 'key', is: 'found' }), endOfStreet).offered)
+      .toEqual(['Stay outside'])
+  })
+
+  it('counts the visits to a Scene, the Scene being stood in included', () => {
+    const first = ways({ scene: 'Street', visits: 'at least', times: 2 })
+    expect(shown(first, endOfStreet).offered).toEqual(['Stay outside'])
+
+    const once = ways({ scene: 'Street', visits: 'fewer than', times: 2 })
+    expect(shown(once, endOfStreet).offered).toEqual(['Stay outside', 'Go in'])
+  })
+
+  it('ends the path where the only Cuts out are ones this Reading cannot take', () => {
+    const shut = story(
+      { Street: ['A door opens.'], Bar: ['Smoke.'] },
+      [['Street', 'Go in', 'Bar', { flag: 'key', is: 'found' }]],
+    )
+    expect(shown(shut, endOfStreet)).toEqual({ text: undefined, offered: [], ended: true })
+  })
+
+  it('reads a Flag set by a Scene the Reading has left behind', () => {
+    // The coat goes on in the street, and it is the door of the bar — a Scene
+    // away — that asks for it: a Flag outlives the Scene that set it.
+    const carrying = story(
+      { Street: ['A door opens.'], Hall: ['A stair.'], Bar: ['Smoke.'], Alley: ['Rain.'] },
+      [
+        ['Street', 'Go through', 'Hall'],
+        ['Hall', 'Into the bar', 'Bar', { flag: 'coat', is: 'on' }],
+        ['Hall', 'Out the back', 'Alley', { flag: 'coat', is: 'off' }],
+      ],
+      'Street',
+      { Street: { coat: 'on' } },
+    )
+
+    const endOfStreet = advance(OPENING)
+    const inTheHall = take(endOfStreet, reading(carrying, endOfStreet).cuts[0]!)
+    expect(shown(carrying, advance(inTheHall)).offered).toEqual(['Into the bar'])
+  })
+
+  it('cannot be taken by a Reading whose State never passed it', () => {
+    const shut = story(
+      { Street: ['A door opens.'], Bar: ['Smoke.'] },
+      [['Street', 'Go in', 'Bar', { flag: 'key', is: 'found' }]],
+    )
+    const forged: Position = { taken: ['cut-0'], shot: 0 }
+    expect(shown(shut, forged).text).toBe('A door opens.')
+  })
+})
+
+describe('a Scene read a second time', () => {
+  /**
+   * The Street twice, going somewhere else the second time round: the Shots of a
+   * Scene are the same on every visit, so what changes is which Cut is offered.
+   */
+  const returning = story(
+    { Street: ['A door opens.'], Bar: ['Smoke.'], Alley: ['Rain.'] },
+    [
+      ['Street', 'Go in', 'Bar', { scene: 'Street', visits: 'fewer than', times: 2 }],
+      ['Street', 'Give up', 'Alley', { scene: 'Street', visits: 'at least', times: 2 }],
+      ['Bar', 'Back out', 'Street'],
+    ],
+  )
+
+  it('offers what the first visit offered, and then something else', () => {
+    const endOfStreet = advance(OPENING)
+    expect(shown(returning, endOfStreet).offered).toEqual(['Go in'])
+
+    const inTheBar = take(endOfStreet, reading(returning, endOfStreet).cuts[0]!)
+    const endOfBar = advance(inTheBar)
+    const backOutside = take(endOfBar, reading(returning, endOfBar).cuts[0]!)
+    const endOfStreetAgain = advance(backOutside)
+
+    expect(shown(returning, endOfStreetAgain).offered).toEqual(['Give up'])
+  })
+
+  it('lets the same Cut be taken once and no more, however the Position asks', () => {
+    // The way in is offered on the first visit to the street and not on the
+    // second, so a Reading that comes back and claims to take it again is a
+    // Position no Reader could have reached: the walk stops where it stopped.
+    const endOfStreet = advance(OPENING)
+    const inTheBar = take(endOfStreet, reading(returning, endOfStreet).cuts[0]!)
+    const endOfBar = advance(inTheBar)
+    const backOutside = take(endOfBar, reading(returning, endOfBar).cuts[0]!)
+
+    expect(shown(returning, backOutside).text).toBe('A door opens.')
+
+    const twice: Position = { taken: [...backOutside.taken, 'cut-0'], shot: 0 }
+    expect(shown(returning, twice).text).toBe('A door opens.')
+    expect(reading(returning, twice).state.visits).toEqual({ Street: 2, Bar: 1 })
+  })
+
+  it('takes the Cut it is offered the second time round', () => {
+    let at = OPENING
+    for (const _ of ['in', 'out', 'away']) {
+      at = advance(at)
+      at = take(at, reading(returning, at).cuts[0]!)
+    }
+    expect(shown(returning, at).text).toBe('Rain.')
   })
 })

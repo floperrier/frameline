@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
     where departure.id = ${id}::uuid
       and arrival.id = ${toSceneId}::uuid
       and departure.story_id in (${storiesOf(author.id)})
-    returning id, from_scene_id as "fromSceneId", to_scene_id as "toSceneId", text`)
+    returning id, from_scene_id as "fromSceneId", to_scene_id as "toSceneId", text, condition`)
 
   if (!rows[0]) throw notFound('Scene')
 
