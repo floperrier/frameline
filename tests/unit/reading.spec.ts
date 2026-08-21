@@ -21,7 +21,12 @@ function story(
     scenes: Object.entries(scenes).map(([id, texts]) => ({
       id,
       sets: sets[id] ?? {},
-      shots: texts.map((text, position) => ({ id: `${id}-${position}`, text, position })),
+      shots: texts.map((text, position) => ({
+        id: `${id}-${position}`,
+        text,
+        position,
+        image: null,
+      })),
     })),
     cuts: cuts.map(([fromSceneId, text, toSceneId, condition], index) => ({
       id: `cut-${index}`,

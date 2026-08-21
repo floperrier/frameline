@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { cuts, scenes, shots } from '../db/schema'
 import { useDb } from '../db'
@@ -44,6 +44,9 @@ export async function readStoryGraph(storyId: string) {
       shotId: shots.id,
       text: shots.text,
       position: shots.position,
+      // Whether the Shot carries an image, never the image: the bytes are served
+      // one request apiece, so a Story is the same size however many stills it has.
+      hasImage: sql<boolean>`${shots.image} is not null`,
     })
     .from(scenes)
     .leftJoin(shots, eq(shots.sceneId, scenes.id))
@@ -67,7 +70,12 @@ export async function readStoryGraph(storyId: string) {
       scenesOfStory.push(scene)
     }
     if (row.shotId !== null) {
-      scene.shots.push({ id: row.shotId, text: row.text!, position: row.position! })
+      scene.shots.push({
+        id: row.shotId,
+        text: row.text!,
+        position: row.position!,
+        image: row.hasImage ? shotImageUrl(row.shotId) : null,
+      })
     }
   }
 

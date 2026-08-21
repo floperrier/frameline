@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { customType, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import type { Condition, Flags } from '../../shared/utils/scenes'
 
@@ -50,6 +50,11 @@ export const scenes = pgTable('scenes', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// The bytes of a still image, which drizzle has no column for; the neon-http
+// driver hands a `bytea` back as a Buffer and takes one as a parameter, so
+// nothing is encoded on the way past.
+const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () => 'bytea' })
+
 // `position` is the Scene's own numbering of its Shots: 0, 1, 2 with no gaps.
 // Nothing else in a Shot says where it comes, and the Reader plays the run in
 // this order.
@@ -61,11 +66,17 @@ export const scenes = pgTable('scenes', {
 // by writing each change as one statement instead. Two people editing one Scene
 // at once could still collide — add the deferrable constraint by hand the day a
 // Story has more than its one Author.
+//
+// `image` is the still the Shot shows, held in the Shot's own row and null for a
+// Shot that is text alone. The bytes live here rather than in object storage
+// because an image is only as reachable as the Story it belongs to — see
+// `docs/adr/0005-a-shots-image-lives-in-its-row.md`.
 export const shots = pgTable('shots', {
   id: uuid('id').primaryKey().defaultRandom(),
   sceneId: uuid('scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
   text: text('text').notNull().default(''),
   position: integer('position').notNull(),
+  image: bytea('image'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 

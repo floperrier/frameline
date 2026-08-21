@@ -7,6 +7,16 @@ import { sealSession, type H3Event } from 'h3'
 
 const sql = neon(process.env.DATABASE_URL!)
 
+/**
+ * One real PNG, a single pixel of it, for the specs that attach a still to a
+ * Shot. A file rather than a shape: the server reads the format out of the first
+ * bytes, so only bytes a decoder would accept prove anything.
+ */
+export const ONE_PIXEL = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==',
+  'base64',
+)
+
 export type Author = { id: string, email: string, name: string | null }
 type Story = { id: string, title: string }
 

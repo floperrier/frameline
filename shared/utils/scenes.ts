@@ -59,8 +59,11 @@ export const NODES_PER_COLUMN = 20
  * `publishedAt` is null until the Story is published, and null again once it is
  * unpublished; it arrives as a string because that is what JSON makes of a
  * timestamp.
+ *
+ * A Shot's `image` is where its still is served, not the still itself, and null
+ * for a Shot that is text alone.
  */
-export type Shot = { id: string, text: string, position: number }
+export type Shot = { id: string, text: string, position: number, image: string | null }
 export type Scene = {
   id: string
   name: string
