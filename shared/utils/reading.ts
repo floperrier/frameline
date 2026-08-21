@@ -25,13 +25,14 @@ export type Position = { taken: string[], shot: number }
 export const OPENING: Position = { taken: [], shot: 0 }
 
 /**
- * What the Reader is shown at one point in a Reading: the Shot on screen, or —
+ * What the Reader is shown at one point in a Reading — a screenful, not the
+ * Reading itself, which is the Position: the Shot on screen, or —
  * once the Shots of the Scene have run out — the Cuts on offer. Never both, so
  * the Scene plays to its end before it asks anything. `ended` is the path
  * reaching its end: no Shot left and no Cut out, which the Reader is owed as an
  * ending rather than a screen that has simply stopped answering.
  */
-export type Reading = {
+export type Shown = {
   sceneId: string | null
   shot: Shot | undefined
   cuts: Cut[]
@@ -65,7 +66,7 @@ function walk(story: StoryToRead, taken: string[]) {
 }
 
 /** What this Story shows a Reading standing at this Position. */
-export function reading(story: StoryToRead, at: Position): Reading {
+export function reading(story: StoryToRead, at: Position): Shown {
   const { sceneId, visits } = walk(story, at.taken)
   const shot = story.scenes.find(scene => scene.id === sceneId)?.shots[at.shot]
   // A Story with no opening Scene has no Cuts to offer either, so the empty

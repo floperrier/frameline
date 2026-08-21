@@ -40,8 +40,6 @@ function offered(cut: Cut) {
     </p>
 
     <template v-else-if="shown">
-      <p v-if="shown.sceneId" class="scene">{{ sceneNames.get(shown.sceneId) }}</p>
-
       <!-- One Shot at a time, and the Cuts only once the Scene has played out. -->
       <template v-if="shown.shot">
         <p class="shot">{{ shown.shot.text }}</p>
@@ -62,10 +60,6 @@ function offered(cut: Cut) {
 </template>
 
 <style scoped>
-.scene {
-  text-transform: uppercase;
-}
-
 .shot {
   white-space: pre-wrap;
 }

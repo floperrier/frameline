@@ -32,9 +32,9 @@ production. See `docs/git-flow.md`.
 
 ## Tests
 
-`pnpm test` runs the Vitest suite over the Reading engine, which needs no
-database. `pnpm test:e2e` runs Playwright against a built app and a real Neon
-branch. See `docs/git-flow.md` for which database each one talks to.
+`pnpm test` runs the Vitest suite over the Reading engine. It needs no database,
+because the engine has none in reach. `pnpm test:e2e` runs Playwright against a
+built app and a real Neon branch — `docs/git-flow.md` says which branch.
 
 ## Running the app
 

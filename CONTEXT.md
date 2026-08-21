@@ -74,6 +74,12 @@ _Avoid_: user, creator, owner, writer, director
 Anyone who plays a published Story. Needs no account.
 _Avoid_: user, player, viewer, visitor, audience
 
+**Preview**:
+An Author reading their own Story before it is published, on the same engine a
+Reader runs. Not a mode of the editor and not a Publish: nothing about the Story
+changes, and nobody else can reach it.
+_Avoid_: test, play mode, simulate, dry run, rehearse
+
 **Publish**:
 To make a Story readable by Readers at a public link. A Story that has never been
 published is visible only to its Author.
