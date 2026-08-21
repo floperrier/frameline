@@ -41,11 +41,11 @@ export async function readSceneName(event: H3Event) {
 }
 
 /**
- * Reads where a Scene's node has been put. Both coordinates are bounded, so a
+ * Reads where in the graph a Scene has been put. Both coordinates are bounded, so a
  * Scene cannot be written to a place the graph cannot show; whole pixels, so the
  * integer column takes them as they are.
  */
-export async function readNodePosition(event: H3Event) {
+export async function readScenePlacement(event: H3Event) {
   const body = await readBody<{ x?: unknown, y?: unknown }>(event)
   const [x, y] = [body?.x, body?.y].map(value =>
     typeof value === 'number' && value >= 0 && value <= GRAPH_REACH ? Math.round(value) : undefined)

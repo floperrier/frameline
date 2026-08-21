@@ -18,12 +18,18 @@ export function cutsOf(authorId: string) {
 }
 
 /**
- * Reads the text a Cut carries. A Cut is drawn first and written afterwards, so
- * empty is a Cut the Author has not phrased yet rather than a bad request.
+ * Reads the text a Cut carries. Empty text is a Cut the Author has not phrased
+ * yet rather than a bad request, but text that is missing altogether is: writing
+ * it as empty would erase what the Cut already said.
  */
 export async function readCutText(event: H3Event) {
   const body = await readBody<{ text?: unknown }>(event)
-  const text = typeof body?.text === 'string' ? body.text : ''
+
+  if (typeof body?.text !== 'string') {
+    throw createError({ statusCode: 400, statusMessage: 'A Cut carries text.' })
+  }
+
+  const text = body.text
 
   if (text.length > CUT_TEXT_MAX_LENGTH) {
     throw createError({
@@ -36,7 +42,7 @@ export async function readCutText(event: H3Event) {
 }
 
 /** Reads which Scene a Cut arrives at. */
-export async function readTargetScene(event: H3Event) {
+export async function readTargetSceneId(event: H3Event) {
   const body = await readBody<{ toSceneId?: unknown }>(event)
   const toSceneId = typeof body?.toSceneId === 'string' ? body.toSceneId : ''
 

@@ -2,11 +2,11 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { scenes } from '../../db/schema'
 import { useDb } from '../../db'
 
-/** Puts a Scene's node where the Author dropped it in the Story graph. */
+/** Puts a Scene where the Author dropped it in the Story graph. */
 export default defineEventHandler(async (event) => {
   const { user: author } = await requireUserSession(event)
   const id = readId(event, 'Scene')
-  const { x, y } = await readNodePosition(event)
+  const { x, y } = await readScenePlacement(event)
 
   const [scene] = await useDb()
     .update(scenes)

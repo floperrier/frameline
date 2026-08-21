@@ -4,10 +4,14 @@ import { useDb } from '../../../db'
 /**
  * Adds a Scene to a Story, as a node of its graph. Three things happen in the
  * one statement, because the neon-http driver has no transactions to hold them
- * together: the Scene is written, it is placed below the lowest node so it does
- * not land underneath one, and it becomes the opening Scene if the Story has
- * none — which makes the first Scene an Author writes the one a Reading starts
- * on, without their having to say so.
+ * together: the Scene is written, it is placed at the next free spot in the
+ * graph, and it becomes the opening Scene if the Story has none — which makes
+ * the first Scene an Author writes the one a Reading starts on, without their
+ * having to say so.
+ *
+ * The spot is read off how many Scenes the Story already has rather than off
+ * where they sit, so a Scene the Author has dragged elsewhere does not push the
+ * next one out of the graph's reach.
  *
  * Inserting from a select over the Author's own Stories also proves the Story is
  * theirs: a Story they do not own selects nothing, so nothing is written and the
@@ -20,11 +24,17 @@ export default defineEventHandler(async (event) => {
 
   const { rows } = await useDb().execute<Scene>(sql`
     with written as (
-      insert into scenes (story_id, name, y)
-      select id, ${name}, coalesce(
-        (select max(y) + ${NODE_SPACING} from scenes where story_id = stories.id), 0)
+      insert into scenes (story_id, name, x, y)
+      select
+        stories.id,
+        ${name},
+        (written_before / ${NODES_PER_COLUMN}) * ${NODE_WIDTH + NODE_GAP},
+        (written_before % ${NODES_PER_COLUMN}) * ${NODE_SPACING}
       from stories
-      where id = ${id}::uuid and author_id = ${author.id}::uuid
+      cross join lateral (
+        select count(*) from scenes where story_id = stories.id
+      ) as counted (written_before)
+      where stories.id = ${id}::uuid and stories.author_id = ${author.id}::uuid
       returning id, story_id, name, x, y
     ),
     opened as (

@@ -23,9 +23,10 @@ const sceneNames = computed(
 /** The graph is as large as the Scenes in it, so it scrolls no further than them. */
 const graphSize = computed(() => {
   const scenes = story.value?.scenes ?? []
+  const furthest = (of: (scene: Scene) => number) => Math.max(0, ...scenes.map(of))
   return {
-    width: `${Math.max(0, ...scenes.map(scene => scene.x)) + NODE_WIDTH + NODE_SPACING}px`,
-    height: `${Math.max(0, ...scenes.map(scene => scene.y)) + NODE_SPACING * 3}px`,
+    width: `${furthest(scene => scene.x) + NODE_WIDTH + NODE_GAP}px`,
+    height: `${furthest(scene => scene.y) + NODE_HEIGHT + NODE_GAP}px`,
   }
 })
 
@@ -81,38 +82,50 @@ function deleteCut(cut: Cut) {
 }
 
 /**
- * Writes where a node ended up, once the Author has stopped moving it. The Scene
- * on screen moves with the hand and only the last position is written, which is
+ * Writes where a Scene ended up, once the Author has stopped moving it. The Scene
+ * on screen moves with the hand and only the last placement is written, which is
  * what makes a held-down arrow key one request instead of thirty — and keeps two
  * of them from racing, where the earlier write could be the one that lands last.
+ *
+ * A Scene waits on its own timer: one timer for the graph would let a Scene
+ * moved a moment later cancel the write of the one moved before it, and that
+ * Scene would spring back on the next read.
  */
-let settling: ReturnType<typeof setTimeout> | undefined
+const settling: Record<string, ReturnType<typeof setTimeout>> = {}
 
 function moveScene(scene: Scene) {
-  clearTimeout(settling)
-  settling = setTimeout(() => change(() => send(`/api/scenes/${scene.id}`, {
+  clearTimeout(settling[scene.id])
+  settling[scene.id] = setTimeout(() => change(() => send(`/api/scenes/${scene.id}`, {
     method: 'PATCH',
     body: { x: scene.x, y: scene.y },
   })), 150)
 }
 
-let drag: { scene: Scene, pointerX: number, pointerY: number, x: number, y: number } | undefined
+// The Scene being dragged is held by id, not by the object read from the server:
+// a read landing mid-drag replaces every Scene in the Story, and the hand would
+// carry on moving one nothing draws any more.
+let drag: { id: string, pointerX: number, pointerY: number, x: number, y: number } | undefined
+
+function sceneById(id: string) {
+  return story.value?.scenes.find(scene => scene.id === id)
+}
 
 function startDrag(scene: Scene, event: PointerEvent) {
   // Capturing the pointer sends the rest of the gesture to the handle itself, so
-  // dragging survives the pointer leaving the node it is dragging.
+  // dragging survives the pointer leaving the Scene it is dragging.
   ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
-  drag = { scene, pointerX: event.clientX, pointerY: event.clientY, x: scene.x, y: scene.y }
+  drag = { id: scene.id, pointerX: event.clientX, pointerY: event.clientY, x: scene.x, y: scene.y }
 }
 
 function keepDragging(event: PointerEvent) {
-  if (!drag) return
-  drag.scene.x = withinReach(drag.x + event.clientX - drag.pointerX)
-  drag.scene.y = withinReach(drag.y + event.clientY - drag.pointerY)
+  const dragged = drag && sceneById(drag.id)
+  if (!drag || !dragged) return
+  dragged.x = withinReach(drag.x + event.clientX - drag.pointerX)
+  dragged.y = withinReach(drag.y + event.clientY - drag.pointerY)
 }
 
 function endDrag() {
-  const dropped = drag?.scene
+  const dropped = drag && sceneById(drag.id)
   drag = undefined
   if (dropped) return moveScene(dropped)
 }
@@ -147,7 +160,7 @@ function withinReach(pixels: number) {
  * follow.
  */
 function anchor(sceneId: string) {
-  const scene = story.value?.scenes.find(candidate => candidate.id === sceneId)
+  const scene = sceneById(sceneId)
   return { x: (scene?.x ?? 0) + NODE_WIDTH / 2, y: (scene?.y ?? 0) + NUDGE }
 }
 </script>

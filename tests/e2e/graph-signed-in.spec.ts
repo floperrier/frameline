@@ -1,7 +1,7 @@
 import type { APIRequestContext } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { GRAPH_REACH } from '../../shared/utils/scenes'
-import { readCuts, readSceneNode, seedCut, seedScene, seedScenes, seedStory, test } from './author'
+import { GRAPH_REACH, NODE_GAP, NODE_WIDTH, NODES_PER_COLUMN } from '../../shared/utils/scenes'
+import { readCuts, readScenePlacement, seedCut, seedScene, seedScenes, seedStory, test } from './author'
 
 const noId = '00000000-0000-4000-8000-000000000000'
 
@@ -60,7 +60,34 @@ test('a Scene cannot be put out of the graph’s reach', async ({ request }) => 
   ])
 
   for (const response of refused) expect(response.status()).toBe(400)
-  await expect(readSceneNode(scene.id)).resolves.toMatchObject({ x: 0 })
+  await expect(readScenePlacement(scene.id)).resolves.toMatchObject({ x: 0 })
+})
+
+test('Scenes go on in columns, so that none is placed out of reach', async ({ request }) => {
+  const names = Array.from({ length: NODES_PER_COLUMN + 1 }, (_, place) => `Scene ${place + 1}`)
+  const { scenes } = await openGraph(request, names)
+
+  // The column the Author has filled is left for a new one beside it, rather
+  // than going on down past the far edge of the graph.
+  expect(scenes.at(-1)).toMatchObject({ x: NODE_WIDTH + NODE_GAP, y: 0 })
+  for (const scene of scenes) {
+    expect(scene.y).toBeLessThanOrEqual(GRAPH_REACH)
+    expect(scene.x).toBeLessThanOrEqual(GRAPH_REACH)
+  }
+})
+
+test('a Cut without text is refused rather than emptied', async ({ request }) => {
+  const { scenes } = await openGraph(request)
+  const drawn = await request.post(`/api/scenes/${scenes[0]!.id}/cuts`, {
+    data: { toSceneId: scenes[1]!.id },
+  })
+  const cut = await drawn.json()
+  await request.patch(`/api/cuts/${cut.id}`, { data: { text: 'Follow her out' } })
+
+  const response = await request.patch(`/api/cuts/${cut.id}`, { data: {} })
+
+  expect(response.status()).toBe(400)
+  await expect(readCuts(scenes[0]!.id)).resolves.toMatchObject([{ text: 'Follow her out' }])
 })
 
 test('a Cut is drawn between two Scenes, written, and taken away', async ({ request }) => {
@@ -122,7 +149,7 @@ test('deleting a Scene takes the Cuts touching it, and the opening with it', asy
     .resolves.toMatchObject({ openingSceneId: null, cuts: [] })
 })
 
-test('a Cut that was never drawn reads as absent', async ({ request }) => {
+test('a graph that was never drawn reads as absent', async ({ request }) => {
   const { scenes } = await openGraph(request)
 
   const responses = await Promise.all([
@@ -155,7 +182,7 @@ test('the graph belongs to the Author who wrote the Story', async ({ request, ot
 
   // The 404s have to mean the graph was left alone, not merely that the answer
   // said nothing about a graph that was changed anyway.
-  await expect(readSceneNode(theirScene.id)).resolves.toMatchObject({ x: 0, y: 0 })
+  await expect(readScenePlacement(theirScene.id)).resolves.toMatchObject({ x: 0, y: 0 })
   await expect(readCuts(theirScene.id)).resolves.toEqual([theirCut])
 })
 
@@ -173,7 +200,7 @@ test('an Author lays out the graph from the page alone', async ({ page, request 
   await page.keyboard.press('ArrowRight')
   await page.keyboard.press('ArrowDown')
   await expect(async () => {
-    const node = await readSceneNode(scenes[0]!.id)
+    const node = await readScenePlacement(scenes[0]!.id)
     expect(node).toMatchObject({ x: 20, y: 20 })
   }).toPass()
 
@@ -184,7 +211,7 @@ test('an Author lays out the graph from the page alone', async ({ page, request 
   await page.mouse.move(grip.x + grip.width / 2 + 100, grip.y + grip.height / 2 + 60, { steps: 5 })
   await page.mouse.up()
   await expect(async () => {
-    await expect(readSceneNode(scenes[0]!.id)).resolves.toMatchObject({ x: 120, y: 80 })
+    await expect(readScenePlacement(scenes[0]!.id)).resolves.toMatchObject({ x: 120, y: 80 })
   }).toPass()
 
   await page.getByLabel('Cut from The arrival to').selectOption({ label: 'The platform' })
@@ -202,7 +229,7 @@ test('an Author lays out the graph from the page alone', async ({ page, request 
   await expect(async () => {
     await expect(readCuts(scenes[0]!.id))
       .resolves.toMatchObject([{ toSceneId: scenes[1]!.id, text: 'Follow her out' }])
-    await expect(readSceneNode(scenes[1]!.id))
+    await expect(readScenePlacement(scenes[1]!.id))
       .resolves.toMatchObject({ openingSceneId: scenes[1]!.id })
   }).toPass()
 
@@ -216,6 +243,24 @@ test('an Author lays out the graph from the page alone', async ({ page, request 
 
   await page.getByRole('button', { name: 'Delete Cut to The platform' }).click()
   await expect(page.getByRole('textbox', { name: 'Cut to The platform' })).toBeHidden()
+})
+
+test('two Scenes moved one after the other are both written', async ({ page, request }) => {
+  const { story, scenes } = await openGraph(request)
+  await page.goto(`/stories/${story.id}`)
+
+  // Moving one Scene and then another straight away has to write both: a single
+  // wait shared by the graph would drop the first.
+  for (const name of ['The arrival', 'The platform']) {
+    await page.getByRole('button', { name: `Move Scene ${name}` }).click()
+    await page.keyboard.press('ArrowRight')
+  }
+
+  await expect(async () => {
+    for (const scene of scenes) {
+      await expect(readScenePlacement(scene.id)).resolves.toMatchObject({ x: 20 })
+    }
+  }).toPass()
 })
 
 test('the graph shows several dozen Scenes', async ({ page, author }) => {

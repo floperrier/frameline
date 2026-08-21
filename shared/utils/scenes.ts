@@ -28,7 +28,16 @@ export const GRAPH_REACH = 10_000
  */
 export const NODE_WIDTH = 320
 export const NODE_HEIGHT = 300
-export const NODE_SPACING = NODE_HEIGHT + 40
+export const NODE_GAP = 40
+export const NODE_SPACING = NODE_HEIGHT + NODE_GAP
+
+/**
+ * How many Scenes a column of the graph holds before the next one starts a new
+ * column. A Story numbering its Scenes down one endless column would put the
+ * later ones past `GRAPH_REACH`, somewhere the Author could never drag them back
+ * from; laid out in columns, a Story stays within reach for hundreds of Scenes.
+ */
+export const NODES_PER_COLUMN = 20
 
 /**
  * A Story as the Author edits it: Scenes in the order they were written, each a

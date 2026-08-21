@@ -10,7 +10,7 @@ import { useDb } from '../../../db'
 export default defineEventHandler(async (event) => {
   const { user: author } = await requireUserSession(event)
   const id = readId(event, 'Scene')
-  const toSceneId = await readTargetScene(event)
+  const toSceneId = await readTargetSceneId(event)
 
   const { rows } = await useDb().execute<Cut>(sql`
     insert into cuts (from_scene_id, to_scene_id)

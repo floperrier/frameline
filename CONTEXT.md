@@ -27,6 +27,12 @@ A directed connection from one Scene to another, offered to the Reader at the en
 of a Scene as something to take. Named after the film edit that joins two shots.
 _Avoid_: choice, option, link, branch, edge, transition, raccord
 
+**Graph**:
+A whole Story seen at once, as its Scenes and the Cuts between them. A Scene is
+drawn in it as a node and a Cut as an edge — words for the drawing, never for the
+Scene or the Cut itself.
+_Avoid_: map, tree, flowchart, board, canvas
+
 **Opening Scene**:
 The one Scene a Reading starts on, named by the Story itself. The first Scene an
 Author writes becomes it, and the Author can name another.

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { neon } from '@neondatabase/serverless'
 import { test as base } from '@playwright/test'
 import type { Cut, Scene, Shot } from '../../shared/utils/scenes'
+import { NODE_GAP, NODE_SPACING, NODE_WIDTH, NODES_PER_COLUMN } from '../../shared/utils/scenes'
 import { sealSession, type H3Event } from 'h3'
 
 const sql = neon(process.env.DATABASE_URL!)
@@ -78,11 +79,18 @@ export async function seedScene(story: Story, name: string) {
   return { ...scene!, shots: [shot!] }
 }
 
-/** Writes a whole column of Scenes at once, for a graph too large to build a request at a time. */
+/**
+ * Writes a whole graph of Scenes at once, for one too large to build a request at
+ * a time, laid out in the columns the API would have laid them out in.
+ */
 export async function seedScenes(story: Story, names: string[]) {
   return await sql`
-    insert into scenes (story_id, name, y)
-    select ${story.id}, name, (place - 1) * 340
+    insert into scenes (story_id, name, x, y)
+    select
+      ${story.id},
+      name,
+      ((place - 1) / ${NODES_PER_COLUMN}) * ${NODE_WIDTH + NODE_GAP},
+      ((place - 1) % ${NODES_PER_COLUMN}) * ${NODE_SPACING}
     from unnest(${names}::text[]) with ordinality as named (name, place)
     returning id, name` as Pick<Scene, 'id' | 'name'>[]
 }
@@ -105,8 +113,8 @@ export async function readCuts(fromSceneId: string) {
     order by created_at, id` as Cut[]
 }
 
-/** Reads where a Scene's node sits, and which Scene its Story opens on. */
-export async function readSceneNode(id: string) {
+/** Reads where a Scene sits in the graph, and which Scene its Story opens on. */
+export async function readScenePlacement(id: string) {
   const [node] = await sql`
     select scenes.x, scenes.y, stories.opening_scene_id as "openingSceneId"
     from scenes join stories on stories.id = scenes.story_id
