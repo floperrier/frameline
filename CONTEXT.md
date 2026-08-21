@@ -27,6 +27,11 @@ A directed connection from one Scene to another, offered to the Reader at the en
 of a Scene as something to take. Named after the film edit that joins two shots.
 _Avoid_: choice, option, link, branch, edge, transition, raccord
 
+**Opening Scene**:
+The one Scene a Reading starts on, named by the Story itself. The first Scene an
+Author writes becomes it, and the Author can name another.
+_Avoid_: start, entry point, root, first scene, home
+
 **Condition**:
 An expression on a Cut that decides whether the Cut is offered to this Reader,
 evaluated against State.

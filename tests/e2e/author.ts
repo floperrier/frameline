@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { neon } from '@neondatabase/serverless'
 import { test as base } from '@playwright/test'
-import type { Scene, Shot } from '../../shared/utils/scenes'
+import type { Cut, Scene, Shot } from '../../shared/utils/scenes'
 import { sealSession, type H3Event } from 'h3'
 
 const sql = neon(process.env.DATABASE_URL!)
@@ -76,6 +76,43 @@ export async function seedScene(story: Story, name: string) {
     returning id, text, position` as Shot[]
 
   return { ...scene!, shots: [shot!] }
+}
+
+/** Writes a whole column of Scenes at once, for a graph too large to build a request at a time. */
+export async function seedScenes(story: Story, names: string[]) {
+  return await sql`
+    insert into scenes (story_id, name, y)
+    select ${story.id}, name, (place - 1) * 340
+    from unnest(${names}::text[]) with ordinality as named (name, place)
+    returning id, name` as Pick<Scene, 'id' | 'name'>[]
+}
+
+/** Draws a Cut on behalf of an Author nobody is signed in as. */
+export async function seedCut(fromSceneId: string, toSceneId: string, text = 'Their Cut') {
+  const [cut] = await sql`
+    insert into cuts (from_scene_id, to_scene_id, text)
+    values (${fromSceneId}, ${toSceneId}, ${text})
+    returning id, from_scene_id as "fromSceneId", to_scene_id as "toSceneId", text` as Cut[]
+
+  return cut!
+}
+
+/** Reads the Cuts leaving a Scene past the API. */
+export async function readCuts(fromSceneId: string) {
+  return await sql`
+    select id, from_scene_id as "fromSceneId", to_scene_id as "toSceneId", text
+    from cuts where from_scene_id = ${fromSceneId}
+    order by created_at, id` as Cut[]
+}
+
+/** Reads where a Scene's node sits, and which Scene its Story opens on. */
+export async function readSceneNode(id: string) {
+  const [node] = await sql`
+    select scenes.x, scenes.y, stories.opening_scene_id as "openingSceneId"
+    from scenes join stories on stories.id = scenes.story_id
+    where scenes.id = ${id}` as { x: number, y: number, openingSceneId: string | null }[]
+
+  return node!
 }
 
 /** Reads a Scene's Shots past the API, in the order the Scene numbers them. */
