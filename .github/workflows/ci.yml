@@ -68,8 +68,17 @@ jobs:
             --project-id "$NEON_PROJECT_ID" --pooled)
           echo "::add-mask::$url"
           echo "DATABASE_URL=$url" >> "$GITHUB_ENV"
+          # Migrations connect directly: the pooler runs in transaction mode and
+          # drops the session state a migration relies on. Production splits the
+          # two the same way, so the suite exercises the split as well.
+          direct=$(npx -y neon@latest connection-string "$NEON_BRANCH" \
+            --project-id "$NEON_PROJECT_ID")
+          echo "::add-mask::$direct"
+          echo "DIRECT_DATABASE_URL=$direct" >> "$GITHUB_ENV"
 
       - run: pnpm db:migrate
+        env:
+          DATABASE_URL: ${{ env.DIRECT_DATABASE_URL }}
 
       # The password only has to outlive the preview server it seals sessions
       # for, so the run makes its own rather than borrowing a stored secret.

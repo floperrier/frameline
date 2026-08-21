@@ -22,12 +22,13 @@ DATABASE_URL='postgres://…' pnpm db:migrate
 ```
 
 Locally, `neon checkout development` writes the right `DATABASE_URL` into
-`.env` for you — see `docs/git-flow.md` for why the separation matters.
+`.env` for you — see `docs/git-flow.md` for why the separation matters. You
+never name `production` yourself: the deploy applies migrations to it, as
+`docs/adr/0002-the-schema-moves-with-the-deploy.md` explains.
 
 Neon's branch protection needs a paid plan, so `production` is not protected.
-Nothing enforces the separation above — it holds because `.env` points at
-`development` and because no automation ever names the production branch. Treat
-a command that spells out the production connection string as a deliberate act.
+What keeps the branches apart is that `.env` points at `development` and that
+the only automation naming production is the deploy itself.
 
 ## 2. OAuth applications
 
@@ -53,9 +54,15 @@ there:
 | Variable | Value |
 | --- | --- |
 | `NUXT_SESSION_PASSWORD` | 32+ random characters, sealing the session cookie |
-| `NUXT_DATABASE_URL` (Production only) | pooled connection string of the `production` Neon branch |
+| `NUXT_DATABASE_URL` (Production only) | pooled connection string of the `production` Neon branch, for the running application |
+| `DATABASE_URL` (Production only) | direct connection string of the same branch, read by `pnpm db:migrate` during the build |
 | `NUXT_OAUTH_GITHUB_CLIENT_ID` / `_SECRET` | from the GitHub OAuth app |
 | `NUXT_OAUTH_GOOGLE_CLIENT_ID` / `_SECRET` | from the Google OAuth client |
+
+Both connection strings point at the same Neon branch and differ only in the
+endpoint: the pooler drops the session state a migration relies on, so the
+migration takes the direct one. `DATABASE_URL` has to exist before the first
+deploy, or the build fails on its own migration step.
 
 Then `vercel --prod`. Afterwards a push to `main` deploys from the repository;
 no other branch does.
