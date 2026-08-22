@@ -49,3 +49,20 @@ built app and a real Neon branch — `docs/git-flow.md` says which branch.
 `pnpm dev` after copying `.env.example` to `.env` and filling it in. The Neon
 schema is applied with `pnpm db:migrate`; never edit the database by hand.
 Migrations are generated from `server/db/schema.ts` with `pnpm db:generate`.
+
+## The demonstration work
+
+`demonstration/` holds *Reel Change*, the short work the product exists to carry:
+`reel-change.ts` is the work itself — its Scenes, Shots, Cuts and Conditions, and
+the recipe for each still — and `write.ts` writes it into a running instance
+through the same API the editor uses, then publishes it.
+
+```sh
+node --env-file=.env demonstration/write.ts --author you@example.com
+```
+
+The Author has to have signed in to that instance already, `DATABASE_URL` and
+`NUXT_SESSION_PASSWORD` have to be the ones it runs on, ImageMagick has to be on
+the path — the stills are developed by `magick`, not stored here — and Node has to
+be 22.18 or newer, which is the version that strips the types itself. Running it
+again writes a second copy rather than replacing the first.
