@@ -1,8 +1,6 @@
 {
   "locale": {
-    "label": "Language of the interface",
-    "en": "English",
-    "fr": "Français"
+    "label": "Locale"
   },
   "languages": {
     "de": "German",
@@ -71,7 +69,7 @@
     "move": "Move",
     "openingScene": "Opening Scene",
     "deleteScene": "Delete Scene",
-    "shotNumbered": "Shot",
+    "shot": "Shot",
     "stillOfShot": "The still of Shot {place}",
     "image": "Image",
     "imageOfShot": "of Shot {place}",

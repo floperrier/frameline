@@ -54,7 +54,12 @@ async function signOut() {
       <div class="row">
         <p class="titling">
           <label class="eyebrow" for="new-story-title">{{ $t('stories.newTitle') }}</label>
-          <input id="new-story-title" v-model="newTitle" required :maxlength="STORY_TITLE_MAX_LENGTH">
+          <input
+            id="new-story-title"
+            v-model="newTitle"
+            required
+            :maxlength="STORY_TITLE_MAX_LENGTH"
+          >
         </p>
         <p class="written-in">
           <label class="eyebrow" for="new-story-language">{{ $t('stories.newLanguage') }}</label>

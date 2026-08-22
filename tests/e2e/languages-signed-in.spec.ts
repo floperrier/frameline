@@ -19,18 +19,19 @@ import { test, writeStory } from './author'
  */
 async function everythingShown(page: Page) {
   return page.evaluate(() => {
+    const read = ['alt', 'placeholder', 'aria-label', 'title']
     const said = [document.body.textContent ?? '']
-    for (const element of document.querySelectorAll('[alt], [placeholder], [aria-label], [title]')) {
-      for (const attribute of ['alt', 'placeholder', 'aria-label', 'title']) {
-        said.push(element.getAttribute(attribute) ?? '')
-      }
+    for (const element of document.querySelectorAll(read.map(at => `[${at}]`).join(', '))) {
+      for (const attribute of read) said.push(element.getAttribute(attribute) ?? '')
     }
     return said.join('\n')
   })
 }
 
 /** What a key looks like when it reaches a screen instead of the words it names. */
-const A_RAW_KEY = /\b(common|conditions|cut|editor|error|landing|languages|locale|preview|reading|refusals|scene|stories)\.[a-z][\w.]*/i
+const A_RAW_KEY = new RegExp(
+  '\\b(common|conditions|cut|editor|error|landing|languages'
+  + '|locale|preview|reading|refusals|scene|stories)\\.[a-z][\\w.]*', 'i')
 
 test.describe('an interface read in French', () => {
   test.use({ locale: 'fr-FR' })
@@ -80,6 +81,9 @@ test.describe('an interface read in French', () => {
     // chrome around the Story is still the French this browser announced.
     await page.goto(`/fr/stories/${story.id}`)
     await page.getByRole('button', { name: 'Publier ce Récit', exact: true }).click()
+    // Published before the page is left: a navigation would abort the request
+    // the click sent, and the link would still be nobody's but the Author's.
+    await expect(page.getByRole('button', { name: 'Dépublier ce Récit' })).toBeVisible()
     await page.goto(`${baseURL}/read/${story.id}`)
     await expect(page).toHaveURL(`${baseURL}/read/${story.id}`)
     await expect(page.getByRole('button', { name: 'Plan suivant' })).toBeVisible()

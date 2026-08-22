@@ -40,6 +40,11 @@ function sceneName(sceneId: string) {
  * almost nothing at very great length.
  */
 const flags = computed(() => Object.entries(shown.value?.state.flags ?? {}))
+
+/** What a Flag holds, and what stands in for a Flag holding the empty value. */
+function held(value: string) {
+  return value || t('preview.noFlagValue')
+}
 const visits = computed(() => Object.entries(shown.value?.state.visits ?? {}))
 
 /**
@@ -134,7 +139,7 @@ function why(conditions: Condition[]) {
           <p class="eyebrow">{{ $t('preview.waysOnHidden') }}</p>
           <ul>
             <li v-for="cut in hidden" :key="cut.id">
-              <s class="splice">{{ cutNamed(cut, sceneName, t) }}</s>
+              <s class="splice" :lang="story?.language">{{ cutNamed(cut, sceneName, t) }}</s>
               <ul class="why">
                 <li v-for="(test, at) in why(cut.conditions)" :key="at">{{ test }}</li>
               </ul>
@@ -151,7 +156,7 @@ function why(conditions: Condition[]) {
           <p class="eyebrow">{{ $t('preview.shotsSkipped') }}</p>
           <ul>
             <li v-for="{ shot, place } in skipped" :key="shot.id">
-              <s class="splice">
+              <s class="splice" :lang="story?.language">
                 {{ t('preview.skippedShot', {
                   place,
                   text: shot.text || t('preview.nothingWritten'),
@@ -169,7 +174,7 @@ function why(conditions: Condition[]) {
             <p class="eyebrow">{{ $t('preview.flags') }}</p>
             <ul v-if="flags.length" class="flags">
               <li v-for="[name, value] in flags" :key="name">
-                {{ name }} <span aria-hidden="true">=</span> <b>{{ value || $t('preview.noFlagValue') }}</b>
+                {{ name }} <span aria-hidden="true">=</span> <b>{{ held(value) }}</b>
               </li>
             </ul>
             <p v-else class="none">{{ $t('preview.noFlags') }}</p>

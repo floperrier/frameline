@@ -1,8 +1,6 @@
 {
   "locale": {
-    "label": "Langue de l'interface",
-    "en": "English",
-    "fr": "Français"
+    "label": "Langue de l'interface"
   },
   "languages": {
     "de": "Allemand",
@@ -71,7 +69,7 @@
     "move": "Déplacer",
     "openingScene": "Scène d'ouverture",
     "deleteScene": "Supprimer la Scène",
-    "shotNumbered": "Plan",
+    "shot": "Plan",
     "stillOfShot": "Le photogramme du Plan {place}",
     "image": "Photogramme",
     "imageOfShot": "du Plan {place}",

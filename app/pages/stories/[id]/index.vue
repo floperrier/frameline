@@ -441,7 +441,9 @@ function atAGlance(scene: Scene) {
                 @click="foldOrOpen(scene)"
               >
                 {{ opened.has(scene.id) ? $t('editor.fold') : $t('editor.open') }}
-                <span class="visually-hidden">{{ $t('editor.sceneNamed', { name: scene.name }) }}</span>
+                <span class="visually-hidden">
+                  {{ $t('editor.sceneNamed', { name: scene.name }) }}
+                </span>
               </button>
 
               <button
@@ -453,7 +455,9 @@ function atAGlance(scene: Scene) {
                 @keydown="nudge(scene, $event)"
               >
                 {{ $t('editor.move') }}
-                <span class="visually-hidden">{{ $t('editor.sceneNamed', { name: scene.name }) }}</span>
+                <span class="visually-hidden">
+                  {{ $t('editor.sceneNamed', { name: scene.name }) }}
+                </span>
               </button>
             </div>
           </div>
@@ -493,7 +497,7 @@ function atAGlance(scene: Scene) {
                 <!-- The number alone in the gutter, where a frame's edge code would be,
                      and the word it is a number of kept for anyone listening. -->
                 <label class="shot-number" :for="`shot-${shot.id}`">
-                  <span class="visually-hidden">{{ $t('editor.shotNumbered') }} </span>{{ place + 1 }}
+                  <span class="visually-hidden">{{ $t('editor.shot') }} </span>{{ place + 1 }}
                 </label>
                 <div class="written">
                   <textarea
@@ -614,7 +618,9 @@ function atAGlance(scene: Scene) {
               <li v-for="(cut, place) in cutsFrom(scene)" :key="cut.id">
                 <label class="eyebrow" :for="`cut-${cut.id}`">
                   {{ $t('cut.to', { scene: sceneNames.get(cut.toSceneId) }) }}
-                  <span class="visually-hidden">{{ $t('editor.fromScene', { name: scene.name }) }}</span>
+                  <span class="visually-hidden">
+                    {{ $t('editor.fromScene', { name: scene.name }) }}
+                  </span>
                 </label>
                 <input
                   :id="`cut-${cut.id}`"

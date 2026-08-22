@@ -20,8 +20,6 @@ const failed = computed(() => Boolean(useRoute().query.error))
         <a class="door" href="/auth/github">{{ $t('landing.signInWithGitHub') }}</a>
         <a class="door" href="/auth/google">{{ $t('landing.signInWithGoogle') }}</a>
       </div>
-
-      <Locales />
     </div>
 
     <!-- The thesis, and the one thing worth showing before anyone signs in: a

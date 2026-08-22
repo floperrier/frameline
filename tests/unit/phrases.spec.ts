@@ -47,6 +47,9 @@ describe('the Locale a request is answered in', () => {
     // request that was merely bad into a server fault.
     expect(localeOf(';;;q=', undefined)).toBe('en')
     expect(localeOf('fr;q=what', undefined)).toBe('fr')
+    // A weight that parses to nothing is a header saying nothing about weight,
+    // which is not the same as a browser refusing the language.
+    expect(localeOf('fr;q=', undefined)).toBe('fr')
     expect(localeOf('*', undefined)).toBe('en')
   })
 })

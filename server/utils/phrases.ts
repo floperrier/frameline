@@ -44,15 +44,21 @@ export function localeOf(accepted: string | undefined, chosen: string | undefine
     .split(',')
     .map((range) => {
       const [tag, ...parameters] = range.trim().toLowerCase().split(';')
+      // `q=0` is a browser saying it will not take a language, and is dropped
+      // below. A `q` that parses to nothing is not that: it is a header saying
+      // nothing about weight, so the language keeps the default weight of one
+      // rather than being read as refused.
       const quality = parameters.map(part => part.trim()).find(part => part.startsWith('q='))
-      const written = Number(quality?.slice(2))
+      const written = quality ? Number.parseFloat(quality.slice(2)) : 1
 
       return { tag: tag?.split('-')[0], quality: Number.isFinite(written) ? written : 1 }
     })
     .filter(({ tag, quality }) => quality > 0 && isLocale(tag))
     .sort((first, second) => second.quality - first.quality)
 
-  return isLocale(ranked[0]?.tag) ? ranked[0]!.tag as Locale : DEFAULT_LOCALE
+  const preferred = ranked[0]?.tag
+
+  return isLocale(preferred) ? preferred : DEFAULT_LOCALE
 }
 
 /**
@@ -80,8 +86,8 @@ function messageAt(messages: object, key: string) {
 
 /**
  * The phrasing bound to one request, which is what every refusal in `server/`
- * reaches for. Negotiated once a request rather than once a refusal, because a
- * handler that says two things has to say both of them in one language.
+ * reaches for. Settled from the request and from nothing else, so a handler that
+ * says two things says both of them in one language however many times it asks.
  */
 export function saying(event: H3Event): Phrase {
   const locale = localeOf(

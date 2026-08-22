@@ -5,14 +5,24 @@ export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 type Kind = 'Story' | 'Scene' | 'Shot' | 'Cut'
 
 /**
- * Which of the four things is being spoken of, as the message file names it. The
- * glossary term is the code's, and the phrase is the screen's — see
- * `docs/adr/0014-the-glossary-is-the-codes-language.md` — and a key apiece
- * rather than a noun written into one sentence, because French makes the article
- * and the agreement depend on which noun it is.
+ * Which message each of the four things is refused with. A key apiece rather
+ * than a noun written into one sentence, because French makes the article and
+ * the agreement depend on which noun it is — and a map rather than a key built
+ * out of the noun at runtime, so a Kind nobody wrote a message for is a type
+ * error rather than a raw key on an Author's screen.
  */
-function keyed(kind: Kind) {
-  return kind.toLowerCase()
+const NOT_AN_ID: Record<Kind, string> = {
+  Story: 'refusals.notAnId.story',
+  Scene: 'refusals.notAnId.scene',
+  Shot: 'refusals.notAnId.shot',
+  Cut: 'refusals.notAnId.cut',
+}
+
+const NO_SUCH: Record<Kind, string> = {
+  Story: 'refusals.noSuch.story',
+  Scene: 'refusals.noSuch.scene',
+  Shot: 'refusals.noSuch.shot',
+  Cut: 'refusals.noSuch.cut',
 }
 
 /**
@@ -26,7 +36,7 @@ export function readId(event: H3Event, kind: Kind) {
   if (!id || !UUID_PATTERN.test(id)) {
     throw createError({
       statusCode: 400,
-      message: saying(event)(`refusals.notAnId.${keyed(kind)}`),
+      message: saying(event)(NOT_AN_ID[kind]),
     })
   }
 
@@ -48,7 +58,7 @@ export function readId(event: H3Event, kind: Kind) {
  * see `app/error.vue`.
  */
 export function notFound(event: H3Event, kind: Kind) {
-  const absent = saying(event)(`refusals.noSuch.${keyed(kind)}`)
+  const absent = saying(event)(NO_SUCH[kind])
 
   return createError({ statusCode: 404, message: absent, statusMessage: absent })
 }

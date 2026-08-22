@@ -1,6 +1,12 @@
 import { sql } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 
+/** The refusal each carrier of a list is given, one message apiece. */
+const TOO_MANY = {
+  Cut: 'refusals.tooManyConditions.cut',
+  Shot: 'refusals.tooManyConditions.shot',
+} as const
+
 /**
  * Reads the Conditions a Cut is offered under, or a Shot played under: an absent
  * or empty list is a Cut offered to everyone, and a Shot every Reading sees. One
@@ -26,10 +32,7 @@ export async function readConditions(
   if (conditions.length > CONDITIONS_MAX) {
     throw createError({
       statusCode: 400,
-      message: saying(event)(
-        `refusals.tooManyConditions.${carrier.toLowerCase()}`,
-        { max: CONDITIONS_MAX },
-      ),
+      message: saying(event)(TOO_MANY[carrier], { max: CONDITIONS_MAX }),
     })
   }
 
