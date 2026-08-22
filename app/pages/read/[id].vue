@@ -15,8 +15,20 @@ if (error.value) throw createError({ ...error.value, fatal: true })
 </script>
 
 <template>
-  <main>
-    <h1>{{ story?.title }}</h1>
+  <main class="room">
+    <!-- The title card: the Story is named once, at the head of the reel, and
+         then the frames have the room to themselves. -->
+    <header>
+      <p class="eyebrow">A Frameline Story</p>
+      <h1>{{ story?.title }}</h1>
+    </header>
+
     <Reading v-if="story" :story="story" />
   </main>
 </template>
+
+<style scoped>
+h1 {
+  font-size: clamp(2rem, 1.4rem + 2.4vw, 3rem);
+}
+</style>

@@ -59,3 +59,24 @@ test('a Cut whose Condition fails is not among the ones offered', async ({ page,
   await expect(page.getByRole('button', { name: 'Follow her out' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Stay outside' })).toBeHidden()
 })
+
+test('the Reading is read by keyboard, and focus goes with each beat', async ({ page, request }) => {
+  const story = await writeStory(request)
+  await page.goto(`/stories/${story.id}/preview`)
+
+  // Every beat replaces what was on screen, the control that was pressed
+  // included, so the Reading has to say where the Reader now is: on the frame
+  // while a Scene is playing, and on the first Cut once it has played out.
+  // Without it focus falls to the document and the next Shot is a tab from the
+  // top of the page.
+  const focused = () => page.evaluate(() => document.activeElement?.className ?? '')
+
+  await page.getByRole('button', { name: 'Next Shot' }).click()
+  await expect.poll(focused).toContain('frame')
+
+  await page.getByRole('button', { name: 'Next Shot' }).click()
+  await expect.poll(focused).toContain('splice')
+
+  await page.getByRole('button', { name: 'Follow her out' }).click()
+  await expect.poll(focused).toContain('frame')
+})

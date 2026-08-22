@@ -84,9 +84,15 @@ export const GRAPH_REACH = 10_000
  * is placed. Shared because the server does the placing and the graph does the
  * drawing, and the spacing clears the height so a new Scene does not land on top
  * of the controls of the one above it.
+ *
+ * The height shows a Shot with its still and the Flags the Scene sets; the Cuts
+ * leaving a Scene are a scroll away inside the node, because a node tall enough
+ * to hold all of them would be taller than the graph that holds it. The width is
+ * left at what a phone can show, because a node wider than the screen is a graph
+ * nobody can lay out on one.
  */
 export const NODE_WIDTH = 320
-export const NODE_HEIGHT = 300
+export const NODE_HEIGHT = 420
 export const NODE_GAP = 40
 export const NODE_SPACING = NODE_HEIGHT + NODE_GAP
 
