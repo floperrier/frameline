@@ -57,8 +57,9 @@ Author writes becomes it, and the Author can name another.
 _Avoid_: start, entry point, root, first scene, home
 
 **Condition**:
-An expression on a Cut that decides whether the Cut is offered to this Reader,
-evaluated against State.
+A flat test on State, carried by a Cut, that decides whether the Cut is offered to
+this Reader. A Cut may carry several, and is offered only where all of them hold;
+a Cut carrying none is always offered.
 _Avoid_: rule, guard, requirement, predicate, gate
 
 ### The reading
