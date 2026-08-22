@@ -79,6 +79,39 @@ function moveShot(shot: Shot, direction: 'earlier' | 'later') {
   return change(() => send(`/api/shots/${shot.id}/move`, { method: 'POST', body: { direction } }))
 }
 
+/**
+ * When each Shot's still was last attached, kept by the Shot's id. A still is
+ * served at an address made of the Shot's own id, so replacing one leaves `src`
+ * byte-identical and the browser goes on drawing the image it already has — the
+ * very one the Author has just replaced. Asking for it under a different address
+ * is what makes the new still the one on screen.
+ */
+const attachedAt = reactive<Record<string, number>>({})
+
+function stillOf(shot: Shot) {
+  const at = attachedAt[shot.id]
+
+  return at ? `${shot.image}?at=${at}` : shot.image!
+}
+
+/**
+ * Attaches the still the Author picked, sent as the whole request body. The input
+ * is cleared afterwards so picking the same file twice is a change twice — an
+ * Author whose first upload was refused would otherwise have to pick another file
+ * before they could retry the same one.
+ */
+function attachImage(shot: Shot, event: Event) {
+  const picker = event.target as HTMLInputElement
+  const picked = picker.files?.[0]
+  if (!picked) return
+  picker.value = ''
+
+  return change(async () => {
+    await send(`/api/shots/${shot.id}/image`, { method: 'PUT', body: picked })
+    attachedAt[shot.id] = Date.now()
+  })
+}
+
 function deleteShot(shot: Shot) {
   return change(() => send(`/api/shots/${shot.id}`, { method: 'DELETE' }))
 }
@@ -331,6 +364,19 @@ function anchor(sceneId: string) {
                 :maxlength="SHOT_TEXT_MAX_LENGTH"
                 @change="writeShot(shot)"
               />
+              <label :for="`image-${shot.id}`">
+                Image <span class="visually-hidden">of Shot {{ place + 1 }}</span>
+              </label>
+              <input
+                :id="`image-${shot.id}`"
+                type="file"
+                :accept="SHOT_IMAGE_TYPES.join(',')"
+                @change="attachImage(shot, $event)"
+              >
+              <!-- The still as the Author will meet it in a Reading, so a wrong
+                   image is seen here rather than in the published Story. -->
+              <img v-if="shot.image" :src="stillOf(shot)" :alt="`The still of Shot ${place + 1}`">
+
               <button type="button" :disabled="place === 0" @click="moveShot(shot, 'earlier')">
                 Move earlier <span class="visually-hidden">Shot {{ place + 1 }}</span>
               </button>
@@ -538,6 +584,12 @@ article {
    over each other are both reachable. */
 article:focus-within {
   z-index: 1;
+}
+
+/* A still is shown at whatever width the node leaves it, never at its own. */
+li img {
+  max-inline-size: 100%;
+  block-size: auto;
 }
 
 .handle {

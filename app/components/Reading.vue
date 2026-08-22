@@ -30,6 +30,14 @@ function offered(cut: Cut) {
 <template>
   <!-- One Shot at a time, and the Cuts only once the Scene has played out. -->
   <template v-if="shown.shot">
+    <!-- The still and the text are one beat, so they arrive together and the
+         Reader moves past both at once.
+
+         ponytail: `alt` is empty because no Shot has alternative text to give.
+         The Shot's text sits right beside the image and carries the beat, so an
+         empty `alt` keeps a screen reader from reading out a filename instead of
+         it. Give a Shot its own alternative text the day one is written. -->
+    <img v-if="shown.shot.image" :src="shown.shot.image" alt="">
     <p class="shot">{{ shown.shot.text }}</p>
     <button type="button" @click="at = advance(at)">Next Shot</button>
   </template>
@@ -48,5 +56,12 @@ function offered(cut: Cut) {
 <style scoped>
 .shot {
   white-space: pre-wrap;
+}
+
+/* A still is shown as large as the page allows and no larger, whatever it was
+   uploaded at. */
+img {
+  max-inline-size: 100%;
+  block-size: auto;
 }
 </style>
