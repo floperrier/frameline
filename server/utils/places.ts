@@ -13,6 +13,6 @@ export async function readMoveStep(event: H3Event, what: 'Shot' | 'Cut') {
 
   throw createError({
     statusCode: 400,
-    message: `A ${what} moves either earlier or later.`,
+    message: saying(event)(`refusals.moveDirection.${what.toLowerCase()}`),
   })
 }

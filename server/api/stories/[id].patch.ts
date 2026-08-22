@@ -15,6 +15,6 @@ export default defineEventHandler(async (event) => {
     .where(and(eq(stories.id, id), eq(stories.authorId, author.id)))
     .returning({ id: stories.id, title: stories.title })
 
-  if (!story) throw notFound('Story')
+  if (!story) throw notFound(event, 'Story')
   return story
 })

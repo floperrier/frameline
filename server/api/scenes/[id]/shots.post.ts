@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
     where scenes.id = ${id}::uuid and scenes.id in (${scenesOf(author.id)})
     returning id, text, position, description, conditions`)
 
-  if (!rows[0]) throw notFound('Scene')
+  if (!rows[0]) throw notFound(event, 'Scene')
 
   setResponseStatus(event, 201)
   return rows[0]

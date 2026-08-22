@@ -32,6 +32,6 @@ export default defineEventHandler(async (event) => {
     returning shots.id, shots.position`)
 
   const moved = rows.find(row => row.id === id)
-  if (!moved) throw notFound('Shot')
+  if (!moved) throw notFound(event, 'Shot')
   return moved
 })

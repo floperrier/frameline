@@ -24,6 +24,6 @@ export default defineEventHandler(async (event) => {
     )
     select id from gone`)
 
-  if (!rows[0]) throw notFound('Cut')
+  if (!rows[0]) throw notFound(event, 'Cut')
   return rows[0]
 })

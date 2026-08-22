@@ -9,7 +9,7 @@ export async function readShotText(event: H3Event) {
   const body = await readBody<{ text?: unknown }>(event)
 
   if (typeof body?.text !== 'string') {
-    throw createError({ statusCode: 400, message: 'A Shot holds text.' })
+    throw createError({ statusCode: 400, message: saying(event)('refusals.shotText') })
   }
 
   const text = body.text
@@ -17,7 +17,7 @@ export async function readShotText(event: H3Event) {
   if (text.length > SHOT_TEXT_MAX_LENGTH) {
     throw createError({
       statusCode: 400,
-      message: `A Shot cannot hold more than ${SHOT_TEXT_MAX_LENGTH} characters.`,
+      message: saying(event)('refusals.shotTextLong', { max: SHOT_TEXT_MAX_LENGTH }),
     })
   }
 
@@ -38,8 +38,7 @@ export async function readShotDescription(event: H3Event) {
   if (typeof written !== 'string' || written.length > SHOT_DESCRIPTION_MAX_LENGTH) {
     throw createError({
       statusCode: 400,
-      message: 'A Description says what a still shows, in at most '
-        + `${SHOT_DESCRIPTION_MAX_LENGTH} characters.`,
+      message: saying(event)('refusals.description', { max: SHOT_DESCRIPTION_MAX_LENGTH }),
     })
   }
 
@@ -64,19 +63,16 @@ export async function readShotImage(event: H3Event) {
   const bytes = await readRawBody(event, false)
 
   if (!bytes?.length) {
-    throw createError({ statusCode: 400, message: 'An image is a file to upload.' })
+    throw createError({ statusCode: 400, message: saying(event)('refusals.imageMissing') })
   }
   if (bytes.length > SHOT_IMAGE_MAX_BYTES) {
     throw createError({
       statusCode: 400,
-      message: `An image cannot weigh more than ${SHOT_IMAGE_MAX_BYTES / 1024 / 1024} MB.`,
+      message: saying(event)('refusals.imageHeavy', { mb: SHOT_IMAGE_MAX_BYTES / 1024 / 1024 }),
     })
   }
   if (!imageTypeOf(bytes)) {
-    throw createError({
-      statusCode: 400,
-      message: 'A Shot carries a JPEG, a PNG or a WebP image, and nothing else.',
-    })
+    throw createError({ statusCode: 400, message: saying(event)('refusals.imageType') })
   }
 
   return bytes

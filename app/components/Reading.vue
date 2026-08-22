@@ -10,7 +10,9 @@
  * share what they have accumulated — there is no place for them to share it.
  * Leaving the page starts the Story over for the same reason.
  */
-const { story } = defineProps<{ story: StoryToShow }>()
+const { story } = defineProps<{ story: StoryToShow & { language: string } }>()
+
+const { t } = useI18n()
 
 /**
  * Where the Reading has got to, said out loud on every move. The whole of what
@@ -77,7 +79,7 @@ const held = computed(() => shown.value.shot ?? run.value.at(-1))
 
 /** A Cut nobody has phrased yet is offered by where it arrives. */
 function offered(cut: Cut) {
-  return cutNamed(cut, id => sceneNamed(sceneNames.value, id))
+  return cutNamed(cut, id => sceneNamed(sceneNames.value, id, t), t)
 }
 </script>
 
@@ -89,11 +91,17 @@ function offered(cut: Cut) {
       <!-- Keyed on the Position, so arriving at a Shot draws the frame again:
            each beat is thrown onto the screen rather than swapped into it, and
            reading a Scene again throws its first frame again. -->
+      <!-- The frame holds nothing but the Author's own work — the still, what it
+           shows, and the beat — so the whole of it is announced in the Story's
+           Language whatever language the chrome around it is read in. Nothing
+           translates a Story: see
+           `docs/adr/0013-the-interfaces-locale-is-not-the-storys-language.md`. -->
       <figure
         ref="frame"
         :key="`${at.taken.length}-${at.shot}`"
         class="frame"
         :class="{ 'pushed-back': !shown.shot }"
+        :lang="story.language"
         tabindex="-1"
       >
         <!-- The still and the text are one beat, so they arrive together and the
@@ -116,9 +124,9 @@ function offered(cut: Cut) {
            the Scene is left, every tick lit once the run is behind the Reader. -->
       <div class="edge">
         <p class="eyebrow">
-          {{ scene?.name }}
+          <span :lang="story.language">{{ scene?.name }}</span>
           <span aria-hidden="true">·</span>
-          Shot {{ place }} of {{ run.length }}
+          {{ $t('reading.shotOf', { place, of: run.length }) }}
         </p>
         <ol aria-hidden="true" class="ticks">
           <li v-for="(_, tick) in run.length" :key="tick" :class="{ lit: tick < place }" />
@@ -129,24 +137,26 @@ function offered(cut: Cut) {
     <!-- The one control the frame carries, and only while there is a Shot left to
          ask for: the frame held behind the ways on asks for nothing. -->
     <button v-if="shown.shot" type="button" class="next" @click="moveTo(advance(at))">
-      Next Shot
+      {{ $t('reading.next') }}
     </button>
 
     <!-- The ways on go under the frame rather than over it, and carry no eyebrow
          of their own: the edge above has already named the Scene they leave. -->
     <ul v-if="shown.cuts.length" ref="cuts" class="cuts">
       <li v-for="cut in shown.cuts" :key="cut.id">
-        <button type="button" class="splice" @click="moveTo(take(at, cut))">
+        <!-- What the Author wrote on the Cut, so it carries the Story's Language
+             like the beat above it does. -->
+        <button type="button" class="splice" :lang="story.language" @click="moveTo(take(at, cut))">
           {{ offered(cut) }}
         </button>
       </li>
     </ul>
 
-    <p v-if="shown.ended" class="ended trail" role="status">The path ends here.</p>
+    <p v-if="shown.ended" class="ended trail" role="status">{{ $t('reading.ended') }}</p>
 
     <p class="again">
       <button type="button" class="trail" @click="moveTo(OPENING)">
-        Read again from the start
+        {{ $t('reading.again') }}
       </button>
     </p>
   </div>

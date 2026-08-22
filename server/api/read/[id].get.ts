@@ -16,11 +16,16 @@ export default defineEventHandler(async (event) => {
   const id = readId(event, 'Story')
 
   const [story] = await useDb()
-    .select({ id: stories.id, title: stories.title, openingSceneId: stories.openingSceneId })
+    .select({
+      id: stories.id,
+      title: stories.title,
+      language: stories.language,
+      openingSceneId: stories.openingSceneId,
+    })
     .from(stories)
     .where(and(eq(stories.id, id), isNotNull(stories.publishedAt)))
 
-  if (!story) throw notFound('Story')
+  if (!story) throw notFound(event, 'Story')
 
   const { scenes, cuts } = await readStoryGraph(id)
 

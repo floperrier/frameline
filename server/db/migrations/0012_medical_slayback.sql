@@ -1,0 +1,1 @@
+ALTER TABLE "stories" ADD COLUMN "language" text DEFAULT 'en' NOT NULL;

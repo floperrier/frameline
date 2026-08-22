@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
     .where(and(eq(shots.id, id), inArray(shots.sceneId, scenesOf(author.id))))
     .returning({ id: shots.id })
 
-  if (!shot) throw notFound('Shot')
+  if (!shot) throw notFound(event, 'Shot')
 
   return { id: shot.id, image: shotImageUrl(shot.id) }
 })

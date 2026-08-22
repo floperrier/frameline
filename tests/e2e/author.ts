@@ -204,8 +204,10 @@ async function sealAuthorSession(author: Author) {
  * Shots to play. Shared by the two specs that need a readable Story, because a
  * Reader must meet exactly what a Preview showed.
  */
-export async function writeStory(request: APIRequestContext) {
-  const story = await (await request.post('/api/stories', { data: { title: 'A Story' } })).json()
+export async function writeStory(request: APIRequestContext, language = 'en') {
+  const story = await (await request.post('/api/stories', {
+    data: { title: 'A Story', language },
+  })).json()
 
   const scenes = []
   for (const [name, texts] of [
@@ -227,5 +229,5 @@ export async function writeStory(request: APIRequestContext) {
   })).json()
   await request.patch(`/api/cuts/${cut.id}`, { data: { text: 'Follow her out' } })
 
-  return story as { id: string, title: string }
+  return story as { id: string, title: string, language: string }
 }

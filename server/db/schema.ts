@@ -14,6 +14,15 @@ export const authors = pgTable('authors', {
 // Scenes. It is null until the Story has a Scene, and again if that Scene is
 // deleted.
 //
+// `language` is the language the work is written in, named by its Author when
+// the Story is created and never the language its Author reads the editor in —
+// see `docs/adr/0013-the-interfaces-locale-is-not-the-storys-language.md`. It
+// holds a BCP-47 code and is not constrained to the Locales the interface has:
+// a Story written in Spanish inside a French editor is an ordinary Story. The
+// default is what backfills every row written before the column existed, all of
+// which are English, and is also what the schema owes a rollback — see
+// `docs/adr/0002-the-schema-moves-with-the-deploy.md`.
+//
 // `published_at` is what makes the Story readable at its public link, and null
 // is what keeps it the Author's alone. A timestamp rather than a flag because it
 // says when as well as whether, at no more cost. Nothing else changes on a
@@ -23,6 +32,7 @@ export const stories = pgTable('stories', {
   id: uuid('id').primaryKey().defaultRandom(),
   authorId: uuid('author_id').notNull().references(() => authors.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
+  language: text('language').notNull().default('en'),
   openingSceneId: uuid('opening_scene_id')
     .references((): AnyPgColumn => scenes.id, { onDelete: 'set null' }),
   publishedAt: timestamp('published_at', { withTimezone: true }),

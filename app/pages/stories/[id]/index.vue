@@ -1,6 +1,8 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'authenticated' })
 
+const { t } = useI18n()
+const localePath = useLocalePath()
 const id = useRoute().params.id as string
 // `useFetch` would forward the session cookie itself, but it cannot be given a
 // URL that is not a literal (see `send`), so the cookie is passed on by hand —
@@ -61,15 +63,26 @@ function createScene() {
   })
 }
 
-/** `1 Shot` and `2 Shots`: a folded node counts them, and a Delete asks about them. */
-function counted(many: number, noun: string) {
-  return `${many} ${noun}${many === 1 ? '' : 's'}`
+/**
+ * `1 Shot` and `2 Shots`: a folded node counts them, and a Delete asks about
+ * them. One phrase a count rather than a suffix on a noun, because a plural is
+ * not a letter added in every language the interface is read in.
+ */
+function countedShots(many: number) {
+  return t(many === 1 ? 'editor.oneShot' : 'editor.manyShots', { count: many })
+}
+
+function countedCuts(many: number) {
+  return t(many === 1 ? 'editor.oneCut' : 'editor.manyCuts', { count: many })
 }
 
 function deleteScene(scene: Scene) {
-  const shots = counted(scene.shots.length, 'Shot')
-  const cuts = counted(cutsFrom(scene).length, 'Cut')
-  if (!confirm(`Delete “${scene.name}”, its ${shots} and ${cuts}?`)) return
+  const asked = {
+    name: scene.name,
+    shots: countedShots(scene.shots.length),
+    cuts: countedCuts(cutsFrom(scene).length),
+  }
+  if (!confirm(t('editor.confirmDeleteScene', asked))) return
   return change(() => send(`/api/scenes/${scene.id}`, { method: 'DELETE' }))
 }
 
@@ -322,10 +335,12 @@ function foldOrOpen(scene: Scene) {
  * because where a Scene leads is the one thing a graph is read for.
  */
 function atAGlance(scene: Scene) {
-  const shots = counted(scene.shots.length, 'Shot')
-  const waysOn = cutsFrom(scene).map(cut => sceneNamed(sceneNames.value, cut.toSceneId))
+  const shots = countedShots(scene.shots.length)
+  const waysOn = cutsFrom(scene).map(cut => sceneNamed(sceneNames.value, cut.toSceneId, t))
 
-  return waysOn.length ? `${shots}, on to ${waysOn.join(', ')}` : `${shots}, no way on`
+  return waysOn.length
+    ? t('editor.glanceWaysOn', { shots, waysOn: waysOn.join(', ') })
+    : t('editor.glanceNoWayOn', { shots })
 }
 </script>
 
@@ -336,38 +351,46 @@ function atAGlance(scene: Scene) {
          on screen, because the graph below it scrolls a long way. -->
     <header>
       <div class="titling">
-        <NuxtLink class="back trail" to="/stories">All Stories</NuxtLink>
+        <NuxtLink class="back trail" :to="localePath('/stories')">
+          {{ $t('editor.allStories') }}
+        </NuxtLink>
         <h1>{{ story?.title }}</h1>
       </div>
 
       <div class="release">
+        <!-- The one place an Author changes the language of their own tool. It
+             is never drawn on the Reader's page — see
+             `docs/adr/0012-the-public-link-carries-no-locale.md`. -->
+        <Locales />
         <!-- Published or not is the whole of it: one button either way, and the link
              shown in full so it can be copied out of the page. -->
         <p v-if="story?.publishedAt" class="live">
-          <span class="eyebrow">Anyone can read this Story at</span>
+          <span class="eyebrow">{{ $t('editor.readableAt') }}</span>
           <a class="link" :href="publicLink">{{ publicLink }}</a>
         </p>
-        <NuxtLink class="preview trail" :to="`/stories/${id}/preview`">Preview this Story</NuxtLink>
+        <NuxtLink class="preview trail" :to="localePath(`/stories/${id}/preview`)">
+          {{ $t('editor.preview') }}
+        </NuxtLink>
         <button v-if="story?.publishedAt" type="button" @click="unpublish">
-          Unpublish this Story
+          {{ $t('editor.unpublish') }}
         </button>
-        <button v-else type="button" class="primary" @click="publish">Publish this Story</button>
+        <button v-else type="button" class="primary" @click="publish">
+          {{ $t('editor.publish') }}
+        </button>
       </div>
     </header>
 
     <form class="naming" @submit.prevent="createScene">
-      <label class="eyebrow" for="new-scene-name">Name of a new Scene</label>
+      <label class="eyebrow" for="new-scene-name">{{ $t('editor.newSceneName') }}</label>
       <div class="row">
         <input id="new-scene-name" v-model="newSceneName" required :maxlength="SCENE_NAME_MAX_LENGTH">
-        <button type="submit">Create Scene</button>
+        <button type="submit">{{ $t('editor.createScene') }}</button>
       </div>
     </form>
 
     <p v-if="problem" role="alert">{{ problem }}</p>
 
-    <p v-if="!story?.scenes.length" class="none">
-      No Scenes yet. Name one above, and it lands on the bench with a Shot to write.
-    </p>
+    <p v-if="!story?.scenes.length" class="none">{{ $t('editor.noScenes') }}</p>
     <div v-else class="graph">
       <div class="canvas" :style="graphSize">
         <!-- The Cuts are listed under the Scene they leave, so the lines that
@@ -417,8 +440,8 @@ function atAGlance(scene: Scene) {
                 :aria-expanded="opened.has(scene.id)"
                 @click="foldOrOpen(scene)"
               >
-                {{ opened.has(scene.id) ? 'Fold' : 'Open' }}
-                <span class="visually-hidden">Scene {{ scene.name }}</span>
+                {{ opened.has(scene.id) ? $t('editor.fold') : $t('editor.open') }}
+                <span class="visually-hidden">{{ $t('editor.sceneNamed', { name: scene.name }) }}</span>
               </button>
 
               <button
@@ -429,7 +452,8 @@ function atAGlance(scene: Scene) {
                 @pointerup="endDrag"
                 @keydown="nudge(scene, $event)"
               >
-                Move <span class="visually-hidden">Scene {{ scene.name }}</span>
+                {{ $t('editor.move') }}
+                <span class="visually-hidden">{{ $t('editor.sceneNamed', { name: scene.name }) }}</span>
               </button>
             </div>
           </div>
@@ -450,12 +474,14 @@ function atAGlance(scene: Scene) {
                   @change="openOn(scene)"
                 >
                 <label class="eyebrow" :for="`opening-${scene.id}`">
-                  Opening Scene <span class="visually-hidden">{{ scene.name }}</span>
+                  {{ $t('editor.openingScene') }}
+                  <span class="visually-hidden">{{ scene.name }}</span>
                 </label>
               </p>
   
               <button type="button" class="danger" @click="deleteScene(scene)">
-                Delete Scene <span class="visually-hidden">{{ scene.name }}</span>
+                {{ $t('editor.deleteScene') }}
+                <span class="visually-hidden">{{ scene.name }}</span>
               </button>
             </div>
   
@@ -467,7 +493,7 @@ function atAGlance(scene: Scene) {
                 <!-- The number alone in the gutter, where a frame's edge code would be,
                      and the word it is a number of kept for anyone listening. -->
                 <label class="shot-number" :for="`shot-${shot.id}`">
-                  <span class="visually-hidden">Shot </span>{{ place + 1 }}
+                  <span class="visually-hidden">{{ $t('editor.shotNumbered') }} </span>{{ place + 1 }}
                 </label>
                 <div class="written">
                   <textarea
@@ -482,10 +508,17 @@ function atAGlance(scene: Scene) {
                        here to say which image the Shot carries, and the Preview is
                        where the Author meets it at the size a Reader will. -->
                   <div class="still">
-                    <img v-if="shot.image" :src="stillOf(shot)" :alt="`The still of Shot ${place + 1}`">
+                    <img
+                      v-if="shot.image"
+                      :src="stillOf(shot)"
+                      :alt="$t('editor.stillOfShot', { place: place + 1 })"
+                    >
                     <div>
                       <label class="eyebrow" :for="`image-${shot.id}`">
-                        Image <span class="visually-hidden">of Shot {{ place + 1 }}</span>
+                        {{ $t('editor.image') }}
+                        <span class="visually-hidden">
+                          {{ $t('editor.imageOfShot', { place: place + 1 }) }}
+                        </span>
                       </label>
                       <input
                         :id="`image-${shot.id}`"
@@ -501,14 +534,17 @@ function atAGlance(scene: Scene) {
                        attached. A Shot of text alone is not asked for one. -->
                   <p v-if="shot.image" class="described">
                     <label class="eyebrow" :for="`description-${shot.id}`">
-                      Description <span class="visually-hidden">of the still of Shot {{ place + 1 }}</span>
+                      {{ $t('editor.description') }}
+                      <span class="visually-hidden">
+                        {{ $t('editor.descriptionOfShot', { place: place + 1 }) }}
+                      </span>
                     </label>
                     <input
                       :id="`description-${shot.id}`"
                       v-model="shot.description"
                       type="text"
                       :maxlength="SHOT_DESCRIPTION_MAX_LENGTH"
-                      placeholder="What the still shows"
+                      :placeholder="$t('editor.whatTheStillShows')"
                       @change="writeShot(shot)"
                     >
                   </p>
@@ -517,8 +553,8 @@ function atAGlance(scene: Scene) {
                        something different on a return visit without the Author
                        drawing a second Scene to hold the changed line. -->
                   <Conditions
-                    lead="Played when"
-                    :carrier="`Shot ${place + 1} of ${scene.name}`"
+                    :lead="$t('editor.playedWhen')"
+                    :carrier="$t('editor.shotOfScene', { place: place + 1, scene: scene.name })"
                     :conditions="shot.conditions"
                     :scenes="story.scenes"
                     :counting="scene.id"
@@ -528,17 +564,26 @@ function atAGlance(scene: Scene) {
   
                   <div class="row">
                     <button type="button" :disabled="place === 0" @click="moveShot(shot, 'earlier')">
-                      Move earlier <span class="visually-hidden">Shot {{ place + 1 }}</span>
+                      {{ $t('common.moveEarlier') }}
+                      <span class="visually-hidden">
+                        {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                      </span>
                     </button>
                     <button
                       type="button"
                       :disabled="place === scene.shots.length - 1"
                       @click="moveShot(shot, 'later')"
                     >
-                      Move later <span class="visually-hidden">Shot {{ place + 1 }}</span>
+                      {{ $t('common.moveLater') }}
+                      <span class="visually-hidden">
+                        {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                      </span>
                     </button>
                     <button type="button" class="danger" @click="deleteShot(shot)">
-                      Delete <span class="visually-hidden">Shot {{ place + 1 }}</span>
+                      {{ $t('common.delete') }}
+                      <span class="visually-hidden">
+                        {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -546,19 +591,21 @@ function atAGlance(scene: Scene) {
             </ol>
   
             <button type="button" @click="addShot(scene)">
-              Add Shot <span class="visually-hidden">to {{ scene.name }}</span>
+              {{ $t('editor.addShot') }}
+              <span class="visually-hidden">{{ $t('editor.toScene', { name: scene.name }) }}</span>
             </button>
   
             <p class="sets">
               <label class="eyebrow" :for="`flags-${scene.id}`">
-                Flags set on entering <span class="visually-hidden">{{ scene.name }}</span>
+                {{ $t('editor.flagsSet') }}
+                <span class="visually-hidden">{{ scene.name }}</span>
               </label>
               <textarea
                 :id="`flags-${scene.id}`"
                 class="data"
                 rows="2"
                 :value="flagLines(scene.sets)"
-                :placeholder="`courage ${FLAG_SEPARATOR} high`"
+                :placeholder="$t('editor.flagsPlaceholder', { separator: FLAG_SEPARATOR })"
                 @change="writeFlags(scene, ($event.target as HTMLTextAreaElement).value)"
               />
             </p>
@@ -566,8 +613,8 @@ function atAGlance(scene: Scene) {
             <ul class="cuts">
               <li v-for="(cut, place) in cutsFrom(scene)" :key="cut.id">
                 <label class="eyebrow" :for="`cut-${cut.id}`">
-                  Cut to {{ sceneNames.get(cut.toSceneId) }}
-                  <span class="visually-hidden">from {{ scene.name }}</span>
+                  {{ $t('cut.to', { scene: sceneNames.get(cut.toSceneId) }) }}
+                  <span class="visually-hidden">{{ $t('editor.fromScene', { name: scene.name }) }}</span>
                 </label>
                 <input
                   :id="`cut-${cut.id}`"
@@ -577,8 +624,8 @@ function atAGlance(scene: Scene) {
                 >
   
                 <Conditions
-                  lead="Offered when"
-                  :carrier="`the Cut to ${sceneNames.get(cut.toSceneId)}`"
+                  :lead="$t('editor.offeredWhen')"
+                  :carrier="$t('editor.theCutTo', { scene: sceneNames.get(cut.toSceneId) })"
                   :conditions="cut.conditions"
                   :scenes="story.scenes"
                   :counting="cut.fromSceneId"
@@ -592,9 +639,9 @@ function atAGlance(scene: Scene) {
                     :disabled="place === 0"
                     @click="moveCut(cut, 'earlier')"
                   >
-                    Move earlier
+                    {{ $t('common.moveEarlier') }}
                     <span class="visually-hidden">
-                      the Cut to {{ sceneNames.get(cut.toSceneId) }}
+                      {{ $t('editor.theCutTo', { scene: sceneNames.get(cut.toSceneId) }) }}
                     </span>
                   </button>
                   <button
@@ -602,29 +649,31 @@ function atAGlance(scene: Scene) {
                     :disabled="place === cutsFrom(scene).length - 1"
                     @click="moveCut(cut, 'later')"
                   >
-                    Move later
+                    {{ $t('common.moveLater') }}
                     <span class="visually-hidden">
-                      the Cut to {{ sceneNames.get(cut.toSceneId) }}
+                      {{ $t('editor.theCutTo', { scene: sceneNames.get(cut.toSceneId) }) }}
                     </span>
                   </button>
                   <button type="button" class="danger" @click="deleteCut(cut)">
-                    Delete Cut to {{ sceneNames.get(cut.toSceneId) }}
+                    {{ $t('editor.deleteCutTo', { scene: sceneNames.get(cut.toSceneId) }) }}
                   </button>
                 </div>
               </li>
             </ul>
   
             <form class="drawing" @submit.prevent="drawCut(scene)">
-              <label class="eyebrow" :for="`cut-from-${scene.id}`">Cut from {{ scene.name }} to</label>
+              <label class="eyebrow" :for="`cut-from-${scene.id}`">
+                {{ $t('editor.cutFromTo', { name: scene.name }) }}
+              </label>
               <select :id="`cut-from-${scene.id}`" v-model="cutTargets[scene.id]" required>
                 <!-- Nothing is aimed at until the Author says so, so a Cut cannot
                      be drawn by pressing the button alone. -->
-                <option value="">Choose a Scene</option>
+                <option value="">{{ $t('editor.chooseScene') }}</option>
                 <option v-for="other in story.scenes" :key="other.id" :value="other.id">
                   {{ other.name }}
                 </option>
               </select>
-              <button type="submit">Draw Cut from {{ scene.name }}</button>
+              <button type="submit">{{ $t('editor.drawCutFrom', { name: scene.name }) }}</button>
             </form>
           </template>
         </article>

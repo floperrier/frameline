@@ -1,7 +1,32 @@
 export default defineNuxtConfig({
-  modules: ['nuxt-auth-utils', '@nuxt/fonts'],
+  modules: ['nuxt-auth-utils', '@nuxt/fonts', '@nuxtjs/i18n'],
   compatibilityDate: '2026-08-19',
   css: ['~/assets/css/frameline.css'],
+  // Two languages the interface is read in, and one the strings are written in:
+  // English is the `defaultLocale`, so it is what an unprefixed URL serves and
+  // what a new key is authored in. French is reached at `/fr/...`.
+  //
+  // The Reader's page opts out of localized routing in the page itself, so the
+  // public link stays `/read/<id>` — see
+  // `docs/adr/0012-the-public-link-carries-no-locale.md`.
+  i18n: {
+    locales: [
+      { code: 'en', language: 'en', name: 'English', file: 'en.json' },
+      { code: 'fr', language: 'fr', name: 'Français', file: 'fr.json' },
+    ],
+    defaultLocale: 'en',
+    strategy: 'prefix_except_default',
+    // `all` rather than the recommended `root`: the Author is the only person
+    // who comes back, and they come back to a link deep in the editor, which
+    // `root` would leave in English whatever their browser says. An explicit
+    // choice lands in the cookie and is not overridden afterwards.
+    detectBrowserLanguage: {
+      useCookie: true,
+      redirectOn: 'all',
+      alwaysRedirect: false,
+      fallbackLocale: 'en',
+    },
+  },
   // The four faces the design uses, each with only the weights it is set in, so
   // the build downloads and self-hosts those files and nothing else. Named here
   // rather than left to be discovered, because a face the module cannot find has

@@ -25,6 +25,6 @@ export default defineEventHandler(async (event) => {
       and ${countedWithinTheStory(conditions)}
     returning shots.id, shots.conditions`)
 
-  if (!rows[0]) throw notFound('Shot')
+  if (!rows[0]) throw notFound(event, 'Shot')
   return rows[0]
 })
