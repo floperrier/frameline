@@ -14,13 +14,33 @@ A complete interactive work, owned by one Author.
 _Avoid_: film, movie, project, game, narrative, experience
 
 **Scene**:
-A linear run of Shots, and the only unit at which a Story branches.
+A linear run of Shots, and the only unit at which a Story branches. The run is
+linear for every Reader, but not the same length for each: a Shot whose Conditions
+do not hold is not played.
 _Avoid_: passage, knot, node, chapter, page, card
 
 **Shot**:
-The atomic unit of a Story — one still image and its text, shown to the Reader as
-a single beat.
+The atomic unit of a Story — a Still and its text, shown to the Reader as a single
+beat. Either may stand alone, but a Shot with neither is one the Author has not
+written yet.
 _Avoid_: panel, slide, frame, plan, beat, step
+
+**Still**:
+The one image a Shot carries. A Shot may be text alone, so a Still is what a Shot
+has at most one of, never a thing of its own.
+_Avoid_: picture, photo, frame, visual, asset, media
+
+**Description**:
+What a Still shows, written by the Author for a Reader who cannot see it. A Still
+may have none, and a Shot's text is never used as one: the text carries the beat,
+the Description carries the frame.
+_Avoid_: alt, alt text, label, caption, tooltip, legend
+
+**Place**:
+Where a Shot comes in its Scene's run, or a Cut in the ways on offered at the end
+of the Scene it leaves — the Author's own numbering, counted from the first, with
+nothing missing. Never used of a Reading, which has a Position instead.
+_Avoid_: index, order, rank, slot, sort key
 
 **Cut**:
 A directed connection from one Scene to another, offered to the Reader at the end
@@ -39,8 +59,10 @@ Author writes becomes it, and the Author can name another.
 _Avoid_: start, entry point, root, first scene, home
 
 **Condition**:
-An expression on a Cut that decides whether the Cut is offered to this Reader,
-evaluated against State.
+A flat test on State, carried by a Cut or by a Shot: it decides whether the Cut is
+offered to this Reader, or whether the Shot plays for them. Either may carry
+several, and is offered or played only where all of them hold; one carrying none
+always is.
 _Avoid_: rule, guard, requirement, predicate, gate
 
 ### The reading
@@ -63,6 +85,7 @@ _Avoid_: session, playthrough, run, visit
 How far one Reading has got: the Cuts it has taken, in order, and how many Shots
 of the Scene it stands in are behind it. Everything else about a Reading — the
 Scene, the Shot on screen, the Cuts on offer, the State — is computed from it.
+Where a Shot or a Cut comes in its own list is a Place, never a Position.
 _Avoid_: cursor, pointer, progress, step, index
 
 ### The people
