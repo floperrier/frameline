@@ -1,0 +1,6 @@
+pnpm-lock.yaml
+.nuxt
+.output
+.vercel
+test-results
+node_modules
