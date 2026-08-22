@@ -29,7 +29,7 @@ test('a Story needs a title', async ({ request }) => {
   const response = await request.post('/api/stories', { data: { title: '   ' } })
 
   expect(response.status()).toBe(400)
-  expect(await response.text()).toContain('A Story needs a title.')
+  expect((await response.json()).message).toContain('A Story needs a title.')
 })
 
 test('a Story that was never written reads as absent', async ({ request }) => {

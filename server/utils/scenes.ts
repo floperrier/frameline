@@ -28,12 +28,12 @@ export async function readSceneName(event: H3Event) {
   const name = typeof body?.name === 'string' ? body.name.trim() : ''
 
   if (!name) {
-    throw createError({ statusCode: 400, statusMessage: 'A Scene needs a name.' })
+    throw createError({ statusCode: 400, message: 'A Scene needs a name.' })
   }
   if (name.length > SCENE_NAME_MAX_LENGTH) {
     throw createError({
       statusCode: 400,
-      statusMessage: `A name cannot be longer than ${SCENE_NAME_MAX_LENGTH} characters.`,
+      message: `A name cannot be longer than ${SCENE_NAME_MAX_LENGTH} characters.`,
     })
   }
 
@@ -53,7 +53,7 @@ export async function readScenePlacement(event: H3Event) {
   if (x === undefined || y === undefined) {
     throw createError({
       statusCode: 400,
-      statusMessage: `A Scene sits between 0 and ${GRAPH_REACH} pixels from the graph's corner.`,
+      message: `A Scene sits between 0 and ${GRAPH_REACH} pixels from the graph's corner.`,
     })
   }
 
@@ -77,7 +77,7 @@ export async function readSceneFlags(event: H3Event): Promise<Flags> {
   if (entries.length > FLAGS_PER_SCENE) {
     throw createError({
       statusCode: 400,
-      statusMessage: `A Scene cannot set more than ${FLAGS_PER_SCENE} Flags.`,
+      message: `A Scene cannot set more than ${FLAGS_PER_SCENE} Flags.`,
     })
   }
 
@@ -99,6 +99,6 @@ export async function readSceneFlags(event: H3Event): Promise<Flags> {
 function badFlags() {
   return createError({
     statusCode: 400,
-    statusMessage: `A Flag is a name and a value, written “courage ${FLAG_SEPARATOR} high”.`,
+    message: `A Flag is a name and a value, written “courage ${FLAG_SEPARATOR} high”.`,
   })
 }

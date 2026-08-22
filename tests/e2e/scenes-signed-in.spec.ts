@@ -54,7 +54,7 @@ test('a Scene needs a name', async ({ request }) => {
   const response = await request.post(`/api/stories/${story.id}/scenes`, { data: { name: '  ' } })
 
   expect(response.status()).toBe(400)
-  expect(await response.text()).toContain('A Scene needs a name.')
+  expect((await response.json()).message).toContain('A Scene needs a name.')
 })
 
 test('a Shot moves earlier and later, and stays put at either end', async ({ request }) => {

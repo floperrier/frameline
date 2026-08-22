@@ -13,13 +13,24 @@ export function readId(event: H3Event, kind: Kind) {
   const id = getRouterParam(event, 'id')
 
   if (!id || !UUID_PATTERN.test(id)) {
-    throw createError({ statusCode: 400, statusMessage: `That is not a ${kind} id.` })
+    throw createError({ statusCode: 400, message: `That is not a ${kind} id.` })
   }
 
   return id
 }
 
-/** Whatever an Author never wrote reads as absent, not forbidden. */
+/**
+ * Whatever an Author never wrote reads as absent, not forbidden.
+ *
+ * The one refusal written twice, because a Reader reads this one. Nitro replaces
+ * a fatal error's `message` with "Server Error" before it leaves the server, so
+ * `statusMessage` is all that survives to the error page shown at the link to an
+ * unpublished Story, and the editor reads the body. The sentence is ASCII, so
+ * sanitizing costs it nothing. See
+ * `docs/adr/0009-a-refusal-travels-in-the-body.md`.
+ */
 export function notFound(kind: Kind) {
-  return createError({ statusCode: 404, statusMessage: `No such ${kind}.` })
+  const absent = `No such ${kind}.`
+
+  return createError({ statusCode: 404, message: absent, statusMessage: absent })
 }

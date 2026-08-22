@@ -37,8 +37,11 @@ test('an Author publishes a Story and a Reader reads it at the public link', asy
   // The link is the Story's own id, so it can be named before it exists.
   const publicLink = `${baseURL}/read/${story.id}`
 
-  // Unpublished, the Story is nobody's but its Author's.
-  expect((await readerAt(browser, publicLink)).status).toBe(404)
+  // Unpublished, the Story is nobody's but its Author's, and the dead link says
+  // so in words: a refusal a Reader reads has to survive the page it lands on.
+  const early = await readerAt(browser, publicLink)
+  expect(early.status).toBe(404)
+  await expect(early.page.getByRole('heading', { name: 'No such Story.' })).toBeVisible()
 
   // `exact` throughout: a role's name matches by substring otherwise, and
   // "Publish this Story" is one of "Unpublish this Story" — so the loose locator

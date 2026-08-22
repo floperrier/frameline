@@ -9,7 +9,7 @@ export async function readShotText(event: H3Event) {
   const body = await readBody<{ text?: unknown }>(event)
 
   if (typeof body?.text !== 'string') {
-    throw createError({ statusCode: 400, statusMessage: 'A Shot holds text.' })
+    throw createError({ statusCode: 400, message: 'A Shot holds text.' })
   }
 
   const text = body.text
@@ -17,7 +17,7 @@ export async function readShotText(event: H3Event) {
   if (text.length > SHOT_TEXT_MAX_LENGTH) {
     throw createError({
       statusCode: 400,
-      statusMessage: `A Shot cannot hold more than ${SHOT_TEXT_MAX_LENGTH} characters.`,
+      message: `A Shot cannot hold more than ${SHOT_TEXT_MAX_LENGTH} characters.`,
     })
   }
 
@@ -38,7 +38,7 @@ export async function readShotDescription(event: H3Event) {
   if (typeof written !== 'string' || written.length > SHOT_DESCRIPTION_MAX_LENGTH) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'A Description says what a still shows, in at most '
+      message: 'A Description says what a still shows, in at most '
         + `${SHOT_DESCRIPTION_MAX_LENGTH} characters.`,
     })
   }
@@ -64,18 +64,18 @@ export async function readShotImage(event: H3Event) {
   const bytes = await readRawBody(event, false)
 
   if (!bytes?.length) {
-    throw createError({ statusCode: 400, statusMessage: 'An image is a file to upload.' })
+    throw createError({ statusCode: 400, message: 'An image is a file to upload.' })
   }
   if (bytes.length > SHOT_IMAGE_MAX_BYTES) {
     throw createError({
       statusCode: 400,
-      statusMessage: `An image cannot weigh more than ${SHOT_IMAGE_MAX_BYTES / 1024 / 1024} MB.`,
+      message: `An image cannot weigh more than ${SHOT_IMAGE_MAX_BYTES / 1024 / 1024} MB.`,
     })
   }
   if (!imageTypeOf(bytes)) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'A Shot carries a JPEG, a PNG or a WebP image, and nothing else.',
+      message: 'A Shot carries a JPEG, a PNG or a WebP image, and nothing else.',
     })
   }
 

@@ -22,7 +22,10 @@ export function useEditing(reload: () => Promise<unknown>) {
       return true
     }
     catch (error) {
-      problem.value = (error as { statusMessage?: string }).statusMessage
+      // The refusal travels in the body rather than on the status line, where
+      // `error.statusMessage` reads it as a reason phrase and h3 sanitizes it
+      // down to ASCII. See `docs/adr/0009-a-refusal-travels-in-the-body.md`.
+      problem.value = (error as { data?: { message?: string } }).data?.message
         ?? 'That did not work. Please try again.'
       return false
     }

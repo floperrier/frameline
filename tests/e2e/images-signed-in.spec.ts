@@ -72,7 +72,10 @@ test('an upload of the wrong kind, or too heavy, is refused by its reason', asyn
     data: Buffer.from('<!doctype html><script>alert(1)</script>'),
   })
   expect(notAnImage.status()).toBe(400)
-  expect(await notAnImage.text()).toContain('A Shot carries a JPEG, a PNG or a WebP image')
+  // Read out of `message` and not the whole body: a refusal that slid back onto
+  // the status line would pass a match on the response text.
+  expect((await notAnImage.json()).message)
+    .toContain('A Shot carries a JPEG, a PNG or a WebP image')
 
   // A real PNG head with too many bytes behind it: refused for its weight and
   // not for its kind, which is the reason the Author is owed.
@@ -80,11 +83,11 @@ test('an upload of the wrong kind, or too heavy, is refused by its reason', asyn
     data: Buffer.concat([ONE_PIXEL, Buffer.alloc(SHOT_IMAGE_MAX_BYTES)]),
   })
   expect(tooHeavy.status()).toBe(400)
-  expect(await tooHeavy.text()).toContain('cannot weigh more than 2 MB')
+  expect((await tooHeavy.json()).message).toContain('cannot weigh more than 2 MB')
 
   const nothing = await request.put(`/api/shots/${shots[0]!.id}/image`)
   expect(nothing.status()).toBe(400)
-  expect(await nothing.text()).toContain('An image is a file to upload.')
+  expect((await nothing.json()).message).toContain('An image is a file to upload.')
 
   // Every refusal left the Shot as it was: text alone, and no still to serve.
   expect((await reread(request, story.id))[0]!.image).toBeNull()
@@ -242,6 +245,6 @@ test('a Description is the Author’s to write, to change and to take away', asy
     data: { text: shot.text, description: 'w'.repeat(SHOT_DESCRIPTION_MAX_LENGTH + 1) },
   })
   expect(tooLong.status()).toBe(400)
-  expect(await tooLong.text()).toContain('A Description says what a still shows')
+  expect((await tooLong.json()).message).toContain('A Description says what a still shows')
   expect((await reread(request, story.id))[0]!.description).toBe('A door, opening.')
 })
