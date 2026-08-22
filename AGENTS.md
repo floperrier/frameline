@@ -37,6 +37,19 @@ the tokens declared there and from nowhere else. See
 A pull request per issue, squash-merged into `main`, which deploys to
 production. See `docs/git-flow.md`.
 
+## Formatting
+
+The TypeScript and the Vue here are wrapped by hand — where a chain breaks and
+where a comment ends are part of how the code reads — and Prettier cannot be
+configured into producing it: the case of a hex literal, the separator inside a
+type literal and the point a method chain breaks are all its own to decide.
+Turned loose on this repo it rewrites nineteen hundred lines that nobody asked
+it to. So the pre-commit hook runs it over `css`, `json` and `yaml` alone, where
+its opinion and ours are the same, and `.prettierrc` says what the rest of the
+code already does in case it is ever pointed at it. Generated and vendored files
+are ignored outright: the migration snapshots are the generator's to write, and
+a vendored skill is hashed in `skills-lock.json`.
+
 ## Tests
 
 `pnpm test` runs the Vitest suite over the modules that are pure functions: the

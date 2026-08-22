@@ -4,3 +4,12 @@ pnpm-lock.yaml
 .vercel
 test-results
 node_modules
+
+# Written by a generator, and rewritten by it on the next `pnpm db:generate`:
+# formatting them is churn the generator undoes.
+server/db/migrations
+
+# Vendored from other repositories, with their content hashed in
+# `skills-lock.json` — reformatting one is how the lock stops matching.
+.agents
+.claude
