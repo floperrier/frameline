@@ -29,9 +29,7 @@ const shown = computed(() => story.value && reading(story.value, at.value))
 const sceneNames = computed(() => new Map(story.value?.scenes.map(scene => [scene.id, scene.name])))
 
 function sceneName(sceneId: string) {
-  // A Condition may still name a Scene deleted since it was written, and saying
-  // so is more use to the Author than the id it holds.
-  return sceneNames.value.get(sceneId) ?? 'a deleted Scene'
+  return sceneNamed(sceneNames.value, sceneId)
 }
 
 /**
@@ -78,60 +76,69 @@ function why(cut: Cut) {
       This Story has no opening Scene, so there is nothing to read yet.
     </p>
 
-    <Reading v-else-if="story" :story="story" @at="at = $event" />
+    <!-- The reel and the bench it is cut on, stacked: the projection no longer has
+         the room to itself, so the two are given a surface of this page's own
+         rather than the room being taught to hold both. -->
+    <div v-else-if="story" class="cutting">
+      <Reading :story="story" @at="at = $event" />
 
-    <!-- The bench the reel is cut on, under the projection and never in it: what
-         is here is the Author's own instrument and no part of the Story. -->
-    <section v-if="story?.openingSceneId" class="bench">
-      <p class="eyebrow">On the bench <span aria-hidden="true">·</span> nobody reading this sees it</p>
+      <!-- What is on the bench is the Author's own instrument and no part of the
+           Story, so it sits under the projection and never in it. Named, because
+           a landmark an Author can be sent to is worth the one attribute. -->
+      <section class="bench" aria-labelledby="bench">
+        <p id="bench" class="eyebrow">
+          On the bench <span aria-hidden="true">·</span> nobody reading this sees it
+        </p>
 
-      <!-- Why a way on is missing, which is the question a Preview could not
-           answer before: the Cuts out of this Scene the State is hiding, struck
-           through and each naming the tests it failed. Text and not controls —
-           a hidden Cut is not takeable here any more than it is for a Reader. -->
-      <div v-if="hidden.length" class="hidden">
-        <p class="eyebrow">Ways on this Reading is not offered</p>
-        <ul>
-          <li v-for="cut in hidden" :key="cut.id">
-            <s class="splice">{{ cutNamed(cut, sceneName) }}</s>
-            <ul class="why">
-              <li v-for="(test, place) in why(cut)" :key="place">{{ test }}</li>
+        <!-- Why a way on is missing, which is the question a Preview could not
+             answer before: the Cuts out of this Scene the State is hiding, struck
+             through and each naming the tests it failed. Text and not controls —
+             a hidden Cut is not takeable here any more than it is for a Reader. -->
+        <div v-if="hidden.length" class="hidden">
+          <p class="eyebrow">Ways on this Reading is not offered</p>
+          <ul>
+            <li v-for="cut in hidden" :key="cut.id">
+              <s class="splice">{{ cutNamed(cut, sceneName) }}</s>
+              <ul class="why">
+                <li v-for="(test, place) in why(cut)" :key="place">{{ test }}</li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+
+        <div class="state">
+          <div>
+            <p class="eyebrow">Flags</p>
+            <ul v-if="flags.length" class="flags">
+              <li v-for="[name, value] in flags" :key="name">
+                {{ name }} <span aria-hidden="true">=</span> <b>{{ value || '(nothing)' }}</b>
+              </li>
             </ul>
-          </li>
-        </ul>
-      </div>
+            <p v-else class="none">No Scene has set one yet</p>
+          </div>
 
-      <div class="state">
-        <div>
-          <p class="eyebrow">Flags</p>
-          <ul v-if="flags.length" class="flags">
-            <li v-for="[name, value] in flags" :key="name">
-              {{ name }} <span aria-hidden="true">=</span> <b>{{ value || '(nothing)' }}</b>
-            </li>
-          </ul>
-          <p v-else class="none">No Scene has set one yet</p>
+          <div>
+            <p class="eyebrow">Scenes entered</p>
+            <ul class="visits">
+              <li v-for="[sceneId, count] in visits" :key="sceneId">
+                {{ sceneName(sceneId) }} <span aria-hidden="true">×</span> <b>{{ count }}</b>
+              </li>
+            </ul>
+          </div>
         </div>
-
-        <div>
-          <p class="eyebrow">Scenes entered</p>
-          <ul class="visits">
-            <li v-for="[sceneId, count] in visits" :key="sceneId">
-              {{ sceneName(sceneId) }} <span aria-hidden="true">×</span> <b>{{ count }}</b>
-            </li>
-          </ul>
-        </div>
-      </div>
-    </section>
+      </section>
+    </div>
   </main>
 </template>
 
 <style scoped>
-/* The projection no longer has the room to itself, so it is no longer centred in
-   it: the bench follows the reel down the page instead of being pushed to the
-   far end of it. */
-.room {
-  grid-template-rows: auto;
+/* The reel and the bench under it, stacked at the top of the room they were
+   given rather than the reel being centred in it and the bench pushed to the far
+   end. This page's own, so the room stays what the stylesheet says it is. */
+.cutting {
+  display: grid;
   align-content: start;
+  gap: var(--s5);
 }
 
 .back {

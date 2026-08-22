@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext } from '@playwright/test'
+import { expect, type APIRequestContext, type Page } from '@playwright/test'
 import { test, writeStory } from './author'
 
 test('an Author plays their own Story before anyone else can see it', async ({ page, request }) => {
@@ -84,14 +84,22 @@ test('the Reading is read by keyboard, and focus goes with each beat', async ({ 
 /**
  * A Story whose ways on ask for things: the street puts a coat on, one way out
  * wants it off, and another wants the street entered twice. Neither is offered
- * on a first reading, which is exactly the Author's question — why not.
+ * on a first reading, which is exactly the Author's question — why not. The bar
+ * pours a drink and lets the Reading back out, so a second Scene sets a Flag and
+ * the street can be entered twice.
  */
 async function writeConditionalStory(request: APIRequestContext) {
   const story = await writeStory(request)
   const { scenes } = await (await request.get(`/api/stories/${story.id}`)).json()
-  const street = scenes[0]
+  const [street, bar] = scenes
 
   await request.put(`/api/scenes/${street.id}/flags`, { data: { sets: { coat: 'on' } } })
+  await request.put(`/api/scenes/${bar.id}/flags`, { data: { sets: { drink: 'whisky' } } })
+
+  const back = await (await request.post(`/api/scenes/${bar.id}/cuts`, {
+    data: { toSceneId: street.id },
+  })).json()
+  await request.patch(`/api/cuts/${back.id}`, { data: { text: 'Back out' } })
 
   for (const [name, text, conditions] of [
     ['The alley', 'Stay outside', [{ flag: 'coat', is: 'off' }]],
@@ -110,75 +118,105 @@ async function writeConditionalStory(request: APIRequestContext) {
   return story
 }
 
-test('the Preview shows the Author the State the Reading has accumulated', async ({ page, request }) => {
-  const story = await writeConditionalStory(request)
-
-  await page.goto(`/stories/${story.id}/preview`)
-  const bench = page.locator('.bench')
-
-  // On the very first Shot, before the Scene has played out: what the street set
-  // on entry, and the visit it was entered on.
-  await expect(bench.getByText('coat = on')).toBeVisible()
-  await expect(bench.getByText('The street × 1')).toBeVisible()
-
-  // Nothing the Reading has not touched is listed — the alley is a Scene of this
-  // Story, and no Reading has been in it.
-  await expect(bench.getByText('The alley')).toBeHidden()
-
-  // The bar sets no Flags, so arriving there leaves the coat where the street
-  // put it and adds a Scene to the count.
-  await page.getByRole('button', { name: 'Next Shot' }).click()
-  await page.getByRole('button', { name: 'Next Shot' }).click()
+/**
+ * From the ways on out of the street, round through the bar and back to them —
+ * so the street has been entered twice and the same ways on are asked again.
+ */
+async function roundTheBlock(page: Page) {
   await page.getByRole('button', { name: 'Follow her out' }).click()
-  await expect(bench.getByText('The bar × 1')).toBeVisible()
-  await expect(bench.getByText('coat = on')).toBeVisible()
-})
-
-test('the Preview says why a way on is missing, and does not offer it', async ({ page, request }) => {
-  const story = await writeConditionalStory(request)
-
-  await page.goto(`/stories/${story.id}/preview`)
-  const bench = page.locator('.bench')
-
-  // While a Shot is playing there are no ways on to explain: the Scene has not
-  // asked anything yet.
-  await expect(bench.getByText('Ways on this Reading is not offered')).toBeHidden()
-
+  await page.getByRole('button', { name: 'Next Shot' }).click()
+  await page.getByRole('button', { name: 'Back out' }).click()
   await page.getByRole('button', { name: 'Next Shot' }).click()
   await page.getByRole('button', { name: 'Next Shot' }).click()
+}
 
-  // The way on that holds is offered as a control, and the two the State hides
-  // are on the bench instead, struck through and each naming the test it failed
-  // with both values — a Flag holding something else, and a Scene not entered
-  // often enough yet.
-  await expect(page.getByRole('button', { name: 'Follow her out' })).toBeVisible()
-  await expect(bench.locator('s').filter({ hasText: 'Stay outside' })).toBeVisible()
-  await expect(bench.getByText('needs coat to hold off, holds on')).toBeVisible()
-  await expect(bench.getByText('needs at least 2 visits to The street, entered once'))
-    .toBeVisible()
+test('the Preview shows the Author the State the Reading has accumulated',
+  async ({ page, request }) => {
+    const story = await writeConditionalStory(request)
 
-  // A hidden way on is text on a bench and nothing more: no control, and so no
-  // keyboard path that could take it.
-  await expect(page.getByRole('button', { name: 'Stay outside' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Go up' })).toHaveCount(0)
-})
+    await page.goto(`/stories/${story.id}/preview`)
+    const bench = page.getByRole('region', { name: /On the bench/ })
 
-test('a Reader of the published Story is shown none of the bench', async ({ page, request, browser, baseURL }) => {
-  const story = await writeConditionalStory(request)
-  await request.post(`/api/stories/${story.id}/publish`)
+    // On the very first Shot, before the Scene has played out: what the street set
+    // on entry, and the visit it was entered on.
+    await expect(bench.getByText('coat = on')).toBeVisible()
+    await expect(bench.getByText('The street × 1')).toBeVisible()
 
-  const reader = await (await browser.newContext()).newPage()
-  await reader.goto(`${baseURL}/read/${story.id}`)
+    // Nothing the Reading has not touched is listed — the alley is a Scene of this
+    // Story, and no Reading has been in it.
+    await expect(bench.getByText('The alley')).toBeHidden()
 
-  // The same engine, the same Shots, the same one way on — and not a word about
-  // the State behind them or the ways on it is hiding.
-  await expect(reader.getByText('A door opens.')).toBeVisible()
-  await reader.getByRole('button', { name: 'Next Shot' }).click()
-  await reader.getByRole('button', { name: 'Next Shot' }).click()
-  await expect(reader.getByRole('button', { name: 'Follow her out' })).toBeVisible()
+    // The bar pours a drink on entry, which arrives on the bench as the Scene is
+    // arrived at — and the coat the street put on outlives the Scene that set it.
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await page.getByRole('button', { name: 'Follow her out' }).click()
+    await expect(bench.getByText('drink = whisky')).toBeVisible()
+    await expect(bench.getByText('The bar × 1')).toBeVisible()
+    await expect(bench.getByText('coat = on')).toBeVisible()
 
-  await expect(reader.locator('.bench')).toHaveCount(0)
-  await expect(reader.locator('s')).toHaveCount(0)
-  await expect(reader.getByText('coat')).toHaveCount(0)
-  await expect(reader.getByText('Stay outside')).toHaveCount(0)
-})
+    // Back where it started, and the count says so: a Scene entered twice is a
+    // Scene the bench counts twice.
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await page.getByRole('button', { name: 'Back out' }).click()
+    await expect(bench.getByText('The street × 2')).toBeVisible()
+  })
+
+test('the Preview says why a way on is missing, and does not offer it',
+  async ({ page, request }) => {
+    const story = await writeConditionalStory(request)
+
+    await page.goto(`/stories/${story.id}/preview`)
+    const bench = page.getByRole('region', { name: /On the bench/ })
+
+    // While a Shot is playing there are no ways on to explain: the Scene has not
+    // asked anything yet.
+    await expect(bench.getByText('Ways on this Reading is not offered')).toBeHidden()
+
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+
+    // The way on that holds is offered as a control, and the two the State hides
+    // are on the bench instead, struck through and each naming the test it failed
+    // with both values — a Flag holding something else, and a Scene not entered
+    // often enough yet.
+    await expect(page.getByRole('button', { name: 'Follow her out' })).toBeVisible()
+    await expect(bench.locator('s').filter({ hasText: 'Stay outside' })).toBeVisible()
+    await expect(bench.getByText('needs coat to hold off, holds on')).toBeVisible()
+    await expect(bench.getByText('needs at least 2 visits to The street, entered once'))
+      .toBeVisible()
+
+    // A hidden way on is text on a bench and nothing more: no control, and so no
+    // keyboard path that could take it.
+    await expect(page.getByRole('button', { name: 'Stay outside' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Go up' })).toHaveCount(0)
+
+    // Round the block and back: the visit count the stairs asked for now holds, so
+    // the way on the bench was explaining is a control the Author can take, and the
+    // bench has one fewer to explain.
+    await roundTheBlock(page)
+    await expect(page.getByRole('button', { name: 'Go up' })).toBeVisible()
+    await expect(bench.getByText('needs at least 2 visits')).toBeHidden()
+    await expect(bench.getByText('needs coat to hold off, holds on')).toBeVisible()
+  })
+
+test('a Reader of the published Story is shown none of the bench',
+  async ({ page, request, browser, baseURL }) => {
+    const story = await writeConditionalStory(request)
+    await request.post(`/api/stories/${story.id}/publish`)
+
+    const reader = await (await browser.newContext()).newPage()
+    await reader.goto(`${baseURL}/read/${story.id}`)
+
+    // The same engine, the same Shots, the same one way on — and not a word about
+    // the State behind them or the ways on it is hiding.
+    await expect(reader.getByText('A door opens.')).toBeVisible()
+    await reader.getByRole('button', { name: 'Next Shot' }).click()
+    await reader.getByRole('button', { name: 'Next Shot' }).click()
+    await expect(reader.getByRole('button', { name: 'Follow her out' })).toBeVisible()
+
+    await expect(reader.getByRole('region', { name: /On the bench/ })).toHaveCount(0)
+    await expect(reader.locator('s')).toHaveCount(0)
+    await expect(reader.getByText('coat')).toHaveCount(0)
+    await expect(reader.getByText('Stay outside')).toHaveCount(0)
+  })

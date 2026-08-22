@@ -58,7 +58,7 @@ const place = computed(() => at.value.shot + 1)
 
 /** A Cut nobody has phrased yet is offered by where it arrives. */
 function offered(cut: Cut) {
-  return cutNamed(cut, id => sceneNames.value.get(id) ?? id)
+  return cutNamed(cut, id => sceneNamed(sceneNames.value, id))
 }
 </script>
 
