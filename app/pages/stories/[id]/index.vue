@@ -61,9 +61,15 @@ function createScene() {
   })
 }
 
+/** `1 Shot` and `2 Shots`: a folded node counts them, and a Delete asks about them. */
+function counted(many: number, noun: string) {
+  return `${many} ${noun}${many === 1 ? '' : 's'}`
+}
+
 function deleteScene(scene: Scene) {
-  const cuts = cutsFrom(scene).length
-  if (!confirm(`Delete “${scene.name}”, its ${scene.shots.length} Shots and ${cuts} Cuts?`)) return
+  const shots = counted(scene.shots.length, 'Shot')
+  const cuts = counted(cutsFrom(scene).length, 'Cut')
+  if (!confirm(`Delete “${scene.name}”, its ${shots} and ${cuts}?`)) return
   return change(() => send(`/api/scenes/${scene.id}`, { method: 'DELETE' }))
 }
 
@@ -253,15 +259,73 @@ function withinReach(pixels: number) {
 }
 
 /**
- * ponytail: a Cut is drawn between fixed points on the two nodes rather than
- * between the edges of their boxes, so a line crosses whatever sits between
- * them. Measuring the boxes needs their rendered heights, which change with
- * every Shot written. Anchor on the real geometry the day the lines are hard to
- * follow.
+ * How tall each node is drawn, by Scene. Measured off the page rather than
+ * worked out from the Story, because a node's height is its Shots, the stills in
+ * them, the Conditions they carry and whether the Author has it folded — and a
+ * Cut has to leave the edge of the box that is really there.
+ *
+ * ponytail: measured after every render rather than watched by a
+ * `ResizeObserver`, because everything that changes a node's height here is
+ * something the page rendered. Observe the boxes the day one of them is resized
+ * by something else — a window narrow enough to reflow a node, say.
  */
-function anchor(sceneId: string) {
+const nodes = useTemplateRef<HTMLElement[]>('nodes')
+const nodeHeights = reactive<Record<string, number>>({})
+
+function measureNodes() {
+  for (const node of nodes.value ?? []) {
+    const sceneId = node.dataset.scene!
+    // Written only where it changed: this runs after every render, and writing a
+    // height back unchanged would ask for the next render forever.
+    if (nodeHeights[sceneId] !== node.offsetHeight) nodeHeights[sceneId] = node.offsetHeight
+  }
+}
+
+onMounted(measureNodes)
+onUpdated(measureNodes)
+
+/**
+ * Every Cut as the line that draws it. A Scene whose node has not been measured
+ * yet — the render on the server, and the first one in the browser — is taken to
+ * be a full node, and the measurement a moment later moves the line onto the box.
+ */
+const cutLines = computed(() => story.value?.cuts.map(cut => ({
+  id: cut.id,
+  ...cutLine(boxOf(cut.fromSceneId), boxOf(cut.toSceneId)),
+})) ?? [])
+
+function boxOf(sceneId: string): NodeBox {
   const scene = sceneById(sceneId)
-  return { x: (scene?.x ?? 0) + NODE_WIDTH / 2, y: (scene?.y ?? 0) + NUDGE }
+  return {
+    x: scene?.x ?? 0,
+    y: scene?.y ?? 0,
+    height: nodeHeights[sceneId] ?? NODE_HEIGHT,
+  }
+}
+
+/**
+ * Which nodes the Author has opened, by Scene. What is folded is how the Author
+ * is reading the graph and nothing about the Story, so it is never written
+ * anywhere: it lasts as long as the page and no longer. Folded is where a node
+ * starts, because a Story of forty Scenes opened is forty editors to scroll
+ * through before the shape of the work can be seen at all.
+ */
+const opened = reactive(new Set<string>())
+
+function foldOrOpen(scene: Scene) {
+  if (!opened.delete(scene.id)) opened.add(scene.id)
+}
+
+/**
+ * What a folded node says about a Scene, under its name: how many Shots are in
+ * it, and where its ways on land. The ways on are named rather than counted,
+ * because where a Scene leads is the one thing a graph is read for.
+ */
+function atAGlance(scene: Scene) {
+  const shots = counted(scene.shots.length, 'Shot')
+  const waysOn = cutsFrom(scene).map(cut => sceneNamed(sceneNames.value, cut.toSceneId))
+
+  return waysOn.length ? `${shots}, on to ${waysOn.join(', ')}` : `${shots}, no way on`
 }
 </script>
 
@@ -318,12 +382,12 @@ function anchor(sceneId: string) {
             </marker>
           </defs>
           <line
-            v-for="cut in story.cuts"
-            :key="cut.id"
-            :x1="anchor(cut.fromSceneId).x"
-            :y1="anchor(cut.fromSceneId).y"
-            :x2="anchor(cut.toSceneId).x"
-            :y2="anchor(cut.toSceneId).y"
+            v-for="line in cutLines"
+            :key="line.id"
+            :x1="line.from.x"
+            :y1="line.from.y"
+            :x2="line.to.x"
+            :y2="line.to.y"
             marker-end="url(#cut-head)"
           />
         </svg>
@@ -331,6 +395,9 @@ function anchor(sceneId: string) {
         <article
           v-for="scene in story.scenes"
           :key="scene.id"
+          ref="nodes"
+          :data-scene="scene.id"
+          :class="{ opens: story.openingSceneId === scene.id }"
           :aria-labelledby="`scene-${scene.id}`"
           :style="{
             translate: `${scene.x}px ${scene.y}px`,
@@ -341,204 +408,225 @@ function anchor(sceneId: string) {
           <div class="slate">
             <h2 :id="`scene-${scene.id}`">{{ scene.name }}</h2>
 
-            <button
-              type="button"
-              class="handle"
-              @pointerdown="startDrag(scene, $event)"
-              @pointermove="keepDragging"
-              @pointerup="endDrag"
-              @keydown="nudge(scene, $event)"
-            >
-              Move <span class="visually-hidden">Scene {{ scene.name }}</span>
-            </button>
-          </div>
-
-          <div class="standing">
-            <p class="opening">
-              <input
-                :id="`opening-${scene.id}`"
-                type="radio"
-                name="opening-scene"
-                :checked="story.openingSceneId === scene.id"
-                @change="openOn(scene)"
+            <div class="grips">
+              <!-- Folding is the Author's view of their own graph, so the button
+                   says what pressing it does rather than what the node is. -->
+              <button
+                type="button"
+                class="fold"
+                :aria-expanded="opened.has(scene.id)"
+                @click="foldOrOpen(scene)"
               >
-              <label class="eyebrow" :for="`opening-${scene.id}`">
-                Opening Scene <span class="visually-hidden">{{ scene.name }}</span>
-              </label>
-            </p>
+                {{ opened.has(scene.id) ? 'Fold' : 'Open' }}
+                <span class="visually-hidden">Scene {{ scene.name }}</span>
+              </button>
 
-            <button type="button" class="danger" @click="deleteScene(scene)">
-              Delete Scene <span class="visually-hidden">{{ scene.name }}</span>
-            </button>
+              <button
+                type="button"
+                class="handle"
+                @pointerdown="startDrag(scene, $event)"
+                @pointermove="keepDragging"
+                @pointerup="endDrag"
+                @keydown="nudge(scene, $event)"
+              >
+                Move <span class="visually-hidden">Scene {{ scene.name }}</span>
+              </button>
+            </div>
           </div>
 
-          <!-- The Shots as a strip: numbered from one for the Author, though the
-               Scene counts from zero, and each one's number sits in the gutter
-               where the edge code would be. -->
-          <ol class="shots">
-            <li v-for="(shot, place) in scene.shots" :key="shot.id">
-              <!-- The number alone in the gutter, where a frame's edge code would be,
-                   and the word it is a number of kept for anyone listening. -->
-              <label class="shot-number" :for="`shot-${shot.id}`">
-                <span class="visually-hidden">Shot </span>{{ place + 1 }}
-              </label>
-              <div class="written">
-                <textarea
-                  :id="`shot-${shot.id}`"
-                  v-model="shot.text"
-                  rows="2"
-                  :maxlength="SHOT_TEXT_MAX_LENGTH"
-                  @change="writeShot(shot)"
-                />
+          <!-- Folded, a node is the Scene's name and this line: enough to read the
+               graph, and nothing the Author has to scroll past to reach the next
+               Scene. -->
+          <p v-if="!opened.has(scene.id)" class="glance">{{ atAGlance(scene) }}</p>
 
-                <!-- The still beside the picker that attached it, small: it is
-                     here to say which image the Shot carries, and the Preview is
-                     where the Author meets it at the size a Reader will. -->
-                <div class="still">
-                  <img v-if="shot.image" :src="stillOf(shot)" :alt="`The still of Shot ${place + 1}`">
-                  <div>
-                    <label class="eyebrow" :for="`image-${shot.id}`">
-                      Image <span class="visually-hidden">of Shot {{ place + 1 }}</span>
+          <template v-else>
+            <div class="standing">
+              <p class="opening">
+                <input
+                  :id="`opening-${scene.id}`"
+                  type="radio"
+                  name="opening-scene"
+                  :checked="story.openingSceneId === scene.id"
+                  @change="openOn(scene)"
+                >
+                <label class="eyebrow" :for="`opening-${scene.id}`">
+                  Opening Scene <span class="visually-hidden">{{ scene.name }}</span>
+                </label>
+              </p>
+  
+              <button type="button" class="danger" @click="deleteScene(scene)">
+                Delete Scene <span class="visually-hidden">{{ scene.name }}</span>
+              </button>
+            </div>
+  
+            <!-- The Shots as a strip: numbered from one for the Author, though the
+                 Scene counts from zero, and each one's number sits in the gutter
+                 where the edge code would be. -->
+            <ol class="shots">
+              <li v-for="(shot, place) in scene.shots" :key="shot.id">
+                <!-- The number alone in the gutter, where a frame's edge code would be,
+                     and the word it is a number of kept for anyone listening. -->
+                <label class="shot-number" :for="`shot-${shot.id}`">
+                  <span class="visually-hidden">Shot </span>{{ place + 1 }}
+                </label>
+                <div class="written">
+                  <textarea
+                    :id="`shot-${shot.id}`"
+                    v-model="shot.text"
+                    rows="2"
+                    :maxlength="SHOT_TEXT_MAX_LENGTH"
+                    @change="writeShot(shot)"
+                  />
+  
+                  <!-- The still beside the picker that attached it, small: it is
+                       here to say which image the Shot carries, and the Preview is
+                       where the Author meets it at the size a Reader will. -->
+                  <div class="still">
+                    <img v-if="shot.image" :src="stillOf(shot)" :alt="`The still of Shot ${place + 1}`">
+                    <div>
+                      <label class="eyebrow" :for="`image-${shot.id}`">
+                        Image <span class="visually-hidden">of Shot {{ place + 1 }}</span>
+                      </label>
+                      <input
+                        :id="`image-${shot.id}`"
+                        type="file"
+                        :accept="SHOT_IMAGE_TYPES.join(',')"
+                        @change="attachImage(shot, $event)"
+                      >
+                    </div>
+                  </div>
+  
+                  <!-- The Description sits under the picker, because it is what the
+                       still shows and there is nothing to describe until one is
+                       attached. A Shot of text alone is not asked for one. -->
+                  <p v-if="shot.image" class="described">
+                    <label class="eyebrow" :for="`description-${shot.id}`">
+                      Description <span class="visually-hidden">of the still of Shot {{ place + 1 }}</span>
                     </label>
                     <input
-                      :id="`image-${shot.id}`"
-                      type="file"
-                      :accept="SHOT_IMAGE_TYPES.join(',')"
-                      @change="attachImage(shot, $event)"
+                      :id="`description-${shot.id}`"
+                      v-model="shot.description"
+                      type="text"
+                      :maxlength="SHOT_DESCRIPTION_MAX_LENGTH"
+                      placeholder="What the still shows"
+                      @change="writeShot(shot)"
                     >
+                  </p>
+  
+                  <!-- The Conditions the Shot plays under, so a Scene can say
+                       something different on a return visit without the Author
+                       drawing a second Scene to hold the changed line. -->
+                  <Conditions
+                    lead="Played when"
+                    :carrier="`Shot ${place + 1} of ${scene.name}`"
+                    :conditions="shot.conditions"
+                    :scenes="story.scenes"
+                    :counting="scene.id"
+                    :id="shot.id"
+                    @write="writeConditions('shots', shot.id, shot.conditions)"
+                  />
+  
+                  <div class="row">
+                    <button type="button" :disabled="place === 0" @click="moveShot(shot, 'earlier')">
+                      Move earlier <span class="visually-hidden">Shot {{ place + 1 }}</span>
+                    </button>
+                    <button
+                      type="button"
+                      :disabled="place === scene.shots.length - 1"
+                      @click="moveShot(shot, 'later')"
+                    >
+                      Move later <span class="visually-hidden">Shot {{ place + 1 }}</span>
+                    </button>
+                    <button type="button" class="danger" @click="deleteShot(shot)">
+                      Delete <span class="visually-hidden">Shot {{ place + 1 }}</span>
+                    </button>
                   </div>
                 </div>
-
-                <!-- The Description sits under the picker, because it is what the
-                     still shows and there is nothing to describe until one is
-                     attached. A Shot of text alone is not asked for one. -->
-                <p v-if="shot.image" class="described">
-                  <label class="eyebrow" :for="`description-${shot.id}`">
-                    Description <span class="visually-hidden">of the still of Shot {{ place + 1 }}</span>
-                  </label>
-                  <input
-                    :id="`description-${shot.id}`"
-                    v-model="shot.description"
-                    type="text"
-                    :maxlength="SHOT_DESCRIPTION_MAX_LENGTH"
-                    placeholder="What the still shows"
-                    @change="writeShot(shot)"
-                  >
-                </p>
-
-                <!-- The Conditions the Shot plays under, so a Scene can say
-                     something different on a return visit without the Author
-                     drawing a second Scene to hold the changed line. -->
+              </li>
+            </ol>
+  
+            <button type="button" @click="addShot(scene)">
+              Add Shot <span class="visually-hidden">to {{ scene.name }}</span>
+            </button>
+  
+            <p class="sets">
+              <label class="eyebrow" :for="`flags-${scene.id}`">
+                Flags set on entering <span class="visually-hidden">{{ scene.name }}</span>
+              </label>
+              <textarea
+                :id="`flags-${scene.id}`"
+                class="data"
+                rows="2"
+                :value="flagLines(scene.sets)"
+                :placeholder="`courage ${FLAG_SEPARATOR} high`"
+                @change="writeFlags(scene, ($event.target as HTMLTextAreaElement).value)"
+              />
+            </p>
+  
+            <ul class="cuts">
+              <li v-for="(cut, place) in cutsFrom(scene)" :key="cut.id">
+                <label class="eyebrow" :for="`cut-${cut.id}`">
+                  Cut to {{ sceneNames.get(cut.toSceneId) }}
+                  <span class="visually-hidden">from {{ scene.name }}</span>
+                </label>
+                <input
+                  :id="`cut-${cut.id}`"
+                  v-model="cut.text"
+                  :maxlength="CUT_TEXT_MAX_LENGTH"
+                  @change="writeCut(cut)"
+                >
+  
                 <Conditions
-                  lead="Played when"
-                  :carrier="`Shot ${place + 1} of ${scene.name}`"
-                  :conditions="shot.conditions"
+                  lead="Offered when"
+                  :carrier="`the Cut to ${sceneNames.get(cut.toSceneId)}`"
+                  :conditions="cut.conditions"
                   :scenes="story.scenes"
-                  :counting="scene.id"
-                  :id="shot.id"
-                  @write="writeConditions('shots', shot.id, shot.conditions)"
+                  :counting="cut.fromSceneId"
+                  :id="cut.id"
+                  @write="writeConditions('cuts', cut.id, cut.conditions)"
                 />
-
+  
                 <div class="row">
-                  <button type="button" :disabled="place === 0" @click="moveShot(shot, 'earlier')">
-                    Move earlier <span class="visually-hidden">Shot {{ place + 1 }}</span>
+                  <button
+                    type="button"
+                    :disabled="place === 0"
+                    @click="moveCut(cut, 'earlier')"
+                  >
+                    Move earlier
+                    <span class="visually-hidden">
+                      the Cut to {{ sceneNames.get(cut.toSceneId) }}
+                    </span>
                   </button>
                   <button
                     type="button"
-                    :disabled="place === scene.shots.length - 1"
-                    @click="moveShot(shot, 'later')"
+                    :disabled="place === cutsFrom(scene).length - 1"
+                    @click="moveCut(cut, 'later')"
                   >
-                    Move later <span class="visually-hidden">Shot {{ place + 1 }}</span>
+                    Move later
+                    <span class="visually-hidden">
+                      the Cut to {{ sceneNames.get(cut.toSceneId) }}
+                    </span>
                   </button>
-                  <button type="button" class="danger" @click="deleteShot(shot)">
-                    Delete <span class="visually-hidden">Shot {{ place + 1 }}</span>
+                  <button type="button" class="danger" @click="deleteCut(cut)">
+                    Delete Cut to {{ sceneNames.get(cut.toSceneId) }}
                   </button>
                 </div>
-              </div>
-            </li>
-          </ol>
-
-          <button type="button" @click="addShot(scene)">
-            Add Shot <span class="visually-hidden">to {{ scene.name }}</span>
-          </button>
-
-          <p class="sets">
-            <label class="eyebrow" :for="`flags-${scene.id}`">
-              Flags set on entering <span class="visually-hidden">{{ scene.name }}</span>
-            </label>
-            <textarea
-              :id="`flags-${scene.id}`"
-              class="data"
-              rows="2"
-              :value="flagLines(scene.sets)"
-              :placeholder="`courage ${FLAG_SEPARATOR} high`"
-              @change="writeFlags(scene, ($event.target as HTMLTextAreaElement).value)"
-            />
-          </p>
-
-          <ul class="cuts">
-            <li v-for="(cut, place) in cutsFrom(scene)" :key="cut.id">
-              <label class="eyebrow" :for="`cut-${cut.id}`">
-                Cut to {{ sceneNames.get(cut.toSceneId) }}
-                <span class="visually-hidden">from {{ scene.name }}</span>
-              </label>
-              <input
-                :id="`cut-${cut.id}`"
-                v-model="cut.text"
-                :maxlength="CUT_TEXT_MAX_LENGTH"
-                @change="writeCut(cut)"
-              >
-
-              <Conditions
-                lead="Offered when"
-                :carrier="`the Cut to ${sceneNames.get(cut.toSceneId)}`"
-                :conditions="cut.conditions"
-                :scenes="story.scenes"
-                :counting="cut.fromSceneId"
-                :id="cut.id"
-                @write="writeConditions('cuts', cut.id, cut.conditions)"
-              />
-
-              <div class="row">
-                <button
-                  type="button"
-                  :disabled="place === 0"
-                  @click="moveCut(cut, 'earlier')"
-                >
-                  Move earlier
-                  <span class="visually-hidden">
-                    the Cut to {{ sceneNames.get(cut.toSceneId) }}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  :disabled="place === cutsFrom(scene).length - 1"
-                  @click="moveCut(cut, 'later')"
-                >
-                  Move later
-                  <span class="visually-hidden">
-                    the Cut to {{ sceneNames.get(cut.toSceneId) }}
-                  </span>
-                </button>
-                <button type="button" class="danger" @click="deleteCut(cut)">
-                  Delete Cut to {{ sceneNames.get(cut.toSceneId) }}
-                </button>
-              </div>
-            </li>
-          </ul>
-
-          <form class="drawing" @submit.prevent="drawCut(scene)">
-            <label class="eyebrow" :for="`cut-from-${scene.id}`">Cut from {{ scene.name }} to</label>
-            <select :id="`cut-from-${scene.id}`" v-model="cutTargets[scene.id]" required>
-              <!-- Nothing is aimed at until the Author says so, so a Cut cannot
-                   be drawn by pressing the button alone. -->
-              <option value="">Choose a Scene</option>
-              <option v-for="other in story.scenes" :key="other.id" :value="other.id">
-                {{ other.name }}
-              </option>
-            </select>
-            <button type="submit">Draw Cut from {{ scene.name }}</button>
-          </form>
+              </li>
+            </ul>
+  
+            <form class="drawing" @submit.prevent="drawCut(scene)">
+              <label class="eyebrow" :for="`cut-from-${scene.id}`">Cut from {{ scene.name }} to</label>
+              <select :id="`cut-from-${scene.id}`" v-model="cutTargets[scene.id]" required>
+                <!-- Nothing is aimed at until the Author says so, so a Cut cannot
+                     be drawn by pressing the button alone. -->
+                <option value="">Choose a Scene</option>
+                <option v-for="other in story.scenes" :key="other.id" :value="other.id">
+                  {{ other.name }}
+                </option>
+              </select>
+              <button type="submit">Draw Cut from {{ scene.name }}</button>
+            </form>
+          </template>
         </article>
       </div>
     </div>
@@ -689,8 +777,9 @@ article:focus-within {
 }
 
 /* The Scene a Reading starts on, marked down the edge of the node: the Author
-   can see where the Story opens without reading a single radio button. */
-article:has(input[type='radio']:checked) {
+   can see where the Story opens without reading a single radio button — and
+   without opening the node the button is folded inside. */
+article.opens {
   border-inline-start: 2px solid var(--grease);
 }
 
@@ -709,18 +798,38 @@ article:has(input[type='radio']:checked) {
   background: var(--steel);
 }
 
-.handle {
+/* The two things done to a node rather than to the Scene in it: opened, and
+   moved. Both stay on the slate, so a folded node is still one the Author can
+   lay out. */
+.grips {
   flex: none;
-  /* The only pointer route to moving a Scene, so it is a target a thumb can
-     find on a phone rather than the size of its ten-pixel label. */
+  display: flex;
+  gap: var(--s1);
+}
+
+.fold,
+.handle {
+  /* Targets a thumb can find on a phone rather than the size of their
+     ten-pixel labels — and the handle is the only pointer route to moving a
+     Scene at all. */
   min-block-size: 2.25rem;
   padding: var(--s1) var(--s3);
   font-family: var(--data);
   font-size: 0.625rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+
+.handle {
   cursor: move;
   touch-action: none;
+}
+
+/* What a folded node says: read at a glance, so it is one line of quiet type
+   under the Scene's name and not a table of counts. */
+.glance {
+  color: var(--muted);
+  font-size: 0.8125rem;
 }
 
 .standing {

@@ -98,21 +98,73 @@ export const VISITS_MAX = 100
 export const GRAPH_REACH = 10_000
 
 /**
- * How large a Scene's node is drawn, and how far below the last one a new Scene
- * is placed. Shared because the server does the placing and the graph does the
- * drawing, and the spacing clears the height so a new Scene does not land on top
- * of the controls of the one above it.
+ * How large a Scene's node is drawn once the Author has opened it, and how far
+ * below the last one a new Scene is placed. Shared because the server does the
+ * placing and the graph does the drawing, and the spacing clears the height so a
+ * new Scene does not land on top of the controls of the one above it.
  *
  * The height shows a Shot with its still and the Flags the Scene sets; the Cuts
  * leaving a Scene are a scroll away inside the node, because a node tall enough
- * to hold all of them would be taller than the graph that holds it. The width is
- * left at what a phone can show, because a node wider than the screen is a graph
- * nobody can lay out on one.
+ * to hold all of them would be taller than the graph that holds it. A folded node
+ * is far shorter, and is measured rather than named here — see `NodeBox`. The
+ * width is left at what a phone can show, because a node wider than the screen is
+ * a graph nobody can lay out on one.
  */
 export const NODE_WIDTH = 320
 export const NODE_HEIGHT = 420
 export const NODE_GAP = 40
 export const NODE_SPACING = NODE_HEIGHT + NODE_GAP
+
+/**
+ * A node's box on the graph: where the Author put it, and how tall it is drawn.
+ * The height is measured off the page rather than taken from `NODE_HEIGHT`,
+ * because a node is as tall as its Shots and the stills in them, and shorter
+ * again while the Author has it folded. The width is `NODE_WIDTH` for every node,
+ * so no box carries one.
+ */
+export type NodeBox = { x: number, y: number, height: number }
+
+type Point = { x: number, y: number }
+
+/**
+ * Where the line that draws a Cut meets the two nodes: on the edge of the box it
+ * leaves, and on the edge of the box it lands on. A line between two points fixed
+ * inside the nodes crossed whatever sat between them and arrived under the node it
+ * arrived at; a line between edges says which Scene leads to which at a glance.
+ */
+export function cutLine(from: NodeBox, to: NodeBox) {
+  const leaving = middleOf(from)
+  const landing = middleOf(to)
+  const towards = { x: landing.x - leaving.x, y: landing.y - leaving.y }
+
+  return {
+    from: onTheEdge(leaving, from.height, towards),
+    to: onTheEdge(landing, to.height, { x: -towards.x, y: -towards.y }),
+  }
+}
+
+function middleOf(node: NodeBox) {
+  return { x: node.x + NODE_WIDTH / 2, y: node.y + node.height / 2 }
+}
+
+/**
+ * Where a line out of the middle of a box, headed `towards` the other one, crosses
+ * its edge: whichever of the two half-extents it reaches first is the side it
+ * leaves by. Headed nowhere — two nodes dropped on the same spot — it leaves at
+ * the middle, so what is drawn is a line of no length rather than one shooting off
+ * the graph. Rounded, because a line on a screen is not read finer than a pixel.
+ */
+function onTheEdge(middle: Point, height: number, towards: Point) {
+  const reach = Math.min(
+    towards.x ? NODE_WIDTH / 2 / Math.abs(towards.x) : Infinity,
+    towards.y ? height / 2 / Math.abs(towards.y) : Infinity,
+  )
+  const reached = Number.isFinite(reach)
+    ? { x: middle.x + towards.x * reach, y: middle.y + towards.y * reach }
+    : middle
+
+  return { x: Math.round(reached.x), y: Math.round(reached.y) }
+}
 
 /**
  * How many Scenes a column of the graph holds before the next one starts a new

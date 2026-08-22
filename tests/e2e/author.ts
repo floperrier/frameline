@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { neon } from '@neondatabase/serverless'
-import { test as base, type APIRequestContext } from '@playwright/test'
+import { test as base, type APIRequestContext, type Page } from '@playwright/test'
 import type { Cut, Flags, Scene, Shot } from '../../shared/utils/scenes'
 import { NODE_GAP, NODE_SPACING, NODE_WIDTH, NODES_PER_COLUMN } from '../../shared/utils/scenes'
 import { sealSession, type H3Event } from 'h3'
@@ -94,7 +94,7 @@ export async function seedScene(story: Story, name: string) {
  * a time, laid out in the columns the API would have laid them out in.
  */
 export async function seedScenes(story: Story, names: string[]) {
-  return await sql`
+  const scenes = await sql`
     insert into scenes (story_id, name, x, y)
     select
       ${story.id},
@@ -103,6 +103,23 @@ export async function seedScenes(story: Story, names: string[]) {
       ((place - 1) % ${NODES_PER_COLUMN}) * ${NODE_SPACING}
     from unnest(${names}::text[]) with ordinality as named (name, place)
     returning id, name` as Pick<Scene, 'id' | 'name'>[]
+
+  // A Shot apiece, because a Scene the API made always has one, and a graph
+  // seeded without them is a graph no Author could have written.
+  await sql`
+    insert into shots (scene_id, text, position)
+    select id, 'Their Shot', 0 from unnest(${scenes.map(scene => scene.id)}::uuid[]) as seeded (id)`
+
+  return scenes
+}
+
+/**
+ * Opens a Scene's node on the graph, the way the Author would. A node starts
+ * folded — its name, its Shot count and its ways on, and the editor on demand —
+ * so a test that writes anything about a Scene from the page unfolds it first.
+ */
+export async function openNode(page: Page, name: string) {
+  await page.getByRole('button', { name: `Open Scene ${name}` }).click()
 }
 
 /** Draws a Cut on behalf of an Author nobody is signed in as. */

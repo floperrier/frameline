@@ -64,12 +64,20 @@ and scrollbars come out of that dark for nothing, and a light theme would be a
 second design rather than an inversion of this one, because the Reading room is
 dark on purpose.
 
-A Scene's node is drawn 420 pixels tall rather than 300, which shows a Shot with
-its still and the Flags the Scene sets. It does not show everything: a Scene with
-one Shot, one Cut and a Condition on it measures about 730 pixels, so the Cuts
-are a scroll away inside the node, and a Scene with several Shots scrolls sooner.
-Every node being the same size is what makes the graph readable as a graph, and a
-node tall enough to never scroll would be taller than the bench that holds it —
-so scrolling inside a node is the trade, and 420 is where the most is visible for
-the least of it. The node's width stays at what a phone can show: a node wider
-than the screen is a graph nobody can lay out on one.
+An open Scene's node is drawn 420 pixels tall rather than 300, which shows a Shot
+with its still and the Flags the Scene sets. It does not show everything: a Scene
+with one Shot, one Cut and a Condition on it measures about 730 pixels, so the
+Cuts are a scroll away inside the node, and a Scene with several Shots scrolls
+sooner. A node tall enough to never scroll would be taller than the bench that
+holds it — so scrolling inside a node is the trade, and 420 is where the most is
+visible for the least of it. The node's width stays at what a phone can show: a
+node wider than the screen is a graph nobody can lay out on one.
+
+Every node being the same size was held here to be what makes the graph readable
+as a graph, and forty Scenes said otherwise: forty nodes of the same 420 pixels
+is forty open editors to scroll through, and the shape of the work cannot be seen
+at all. So a node folds — its name, its Shot count and where its ways on land —
+and what a node is the same size as is every other folded node. The Author opens
+one when they mean to write in it. What is folded is the Author's view of their
+own graph and is written nowhere, which is why this is a note about the drawing
+and not a decision about the Story.

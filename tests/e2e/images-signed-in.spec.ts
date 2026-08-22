@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test'
-import { ONE_PIXEL, seedScene, seedStory, test, writeStory } from './author'
+import { ONE_PIXEL, openNode, seedScene, seedStory, test, writeStory } from './author'
 import { SHOT_DESCRIPTION_MAX_LENGTH, SHOT_IMAGE_MAX_BYTES } from '../../shared/utils/scenes'
 import type { APIRequestContext } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
@@ -56,6 +56,7 @@ test('a Shot keeps the still attached last, and shows it', async ({ page, reques
   // would otherwise leave the browser drawing the image it already had.
   await page.goto(`/stories/${story.id}`)
   const street = page.getByRole('article', { name: 'The street' })
+  await openNode(page, 'The street')
   const shown = () => street.locator('img').getAttribute('src')
 
   const first = await shown()
@@ -124,6 +125,7 @@ test('the Author picks a file in the editor, and a refused one says why', async 
   // The Shots of both Scenes number from one, so the picker is found through the
   // node it sits in rather than by its label alone.
   const street = page.getByRole('article', { name: 'The street' })
+  await openNode(page, 'The street')
   const picker = street.getByLabel('Image of Shot 1')
   await picker.setInputFiles({ name: 'still.png', mimeType: 'image/png', buffer: ONE_PIXEL })
   await expect(street.locator('img')).toBeVisible()
@@ -181,6 +183,7 @@ test('a still says what it shows, and the Reader is given it', async ({ browser,
   // The Author meets it in the editor beside the picker that attached the still.
   await page.goto(`/stories/${story.id}`)
   const street = page.getByRole('article', { name: 'The street' })
+  await openNode(page, 'The street')
   await expect(street.getByLabel('Description of the still of Shot 1')).toHaveValue(description)
 
   // Replacing the still leaves the Description standing: the bytes changed, and
@@ -206,6 +209,7 @@ test('a Description is the Author’s to write, to change and to take away', asy
   // Author there.
   await page.goto(`/stories/${story.id}`)
   const street = page.getByRole('article', { name: 'The street' })
+  await openNode(page, 'The street')
   await expect(street.getByLabel('Description of the still of Shot 2')).toBeHidden()
 
   const field = street.getByLabel('Description of the still of Shot 1')
