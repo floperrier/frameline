@@ -26,7 +26,7 @@ export async function readConditions(
   if (conditions.length > CONDITIONS_MAX) {
     throw createError({
       statusCode: 400,
-      statusMessage: `A ${carrier} cannot carry more than ${CONDITIONS_MAX} Conditions.`,
+      message: `A ${carrier} cannot carry more than ${CONDITIONS_MAX} Conditions.`,
     })
   }
 
@@ -73,7 +73,7 @@ function readCondition(condition: unknown): Condition {
 function badCondition() {
   return createError({
     statusCode: 400,
-    statusMessage: 'A Condition tests what one Flag holds, '
+    message: 'A Condition tests what one Flag holds, '
       + `or how often one Scene has been entered, up to ${VISITS_MAX} times.`,
   })
 }

@@ -41,6 +41,6 @@ export default defineEventHandler(async (event) => {
 
   throw createError({
     statusCode: 400,
-    statusMessage: 'A Story needs an opening Scene before it can be published.',
+    message: 'A Story needs an opening Scene before it can be published.',
   })
 })

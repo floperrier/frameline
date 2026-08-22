@@ -13,12 +13,12 @@ export async function readStoryTitle(event: H3Event) {
   const title = typeof body?.title === 'string' ? body.title.trim() : ''
 
   if (!title) {
-    throw createError({ statusCode: 400, statusMessage: 'A Story needs a title.' })
+    throw createError({ statusCode: 400, message: 'A Story needs a title.' })
   }
   if (title.length > STORY_TITLE_MAX_LENGTH) {
     throw createError({
       statusCode: 400,
-      statusMessage: `A title cannot be longer than ${STORY_TITLE_MAX_LENGTH} characters.`,
+      message: `A title cannot be longer than ${STORY_TITLE_MAX_LENGTH} characters.`,
     })
   }
 

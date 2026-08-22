@@ -13,13 +13,24 @@ export function readId(event: H3Event, kind: Kind) {
   const id = getRouterParam(event, 'id')
 
   if (!id || !UUID_PATTERN.test(id)) {
-    throw createError({ statusCode: 400, statusMessage: `That is not a ${kind} id.` })
+    throw createError({ statusCode: 400, message: `That is not a ${kind} id.` })
   }
 
   return id
 }
 
-/** Whatever an Author never wrote reads as absent, not forbidden. */
+/**
+ * Whatever an Author never wrote reads as absent, not forbidden.
+ *
+ * The one refusal written twice. A Reader who opens a link to an unpublished
+ * Story is shown Nuxt's error page, and that page is handed a fatal error, whose
+ * `message` nitro replaces with "Server Error" before it leaves the server: the
+ * only sentence that survives to it is `statusMessage`. The editor reads the
+ * body, so this needs both. Nothing is lost to the sanitizing h3 warns about —
+ * the sentence is ASCII, and stays that way.
+ */
 export function notFound(kind: Kind) {
-  return createError({ statusCode: 404, statusMessage: `No such ${kind}.` })
+  const absent = `No such ${kind}.`
+
+  return createError({ statusCode: 404, message: absent, statusMessage: absent })
 }

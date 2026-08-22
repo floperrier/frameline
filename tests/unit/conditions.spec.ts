@@ -19,8 +19,8 @@ import { UUID_PATTERN } from '../../server/utils/ids'
  * server around it — the same way `shots.spec.ts` reads its own.
  */
 vi.stubGlobal('readBody', async (event: { body: unknown }) => event.body)
-vi.stubGlobal('createError', (refusal: { statusCode: number, statusMessage: string }) =>
-  Object.assign(new Error(refusal.statusMessage), refusal))
+vi.stubGlobal('createError', (refusal: { statusCode: number, message: string }) =>
+  Object.assign(new Error(refusal.message), refusal))
 vi.stubGlobal('CONDITIONS_MAX', CONDITIONS_MAX)
 vi.stubGlobal('FLAG_NAME_MAX_LENGTH', FLAG_NAME_MAX_LENGTH)
 vi.stubGlobal('FLAG_VALUE_MAX_LENGTH', FLAG_VALUE_MAX_LENGTH)

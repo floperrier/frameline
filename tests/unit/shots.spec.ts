@@ -45,8 +45,8 @@ describe('what an image really is', () => {
  * without a server around it.
  */
 vi.stubGlobal('readBody', async (event: { body: unknown }) => event.body)
-vi.stubGlobal('createError', (refusal: { statusCode: number, statusMessage: string }) =>
-  Object.assign(new Error(refusal.statusMessage), refusal))
+vi.stubGlobal('createError', (refusal: { statusCode: number, message: string }) =>
+  Object.assign(new Error(refusal.message), refusal))
 vi.stubGlobal('SHOT_DESCRIPTION_MAX_LENGTH', SHOT_DESCRIPTION_MAX_LENGTH)
 
 const { readShotDescription } = await import('../../server/utils/shots')

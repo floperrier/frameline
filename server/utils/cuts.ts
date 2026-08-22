@@ -26,7 +26,7 @@ export async function readCutText(event: H3Event) {
   const body = await readBody<{ text?: unknown }>(event)
 
   if (typeof body?.text !== 'string') {
-    throw createError({ statusCode: 400, statusMessage: 'A Cut carries text.' })
+    throw createError({ statusCode: 400, message: 'A Cut carries text.' })
   }
 
   const text = body.text
@@ -34,7 +34,7 @@ export async function readCutText(event: H3Event) {
   if (text.length > CUT_TEXT_MAX_LENGTH) {
     throw createError({
       statusCode: 400,
-      statusMessage: `A Cut cannot carry more than ${CUT_TEXT_MAX_LENGTH} characters.`,
+      message: `A Cut cannot carry more than ${CUT_TEXT_MAX_LENGTH} characters.`,
     })
   }
 
@@ -47,7 +47,7 @@ export async function readTargetSceneId(event: H3Event) {
   const toSceneId = typeof body?.toSceneId === 'string' ? body.toSceneId : ''
 
   if (!UUID_PATTERN.test(toSceneId)) {
-    throw createError({ statusCode: 400, statusMessage: 'A Cut arrives at a Scene.' })
+    throw createError({ statusCode: 400, message: 'A Cut arrives at a Scene.' })
   }
 
   return toSceneId
