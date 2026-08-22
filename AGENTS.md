@@ -37,6 +37,20 @@ the tokens declared there and from nowhere else. See
 A pull request per issue, squash-merged into `main`, which deploys to
 production. See `docs/git-flow.md`.
 
+## Languages
+
+The interface is read in French or in English, and the two message files —
+`i18n/locales/en.json` and `i18n/locales/fr.json` — are the only place a
+displayed string may be written. English is the `defaultLocale`, so it is the
+language of unprefixed URLs and the language a new key is authored in; French is
+reached at `/fr/...`. The two files carry the same keys, and `pnpm test` fails
+when they stop doing so.
+
+One string is translated so far, the heading over an Author's Stories: the rest
+of the interface is still written where it is displayed, and moves file by file.
+The public link is the one route left out of localized routing — see
+`docs/adr/0012-the-public-link-carries-no-locale.md`.
+
 ## Formatting
 
 The TypeScript and the Vue here are wrapped by hand — where a chain breaks and

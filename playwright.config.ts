@@ -13,7 +13,12 @@ for (const name of ['NUXT_SESSION_PASSWORD', 'DATABASE_URL'] as const) {
 
 export default defineConfig({
   testDir: './tests/e2e',
-  use: { baseURL: 'http://localhost:3101' },
+  // The suite addresses elements by their accessible name and their visible
+  // text, and the interface is read in the language the browser announces, so
+  // the language of the machine running the tests would otherwise decide which
+  // words the selectors are looking for. English is what the specs are written
+  // in; the one spec that wants French says so itself.
+  use: { baseURL: 'http://localhost:3101', locale: 'en-US' },
   webServer: {
     command: 'pnpm build && pnpm preview',
     url: 'http://localhost:3101',

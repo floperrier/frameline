@@ -108,3 +108,11 @@ _Avoid_: test, play mode, simulate, dry run, rehearse
 To make a Story readable by Readers at a public link. A Story that has never been
 published is visible only to its Author.
 _Avoid_: release, share, deploy, ship, go live
+
+### The languages
+
+**Locale**:
+The language the interface is read in, detected from the person reading and
+never a property of a Story. English is what an unprefixed address is served
+in; French is reached at `/fr/...`.
+_Avoid_: language, translation, region, market

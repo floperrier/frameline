@@ -1,6 +1,14 @@
 <script setup lang="ts">
 // Where a Reader reads a published Story. No middleware and no session: the page
 // asks nothing of whoever opens the link.
+//
+// The one route left out of localized routing, so the link an Author hands out
+// is `/read/<id>` whatever language either of them reads — see
+// `docs/adr/0012-the-public-link-carries-no-locale.md`. The chrome is still in
+// the Reader's own Locale, detected from their browser; only the address has no
+// say in it.
+definePageMeta({ i18n: false })
+
 const id = useRoute().params.id as string
 const { data: story, error } = await useAsyncData(
   `read-${id}`,

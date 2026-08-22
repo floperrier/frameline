@@ -34,7 +34,7 @@ async function signOut() {
   <main>
     <header>
       <NuxtLink class="wordmark trail" to="/">Frameline</NuxtLink>
-      <h1>Stories</h1>
+      <h1>{{ $t('stories.heading') }}</h1>
       <p class="who">{{ author?.email }}</p>
       <button type="button" @click="signOut">Sign out</button>
     </header>
