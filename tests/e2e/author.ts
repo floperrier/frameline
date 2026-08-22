@@ -152,6 +152,15 @@ export async function readShots(sceneId: string) {
     order by position` as Shot[]
 }
 
+/** Reads the Conditions each Shot of a Scene plays under, past the API and in Place order. */
+export async function readShotConditions(sceneId: string) {
+  const shots = await sql`
+    select conditions from shots where scene_id = ${sceneId}
+    order by position` as Pick<Shot, 'conditions'>[]
+
+  return shots.map(shot => shot.conditions)
+}
+
 /** Reads a Story past the API, to see what a refused request left behind. */
 export async function readStory(id: string) {
   const [story] = await sql`select id, title from stories where id = ${id}` as Story[]

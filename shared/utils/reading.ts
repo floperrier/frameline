@@ -39,8 +39,8 @@ export type Position = { taken: string[], shot: number }
 export type State = { flags: Flags, visits: Record<string, number> }
 
 /**
- * Whether the Conditions a Cut carries all pass against this State, a Cut
- * carrying none being one the Reader is always offered. One comparison a
+ * Whether the Conditions a Cut or a Shot carries all pass against this State —
+ * one carrying none being always offered, or always played. One comparison a
  * Condition, an `every` over them, and no recursion: a Condition is flat by
  * construction, so this is the whole of the language.
  */
@@ -54,8 +54,9 @@ export function holds(conditions: Condition[], state: State) {
 }
 
 /**
- * Why a Cut is not on offer: one line for each test it carries that this State
- * fails, saying what the test asked for and what the State actually holds. For
+ * Why a Cut is not on offer, or a Shot not played: one line for each test it
+ * carries that this State fails, saying what the test asked for and what the
+ * State actually holds. For
  * an Author's eyes alone — a Reader is never told what they are not being
  * offered — so the Scene a Condition counts is named rather than shown as the id
  * the Condition holds.
@@ -93,9 +94,16 @@ export const OPENING: Position = { taken: [], shot: 0 }
  * the Scene plays to its end before it asks anything. `ended` is the path
  * reaching its end: no Shot left and no Cut out, which the Reader is owed as an
  * ending rather than a screen that has simply stopped answering.
+ *
+ * `run` is the Shots of that Scene this Reading plays — the Author's run minus
+ * the ones a Condition skips — which is what the Position counts and what the
+ * screen numbers the beat against. It is here rather than read off the Scene
+ * because the Scene alone cannot say it: the same Scene is a different run to a
+ * Reading that has been there before.
  */
 export type Shown = {
   sceneId: string | null
+  run: Shot[]
   shot: Shot | undefined
   cuts: Cut[]
   ended: boolean
@@ -140,7 +148,14 @@ function walk(story: StoryToRead, taken: string[]) {
 /** What this Story shows a Reading standing at this Position. */
 export function reading(story: StoryToRead, at: Position): Shown {
   const { sceneId, state } = walk(story, at.taken)
-  const shot = story.scenes.find(scene => scene.id === sceneId)?.shots[at.shot]
+  // The run this Reading plays, judged against the State it arrived with: a Shot
+  // whose Conditions fail is left out of the run rather than played to nobody,
+  // so the Position counts the beats the Reader actually saw and the one after
+  // the skipped Shot is the next one on screen. Judged once for the whole Scene,
+  // because nothing inside a Scene changes State — only entering one does.
+  const run = story.scenes.find(scene => scene.id === sceneId)
+    ?.shots.filter(shot => holds(shot.conditions, state)) ?? []
+  const shot = run[at.shot]
   // A Story with no opening Scene has no Cuts to offer either, so the empty
   // Scene and the missing one both end the path. A Cut one of whose Conditions
   // fails is not among them, which is what makes it invisible rather than
@@ -149,7 +164,7 @@ export function reading(story: StoryToRead, at: Position): Shown {
     ? []
     : story.cuts.filter(cut => cut.fromSceneId === sceneId && holds(cut.conditions, state))
 
-  return { sceneId, shot, cuts, ended: !shot && cuts.length === 0, state }
+  return { sceneId, run, shot, cuts, ended: !shot && cuts.length === 0, state }
 }
 
 /** The Reader asks for the next Shot of the Scene. */

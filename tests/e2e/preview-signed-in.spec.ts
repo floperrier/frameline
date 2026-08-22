@@ -281,3 +281,46 @@ test('a Reader of the published Story is shown none of the bench',
     await expect(reader.getByText('coat')).toHaveCount(0)
     await expect(reader.getByText('Stay outside')).toHaveCount(0)
   })
+
+test('a Scene says something different on a return visit', async ({ page, request }) => {
+  const story = await writeConditionalStory(request)
+  const { scenes } = await (await request.get(`/api/stories/${story.id}`)).json()
+  const street = scenes[0]
+
+  // A third Shot in the street, played only once it has been entered twice — the
+  // line the Author used to need a second Scene to hold.
+  const again = await (await request.post(`/api/scenes/${street.id}/shots`)).json()
+  await request.patch(`/api/shots/${again.id}`, {
+    data: { text: 'The same door, again.', description: '' },
+  })
+  await request.put(`/api/shots/${again.id}/conditions`, {
+    data: { conditions: [{ scene: street.id, visits: 'at least', times: 2 }] },
+  })
+
+  await page.goto(`/stories/${story.id}/preview`)
+  const bench = page.getByRole('region', { name: /On the bench/ })
+
+  // First time through, the street is the two Shots it always was: the run is
+  // counted without the Shot this Reading is not being played, and the bench
+  // says which one that is and why.
+  await expect(page.getByText('Shot 1 of 2')).toBeVisible()
+  await expect(bench.locator('s').filter({ hasText: 'The same door, again.' })).toBeVisible()
+  await expect(bench.getByText('needs at least 2 visits to The street, entered once'))
+    .toBeVisible()
+
+  // The bench names the beat, but the frame never plays it: the Scene runs
+  // straight from the second Shot to the ways on.
+  const frame = page.locator('figure')
+  await page.getByRole('button', { name: 'Next Shot' }).click()
+  await expect(frame.getByText('She steps out.')).toBeVisible()
+  await page.getByRole('button', { name: 'Next Shot' }).click()
+  await expect(frame.getByText('The same door, again.')).toBeHidden()
+  await expect(page.getByRole('button', { name: 'Follow her out' })).toBeVisible()
+
+  // Round the block and back, and the Scene plays the extra beat: three Shots
+  // where there were two, and nothing left on the bench to explain.
+  await roundTheBlock(page)
+  await expect(page.getByText('Shot 3 of 3')).toBeVisible()
+  await expect(frame.getByText('The same door, again.')).toBeVisible()
+  await expect(bench.getByText('Shots this Reading is not played')).toBeHidden()
+})

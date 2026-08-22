@@ -9,9 +9,14 @@ import { OPENING, advance, reading, take, unmet } from '../../shared/utils/readi
  * Scene it was standing in rather than which uuid. A Cut carries Conditions only
  * where the test states them, and a Scene sets Flags only where `sets` names
  * them, so a Story about anything else stays as short as it was.
+ *
+ * A Shot is written as its text, or as its text and the Conditions it plays
+ * under, so a Scene of plain Shots reads as the list of lines it is.
  */
+type Written = string | [text: string, conditions: Condition[]]
+
 function story(
-  scenes: Record<string, string[]>,
+  scenes: Record<string, Written[]>,
   cuts: [from: string, text: string, to: string, conditions?: Condition[]][] = [],
   openingSceneId: string | null = Object.keys(scenes)[0] ?? null,
   sets: Record<string, Flags> = {},
@@ -21,13 +26,10 @@ function story(
     scenes: Object.entries(scenes).map(([id, texts]) => ({
       id,
       sets: sets[id] ?? {},
-      shots: texts.map((text, position) => ({
-        id: `${id}-${position}`,
-        text,
-        position,
-        image: null,
-        description: '',
-      })),
+      shots: texts.map((written, position) => {
+        const [text, conditions] = typeof written === 'string' ? [written, []] : written
+        return { id: `${id}-${position}`, text, position, image: null, description: '', conditions }
+      }),
     })),
     cuts: cuts.map(([fromSceneId, text, toSceneId, conditions], index) => ({
       id: `cut-${index}`,
@@ -44,6 +46,11 @@ function story(
 function shown(read: StoryToRead, at: Position) {
   const { shot, cuts, ended } = reading(read, at)
   return { text: shot?.text, offered: cuts.map(cut => cut.text), ended }
+}
+
+/** The run of Shots this Reading plays, which is the Scene's own minus the skipped. */
+function run(read: StoryToRead, at: Position) {
+  return reading(read, at).run.map(shot => shot.text)
 }
 
 describe('a Reading of one Scene', () => {
@@ -381,5 +388,86 @@ describe('the tests a Cut is hidden by', () => {
       'needs reel to hold threaded, holds spooled',
       'needs at least 4 visits to The House, entered once',
     ])
+  })
+})
+
+describe('a Shot carrying Conditions', () => {
+  /**
+   * A booth read twice: the middle Shot plays only on a return, and the last one
+   * only on a first visit. What the Reading sees says which run it got — the
+   * Scene the Author wrote is one, and the run played is the one that holds.
+   */
+  const booth = story(
+    {
+      Booth: [
+        'The projector ticks over.',
+        ['You have been here before.', [{ scene: 'Booth', visits: 'at least', times: 2 }]],
+        ['The last show has run out.', [{ scene: 'Booth', visits: 'fewer than', times: 2 }]],
+      ],
+      House: ['Rows of empty seats.'],
+    },
+    [['Booth', 'Walk the house', 'House'], ['House', 'Back up', 'Booth']],
+  )
+
+  /** Round the only loop the Story allows, `times` times, ending in the Booth. */
+  function laps(times: number) {
+    let at = OPENING
+    for (let lap = 0; lap < times; lap++) {
+      for (const _ of ['out', 'back']) {
+        while (reading(booth, at).shot) at = advance(at)
+        at = take(at, reading(booth, at).cuts[0]!)
+      }
+    }
+    return at
+  }
+
+  it('leaves out the Shots whose Conditions this Reading fails', () => {
+    expect(run(booth, OPENING)).toEqual(['The projector ticks over.', 'The last show has run out.'])
+    expect(run(booth, laps(1)))
+      .toEqual(['The projector ticks over.', 'You have been here before.'])
+  })
+
+  it('plays the run without the gap the skipped Shot left', () => {
+    expect(shown(booth, OPENING).text).toBe('The projector ticks over.')
+    expect(shown(booth, advance(OPENING)).text).toBe('The last show has run out.')
+    expect(shown(booth, advance(advance(OPENING))).text).toBeUndefined()
+  })
+
+  it('says something different on the return visit, from the same Scene', () => {
+    expect(shown(booth, advance(laps(1))).text).toBe('You have been here before.')
+  })
+
+  it('offers the ways on once the run this Reading plays has run out', () => {
+    expect(shown(booth, advance(advance(OPENING))).offered).toEqual(['Walk the house'])
+  })
+
+  it('plays a Shot carrying none to every Reading', () => {
+    const plain = story({ Street: ['A door opens.', 'She steps out.'] })
+    expect(run(plain, OPENING)).toEqual(['A door opens.', 'She steps out.'])
+  })
+
+  it('reads a Flag a Scene behind it, the way a Cut does', () => {
+    const wearing = story(
+      {
+        Street: ['A door opens.'],
+        Bar: ['Smoke.', ['You keep your coat on.', [{ flag: 'coat', is: 'on' }]]],
+      },
+      [['Street', 'Go in', 'Bar']],
+      'Street',
+      { Street: { coat: 'on' } },
+    )
+
+    const inTheBar = take(advance(OPENING), reading(wearing, advance(OPENING)).cuts[0]!)
+    expect(run(wearing, inTheBar)).toEqual(['Smoke.', 'You keep your coat on.'])
+  })
+
+  it('ends the path in a Scene whose every Shot is skipped and which no Cut leaves', () => {
+    const shut = story({ Booth: [['Only for the second time.', [{ flag: 'key', is: 'found' }]]] })
+    expect(run(shut, OPENING)).toEqual([])
+    expect(shown(shut, OPENING)).toEqual({ text: undefined, offered: [], ended: true })
+  })
+
+  it('holds no run at all where the Reading stands in no Scene', () => {
+    expect(run(story({}, [], null), OPENING)).toEqual([])
   })
 })
