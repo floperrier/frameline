@@ -1,4 +1,4 @@
-import type { APIRequestContext } from '@playwright/test'
+import type { APIRequestContext, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 import {
   CUT_CONDITIONS_MAX,
@@ -552,6 +552,20 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
     .toBeDisabled()
 })
 
+/**
+ * Waits for what an interaction wrote to come back. The page refetches the whole
+ * Story after every write, and a refetch that lands while the Author is still
+ * typing takes the typing with it — see #40. A test that types the next thing
+ * before the last one is back is the one racing, so it waits.
+ */
+async function written(page: Page, act: () => Promise<unknown>) {
+  const refetched = page.waitForResponse(response =>
+    response.request().method() === 'GET' && response.url().includes('/api/stories/'))
+
+  await act()
+  await refetched
+}
+
 test('an Author sets a Flag and two Conditions from the page alone', async ({ page, request }) => {
   const { story, scenes } = await openGraph(request)
   const [from, to] = scenes as [{ id: string }, { id: string }]
@@ -560,21 +574,33 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
   await page.goto(`/stories/${story.id}`)
 
   const flags = page.getByLabel('Flags set on entering The arrival')
-  await flags.fill('coat = on')
-  await flags.blur()
+  await written(page, async () => {
+    await flags.fill('coat = on')
+    await flags.blur()
+  })
 
   await page.getByRole('button', { name: 'Add a Condition to the Cut to The platform' }).click()
-  await page.getByLabel('Flag of Condition 1 of the Cut to The platform').fill('coat')
+  // The name of the Flag and the value it holds are written one at a time: the
+  // Flag alone is half a Condition, so it is written, and the value has to be
+  // typed into the field that refetch hands back.
+  const flag = page.getByLabel('Flag of Condition 1 of the Cut to The platform')
+  await written(page, async () => {
+    await flag.fill('coat')
+    await flag.blur()
+  })
   const holds = page.getByLabel('holds for Condition 1 of the Cut to The platform')
-  await holds.fill('on')
-  await holds.blur()
+  await written(page, async () => {
+    await holds.fill('on')
+    await holds.blur()
+  })
 
   // A second Condition on the same Cut, which is what one could not say.
   await page.getByRole('button', { name: 'Add a Condition to the Cut to The platform' }).click()
   // Exactly, because "Condition 2 of the Cut to The platform" is also the tail
   // of the labels on the fields of that Condition.
-  await page.getByLabel('Condition 2 of the Cut to The platform', { exact: true })
-    .selectOption('visits')
+  await written(page, () => page
+    .getByLabel('Condition 2 of the Cut to The platform', { exact: true })
+    .selectOption('visits'))
 
   // Read back past the page, which is what proves all of it landed — and has to
   // happen before the reload, which would abort a write still in flight.
