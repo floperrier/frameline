@@ -62,6 +62,7 @@ node --env-file=.env demonstration/write.ts --author you@example.com
 ```
 
 The Author has to have signed in to that instance already, `DATABASE_URL` and
-`NUXT_SESSION_PASSWORD` have to be the ones it runs on, and ImageMagick has to be
-on the path — the stills are developed by `magick`, not stored here. Running it
+`NUXT_SESSION_PASSWORD` have to be the ones it runs on, ImageMagick has to be on
+the path — the stills are developed by `magick`, not stored here — and Node has to
+be 22.18 or newer, which is the version that strips the types itself. Running it
 again writes a second copy rather than replacing the first.

@@ -12,6 +12,8 @@
  * hand it seals the same `nuxt-session` cookie nuxt-auth-utils would have written,
  * exactly as the end-to-end suite does in `tests/e2e/author.ts`.
  *
+ * Node 22.18 or newer runs it as it stands, because it strips the types itself.
+ *
  * Two things have to be true of the environment it runs against: `DATABASE_URL`
  * and `NUXT_SESSION_PASSWORD` are the ones that instance uses, and the Author has
  * signed in there at least once. Against production that means the production
@@ -23,7 +25,9 @@ import { randomUUID } from 'node:crypto'
 import { promisify } from 'node:util'
 import { neon } from '@neondatabase/serverless'
 import { sealSession, type H3Event } from 'h3'
-import { REEL_CHANGE, type Lit, type Still, type When } from './reel-change.ts'
+import { SHOT_IMAGE_MAX_BYTES } from '../shared/utils/scenes.ts'
+import type { Condition } from '../shared/utils/scenes.ts'
+import { REEL_CHANGE, type Lit, type Still } from './reel-change.ts'
 
 const run = promisify(execFile)
 
@@ -65,7 +69,9 @@ for (const cut of REEL_CHANGE.cuts) {
   }) as { id: string }
 
   await api('PATCH', `/api/cuts/${id}`, { text: cut.text })
-  if (cut.when) await api('PUT', `/api/cuts/${id}/condition`, { condition: condition(cut.when) })
+  if (cut.when) {
+    await api('PUT', `/api/cuts/${id}/condition`, { condition: identified(cut.when) })
+  }
 }
 
 await api('POST', `/api/stories/${story.id}/publish`)
@@ -73,8 +79,10 @@ await api('POST', `/api/stories/${story.id}/publish`)
 console.log(`\n${REEL_CHANGE.title} is readable at ${origin}/read/${story.id}`)
 
 /** A Condition as the API takes it: a Scene named in the work, identified here. */
-function condition(when: When) {
-  return 'scene' in when ? { ...when, scene: sceneNamed(when.scene) } : when
+function identified(condition: Condition) {
+  return 'scene' in condition
+    ? { ...condition, scene: sceneNamed(condition.scene) }
+    : condition
 }
 
 function sceneNamed(name: string) {
@@ -84,11 +92,11 @@ function sceneNamed(name: string) {
 }
 
 /**
- * The frame the still describes, as the bytes of a JPEG. Three passes over one
+ * The still the recipe describes, as the bytes of a JPEG. Three passes over one
  * ImageMagick invocation, in the order light reaches film: what glows is screened
  * onto the ground, because light adds; what the light falls on is laid over it,
  * because a dark shape in front of a lamp has to be able to block it; and the
- * grain and the falloff at the corners go over everything, so one frame is graded
+ * grain and the falloff at the corners go over everything, so one still is graded
  * like the next.
  */
 async function develop(still: Still) {
@@ -100,11 +108,18 @@ async function develop(still: Still) {
     ...(still.form ?? []).flatMap(lit => layer(lit, 'none', 'over')),
     '-attenuate', String(still.grain ?? 1), '+noise', 'Gaussian',
     // The corners fall away, the way they do through any real lens, and the whole
-    // frame comes back a little off full colour: nothing here was ever graded.
+    // still comes back a little off full colour: nothing here was ever graded.
     '(', '-size', FRAME, 'radial-gradient:#ffffff-#333333', ')', '-compose', 'multiply', '-composite',
     '-modulate', '100,88',
     '-depth', '8', '-strip', '-quality', '84', 'jpg:-',
   ], { encoding: 'buffer', maxBuffer: 8 * 1024 * 1024 })
+
+  // Grain is the worst thing that can be done to a JPEG, so the one thing a still
+  // can get wrong by itself is coming out too heavy for the Shot's own row. Said
+  // here rather than found out by a refused PUT halfway through writing the work.
+  if (stdout.length > SHOT_IMAGE_MAX_BYTES) {
+    throw new Error(`A still developed to ${stdout.length} bytes, past what a Shot may carry`)
+  }
 
   return stdout
 }
@@ -115,9 +130,9 @@ function layer(lit: Lit, over: string, compose: string) {
     '(', '-size', FRAME, `xc:${over}`,
     '-fill', lit.colour, '-draw', lit.draw,
     '-blur', `0x${lit.blur ?? 4}`,
-    ...(lit.of === undefined
+    ...(lit.opacity === undefined
       ? []
-      : ['-alpha', 'set', '-channel', 'A', '-evaluate', 'multiply', String(lit.of), '+channel']),
+      : ['-alpha', 'set', '-channel', 'A', '-evaluate', 'multiply', String(lit.opacity), '+channel']),
     ')', '-compose', compose, '-composite',
   ]
 }
@@ -148,18 +163,19 @@ async function refused(response: Response, what: string) {
   return new Error(`${what} — ${response.status} ${await response.text()}`)
 }
 
+type Author = { id: string, email: string, name: string | null }
+
 /** The Author this work belongs to, who has to have signed in here already. */
 async function authorNamed(email: string) {
   const sql = neon(process.env.DATABASE_URL!)
   const [author] = await sql`
-    select id, email, name from authors where email = ${email}` as
-    { id: string, email: string, name: string | null }[]
+    select id, email, name from authors where email = ${email}` as Author[]
 
   if (!author) throw new Error(`No Author has signed in as ${email} at ${origin}`)
   return author
 }
 
-async function sealAuthorSession(author: { id: string, email: string, name: string | null }) {
+async function sealAuthorSession(author: Author) {
   const session = { id: randomUUID(), createdAt: Date.now(), data: { user: author } }
   // `sealSession` only reaches into `context.sessions`, so a stub stands in for
   // the request event a real one would ride on.
