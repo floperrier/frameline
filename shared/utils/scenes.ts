@@ -189,6 +189,17 @@ export function flagsTyped(typed: string): Flags {
 }
 
 /**
+ * How a Cut is named where it is read rather than edited. A Cut nobody has
+ * phrased yet is named by where it lands: an unphrased Cut is half of what a
+ * Preview is for, and a Reading that cannot go on is the worse answer. Shared,
+ * because a Preview names the ways on a Condition is hiding in the same breath
+ * as the ones on offer, and the two must read alike.
+ */
+export function cutNamed(cut: Cut, sceneName: (id: string) => string) {
+  return cut.text || `Cut to ${sceneName(cut.toSceneId)}`
+}
+
+/**
  * A flat test on the State of one Reading, carried by a Cut: the Cut is offered
  * only where every test it carries passes. Two things can be tested and nothing
  * else — what a Flag holds, or how often a Scene has been entered — with no

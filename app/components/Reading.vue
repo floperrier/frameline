@@ -12,6 +12,15 @@
  */
 const { story } = defineProps<{ story: StoryToShow }>()
 
+/**
+ * Where the Reading has got to, said out loud on every move. The whole of what
+ * this component offers whoever draws it, and the reason a Preview can put the
+ * State on a bench beside it without this knowing who is watching: the Position
+ * is all a Preview needs, because everything else is a pure function of it.
+ * A Reader's Reading is the same component with nobody listening.
+ */
+const emit = defineEmits<{ at: [Position] }>()
+
 const at = ref<Position>(OPENING)
 const shown = computed(() => reading(story, at.value))
 
@@ -29,6 +38,7 @@ const cuts = useTemplateRef<HTMLElement>('cuts')
 
 async function moveTo(to: Position) {
   at.value = to
+  emit('at', to)
   await nextTick()
   ;(frame.value ?? cuts.value?.querySelector('button'))?.focus()
 }
@@ -46,13 +56,9 @@ const scene = computed(() => story.scenes.find(({ id }) => id === shown.value.sc
 /** Numbered from one for the Reader, as the editor numbers them for the Author. */
 const place = computed(() => at.value.shot + 1)
 
-/**
- * A Cut nobody has phrased yet is offered by where it arrives. An unphrased Cut
- * is half of what a Preview is for; a published one is a Story its Author let
- * out unfinished, and a Reading that cannot go on is the worse answer.
- */
+/** A Cut nobody has phrased yet is offered by where it arrives. */
 function offered(cut: Cut) {
-  return cut.text || `Cut to ${sceneNames.value.get(cut.toSceneId)}`
+  return cutNamed(cut, id => sceneNames.value.get(id) ?? id)
 }
 </script>
 
