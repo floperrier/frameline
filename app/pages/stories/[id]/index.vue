@@ -265,31 +265,43 @@ function anchor(sceneId: string) {
 
 <template>
   <main>
+    <!-- The bench's own header: where the Author came from, what they are working
+         on, and the two things that can be done to the Story as a whole. It stays
+         on screen, because the graph below it scrolls a long way. -->
     <header>
-      <NuxtLink to="/stories">All Stories</NuxtLink>
-      <h1>{{ story?.title }}</h1>
-      <NuxtLink :to="`/stories/${id}/preview`">Preview this Story</NuxtLink>
+      <div class="titling">
+        <NuxtLink class="back" to="/stories">All Stories</NuxtLink>
+        <h1>{{ story?.title }}</h1>
+      </div>
+
+      <div class="release">
+        <!-- Published or not is the whole of it: one button either way, and the link
+             shown in full so it can be copied out of the page. -->
+        <p v-if="story?.publishedAt" class="live">
+          <span class="eyebrow">Anyone can read this Story at</span>
+          <a class="link" :href="publicLink">{{ publicLink }}</a>
+        </p>
+        <NuxtLink class="preview" :to="`/stories/${id}/preview`">Preview this Story</NuxtLink>
+        <button v-if="story?.publishedAt" type="button" @click="unpublish">
+          Unpublish this Story
+        </button>
+        <button v-else type="button" class="primary" @click="publish">Publish this Story</button>
+      </div>
     </header>
 
-    <!-- Published or not is the whole of it: one button either way, and the link
-         shown in full so it can be copied out of the page. -->
-    <p v-if="story?.publishedAt">
-      Anyone can read this Story at <a :href="publicLink">{{ publicLink }}</a>
-      <button type="button" @click="unpublish">Unpublish this Story</button>
-    </p>
-    <p v-else>
-      <button type="button" @click="publish">Publish this Story</button>
-    </p>
-
-    <form @submit.prevent="createScene">
-      <label for="new-scene-name">Name of a new Scene</label>
-      <input id="new-scene-name" v-model="newSceneName" required :maxlength="SCENE_NAME_MAX_LENGTH">
-      <button type="submit">Create Scene</button>
+    <form class="naming" @submit.prevent="createScene">
+      <label class="eyebrow" for="new-scene-name">Name of a new Scene</label>
+      <div class="row">
+        <input id="new-scene-name" v-model="newSceneName" required :maxlength="SCENE_NAME_MAX_LENGTH">
+        <button type="submit">Create Scene</button>
+      </div>
     </form>
 
     <p v-if="problem" role="alert">{{ problem }}</p>
 
-    <p v-if="!story?.scenes.length">No Scenes yet.</p>
+    <p v-if="!story?.scenes.length" class="none">
+      No Scenes yet. Name one above, and it lands on the bench with a Shot to write.
+    </p>
     <div v-else class="graph">
       <div class="canvas" :style="graphSize">
         <!-- The Cuts are listed under the Scene they leave, so the lines that
@@ -324,72 +336,93 @@ function anchor(sceneId: string) {
             maxBlockSize: `${NODE_HEIGHT}px`,
           }"
         >
-          <h2 :id="`scene-${scene.id}`">{{ scene.name }}</h2>
+          <div class="slate">
+            <h2 :id="`scene-${scene.id}`">{{ scene.name }}</h2>
 
-          <button
-            type="button"
-            class="handle"
-            @pointerdown="startDrag(scene, $event)"
-            @pointermove="keepDragging"
-            @pointerup="endDrag"
-            @keydown="nudge(scene, $event)"
-          >
-            Move <span class="visually-hidden">Scene {{ scene.name }}</span>
-          </button>
-
-          <p>
-            <input
-              :id="`opening-${scene.id}`"
-              type="radio"
-              name="opening-scene"
-              :checked="story.openingSceneId === scene.id"
-              @change="openOn(scene)"
+            <button
+              type="button"
+              class="handle"
+              @pointerdown="startDrag(scene, $event)"
+              @pointermove="keepDragging"
+              @pointerup="endDrag"
+              @keydown="nudge(scene, $event)"
             >
-            <label :for="`opening-${scene.id}`">
-              Opening Scene <span class="visually-hidden">{{ scene.name }}</span>
-            </label>
-          </p>
+              Move <span class="visually-hidden">Scene {{ scene.name }}</span>
+            </button>
+          </div>
 
-          <button type="button" @click="deleteScene(scene)">
-            Delete Scene <span class="visually-hidden">{{ scene.name }}</span>
-          </button>
-
-          <!-- Numbered from one for the Author, though the Scene counts from zero. -->
-          <ol>
-            <li v-for="(shot, place) in scene.shots" :key="shot.id">
-              <label :for="`shot-${shot.id}`">Shot {{ place + 1 }}</label>
-              <textarea
-                :id="`shot-${shot.id}`"
-                v-model="shot.text"
-                :maxlength="SHOT_TEXT_MAX_LENGTH"
-                @change="writeShot(shot)"
-              />
-              <label :for="`image-${shot.id}`">
-                Image <span class="visually-hidden">of Shot {{ place + 1 }}</span>
-              </label>
+          <div class="standing">
+            <p class="opening">
               <input
-                :id="`image-${shot.id}`"
-                type="file"
-                :accept="SHOT_IMAGE_TYPES.join(',')"
-                @change="attachImage(shot, $event)"
+                :id="`opening-${scene.id}`"
+                type="radio"
+                name="opening-scene"
+                :checked="story.openingSceneId === scene.id"
+                @change="openOn(scene)"
               >
-              <!-- The still as the Author will meet it in a Reading, so a wrong
-                   image is seen here rather than in the published Story. -->
-              <img v-if="shot.image" :src="stillOf(shot)" :alt="`The still of Shot ${place + 1}`">
+              <label :for="`opening-${scene.id}`">
+                Opening Scene <span class="visually-hidden">{{ scene.name }}</span>
+              </label>
+            </p>
 
-              <button type="button" :disabled="place === 0" @click="moveShot(shot, 'earlier')">
-                Move earlier <span class="visually-hidden">Shot {{ place + 1 }}</span>
-              </button>
-              <button
-                type="button"
-                :disabled="place === scene.shots.length - 1"
-                @click="moveShot(shot, 'later')"
-              >
-                Move later <span class="visually-hidden">Shot {{ place + 1 }}</span>
-              </button>
-              <button type="button" @click="deleteShot(shot)">
-                Delete <span class="visually-hidden">Shot {{ place + 1 }}</span>
-              </button>
+            <button type="button" class="danger" @click="deleteScene(scene)">
+              Delete Scene <span class="visually-hidden">{{ scene.name }}</span>
+            </button>
+          </div>
+
+          <!-- The Shots as a strip: numbered from one for the Author, though the
+               Scene counts from zero, and each one's number sits in the gutter
+               where the edge code would be. -->
+          <ol class="shots">
+            <li v-for="(shot, place) in scene.shots" :key="shot.id">
+              <!-- The number alone in the gutter, where a frame's edge code would be,
+                   and the word it is a number of kept for anyone listening. -->
+              <label class="frame-number" :for="`shot-${shot.id}`">
+                <span class="visually-hidden">Shot </span>{{ place + 1 }}
+              </label>
+              <div class="written">
+                <textarea
+                  :id="`shot-${shot.id}`"
+                  v-model="shot.text"
+                  rows="2"
+                  :maxlength="SHOT_TEXT_MAX_LENGTH"
+                  @change="writeShot(shot)"
+                />
+
+                <!-- The still beside the picker that attached it, small: it is
+                     here to say which image the Shot carries, and the Preview is
+                     where the Author meets it at the size a Reader will. -->
+                <div class="still">
+                  <img v-if="shot.image" :src="stillOf(shot)" :alt="`The still of Shot ${place + 1}`">
+                  <div>
+                    <label class="eyebrow" :for="`image-${shot.id}`">
+                      Image <span class="visually-hidden">of Shot {{ place + 1 }}</span>
+                    </label>
+                    <input
+                      :id="`image-${shot.id}`"
+                      type="file"
+                      :accept="SHOT_IMAGE_TYPES.join(',')"
+                      @change="attachImage(shot, $event)"
+                    >
+                  </div>
+                </div>
+
+                <div class="row">
+                  <button type="button" :disabled="place === 0" @click="moveShot(shot, 'earlier')">
+                    Move earlier <span class="visually-hidden">Shot {{ place + 1 }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    :disabled="place === scene.shots.length - 1"
+                    @click="moveShot(shot, 'later')"
+                  >
+                    Move later <span class="visually-hidden">Shot {{ place + 1 }}</span>
+                  </button>
+                  <button type="button" class="danger" @click="deleteShot(shot)">
+                    Delete <span class="visually-hidden">Shot {{ place + 1 }}</span>
+                  </button>
+                </div>
+              </div>
             </li>
           </ol>
 
@@ -397,21 +430,23 @@ function anchor(sceneId: string) {
             Add Shot <span class="visually-hidden">to {{ scene.name }}</span>
           </button>
 
-          <p>
-            <label :for="`flags-${scene.id}`">
+          <p class="sets">
+            <label class="eyebrow" :for="`flags-${scene.id}`">
               Flags set on entering <span class="visually-hidden">{{ scene.name }}</span>
             </label>
             <textarea
               :id="`flags-${scene.id}`"
+              class="data"
+              rows="2"
               :value="flagLines(scene.sets)"
               :placeholder="`courage ${FLAG_SEPARATOR} high`"
               @change="writeFlags(scene, ($event.target as HTMLTextAreaElement).value)"
             />
           </p>
 
-          <ul>
+          <ul class="cuts">
             <li v-for="cut in cutsFrom(scene)" :key="cut.id">
-              <label :for="`cut-${cut.id}`">
+              <label class="eyebrow" :for="`cut-${cut.id}`">
                 Cut to {{ sceneNames.get(cut.toSceneId) }}
                 <span class="visually-hidden">from {{ scene.name }}</span>
               </label>
@@ -423,111 +458,116 @@ function anchor(sceneId: string) {
               >
 
               <!-- One Condition a Cut, flat: whichever kind is chosen, the whole
-                   of it is the row that follows. -->
-              <label :for="`when-${cut.id}`">
-                Offered when
-                <span class="visually-hidden">
-                  taking the Cut to {{ sceneNames.get(cut.toSceneId) }}
-                </span>
-              </label>
-              <select
-                :id="`when-${cut.id}`"
-                :value="conditionKind(cut)"
-                @change="chooseCondition(
-                  cut, ($event.target as HTMLSelectElement).value as ConditionKind)"
-              >
-                <option value="always">Always</option>
-                <option value="flag">A Flag holds</option>
-                <option value="visits">A Scene has been entered</option>
-              </select>
-
-              <template v-if="cut.condition && 'flag' in cut.condition">
-                <label :for="`flag-${cut.id}`">
-                  Flag
+                   of it is the row that follows, read as one sentence. -->
+              <div class="when">
+                <label :for="`when-${cut.id}`">
+                  Offered when
                   <span class="visually-hidden">
-                    tested by the Cut to {{ sceneNames.get(cut.toSceneId) }}
-                  </span>
-                </label>
-                <input
-                  :id="`flag-${cut.id}`"
-                  v-model="cut.condition.flag"
-                  :maxlength="FLAG_NAME_MAX_LENGTH"
-                  @change="writeCondition(cut)"
-                >
-                <label :for="`is-${cut.id}`">
-                  holds
-                  <span class="visually-hidden">
-                    for the Cut to {{ sceneNames.get(cut.toSceneId) }}
-                  </span>
-                </label>
-                <input
-                  :id="`is-${cut.id}`"
-                  v-model="cut.condition.is"
-                  :maxlength="FLAG_VALUE_MAX_LENGTH"
-                  @change="writeCondition(cut)"
-                >
-              </template>
-
-              <template v-else-if="cut.condition && 'scene' in cut.condition">
-                <label :for="`counted-${cut.id}`">
-                  Scene
-                  <span class="visually-hidden">
-                    counted by the Cut to {{ sceneNames.get(cut.toSceneId) }}
+                    taking the Cut to {{ sceneNames.get(cut.toSceneId) }}
                   </span>
                 </label>
                 <select
-                  :id="`counted-${cut.id}`"
-                  v-model="cut.condition.scene"
-                  @change="writeCondition(cut)"
+                  :id="`when-${cut.id}`"
+                  :value="conditionKind(cut)"
+                  @change="chooseCondition(
+                    cut, ($event.target as HTMLSelectElement).value as ConditionKind)"
                 >
-                  <!-- A Scene deleted since the Condition was written is still
-                       what it counts, and saying so beats showing the Author a
-                       Scene they never chose. -->
-                  <option v-if="!sceneNames.get(cut.condition.scene)" :value="cut.condition.scene">
-                    A Scene that is gone
-                  </option>
-                  <option v-for="counted in story.scenes" :key="counted.id" :value="counted.id">
-                    {{ counted.name }}
-                  </option>
+                  <option value="always">Always</option>
+                  <option value="flag">A Flag holds</option>
+                  <option value="visits">A Scene has been entered</option>
                 </select>
-                <label :for="`visits-${cut.id}`">
-                  entered
-                  <span class="visually-hidden">
-                    for the Cut to {{ sceneNames.get(cut.toSceneId) }}
-                  </span>
-                </label>
-                <select
-                  :id="`visits-${cut.id}`"
-                  v-model="cut.condition.visits"
-                  @change="writeCondition(cut)"
-                >
-                  <option value="at least">at least</option>
-                  <option value="fewer than">fewer than</option>
-                </select>
-                <label :for="`times-${cut.id}`">
-                  times
-                  <span class="visually-hidden">
-                    for the Cut to {{ sceneNames.get(cut.toSceneId) }}
-                  </span>
-                </label>
-                <input
-                  :id="`times-${cut.id}`"
-                  v-model.number="cut.condition.times"
-                  type="number"
-                  min="1"
-                  :max="VISITS_MAX"
-                  @change="writeCondition(cut)"
-                >
-              </template>
 
-              <button type="button" @click="deleteCut(cut)">
+                <template v-if="cut.condition && 'flag' in cut.condition">
+                  <label :for="`flag-${cut.id}`">
+                    Flag
+                    <span class="visually-hidden">
+                      tested by the Cut to {{ sceneNames.get(cut.toSceneId) }}
+                    </span>
+                  </label>
+                  <input
+                    :id="`flag-${cut.id}`"
+                    v-model="cut.condition.flag"
+                    class="data"
+                    :maxlength="FLAG_NAME_MAX_LENGTH"
+                    @change="writeCondition(cut)"
+                  >
+                  <label :for="`is-${cut.id}`">
+                    holds
+                    <span class="visually-hidden">
+                      for the Cut to {{ sceneNames.get(cut.toSceneId) }}
+                    </span>
+                  </label>
+                  <input
+                    :id="`is-${cut.id}`"
+                    v-model="cut.condition.is"
+                    class="data"
+                    :maxlength="FLAG_VALUE_MAX_LENGTH"
+                    @change="writeCondition(cut)"
+                  >
+                </template>
+
+                <template v-else-if="cut.condition && 'scene' in cut.condition">
+                  <label :for="`counted-${cut.id}`">
+                    Scene
+                    <span class="visually-hidden">
+                      counted by the Cut to {{ sceneNames.get(cut.toSceneId) }}
+                    </span>
+                  </label>
+                  <select
+                    :id="`counted-${cut.id}`"
+                    v-model="cut.condition.scene"
+                    @change="writeCondition(cut)"
+                  >
+                    <!-- A Scene deleted since the Condition was written is still
+                         what it counts, and saying so beats showing the Author a
+                         Scene they never chose. -->
+                    <option v-if="!sceneNames.get(cut.condition.scene)" :value="cut.condition.scene">
+                      A Scene that is gone
+                    </option>
+                    <option v-for="counted in story.scenes" :key="counted.id" :value="counted.id">
+                      {{ counted.name }}
+                    </option>
+                  </select>
+                  <label :for="`visits-${cut.id}`">
+                    entered
+                    <span class="visually-hidden">
+                      for the Cut to {{ sceneNames.get(cut.toSceneId) }}
+                    </span>
+                  </label>
+                  <select
+                    :id="`visits-${cut.id}`"
+                    v-model="cut.condition.visits"
+                    @change="writeCondition(cut)"
+                  >
+                    <option value="at least">at least</option>
+                    <option value="fewer than">fewer than</option>
+                  </select>
+                  <label :for="`times-${cut.id}`">
+                    times
+                    <span class="visually-hidden">
+                      for the Cut to {{ sceneNames.get(cut.toSceneId) }}
+                    </span>
+                  </label>
+                  <input
+                    :id="`times-${cut.id}`"
+                    v-model.number="cut.condition.times"
+                    class="times data"
+                    type="number"
+                    min="1"
+                    :max="VISITS_MAX"
+                    @change="writeCondition(cut)"
+                  >
+                </template>
+              </div>
+
+              <button type="button" class="danger" @click="deleteCut(cut)">
                 Delete Cut to {{ sceneNames.get(cut.toSceneId) }}
               </button>
             </li>
           </ul>
 
-          <form @submit.prevent="drawCut(scene)">
-            <label :for="`cut-from-${scene.id}`">Cut from {{ scene.name }} to</label>
+          <form class="drawing" @submit.prevent="drawCut(scene)">
+            <label class="eyebrow" :for="`cut-from-${scene.id}`">Cut from {{ scene.name }} to</label>
             <select :id="`cut-from-${scene.id}`" v-model="cutTargets[scene.id]" required>
               <!-- Nothing is aimed at until the Author says so, so a Cut cannot
                    be drawn by pressing the button alone. -->
@@ -545,15 +585,113 @@ function anchor(sceneId: string) {
 </template>
 
 <style scoped>
+/* The bench. Everything above the graph is the Story as a whole, and the graph
+   itself takes what is left of the screen. */
+main {
+  display: grid;
+  gap: var(--s4);
+  align-content: start;
+  min-block-size: 100dvh;
+  padding: var(--s4) var(--s4) var(--s5);
+}
+
+header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--s3) var(--s4);
+  padding-block: var(--s3);
+  border-block-end: 1px solid var(--edge);
+  /* The graph scrolls under the header, so the header cannot be transparent. */
+  background: var(--bench);
+}
+
+.titling {
+  display: grid;
+  gap: var(--s1);
+}
+
+/* A Story's title is the Author's own words, so nothing here recases them. */
+.back,
+.preview {
+  font-family: var(--data);
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.release {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3);
+}
+
+/* A published Story wears the grease pencil: the link is the one thing on the
+   bench that anyone outside can reach. */
+.live {
+  display: grid;
+  gap: 2px;
+  padding-inline-start: var(--s3);
+  border-inline-start: 2px solid var(--grease);
+}
+
+.link {
+  color: var(--paper);
+  font-family: var(--data);
+  font-size: 0.75rem;
+  word-break: break-all;
+}
+
+.naming {
+  display: grid;
+  gap: var(--s2);
+  max-inline-size: 34rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.naming .row input {
+  flex: 1 1 14rem;
+}
+
+.naming .row button {
+  flex: none;
+}
+
+.none {
+  color: var(--muted);
+  max-inline-size: 46ch;
+}
+
 .graph {
   overflow: auto;
   resize: vertical;
-  block-size: 70vh;
-  border: 1px solid;
+  block-size: min(70vh, 44rem);
+  border: 1px solid var(--edge);
+  border-radius: var(--machined);
+  background: color-mix(in oklab, var(--bench) 70%, black);
 }
 
 .canvas {
   position: relative;
+  /* The bench is pricked out every twenty pixels, which is exactly how far an
+     arrow key moves a Scene: the grid is the step, not a texture. */
+  background-image:
+    radial-gradient(
+      circle at 1px 1px,
+      color-mix(in oklab, var(--edge) 55%, transparent) 1px,
+      transparent 0
+    );
+  background-size: 20px 20px;
 }
 
 svg {
@@ -561,39 +699,224 @@ svg {
   inset: 0;
 }
 
+/* A Cut is a mark the Author made, so it is drawn in the grease pencil rather
+   than in the interface's own colour. */
 svg line {
-  stroke: currentColor;
-  stroke-width: 2;
+  stroke: color-mix(in oklab, var(--grease) 70%, transparent);
+  stroke-width: 1.5;
 }
 
 svg path {
-  fill: currentColor;
+  fill: var(--grease);
 }
 
 article {
   position: absolute;
+  display: grid;
+  /* Tight, because everything a Scene is — its Shots, the Flags it sets and the
+     Cuts leaving it — has to fit a node before the node has to be scrolled. */
+  gap: var(--s2);
+  align-content: start;
   /* A Scene with many Shots scrolls inside its node rather than growing over the
      ones below it. */
   overflow: auto;
-  padding: 0.5rem;
-  border: 1px solid;
-  background: Canvas;
+  padding: 0 var(--s3) var(--s3);
+  border: 1px solid var(--edge);
+  border-radius: var(--machined);
+  background: var(--steel);
+  box-shadow: 0 10px 24px -12px rgb(0 0 0 / 0.7);
 }
 
 /* Whichever node is being worked in comes to the front, so two nodes dragged
    over each other are both reachable. */
 article:focus-within {
   z-index: 1;
+  border-color: color-mix(in oklab, var(--light) 45%, var(--edge));
 }
 
-/* A still is shown at whatever width the node leaves it, never at its own. */
-li img {
-  max-inline-size: 100%;
-  block-size: auto;
+/* The Scene a Reading starts on, marked down the edge of the node: the Author
+   can see where the Story opens without reading a single radio button. */
+article:has(input[type='radio']:checked) {
+  border-inline-start: 2px solid var(--grease);
+}
+
+/* The slate: the Scene's name, and the grip that moves it. It stays put while
+   the node scrolls, so the node being dragged always says which one it is. */
+.slate {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  padding-block: var(--s3) var(--s2);
+  border-block-end: 1px solid var(--edge);
+  background: var(--steel);
 }
 
 .handle {
+  flex: none;
+  padding: var(--s1) var(--s2);
+  font-family: var(--data);
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   cursor: move;
   touch-action: none;
+}
+
+.standing {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+}
+
+.opening {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+/* Every label in a node is stencilled on the machine: mono, small, and spaced
+   out, whether it names a field or is one word of a Condition read as a
+   sentence. */
+label {
+  color: var(--muted);
+  font-family: var(--data);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Data the Author types rather than prose: Flags, a Condition's two sides, the
+   count of visits. */
+.data {
+  font-family: var(--data);
+  font-size: 0.8125rem;
+}
+
+/* The strip of Shots, each numbered in the gutter and separated from the next by
+   a hairline — a Scene read the way a length of film is. */
+.shots {
+  display: grid;
+  gap: var(--s2);
+}
+
+.shots li {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr);
+  gap: var(--s2);
+  padding-block-end: var(--s3);
+  border-block-end: 1px dashed color-mix(in oklab, var(--edge) 70%, transparent);
+}
+
+.shots li:last-child {
+  border-block-end: none;
+  padding-block-end: 0;
+}
+
+.frame-number {
+  padding-block-start: var(--s2);
+  color: color-mix(in oklab, var(--muted) 75%, transparent);
+  font-size: 0.8125rem;
+  letter-spacing: 0;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.written {
+  display: grid;
+  gap: var(--s2);
+}
+
+.written textarea {
+  font-size: 0.875rem;
+}
+
+/* A still is a thumbnail here and nothing more: it says which image the Shot
+   carries, and leaves the node's height to the Flags and the Cuts. */
+.still {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s2);
+}
+
+.still img {
+  display: block;
+  inline-size: 4.5rem;
+  block-size: 3rem;
+  object-fit: cover;
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  background: var(--bench);
+}
+
+.written .row {
+  gap: var(--s1);
+}
+
+.written .row button {
+  padding: var(--s1) var(--s2);
+  font-size: 0.6875rem;
+}
+
+.sets {
+  display: grid;
+  gap: var(--s2);
+}
+
+/* The Cuts leaving this Scene. Each carries the grease pencil down its edge,
+   because a Cut is drawn and not computed. */
+.cuts {
+  display: grid;
+  gap: var(--s2);
+}
+
+.cuts > li {
+  display: grid;
+  gap: var(--s2);
+  padding: var(--s2) var(--s3);
+  border-inline-start: 2px solid color-mix(in oklab, var(--grease) 60%, transparent);
+  background: color-mix(in oklab, var(--bench) 55%, transparent);
+}
+
+/* A Condition read across the row as the sentence it is: "offered when a Flag
+   holds — coat — on". */
+.when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1) var(--s2);
+}
+
+.when select,
+.when input {
+  inline-size: auto;
+  flex: 1 1 6rem;
+  padding: var(--s1) var(--s2);
+  font-size: 0.8125rem;
+}
+
+.when .times {
+  flex: 0 0 4.5rem;
+}
+
+.drawing {
+  display: grid;
+  gap: var(--s2);
+  padding-block-start: var(--s3);
+  border-block-start: 1px solid var(--edge);
+}
+
+/* On a phone the graph is worked on a screen narrower than a node, so it is
+   given more of the screen's height rather than a slice of it. */
+@media (max-width: 44rem) {
+  .graph {
+    block-size: 78vh;
+  }
 }
 </style>

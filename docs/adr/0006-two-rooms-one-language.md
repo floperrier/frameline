@@ -1,0 +1,64 @@
+---
+status: accepted
+---
+
+# Two rooms, one language
+
+The interface is dark throughout, and its whole visual language lives in
+`app/assets/css/frameline.css`: a set of custom properties for colour, type and
+spacing, and defaults for the elements every page already uses. Pages add only
+what is theirs — the graph's bench, the Reading's frame — in a scoped block.
+There is no component library, no utility framework, and no light theme.
+
+## Considered Options
+
+A component library was the obvious answer, and it is the one the acceptance
+criteria of the issue rule out: the work exists in part to show front-end
+competence, and an untouched library demonstrates the opposite. Nuxt UI or
+shadcn-style components would also have decided the typography and the palette
+for us, which is exactly the decision worth making here.
+
+The direction comes from the two places this product is actually used, and they
+are not the same room. An Author works at a bench: a machine, dense, everything
+labelled, the graph ruled like a cutting table. A Reader sits in front of a
+projection: the room goes dark, one frame at a time is thrown onto it, and
+nothing else is on screen. Both are dark, because moving images have never been
+graded on cream paper, and the difference between them is density rather than
+hue.
+
+Two accents carry the whole of the colour, and they never trade jobs. The cyan
+is the machine's own light, so it marks what the interface does: focus rings,
+links, the one action a surface is for. The orange is a grease pencil, so it
+marks only what the Author wrote on the film: the Cuts drawn across the graph,
+the Opening Scene, the public link a Publish handed out. An Author can therefore
+read a screen by colour alone — cyan is the tool, orange is their own hand.
+
+Four faces, each with one job. Titles are set in a condensed grotesque, because
+that is what a title card and a closing crawl have always been set in. The
+interface and its labels are one superfamily, so a stencilled micro-label
+belongs to the control beside it. A Shot's text — the only prose in the product —
+gets a serif of its own, and nothing else on any screen is set in it: seeing that
+face means reading a Story. Everything that is data, from a Shot's number to a
+Condition's two sides, is mono. The faces are downloaded and self-hosted at build
+time by `@nuxt/fonts`, which needs
+`experimental.processCSSVariables` because every face here is reached through a
+custom property.
+
+## Consequences
+
+The design is a stylesheet and a handful of scoped blocks, so there is no
+component API to keep and nothing to upgrade. It also means there is no
+enforcement: a new page can quietly invent a seventh grey. The tokens are the
+only guard, and a colour written as a hex value outside
+`app/assets/css/frameline.css` is the smell to look for in review.
+
+`color-scheme: dark` is declared once and there is no light theme. Form controls
+and scrollbars come out of that dark for nothing, and a light theme would be a
+second design rather than an inversion of this one, because the Reading room is
+dark on purpose.
+
+A Scene's node is drawn 420 pixels tall rather than 300, so a Scene with one Shot
+shows its Flags and the Cuts leaving it without being scrolled. A Scene with
+several Shots still scrolls inside its node, which is the trade the graph makes
+to keep every node the same size. The node's width stays at what a phone can
+show: a node wider than the screen is a graph nobody can lay out on one.
