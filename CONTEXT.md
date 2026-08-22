@@ -14,7 +14,9 @@ A complete interactive work, owned by one Author.
 _Avoid_: film, movie, project, game, narrative, experience
 
 **Scene**:
-A linear run of Shots, and the only unit at which a Story branches.
+A linear run of Shots, and the only unit at which a Story branches. The run is
+linear for every Reader, but not the same length for each: a Shot whose Conditions
+do not hold is not played.
 _Avoid_: passage, knot, node, chapter, page, card
 
 **Shot**:
@@ -57,9 +59,10 @@ Author writes becomes it, and the Author can name another.
 _Avoid_: start, entry point, root, first scene, home
 
 **Condition**:
-A flat test on State, carried by a Cut, that decides whether the Cut is offered to
-this Reader. A Cut may carry several, and is offered only where all of them hold;
-a Cut carrying none is always offered.
+A flat test on State, carried by a Cut or by a Shot: it decides whether the Cut is
+offered to this Reader, or whether the Shot plays for them. Either may carry
+several, and is offered or played only where all of them hold; one carrying none
+always is.
 _Avoid_: rule, guard, requirement, predicate, gate
 
 ### The reading
