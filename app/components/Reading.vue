@@ -66,11 +66,12 @@ function offered(cut: Cut) {
         <!-- The still and the text are one beat, so they arrive together and the
              Reader moves past both at once.
 
-             ponytail: `alt` is empty because no Shot has alternative text to give.
-             The Shot's text sits right beside the image and carries the beat, so an
-             empty `alt` keeps a screen reader from reading out a filename instead of
-             it. Give a Shot its own alternative text the day one is written. -->
-        <img v-if="shown.shot.image" :src="shown.shot.image" alt="">
+             `alt` is the still's Description and nothing else: the Shot's text is
+             never used as one, because the text carries the beat and is read out
+             beside the image anyway. A Still nobody has described falls back to
+             empty, which is what keeps a screen reader from announcing a frame it
+             has nothing to say about. -->
+        <img v-if="shown.shot.image" :src="shown.shot.image" :alt="shown.shot.description">
         <figcaption>
           <p class="shot">{{ shown.shot.text }}</p>
         </figcaption>

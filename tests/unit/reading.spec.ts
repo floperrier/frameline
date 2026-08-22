@@ -26,6 +26,7 @@ function story(
         text,
         position,
         image: null,
+        description: '',
       })),
     })),
     cuts: cuts.map(([fromSceneId, text, toSceneId, condition], index) => ({

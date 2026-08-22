@@ -71,12 +71,18 @@ const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () =>
 // Shot that is text alone. The bytes live here rather than in object storage
 // because an image is only as reachable as the Story it belongs to — see
 // `docs/adr/0005-a-shots-image-lives-in-its-row.md`.
+//
+// `description` is what that still shows, for a Reader who cannot see it. It
+// sits beside the bytes rather than in a table of its own because it is the one
+// thing said about the one still, and empty is a Still nobody has described —
+// which is what a Shot of text alone carries too.
 export const shots = pgTable('shots', {
   id: uuid('id').primaryKey().defaultRandom(),
   sceneId: uuid('scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
   text: text('text').notNull().default(''),
   position: integer('position').notNull(),
   image: bytea('image'),
+  description: text('description').notNull().default(''),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 

@@ -32,7 +32,13 @@ export type Still = {
   grain?: number
 }
 
-export type Shot = { text: string, still: Still }
+/**
+ * One Shot of the work: the beat, what the still of it shows for a Reader who
+ * cannot see it, and the recipe the still is developed from. The Description is
+ * written here beside the still rather than left to the text, because the text
+ * carries the beat and the Description carries the frame.
+ */
+export type Shot = { text: string, description: string, still: Still }
 
 /**
  * The work as a whole. A Scene is placed in the graph by hand, because where a
@@ -77,6 +83,8 @@ export const REEL_CHANGE: Work = {
         {
           text: 'The last show has run out. Down in the house the seats fold up on their own, '
             + 'one after another, like something being agreed.',
+          description: 'The projector’s beam crossing the dark booth and landing on the screen, '
+            + 'with the backs of two rows of seats black across the bottom of the frame.',
           still: {
             ground: [ROOM, '#050605'],
             glow: [{ colour: LAMP, draw: 'polygon 1060,90 1600,300 1600,790 1000,900', blur: 40 }],
@@ -95,6 +103,8 @@ export const REEL_CHANGE: Work = {
         },
         {
           text: 'On the bench, a reel nobody sent, wound the wrong way round.',
+          description: 'A film reel lying flat on the bench in cold light, its rings and hub '
+            + 'picked out, one warm strip of lamplight down the wall behind it.',
           still: {
             ground: ['#101413', '#040504'],
             glow: [{ colour: COLD, draw: 'circle 600,470 600,190', blur: 60, opacity: 0.35 }],
@@ -118,6 +128,8 @@ export const REEL_CHANGE: Work = {
       shots: [
         {
           text: 'The film goes into the gate the way a hand goes into a glove.',
+          description: 'A strip of film standing bright and vertical in the middle of the frame, '
+            + 'sprocket holes down both its edges, the dark bulk of the projector across the left.',
           still: {
             ground: ['#0d1110', '#040504'],
             glow: [{ colour: PAPER, draw: 'rectangle 700,0 900,900', blur: 70, opacity: 0.55 }],
@@ -138,6 +150,8 @@ export const REEL_CHANGE: Work = {
         {
           text: 'Two hundred feet of somebody else’s house: rows, a brass rail, '
             + 'a lit sign over a door.',
+          description: 'A cinema house projected on the screen: four curved rows of seats, a brass '
+            + 'rail along the front, and a lit sign burning above a door at the right.',
           still: {
             ground: ['#121614', '#050706'],
             glow: [
@@ -155,6 +169,8 @@ export const REEL_CHANGE: Work = {
         },
         {
           text: 'It is this house. Row nine, and a woman looking straight down the lens.',
+          description: 'The same house closer: three rows of seats, and in the middle of them the '
+            + 'head and shoulders of a woman facing the lens, cut off by the bottom of the frame.',
           still: {
             ground: ['#171b19', '#070908'],
             glow: [{ colour: PAPER, draw: 'ellipse 700,700 620,340 0,360', blur: 90, opacity: 0.38 }],
@@ -182,6 +198,8 @@ export const REEL_CHANGE: Work = {
       shots: [
         {
           text: 'The house is warm still, and smells of the dust the lamp burns.',
+          description: 'A wedge of projector light falling across the dark house from the top '
+            + 'right, with dust drifting through it.',
           still: {
             ground: ['#0e1211', '#040505'],
             glow: [{ colour: LAMP, draw: 'polygon 1520,60 1600,60 700,900 300,900', blur: 55, opacity: 0.7 }],
@@ -204,6 +222,8 @@ export const REEL_CHANGE: Work = {
         {
           text: 'Row nine. A coat over the arm of a seat, folded the way somebody folds it '
             + 'who means to come back.',
+          description: 'A row of seats in cold half-light, and a coat folded over the arm of one '
+            + 'of them.',
           still: {
             ground: ['#0c100f', '#030404'],
             glow: [{ colour: COLD, draw: 'ellipse 760,540 420,240 0,360', blur: 80, opacity: 0.3 }],
@@ -217,6 +237,8 @@ export const REEL_CHANGE: Work = {
         },
         {
           text: 'Nobody. The screen holds nothing but the green of the sign over the door.',
+          description: 'An empty house: a blank dark screen, and the green glow of the sign over '
+            + 'the door, the only lit thing in the frame.',
           still: {
             ground: ['#080a09', '#020303'],
             glow: [{ colour: SIGN, draw: 'roundrectangle 140,180 340,250 8,8', blur: 50, opacity: 0.8 }],
@@ -236,6 +258,8 @@ export const REEL_CHANGE: Work = {
       shots: [
         {
           text: 'The same coat, over the same arm of the same seat, two hundred feet upstairs.',
+          description: 'The same folded coat over the same arm of the same seat, soft and grainy — '
+            + 'the coat as the film shows it rather than as the house holds it.',
           still: {
             ground: ['#0d1110', '#040505'],
             glow: [{ colour: LAMP, draw: 'ellipse 820,540 500,300 0,360', blur: 85, opacity: 0.35 }],
@@ -248,6 +272,8 @@ export const REEL_CHANGE: Work = {
         },
         {
           text: 'Whoever shot it stood where the screen stands, and took their time lining it up.',
+          description: 'The house seen from where the screen stands, six rows deep, with the small '
+            + 'bright square of the booth’s port window high at the back.',
           still: {
             ground: ['#0b0e0d', '#030404'],
             glow: [{ colour: PAPER, draw: 'rectangle 720,150 880,270', blur: 60, opacity: 0.6 }],
@@ -260,6 +286,8 @@ export const REEL_CHANGE: Work = {
         },
         {
           text: 'The coat is still warm.',
+          description: 'The coat filling the whole frame, close enough that nothing is left of it '
+            + 'but its folds and one warm edge of lamplight.',
           still: {
             ground: ['#100c0a', '#040303'],
             glow: [{ colour: LAMP, draw: 'ellipse 820,520 300,200 0,360', blur: 110, opacity: 0.75 }],
@@ -288,6 +316,8 @@ export const REEL_CHANGE: Work = {
         {
           text: 'The window over the bench gives onto the boulevard, and the boulevard '
             + 'is already grey.',
+          description: 'The booth window from inside: a grey rectangle of dawn in four panes, and '
+            + 'dark all round it.',
           still: {
             ground: ['#0a0c0c', '#030404'],
             glow: [{ colour: DAWN, draw: 'roundrectangle 480,150 1120,720 6,6', blur: 60, opacity: 0.7 }],
@@ -300,6 +330,8 @@ export const REEL_CHANGE: Work = {
         },
         {
           text: 'Somewhere below it, a coat, going away from the cinema, unhurried.',
+          description: 'The boulevard from above at first light: a woman small on the pavement, '
+            + 'walking away, her long shadow laid across it.',
           still: {
             ground: ['#8d9694', '#404746'],
             glow: [{ colour: DAWN, draw: 'ellipse 800,300 900,400 0,360', blur: 90, opacity: 0.5 }],

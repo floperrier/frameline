@@ -57,7 +57,10 @@ for (const scene of REEL_CHANGE.scenes) {
 
   for (const shot of scene.shots) {
     const { id: shotId } = await api('POST', `/api/scenes/${id}/shots`) as { id: string }
-    await api('PATCH', `/api/shots/${shotId}`, { text: shot.text })
+    await api('PATCH', `/api/shots/${shotId}`, {
+      text: shot.text,
+      description: shot.description,
+    })
     await attach(shotId, await develop(shot.still))
     process.stdout.write('.')
   }

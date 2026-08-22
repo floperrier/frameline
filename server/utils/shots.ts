@@ -24,6 +24,29 @@ export async function readShotText(event: H3Event) {
   return text
 }
 
+/**
+ * Reads the Description of a Shot's still: what the frame shows, for a Reader who
+ * cannot see it. Absent is a Description this request is not writing, so a form
+ * that only has the Shot's text to send leaves whatever was written alone; empty
+ * is an Author taking a Description away, which is theirs to do — a Still may
+ * have none.
+ */
+export async function readShotDescription(event: H3Event) {
+  const body = await readBody<{ description?: unknown }>(event)
+  const written = body?.description
+
+  if (written === undefined) return undefined
+  if (typeof written !== 'string' || written.trim().length > SHOT_DESCRIPTION_MAX_LENGTH) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'A Description says what a still shows, in at most '
+        + `${SHOT_DESCRIPTION_MAX_LENGTH} characters.`,
+    })
+  }
+
+  return written.trim()
+}
+
 /** Reads which way a Shot is being moved, as the step to add to its position. */
 export async function readMoveStep(event: H3Event) {
   const body = await readBody<{ direction?: unknown }>(event)

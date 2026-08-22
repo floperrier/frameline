@@ -71,8 +71,16 @@ function addShot(scene: Scene) {
   return change(() => send(`/api/scenes/${scene.id}/shots`, { method: 'POST' }))
 }
 
+/**
+ * Writes what the Author typed about one Shot — its text and its still's
+ * Description — in the one request, because they are one Shot and either field
+ * may be the one that changed.
+ */
 function writeShot(shot: Shot) {
-  return change(() => send(`/api/shots/${shot.id}`, { method: 'PATCH', body: { text: shot.text } }))
+  return change(() => send(`/api/shots/${shot.id}`, {
+    method: 'PATCH',
+    body: { text: shot.text, description: shot.description },
+  }))
 }
 
 function moveShot(shot: Shot, direction: 'earlier' | 'later') {
@@ -393,7 +401,11 @@ function anchor(sceneId: string) {
                      here to say which image the Shot carries, and the Preview is
                      where the Author meets it at the size a Reader will. -->
                 <div class="still">
-                  <img v-if="shot.image" :src="stillOf(shot)" :alt="`The still of Shot ${place + 1}`">
+                  <img
+                    v-if="shot.image"
+                    :src="stillOf(shot)"
+                    :alt="shot.description || `The still of Shot ${place + 1}`"
+                  >
                   <div>
                     <label class="eyebrow" :for="`image-${shot.id}`">
                       Image <span class="visually-hidden">of Shot {{ place + 1 }}</span>
@@ -406,6 +418,23 @@ function anchor(sceneId: string) {
                     >
                   </div>
                 </div>
+
+                <!-- The Description sits under the picker, because it is what the
+                     still shows and there is nothing to describe until one is
+                     attached. A Shot of text alone is not asked for one. -->
+                <p v-if="shot.image" class="described">
+                  <label class="eyebrow" :for="`description-${shot.id}`">
+                    Description <span class="visually-hidden">of the still of Shot {{ place + 1 }}</span>
+                  </label>
+                  <input
+                    :id="`description-${shot.id}`"
+                    v-model="shot.description"
+                    type="text"
+                    :maxlength="SHOT_DESCRIPTION_MAX_LENGTH"
+                    placeholder="What the still shows"
+                    @change="writeShot(shot)"
+                  >
+                </p>
 
                 <div class="row">
                   <button type="button" :disabled="place === 0" @click="moveShot(shot, 'earlier')">
@@ -830,6 +859,17 @@ article:has(input[type='radio']:checked) {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: var(--s2);
+}
+
+/* The Description under the still it describes, the label above the field, so
+   the two read as one thing said about the image beside them. */
+.described {
+  display: grid;
+  gap: var(--s1);
+}
+
+.described input {
+  font-size: 0.8125rem;
 }
 
 .still img {
