@@ -8,6 +8,7 @@ test('every graph endpoint rejects a request carrying no Author', async ({ reque
     request.post(`/api/scenes/${anyId}/opening`),
     request.post(`/api/scenes/${anyId}/cuts`, { data: { toSceneId: anyId } }),
     request.patch(`/api/cuts/${anyId}`, { data: { text: 'Follow her' } }),
+    request.post(`/api/cuts/${anyId}/move`, { data: { direction: 'earlier' } }),
     request.delete(`/api/cuts/${anyId}`),
   ])
 

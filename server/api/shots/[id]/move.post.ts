@@ -11,7 +11,7 @@ import { useDb } from '../../../db'
 export default defineEventHandler(async (event) => {
   const { user: author } = await requireUserSession(event)
   const id = readId(event, 'Shot')
-  const step = await readMoveStep(event)
+  const step = await readMoveStep(event, 'Shot')
 
   const { rows } = await useDb().execute<{ id: string, position: number }>(sql`
     with moving as (

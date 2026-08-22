@@ -1,0 +1,1 @@
+ALTER TABLE "cuts" ALTER COLUMN "position" SET DEFAULT 0;

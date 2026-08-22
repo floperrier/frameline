@@ -1,4 +1,4 @@
-import type { APIRequestContext } from '@playwright/test'
+import type { APIRequestContext, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 import {
   CUT_CONDITIONS_MAX,
@@ -136,6 +136,83 @@ test('a Cut is drawn between two Scenes, written, and taken away', async ({ requ
   await expect(readCuts(from.id)).resolves.toEqual([])
 })
 
+test('the ways on are offered in the order the Author put them in', async ({ request }) => {
+  const { story, scenes } = await openGraph(
+    request, ['The platform', 'The buffet', 'The tunnel', 'The train'])
+  const [from, ...elsewhere] = scenes as [{ id: string }, ...{ id: string }[]]
+  const drawn = []
+  for (const [place, to] of elsewhere.entries()) {
+    const cut = await drawCut(request, from.id, to.id)
+    // The Cut is drawn last among the ways on, which is where a new one belongs.
+    expect(cut.position).toBe(place)
+    await request.patch(`/api/cuts/${cut.id}`, { data: { text: `To ${place}` } })
+    drawn.push(cut)
+  }
+  const [first, second, third] = drawn as [{ id: string }, { id: string }, { id: string }]
+
+  await request.post(`/api/cuts/${third.id}/move`, { data: { direction: 'earlier' } })
+  await expect(readCuts(from.id)).resolves.toMatchObject([
+    { text: 'To 0' }, { text: 'To 2' }, { text: 'To 1' },
+  ])
+
+  await request.post(`/api/cuts/${first.id}/move`, { data: { direction: 'later' } })
+  await expect(readCuts(from.id)).resolves.toMatchObject([
+    { text: 'To 2' }, { text: 'To 0' }, { text: 'To 1' },
+  ])
+
+  // The Cuts at either end have nowhere to go, and asking is not an error.
+  const atTheEnds = await Promise.all([
+    request.post(`/api/cuts/${third.id}/move`, { data: { direction: 'earlier' } }),
+    request.post(`/api/cuts/${second.id}/move`, { data: { direction: 'later' } }),
+  ])
+  for (const response of atTheEnds) expect(response.status()).toBe(200)
+
+  // And the Story is read in that order, which is the order the Reader meets.
+  await expect((await request.get(`/api/stories/${story.id}`)).json()).resolves.toMatchObject({
+    cuts: [
+      { text: 'To 2', position: 0 },
+      { text: 'To 0', position: 1 },
+      { text: 'To 1', position: 2 },
+    ],
+  })
+})
+
+test('taking a Cut away leaves the ways on numbered without a gap', async ({ request }) => {
+  const { scenes } = await openGraph(request, ['The platform', 'The buffet', 'The tunnel'])
+  const [from, ...elsewhere] = scenes as [{ id: string }, ...{ id: string }[]]
+  const drawn = []
+  for (const to of elsewhere) drawn.push(await drawCut(request, from.id, to.id))
+
+  expect((await request.delete(`/api/cuts/${drawn[0]!.id}`)).status()).toBe(200)
+
+  await expect(readCuts(from.id)).resolves.toMatchObject([{ id: drawn[1]!.id, position: 0 }])
+})
+
+test('a way on can still be moved across a Scene deleted out from under one',
+  async ({ request }) => {
+    const { scenes } = await openGraph(
+      request, ['The platform', 'The buffet', 'The tunnel', 'The train'])
+    const [from, buffet, tunnel, train] = scenes as { id: string }[] as
+      [{ id: string }, { id: string }, { id: string }, { id: string }]
+    const drawn = []
+    for (const to of [buffet, tunnel, train]) drawn.push(await drawCut(request, from.id, to.id))
+
+    // Deleting the Scene in the middle takes the Cut arriving at it by cascade,
+    // which is the one way a Cut leaves without closing the gap behind it.
+    expect((await request.delete(`/api/scenes/${tunnel.id}`)).status()).toBe(200)
+    await expect(readCuts(from.id)).resolves.toMatchObject([
+      { toSceneId: buffet.id, position: 0 }, { toSceneId: train.id, position: 2 },
+    ])
+
+    // The way on after the hole still moves earlier across it, rather than being
+    // answered with a move that did nothing.
+    expect((await request.post(`/api/cuts/${drawn[2]!.id}/move`,
+      { data: { direction: 'earlier' } })).status()).toBe(200)
+    await expect(readCuts(from.id)).resolves.toMatchObject([
+      { toSceneId: train.id }, { toSceneId: buffet.id },
+    ])
+  })
+
 test('a Cut only joins Scenes of the same Story', async ({ request }) => {
   const { scenes } = await openGraph(request)
   const elsewhere = await openGraph(request, ['Another Scene'])
@@ -184,6 +261,7 @@ test('a graph that was never drawn reads as absent', async ({ request }) => {
     request.patch(`/api/cuts/${noId}`, { data: { text: 'Follow her' } }),
     request.put(`/api/cuts/${noId}/conditions`, { data: {} }),
     request.put(`/api/scenes/${noId}/flags`, { data: { sets: {} } }),
+    request.post(`/api/cuts/${noId}/move`, { data: { direction: 'earlier' } }),
     request.delete(`/api/cuts/${noId}`),
   ])
 
@@ -205,6 +283,7 @@ test('the graph belongs to the Author who wrote the Story', async ({ request, ot
       data: { conditions: [{ flag: 'mine', is: 'now' }] },
     }),
     request.put(`/api/scenes/${theirScene.id}/flags`, { data: { sets: { mine: 'now' } } }),
+    request.post(`/api/cuts/${theirCut.id}/move`, { data: { direction: 'later' } }),
     request.delete(`/api/cuts/${theirCut.id}`),
   ])
 
@@ -447,6 +526,46 @@ test('a Condition counts only a Scene of the Cut’s own Story', async ({ reques
   await expect(readCuts(from.id)).resolves.toMatchObject([{ conditions: [] }])
 })
 
+test('an Author orders the ways on from the page alone', async ({ page, request }) => {
+  const { story, scenes } = await openGraph(
+    request, ['The platform', 'The buffet', 'The tunnel'])
+  const [from, buffet, tunnel] = scenes as [{ id: string }, { id: string }, { id: string }]
+  await drawCut(request, from.id, buffet.id)
+  await drawCut(request, from.id, tunnel.id)
+
+  await page.goto(`/stories/${story.id}`)
+
+  await page.getByRole('button', { name: 'Move earlier the Cut to The tunnel' }).click()
+  await expect(async () => {
+    await expect(readCuts(from.id)).resolves.toMatchObject([
+      { toSceneId: tunnel.id, position: 0 },
+      { toSceneId: buffet.id, position: 1 },
+    ])
+  }).toPass()
+
+  // The way on that comes first has nowhere earlier to go, and the page says so
+  // rather than asking.
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Move earlier the Cut to The tunnel' }))
+    .toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Move later the Cut to The buffet' }))
+    .toBeDisabled()
+})
+
+/**
+ * Waits for what an interaction wrote to come back. The page refetches the whole
+ * Story after every write, and a refetch that lands while the Author is still
+ * typing takes the typing with it — see #40. A test that types the next thing
+ * before the last one is back is the one racing, so it waits.
+ */
+async function written(page: Page, act: () => Promise<unknown>) {
+  const refetched = page.waitForResponse(response =>
+    response.request().method() === 'GET' && response.url().includes('/api/stories/'))
+
+  await act()
+  await refetched
+}
+
 test('an Author sets a Flag and two Conditions from the page alone', async ({ page, request }) => {
   const { story, scenes } = await openGraph(request)
   const [from, to] = scenes as [{ id: string }, { id: string }]
@@ -455,21 +574,33 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
   await page.goto(`/stories/${story.id}`)
 
   const flags = page.getByLabel('Flags set on entering The arrival')
-  await flags.fill('coat = on')
-  await flags.blur()
+  await written(page, async () => {
+    await flags.fill('coat = on')
+    await flags.blur()
+  })
 
   await page.getByRole('button', { name: 'Add a Condition to the Cut to The platform' }).click()
-  await page.getByLabel('Flag of Condition 1 of the Cut to The platform').fill('coat')
+  // The name of the Flag and the value it holds are written one at a time: the
+  // Flag alone is half a Condition, so it is written, and the value has to be
+  // typed into the field that refetch hands back.
+  const flag = page.getByLabel('Flag of Condition 1 of the Cut to The platform')
+  await written(page, async () => {
+    await flag.fill('coat')
+    await flag.blur()
+  })
   const holds = page.getByLabel('holds for Condition 1 of the Cut to The platform')
-  await holds.fill('on')
-  await holds.blur()
+  await written(page, async () => {
+    await holds.fill('on')
+    await holds.blur()
+  })
 
   // A second Condition on the same Cut, which is what one could not say.
   await page.getByRole('button', { name: 'Add a Condition to the Cut to The platform' }).click()
   // Exactly, because "Condition 2 of the Cut to The platform" is also the tail
   // of the labels on the fields of that Condition.
-  await page.getByLabel('Condition 2 of the Cut to The platform', { exact: true })
-    .selectOption('visits')
+  await written(page, () => page
+    .getByLabel('Condition 2 of the Cut to The platform', { exact: true })
+    .selectOption('visits'))
 
   // Read back past the page, which is what proves all of it landed — and has to
   // happen before the reload, which would abort a write still in flight.

@@ -82,19 +82,23 @@ export async function readStoryGraph(storyId: string) {
   }
 
   // The Cuts of the Story come on their own: joined to the Scenes above they
-  // would multiply every Shot by every Cut leaving its Scene.
+  // would multiply every Shot by every Cut leaving its Scene. They arrive in the
+  // Place their Scene numbers them at, which is the order the Reader is offered
+  // them in — the drawing has no say in it, see
+  // `docs/adr/0007-the-order-of-the-ways-on-is-written-not-drawn.md`.
   const cutsOfStory = await useDb()
     .select({
       id: cuts.id,
       fromSceneId: cuts.fromSceneId,
       toSceneId: cuts.toSceneId,
       text: cuts.text,
+      position: cuts.position,
       conditions: cuts.conditions,
     })
     .from(cuts)
     .innerJoin(scenes, eq(cuts.fromSceneId, scenes.id))
     .where(eq(scenes.storyId, storyId))
-    .orderBy(cuts.createdAt, cuts.id)
+    .orderBy(scenes.createdAt, scenes.id, cuts.position)
 
   return { scenes: scenesOfStory, cuts: cutsOfStory }
 }
