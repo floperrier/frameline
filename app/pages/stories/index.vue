@@ -3,7 +3,7 @@ definePageMeta({ middleware: 'authenticated' })
 
 const { user: author, clear } = useUserSession()
 const { data: stories, refresh } = await useFetch('/api/stories')
-const { problem, change } = useEditing(refresh)
+const { problem, change, write } = useEditing(refresh)
 
 const newTitle = ref('')
 
@@ -16,7 +16,7 @@ function createStory() {
 }
 
 function renameStory(id: string, title: string) {
-  return change(() => send(`/api/stories/${id}`, { method: 'PATCH', body: { title } }))
+  return write(() => send(`/api/stories/${id}`, { method: 'PATCH', body: { title } }))
 }
 
 function deleteStory(id: string, title: string) {

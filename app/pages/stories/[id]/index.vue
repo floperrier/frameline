@@ -14,7 +14,7 @@ const { data: story, refresh } = await useAsyncData(
   () => send(`/api/stories/${id}`, { headers }) as Promise<StoryInEditor>,
   { deep: true },
 )
-const { problem, change } = useEditing(refresh)
+const { problem, change, write } = useEditing(refresh)
 
 /**
  * The public link a Publish hands out. Built from the Story's own id, so it is
@@ -77,7 +77,7 @@ function addShot(scene: Scene) {
  * may be the one that changed.
  */
 function writeShot(shot: Shot) {
-  return change(() => send(`/api/shots/${shot.id}`, {
+  return write(() => send(`/api/shots/${shot.id}`, {
     method: 'PATCH',
     body: { text: shot.text, description: shot.description },
   }))
@@ -138,7 +138,7 @@ function moveCut(cut: Cut, direction: 'earlier' | 'later') {
 }
 
 function writeCut(cut: Cut) {
-  return change(() => send(`/api/cuts/${cut.id}`, { method: 'PATCH', body: { text: cut.text } }))
+  return write(() => send(`/api/cuts/${cut.id}`, { method: 'PATCH', body: { text: cut.text } }))
 }
 
 /**
@@ -150,8 +150,14 @@ function writeCut(cut: Cut) {
  */
 function writeFlags(scene: Scene, typed: string) {
   const sets = flagsTyped(typed)
+  // Onto the fetched Scene as well as into the request, because the field is
+  // drawn from what the Scene carries rather than bound to it: left alone, it
+  // would go on showing the Flags the Author has just replaced. Writing them
+  // here is also what keeps `courage=high` snapping to `courage = high`, which
+  // used to be the refetch's doing.
+  scene.sets = sets
 
-  return change(() => send(`/api/scenes/${scene.id}/flags`, { method: 'PUT', body: { sets } }))
+  return write(() => send(`/api/scenes/${scene.id}/flags`, { method: 'PUT', body: { sets } }))
 }
 
 /**
@@ -166,7 +172,7 @@ function writeConditions(where: 'cuts' | 'shots', carrierId: string, carried: Co
   const conditions = carried.filter(
     condition => !('flag' in condition) || condition.flag.trim())
 
-  return change(
+  return write(
     () => send(`/api/${where}/${carrierId}/conditions`, { method: 'PUT', body: { conditions } }),
   )
 }
