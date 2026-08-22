@@ -54,7 +54,8 @@ disagree with the file. That is also what limits the formats to JPEG, PNG and
 WebP: each is one signature to recognise, and an animated GIF is not the one still
 image `CONTEXT.md` says a Shot carries.
 
-A Shot has no alternative text, so a Reading renders the still with an empty
-`alt` and lets the Shot's text carry the beat. That is a real accessibility gap
-rather than a decision, and the field to close it belongs on the Shot beside its
-text.
+A Still now carries a Description — what it shows, written by the Author for a
+Reader who cannot see it — in the Shot's own row beside the bytes, which is where
+this record said the field to close that gap belonged. A Reading serves it as the
+image's `alt`, and a Still nobody has described still goes out empty rather than
+borrowing the Shot's text, which the Reader is given beside the image anyway.

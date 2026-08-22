@@ -10,12 +10,12 @@ export default defineEventHandler(async (event) => {
   const { user: author } = await requireUserSession(event)
   const id = readId(event, 'Scene')
 
-  const { rows } = await useDb().execute<{ id: string, text: string, position: number }>(sql`
+  const { rows } = await useDb().execute<Omit<Shot, 'image'>>(sql`
     insert into shots (scene_id, position)
     select scenes.id, coalesce((select max(position) + 1 from shots where scene_id = scenes.id), 0)
     from scenes
     where scenes.id = ${id}::uuid and scenes.id in (${scenesOf(author.id)})
-    returning id, text, position`)
+    returning id, text, position, description`)
 
   if (!rows[0]) throw notFound('Scene')
 

@@ -8,6 +8,14 @@ export const SCENE_NAME_MAX_LENGTH = 200
 export const SHOT_TEXT_MAX_LENGTH = 2000
 
 /**
+ * The longest Description a Still may carry. A Description says what one frame
+ * shows, in the sentence an editor would say it in, so it is capped near a Cut's
+ * line rather than near a Shot's text: prose about the image is the Shot's text,
+ * which the Reader already has.
+ */
+export const SHOT_DESCRIPTION_MAX_LENGTH = 250
+
+/**
  * The still formats a Shot may carry, each named by the bytes a file of it starts
  * with: an offset, and the bytes that must sit at it. Which formats there are and
  * how each is recognised is one statement rather than two, so a format added here
@@ -114,9 +122,16 @@ export const NODES_PER_COLUMN = 20
  * timestamp.
  *
  * A Shot's `image` is where its still is served, not the still itself, and null
- * for a Shot that is text alone.
+ * for a Shot that is text alone. Its `description` is what that still shows, for
+ * a Reader who cannot see it, and empty where the Author has written none.
  */
-export type Shot = { id: string, text: string, position: number, image: string | null }
+export type Shot = {
+  id: string
+  text: string
+  position: number
+  image: string | null
+  description: string
+}
 export type Scene = {
   id: string
   name: string
