@@ -37,7 +37,7 @@ the tokens declared there and from nowhere else. See
 A pull request per issue, squash-merged into `main`, which deploys to
 production. See `docs/git-flow.md`.
 
-## Languages
+## The Locale
 
 The interface is read in French or in English, and the two message files —
 `i18n/locales/en.json` and `i18n/locales/fr.json` — are the only place a
@@ -68,7 +68,8 @@ a vendored skill is hashed in `skills-lock.json`.
 
 `pnpm test` runs the Vitest suite over the modules that are pure functions: the
 Reading engine, what a Shot's image is read to be, the Conditions a request is
-allowed to write, and the geometry of the lines the graph draws. None of them
+allowed to write, the geometry of the lines the graph draws, and the two
+message files held against each other. None of them
 needs a database, because none of them has one in reach. `pnpm test:e2e` runs Playwright against a
 built app and a real Neon branch — `docs/git-flow.md` says which branch.
 

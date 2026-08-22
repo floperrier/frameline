@@ -25,7 +25,7 @@
   },
   "devDependencies": {
     "@nuxt/fonts": "^0.14.0",
-    "@nuxtjs/i18n": "10.6.0",
+    "@nuxtjs/i18n": "^10.6.0",
     "@playwright/test": "^1.62.1",
     "@types/node": "^26.2.0",
     "drizzle-kit": "^0.31.10",

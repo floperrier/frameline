@@ -11,8 +11,8 @@ export default defineNuxtConfig({
   // `docs/adr/0012-the-public-link-carries-no-locale.md`.
   i18n: {
     locales: [
-      { code: 'en', language: 'en', name: 'English', file: 'en.json' },
-      { code: 'fr', language: 'fr', name: 'Français', file: 'fr.json' },
+      { code: 'en', language: 'en', file: 'en.json' },
+      { code: 'fr', language: 'fr', file: 'fr.json' },
     ],
     defaultLocale: 'en',
     strategy: 'prefix_except_default',

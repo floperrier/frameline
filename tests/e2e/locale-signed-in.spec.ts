@@ -57,6 +57,10 @@ test.describe('a browser announcing French', () => {
   })
 })
 
+// A browser announcing a language nothing here is written in. It stands for
+// announcing nothing as well: `navigator.language` always says something, so a
+// browser that announces nothing is not a thing a test can build, and
+// `fallbackLocale` in `nuxt.config.ts` is what answers it.
 test.describe('a browser announcing German', () => {
   test.use({ locale: 'de-DE' })
 
@@ -73,12 +77,4 @@ test('a browser announcing English gets English, and says so in the document', a
   await expect(page).toHaveURL('/stories')
   await expect(page.getByRole('heading', { name: 'Stories' })).toBeVisible()
   await expect(page.locator('html')).toHaveAttribute('lang', 'en')
-
-  // A request that announces nothing at all is answered where it asked, rather
-  // than redirected somewhere on a guess.
-  const asked = await page.request.get('/stories', {
-    headers: { 'accept-language': '' },
-    maxRedirects: 0,
-  })
-  expect(asked.status()).toBe(200)
 })

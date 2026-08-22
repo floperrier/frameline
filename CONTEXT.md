@@ -109,7 +109,7 @@ To make a Story readable by Readers at a public link. A Story that has never bee
 published is visible only to its Author.
 _Avoid_: release, share, deploy, ship, go live
 
-### The languages
+### The Locale
 
 **Locale**:
 The language the interface is read in, detected from the person reading and
