@@ -31,7 +31,9 @@ const shown = computed(() => reading(story, at.value))
  * from the top of the page at every Shot. The frame takes focus when a Shot
  * arrives, so what is announced is the beat itself rather than the button that
  * asks for the next one, and the first Cut takes it when the Scene has played
- * out — the Reader lands on what they are being offered.
+ * out — the Reader lands on what they are being offered. The frame left standing
+ * at the end of a Scene is passed over: it is still on screen, but it is not
+ * what has just arrived.
  */
 const frame = useTemplateRef<HTMLElement>('frame')
 const cuts = useTemplateRef<HTMLElement>('cuts')
@@ -40,7 +42,7 @@ async function moveTo(to: Position) {
   at.value = to
   emit('at', to)
   await nextTick()
-  ;(frame.value ?? cuts.value?.querySelector('button'))?.focus()
+  ;(shown.value.shot ? frame.value : cuts.value?.querySelector('button'))?.focus()
 }
 
 const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, scene.name])))
@@ -53,8 +55,22 @@ const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, s
  */
 const scene = computed(() => story.scenes.find(({ id }) => id === shown.value.sceneId))
 
-/** Numbered from one for the Reader, as the editor numbers them for the Author. */
-const place = computed(() => at.value.shot + 1)
+/**
+ * Which Shot of the run the frame holds, numbered from one for the Reader as the
+ * editor numbers them for the Author. Once the Scene has played out the Position
+ * has walked past the last Shot and the frame is still holding it, so the count
+ * stops at the length of the run: every tick lit, and the run said to be over.
+ */
+const place = computed(() => Math.min(at.value.shot + 1, scene.value?.shots.length ?? 0))
+
+/**
+ * The Shot the frame holds: the one on screen while the Scene plays, and the last
+ * of the run once it has played out — the beat the Reader is choosing from stays
+ * in front of them rather than the room going empty between the Scene and its
+ * ways on. A Scene nobody has written a Shot into leaves the frame nothing to
+ * hold, and nothing is invented to stand in for one.
+ */
+const held = computed(() => shown.value.shot ?? scene.value?.shots.at(-1))
 
 /** A Cut nobody has phrased yet is offered by where it arrives. */
 function offered(cut: Cut) {
@@ -64,11 +80,19 @@ function offered(cut: Cut) {
 
 <template>
   <div class="reading">
-    <!-- One Shot at a time, and the Cuts only once the Scene has played out. -->
-    <template v-if="shown.shot">
+    <!-- One Shot at a time, and the Cuts only once the Scene has played out —
+         behind the frame it played out on, which is held rather than taken away. -->
+    <template v-if="held">
       <!-- Keyed on the Position, so arriving at a Shot draws the frame again:
-           each beat is thrown onto the screen rather than swapped into it. -->
-      <figure ref="frame" :key="`${at.taken.length}-${at.shot}`" class="frame" tabindex="-1">
+           each beat is thrown onto the screen rather than swapped into it, and
+           reading a Scene again throws its first frame again. -->
+      <figure
+        ref="frame"
+        :key="`${at.taken.length}-${at.shot}`"
+        class="frame"
+        :class="{ 'pushed-back': !shown.shot }"
+        tabindex="-1"
+      >
         <!-- The still and the text are one beat, so they arrive together and the
              Reader moves past both at once.
 
@@ -77,16 +101,16 @@ function offered(cut: Cut) {
              beside the image anyway. A Still nobody has described falls back to
              empty, which is what keeps a screen reader from announcing a frame it
              has nothing to say about. -->
-        <img v-if="shown.shot.image" :src="shown.shot.image" :alt="shown.shot.description">
+        <img v-if="held.image" :src="held.image" :alt="held.description">
         <figcaption>
-          <p class="shot">{{ shown.shot.text }}</p>
+          <p class="shot">{{ held.text }}</p>
         </figcaption>
       </figure>
 
       <!-- Where the beat sits in the run: the Scene's name, and one tick a Shot
            with the Shot on screen lit. The edge of the film, read the way an
            editor reads it — and the only thing on the page that says how much of
-           the Scene is left. -->
+           the Scene is left, every tick lit once the run is behind the Reader. -->
       <div class="edge">
         <p class="eyebrow">
           {{ scene?.name }}
@@ -97,20 +121,23 @@ function offered(cut: Cut) {
           <li v-for="(_, tick) in scene?.shots.length ?? 0" :key="tick" :class="{ lit: tick < place }" />
         </ol>
       </div>
-
-      <button type="button" class="next" @click="moveTo(advance(at))">Next Shot</button>
     </template>
 
-    <template v-else-if="shown.cuts.length">
-      <p class="eyebrow">{{ scene?.name }} <span aria-hidden="true">·</span> the ways on</p>
-      <ul ref="cuts" class="cuts">
-        <li v-for="cut in shown.cuts" :key="cut.id">
-          <button type="button" class="splice" @click="moveTo(take(at, cut))">
-            {{ offered(cut) }}
-          </button>
-        </li>
-      </ul>
-    </template>
+    <!-- The one control the frame carries, and only while there is a Shot left to
+         ask for: the frame held behind the ways on asks for nothing. -->
+    <button v-if="shown.shot" type="button" class="next" @click="moveTo(advance(at))">
+      Next Shot
+    </button>
+
+    <!-- The ways on go under the frame rather than over it, and carry no eyebrow
+         of their own: the edge above has already named the Scene they leave. -->
+    <ul v-if="shown.cuts.length" ref="cuts" class="cuts">
+      <li v-for="cut in shown.cuts" :key="cut.id">
+        <button type="button" class="splice" @click="moveTo(take(at, cut))">
+          {{ offered(cut) }}
+        </button>
+      </li>
+    </ul>
 
     <p v-if="shown.ended" class="ended trail" role="status">The path ends here.</p>
 
@@ -139,6 +166,26 @@ function offered(cut: Cut) {
 .frame {
   overflow: clip;
   animation: thrown 320ms ease-out;
+}
+
+/* The Scene has played out and the frame it ended on is held behind the ways on:
+   the same beat, pushed back into the room so that what is being asked of the
+   Reader is the lit thing on screen. It is not arriving, so it is not thrown a
+   second time — the Position has moved past the last Shot and the frame has not.
+
+   The still takes the push back and the prose only half of it: the last beat has
+   to stay as readable as it was to whoever is reading it while they choose, and a
+   dimmed serif is the one thing on this page that cannot afford to be. */
+.frame.pushed-back {
+  animation: none;
+}
+
+.frame.pushed-back img {
+  opacity: 0.5;
+}
+
+.frame.pushed-back .shot {
+  color: var(--muted);
 }
 
 /* The frame is given focus on arrival, not by tabbing to it, so the ring says

@@ -26,6 +26,67 @@ test('an Author plays their own Story before anyone else can see it', async ({ p
   await expect(page.getByText('A door opens.')).toBeVisible()
 })
 
+test('the frame a Scene played out on is held behind the ways on', async ({ page, request }) => {
+  const story = await writeStory(request)
+  await page.goto(`/stories/${story.id}/preview`)
+
+  await page.getByRole('button', { name: 'Next Shot' }).click()
+  await page.getByRole('button', { name: 'Next Shot' }).click()
+
+  // The Scene has played out and its last beat is still in front of the Reader
+  // while they choose, with the ways on under it rather than in an empty room.
+  await expect(page.getByText('She steps out.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Follow her out' })).toBeVisible()
+
+  // The frame that stays asks nothing: the run is over, so there is no Shot left
+  // to call for, and the edge says so with the Scene named once and not twice.
+  await expect(page.getByRole('button', { name: 'Next Shot' })).toBeHidden()
+  await expect(page.getByText('Shot 2 of 2')).toBeVisible()
+  await expect(page.locator('p.eyebrow', { hasText: 'The street' })).toHaveCount(1)
+
+  // An ending holds its frame the same way: the path ends in front of the last
+  // beat rather than in front of nothing.
+  await page.getByRole('button', { name: 'Follow her out' }).click()
+  await page.getByRole('button', { name: 'Next Shot' }).click()
+  await expect(page.getByText('Smoke, and no one she knows.')).toBeVisible()
+  await expect(page.getByRole('status')).toHaveText('The path ends here.')
+})
+
+test('a Scene nobody has written a Shot into is offered with no frame at all',
+  async ({ page, request }) => {
+    const story = await writeStory(request)
+    const { scenes } = await (await request.get(`/api/stories/${story.id}`)).json()
+
+    // A Scene with no Shots in it, reached from the bar and leading back out, so
+    // the Reading stands somewhere the frame has nothing to hold.
+    const wings = await (await request.post(`/api/stories/${story.id}/scenes`, {
+      data: { name: 'The wings' },
+    })).json()
+    for (const [from, to, text] of [
+      [scenes[1].id, wings.id, 'Slip out the back'],
+      [wings.id, scenes[0].id, 'Back to the street'],
+    ] as const) {
+      const cut = await (await request.post(`/api/scenes/${from}/cuts`, {
+        data: { toSceneId: to },
+      })).json()
+      await request.patch(`/api/cuts/${cut.id}`, { data: { text } })
+    }
+
+    await page.goto(`/stories/${story.id}/preview`)
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await page.getByRole('button', { name: 'Follow her out' }).click()
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await page.getByRole('button', { name: 'Slip out the back' }).click()
+
+    // The way on is offered on its own: nothing stands in for a frame there is no
+    // Shot for, and the beat of the Scene left behind does not follow the Reading
+    // into this one.
+    await expect(page.getByRole('button', { name: 'Back to the street' })).toBeVisible()
+    await expect(page.locator('figure')).toHaveCount(0)
+    await expect(page.getByText('Smoke, and no one she knows.')).toBeHidden()
+  })
+
 test('a Cut whose Condition fails is not among the ones offered', async ({ page, request }) => {
   const story = await writeStory(request)
   const { scenes, cuts } = await (await request.get(`/api/stories/${story.id}`)).json()
