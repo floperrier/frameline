@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Condition, Flags } from '../../shared/utils/scenes'
-import type { Position, StoryToRead } from '../../shared/utils/reading'
-import { OPENING, advance, reading, take } from '../../shared/utils/reading'
+import type { Position, State, StoryToRead } from '../../shared/utils/reading'
+import { OPENING, advance, reading, take, unmet } from '../../shared/utils/reading'
 
 /**
  * A Story built from the shots of each Scene and the Cuts between them, in the
@@ -331,5 +331,55 @@ describe('a Scene read a second time', () => {
       at = take(at, reading(returning, at).cuts[0]!)
     }
     expect(shown(returning, at).text).toBe('Rain.')
+  })
+})
+
+describe('the tests a Cut is hidden by', () => {
+  /** The Scenes a Condition names, read back the way an Author reads them. */
+  const named = (id: string) => ({ house: 'The House' }[id] ?? id)
+
+  const state: State = { flags: { reel: 'spooled' }, visits: { house: 1 } }
+
+  it('says nothing of a Cut this Reading is offered', () => {
+    expect(unmet([{ flag: 'reel', is: 'spooled' }], state, named)).toEqual([])
+    expect(unmet([], state, named)).toEqual([])
+  })
+
+  it('names what a Flag was asked to hold beside what it holds', () => {
+    expect(unmet([{ flag: 'reel', is: 'threaded' }], state, named))
+      .toEqual(['needs reel to hold threaded, holds spooled'])
+  })
+
+  it('says a Flag nobody set holds nothing, and that asking for nothing is asking', () => {
+    expect(unmet([{ flag: 'coat', is: 'on' }], state, named))
+      .toEqual(['needs coat to hold on, holds nothing'])
+    expect(unmet([{ flag: 'reel', is: '' }], state, named))
+      .toEqual(['needs reel to hold nothing, holds spooled'])
+  })
+
+  it('names the Scene a visit count is asked of, and how often it was entered', () => {
+    expect(unmet([{ scene: 'house', visits: 'at least', times: 2 }], state, named))
+      .toEqual(['needs at least 2 visits to The House, entered once'])
+    expect(unmet([{ scene: 'house', visits: 'fewer than', times: 1 }], state, named))
+      .toEqual(['needs fewer than 1 visit to The House, entered once'])
+    expect(unmet([{ scene: 'house', visits: 'fewer than', times: 2 }],
+      { flags: {}, visits: { house: 3 } }, named))
+      .toEqual(['needs fewer than 2 visits to The House, entered 3 times'])
+  })
+
+  it('says a Scene the Reading has never reached was never entered', () => {
+    expect(unmet([{ scene: 'bar', visits: 'at least', times: 3 }], state, named))
+      .toEqual(['needs at least 3 visits to bar, never entered'])
+  })
+
+  it('names every test that failed, and only those', () => {
+    expect(unmet([
+      { flag: 'reel', is: 'spooled' },
+      { flag: 'reel', is: 'threaded' },
+      { scene: 'house', visits: 'at least', times: 4 },
+    ], state, named)).toEqual([
+      'needs reel to hold threaded, holds spooled',
+      'needs at least 4 visits to The House, entered once',
+    ])
   })
 })

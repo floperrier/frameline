@@ -53,6 +53,36 @@ export function holds(conditions: Condition[], state: State) {
   })
 }
 
+/**
+ * Why a Cut is not on offer: one line for each test it carries that this State
+ * fails, saying what the test asked for and what the State actually holds. For
+ * an Author's eyes alone — a Reader is never told what they are not being
+ * offered — so the Scene a Condition counts is named rather than shown as the id
+ * the Condition holds.
+ *
+ * Every test is put back through `holds` one at a time rather than read a second
+ * time here, so what this says failed and what the engine hid the Cut for cannot
+ * come apart.
+ */
+export function unmet(conditions: Condition[], state: State, sceneName: (id: string) => string) {
+  return conditions.filter(condition => !holds([condition], state)).map((condition) => {
+    if ('flag' in condition) {
+      return `needs ${condition.flag} to hold ${condition.is || 'nothing'}`
+        + `, holds ${state.flags[condition.flag] || 'nothing'}`
+    }
+
+    const asked = `${condition.times} ${condition.times === 1 ? 'visit' : 'visits'}`
+    return `needs ${condition.visits} ${asked} to ${sceneName(condition.scene)}`
+      + `, ${entered(state.visits[condition.scene] ?? 0)}`
+  })
+}
+
+/** How often a Scene has been entered, said the way it would be said out loud. */
+function entered(visits: number) {
+  if (visits === 0) return 'never entered'
+  return visits === 1 ? 'entered once' : `entered ${visits} times`
+}
+
 /** Every Reading starts here: the opening Scene, first Shot, nothing taken. */
 export const OPENING: Position = { taken: [], shot: 0 }
 
