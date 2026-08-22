@@ -72,8 +72,8 @@ test('an upload of the wrong kind, or too heavy, is refused by its reason', asyn
     data: Buffer.from('<!doctype html><script>alert(1)</script>'),
   })
   expect(notAnImage.status()).toBe(400)
-  // Read out of `message` and not the whole body: the reason is what the page
-  // shows the Author, and `statusMessage` is a field h3 will sanitize.
+  // Read out of `message` and not the whole body: a refusal that slid back onto
+  // the status line would pass a match on the response text.
   expect((await notAnImage.json()).message)
     .toContain('A Shot carries a JPEG, a PNG or a WebP image')
 
@@ -245,6 +245,6 @@ test('a Description is the Author’s to write, to change and to take away', asy
     data: { text: shot.text, description: 'w'.repeat(SHOT_DESCRIPTION_MAX_LENGTH + 1) },
   })
   expect(tooLong.status()).toBe(400)
-  expect(await tooLong.text()).toContain('A Description says what a still shows')
+  expect((await tooLong.json()).message).toContain('A Description says what a still shows')
   expect((await reread(request, story.id))[0]!.description).toBe('A door, opening.')
 })
