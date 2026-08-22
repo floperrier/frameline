@@ -8,7 +8,7 @@ test('every Scene and Shot endpoint rejects a request carrying no Author', async
     request.post(`/api/stories/${anyId}/scenes`, { data: { name: 'A Scene' } }),
     request.delete(`/api/scenes/${anyId}`),
     request.post(`/api/scenes/${anyId}/shots`),
-    request.patch(`/api/shots/${anyId}`, { data: { text: 'A line' } }),
+    request.patch(`/api/shots/${anyId}`, { data: { text: 'A line', description: '' } }),
     request.post(`/api/shots/${anyId}/move`, { data: { direction: 'earlier' } }),
     request.delete(`/api/shots/${anyId}`),
   ])

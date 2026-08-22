@@ -15,9 +15,7 @@ export default defineEventHandler(async (event) => {
 
   const [shot] = await useDb()
     .update(shots)
-    // A Description the request did not carry is left as it was, rather than
-    // erased by a form that had no field for it.
-    .set(description === undefined ? { text } : { text, description })
+    .set({ text, description })
     .where(and(eq(shots.id, id), inArray(shots.sceneId, scenesOf(author.id))))
     .returning({
       id: shots.id,

@@ -165,7 +165,7 @@ test('the still and the text of a Shot are one beat on screen', async ({ browser
   await expect(reader.getByText('A door opens.')).toBeVisible()
 })
 
-test('a still says what it shows, and the Reader gets it as the image’s alternative text', async ({ browser, page, request }) => {
+test('a still says what it shows, and the Reader is given it', async ({ browser, page, request }) => {
   const { story, shots } = await openShots(request)
   const shot = shots[0]!
   const description = 'A door onto a wet street, opening from the inside.'
@@ -183,8 +183,14 @@ test('a still says what it shows, and the Reader gets it as the image’s altern
   const street = page.getByRole('article', { name: 'The street' })
   await expect(street.getByLabel('Description of the still of Shot 1')).toHaveValue(description)
 
+  // Replacing the still leaves the Description standing: the bytes changed, and
+  // what the Author said about the frame is not the bytes.
+  await request.put(`/api/shots/${shot.id}/image`, { data: ONE_PIXEL })
+  expect((await reread(request, story.id))[0]!.description).toBe(description)
+
   // And it is what a Reader is given for the image — never the Shot's text,
-  // which is read out beside it anyway.
+  // which is read out beside it anyway, and never a Description for a Shot
+  // nobody described.
   await request.post(`/api/stories/${story.id}/publish`)
   const reader = await (await browser.newContext({ extraHTTPHeaders: {} })).newPage()
   await reader.goto(`/read/${story.id}`)
@@ -214,16 +220,17 @@ test('a Description is the Author’s to write, to change and to take away', asy
   await field.blur()
   await expect.poll(async () => (await reread(request, story.id))[0]!.description).toBe('')
 
-  await request.patch(`/api/shots/${shot.id}`, { data: { text: shot.text, description: ' Padded ' } })
-  expect((await reread(request, story.id))[0]!.description).toBe('Padded')
-
-  // A request carrying no Description at all leaves the one already written
-  // standing: the field it came from simply had nothing to say about the still.
-  const textAlone = await request.patch(`/api/shots/${shot.id}`, { data: { text: 'Rewritten.' } })
-  expect(textAlone.status()).toBe(200)
+  // A request saying nothing about the Description is refused rather than taken
+  // as an empty one, the same way a request saying nothing about the text is:
+  // writing it as empty would erase what the Author wrote.
+  await request.patch(`/api/shots/${shot.id}`, {
+    data: { text: shot.text, description: 'A door, opening.' },
+  })
+  const nothingSaid = await request.patch(`/api/shots/${shot.id}`, { data: { text: 'Rewritten.' } })
+  expect(nothingSaid.status()).toBe(400)
   expect((await reread(request, story.id))[0]).toMatchObject({
-    text: 'Rewritten.',
-    description: 'Padded',
+    text: shot.text,
+    description: 'A door, opening.',
   })
 
   // And a Description longer than one said out loud is refused by its reason.
@@ -232,5 +239,5 @@ test('a Description is the Author’s to write, to change and to take away', asy
   })
   expect(tooLong.status()).toBe(400)
   expect(await tooLong.text()).toContain('A Description says what a still shows')
-  expect((await reread(request, story.id))[0]!.description).toBe('Padded')
+  expect((await reread(request, story.id))[0]!.description).toBe('A door, opening.')
 })

@@ -188,7 +188,7 @@ export async function writeStory(request: APIRequestContext) {
     })).json()
     for (const text of texts) {
       const shot = await (await request.post(`/api/scenes/${scene.id}/shots`)).json()
-      await request.patch(`/api/shots/${shot.id}`, { data: { text } })
+      await request.patch(`/api/shots/${shot.id}`, { data: { text, description: '' } })
     }
     scenes.push(scene)
   }

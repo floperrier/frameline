@@ -401,11 +401,7 @@ function anchor(sceneId: string) {
                      here to say which image the Shot carries, and the Preview is
                      where the Author meets it at the size a Reader will. -->
                 <div class="still">
-                  <img
-                    v-if="shot.image"
-                    :src="stillOf(shot)"
-                    :alt="shot.description || `The still of Shot ${place + 1}`"
-                  >
+                  <img v-if="shot.image" :src="stillOf(shot)" :alt="`The still of Shot ${place + 1}`">
                   <div>
                     <label class="eyebrow" :for="`image-${shot.id}`">
                       Image <span class="visually-hidden">of Shot {{ place + 1 }}</span>

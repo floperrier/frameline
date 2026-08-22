@@ -13,7 +13,7 @@ export const SHOT_TEXT_MAX_LENGTH = 2000
  * line rather than near a Shot's text: prose about the image is the Shot's text,
  * which the Reader already has.
  */
-export const SHOT_DESCRIPTION_MAX_LENGTH = 300
+export const SHOT_DESCRIPTION_MAX_LENGTH = 250
 
 /**
  * The still formats a Shot may carry, each named by the bytes a file of it starts

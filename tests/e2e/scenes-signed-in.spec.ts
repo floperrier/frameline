@@ -20,7 +20,7 @@ async function writeShots(request: APIRequestContext, sceneId: string, texts: st
     const added = await request.post(`/api/scenes/${sceneId}/shots`)
     expect(added.status()).toBe(201)
     const shot = await added.json()
-    await request.patch(`/api/shots/${shot.id}`, { data: { text } })
+    await request.patch(`/api/shots/${shot.id}`, { data: { text, description: '' } })
     shots.push(shot)
   }
 
@@ -114,7 +114,7 @@ test('a Scene that was never written reads as absent', async ({ request }) => {
     request.post(`/api/stories/${noId}/scenes`, { data: { name: 'A Scene' } }),
     request.delete(`/api/scenes/${noId}`),
     request.post(`/api/scenes/${noId}/shots`),
-    request.patch(`/api/shots/${noId}`, { data: { text: 'A line' } }),
+    request.patch(`/api/shots/${noId}`, { data: { text: 'A line', description: '' } }),
     request.post(`/api/shots/${noId}/move`, { data: { direction: 'earlier' } }),
     request.delete(`/api/shots/${noId}`),
   ])
@@ -132,7 +132,7 @@ test('Scenes and Shots belong to the Author who wrote the Story', async ({ reque
     request.post(`/api/stories/${theirStory.id}/scenes`, { data: { name: 'Mine now' } }),
     request.delete(`/api/scenes/${theirScene.id}`),
     request.post(`/api/scenes/${theirScene.id}/shots`),
-    request.patch(`/api/shots/${theirShot.id}`, { data: { text: 'Mine now' } }),
+    request.patch(`/api/shots/${theirShot.id}`, { data: { text: 'Mine now', description: '' } }),
     request.post(`/api/shots/${theirShot.id}/move`, { data: { direction: 'later' } }),
     request.delete(`/api/shots/${theirShot.id}`),
   ])
