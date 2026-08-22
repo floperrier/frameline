@@ -61,9 +61,15 @@ function createScene() {
   })
 }
 
+/** `1 Shot` and `2 Shots`: a folded node counts them, and a Delete asks about them. */
+function counted(many: number, noun: string) {
+  return `${many} ${noun}${many === 1 ? '' : 's'}`
+}
+
 function deleteScene(scene: Scene) {
-  const cuts = cutsFrom(scene).length
-  if (!confirm(`Delete “${scene.name}”, its ${scene.shots.length} Shots and ${cuts} Cuts?`)) return
+  const shots = counted(scene.shots.length, 'Shot')
+  const cuts = counted(cutsFrom(scene).length, 'Cut')
+  if (!confirm(`Delete “${scene.name}”, its ${shots} and ${cuts}?`)) return
   return change(() => send(`/api/scenes/${scene.id}`, { method: 'DELETE' }))
 }
 
@@ -306,7 +312,7 @@ function boxOf(sceneId: string): NodeBox {
  */
 const opened = reactive(new Set<string>())
 
-function fold(scene: Scene) {
+function foldOrOpen(scene: Scene) {
   if (!opened.delete(scene.id)) opened.add(scene.id)
 }
 
@@ -316,7 +322,7 @@ function fold(scene: Scene) {
  * because where a Scene leads is the one thing a graph is read for.
  */
 function atAGlance(scene: Scene) {
-  const shots = `${scene.shots.length} Shot${scene.shots.length === 1 ? '' : 's'}`
+  const shots = counted(scene.shots.length, 'Shot')
   const waysOn = cutsFrom(scene).map(cut => sceneNamed(sceneNames.value, cut.toSceneId))
 
   return waysOn.length ? `${shots}, on to ${waysOn.join(', ')}` : `${shots}, no way on`
@@ -409,7 +415,7 @@ function atAGlance(scene: Scene) {
                 type="button"
                 class="fold"
                 :aria-expanded="opened.has(scene.id)"
-                @click="fold(scene)"
+                @click="foldOrOpen(scene)"
               >
                 {{ opened.has(scene.id) ? 'Fold' : 'Open' }}
                 <span class="visually-hidden">Scene {{ scene.name }}</span>

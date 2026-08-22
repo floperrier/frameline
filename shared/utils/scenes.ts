@@ -98,16 +98,17 @@ export const VISITS_MAX = 100
 export const GRAPH_REACH = 10_000
 
 /**
- * How large a Scene's node is drawn, and how far below the last one a new Scene
- * is placed. Shared because the server does the placing and the graph does the
- * drawing, and the spacing clears the height so a new Scene does not land on top
- * of the controls of the one above it.
+ * How large a Scene's node is drawn once the Author has opened it, and how far
+ * below the last one a new Scene is placed. Shared because the server does the
+ * placing and the graph does the drawing, and the spacing clears the height so a
+ * new Scene does not land on top of the controls of the one above it.
  *
  * The height shows a Shot with its still and the Flags the Scene sets; the Cuts
  * leaving a Scene are a scroll away inside the node, because a node tall enough
- * to hold all of them would be taller than the graph that holds it. The width is
- * left at what a phone can show, because a node wider than the screen is a graph
- * nobody can lay out on one.
+ * to hold all of them would be taller than the graph that holds it. A folded node
+ * is far shorter, and is measured rather than named here — see `NodeBox`. The
+ * width is left at what a phone can show, because a node wider than the screen is
+ * a graph nobody can lay out on one.
  */
 export const NODE_WIDTH = 320
 export const NODE_HEIGHT = 420
@@ -134,11 +135,11 @@ type Point = { x: number, y: number }
 export function cutLine(from: NodeBox, to: NodeBox) {
   const leaving = middleOf(from)
   const landing = middleOf(to)
-  const run = { x: landing.x - leaving.x, y: landing.y - leaving.y }
+  const towards = { x: landing.x - leaving.x, y: landing.y - leaving.y }
 
   return {
-    from: onTheEdge(leaving, from.height, run),
-    to: onTheEdge(landing, to.height, { x: -run.x, y: -run.y }),
+    from: onTheEdge(leaving, from.height, towards),
+    to: onTheEdge(landing, to.height, { x: -towards.x, y: -towards.y }),
   }
 }
 
@@ -147,19 +148,19 @@ function middleOf(node: NodeBox) {
 }
 
 /**
- * Where a run out of the middle of a box crosses its edge: whichever of the two
- * half-extents the run reaches first is the side it leaves by. A run of nowhere —
- * two nodes dropped on the same spot — leaves at the middle, so what is drawn is
- * a line of no length rather than one shooting off the graph. Rounded, because a
- * line on a screen is not read finer than a pixel.
+ * Where a line out of the middle of a box, headed `towards` the other one, crosses
+ * its edge: whichever of the two half-extents it reaches first is the side it
+ * leaves by. Headed nowhere — two nodes dropped on the same spot — it leaves at
+ * the middle, so what is drawn is a line of no length rather than one shooting off
+ * the graph. Rounded, because a line on a screen is not read finer than a pixel.
  */
-function onTheEdge(middle: Point, height: number, run: Point) {
+function onTheEdge(middle: Point, height: number, towards: Point) {
   const reach = Math.min(
-    run.x ? NODE_WIDTH / 2 / Math.abs(run.x) : Infinity,
-    run.y ? height / 2 / Math.abs(run.y) : Infinity,
+    towards.x ? NODE_WIDTH / 2 / Math.abs(towards.x) : Infinity,
+    towards.y ? height / 2 / Math.abs(towards.y) : Infinity,
   )
   const reached = Number.isFinite(reach)
-    ? { x: middle.x + run.x * reach, y: middle.y + run.y * reach }
+    ? { x: middle.x + towards.x * reach, y: middle.y + towards.y * reach }
     : middle
 
   return { x: Math.round(reached.x), y: Math.round(reached.y) }
