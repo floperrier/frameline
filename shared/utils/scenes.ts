@@ -123,11 +123,11 @@ export const NODES_PER_COLUMN = 20
 /**
  * A Story as the Author edits it: Scenes in the order they were written, each a
  * run of Shots, a node in the graph and the Flags it sets, and the Cuts that
- * join them, each with the Conditions it is offered under. A Story with no Scenes
- * has no opening Scene, and neither has one whose opening Scene was deleted.
- * `publishedAt` is null until the Story is published, and null again once it is
- * unpublished; it arrives as a string because that is what JSON makes of a
- * timestamp.
+ * join them, each in the Place it is offered at and with the Conditions it is
+ * offered under. A Story with no Scenes has no opening Scene, and neither has
+ * one whose opening Scene was deleted. `publishedAt` is null until the Story is
+ * published, and null again once it is unpublished; it arrives as a string
+ * because that is what JSON makes of a timestamp.
  *
  * A Shot's `image` is where its still is served, not the still itself, and null
  * for a Shot that is text alone. Its `description` is what that still shows, for
@@ -153,6 +153,7 @@ export type Cut = {
   fromSceneId: string
   toSceneId: string
   text: string
+  position: number
   conditions: Condition[]
 }
 

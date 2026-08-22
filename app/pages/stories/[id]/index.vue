@@ -133,6 +133,10 @@ function drawCut(scene: Scene) {
   return change(() => send(`/api/scenes/${scene.id}/cuts`, { method: 'POST', body: { toSceneId } }))
 }
 
+function moveCut(cut: Cut, direction: 'earlier' | 'later') {
+  return change(() => send(`/api/cuts/${cut.id}/move`, { method: 'POST', body: { direction } }))
+}
+
 function writeCut(cut: Cut) {
   return change(() => send(`/api/cuts/${cut.id}`, { method: 'PATCH', body: { text: cut.text } }))
 }
@@ -499,7 +503,7 @@ function anchor(sceneId: string) {
           </p>
 
           <ul class="cuts">
-            <li v-for="cut in cutsFrom(scene)" :key="cut.id">
+            <li v-for="(cut, place) in cutsFrom(scene)" :key="cut.id">
               <label class="eyebrow" :for="`cut-${cut.id}`">
                 Cut to {{ sceneNames.get(cut.toSceneId) }}
                 <span class="visually-hidden">from {{ scene.name }}</span>
@@ -635,9 +639,31 @@ function anchor(sceneId: string) {
                 </button>
               </div>
 
-              <button type="button" class="danger" @click="deleteCut(cut)">
-                Delete Cut to {{ sceneNames.get(cut.toSceneId) }}
-              </button>
+              <div class="row">
+                <button
+                  type="button"
+                  :disabled="place === 0"
+                  @click="moveCut(cut, 'earlier')"
+                >
+                  Move earlier
+                  <span class="visually-hidden">
+                    the Cut to {{ sceneNames.get(cut.toSceneId) }}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  :disabled="place === cutsFrom(scene).length - 1"
+                  @click="moveCut(cut, 'later')"
+                >
+                  Move later
+                  <span class="visually-hidden">
+                    the Cut to {{ sceneNames.get(cut.toSceneId) }}
+                  </span>
+                </button>
+                <button type="button" class="danger" @click="deleteCut(cut)">
+                  Delete Cut to {{ sceneNames.get(cut.toSceneId) }}
+                </button>
+              </div>
             </li>
           </ul>
 

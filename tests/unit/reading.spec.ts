@@ -34,6 +34,7 @@ function story(
       fromSceneId,
       toSceneId,
       text,
+      position: index,
       conditions: conditions ?? [],
     })),
   }
