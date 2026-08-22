@@ -150,37 +150,66 @@ function writeFlags(scene: Scene, typed: string) {
   return change(() => send(`/api/scenes/${scene.id}/flags`, { method: 'PUT', body: { sets } }))
 }
 
-/** Which of the two things a Cut's Condition tests, or that the Cut has none. */
-type ConditionKind = 'always' | 'flag' | 'visits'
+/** Which of the two things one Condition of a Cut tests. */
+type ConditionKind = 'flag' | 'visits'
 
-function conditionKind(cut: Cut): ConditionKind {
-  return !cut.condition ? 'always' : 'flag' in cut.condition ? 'flag' : 'visits'
+function conditionKind(condition: Condition): ConditionKind {
+  return 'flag' in condition ? 'flag' : 'visits'
 }
 
 /**
- * Starts a Condition of the kind the Author chose. Only "always" is written
- * straight away: a Flag with no name yet is half a Condition, which the server
- * is right to refuse, so it waits until the name is typed. A Condition counting
- * visits starts on the Scene the Cut leaves, entered twice — the Cut an Author
- * draws for a second reading of a Scene, which is the common one.
+ * Adds a Condition to a Cut. It starts as a Flag with no name, which is half a
+ * Condition and which the server is right to refuse, so nothing is written until
+ * the name is typed — or until the Author turns the row into a visit count,
+ * which is whole the moment it is chosen.
  */
-function chooseCondition(cut: Cut, kind: ConditionKind) {
-  cut.condition = kind === 'flag'
-    ? { flag: '', is: '' }
-    : kind === 'visits'
-      ? { scene: cut.fromSceneId, visits: 'at least', times: 2 }
-      : null
-
-  if (kind !== 'flag') return writeCondition(cut)
+function addCondition(cut: Cut) {
+  cut.conditions.push({ flag: '', is: '' })
 }
 
-function writeCondition(cut: Cut) {
-  const condition = cut.condition
-  if (condition && 'flag' in condition && !condition.flag.trim()) return
+function removeCondition(cut: Cut, place: number) {
+  cut.conditions.splice(place, 1)
+  return writeConditions(cut)
+}
+
+/**
+ * Turns one row into a Condition of the other kind, and writes what that leaves:
+ * a visit count is whole the moment it is chosen, and a Flag with no name yet is
+ * a row the Story does not carry until it is typed. A Condition counting visits
+ * starts on the Scene the Cut leaves, entered twice — the Cut an Author draws
+ * for a second reading of a Scene, which is the common one.
+ */
+function chooseCondition(cut: Cut, place: number, kind: ConditionKind) {
+  cut.conditions[place] = kind === 'flag'
+    ? { flag: '', is: '' }
+    : { scene: cut.fromSceneId, visits: 'at least', times: 2 }
+
+  return writeConditions(cut)
+}
+
+/**
+ * Writes the whole list, because that is what the Cut carries and what the
+ * endpoint takes. A row whose Flag has no name is half a Condition, which the
+ * server is right to refuse, so it is left out of what is sent rather than
+ * holding back the rest — a Condition taken off a Cut has to reach the Story
+ * whatever else the Author is in the middle of typing.
+ */
+function writeConditions(cut: Cut) {
+  const conditions = cut.conditions.filter(
+    condition => !('flag' in condition) || condition.flag.trim())
 
   return change(
-    () => send(`/api/cuts/${cut.id}/condition`, { method: 'PUT', body: { condition } }),
+    () => send(`/api/cuts/${cut.id}/conditions`, { method: 'PUT', body: { conditions } }),
   )
+}
+
+/**
+ * How one Condition of a Cut is named where the row's own labels are too short to
+ * say it: "Condition 2 of the Cut to The platform". Every field of the row ends
+ * in it, so a Story of forty Cuts has no two labels alike.
+ */
+function conditionCalled(cut: Cut, place: number) {
+  return `Condition ${place + 1} of the Cut to ${sceneNames.value.get(cut.toSceneId)}`
 }
 
 function deleteCut(cut: Cut) {
@@ -482,107 +511,128 @@ function anchor(sceneId: string) {
                 @change="writeCut(cut)"
               >
 
-              <!-- One Condition a Cut, flat: whichever kind is chosen, the whole
-                   of it is the row that follows, read as one sentence. -->
-              <div class="when">
-                <label class="eyebrow" :for="`when-${cut.id}`">
+              <!-- The Conditions a Cut carries, a row apiece and all of them
+                   holding for the Cut to be offered: flat, so a Condition is read
+                   as one sentence and the list is read as the whole of them. A
+                   Cut carrying none is offered to everyone. -->
+              <div class="conditions">
+                <p class="eyebrow">
                   Offered when
                   <span class="visually-hidden">
                     taking the Cut to {{ sceneNames.get(cut.toSceneId) }}
                   </span>
-                </label>
-                <select
-                  :id="`when-${cut.id}`"
-                  :value="conditionKind(cut)"
-                  @change="chooseCondition(
-                    cut, ($event.target as HTMLSelectElement).value as ConditionKind)"
+                  <template v-if="!cut.conditions.length">— always</template>
+                </p>
+
+                <div v-for="(condition, place) in cut.conditions" :key="place" class="when">
+                  <label class="eyebrow" :for="`when-${cut.id}-${place}`">
+                    Condition {{ place + 1 }}
+                    <span class="visually-hidden">
+                      of the Cut to {{ sceneNames.get(cut.toSceneId) }}
+                    </span>
+                  </label>
+                  <select
+                    :id="`when-${cut.id}-${place}`"
+                    :value="conditionKind(condition)"
+                    @change="chooseCondition(
+                      cut, place, ($event.target as HTMLSelectElement).value as ConditionKind)"
+                  >
+                    <option value="flag">A Flag holds</option>
+                    <option value="visits">A Scene has been entered</option>
+                  </select>
+
+                  <template v-if="'flag' in condition">
+                    <label class="eyebrow" :for="`flag-${cut.id}-${place}`">
+                      Flag
+                      <span class="visually-hidden">of {{ conditionCalled(cut, place) }}</span>
+                    </label>
+                    <input
+                      :id="`flag-${cut.id}-${place}`"
+                      v-model="condition.flag"
+                      class="data"
+                      :maxlength="FLAG_NAME_MAX_LENGTH"
+                      @change="writeConditions(cut)"
+                    >
+                    <label class="eyebrow" :for="`is-${cut.id}-${place}`">
+                      holds
+                      <span class="visually-hidden">for {{ conditionCalled(cut, place) }}</span>
+                    </label>
+                    <input
+                      :id="`is-${cut.id}-${place}`"
+                      v-model="condition.is"
+                      class="data"
+                      :maxlength="FLAG_VALUE_MAX_LENGTH"
+                      @change="writeConditions(cut)"
+                    >
+                  </template>
+
+                  <template v-else>
+                    <label class="eyebrow" :for="`counted-${cut.id}-${place}`">
+                      Scene
+                      <span class="visually-hidden">
+                        counted by {{ conditionCalled(cut, place) }}
+                      </span>
+                    </label>
+                    <select
+                      :id="`counted-${cut.id}-${place}`"
+                      v-model="condition.scene"
+                      @change="writeConditions(cut)"
+                    >
+                      <!-- A Scene deleted since the Condition was written is still
+                           what it counts, and saying so beats showing the Author a
+                           Scene they never chose. -->
+                      <option v-if="!sceneNames.get(condition.scene)" :value="condition.scene">
+                        A Scene that is gone
+                      </option>
+                      <option v-for="counted in story.scenes" :key="counted.id" :value="counted.id">
+                        {{ counted.name }}
+                      </option>
+                    </select>
+                    <label class="eyebrow" :for="`visits-${cut.id}-${place}`">
+                      entered
+                      <span class="visually-hidden">for {{ conditionCalled(cut, place) }}</span>
+                    </label>
+                    <select
+                      :id="`visits-${cut.id}-${place}`"
+                      v-model="condition.visits"
+                      @change="writeConditions(cut)"
+                    >
+                      <option value="at least">at least</option>
+                      <option value="fewer than">fewer than</option>
+                    </select>
+                    <label class="eyebrow" :for="`times-${cut.id}-${place}`">
+                      times
+                      <span class="visually-hidden">for {{ conditionCalled(cut, place) }}</span>
+                    </label>
+                    <input
+                      :id="`times-${cut.id}-${place}`"
+                      v-model.number="condition.times"
+                      class="times data"
+                      type="number"
+                      min="1"
+                      :max="VISITS_MAX"
+                      @change="writeConditions(cut)"
+                    >
+                  </template>
+
+                  <button type="button" class="danger" @click="removeCondition(cut, place)">
+                    Remove Condition {{ place + 1 }}
+                    <span class="visually-hidden">
+                      of the Cut to {{ sceneNames.get(cut.toSceneId) }}
+                    </span>
+                  </button>
+                </div>
+
+                <button
+                  v-if="cut.conditions.length < CUT_CONDITIONS_MAX"
+                  type="button"
+                  @click="addCondition(cut)"
                 >
-                  <option value="always">Always</option>
-                  <option value="flag">A Flag holds</option>
-                  <option value="visits">A Scene has been entered</option>
-                </select>
-
-                <template v-if="cut.condition && 'flag' in cut.condition">
-                  <label class="eyebrow" :for="`flag-${cut.id}`">
-                    Flag
-                    <span class="visually-hidden">
-                      tested by the Cut to {{ sceneNames.get(cut.toSceneId) }}
-                    </span>
-                  </label>
-                  <input
-                    :id="`flag-${cut.id}`"
-                    v-model="cut.condition.flag"
-                    class="data"
-                    :maxlength="FLAG_NAME_MAX_LENGTH"
-                    @change="writeCondition(cut)"
-                  >
-                  <label class="eyebrow" :for="`is-${cut.id}`">
-                    holds
-                    <span class="visually-hidden">
-                      for the Cut to {{ sceneNames.get(cut.toSceneId) }}
-                    </span>
-                  </label>
-                  <input
-                    :id="`is-${cut.id}`"
-                    v-model="cut.condition.is"
-                    class="data"
-                    :maxlength="FLAG_VALUE_MAX_LENGTH"
-                    @change="writeCondition(cut)"
-                  >
-                </template>
-
-                <template v-else-if="cut.condition && 'scene' in cut.condition">
-                  <label class="eyebrow" :for="`counted-${cut.id}`">
-                    Scene
-                    <span class="visually-hidden">
-                      counted by the Cut to {{ sceneNames.get(cut.toSceneId) }}
-                    </span>
-                  </label>
-                  <select
-                    :id="`counted-${cut.id}`"
-                    v-model="cut.condition.scene"
-                    @change="writeCondition(cut)"
-                  >
-                    <!-- A Scene deleted since the Condition was written is still
-                         what it counts, and saying so beats showing the Author a
-                         Scene they never chose. -->
-                    <option v-if="!sceneNames.get(cut.condition.scene)" :value="cut.condition.scene">
-                      A Scene that is gone
-                    </option>
-                    <option v-for="counted in story.scenes" :key="counted.id" :value="counted.id">
-                      {{ counted.name }}
-                    </option>
-                  </select>
-                  <label class="eyebrow" :for="`visits-${cut.id}`">
-                    entered
-                    <span class="visually-hidden">
-                      for the Cut to {{ sceneNames.get(cut.toSceneId) }}
-                    </span>
-                  </label>
-                  <select
-                    :id="`visits-${cut.id}`"
-                    v-model="cut.condition.visits"
-                    @change="writeCondition(cut)"
-                  >
-                    <option value="at least">at least</option>
-                    <option value="fewer than">fewer than</option>
-                  </select>
-                  <label class="eyebrow" :for="`times-${cut.id}`">
-                    times
-                    <span class="visually-hidden">
-                      for the Cut to {{ sceneNames.get(cut.toSceneId) }}
-                    </span>
-                  </label>
-                  <input
-                    :id="`times-${cut.id}`"
-                    v-model.number="cut.condition.times"
-                    class="times data"
-                    type="number"
-                    min="1"
-                    :max="VISITS_MAX"
-                    @change="writeCondition(cut)"
-                  >
-                </template>
+                  Add a Condition
+                  <span class="visually-hidden">
+                    to the Cut to {{ sceneNames.get(cut.toSceneId) }}
+                  </span>
+                </button>
               </div>
 
               <button type="button" class="danger" @click="deleteCut(cut)">
@@ -907,8 +957,13 @@ article:has(input[type='radio']:checked) {
   background: color-mix(in oklab, var(--bench) 55%, transparent);
 }
 
-/* A Condition read across the row as the sentence it is: "offered when a Flag
-   holds — coat — on". */
+/* The Conditions of one Cut, stacked, each read across its own row as the
+   sentence it is: "offered when a Flag holds — coat — on". */
+.conditions {
+  display: grid;
+  gap: var(--s1);
+}
+
 .when {
   display: flex;
   flex-wrap: wrap;

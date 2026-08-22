@@ -49,7 +49,7 @@ export type Shot = { text: string, description: string, still: Still }
 export type Work = {
   title: string
   scenes: { name: string, at: [number, number], sets?: Flags, shots: Shot[] }[]
-  cuts: { from: string, to: string, text: string, when?: Condition }[]
+  cuts: { from: string, to: string, text: string, when?: Condition[] }[]
 }
 
 /* Seeded from the product's own tokens in `app/assets/css/frameline.css` — the
@@ -364,7 +364,7 @@ export const REEL_CHANGE: Work = {
       text: 'Thread it',
       // A Flag that was never set reads as empty, so this is the way on being
       // offered exactly once: the Scene it leads to sets `reel` on entry.
-      when: { flag: 'reel', is: '' },
+      when: [{ flag: 'reel', is: '' }],
     },
     {
       from: 'The booth',
@@ -372,7 +372,7 @@ export const REEL_CHANGE: Work = {
       text: 'Go down into the house',
       // Twice and no more, so a Reader who walked the house before threading the
       // reel can go down again once they have something to recognise.
-      when: { scene: 'Row nine', visits: 'fewer than', times: 2 },
+      when: [{ scene: 'Row nine', visits: 'fewer than', times: 2 }],
     },
     {
       from: 'The booth',
@@ -380,7 +380,7 @@ export const REEL_CHANGE: Work = {
       text: 'Open the window onto the boulevard',
       // The third time the Reader stands in the booth, whatever they did with the
       // first two, the only way on left is out.
-      when: { scene: 'The booth', visits: 'at least', times: 3 },
+      when: [{ scene: 'The booth', visits: 'at least', times: 3 }],
     },
     { from: 'The gate', to: 'The booth', text: 'Kill the lamp and go back up' },
     { from: 'Row nine', to: 'The booth', text: 'Climb back to the booth' },
@@ -390,7 +390,7 @@ export const REEL_CHANGE: Work = {
       text: 'Look at the coat again',
       // Only a Reader who has seen the reel has anything to recognise, so for
       // anyone else this way on is not refused — it is not there.
-      when: { flag: 'reel', is: 'threaded' },
+      when: [{ flag: 'reel', is: 'threaded' }],
     },
     { from: 'The coat', to: 'The booth', text: 'Go up. Do not run.' },
   ],

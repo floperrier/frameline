@@ -54,18 +54,34 @@ export async function readTargetSceneId(event: H3Event) {
 }
 
 /**
- * Reads the Condition a Cut is offered under, an absent or null one being a Cut
- * offered to everyone. A trust boundary that matters more than most: what is
+ * Reads the Conditions a Cut is offered under, an absent or empty list being a
+ * Cut offered to everyone. A trust boundary that matters more than most: what is
  * written here lands in a jsonb column, which would take any shape at all, and
- * the engine then reads it back as a Condition — so only the two flat shapes get
- * through, and neither of them can hold another.
+ * the engine then reads it back as Conditions — so only the two flat shapes get
+ * through, member by member, and neither of them can hold another.
  */
-export async function readCutCondition(event: H3Event): Promise<Condition | null> {
-  const body = await readBody<{ condition?: unknown }>(event)
-  const condition = body?.condition
+export async function readCutConditions(event: H3Event): Promise<Condition[]> {
+  const body = await readBody<{ conditions?: unknown }>(event)
+  const conditions = body?.conditions
 
-  if (condition === null || condition === undefined) return null
-  if (typeof condition !== 'object' || Array.isArray(condition)) throw badCondition()
+  if (conditions === null || conditions === undefined) return []
+  if (!Array.isArray(conditions)) throw badCondition()
+
+  if (conditions.length > CUT_CONDITIONS_MAX) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: `A Cut cannot carry more than ${CUT_CONDITIONS_MAX} Conditions.`,
+    })
+  }
+
+  return conditions.map(readCondition)
+}
+
+/** One member of the list: a single flat test, or nothing that gets written. */
+function readCondition(condition: unknown): Condition {
+  if (typeof condition !== 'object' || condition === null || Array.isArray(condition)) {
+    throw badCondition()
+  }
 
   // A Condition holds its own two or three keys and nothing besides: anything
   // else is a Condition trying to carry a second one, and flatness is the whole

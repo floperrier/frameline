@@ -89,7 +89,7 @@ export async function readStoryGraph(storyId: string) {
       fromSceneId: cuts.fromSceneId,
       toSceneId: cuts.toSceneId,
       text: cuts.text,
-      condition: cuts.condition,
+      conditions: cuts.conditions,
     })
     .from(cuts)
     .innerJoin(scenes, eq(cuts.fromSceneId, scenes.id))

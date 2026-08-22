@@ -73,7 +73,7 @@ for (const cut of REEL_CHANGE.cuts) {
 
   await api('PATCH', `/api/cuts/${id}`, { text: cut.text })
   if (cut.when) {
-    await api('PUT', `/api/cuts/${id}/condition`, { condition: identified(cut.when) })
+    await api('PUT', `/api/cuts/${id}/conditions`, { conditions: cut.when.map(identified) })
   }
 }
 

@@ -69,6 +69,14 @@ export function shotImageUrl(shotId: string) {
 export const CUT_TEXT_MAX_LENGTH = 200
 
 /**
+ * How many Conditions one Cut may carry. Four tests is a way on with a history
+ * behind it; past that, what the Author is describing is not a nuance on an exit
+ * but a place in the Story several threads reach, and the answer is a Scene —
+ * see `docs/adr/0004-conditions-stay-flat.md`.
+ */
+export const CUT_CONDITIONS_MAX = 4
+
+/**
  * The longest a Flag's name and its value may be, and how many Flags one Scene
  * may set on entry. A Flag is a short named value, not a place to keep prose,
  * and a Scene setting a score of them is a Story keeping State its graph should
@@ -115,7 +123,7 @@ export const NODES_PER_COLUMN = 20
 /**
  * A Story as the Author edits it: Scenes in the order they were written, each a
  * run of Shots, a node in the graph and the Flags it sets, and the Cuts that
- * join them, each with the Condition it is offered under. A Story with no Scenes
+ * join them, each with the Conditions it is offered under. A Story with no Scenes
  * has no opening Scene, and neither has one whose opening Scene was deleted.
  * `publishedAt` is null until the Story is published, and null again once it is
  * unpublished; it arrives as a string because that is what JSON makes of a
@@ -145,7 +153,7 @@ export type Cut = {
   fromSceneId: string
   toSceneId: string
   text: string
-  condition: Condition | null
+  conditions: Condition[]
 }
 
 /**
@@ -181,11 +189,11 @@ export function flagsTyped(typed: string): Flags {
 
 /**
  * A flat test on the State of one Reading, carried by a Cut: the Cut is offered
- * only where the test passes. Two things can be tested and nothing else — what a
- * Flag holds, or how often a Scene has been entered — with no arithmetic and no
- * nesting, so a Condition is one row of a form and one comparison in the engine.
- * A Flag that was never set reads as the empty value, which is how a Condition
- * asks for the absence of one.
+ * only where every test it carries passes. Two things can be tested and nothing
+ * else — what a Flag holds, or how often a Scene has been entered — with no
+ * arithmetic and no nesting, so a Condition is one row of a form and one
+ * comparison in the engine. A Flag that was never set reads as the empty value,
+ * which is how a Condition asks for the absence of one.
  */
 export type Condition =
   | { flag: string, is: string }

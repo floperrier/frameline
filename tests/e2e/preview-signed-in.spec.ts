@@ -33,8 +33,8 @@ test('a Cut whose Condition fails is not among the ones offered', async ({ page,
 
   // The street puts her coat on, and the way into the bar asks for it.
   await request.put(`/api/scenes/${street.id}/flags`, { data: { sets: { coat: 'on' } } })
-  await request.put(`/api/cuts/${cuts[0].id}/condition`, {
-    data: { condition: { flag: 'coat', is: 'on' } },
+  await request.put(`/api/cuts/${cuts[0].id}/conditions`, {
+    data: { conditions: [{ flag: 'coat', is: 'on' }] },
   })
 
   // A second way out of the street, asking for the coat she is wearing to be off.
@@ -45,8 +45,8 @@ test('a Cut whose Condition fails is not among the ones offered', async ({ page,
     data: { toSceneId: alley.id },
   })).json()
   await request.patch(`/api/cuts/${shut.id}`, { data: { text: 'Stay outside' } })
-  await request.put(`/api/cuts/${shut.id}/condition`, {
-    data: { condition: { flag: 'coat', is: 'off' } },
+  await request.put(`/api/cuts/${shut.id}/conditions`, {
+    data: { conditions: [{ flag: 'coat', is: 'off' }] },
   })
 
   await page.goto(`/stories/${story.id}/preview`)
