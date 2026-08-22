@@ -1,6 +1,7 @@
 import type { APIRequestContext } from '@playwright/test'
 import { expect } from '@playwright/test'
 import {
+  CUT_CONDITIONS_MAX,
   FLAGS_PER_SCENE,
   GRAPH_REACH,
   NODE_GAP,
@@ -181,7 +182,7 @@ test('a graph that was never drawn reads as absent', async ({ request }) => {
     request.post(`/api/scenes/${noId}/cuts`, { data: { toSceneId: scenes[0]!.id } }),
     request.post(`/api/scenes/${scenes[0]!.id}/cuts`, { data: { toSceneId: noId } }),
     request.patch(`/api/cuts/${noId}`, { data: { text: 'Follow her' } }),
-    request.put(`/api/cuts/${noId}/condition`, { data: {} }),
+    request.put(`/api/cuts/${noId}/conditions`, { data: {} }),
     request.put(`/api/scenes/${noId}/flags`, { data: { sets: {} } }),
     request.delete(`/api/cuts/${noId}`),
   ])
@@ -200,8 +201,8 @@ test('the graph belongs to the Author who wrote the Story', async ({ request, ot
     request.post(`/api/scenes/${theirScene.id}/opening`),
     request.post(`/api/scenes/${theirScene.id}/cuts`, { data: { toSceneId: theirOther.id } }),
     request.patch(`/api/cuts/${theirCut.id}`, { data: { text: 'Mine now' } }),
-    request.put(`/api/cuts/${theirCut.id}/condition`, {
-      data: { condition: { flag: 'mine', is: 'now' } },
+    request.put(`/api/cuts/${theirCut.id}/conditions`, {
+      data: { conditions: [{ flag: 'mine', is: 'now' }] },
     }),
     request.put(`/api/scenes/${theirScene.id}/flags`, { data: { sets: { mine: 'now' } } }),
     request.delete(`/api/cuts/${theirCut.id}`),
@@ -308,34 +309,40 @@ test('the graph shows several dozen Scenes', async ({ page, author }) => {
   await expect(last).toBeVisible()
 })
 
-test('a Scene sets Flags on entry, and a Cut carries a Condition', async ({ request }) => {
+test('a Scene sets Flags on entry, and a Cut carries Conditions', async ({ request }) => {
   const { story, scenes } = await openGraph(request)
   const [from, to] = scenes as [{ id: string }, { id: string }]
 
   // A Cut is drawn offered to everyone, as a Scene starts setting nothing.
   const cut = await drawCut(request, from.id, to.id)
-  expect(cut.condition).toBeNull()
+  expect(cut.conditions).toEqual([])
 
   const flagged = await request.put(`/api/scenes/${from.id}/flags`, {
     data: { sets: { coat: 'on', 'the key': 'found' } },
   })
   expect(flagged.status()).toBe(200)
 
-  const conditioned = await request.put(`/api/cuts/${cut.id}/condition`, {
-    data: { condition: { scene: from.id, visits: 'at least', times: 2 } },
+  // Two Conditions at once, which is what one could not ask: the Reader has the
+  // coat on *and* has been here before.
+  const both = [
+    { scene: from.id, visits: 'at least', times: 2 },
+    { flag: 'coat', is: 'on' },
+  ]
+  const conditioned = await request.put(`/api/cuts/${cut.id}/conditions`, {
+    data: { conditions: both },
   })
   expect(conditioned.status()).toBe(200)
 
   await expect((await request.get(`/api/stories/${story.id}`)).json()).resolves.toMatchObject({
     scenes: [{ id: from.id, sets: { coat: 'on', 'the key': 'found' } }, { id: to.id, sets: {} }],
-    cuts: [{ id: cut.id, condition: { scene: from.id, visits: 'at least', times: 2 } }],
+    cuts: [{ id: cut.id, conditions: both }],
   })
 
-  // Sending no Condition is how a Cut goes back to being offered to everyone,
+  // Sending no Conditions is how a Cut goes back to being offered to everyone,
   // and sending no Flags is how a Scene stops setting them.
-  await request.put(`/api/cuts/${cut.id}/condition`, { data: {} })
+  await request.put(`/api/cuts/${cut.id}/conditions`, { data: {} })
   await request.put(`/api/scenes/${from.id}/flags`, { data: { sets: {} } })
-  await expect(readCuts(from.id)).resolves.toMatchObject([{ condition: null }])
+  await expect(readCuts(from.id)).resolves.toMatchObject([{ conditions: [] }])
   await expect(readFlags(from.id)).resolves.toEqual({})
 })
 
@@ -345,12 +352,16 @@ test('half a Flag, and a Condition of no shape, are refused rather than stored',
   const cut = await drawCut(request, from.id, to.id)
 
   await request.put(`/api/scenes/${from.id}/flags`, { data: { sets: { coat: 'on' } } })
-  await request.put(`/api/cuts/${cut.id}/condition`, {
-    data: { condition: { flag: 'coat', is: 'on' } },
+  await request.put(`/api/cuts/${cut.id}/conditions`, {
+    data: { conditions: [{ flag: 'coat', is: 'on' }] },
   })
 
   const tooMany = Object.fromEntries(
     Array.from({ length: FLAGS_PER_SCENE + 1 }, (_, place) => [`flag ${place}`, 'set']),
+  )
+  const conditionsPastTheCap = Array.from(
+    { length: CUT_CONDITIONS_MAX + 1 },
+    (_, place) => ({ flag: `flag ${place}`, is: 'set' }),
   )
 
   const refused = await Promise.all([
@@ -364,31 +375,54 @@ test('half a Flag, and a Condition of no shape, are refused rather than stored',
     request.put(`/api/scenes/${from.id}/flags`, { data: { sets: 'coat = on' } }),
     request.put(`/api/scenes/${from.id}/flags`, { data: { sets: tooMany } }),
     // Neither of the two shapes, or one carrying more than its own test: a
-    // Condition is flat, so a second test nested in it is not a Condition.
-    request.put(`/api/cuts/${cut.id}/condition`, { data: { condition: { flag: '', is: 'on' } } }),
-    request.put(`/api/cuts/${cut.id}/condition`, { data: { condition: { of: 'nothing' } } }),
-    request.put(`/api/cuts/${cut.id}/condition`, {
-      data: { condition: { flag: 'coat', is: 'on', and: { flag: 'key', is: 'found' } } },
+    // Condition is flat, so a test nested in it is not a Condition — it belongs
+    // in the list beside it, and there are only so many places there.
+    request.put(`/api/cuts/${cut.id}/conditions`, {
+      data: { conditions: [{ flag: '', is: 'on' }] },
     }),
-    request.put(`/api/cuts/${cut.id}/condition`, {
-      data: { condition: { scene: 'The arrival', visits: 'at least', times: 2 } },
+    request.put(`/api/cuts/${cut.id}/conditions`, { data: { conditions: [{ of: 'nothing' }] } }),
+    request.put(`/api/cuts/${cut.id}/conditions`, {
+      data: { conditions: [{ flag: 'coat', is: 'on', and: { flag: 'key', is: 'found' } }] },
     }),
-    request.put(`/api/cuts/${cut.id}/condition`, {
-      data: { condition: { scene: from.id, visits: 'as often as', times: 2 } },
+    request.put(`/api/cuts/${cut.id}/conditions`, {
+      data: { conditions: [{ scene: 'The arrival', visits: 'at least', times: 2 }] },
     }),
-    request.put(`/api/cuts/${cut.id}/condition`, {
-      data: { condition: { scene: from.id, visits: 'at least', times: VISITS_MAX + 1 } },
+    request.put(`/api/cuts/${cut.id}/conditions`, {
+      data: { conditions: [{ scene: from.id, visits: 'as often as', times: 2 }] },
     }),
-    request.put(`/api/cuts/${cut.id}/condition`, {
-      data: { condition: { scene: from.id, visits: 'at least', times: 1.5 } },
+    request.put(`/api/cuts/${cut.id}/conditions`, {
+      data: { conditions: [{ scene: from.id, visits: 'at least', times: VISITS_MAX + 1 }] },
     }),
+    request.put(`/api/cuts/${cut.id}/conditions`, {
+      data: { conditions: [{ scene: from.id, visits: 'at least', times: 1.5 }] },
+    }),
+    // One bad member is a bad list, wherever in it it sits.
+    request.put(`/api/cuts/${cut.id}/conditions`, {
+      data: { conditions: [{ flag: 'coat', is: 'on' }, { of: 'nothing' }] },
+    }),
+    // A list is a list of Conditions, not a Condition.
+    request.put(`/api/cuts/${cut.id}/conditions`, {
+      data: { conditions: { flag: 'coat', is: 'on' } },
+    }),
+    request.put(`/api/cuts/${cut.id}/conditions`, { data: { conditions: conditionsPastTheCap } }),
   ])
 
   for (const response of refused) expect(response.status()).toBe(400)
 
+  // The list at the cap is the one thing here that is not too long.
+  const atTheCap = conditionsPastTheCap.slice(0, CUT_CONDITIONS_MAX)
+  const allowed = await request.put(`/api/cuts/${cut.id}/conditions`, {
+    data: { conditions: atTheCap },
+  })
+  expect(allowed.status()).toBe(200)
+  await request.put(`/api/cuts/${cut.id}/conditions`, {
+    data: { conditions: [{ flag: 'coat', is: 'on' }] },
+  })
+
   // Every refusal left what the Author had already written where it was.
   await expect(readFlags(from.id)).resolves.toEqual({ coat: 'on' })
-  await expect(readCuts(from.id)).resolves.toMatchObject([{ condition: { flag: 'coat', is: 'on' } }])
+  await expect(readCuts(from.id))
+    .resolves.toMatchObject([{ conditions: [{ flag: 'coat', is: 'on' }] }])
 })
 
 test('a Condition counts only a Scene of the Cut’s own Story', async ({ request }) => {
@@ -397,17 +431,23 @@ test('a Condition counts only a Scene of the Cut’s own Story', async ({ reques
   const cut = await drawCut(request, from.id, to.id)
   const elsewhere = await openGraph(request, ['A Scene of another Story'])
 
-  const refused = await request.put(`/api/cuts/${cut.id}/condition`, {
-    data: { condition: { scene: elsewhere.scenes[0]!.id, visits: 'at least', times: 2 } },
+  // Second in the list, so the refusal is of the list rather than of its head.
+  const refused = await request.put(`/api/cuts/${cut.id}/conditions`, {
+    data: {
+      conditions: [
+        { scene: from.id, visits: 'at least', times: 2 },
+        { scene: elsewhere.scenes[0]!.id, visits: 'at least', times: 2 },
+      ],
+    },
   })
 
   // The Scene is looked up where the Condition is written, so a Scene outside
   // the Story names nothing and nothing is written.
   expect(refused.status()).toBe(404)
-  await expect(readCuts(from.id)).resolves.toMatchObject([{ condition: null }])
+  await expect(readCuts(from.id)).resolves.toMatchObject([{ conditions: [] }])
 })
 
-test('an Author sets a Flag and a Condition from the page alone', async ({ page, request }) => {
+test('an Author sets a Flag and two Conditions from the page alone', async ({ page, request }) => {
   const { story, scenes } = await openGraph(request)
   const [from, to] = scenes as [{ id: string }, { id: string }]
   await drawCut(request, from.id, to.id)
@@ -418,29 +458,47 @@ test('an Author sets a Flag and a Condition from the page alone', async ({ page,
   await flags.fill('coat = on')
   await flags.blur()
 
-  await page.getByLabel('Offered when taking the Cut to The platform').selectOption('flag')
-  await page.getByLabel('Flag tested by the Cut to The platform').fill('coat')
-  const holds = page.getByLabel('holds for the Cut to The platform')
+  await page.getByRole('button', { name: 'Add a Condition to the Cut to The platform' }).click()
+  await page.getByLabel('Flag of Condition 1 of the Cut to The platform').fill('coat')
+  const holds = page.getByLabel('holds for Condition 1 of the Cut to The platform')
   await holds.fill('on')
   await holds.blur()
 
-  // Read back past the page, which is what proves both landed — and has to
+  // A second Condition on the same Cut, which is what one could not say.
+  await page.getByRole('button', { name: 'Add a Condition to the Cut to The platform' }).click()
+  // Exactly, because "Condition 2 of the Cut to The platform" is also the tail
+  // of the labels on the fields of that Condition.
+  await page.getByLabel('Condition 2 of the Cut to The platform', { exact: true })
+    .selectOption('visits')
+
+  // Read back past the page, which is what proves all of it landed — and has to
   // happen before the reload, which would abort a write still in flight.
   await expect(async () => {
     await expect(readFlags(from.id)).resolves.toEqual({ coat: 'on' })
-    await expect(readCuts(from.id))
-      .resolves.toMatchObject([{ condition: { flag: 'coat', is: 'on' } }])
+    await expect(readCuts(from.id)).resolves.toMatchObject([{
+      conditions: [
+        { flag: 'coat', is: 'on' },
+        { scene: from.id, visits: 'at least', times: 2 },
+      ],
+    }])
   }).toPass()
 
   // What the page shows has to be what was written, not what the page remembers.
   await page.reload()
   await expect(page.getByLabel('Flags set on entering The arrival')).toHaveValue('coat = on')
-  await expect(page.getByLabel('Offered when taking the Cut to The platform')).toHaveValue('flag')
-  await expect(page.getByLabel('Flag tested by the Cut to The platform')).toHaveValue('coat')
+  await expect(page.getByLabel('Condition 1 of the Cut to The platform', { exact: true }))
+    .toHaveValue('flag')
+  await expect(page.getByLabel('Flag of Condition 1 of the Cut to The platform'))
+    .toHaveValue('coat')
+  await expect(page.getByLabel('Condition 2 of the Cut to The platform', { exact: true }))
+    .toHaveValue('visits')
 
-  // And a Cut offered always again keeps no Condition behind it.
-  await page.getByLabel('Offered when taking the Cut to The platform').selectOption('always')
+  // And a Cut with every Condition taken off it is offered always again.
+  for (const place of [2, 1]) {
+    await page.getByRole('button',
+      { name: `Remove Condition ${place} of the Cut to The platform` }).click()
+  }
   await expect(async () => {
-    await expect(readCuts(from.id)).resolves.toMatchObject([{ condition: null }])
+    await expect(readCuts(from.id)).resolves.toMatchObject([{ conditions: [] }])
   }).toPass()
 })

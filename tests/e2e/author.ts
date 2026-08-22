@@ -110,7 +110,7 @@ export async function seedCut(fromSceneId: string, toSceneId: string, text = 'Th
   const drawn = await sql`
     insert into cuts (from_scene_id, to_scene_id, text)
     values (${fromSceneId}, ${toSceneId}, ${text})
-    returning id, from_scene_id as "fromSceneId", to_scene_id as "toSceneId", text, condition`
+    returning id, from_scene_id as "fromSceneId", to_scene_id as "toSceneId", text, conditions`
 
   return (drawn as Cut[])[0]!
 }
@@ -118,7 +118,7 @@ export async function seedCut(fromSceneId: string, toSceneId: string, text = 'Th
 /** Reads the Cuts leaving a Scene past the API. */
 export async function readCuts(fromSceneId: string) {
   return await sql`
-    select id, from_scene_id as "fromSceneId", to_scene_id as "toSceneId", text, condition
+    select id, from_scene_id as "fromSceneId", to_scene_id as "toSceneId", text, conditions
     from cuts where from_scene_id = ${fromSceneId}
     order by created_at, id` as Cut[]
 }

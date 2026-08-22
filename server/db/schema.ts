@@ -91,17 +91,25 @@ export const shots = pgTable('shots', {
 // takes the Cuts that touch it with it. Two Cuts may join the same pair of
 // Scenes — they differ by their Conditions — so nothing here is unique.
 //
-// `condition` is the flat test the Cut is offered under, null being a Cut always
-// offered. Held as jsonb for the same reason as a Scene's Flags: it is read and
-// written whole with the Cut, and the shape is kept by the request boundary
-// rather than by columns. A Condition naming a Scene holds its id in the json,
-// where no foreign key reaches — a Scene deleted out from under it leaves a
-// Condition counting visits to nowhere, which is a Condition that never passes.
+// `conditions` are the flat tests the Cut is offered under, all of which must
+// hold; an empty list is a Cut always offered. Held as jsonb for the same reason
+// as a Scene's Flags: it is read and written whole with the Cut, and the shape is
+// kept by the request boundary rather than by columns. A Condition naming a Scene
+// holds its id in the json, where no foreign key reaches — a Scene deleted out
+// from under it leaves a Condition counting visits to nowhere, which is a
+// Condition that never passes.
+//
+// `condition` is what a Cut carried before it could carry several, and nothing
+// reads it any more. It stays for one deploy because the schema moves before the
+// code does and a rollback moves the code back alone — see
+// `docs/adr/0002-the-schema-moves-with-the-deploy.md`. The migration that drops
+// it is the next deploy's, not this one's.
 export const cuts = pgTable('cuts', {
   id: uuid('id').primaryKey().defaultRandom(),
   fromSceneId: uuid('from_scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
   toSceneId: uuid('to_scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
   text: text('text').notNull().default(''),
+  conditions: jsonb('conditions').$type<Condition[]>().notNull().default([]),
   condition: jsonb('condition').$type<Condition>(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })

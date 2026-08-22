@@ -39,16 +39,18 @@ export type Position = { taken: string[], shot: number }
 export type State = { flags: Flags, visits: Record<string, number> }
 
 /**
- * Whether a Cut's Condition passes against this State, an absent Condition being
- * a Cut the Reader is always offered. One comparison and no recursion: a
- * Condition is flat by construction, so this is the whole of the language.
+ * Whether the Conditions a Cut carries all pass against this State, a Cut
+ * carrying none being one the Reader is always offered. One comparison a
+ * Condition, an `every` over them, and no recursion: a Condition is flat by
+ * construction, so this is the whole of the language.
  */
-export function holds(condition: Condition | null, state: State) {
-  if (!condition) return true
-  if ('flag' in condition) return (state.flags[condition.flag] ?? '') === condition.is
+export function holds(conditions: Condition[], state: State) {
+  return conditions.every((condition) => {
+    if ('flag' in condition) return (state.flags[condition.flag] ?? '') === condition.is
 
-  const visits = state.visits[condition.scene] ?? 0
-  return condition.visits === 'at least' ? visits >= condition.times : visits < condition.times
+    const visits = state.visits[condition.scene] ?? 0
+    return condition.visits === 'at least' ? visits >= condition.times : visits < condition.times
+  })
 }
 
 /** Every Reading starts here: the opening Scene, first Shot, nothing taken. */
@@ -75,8 +77,8 @@ export type Shown = {
  * every arrival is counted and sets the Flags of the Scene it arrives at, so the
  * State a Cut is judged against is the one the Reader had when they were offered
  * it. A Cut that does not leave the Scene the Reading stands in, or whose
- * Condition did not hold there, is not one it could have been offered — a stale
- * link, or a hand-written one — and stops the walk where it is rather than
+ * Conditions did not all hold there, is not one it could have been offered — a
+ * stale link, or a hand-written one — and stops the walk where it is rather than
  * teleporting the Reader.
  *
  * The walk is as long as the Cuts taken, never as long as the Story's cycles, so
@@ -96,7 +98,7 @@ function walk(story: StoryToRead, taken: string[]) {
 
   for (const takenId of taken) {
     const cut = story.cuts.find(cut =>
-      cut.id === takenId && cut.fromSceneId === sceneId && holds(cut.condition, state))
+      cut.id === takenId && cut.fromSceneId === sceneId && holds(cut.conditions, state))
     if (!cut) break
     sceneId = cut.toSceneId
     enter(sceneId)
@@ -110,11 +112,12 @@ export function reading(story: StoryToRead, at: Position): Shown {
   const { sceneId, state } = walk(story, at.taken)
   const shot = story.scenes.find(scene => scene.id === sceneId)?.shots[at.shot]
   // A Story with no opening Scene has no Cuts to offer either, so the empty
-  // Scene and the missing one both end the path. A Cut whose Condition fails is
-  // not among them, which is what makes it invisible rather than refused.
+  // Scene and the missing one both end the path. A Cut one of whose Conditions
+  // fails is not among them, which is what makes it invisible rather than
+  // refused.
   const cuts = shot
     ? []
-    : story.cuts.filter(cut => cut.fromSceneId === sceneId && holds(cut.condition, state))
+    : story.cuts.filter(cut => cut.fromSceneId === sceneId && holds(cut.conditions, state))
 
   return { sceneId, shot, cuts, ended: !shot && cuts.length === 0, state }
 }
