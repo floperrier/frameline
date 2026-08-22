@@ -99,6 +99,21 @@ export const shots = pgTable('shots', {
 // from under it leaves a Condition counting visits to nowhere, which is a
 // Condition that never passes.
 //
+// `position` is the Scene's own numbering of the ways on leaving it: 0, 1, 2
+// with no gaps, the same Place a Shot has in its Scene's run. The Reader is
+// offered the Cuts in this order and the first of them takes focus, so it is a
+// decision about the Story rather than about the drawing — the graph's `x` and
+// `y` say nothing about it, see
+// `docs/adr/0007-the-order-of-the-ways-on-is-written-not-drawn.md`. Kept without
+// a unique constraint for the reason a Shot's numbering is.
+//
+// It defaults to 0, which nothing here needs — every Cut is drawn with the Place
+// it takes. The default is for the code that ran before this column existed: the
+// schema moves before the deploy and a rollback moves the code back alone, so
+// for a while an insert naming no Place has to succeed rather than take drawing
+// a Cut down with it — see
+// `docs/adr/0002-the-schema-moves-with-the-deploy.md`.
+//
 // `condition` is what a Cut carried before it could carry several, and nothing
 // reads it any more. It stays for one deploy because the schema moves before the
 // code does and a rollback moves the code back alone — see
@@ -110,6 +125,7 @@ export const cuts = pgTable('cuts', {
   toSceneId: uuid('to_scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
   text: text('text').notNull().default(''),
   conditions: jsonb('conditions').$type<Condition[]>().notNull().default([]),
+  position: integer('position').notNull().default(0),
   condition: jsonb('condition').$type<Condition>(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })

@@ -136,6 +136,83 @@ test('a Cut is drawn between two Scenes, written, and taken away', async ({ requ
   await expect(readCuts(from.id)).resolves.toEqual([])
 })
 
+test('the ways on are offered in the order the Author put them in', async ({ request }) => {
+  const { story, scenes } = await openGraph(
+    request, ['The platform', 'The buffet', 'The tunnel', 'The train'])
+  const [from, ...elsewhere] = scenes as [{ id: string }, ...{ id: string }[]]
+  const drawn = []
+  for (const [place, to] of elsewhere.entries()) {
+    const cut = await drawCut(request, from.id, to.id)
+    // The Cut is drawn last among the ways on, which is where a new one belongs.
+    expect(cut.position).toBe(place)
+    await request.patch(`/api/cuts/${cut.id}`, { data: { text: `To ${place}` } })
+    drawn.push(cut)
+  }
+  const [first, second, third] = drawn as [{ id: string }, { id: string }, { id: string }]
+
+  await request.post(`/api/cuts/${third.id}/move`, { data: { direction: 'earlier' } })
+  await expect(readCuts(from.id)).resolves.toMatchObject([
+    { text: 'To 0' }, { text: 'To 2' }, { text: 'To 1' },
+  ])
+
+  await request.post(`/api/cuts/${first.id}/move`, { data: { direction: 'later' } })
+  await expect(readCuts(from.id)).resolves.toMatchObject([
+    { text: 'To 2' }, { text: 'To 0' }, { text: 'To 1' },
+  ])
+
+  // The Cuts at either end have nowhere to go, and asking is not an error.
+  const atTheEnds = await Promise.all([
+    request.post(`/api/cuts/${third.id}/move`, { data: { direction: 'earlier' } }),
+    request.post(`/api/cuts/${second.id}/move`, { data: { direction: 'later' } }),
+  ])
+  for (const response of atTheEnds) expect(response.status()).toBe(200)
+
+  // And the Story is read in that order, which is the order the Reader meets.
+  await expect((await request.get(`/api/stories/${story.id}`)).json()).resolves.toMatchObject({
+    cuts: [
+      { text: 'To 2', position: 0 },
+      { text: 'To 0', position: 1 },
+      { text: 'To 1', position: 2 },
+    ],
+  })
+})
+
+test('taking a Cut away leaves the ways on numbered without a gap', async ({ request }) => {
+  const { scenes } = await openGraph(request, ['The platform', 'The buffet', 'The tunnel'])
+  const [from, ...elsewhere] = scenes as [{ id: string }, ...{ id: string }[]]
+  const drawn = []
+  for (const to of elsewhere) drawn.push(await drawCut(request, from.id, to.id))
+
+  expect((await request.delete(`/api/cuts/${drawn[0]!.id}`)).status()).toBe(200)
+
+  await expect(readCuts(from.id)).resolves.toMatchObject([{ id: drawn[1]!.id, position: 0 }])
+})
+
+test('a way on can still be moved across a Scene deleted out from under one',
+  async ({ request }) => {
+    const { scenes } = await openGraph(
+      request, ['The platform', 'The buffet', 'The tunnel', 'The train'])
+    const [from, buffet, tunnel, train] = scenes as { id: string }[] as
+      [{ id: string }, { id: string }, { id: string }, { id: string }]
+    const drawn = []
+    for (const to of [buffet, tunnel, train]) drawn.push(await drawCut(request, from.id, to.id))
+
+    // Deleting the Scene in the middle takes the Cut arriving at it by cascade,
+    // which is the one way a Cut leaves without closing the gap behind it.
+    expect((await request.delete(`/api/scenes/${tunnel.id}`)).status()).toBe(200)
+    await expect(readCuts(from.id)).resolves.toMatchObject([
+      { toSceneId: buffet.id, position: 0 }, { toSceneId: train.id, position: 2 },
+    ])
+
+    // The way on after the hole still moves earlier across it, rather than being
+    // answered with a move that did nothing.
+    expect((await request.post(`/api/cuts/${drawn[2]!.id}/move`,
+      { data: { direction: 'earlier' } })).status()).toBe(200)
+    await expect(readCuts(from.id)).resolves.toMatchObject([
+      { toSceneId: train.id }, { toSceneId: buffet.id },
+    ])
+  })
+
 test('a Cut only joins Scenes of the same Story', async ({ request }) => {
   const { scenes } = await openGraph(request)
   const elsewhere = await openGraph(request, ['Another Scene'])
@@ -184,6 +261,7 @@ test('a graph that was never drawn reads as absent', async ({ request }) => {
     request.patch(`/api/cuts/${noId}`, { data: { text: 'Follow her' } }),
     request.put(`/api/cuts/${noId}/conditions`, { data: {} }),
     request.put(`/api/scenes/${noId}/flags`, { data: { sets: {} } }),
+    request.post(`/api/cuts/${noId}/move`, { data: { direction: 'earlier' } }),
     request.delete(`/api/cuts/${noId}`),
   ])
 
@@ -205,6 +283,7 @@ test('the graph belongs to the Author who wrote the Story', async ({ request, ot
       data: { conditions: [{ flag: 'mine', is: 'now' }] },
     }),
     request.put(`/api/scenes/${theirScene.id}/flags`, { data: { sets: { mine: 'now' } } }),
+    request.post(`/api/cuts/${theirCut.id}/move`, { data: { direction: 'later' } }),
     request.delete(`/api/cuts/${theirCut.id}`),
   ])
 
@@ -445,6 +524,32 @@ test('a Condition counts only a Scene of the Cut’s own Story', async ({ reques
   // the Story names nothing and nothing is written.
   expect(refused.status()).toBe(404)
   await expect(readCuts(from.id)).resolves.toMatchObject([{ conditions: [] }])
+})
+
+test('an Author orders the ways on from the page alone', async ({ page, request }) => {
+  const { story, scenes } = await openGraph(
+    request, ['The platform', 'The buffet', 'The tunnel'])
+  const [from, buffet, tunnel] = scenes as [{ id: string }, { id: string }, { id: string }]
+  await drawCut(request, from.id, buffet.id)
+  await drawCut(request, from.id, tunnel.id)
+
+  await page.goto(`/stories/${story.id}`)
+
+  await page.getByRole('button', { name: 'Move earlier the Cut to The tunnel' }).click()
+  await expect(async () => {
+    await expect(readCuts(from.id)).resolves.toMatchObject([
+      { toSceneId: tunnel.id, position: 0 },
+      { toSceneId: buffet.id, position: 1 },
+    ])
+  }).toPass()
+
+  // The way on that comes first has nowhere earlier to go, and the page says so
+  // rather than asking.
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Move earlier the Cut to The tunnel' }))
+    .toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Move later the Cut to The buffet' }))
+    .toBeDisabled()
 })
 
 test('an Author sets a Flag and two Conditions from the page alone', async ({ page, request }) => {

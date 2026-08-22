@@ -108,19 +108,22 @@ export async function seedScenes(story: Story, names: string[]) {
 /** Draws a Cut on behalf of an Author nobody is signed in as. */
 export async function seedCut(fromSceneId: string, toSceneId: string, text = 'Their Cut') {
   const drawn = await sql`
-    insert into cuts (from_scene_id, to_scene_id, text)
-    values (${fromSceneId}, ${toSceneId}, ${text})
-    returning id, from_scene_id as "fromSceneId", to_scene_id as "toSceneId", text, conditions`
+    insert into cuts (from_scene_id, to_scene_id, text, position)
+    values (${fromSceneId}, ${toSceneId}, ${text},
+      coalesce((select max(position) + 1 from cuts where from_scene_id = ${fromSceneId}), 0))
+    returning
+      id, from_scene_id as "fromSceneId", to_scene_id as "toSceneId", text, position, conditions`
 
   return (drawn as Cut[])[0]!
 }
 
-/** Reads the Cuts leaving a Scene past the API. */
+/** Reads the Cuts leaving a Scene past the API, in the Places the Scene numbers them at. */
 export async function readCuts(fromSceneId: string) {
   return await sql`
-    select id, from_scene_id as "fromSceneId", to_scene_id as "toSceneId", text, conditions
+    select
+      id, from_scene_id as "fromSceneId", to_scene_id as "toSceneId", text, position, conditions
     from cuts where from_scene_id = ${fromSceneId}
-    order by created_at, id` as Cut[]
+    order by position` as Cut[]
 }
 
 /** Reads the Flags a Scene sets on entry, past the API. */

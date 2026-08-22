@@ -46,19 +46,6 @@ export async function readShotDescription(event: H3Event) {
   return written
 }
 
-/** Reads which way a Shot is being moved, as the step to add to its position. */
-export async function readMoveStep(event: H3Event) {
-  const body = await readBody<{ direction?: unknown }>(event)
-
-  if (body?.direction === 'earlier') return -1
-  if (body?.direction === 'later') return 1
-
-  throw createError({
-    statusCode: 400,
-    statusMessage: 'A Shot moves either earlier or later.',
-  })
-}
-
 /**
  * Reads the still being attached to a Shot: the whole request body is the file,
  * because one file is the whole of the request and a multipart form would only
