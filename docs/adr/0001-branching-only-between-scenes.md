@@ -20,6 +20,12 @@ graph editor unusable at realistic story sizes.
 
 ## Consequences
 
+**Still holds since a Shot may carry a Condition** (#31, ADR 0004). A Shot whose
+Conditions fail is dropped from the run this Reading plays; the run is still a
+run, read start to end, with no Cut inside it and nowhere for the Reader to
+choose. What varies between Readings is the length of the line, never its shape,
+so the Story graph still has one node per Scene and no edge lives inside one.
+
 An author who wants to fork mid-Scene must split the Scene in two. This is a real
 loss of convenience and the most likely source of early complaints; the answer is
 a "split Scene here" action in the editor, not a change to this decision. The

@@ -54,9 +54,26 @@ const hidden = computed(() => {
     cut => cut.fromSceneId === now.sceneId && !holds(cut.conditions, now.state))
 })
 
-/** Which of the tests a hidden Cut carries this State fails, and by what. */
-function why(cut: Cut) {
-  return shown.value ? unmet(cut.conditions, shown.value.state, sceneName) : []
+/**
+ * The Shots of that Scene this Reading is not playing, named by the Place they
+ * hold in the Scene the Author wrote — which is the number the editor shows them
+ * under, and not the one the Reader's frame counts, because a skipped Shot has no
+ * place in the run at all. Standing beside the ways on for the same reason: what
+ * a Condition is hiding is what an Author came to the Preview to find out.
+ */
+const skipped = computed(() => {
+  const now = shown.value
+  const scene = story.value?.scenes.find(({ id }) => id === now?.sceneId)
+  if (!now || !scene) return []
+
+  return scene.shots
+    .map((shot, place) => ({ shot, place: place + 1 }))
+    .filter(({ shot }) => !holds(shot.conditions, now.state))
+})
+
+/** Which of the tests a hidden Cut or a skipped Shot carries this State fails, and by what. */
+function why(conditions: Condition[]) {
+  return shown.value ? unmet(conditions, shown.value.state, sceneName) : []
 }
 </script>
 
@@ -100,7 +117,24 @@ function why(cut: Cut) {
             <li v-for="cut in hidden" :key="cut.id">
               <s class="splice">{{ cutNamed(cut, sceneName) }}</s>
               <ul class="why">
-                <li v-for="(test, place) in why(cut)" :key="place">{{ test }}</li>
+                <li v-for="(test, at) in why(cut.conditions)" :key="at">{{ test }}</li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+
+        <!-- The beats this Reading is not being played, said the same way: the
+             Shot the Author wrote, crossed out, with the tests it failed under
+             it. The other half of the question the Preview answers — a Scene
+             that says something different on a return visit is a Scene whose
+             skipped Shots an Author has to be able to see. -->
+        <div v-if="skipped.length" class="hidden">
+          <p class="eyebrow">Shots this Reading is not played</p>
+          <ul>
+            <li v-for="{ shot, place } in skipped" :key="shot.id">
+              <s class="splice">Shot {{ place }} · {{ shot.text || 'nothing written yet' }}</s>
+              <ul class="why">
+                <li v-for="(test, at) in why(shot.conditions)" :key="at">{{ test }}</li>
               </ul>
             </li>
           </ul>

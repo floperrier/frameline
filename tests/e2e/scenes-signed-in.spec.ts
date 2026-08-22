@@ -1,6 +1,7 @@
 import type { APIRequestContext } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { readShots, seedScene, seedStory, test } from './author'
+import { CONDITIONS_MAX, VISITS_MAX } from '../../shared/utils/scenes'
+import { readShotConditions, readShots, seedScene, seedStory, test } from './author'
 
 const noId = '00000000-0000-4000-8000-000000000000'
 
@@ -191,4 +192,107 @@ test('an Author writes a Story from the page alone', async ({ page, request }) =
   page.once('dialog', dialog => dialog.accept())
   await page.getByRole('button', { name: 'Delete Scene The arrival' }).click()
   await expect(page.getByText('No Scenes yet.')).toBeVisible()
+})
+
+test('a Shot carries the Conditions it plays under', async ({ request }) => {
+  const { story, scene } = await openScene(request, 'The booth')
+  const [always, onReturn] = await writeShots(
+    request, scene.id, ['The projector ticks over.', 'You have been here before.'])
+
+  const written = await request.put(`/api/shots/${onReturn!.id}/conditions`, {
+    data: { conditions: [{ scene: scene.id, visits: 'at least', times: 2 }] },
+  })
+  expect(written.status()).toBe(200)
+
+  await expect((await request.get(`/api/stories/${story.id}`)).json()).resolves.toMatchObject({
+    scenes: [{
+      shots: [
+        { id: always!.id, conditions: [] },
+        { id: onReturn!.id, conditions: [{ scene: scene.id, visits: 'at least', times: 2 }] },
+      ],
+    }],
+  })
+
+  // Sending none is how a Shot goes back to playing for every Reading.
+  await request.put(`/api/shots/${onReturn!.id}/conditions`, { data: {} })
+  await expect((await request.get(`/api/stories/${story.id}`)).json()).resolves.toMatchObject({
+    scenes: [{ shots: [{ conditions: [] }, { conditions: [] }] }],
+  })
+})
+
+test('a Shot’s Conditions are refused where a Cut’s would be', async ({
+  request,
+  otherAuthor,
+}) => {
+  const { story, scene } = await openScene(request, 'The booth')
+  const [shot] = await writeShots(request, scene.id, ['The projector ticks over.'])
+  await request.put(`/api/shots/${shot!.id}/conditions`, {
+    data: { conditions: [{ flag: 'coat', is: 'on' }] },
+  })
+
+  const elsewhere = await seedScene(await seedStory(otherAuthor, 'Their Story'), 'Their Scene')
+
+  const refused = await Promise.all([
+    // The same flat language, so the same refusals — one reader serves both.
+    request.put(`/api/shots/${shot!.id}/conditions`, {
+      data: { conditions: [{ flag: '', is: 'on' }] },
+    }),
+    request.put(`/api/shots/${shot!.id}/conditions`, { data: { conditions: [{ of: 'nothing' }] } }),
+    request.put(`/api/shots/${shot!.id}/conditions`, {
+      data: { conditions: [{ scene: scene.id, visits: 'at least', times: VISITS_MAX + 1 }] },
+    }),
+    request.put(`/api/shots/${shot!.id}/conditions`, {
+      data: {
+        conditions: Array.from({ length: CONDITIONS_MAX + 1 },
+          (_, place) => ({ flag: `flag ${place}`, is: 'set' })),
+      },
+    }),
+  ])
+  for (const response of refused) expect(response.status()).toBe(400)
+
+  // A Scene outside this Story is a Scene this Condition cannot count, and
+  // another Author's Shot is one nobody here can write at all.
+  const outside = await request.put(`/api/shots/${shot!.id}/conditions`, {
+    data: { conditions: [{ scene: elsewhere.id, visits: 'at least', times: 2 }] },
+  })
+  expect(outside.status()).toBe(404)
+  const theirs = await request.put(`/api/shots/${elsewhere.shots[0]!.id}/conditions`, {
+    data: { conditions: [{ flag: 'coat', is: 'on' }] },
+  })
+  expect(theirs.status()).toBe(404)
+
+  // Every refusal left what the Author had already written where it was.
+  await expect((await request.get(`/api/stories/${story.id}`)).json())
+    .resolves.toMatchObject({ scenes: [{ shots: [{ conditions: [{ flag: 'coat', is: 'on' }] }] }] })
+})
+
+test('an Author puts a Condition on a Shot from the page alone', async ({ page, request }) => {
+  const { story, scene } = await openScene(request, 'The booth')
+  await writeShots(request, scene.id, ['The projector ticks over.'])
+
+  await page.goto(`/stories/${story.id}`)
+
+  await page.getByRole('button', { name: 'Add a Condition to Shot 1 of The booth' }).click()
+  // A visit count is whole the moment it is chosen, and starts on the Scene the
+  // Shot belongs to — the return the Author is writing for.
+  await page
+    .getByLabel('Condition 1 of Shot 1 of The booth', { exact: true })
+    .selectOption('visits')
+
+  await expect(async () => {
+    await expect(readShotConditions(scene.id)).resolves.toEqual([
+      [{ scene: scene.id, visits: 'at least', times: 2 }],
+    ])
+  }).toPass()
+
+  // What the page shows has to be what was written, not what the page remembers.
+  await page.reload()
+  await expect(page.getByLabel('Condition 1 of Shot 1 of The booth', { exact: true }))
+    .toHaveValue('visits')
+  await expect(page.getByLabel('times for Condition 1 of Shot 1 of The booth')).toHaveValue('2')
+
+  await page.getByRole('button', { name: 'Remove Condition 1 of Shot 1 of The booth' }).click()
+  await expect(async () => {
+    await expect(readShotConditions(scene.id)).resolves.toEqual([[]])
+  }).toPass()
 })

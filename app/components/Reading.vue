@@ -47,13 +47,16 @@ async function moveTo(to: Position) {
 
 const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, scene.name])))
 
-/**
- * The Scene the Reading stands in, so the frame can say where the Reader is and
- * how much of the Scene is still to play. The count comes from the Scene itself
- * rather than from the engine: the engine says what is on screen, and how long
- * the run it belongs to is is a property of the Scene.
- */
+/** The Scene the Reading stands in, so the frame can say where the Reader is. */
 const scene = computed(() => story.scenes.find(({ id }) => id === shown.value.sceneId))
+
+/**
+ * The run the frame counts against, and how much of the Scene is still to play.
+ * It comes from the engine rather than from the Scene, which is the one thing
+ * the Scene cannot say for itself: a Shot whose Conditions this Reading fails is
+ * not in its run, so "Shot 2 of 3" counts the beats being shown and no others.
+ */
+const run = computed(() => shown.value.run)
 
 /**
  * Which Shot of the run the frame holds, numbered from one for the Reader as the
@@ -61,7 +64,7 @@ const scene = computed(() => story.scenes.find(({ id }) => id === shown.value.sc
  * has walked past the last Shot and the frame is still holding it, so the count
  * stops at the length of the run: every tick lit, and the run said to be over.
  */
-const place = computed(() => Math.min(at.value.shot + 1, scene.value?.shots.length ?? 0))
+const place = computed(() => Math.min(at.value.shot + 1, run.value.length))
 
 /**
  * The Shot the frame holds: the one on screen while the Scene plays, and the last
@@ -70,7 +73,7 @@ const place = computed(() => Math.min(at.value.shot + 1, scene.value?.shots.leng
  * ways on. A Scene nobody has written a Shot into leaves the frame nothing to
  * hold, and nothing is invented to stand in for one.
  */
-const held = computed(() => shown.value.shot ?? scene.value?.shots.at(-1))
+const held = computed(() => shown.value.shot ?? run.value.at(-1))
 
 /** A Cut nobody has phrased yet is offered by where it arrives. */
 function offered(cut: Cut) {
@@ -115,10 +118,10 @@ function offered(cut: Cut) {
         <p class="eyebrow">
           {{ scene?.name }}
           <span aria-hidden="true">·</span>
-          Shot {{ place }} of {{ scene?.shots.length }}
+          Shot {{ place }} of {{ run.length }}
         </p>
         <ol aria-hidden="true" class="ticks">
-          <li v-for="(_, tick) in scene?.shots.length ?? 0" :key="tick" :class="{ lit: tick < place }" />
+          <li v-for="(_, tick) in run.length" :key="tick" :class="{ lit: tick < place }" />
         </ol>
       </div>
     </template>

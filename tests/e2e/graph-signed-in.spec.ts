@@ -1,7 +1,7 @@
 import type { APIRequestContext, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 import {
-  CUT_CONDITIONS_MAX,
+  CONDITIONS_MAX,
   FLAGS_PER_SCENE,
   GRAPH_REACH,
   NODE_GAP,
@@ -439,7 +439,7 @@ test('half a Flag, and a Condition of no shape, are refused rather than stored',
     Array.from({ length: FLAGS_PER_SCENE + 1 }, (_, place) => [`flag ${place}`, 'set']),
   )
   const conditionsPastTheCap = Array.from(
-    { length: CUT_CONDITIONS_MAX + 1 },
+    { length: CONDITIONS_MAX + 1 },
     (_, place) => ({ flag: `flag ${place}`, is: 'set' }),
   )
 
@@ -489,7 +489,7 @@ test('half a Flag, and a Condition of no shape, are refused rather than stored',
   for (const response of refused) expect(response.status()).toBe(400)
 
   // The list at the cap is the one thing here that is not too long.
-  const atTheCap = conditionsPastTheCap.slice(0, CUT_CONDITIONS_MAX)
+  const atTheCap = conditionsPastTheCap.slice(0, CONDITIONS_MAX)
   const allowed = await request.put(`/api/cuts/${cut.id}/conditions`, {
     data: { conditions: atTheCap },
   })

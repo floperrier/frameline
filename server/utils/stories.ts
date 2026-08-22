@@ -45,6 +45,7 @@ export async function readStoryGraph(storyId: string) {
       text: shots.text,
       position: shots.position,
       description: shots.description,
+      conditions: shots.conditions,
       // Whether the Shot carries an image, never the image: the bytes are served
       // one request apiece, so a Story is the same size however many stills it has.
       hasImage: sql<boolean>`${shots.image} is not null`,
@@ -77,6 +78,7 @@ export async function readStoryGraph(storyId: string) {
         position: row.position!,
         image: row.hasImage ? shotImageUrl(row.shotId) : null,
         description: row.description!,
+        conditions: row.conditions!,
       })
     }
   }

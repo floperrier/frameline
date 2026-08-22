@@ -1,0 +1,1 @@
+ALTER TABLE "shots" ADD COLUMN "conditions" jsonb DEFAULT '[]'::jsonb NOT NULL;

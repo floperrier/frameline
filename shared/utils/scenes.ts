@@ -69,12 +69,14 @@ export function shotImageUrl(shotId: string) {
 export const CUT_TEXT_MAX_LENGTH = 200
 
 /**
- * How many Conditions one Cut may carry. Four tests is a way on with a history
- * behind it; past that, what the Author is describing is not a nuance on an exit
- * but a place in the Story several threads reach, and the answer is a Scene —
- * see `docs/adr/0004-conditions-stay-flat.md`.
+ * How many Conditions one Cut or one Shot may carry. Four tests is a way on — or
+ * a beat — with a history behind it; past that, what the Author is describing is
+ * not a nuance on an exit but a place in the Story several threads reach, and the
+ * answer is a Scene — see `docs/adr/0004-conditions-stay-flat.md`. One cap for
+ * both, because what is being bounded is how long a list of flat tests may get
+ * before it stops being one an Author can read.
  */
-export const CUT_CONDITIONS_MAX = 4
+export const CONDITIONS_MAX = 4
 
 /**
  * The longest a Flag's name and its value may be, and how many Flags one Scene
@@ -131,7 +133,9 @@ export const NODES_PER_COLUMN = 20
  *
  * A Shot's `image` is where its still is served, not the still itself, and null
  * for a Shot that is text alone. Its `description` is what that still shows, for
- * a Reader who cannot see it, and empty where the Author has written none.
+ * a Reader who cannot see it, and empty where the Author has written none. Its
+ * `conditions` are the tests it plays under, an empty list being a Shot every
+ * Reading sees.
  */
 export type Shot = {
   id: string
@@ -139,6 +143,7 @@ export type Shot = {
   position: number
   image: string | null
   description: string
+  conditions: Condition[]
 }
 export type Scene = {
   id: string
@@ -211,9 +216,9 @@ export function cutNamed(cut: Cut, sceneName: (id: string) => string) {
 }
 
 /**
- * A flat test on the State of one Reading, carried by a Cut: the Cut is offered
- * only where every test it carries passes. Two things can be tested and nothing
- * else — what a Flag holds, or how often a Scene has been entered — with no
+ * A flat test on the State of one Reading, carried by a Cut or by a Shot: the Cut
+ * is offered, and the Shot played, only where every test it carries passes. Two
+ * things can be tested and nothing else — what a Flag holds, or how often a Scene has been entered — with no
  * arithmetic and no nesting, so a Condition is one row of a form and one
  * comparison in the engine. A Flag that was never set reads as the empty value,
  * which is how a Condition asks for the absence of one.

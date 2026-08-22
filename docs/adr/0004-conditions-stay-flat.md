@@ -5,9 +5,10 @@ status: accepted
 # A Condition tests one thing, and the only way they compose is "all of them"
 
 A Condition tests exactly one thing: what a Flag holds, or how often a Scene has
-been entered. A Cut carries a list of them, up to a small cap, and is offered
-only where every one holds. There is no `or`, no `not`, no arithmetic and no
-nesting, so the whole language is two shapes, one comparison, and an `every`.
+been entered. A Cut or a Shot carries a list of them, up to a small cap, and is
+offered — or played — only where every one holds. There is no `or`, no `not`, no
+arithmetic and no nesting, so the whole language is two shapes, one comparison,
+and an `every`.
 
 **Amended.** As first accepted, this decision let a Cut carry at most one
 Condition and said a Condition "never composes". Writing Reel Change ran into
@@ -19,9 +20,19 @@ row in the editor. What the decision is really protecting is the absence of a
 parser, and that is untouched: a list of flat tests has no grammar, no
 precedence, no parentheses and nothing an Author can type wrong.
 
-`CONTEXT.md` calls a Condition "a flat test on State, carried by a Cut", and the
-flatness is this: each test stands alone and is read on its own, however many of
-them a Cut carries.
+**Amended again.** As accepted, only a Cut could carry a Condition, which meant a
+Scene played the same words to a Reader on their third visit as on their first —
+the only thing that could differ was the ways out. Writing *Reel Change* wanted a
+line of its own for a Reader who had been in the booth before, and the only
+answer available was a second Scene duplicating every Shot that had not changed
+and every Cut leaving it (#31). So a Shot carries the same list under the same
+cap, read by the same reader and judged by the same `holds`: a Shot whose
+Conditions fail is left out of the run this Reading plays. Nothing about the
+language changed — what changed is what may carry it.
+
+`CONTEXT.md` calls a Condition "a flat test on State, carried by a Cut or by a
+Shot", and the flatness is this: each test stands alone and is read on its own,
+however many of them one of them carries.
 
 ## Considered Options
 
@@ -43,6 +54,13 @@ the two or three a Condition may hold, and of a list longer than the cap, which
 is what keeps flatness true of the data and not merely of the editor.
 
 ## Consequences
+
+A Scene is no longer the same run of Shots for every Reading — it is the Author's
+run minus the Shots a Condition skips. The Position counts the run played rather
+than the run written, so the beat after a skipped Shot is the next one on screen
+and the Reader is never shown a gap. What this costs is that a Scene can no
+longer say how long it is without being asked on behalf of one Reading, which is
+why the engine hands back the run alongside the Shot.
 
 An Author who wants two tests on one Cut writes two Conditions on it. One who
 wants *either* of two still has to route through the graph — two Cuts to the same

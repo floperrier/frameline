@@ -76,6 +76,20 @@ const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () =>
 // sits beside the bytes rather than in a table of its own because it is the one
 // thing said about the one still, and empty is a Still nobody has described —
 // which is what a Shot of text alone carries too.
+//
+// `conditions` are the flat tests the Shot plays under, all of which must hold;
+// an empty list is a Shot every Reading sees. Held as jsonb, validated at the
+// request boundary and naming a Scene by an id no foreign key reaches, for the
+// same reasons a Cut's are — see the Cut below. A Shot skipped by one of these
+// is still a linear run and not a branch, so
+// `docs/adr/0001-branching-only-between-scenes.md` is untouched.
+//
+// It defaults to the empty list, which nothing here needs — every Shot is
+// written with the tests it carries. The default is for the code that ran before
+// this column existed: the schema moves before the deploy and a rollback moves
+// the code back alone, so for a while an insert naming no Conditions has to
+// succeed rather than take adding a Shot down with it — see
+// `docs/adr/0002-the-schema-moves-with-the-deploy.md`.
 export const shots = pgTable('shots', {
   id: uuid('id').primaryKey().defaultRandom(),
   sceneId: uuid('scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
@@ -83,6 +97,7 @@ export const shots = pgTable('shots', {
   position: integer('position').notNull(),
   image: bytea('image'),
   description: text('description').notNull().default(''),
+  conditions: jsonb('conditions').$type<Condition[]>().notNull().default([]),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
