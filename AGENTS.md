@@ -25,6 +25,13 @@ The five canonical triage roles, each label string equal to its name. See
 Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See
 `docs/agents/domain.md`.
 
+## Design
+
+The visual language is one stylesheet, `app/assets/css/frameline.css`, and pages
+add only what is theirs in a scoped block. Colour, type and spacing come from
+the tokens declared there and from nowhere else. See
+`docs/adr/0006-two-rooms-one-language.md`.
+
 ## Git flow
 
 A pull request per issue, squash-merged into `main`, which deploys to

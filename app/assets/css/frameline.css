@@ -1,0 +1,294 @@
+/**
+ * The whole of Frameline's visual language: the tokens every surface draws from,
+ * and the defaults that make an unstyled element already belong.
+ *
+ * Two rooms, one language. An Author works at a bench — a lit machine, cool and
+ * dense, everything labelled. A Reader sits in front of a projection — the room
+ * goes dark and one frame at a time is thrown onto it. Both are dark surfaces
+ * because that is where moving images are actually looked at, and the difference
+ * between them is density, not hue.
+ *
+ * Colour carries two accents and they never trade jobs: the cyan is the
+ * machine's own light, so it marks anything the interface does (focus, links,
+ * the control under the hand), and the orange is a grease pencil, so it marks
+ * only what the Author wrote on the film — the Cuts, the Opening Scene, the
+ * Story that is published.
+ */
+:root {
+  /* The bench, from its deepest surface to the hairlines machined into it. */
+  --bench: #141917;
+  --steel: #1e2523;
+  --steel-lit: #28312e;
+  --edge: #38443f;
+
+  /* The projection room, darker than the bench: nothing competes with a frame. */
+  --room: #0b0d0c;
+
+  --paper: #e4eae5;
+  --muted: #8fa09a;
+
+  --light: #6fd8cb;
+  --grease: #e4703a;
+
+  /* A condensed face for the titles, because that is what a title card and a
+     closing crawl have always been set in; the interface and its labels are one
+     superfamily, so a stencilled label belongs to the control beside it; and the
+     one piece of prose in the product — a Shot's text — gets a serif of its own.
+     Nothing in the interface is set in the reading face, and nothing in a
+     Reading is set in the interface's. */
+  --display: 'Big Shoulders', 'IBM Plex Sans', system-ui, sans-serif;
+  --ui: 'IBM Plex Sans', system-ui, sans-serif;
+  --prose: 'Newsreader', Georgia, serif;
+  --data: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* One spacing scale, near enough to a fifth apart that two steps never look
+     like the same step. */
+  --s1: 0.25rem;
+  --s2: 0.5rem;
+  --s3: 0.75rem;
+  --s4: 1.25rem;
+  --s5: 2rem;
+  --s6: 3.25rem;
+
+  /* Machined corners everywhere, except the film gate: a real gate is a
+     rectangle with its corners rounded off, and that is the one place the
+     product shows a curve. */
+  --machined: 2px;
+  --gate: 10px;
+
+  /* Dark form controls and scrollbars come free of this, and the interface has
+     one room rather than a light one it never designed. */
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Nothing carries its own margin: every surface here lays its children out with
+   a gap, so a stray default margin can only fight the layout that owns it. */
+body,
+h1,
+h2,
+h3,
+p,
+ul,
+ol,
+figure {
+  margin: 0;
+}
+
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+
+body {
+  background: var(--bench);
+  color: var(--paper);
+  font-family: var(--ui);
+  font-size: 1rem;
+  line-height: 1.55;
+  -webkit-text-size-adjust: 100%;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--display);
+  font-weight: 600;
+  line-height: 1;
+  /* Condensed letters set tight read as one mass, so the display face is given
+     air rather than the negative tracking a wide face would want. */
+  letter-spacing: 0.01em;
+  /* Balanced, because a Story's title and a Scene's name are the Author's words
+     and neither gets to choose where it wraps. */
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: clamp(2.25rem, 1.4rem + 3.6vw, 3.75rem);
+}
+
+/* A Scene's name and the like: too small for the condensed face to be read
+   comfortably, so the interface's own face carries them. */
+h2,
+h3 {
+  font-family: var(--ui);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  line-height: 1.3;
+}
+
+a {
+  color: var(--light);
+  text-decoration-color: color-mix(in oklab, var(--light) 40%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.25em;
+}
+
+a:hover {
+  text-decoration-color: currentColor;
+}
+
+/* Every control keeps the interface's own face and size — a form that falls back
+   to the browser's is exactly the untouched look this design exists to leave. */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+input,
+select,
+textarea {
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--edge);
+  border-radius: var(--machined);
+  background: color-mix(in oklab, var(--bench) 70%, black);
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: color-mix(in oklab, var(--muted) 70%, transparent);
+}
+
+input:hover,
+select:hover,
+textarea:hover {
+  border-color: color-mix(in oklab, var(--edge) 60%, var(--paper));
+}
+
+input[type='file'] {
+  padding: var(--s1) var(--s2);
+  color: var(--muted);
+  font-family: var(--data);
+  font-size: 0.75rem;
+}
+
+/* The one control the browser draws its own button inside: it is given the
+   interface's own, or it arrives as a grey slab from another design. */
+input[type='file']::file-selector-button {
+  margin-inline-end: var(--s2);
+  padding: 2px var(--s2);
+  border: 1px solid var(--edge);
+  border-radius: var(--machined);
+  background: var(--steel);
+  color: var(--paper);
+  font: inherit;
+  cursor: pointer;
+}
+
+input[type='file']::file-selector-button:hover {
+  border-color: color-mix(in oklab, var(--light) 55%, var(--edge));
+  background: var(--steel-lit);
+}
+
+input[type='radio'] {
+  accent-color: var(--grease);
+  inline-size: auto;
+}
+
+button {
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--edge);
+  border-radius: var(--machined);
+  background: var(--steel);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  border-color: color-mix(in oklab, var(--light) 55%, var(--edge));
+  background: var(--steel-lit);
+}
+
+button:disabled {
+  color: color-mix(in oklab, var(--muted) 60%, transparent);
+  cursor: not-allowed;
+}
+
+/* The one action a surface is for. There is at most one on screen at a time, so
+   the eye can find the way forward without reading every control. */
+.primary {
+  border-color: transparent;
+  background: var(--light);
+  color: #0b1614;
+  font-weight: 600;
+}
+
+.primary:hover:not(:disabled) {
+  border-color: transparent;
+  background: color-mix(in oklab, var(--light) 85%, white);
+}
+
+/* Taking something away for good. Marked on the way in rather than only in the
+   confirmation, so the control that deletes a Story never looks like the one
+   that renames it. */
+.danger:hover:not(:disabled) {
+  border-color: #e2564a;
+  background: color-mix(in oklab, #e2564a 16%, transparent);
+}
+
+/* Focus is the machine's light, drawn outside the control so it never moves the
+   layout — and it is the same ring on every surface, which is what makes the
+   interface followable without a mouse. */
+:focus-visible {
+  outline: 2px solid var(--light);
+  outline-offset: 2px;
+  border-radius: var(--machined);
+}
+
+/* What a Shot, a Scene or a Cut is called in the interface: a mono micro-label,
+   spaced out like the wording stencilled on a machine. */
+.eyebrow {
+  color: var(--muted);
+  font-family: var(--data);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Anything gone wrong, said in the interface's voice and in the one colour that
+   is not either accent. */
+[role='alert'] {
+  padding: var(--s2) var(--s3);
+  border-inline-start: 2px solid #e2564a;
+  background: color-mix(in oklab, #e2564a 12%, transparent);
+  font-size: 0.875rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
