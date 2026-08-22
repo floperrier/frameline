@@ -1,0 +1,1 @@
+ALTER TABLE "cuts" DROP COLUMN "condition";
