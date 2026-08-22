@@ -44,6 +44,13 @@ time by `@nuxt/fonts`, which needs
 `experimental.processCSSVariables` because every face here is reached through a
 custom property.
 
+`CONTEXT.md` puts "frame" on the list of words to avoid for a Shot, and it stays
+there: nothing user-visible, and no name for a Shot, calls it a frame. What the
+design calls the frame is the apparatus — the gate a Shot is thrown onto, shared
+by the Reading and by the specimen on the signed-out page — and a Shot's own
+number in the editor is `.shot-number`. The rule is that "frame" may name the
+surface and never the thing shown on it.
+
 ## Consequences
 
 The design is a stylesheet and a handful of scoped blocks, so there is no
@@ -57,8 +64,12 @@ and scrollbars come out of that dark for nothing, and a light theme would be a
 second design rather than an inversion of this one, because the Reading room is
 dark on purpose.
 
-A Scene's node is drawn 420 pixels tall rather than 300, so a Scene with one Shot
-shows its Flags and the Cuts leaving it without being scrolled. A Scene with
-several Shots still scrolls inside its node, which is the trade the graph makes
-to keep every node the same size. The node's width stays at what a phone can
-show: a node wider than the screen is a graph nobody can lay out on one.
+A Scene's node is drawn 420 pixels tall rather than 300, which shows a Shot with
+its still and the Flags the Scene sets. It does not show everything: a Scene with
+one Shot, one Cut and a Condition on it measures about 730 pixels, so the Cuts
+are a scroll away inside the node, and a Scene with several Shots scrolls sooner.
+Every node being the same size is what makes the graph readable as a graph, and a
+node tall enough to never scroll would be taller than the bench that holds it —
+so scrolling inside a node is the trade, and 420 is where the most is visible for
+the least of it. The node's width stays at what a phone can show: a node wider
+than the screen is a graph nobody can lay out on one.

@@ -13,7 +13,7 @@ const failed = computed(() => Boolean(useRoute().query.error))
         Write in Shots, cut between Scenes, and hand a Reader one link.
       </p>
 
-      <NuxtLink v-if="loggedIn" class="enter" to="/stories">Your Stories</NuxtLink>
+      <NuxtLink v-if="loggedIn" class="enter primary" to="/stories">Your Stories</NuxtLink>
       <div v-else class="doors">
         <p v-if="failed" role="alert">Signing in did not work. Please try again.</p>
         <p class="eyebrow">Sign in to write</p>
@@ -29,15 +29,15 @@ const failed = computed(() => Boolean(useRoute().query.error))
     <figure class="specimen">
       <figcaption class="eyebrow">What a Reader is shown</figcaption>
       <div class="frame">
-        <p class="scene eyebrow">The street</p>
-        <p class="beat">
+        <p class="eyebrow">The street</p>
+        <p class="shot">
           The door gives on the third push. Rain, and the neon of the bar
           opposite, already lit at four in the afternoon.
         </p>
       </div>
       <ul class="cuts">
-        <li>Cross to the bar</li>
-        <li>Stay in the doorway until it eases</li>
+        <li class="splice">Cross to the bar</li>
+        <li class="splice">Stay in the doorway until it eases</li>
       </ul>
     </figure>
   </main>
@@ -96,24 +96,26 @@ main {
   max-inline-size: 34ch;
 }
 
+/* Both doors are the size of a thing worth pressing; the one an Author with a
+   session already has takes the interface's primary treatment from the
+   stylesheet rather than restating it. */
 .enter,
 .door {
   padding: var(--s2) var(--s4);
   border: 1px solid var(--edge);
   border-radius: var(--machined);
-  color: var(--paper);
   font-size: 0.9375rem;
   font-weight: 500;
   text-decoration: none;
   transition: border-color 150ms, background-color 150ms;
 }
 
+.door {
+  color: var(--paper);
+}
+
 .enter {
   margin-block-start: var(--s2);
-  border-color: transparent;
-  background: var(--light);
-  color: #0b1614;
-  font-weight: 600;
 }
 
 .doors {
@@ -123,14 +125,9 @@ main {
   margin-block-start: var(--s3);
 }
 
-.door:hover,
-.enter:hover {
+.door:hover {
   border-color: var(--light);
   background: color-mix(in oklab, var(--light) 14%, transparent);
-}
-
-.enter:hover {
-  background: color-mix(in oklab, var(--light) 85%, white);
 }
 
 .specimen {
@@ -139,29 +136,13 @@ main {
   align-content: center;
 }
 
-/* The gate: the one curve in the product, and the shape a frame is thrown
-   through. Empty of an image on purpose — a Shot may be text alone. */
+/* The gate itself comes from the stylesheet: this is the surface a Reader is
+   shown, so it is that surface and not a picture of it. Empty of an image on
+   purpose — a Shot may be text alone. */
 .frame {
   display: grid;
   gap: var(--s3);
   padding: var(--s5) var(--s4);
-  border: 1px solid var(--edge);
-  border-radius: var(--gate);
-  background:
-    radial-gradient(
-      120% 90% at 50% 0%,
-      color-mix(in oklab, var(--light) 7%, transparent),
-      transparent 70%
-    ),
-    color-mix(in oklab, var(--room) 60%, var(--steel));
-}
-
-.beat {
-  font-family: var(--prose);
-  font-size: clamp(1.25rem, 0.9rem + 1.2vw, 1.75rem);
-  font-weight: 300;
-  line-height: 1.4;
-  max-inline-size: 32ch;
 }
 
 /* Cuts are a splice list: a grease-pencil mark, then the line the Reader takes. */
@@ -181,9 +162,4 @@ main {
   font-size: 0.9375rem;
 }
 
-.cuts li::before {
-  content: '→';
-  color: var(--grease);
-  font-family: var(--data);
-}
 </style>

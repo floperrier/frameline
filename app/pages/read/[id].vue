@@ -15,7 +15,7 @@ if (error.value) throw createError({ ...error.value, fatal: true })
 </script>
 
 <template>
-  <main>
+  <main class="room">
     <!-- The title card: the Story is named once, at the head of the reel, and
          then the frames have the room to themselves. -->
     <header>
@@ -28,29 +28,6 @@ if (error.value) throw createError({ ...error.value, fatal: true })
 </template>
 
 <style scoped>
-main {
-  display: grid;
-  grid-template-rows: auto 1fr;
-  gap: var(--s5);
-  min-block-size: 100dvh;
-  padding: clamp(var(--s4), 5vw, var(--s6)) var(--s4);
-  background: var(--room);
-}
-
-header {
-  display: grid;
-  gap: var(--s1);
-  inline-size: min(100%, 46rem);
-  margin-inline: auto;
-}
-
-/* Whatever follows the title card is the projection, and it sits in the middle
-   of the room rather than under the header. */
-main > :last-child {
-  align-self: center;
-  padding-block-end: var(--s6);
-}
-
 h1 {
   font-size: clamp(2rem, 1.4rem + 2.4vw, 3rem);
 }

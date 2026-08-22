@@ -33,7 +33,7 @@ async function signOut() {
 <template>
   <main>
     <header>
-      <NuxtLink class="wordmark" to="/">Frameline</NuxtLink>
+      <NuxtLink class="wordmark trail" to="/">Frameline</NuxtLink>
       <h1>Stories</h1>
       <p class="who">{{ author?.email }}</p>
       <button type="button" @click="signOut">Sign out</button>
@@ -95,15 +95,13 @@ header {
   border-block-end: 1px solid var(--edge);
 }
 
+/* The product's own name, tracked wider than any label: it is a wordmark and
+   the one place the stencil is stretched on purpose. */
 .wordmark {
   grid-column: 1 / -1;
-  color: var(--muted);
-  font-family: var(--data);
   font-size: 0.6875rem;
-  font-weight: 500;
   letter-spacing: 0.18em;
   text-decoration: none;
-  text-transform: uppercase;
 }
 
 .wordmark:hover {

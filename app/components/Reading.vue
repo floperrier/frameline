@@ -15,6 +15,24 @@ const { story } = defineProps<{ story: StoryToShow }>()
 const at = ref<Position>(OPENING)
 const shown = computed(() => reading(story, at.value))
 
+/**
+ * Where the Reader is put after the Reading moves. Every beat replaces what was
+ * on screen, and the control that was pressed goes with it: without this, focus
+ * falls back to the document and reading a Story by keyboard means tabbing in
+ * from the top of the page at every Shot. The frame takes focus when a Shot
+ * arrives, so what is announced is the beat itself rather than the button that
+ * asks for the next one, and the first Cut takes it when the Scene has played
+ * out — the Reader lands on what they are being offered.
+ */
+const frame = useTemplateRef<HTMLElement>('frame')
+const cuts = useTemplateRef<HTMLElement>('cuts')
+
+async function moveTo(to: Position) {
+  at.value = to
+  await nextTick()
+  ;(frame.value ?? cuts.value?.querySelector('button'))?.focus()
+}
+
 const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, scene.name])))
 
 /**
@@ -44,7 +62,7 @@ function offered(cut: Cut) {
     <template v-if="shown.shot">
       <!-- Keyed on the Position, so arriving at a Shot draws the frame again:
            each beat is thrown onto the screen rather than swapped into it. -->
-      <figure :key="`${at.taken.length}-${at.shot}`" class="frame">
+      <figure ref="frame" :key="`${at.taken.length}-${at.shot}`" class="frame" tabindex="-1">
         <!-- The still and the text are one beat, so they arrive together and the
              Reader moves past both at once.
 
@@ -73,50 +91,53 @@ function offered(cut: Cut) {
         </ol>
       </div>
 
-      <button type="button" class="next" @click="at = advance(at)">Next Shot</button>
+      <button type="button" class="next" @click="moveTo(advance(at))">Next Shot</button>
     </template>
 
     <template v-else-if="shown.cuts.length">
       <p class="eyebrow">{{ scene?.name }} <span aria-hidden="true">·</span> the ways on</p>
-      <ul class="cuts">
+      <ul ref="cuts" class="cuts">
         <li v-for="cut in shown.cuts" :key="cut.id">
-          <button type="button" @click="at = take(at, cut)">{{ offered(cut) }}</button>
+          <button type="button" class="splice" @click="moveTo(take(at, cut))">
+            {{ offered(cut) }}
+          </button>
         </li>
       </ul>
     </template>
 
-    <p v-if="shown.ended" class="ended" role="status">The path ends here.</p>
+    <p v-if="shown.ended" class="ended trail" role="status">The path ends here.</p>
 
     <p class="again">
-      <button type="button" @click="at = OPENING">Read again from the start</button>
+      <button type="button" class="trail" @click="moveTo(OPENING)">
+        Read again from the start
+      </button>
     </p>
   </div>
 </template>
 
 <style scoped>
-/* One column, as wide as a frame wants to be and no wider: everything a Reading
-   shows is stacked in the order it is met. */
+/* One column, as wide as a gate wants to be and no wider, and sat in the middle
+   of the room it was given rather than under whatever is above it. */
 .reading {
   display: grid;
+  align-self: center;
   gap: var(--s4);
   inline-size: min(100%, 46rem);
   margin-inline: auto;
+  padding-block-end: var(--s6);
 }
 
-/* The gate. The still and the text share one bordered surface, because they are
-   one beat and not an illustration with a caption under it. */
+/* The still and the text share the one gate, because they are one beat and not
+   an illustration with a caption under it. */
 .frame {
   overflow: clip;
-  border: 1px solid var(--edge);
-  border-radius: var(--gate);
-  background:
-    radial-gradient(
-      120% 90% at 50% 0%,
-      color-mix(in oklab, var(--light) 6%, transparent),
-      transparent 70%
-    ),
-    color-mix(in oklab, var(--room) 55%, var(--steel));
   animation: thrown 320ms ease-out;
+}
+
+/* The frame is given focus on arrival, not by tabbing to it, so the ring says
+   "this is the beat you have landed on" rather than "this is a control". */
+.frame:focus-visible {
+  outline-offset: 4px;
 }
 
 /* The gate takes a still of any shape: a wide one fills the frame, and a tall
@@ -136,17 +157,6 @@ img {
 
 figcaption {
   padding: var(--s5) clamp(var(--s4), 4vw, var(--s5));
-}
-
-.shot {
-  white-space: pre-wrap;
-  font-family: var(--prose);
-  font-size: clamp(1.1875rem, 1rem + 0.9vw, 1.5rem);
-  font-weight: 400;
-  line-height: 1.5;
-  /* A measure a beat can be taken in at a glance. Longer lines are read; this
-     length is looked at. */
-  max-inline-size: 42ch;
 }
 
 .edge {
@@ -197,12 +207,6 @@ figcaption {
   text-align: start;
 }
 
-.cuts button::before {
-  content: '→';
-  color: var(--grease);
-  font-family: var(--data);
-}
-
 .cuts button:hover {
   background: var(--steel-lit);
 }
@@ -211,11 +215,7 @@ figcaption {
   display: flex;
   align-items: center;
   gap: var(--s3);
-  color: var(--muted);
-  font-family: var(--data);
   font-size: 0.8125rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
 }
 
 /* The tail leader either side of the ending, which is what the end of a reel
@@ -236,11 +236,6 @@ figcaption {
 .again button {
   border-color: transparent;
   background: none;
-  color: var(--muted);
-  font-family: var(--data);
-  font-size: 0.75rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 
 .again button:hover {

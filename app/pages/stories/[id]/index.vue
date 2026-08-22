@@ -270,7 +270,7 @@ function anchor(sceneId: string) {
          on screen, because the graph below it scrolls a long way. -->
     <header>
       <div class="titling">
-        <NuxtLink class="back" to="/stories">All Stories</NuxtLink>
+        <NuxtLink class="back trail" to="/stories">All Stories</NuxtLink>
         <h1>{{ story?.title }}</h1>
       </div>
 
@@ -281,7 +281,7 @@ function anchor(sceneId: string) {
           <span class="eyebrow">Anyone can read this Story at</span>
           <a class="link" :href="publicLink">{{ publicLink }}</a>
         </p>
-        <NuxtLink class="preview" :to="`/stories/${id}/preview`">Preview this Story</NuxtLink>
+        <NuxtLink class="preview trail" :to="`/stories/${id}/preview`">Preview this Story</NuxtLink>
         <button v-if="story?.publishedAt" type="button" @click="unpublish">
           Unpublish this Story
         </button>
@@ -360,7 +360,7 @@ function anchor(sceneId: string) {
                 :checked="story.openingSceneId === scene.id"
                 @change="openOn(scene)"
               >
-              <label :for="`opening-${scene.id}`">
+              <label class="eyebrow" :for="`opening-${scene.id}`">
                 Opening Scene <span class="visually-hidden">{{ scene.name }}</span>
               </label>
             </p>
@@ -377,7 +377,7 @@ function anchor(sceneId: string) {
             <li v-for="(shot, place) in scene.shots" :key="shot.id">
               <!-- The number alone in the gutter, where a frame's edge code would be,
                    and the word it is a number of kept for anyone listening. -->
-              <label class="frame-number" :for="`shot-${shot.id}`">
+              <label class="shot-number" :for="`shot-${shot.id}`">
                 <span class="visually-hidden">Shot </span>{{ place + 1 }}
               </label>
               <div class="written">
@@ -460,7 +460,7 @@ function anchor(sceneId: string) {
               <!-- One Condition a Cut, flat: whichever kind is chosen, the whole
                    of it is the row that follows, read as one sentence. -->
               <div class="when">
-                <label :for="`when-${cut.id}`">
+                <label class="eyebrow" :for="`when-${cut.id}`">
                   Offered when
                   <span class="visually-hidden">
                     taking the Cut to {{ sceneNames.get(cut.toSceneId) }}
@@ -478,7 +478,7 @@ function anchor(sceneId: string) {
                 </select>
 
                 <template v-if="cut.condition && 'flag' in cut.condition">
-                  <label :for="`flag-${cut.id}`">
+                  <label class="eyebrow" :for="`flag-${cut.id}`">
                     Flag
                     <span class="visually-hidden">
                       tested by the Cut to {{ sceneNames.get(cut.toSceneId) }}
@@ -491,7 +491,7 @@ function anchor(sceneId: string) {
                     :maxlength="FLAG_NAME_MAX_LENGTH"
                     @change="writeCondition(cut)"
                   >
-                  <label :for="`is-${cut.id}`">
+                  <label class="eyebrow" :for="`is-${cut.id}`">
                     holds
                     <span class="visually-hidden">
                       for the Cut to {{ sceneNames.get(cut.toSceneId) }}
@@ -507,7 +507,7 @@ function anchor(sceneId: string) {
                 </template>
 
                 <template v-else-if="cut.condition && 'scene' in cut.condition">
-                  <label :for="`counted-${cut.id}`">
+                  <label class="eyebrow" :for="`counted-${cut.id}`">
                     Scene
                     <span class="visually-hidden">
                       counted by the Cut to {{ sceneNames.get(cut.toSceneId) }}
@@ -528,7 +528,7 @@ function anchor(sceneId: string) {
                       {{ counted.name }}
                     </option>
                   </select>
-                  <label :for="`visits-${cut.id}`">
+                  <label class="eyebrow" :for="`visits-${cut.id}`">
                     entered
                     <span class="visually-hidden">
                       for the Cut to {{ sceneNames.get(cut.toSceneId) }}
@@ -542,7 +542,7 @@ function anchor(sceneId: string) {
                     <option value="at least">at least</option>
                     <option value="fewer than">fewer than</option>
                   </select>
-                  <label :for="`times-${cut.id}`">
+                  <label class="eyebrow" :for="`times-${cut.id}`">
                     times
                     <span class="visually-hidden">
                       for the Cut to {{ sceneNames.get(cut.toSceneId) }}
@@ -616,13 +616,6 @@ header {
 }
 
 /* A Story's title is the Author's own words, so nothing here recases them. */
-.back,
-.preview {
-  font-family: var(--data);
-  font-size: 0.75rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
 
 .release {
   display: flex;
@@ -675,7 +668,7 @@ header {
 .graph {
   overflow: auto;
   resize: vertical;
-  block-size: min(70vh, 44rem);
+  block-size: min(70dvh, 44rem);
   border: 1px solid var(--edge);
   border-radius: var(--machined);
   background: color-mix(in oklab, var(--bench) 70%, black);
@@ -724,7 +717,7 @@ article {
   border: 1px solid var(--edge);
   border-radius: var(--machined);
   background: var(--steel);
-  box-shadow: 0 10px 24px -12px rgb(0 0 0 / 0.7);
+  box-shadow: var(--lifted);
 }
 
 /* Whichever node is being worked in comes to the front, so two nodes dragged
@@ -757,10 +750,13 @@ article:has(input[type='radio']:checked) {
 
 .handle {
   flex: none;
-  padding: var(--s1) var(--s2);
+  /* The only pointer route to moving a Scene, so it is a target a thumb can
+     find on a phone rather than the size of its ten-pixel label. */
+  min-block-size: 2.25rem;
+  padding: var(--s1) var(--s3);
   font-family: var(--data);
   font-size: 0.625rem;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   cursor: move;
   touch-action: none;
@@ -777,18 +773,6 @@ article:has(input[type='radio']:checked) {
   display: flex;
   align-items: center;
   gap: var(--s2);
-}
-
-/* Every label in a node is stencilled on the machine: mono, small, and spaced
-   out, whether it names a field or is one word of a Condition read as a
-   sentence. */
-label {
-  color: var(--muted);
-  font-family: var(--data);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 
 /* Data the Author types rather than prose: Flags, a Condition's two sides, the
@@ -818,9 +802,12 @@ label {
   padding-block-end: 0;
 }
 
-.frame-number {
+.shot-number {
   padding-block-start: var(--s2);
-  color: color-mix(in oklab, var(--muted) 75%, transparent);
+  font-family: var(--data);
+  /* A Shot's number is what the Author refers to it by, so it is read at the
+     same contrast as the rest of the labels and not dimmed to decoration. */
+  color: var(--muted);
   font-size: 0.8125rem;
   letter-spacing: 0;
   text-align: end;
@@ -851,7 +838,7 @@ label {
   block-size: 3rem;
   object-fit: cover;
   border: 1px solid var(--edge);
-  border-radius: 4px;
+  border-radius: var(--machined);
   background: var(--bench);
 }
 
@@ -913,10 +900,12 @@ label {
 }
 
 /* On a phone the graph is worked on a screen narrower than a node, so it is
-   given more of the screen's height rather than a slice of it. */
+   given more of the screen's height rather than a slice of it. In `dvh`, because
+   a browser's own chrome comes and goes and `vh` would leave the bench taller
+   than the screen it is on — three nested scrollbars deep. */
 @media (max-width: 44rem) {
   .graph {
-    block-size: 78vh;
+    block-size: 70dvh;
   }
 }
 </style>

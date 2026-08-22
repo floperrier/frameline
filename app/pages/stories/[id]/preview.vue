@@ -13,9 +13,9 @@ const { data: story } = await useAsyncData(
 </script>
 
 <template>
-  <main>
+  <main class="room">
     <header>
-      <NuxtLink class="back" :to="`/stories/${id}`">Back to the Story</NuxtLink>
+      <NuxtLink class="back trail" :to="`/stories/${id}`">Back to the Story</NuxtLink>
       <!-- Said in the room the Reader will be in, and marked as the Author's own
            run through it rather than dressed up as a published Story. -->
       <p class="eyebrow">Nobody else can reach this</p>
@@ -33,43 +33,19 @@ const { data: story } = await useAsyncData(
 </template>
 
 <style scoped>
-main {
-  display: grid;
-  grid-template-rows: auto 1fr;
-  gap: var(--s5);
-  min-block-size: 100dvh;
-  padding: clamp(var(--s4), 5vw, var(--s6)) var(--s4);
-  background: var(--room);
-}
-
-header {
-  display: grid;
-  gap: var(--s1);
-  inline-size: min(100%, 46rem);
-  margin-inline: auto;
-}
-
-/* Whatever follows the title card is the projection, and it sits in the middle
-   of the room rather than under the header. */
-main > :last-child {
-  align-self: center;
-  padding-block-end: var(--s6);
-}
-
 .back {
   justify-self: start;
   margin-block-end: var(--s3);
-  font-family: var(--data);
-  font-size: 0.75rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 
 h1 {
   font-size: clamp(1.75rem, 1.3rem + 1.8vw, 2.5rem);
 }
 
+/* An Author who has not named an Opening Scene has nothing to project, so the
+   room holds a note where the frame would be. */
 .nothing {
+  align-self: center;
   inline-size: min(100%, 46rem);
   margin-inline: auto;
   padding: var(--s4);

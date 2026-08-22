@@ -30,6 +30,15 @@
   --light: #6fd8cb;
   --grease: #e4703a;
 
+  /* The ink that goes on the cyan, dark enough to be read on it, and the one
+     colour that is neither accent: what has gone wrong. */
+  --ink: #0b1614;
+  --alarm: #e2564a;
+
+  /* What lifts a node off the bench. Named, because a shadow written by hand on
+     one page is how two surfaces stop looking like one product. */
+  --lifted: 0 10px 24px -12px rgb(0 0 0 / 0.7);
+
   /* A condensed face for the titles, because that is what a title card and a
      closing crawl have always been set in; the interface and its labels are one
      superfamily, so a stencilled label belongs to the control beside it; and the
@@ -161,9 +170,11 @@ textarea {
   line-height: 1.5;
 }
 
+/* A placeholder here shows the format the field takes — `courage = high` — so it
+   is held at the same contrast as any other secondary text rather than faded. */
 input::placeholder,
 textarea::placeholder {
-  color: color-mix(in oklab, var(--muted) 70%, transparent);
+  color: var(--muted);
 }
 
 input:hover,
@@ -228,7 +239,7 @@ button:disabled {
 .primary {
   border-color: transparent;
   background: var(--light);
-  color: #0b1614;
+  color: var(--ink);
   font-weight: 600;
 }
 
@@ -241,8 +252,8 @@ button:disabled {
    confirmation, so the control that deletes a Story never looks like the one
    that renames it. */
 .danger:hover:not(:disabled) {
-  border-color: #e2564a;
-  background: color-mix(in oklab, #e2564a 16%, transparent);
+  border-color: var(--alarm);
+  background: color-mix(in oklab, var(--alarm) 16%, transparent);
 }
 
 /* Focus is the machine's light, drawn outside the control so it never moves the
@@ -254,23 +265,86 @@ button:disabled {
   border-radius: var(--machined);
 }
 
-/* What a Shot, a Scene or a Cut is called in the interface: a mono micro-label,
-   spaced out like the wording stencilled on a machine. */
-.eyebrow {
+/* The projection room, and it is one room whichever door was used to reach it:
+   an Author's Preview and a Reader's Reading are the same screen, so the surface
+   they are shown on is declared once here rather than twice over there. */
+.room {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: var(--s5);
+  min-block-size: 100dvh;
+  padding: clamp(var(--s4), 5vw, var(--s6)) var(--s4);
+  background: var(--room);
+}
+
+.room > header {
+  display: grid;
+  gap: var(--s1);
+  inline-size: min(100%, 46rem);
+  margin-inline: auto;
+}
+
+/* The gate: the one curve in the product, and the surface a Shot is thrown onto.
+   Shared, because the landing page shows a Reader exactly what a Reading shows
+   them, and a panel that says so while looking different is worse than none. */
+.frame {
+  border: 1px solid var(--edge);
+  border-radius: var(--gate);
+  background:
+    radial-gradient(
+      120% 90% at 50% 0%,
+      color-mix(in oklab, var(--light) 6%, transparent),
+      transparent 70%
+    ),
+    color-mix(in oklab, var(--room) 55%, var(--steel));
+}
+
+/* A Shot's text, and the only prose in the product. Nothing else anywhere is set
+   in this face: meeting it means reading a Story. */
+.shot {
+  white-space: pre-wrap;
+  font-family: var(--prose);
+  font-size: clamp(1.1875rem, 1rem + 0.9vw, 1.5rem);
+  line-height: 1.5;
+  /* A measure a Shot can be taken in at a glance. Longer lines are read; this
+     length is looked at. */
+  max-inline-size: 42ch;
+}
+
+/* The grease-pencil mark a Cut is offered behind, wherever Cuts are listed. */
+.splice::before {
+  content: '→';
+  color: var(--grease);
+  font-family: var(--data);
+}
+
+/* Stencilled on the machine: what names a field, and what a Cut's Condition
+   reads as when it is spelled out across a row. */
+.eyebrow,
+.trail {
   color: var(--muted);
   font-family: var(--data);
-  font-size: 0.6875rem;
   font-weight: 500;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+
+.eyebrow {
+  font-size: 0.6875rem;
+}
+
+/* The way out of a surface — back to the Story, on to the Preview, round to the
+   start again: a mono line rather than a button, one size up from a label. */
+.trail {
+  font-size: 0.75rem;
 }
 
 /* Anything gone wrong, said in the interface's voice and in the one colour that
    is not either accent. */
 [role='alert'] {
   padding: var(--s2) var(--s3);
-  border-inline-start: 2px solid #e2564a;
-  background: color-mix(in oklab, #e2564a 12%, transparent);
+  border-inline-start: 2px solid var(--alarm);
+  background: color-mix(in oklab, var(--alarm) 12%, transparent);
   font-size: 0.875rem;
 }
 
