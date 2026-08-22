@@ -34,6 +34,12 @@ may have none, and a Shot's text is never used as one: the text carries the beat
 the Description carries the frame.
 _Avoid_: alt, alt text, label, caption, tooltip, legend
 
+**Place**:
+Where a Shot comes in its Scene's run, or a Cut in the ways on offered at the end
+of the Scene it leaves — the Author's own numbering, counted from the first, with
+nothing missing. Never used of a Reading, which has a Position instead.
+_Avoid_: index, order, rank, slot, sort key
+
 **Cut**:
 A directed connection from one Scene to another, offered to the Reader at the end
 of a Scene as something to take. Named after the film edit that joins two shots.
@@ -75,6 +81,7 @@ _Avoid_: session, playthrough, run, visit
 How far one Reading has got: the Cuts it has taken, in order, and how many Shots
 of the Scene it stands in are behind it. Everything else about a Reading — the
 Scene, the Shot on screen, the Cuts on offer, the State — is computed from it.
+Where a Shot or a Cut comes in its own list is a Place, never a Position.
 _Avoid_: cursor, pointer, progress, step, index
 
 ### The people
