@@ -128,12 +128,6 @@ export const shots = pgTable('shots', {
 // for a while an insert naming no Place has to succeed rather than take drawing
 // a Cut down with it — see
 // `docs/adr/0002-the-schema-moves-with-the-deploy.md`.
-//
-// `condition` is what a Cut carried before it could carry several, and nothing
-// reads it any more. It stays for one deploy because the schema moves before the
-// code does and a rollback moves the code back alone — see
-// `docs/adr/0002-the-schema-moves-with-the-deploy.md`. The migration that drops
-// it is the next deploy's, not this one's.
 export const cuts = pgTable('cuts', {
   id: uuid('id').primaryKey().defaultRandom(),
   fromSceneId: uuid('from_scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
@@ -141,6 +135,5 @@ export const cuts = pgTable('cuts', {
   text: text('text').notNull().default(''),
   conditions: jsonb('conditions').$type<Condition[]>().notNull().default([]),
   position: integer('position').notNull().default(0),
-  condition: jsonb('condition').$type<Condition>(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
