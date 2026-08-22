@@ -18,9 +18,21 @@ A linear run of Shots, and the only unit at which a Story branches.
 _Avoid_: passage, knot, node, chapter, page, card
 
 **Shot**:
-The atomic unit of a Story — one still image and its text, shown to the Reader as
-a single beat.
+The atomic unit of a Story — a Still and its text, shown to the Reader as a single
+beat. Either may stand alone, but a Shot with neither is one the Author has not
+written yet.
 _Avoid_: panel, slide, frame, plan, beat, step
+
+**Still**:
+The one image a Shot carries. A Shot may be text alone, so a Still is what a Shot
+has at most one of, never a thing of its own.
+_Avoid_: picture, photo, frame, visual, asset, media
+
+**Description**:
+What a Still shows, written by the Author for a Reader who cannot see it. A Still
+may have none, and a Shot's text is never used as one: the text carries the beat,
+the Description carries the frame.
+_Avoid_: alt, alt text, label, caption, tooltip, legend
 
 **Cut**:
 A directed connection from one Scene to another, offered to the Reader at the end
