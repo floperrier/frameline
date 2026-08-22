@@ -1,3 +1,5 @@
+import type { Phrase } from './phrases'
+
 /**
  * The longest name a Scene may carry, and the longest text a Shot may hold.
  * Shared so the server's rejection and the form's own limit cannot drift apart.
@@ -252,8 +254,8 @@ export function flagsTyped(typed: string): Flags {
  * function, because a Scene named one way in the ways on offered and another way
  * in the ways on hidden is two products.
  */
-export function sceneNamed(names: Map<string, string>, sceneId: string) {
-  return names.get(sceneId) ?? 'a Scene that is gone'
+export function sceneNamed(names: Map<string, string>, sceneId: string, say: Phrase) {
+  return names.get(sceneId) ?? say('scene.gone')
 }
 
 /**
@@ -263,8 +265,8 @@ export function sceneNamed(names: Map<string, string>, sceneId: string) {
  * because a Preview names the ways on a Condition is hiding in the same breath
  * as the ones on offer, and the two must read alike.
  */
-export function cutNamed(cut: Cut, sceneName: (id: string) => string) {
-  return cut.text || `Cut to ${sceneName(cut.toSceneId)}`
+export function cutNamed(cut: Cut, sceneName: (id: string) => string, say: Phrase) {
+  return cut.text || say('cut.to', { scene: sceneName(cut.toSceneId) })
 }
 
 /**
@@ -282,6 +284,8 @@ export type Condition =
 export type StoryInEditor = {
   id: string
   title: string
+  /** The Language the work is written in, which is never the Author's Locale. */
+  language: string
   openingSceneId: string | null
   publishedAt: string | null
   scenes: Scene[]

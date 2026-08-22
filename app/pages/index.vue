@@ -1,24 +1,24 @@
 <script setup lang="ts">
 const { loggedIn } = useUserSession()
+const localePath = useLocalePath()
 const failed = computed(() => Boolean(useRoute().query.error))
 </script>
 
 <template>
   <main>
     <div class="pitch">
-      <p class="eyebrow">Interactive narrative, cut like film</p>
+      <p class="eyebrow">{{ $t('landing.eyebrow') }}</p>
       <h1>Frameline</h1>
-      <p class="line">
-        An editor for interactive narrative works that speaks the grammar of cinema.
-        Write in Shots, cut between Scenes, and hand a Reader one link.
-      </p>
+      <p class="line">{{ $t('landing.pitch') }}</p>
 
-      <NuxtLink v-if="loggedIn" class="enter primary" to="/stories">Your Stories</NuxtLink>
+      <NuxtLink v-if="loggedIn" class="enter primary" :to="localePath('/stories')">
+        {{ $t('landing.yourStories') }}
+      </NuxtLink>
       <div v-else class="doors">
-        <p v-if="failed" role="alert">Signing in did not work. Please try again.</p>
-        <p class="eyebrow">Sign in to write</p>
-        <a class="door" href="/auth/github">Sign in with GitHub</a>
-        <a class="door" href="/auth/google">Sign in with Google</a>
+        <p v-if="failed" role="alert">{{ $t('landing.signInFailed') }}</p>
+        <p class="eyebrow">{{ $t('landing.signInToWrite') }}</p>
+        <a class="door" href="/auth/github">{{ $t('landing.signInWithGitHub') }}</a>
+        <a class="door" href="/auth/google">{{ $t('landing.signInWithGoogle') }}</a>
       </div>
     </div>
 
@@ -27,17 +27,14 @@ const failed = computed(() => Boolean(useRoute().query.error))
          not a Reading, so nothing here is a control — a visitor cannot take a
          Cut that leads nowhere. -->
     <figure class="specimen">
-      <figcaption class="eyebrow">What a Reader is shown</figcaption>
+      <figcaption class="eyebrow">{{ $t('landing.specimen') }}</figcaption>
       <div class="frame">
-        <p class="eyebrow">The street</p>
-        <p class="shot">
-          The door gives on the third push. Rain, and the neon of the bar
-          opposite, already lit at four in the afternoon.
-        </p>
+        <p class="eyebrow">{{ $t('landing.specimenScene') }}</p>
+        <p class="shot">{{ $t('landing.specimenShot') }}</p>
       </div>
       <ul class="cuts">
-        <li class="splice">Cross to the bar</li>
-        <li class="splice">Stay in the doorway until it eases</li>
+        <li class="splice">{{ $t('landing.specimenCutOne') }}</li>
+        <li class="splice">{{ $t('landing.specimenCutTwo') }}</li>
       </ul>
     </figure>
   </main>

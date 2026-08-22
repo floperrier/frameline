@@ -13,16 +13,35 @@ export async function readStoryTitle(event: H3Event) {
   const title = typeof body?.title === 'string' ? body.title.trim() : ''
 
   if (!title) {
-    throw createError({ statusCode: 400, message: 'A Story needs a title.' })
+    throw createError({ statusCode: 400, message: saying(event)('refusals.storyTitle') })
   }
   if (title.length > STORY_TITLE_MAX_LENGTH) {
     throw createError({
       statusCode: 400,
-      message: `A title cannot be longer than ${STORY_TITLE_MAX_LENGTH} characters.`,
+      message: saying(event)('refusals.storyTitleLong', { max: STORY_TITLE_MAX_LENGTH }),
     })
   }
 
   return title
+}
+
+/**
+ * Reads the Language a Story is being written in. A trust boundary like the
+ * title, and narrower than the column: the column holds any BCP-47 code, and
+ * what an Author may pick from here is the short list the form offers. Saying
+ * nothing is English, which is what the column already defaults to for every
+ * Story written before there was anything to say.
+ */
+export async function readStoryLanguage(event: H3Event): Promise<StoryLanguage> {
+  const body = await readBody<{ language?: unknown }>(event)
+  const language = body?.language
+
+  if (language === undefined || language === null) return STORY_LANGUAGE_DEFAULT
+  if (!STORY_LANGUAGES.includes(language as StoryLanguage)) {
+    throw createError({ statusCode: 400, message: saying(event)('refusals.storyLanguage') })
+  }
+
+  return language as StoryLanguage
 }
 
 /**

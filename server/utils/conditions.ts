@@ -1,6 +1,12 @@
 import { sql } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 
+/** The refusal each carrier of a list is given, one message apiece. */
+const TOO_MANY = {
+  Cut: 'refusals.tooManyConditions.cut',
+  Shot: 'refusals.tooManyConditions.shot',
+} as const
+
 /**
  * Reads the Conditions a Cut is offered under, or a Shot played under: an absent
  * or empty list is a Cut offered to everyone, and a Shot every Reading sees. One
@@ -21,22 +27,22 @@ export async function readConditions(
   const conditions = body?.conditions
 
   if (conditions === null || conditions === undefined) return []
-  if (!Array.isArray(conditions)) throw badCondition()
+  if (!Array.isArray(conditions)) throw badCondition(event)
 
   if (conditions.length > CONDITIONS_MAX) {
     throw createError({
       statusCode: 400,
-      message: `A ${carrier} cannot carry more than ${CONDITIONS_MAX} Conditions.`,
+      message: saying(event)(TOO_MANY[carrier], { max: CONDITIONS_MAX }),
     })
   }
 
-  return conditions.map(readCondition)
+  return conditions.map(condition => readCondition(event, condition))
 }
 
 /** One member of the list: a single flat test, or nothing that gets written. */
-function readCondition(condition: unknown): Condition {
+function readCondition(event: H3Event, condition: unknown): Condition {
   if (typeof condition !== 'object' || condition === null || Array.isArray(condition)) {
-    throw badCondition()
+    throw badCondition(event)
   }
 
   // A Condition holds its own two or three keys and nothing besides: anything
@@ -45,13 +51,13 @@ function readCondition(condition: unknown): Condition {
   const parts = Object.keys(condition).length
 
   if ('flag' in condition) {
-    if (parts !== 2) throw badCondition()
+    if (parts !== 2) throw badCondition(event)
 
     const { flag, is } = condition as { flag: unknown, is: unknown }
     const name = typeof flag === 'string' ? flag.trim() : ''
 
-    if (!name || name.length > FLAG_NAME_MAX_LENGTH) throw badCondition()
-    if (typeof is !== 'string' || is.length > FLAG_VALUE_MAX_LENGTH) throw badCondition()
+    if (!name || name.length > FLAG_NAME_MAX_LENGTH) throw badCondition(event)
+    if (typeof is !== 'string' || is.length > FLAG_VALUE_MAX_LENGTH) throw badCondition(event)
 
     // Trimmed on both sides of the comparison the engine will make: a Flag is
     // stored trimmed, so a Condition asking for `on ` could never match one.
@@ -60,21 +66,20 @@ function readCondition(condition: unknown): Condition {
 
   const { scene, visits, times } = condition as { scene: unknown, visits: unknown, times: unknown }
 
-  if (parts !== 3) throw badCondition()
-  if (typeof scene !== 'string' || !UUID_PATTERN.test(scene)) throw badCondition()
-  if (visits !== 'at least' && visits !== 'fewer than') throw badCondition()
+  if (parts !== 3) throw badCondition(event)
+  if (typeof scene !== 'string' || !UUID_PATTERN.test(scene)) throw badCondition(event)
+  if (visits !== 'at least' && visits !== 'fewer than') throw badCondition(event)
   if (!Number.isInteger(times) || (times as number) < 1 || (times as number) > VISITS_MAX) {
-    throw badCondition()
+    throw badCondition(event)
   }
 
   return { scene, visits, times: times as number }
 }
 
-function badCondition() {
+function badCondition(event: H3Event) {
   return createError({
     statusCode: 400,
-    message: 'A Condition tests what one Flag holds, '
-      + `or how often one Scene has been entered, up to ${VISITS_MAX} times.`,
+    message: saying(event)('refusals.badCondition', { max: VISITS_MAX }),
   })
 }
 

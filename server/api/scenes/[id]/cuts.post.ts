@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
     returning
       id, from_scene_id as "fromSceneId", to_scene_id as "toSceneId", text, position, conditions`)
 
-  if (!rows[0]) throw notFound('Scene')
+  if (!rows[0]) throw notFound(event, 'Scene')
 
   setResponseStatus(event, 201)
   return rows[0]

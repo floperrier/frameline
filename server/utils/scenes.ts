@@ -28,12 +28,12 @@ export async function readSceneName(event: H3Event) {
   const name = typeof body?.name === 'string' ? body.name.trim() : ''
 
   if (!name) {
-    throw createError({ statusCode: 400, message: 'A Scene needs a name.' })
+    throw createError({ statusCode: 400, message: saying(event)('refusals.sceneName') })
   }
   if (name.length > SCENE_NAME_MAX_LENGTH) {
     throw createError({
       statusCode: 400,
-      message: `A name cannot be longer than ${SCENE_NAME_MAX_LENGTH} characters.`,
+      message: saying(event)('refusals.sceneNameLong', { max: SCENE_NAME_MAX_LENGTH }),
     })
   }
 
@@ -53,7 +53,7 @@ export async function readScenePlacement(event: H3Event) {
   if (x === undefined || y === undefined) {
     throw createError({
       statusCode: 400,
-      message: `A Scene sits between 0 and ${GRAPH_REACH} pixels from the graph's corner.`,
+      message: saying(event)('refusals.scenePlacement', { reach: GRAPH_REACH }),
     })
   }
 
@@ -71,13 +71,13 @@ export async function readSceneFlags(event: H3Event): Promise<Flags> {
   const body = await readBody<{ sets?: unknown }>(event)
   const sets = body?.sets
 
-  if (typeof sets !== 'object' || sets === null || Array.isArray(sets)) throw badFlags()
+  if (typeof sets !== 'object' || sets === null || Array.isArray(sets)) throw badFlags(event)
 
   const entries = Object.entries(sets)
   if (entries.length > FLAGS_PER_SCENE) {
     throw createError({
       statusCode: 400,
-      message: `A Scene cannot set more than ${FLAGS_PER_SCENE} Flags.`,
+      message: saying(event)('refusals.tooManyFlags', { max: FLAGS_PER_SCENE }),
     })
   }
 
@@ -86,9 +86,11 @@ export async function readSceneFlags(event: H3Event): Promise<Flags> {
     const flag = name.trim()
     const held = typeof value === 'string' ? value.trim() : ''
 
-    if (!flag || !held) throw badFlags()
-    if (flag.length > FLAG_NAME_MAX_LENGTH || held.length > FLAG_VALUE_MAX_LENGTH) throw badFlags()
-    if (flag.includes(FLAG_SEPARATOR) || `${flag}${held}`.includes('\n')) throw badFlags()
+    if (!flag || !held) throw badFlags(event)
+    if (flag.length > FLAG_NAME_MAX_LENGTH || held.length > FLAG_VALUE_MAX_LENGTH) {
+      throw badFlags(event)
+    }
+    if (flag.includes(FLAG_SEPARATOR) || `${flag}${held}`.includes('\n')) throw badFlags(event)
 
     flags[flag] = held
   }
@@ -96,9 +98,9 @@ export async function readSceneFlags(event: H3Event): Promise<Flags> {
   return flags
 }
 
-function badFlags() {
+function badFlags(event: H3Event) {
   return createError({
     statusCode: 400,
-    message: `A Flag is a name and a value, written “courage ${FLAG_SEPARATOR} high”.`,
+    message: saying(event)('refusals.badFlag', { separator: FLAG_SEPARATOR }),
   })
 }

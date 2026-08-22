@@ -37,6 +37,26 @@ the tokens declared there and from nowhere else. See
 A pull request per issue, squash-merged into `main`, which deploys to
 production. See `docs/git-flow.md`.
 
+## Languages
+
+The interface is read in French or in English, and the two message files —
+`i18n/locales/en.json` and `i18n/locales/fr.json` — are the only place a
+displayed string may be written. English is the `defaultLocale`, so it is the
+language of unprefixed URLs and the language a new key is authored in; French is
+reached at `/fr/...`. `CONTEXT.md` says which French word each glossary term is
+shown as, and that word binds: see
+`docs/adr/0014-the-glossary-is-the-codes-language.md`.
+
+The server reads the same two files. A refusal still travels as a phrase in the
+response body — `docs/adr/0009-a-refusal-travels-in-the-body.md` — and
+`server/utils/phrases.ts` is what settles which language it is phrased in,
+negotiated from the request's cookie and `Accept-Language`.
+
+Two things are deliberately not the Locale. The public link carries no locale
+segment (`docs/adr/0012-the-public-link-carries-no-locale.md`), and a Story's
+own Language is a column on the Story rather than a property of whoever reads it
+(`docs/adr/0013-the-interfaces-locale-is-not-the-storys-language.md`).
+
 ## Formatting
 
 The TypeScript and the Vue here are wrapped by hand — where a chain breaks and

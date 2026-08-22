@@ -32,6 +32,8 @@ const { carrier, conditions, scenes, counting } = defineProps<{
 /** Written whenever a row changes, and left to the page to send. */
 const emit = defineEmits<{ write: [] }>()
 
+const { t } = useI18n()
+
 /** Which of the two things one Condition tests. */
 type ConditionKind = 'flag' | 'visits'
 
@@ -76,7 +78,7 @@ function choose(place: number, kind: ConditionKind) {
  * "Condition 2 of the Cut to The platform".
  */
 function conditionCalled(place: number) {
-  return `Condition ${place + 1} of ${carrier}`
+  return t('conditions.called', { place: place + 1, carrier })
 }
 </script>
 
@@ -85,27 +87,29 @@ function conditionCalled(place: number) {
     <p class="eyebrow">
       {{ lead }}
       <span class="visually-hidden">— {{ carrier }}</span>
-      <template v-if="!conditions.length">— always</template>
+      <template v-if="!conditions.length">{{ $t('conditions.always') }}</template>
     </p>
 
     <div v-for="(condition, place) in conditions" :key="place" class="when">
       <label class="eyebrow" :for="`when-${id}-${place}`">
-        Condition {{ place + 1 }}
-        <span class="visually-hidden">of {{ carrier }}</span>
+        {{ $t('conditions.numbered', { place: place + 1 }) }}
+        <span class="visually-hidden">{{ $t('conditions.ofCarrier', { carrier }) }}</span>
       </label>
       <select
         :id="`when-${id}-${place}`"
         :value="conditionKind(condition)"
         @change="choose(place, ($event.target as HTMLSelectElement).value as ConditionKind)"
       >
-        <option value="flag">A Flag holds</option>
-        <option value="visits">A Scene has been entered</option>
+        <option value="flag">{{ $t('conditions.aFlagHolds') }}</option>
+        <option value="visits">{{ $t('conditions.aSceneEntered') }}</option>
       </select>
 
       <template v-if="'flag' in condition">
         <label class="eyebrow" :for="`flag-${id}-${place}`">
-          Flag
-          <span class="visually-hidden">of {{ conditionCalled(place) }}</span>
+          {{ $t('conditions.flag') }}
+          <span class="visually-hidden">
+            {{ $t('conditions.ofCarrier', { carrier: conditionCalled(place) }) }}
+          </span>
         </label>
         <input
           :id="`flag-${id}-${place}`"
@@ -115,8 +119,10 @@ function conditionCalled(place: number) {
           @change="emit('write')"
         >
         <label class="eyebrow" :for="`is-${id}-${place}`">
-          holds
-          <span class="visually-hidden">for {{ conditionCalled(place) }}</span>
+          {{ $t('conditions.holds') }}
+          <span class="visually-hidden">
+            {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
+          </span>
         </label>
         <input
           :id="`is-${id}-${place}`"
@@ -129,8 +135,10 @@ function conditionCalled(place: number) {
 
       <template v-else>
         <label class="eyebrow" :for="`counted-${id}-${place}`">
-          Scene
-          <span class="visually-hidden">counted by {{ conditionCalled(place) }}</span>
+          {{ $t('conditions.scene') }}
+          <span class="visually-hidden">
+            {{ $t('conditions.countedBy', { condition: conditionCalled(place) }) }}
+          </span>
         </label>
         <select
           :id="`counted-${id}-${place}`"
@@ -141,27 +149,31 @@ function conditionCalled(place: number) {
                counts, and saying so beats showing the Author a Scene they never
                chose. -->
           <option v-if="!sceneNames.get(condition.scene)" :value="condition.scene">
-            A Scene that is gone
+            {{ $t('scene.goneOption') }}
           </option>
           <option v-for="counted in scenes" :key="counted.id" :value="counted.id">
             {{ counted.name }}
           </option>
         </select>
         <label class="eyebrow" :for="`visits-${id}-${place}`">
-          entered
-          <span class="visually-hidden">for {{ conditionCalled(place) }}</span>
+          {{ $t('conditions.entered') }}
+          <span class="visually-hidden">
+            {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
+          </span>
         </label>
         <select
           :id="`visits-${id}-${place}`"
           v-model="condition.visits"
           @change="emit('write')"
         >
-          <option value="at least">at least</option>
-          <option value="fewer than">fewer than</option>
+          <option value="at least">{{ $t('conditions.atLeast') }}</option>
+          <option value="fewer than">{{ $t('conditions.fewerThan') }}</option>
         </select>
         <label class="eyebrow" :for="`times-${id}-${place}`">
-          times
-          <span class="visually-hidden">for {{ conditionCalled(place) }}</span>
+          {{ $t('conditions.times') }}
+          <span class="visually-hidden">
+            {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
+          </span>
         </label>
         <input
           :id="`times-${id}-${place}`"
@@ -175,14 +187,14 @@ function conditionCalled(place: number) {
       </template>
 
       <button type="button" class="danger" @click="remove(place)">
-        Remove Condition {{ place + 1 }}
-        <span class="visually-hidden">of {{ carrier }}</span>
+        {{ $t('conditions.remove', { place: place + 1 }) }}
+        <span class="visually-hidden">{{ $t('conditions.ofCarrier', { carrier }) }}</span>
       </button>
     </div>
 
     <button v-if="conditions.length < CONDITIONS_MAX" type="button" @click="add">
-      Add a Condition
-      <span class="visually-hidden">to {{ carrier }}</span>
+      {{ $t('conditions.add') }}
+      <span class="visually-hidden">{{ $t('conditions.toCarrier', { carrier }) }}</span>
     </button>
   </div>
 </template>

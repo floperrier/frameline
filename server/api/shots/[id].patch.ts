@@ -24,6 +24,6 @@ export default defineEventHandler(async (event) => {
       description: shots.description,
     })
 
-  if (!shot) throw notFound('Shot')
+  if (!shot) throw notFound(event, 'Shot')
   return shot
 })

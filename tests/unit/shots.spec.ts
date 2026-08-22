@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { SHOT_DESCRIPTION_MAX_LENGTH, imageTypeOf } from '../../shared/utils/scenes'
 import type { H3Event } from 'h3'
+import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
 
 /** The first bytes of one file of each format a Shot may carry, and of some it may not. */
 const heads = {
@@ -47,6 +48,11 @@ describe('what an image really is', () => {
 vi.stubGlobal('readBody', async (event: { body: unknown }) => event.body)
 vi.stubGlobal('createError', (refusal: { statusCode: number, message: string }) =>
   Object.assign(new Error(refusal.message), refusal))
+// The refusal comes out of the message file the interface reads, in the language
+// the request asked for; here that is English, which is what these assertions
+// are written in.
+vi.stubGlobal('saying', () => (key: string, values?: Record<string, string | number>) =>
+  phrase(DEFAULT_LOCALE, key, values))
 vi.stubGlobal('SHOT_DESCRIPTION_MAX_LENGTH', SHOT_DESCRIPTION_MAX_LENGTH)
 
 const { readShotDescription } = await import('../../server/utils/shots')

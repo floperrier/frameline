@@ -37,10 +37,7 @@ export default defineEventHandler(async (event) => {
     .from(stories)
     .where(and(eq(stories.id, id), eq(stories.authorId, author.id)))
 
-  if (!own) throw notFound('Story')
+  if (!own) throw notFound(event, 'Story')
 
-  throw createError({
-    statusCode: 400,
-    message: 'A Story needs an opening Scene before it can be published.',
-  })
+  throw createError({ statusCode: 400, message: saying(event)('refusals.openingScene') })
 })

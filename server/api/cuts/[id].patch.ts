@@ -19,6 +19,6 @@ export default defineEventHandler(async (event) => {
       text: cuts.text,
     })
 
-  if (!cut) throw notFound('Cut')
+  if (!cut) throw notFound(event, 'Cut')
   return cut
 })

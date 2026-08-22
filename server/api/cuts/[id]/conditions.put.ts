@@ -28,6 +28,6 @@ export default defineEventHandler(async (event) => {
       and ${countedWithinTheStory(conditions)}
     returning cuts.id, cuts.conditions`)
 
-  if (!rows[0]) throw notFound('Cut')
+  if (!rows[0]) throw notFound(event, 'Cut')
   return rows[0]
 })

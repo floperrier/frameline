@@ -1,0 +1,193 @@
+{
+  "locale": {
+    "label": "Langue de l'interface"
+  },
+  "languages": {
+    "de": "Allemand",
+    "en": "Anglais",
+    "es": "Espagnol",
+    "fr": "Français",
+    "it": "Italien"
+  },
+  "common": {
+    "delete": "Supprimer",
+    "moveEarlier": "Déplacer avant",
+    "moveLater": "Déplacer après"
+  },
+  "scene": {
+    "gone": "une Scène disparue",
+    "goneOption": "Une Scène disparue"
+  },
+  "cut": {
+    "to": "Coupe vers {scene}"
+  },
+  "landing": {
+    "eyebrow": "Récit interactif, coupé comme un film",
+    "pitch": "Un éditeur d'œuvres narratives interactives qui parle la grammaire du cinéma. Écrivez en Plans, coupez entre les Scènes, et ne donnez qu'un lien à qui vous lit.",
+    "yourStories": "Vos Récits",
+    "signInFailed": "La connexion n'a pas fonctionné. Réessayez.",
+    "signInToWrite": "Connectez-vous pour écrire",
+    "signInWithGitHub": "Se connecter avec GitHub",
+    "signInWithGoogle": "Se connecter avec Google",
+    "specimen": "Ce qui est montré à la lecture",
+    "specimenScene": "La rue",
+    "specimenShot": "La porte cède à la troisième poussée. La pluie, et le néon du bar d'en face, déjà allumé à quatre heures de l'après-midi.",
+    "specimenCutOne": "Traverser jusqu'au bar",
+    "specimenCutTwo": "Rester sous le porche le temps que ça se calme"
+  },
+  "stories": {
+    "heading": "Récits",
+    "signOut": "Se déconnecter",
+    "newTitle": "Titre d'un nouveau Récit",
+    "newLanguage": "Langue d'un nouveau Récit",
+    "create": "Créer le Récit",
+    "none": "Aucun Récit pour l'instant. Nommez-en un ci-dessus, et il s'ouvre prêt pour sa première Scène.",
+    "open": "Ouvrir",
+    "title": "Titre",
+    "rename": "Renommer",
+    "confirmDelete": "Supprimer « {title} » ? C'est sans retour."
+  },
+  "editor": {
+    "allStories": "Tous les Récits",
+    "readableAt": "N'importe qui peut lire ce Récit à",
+    "preview": "Aperçu de ce Récit",
+    "unpublish": "Dépublier ce Récit",
+    "publish": "Publier ce Récit",
+    "newSceneName": "Nom d'une nouvelle Scène",
+    "createScene": "Créer la Scène",
+    "noScenes": "Aucune Scène pour l'instant. Nommez-en une ci-dessus, et elle arrive sur la table de montage avec un Plan à écrire.",
+    "oneShot": "{count} Plan",
+    "manyShots": "{count} Plans",
+    "oneCut": "{count} Coupe",
+    "manyCuts": "{count} Coupes",
+    "confirmDeleteScene": "Supprimer « {name} », ses {shots} et ses {cuts} ?",
+    "glanceWaysOn": "{shots}, vers {waysOn}",
+    "glanceNoWayOn": "{shots}, aucune issue",
+    "fold": "Replier",
+    "open": "Ouvrir",
+    "sceneNamed": "Scène {name}",
+    "move": "Déplacer",
+    "openingScene": "Scène d'ouverture",
+    "deleteScene": "Supprimer la Scène",
+    "shot": "Plan",
+    "stillOfShot": "Le photogramme du Plan {place}",
+    "image": "Photogramme",
+    "imageOfShot": "du Plan {place}",
+    "description": "Description",
+    "descriptionOfShot": "du photogramme du Plan {place}",
+    "whatTheStillShows": "Ce que montre le photogramme",
+    "playedWhen": "Joué quand",
+    "shotOfScene": "Plan {place} de {scene}",
+    "shotNumber": "Plan {place}",
+    "addShot": "Ajouter un Plan",
+    "toScene": "à {name}",
+    "flagsSet": "Marqueurs posés à l'entrée dans",
+    "flagsPlaceholder": "courage {separator} élevé",
+    "fromScene": "depuis {name}",
+    "offeredWhen": "Offerte quand",
+    "theCutTo": "la Coupe vers {scene}",
+    "deleteCutTo": "Supprimer la Coupe vers {scene}",
+    "cutFromTo": "Coupe depuis {name} vers",
+    "chooseScene": "Choisir une Scène",
+    "drawCutFrom": "Tracer la Coupe depuis {name}"
+  },
+  "conditions": {
+    "numbered": "Condition {place}",
+    "ofCarrier": "de {carrier}",
+    "always": "— toujours",
+    "aFlagHolds": "Un Marqueur vaut",
+    "aSceneEntered": "Une Scène a été entrée",
+    "flag": "Marqueur",
+    "holds": "vaut",
+    "forCondition": "pour {condition}",
+    "scene": "Scène",
+    "countedBy": "comptée par {condition}",
+    "entered": "entrée",
+    "atLeast": "au moins",
+    "fewerThan": "moins de",
+    "times": "fois",
+    "remove": "Retirer la Condition {place}",
+    "add": "Ajouter une Condition",
+    "toCarrier": "à {carrier}",
+    "called": "Condition {place} de {carrier}"
+  },
+  "preview": {
+    "back": "Retour au Récit",
+    "nobodyElse": "Personne d'autre ne peut voir ceci",
+    "heading": "Aperçu de {title}",
+    "noOpeningScene": "Ce Récit n'a pas de Scène d'ouverture, il n'y a donc rien à lire pour l'instant.",
+    "bench": "Sur la table de montage",
+    "benchNote": "invisible à la lecture",
+    "waysOnHidden": "Issues que cette Lecture ne se voit pas offrir",
+    "shotsSkipped": "Plans que cette Lecture ne joue pas",
+    "skippedShot": "Plan {place} · {text}",
+    "nothingWritten": "rien d'écrit pour l'instant",
+    "flags": "Marqueurs",
+    "noFlagValue": "(rien)",
+    "noFlags": "Aucune Scène n'en a encore posé",
+    "scenesEntered": "Scènes entrées",
+    "needsFlag": "demande que {flag} vaille {is}, vaut {holds}",
+    "nothing": "rien",
+    "needsVisits": "demande {how} {count} dans {scene}, {entered}",
+    "oneVisit": "{times} entrée",
+    "manyVisits": "{times} entrées",
+    "neverEntered": "jamais entrée",
+    "enteredOnce": "entrée une fois",
+    "enteredTimes": "entrée {visits} fois"
+  },
+  "reading": {
+    "shotOf": "Plan {place} sur {of}",
+    "next": "Plan suivant",
+    "ended": "Le chemin s'arrête ici.",
+    "again": "Relire depuis le début"
+  },
+  "read": {
+    "eyebrow": "Un Récit Frameline"
+  },
+  "error": {
+    "refused": "Cela n'a pas fonctionné. Réessayez.",
+    "wentWrong": "Quelque chose s'est mal passé.",
+    "home": "Retour à Frameline"
+  },
+  "refusals": {
+    "noSuch": {
+      "story": "Ce Récit n'existe pas.",
+      "scene": "Cette Scène n'existe pas.",
+      "shot": "Ce Plan n'existe pas.",
+      "cut": "Cette Coupe n'existe pas."
+    },
+    "notAnId": {
+      "story": "Cet identifiant n'est pas celui d'un Récit.",
+      "scene": "Cet identifiant n'est pas celui d'une Scène.",
+      "shot": "Cet identifiant n'est pas celui d'un Plan.",
+      "cut": "Cet identifiant n'est pas celui d'une Coupe."
+    },
+    "moveDirection": {
+      "shot": "Un Plan se déplace avant ou après.",
+      "cut": "Une Coupe se déplace avant ou après."
+    },
+    "tooManyConditions": {
+      "shot": "Un Plan ne peut pas porter plus de {max} Conditions.",
+      "cut": "Une Coupe ne peut pas porter plus de {max} Conditions."
+    },
+    "badCondition": "Une Condition teste ce que vaut un Marqueur, ou combien de fois une Scène a été entrée, jusqu'à {max} fois.",
+    "cutText": "Une Coupe porte un texte.",
+    "cutTextLong": "Une Coupe ne peut pas porter plus de {max} caractères.",
+    "cutTarget": "Une Coupe arrive sur une Scène.",
+    "sceneName": "Une Scène a besoin d'un nom.",
+    "sceneNameLong": "Un nom ne peut pas dépasser {max} caractères.",
+    "scenePlacement": "Une Scène se place entre 0 et {reach} pixels du coin du Graphe.",
+    "tooManyFlags": "Une Scène ne peut pas poser plus de {max} Marqueurs.",
+    "badFlag": "Un Marqueur est un nom et une valeur, écrits « courage {separator} élevé ».",
+    "storyTitle": "Un Récit a besoin d'un titre.",
+    "storyTitleLong": "Un titre ne peut pas dépasser {max} caractères.",
+    "storyLanguage": "Un Récit est écrit dans une seule langue.",
+    "shotText": "Un Plan porte un texte.",
+    "shotTextLong": "Un Plan ne peut pas porter plus de {max} caractères.",
+    "description": "Une Description dit ce que montre un photogramme, en {max} caractères au plus.",
+    "imageMissing": "Un photogramme est un fichier à envoyer.",
+    "imageHeavy": "Un photogramme ne peut pas peser plus de {mb} Mo.",
+    "imageType": "Un Plan porte un photogramme JPEG, PNG ou WebP, et rien d'autre.",
+    "openingScene": "Un Récit a besoin d'une Scène d'ouverture avant d'être publié."
+  }
+}

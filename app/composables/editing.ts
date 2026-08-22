@@ -13,6 +13,7 @@
  * `docs/adr/0008-refetch-is-for-a-refusal.md`.
  */
 export function useEditing(reload: () => Promise<unknown>) {
+  const { t } = useI18n()
   const problem = ref('')
 
   async function attempt(act: () => Promise<unknown>) {
@@ -25,8 +26,10 @@ export function useEditing(reload: () => Promise<unknown>) {
       // The refusal travels in the body rather than on the status line, where
       // `error.statusMessage` reads it as a reason phrase and h3 sanitizes it
       // down to ASCII. See `docs/adr/0009-a-refusal-travels-in-the-body.md`.
+      // The refusal itself arrives already in the Author's language, negotiated
+      // by the server from the same request that carried the change.
       problem.value = (error as { data?: { message?: string } }).data?.message
-        ?? 'That did not work. Please try again.'
+        ?? t('error.refused')
       return false
     }
   }

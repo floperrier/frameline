@@ -10,6 +10,8 @@
 // inspection code to be kept switched off.
 definePageMeta({ middleware: 'authenticated' })
 
+const { t } = useI18n()
+const localePath = useLocalePath()
 const id = useRoute().params.id as string
 const headers = useRequestHeaders(['cookie'])
 const { data: story } = await useAsyncData(
@@ -29,7 +31,7 @@ const shown = computed(() => story.value && reading(story.value, at.value))
 const sceneNames = computed(() => new Map(story.value?.scenes.map(scene => [scene.id, scene.name])))
 
 function sceneName(sceneId: string) {
-  return sceneNamed(sceneNames.value, sceneId)
+  return sceneNamed(sceneNames.value, sceneId, t)
 }
 
 /**
@@ -38,6 +40,11 @@ function sceneName(sceneId: string) {
  * almost nothing at very great length.
  */
 const flags = computed(() => Object.entries(shown.value?.state.flags ?? {}))
+
+/** What a Flag holds, and what stands in for a Flag holding the empty value. */
+function held(value: string) {
+  return value || t('preview.noFlagValue')
+}
 const visits = computed(() => Object.entries(shown.value?.state.visits ?? {}))
 
 /**
@@ -73,24 +80,39 @@ const skipped = computed(() => {
 
 /** Which of the tests a hidden Cut or a skipped Shot carries this State fails, and by what. */
 function why(conditions: Condition[]) {
-  return shown.value ? unmet(conditions, shown.value.state, sceneName) : []
+  return shown.value ? unmet(conditions, shown.value.state, sceneName, t) : []
 }
 </script>
 
 <template>
   <main class="room">
     <header>
-      <NuxtLink class="back trail" :to="`/stories/${id}`">Back to the Story</NuxtLink>
+      <div class="leaving">
+        <NuxtLink class="back trail" :to="localePath(`/stories/${id}`)">
+          {{ $t('preview.back') }}
+        </NuxtLink>
+        <Locales />
+      </div>
       <!-- Said in the room the Reader will be in, and marked as the Author's own
            run through it rather than dressed up as a published Story. -->
-      <p class="eyebrow">Nobody else can reach this</p>
-      <h1>Preview of {{ story?.title }}</h1>
+      <p class="eyebrow">{{ $t('preview.nobodyElse') }}</p>
+      <!-- The Story's title is the Author's own words and stays in the Story's
+           Language; the sentence around it is the Author's tool and is in
+           theirs. The Aperçu is the one screen where the two are visible at
+           once. -->
+      <h1>
+        <i18n-t keypath="preview.heading" tag="span" scope="global">
+          <template #title>
+            <span :lang="story?.language">{{ story?.title }}</span>
+          </template>
+        </i18n-t>
+      </h1>
     </header>
 
     <!-- Said plainly to the Author, who can go and name one. A Reader meeting the
          same Story is simply told the path ends. -->
     <p v-if="story && !story.openingSceneId" class="nothing">
-      This Story has no opening Scene, so there is nothing to read yet.
+      {{ $t('preview.noOpeningScene') }}
     </p>
 
     <!-- The reel and the bench it is cut on, stacked: the projection no longer has
@@ -104,7 +126,9 @@ function why(conditions: Condition[]) {
            a landmark an Author can be sent to is worth the one attribute. -->
       <section class="bench" aria-labelledby="bench">
         <p id="bench" class="eyebrow">
-          On the bench <span aria-hidden="true">·</span> nobody reading this sees it
+          {{ $t('preview.bench') }}
+          <span aria-hidden="true">·</span>
+          {{ $t('preview.benchNote') }}
         </p>
 
         <!-- Why a way on is missing, which is the question a Preview could not
@@ -112,10 +136,10 @@ function why(conditions: Condition[]) {
              through and each naming the tests it failed. Text and not controls —
              a hidden Cut is not takeable here any more than it is for a Reader. -->
         <div v-if="hidden.length" class="hidden">
-          <p class="eyebrow">Ways on this Reading is not offered</p>
+          <p class="eyebrow">{{ $t('preview.waysOnHidden') }}</p>
           <ul>
             <li v-for="cut in hidden" :key="cut.id">
-              <s class="splice">{{ cutNamed(cut, sceneName) }}</s>
+              <s class="splice" :lang="story?.language">{{ cutNamed(cut, sceneName, t) }}</s>
               <ul class="why">
                 <li v-for="(test, at) in why(cut.conditions)" :key="at">{{ test }}</li>
               </ul>
@@ -129,10 +153,15 @@ function why(conditions: Condition[]) {
              that says something different on a return visit is a Scene whose
              skipped Shots an Author has to be able to see. -->
         <div v-if="skipped.length" class="hidden">
-          <p class="eyebrow">Shots this Reading is not played</p>
+          <p class="eyebrow">{{ $t('preview.shotsSkipped') }}</p>
           <ul>
             <li v-for="{ shot, place } in skipped" :key="shot.id">
-              <s class="splice">Shot {{ place }} · {{ shot.text || 'nothing written yet' }}</s>
+              <s class="splice" :lang="story?.language">
+                {{ t('preview.skippedShot', {
+                  place,
+                  text: shot.text || t('preview.nothingWritten'),
+                }) }}
+              </s>
               <ul class="why">
                 <li v-for="(test, at) in why(shot.conditions)" :key="at">{{ test }}</li>
               </ul>
@@ -142,17 +171,17 @@ function why(conditions: Condition[]) {
 
         <div class="state">
           <div>
-            <p class="eyebrow">Flags</p>
+            <p class="eyebrow">{{ $t('preview.flags') }}</p>
             <ul v-if="flags.length" class="flags">
               <li v-for="[name, value] in flags" :key="name">
-                {{ name }} <span aria-hidden="true">=</span> <b>{{ value || '(nothing)' }}</b>
+                {{ name }} <span aria-hidden="true">=</span> <b>{{ held(value) }}</b>
               </li>
             </ul>
-            <p v-else class="none">No Scene has set one yet</p>
+            <p v-else class="none">{{ $t('preview.noFlags') }}</p>
           </div>
 
           <div>
-            <p class="eyebrow">Scenes entered</p>
+            <p class="eyebrow">{{ $t('preview.scenesEntered') }}</p>
             <ul class="visits">
               <li v-for="[sceneId, count] in visits" :key="sceneId">
                 {{ sceneName(sceneId) }} <span aria-hidden="true">×</span> <b>{{ count }}</b>
@@ -175,8 +204,13 @@ function why(conditions: Condition[]) {
   gap: var(--s5);
 }
 
-.back {
-  justify-self: start;
+/* Where the Author came from on one side and the language they read in on the
+   other: both are about the tool rather than about the Story. */
+.leaving {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
   margin-block-end: var(--s3);
 }
 

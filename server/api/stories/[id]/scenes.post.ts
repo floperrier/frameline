@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
     )
     select id, name, x, y from written`)
 
-  if (!rows[0]) throw notFound('Story')
+  if (!rows[0]) throw notFound(event, 'Story')
 
   setResponseStatus(event, 201)
   return { ...rows[0], shots: [] }

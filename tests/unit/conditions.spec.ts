@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { H3Event } from 'h3'
+import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
 import {
   CONDITIONS_MAX,
   FLAG_NAME_MAX_LENGTH,
@@ -21,6 +22,11 @@ import { UUID_PATTERN } from '../../server/utils/ids'
 vi.stubGlobal('readBody', async (event: { body: unknown }) => event.body)
 vi.stubGlobal('createError', (refusal: { statusCode: number, message: string }) =>
   Object.assign(new Error(refusal.message), refusal))
+// The refusal comes out of the message file the interface reads, in the language
+// the request asked for; here that is English, which is what these assertions
+// are written in.
+vi.stubGlobal('saying', () => (key: string, values?: Record<string, string | number>) =>
+  phrase(DEFAULT_LOCALE, key, values))
 vi.stubGlobal('CONDITIONS_MAX', CONDITIONS_MAX)
 vi.stubGlobal('FLAG_NAME_MAX_LENGTH', FLAG_NAME_MAX_LENGTH)
 vi.stubGlobal('FLAG_VALUE_MAX_LENGTH', FLAG_VALUE_MAX_LENGTH)

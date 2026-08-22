@@ -1,4 +1,5 @@
 import type { Condition, Cut, Flags, Shot } from './scenes'
+import type { Phrase } from './phrases'
 
 /**
  * A Story as a Reader receives it. Narrower than the Story an Author edits — no
@@ -63,25 +64,45 @@ export function holds(conditions: Condition[], state: State) {
  *
  * Every test is put back through `holds` one at a time rather than read a second
  * time here, so what this says failed and what the engine hid the Cut for cannot
- * come apart.
+ * come apart. The words come in from outside — see `Phrase` — so the engine
+ * stays a pure function of its Story and knows nothing about a language.
  */
-export function unmet(conditions: Condition[], state: State, sceneName: (id: string) => string) {
+export function unmet(
+  conditions: Condition[],
+  state: State,
+  sceneName: (id: string) => string,
+  say: Phrase,
+) {
   return conditions.filter(condition => !holds([condition], state)).map((condition) => {
     if ('flag' in condition) {
-      return `needs ${condition.flag} to hold ${condition.is || 'nothing'}`
-        + `, holds ${state.flags[condition.flag] || 'nothing'}`
+      return say('preview.needsFlag', {
+        flag: condition.flag,
+        is: condition.is || say('preview.nothing'),
+        holds: state.flags[condition.flag] || say('preview.nothing'),
+      })
     }
 
-    const asked = `${condition.times} ${condition.times === 1 ? 'visit' : 'visits'}`
-    return `needs ${condition.visits} ${asked} to ${sceneName(condition.scene)}`
-      + `, ${entered(state.visits[condition.scene] ?? 0)}`
+    return say('preview.needsVisits', {
+      how: say(condition.visits === 'at least' ? 'conditions.atLeast' : 'conditions.fewerThan'),
+      count: say(
+        condition.times === 1 ? 'preview.oneVisit' : 'preview.manyVisits',
+        { times: condition.times },
+      ),
+      scene: sceneName(condition.scene),
+      entered: entered(state.visits[condition.scene] ?? 0, say),
+    })
   })
 }
 
-/** How often a Scene has been entered, said the way it would be said out loud. */
-function entered(visits: number) {
-  if (visits === 0) return 'never entered'
-  return visits === 1 ? 'entered once' : `entered ${visits} times`
+/**
+ * How often a Scene has been entered, said the way it would be said out loud.
+ * Three phrases rather than one with a number in it, because English and French
+ * do not agree about what a count of one and a count of none look like, and a
+ * plural engine to settle three sentences is a plural engine to keep.
+ */
+function entered(visits: number, say: Phrase) {
+  if (visits === 0) return say('preview.neverEntered')
+  return visits === 1 ? say('preview.enteredOnce') : say('preview.enteredTimes', { visits })
 }
 
 /** Every Reading starts here: the opening Scene, first Shot, nothing taken. */

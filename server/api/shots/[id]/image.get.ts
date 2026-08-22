@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
   // all answer the same way: whatever this request cannot reach, it cannot tell
   // apart from absent.
   if (!carried?.image || !(carried.authorId === author?.id || carried.publishedAt)) {
-    throw notFound('Shot')
+    throw notFound(event, 'Shot')
   }
 
   setResponseHeaders(event, {

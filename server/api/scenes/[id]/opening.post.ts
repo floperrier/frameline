@@ -18,6 +18,6 @@ export default defineEventHandler(async (event) => {
       and stories.author_id = ${author.id}::uuid
     returning stories.id, stories.opening_scene_id as "openingSceneId"`)
 
-  if (!rows[0]) throw notFound('Scene')
+  if (!rows[0]) throw notFound(event, 'Scene')
   return rows[0]
 })
