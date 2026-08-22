@@ -8,9 +8,9 @@ An Author works on one surface. `/stories/[id]` is the graph, and a Scene's node
 opened on it is where that Scene is written: its Shots with their text, their
 stills and their Descriptions, the Conditions each Shot plays under, the Flags
 the Scene sets on entry, the Cuts leaving it with their own text and Conditions,
-and the Scene's own name, Opening Scene radio and delete. There is no route
-below `/stories/[id]` and no second room to navigate to; the only other page an
-Author has is the Preview, which is the Reading engine and not the editor.
+and the Scene's own name, Opening Scene radio and delete. There is no editing
+route below `/stories/[id]` and no second room to navigate to; the one page
+beneath it is the Preview, which is the Reading engine and not the editor.
 
 The v1 spec said two surfaces: "a graph of Scenes and the Cuts between them, and
 a Scene editor where the Shots of one Scene are written and given images."
@@ -43,8 +43,7 @@ What makes it work rather than merely cheaper is that the graph is written here
 rather than pulled in — see
 `docs/adr/0010-the-graph-is-written-here-not-pulled-in.md`. A node is ordinary
 markup in an ordinary page, so putting a textarea and a file picker in one costs
-nothing; inside a graph library it would be a custom node opting out of the
-viewport's handling control by control.
+nothing, and that record says what the same node costs inside a library.
 
 ## Consequences
 

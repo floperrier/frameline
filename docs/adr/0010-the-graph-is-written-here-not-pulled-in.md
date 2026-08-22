@@ -52,10 +52,11 @@ are one: the library's node is a box for a label, and this one is a room.
 
 ## Consequences
 
-There is no zoom and no pan. The graph is a 10,000-pixel canvas the browser
-scrolls, bounded on both sides of the wire by `GRAPH_REACH` so nothing can be
-dropped where nobody can scroll to it, and a new Scene is placed by the server
-in columns of `NODES_PER_COLUMN` so a long Story stays inside that reach. There
+There is no zoom and no pan. The graph is a surface as large as the Scenes on
+it, which the browser scrolls, bounded on both sides of the wire by
+`GRAPH_REACH` so nothing can be dropped where nobody can scroll to it, and a new
+Scene is placed by the server in columns of `NODES_PER_COLUMN` so a long Story
+stays inside that reach. There
 is no minimap, no marquee, no snapping beyond the twenty pixels an arrow key
 moves a node by, and no edge routing: a Cut is a straight line from the edge of
 one box to the edge of another and it crosses whatever sits between them.
