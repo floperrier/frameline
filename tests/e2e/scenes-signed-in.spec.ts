@@ -1,7 +1,7 @@
 import type { APIRequestContext } from '@playwright/test'
 import { expect } from '@playwright/test'
 import { CONDITIONS_MAX, VISITS_MAX } from '../../shared/utils/scenes'
-import { readShotConditions, readShots, seedScene, seedStory, test } from './author'
+import { openNode, readShotConditions, readShots, seedScene, seedStory, test } from './author'
 
 const noId = '00000000-0000-4000-8000-000000000000'
 
@@ -151,7 +151,10 @@ test('the Story page shows a Scene and the Shots in it', async ({ page, request 
 
   await page.goto(`/stories/${story.id}`)
 
+  // A node is folded until the Author opens it: what a Scene is made of is read
+  // there, and the graph is read without it.
   await expect(page.getByRole('heading', { name: 'The arrival' })).toBeVisible()
+  await openNode(page, 'The arrival')
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('She steps off the train.')
 
   await page.getByRole('button', { name: 'Add Shot' }).click()
@@ -165,6 +168,7 @@ test('an Author writes a Story from the page alone', async ({ page, request }) =
   await page.getByLabel('Name of a new Scene').fill('The arrival')
   await page.getByRole('button', { name: 'Create Scene' }).click()
   await expect(page.getByRole('heading', { name: 'The arrival' })).toBeVisible()
+  await openNode(page, 'The arrival')
 
   // Blurring the Shot is what writes it, so each is left before the next is added.
   for (const [place, line] of ['She steps off the train.', 'The platform is empty.'].entries()) {
@@ -182,6 +186,7 @@ test('an Author writes a Story from the page alone', async ({ page, request }) =
 
   // What the page shows has to be what was written, not what the page remembers.
   await page.reload()
+  await openNode(page, 'The arrival')
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('The platform is empty.')
 
   await page.getByRole('button', { name: 'Delete Shot 1' }).click()
@@ -271,6 +276,7 @@ test('an Author puts a Condition on a Shot from the page alone', async ({ page, 
   await writeShots(request, scene.id, ['The projector ticks over.'])
 
   await page.goto(`/stories/${story.id}`)
+  await openNode(page, 'The booth')
 
   await page.getByRole('button', { name: 'Add a Condition to Shot 1 of The booth' }).click()
   // A visit count is whole the moment it is chosen, and starts on the Scene the
@@ -287,6 +293,7 @@ test('an Author puts a Condition on a Shot from the page alone', async ({ page, 
 
   // What the page shows has to be what was written, not what the page remembers.
   await page.reload()
+  await openNode(page, 'The booth')
   await expect(page.getByLabel('Condition 1 of Shot 1 of The booth', { exact: true }))
     .toHaveValue('visits')
   await expect(page.getByLabel('times for Condition 1 of Shot 1 of The booth')).toHaveValue('2')

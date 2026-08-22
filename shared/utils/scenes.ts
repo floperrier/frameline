@@ -115,6 +115,57 @@ export const NODE_GAP = 40
 export const NODE_SPACING = NODE_HEIGHT + NODE_GAP
 
 /**
+ * A node's box on the graph: where the Author put it, and how tall it is drawn.
+ * The height is measured off the page rather than taken from `NODE_HEIGHT`,
+ * because a node is as tall as its Shots and the stills in them, and shorter
+ * again while the Author has it folded. The width is `NODE_WIDTH` for every node,
+ * so no box carries one.
+ */
+export type NodeBox = { x: number, y: number, height: number }
+
+type Point = { x: number, y: number }
+
+/**
+ * Where the line that draws a Cut meets the two nodes: on the edge of the box it
+ * leaves, and on the edge of the box it lands on. A line between two points fixed
+ * inside the nodes crossed whatever sat between them and arrived under the node it
+ * arrived at; a line between edges says which Scene leads to which at a glance.
+ */
+export function cutLine(from: NodeBox, to: NodeBox) {
+  const leaving = middleOf(from)
+  const landing = middleOf(to)
+  const run = { x: landing.x - leaving.x, y: landing.y - leaving.y }
+
+  return {
+    from: onTheEdge(leaving, from.height, run),
+    to: onTheEdge(landing, to.height, { x: -run.x, y: -run.y }),
+  }
+}
+
+function middleOf(node: NodeBox) {
+  return { x: node.x + NODE_WIDTH / 2, y: node.y + node.height / 2 }
+}
+
+/**
+ * Where a run out of the middle of a box crosses its edge: whichever of the two
+ * half-extents the run reaches first is the side it leaves by. A run of nowhere —
+ * two nodes dropped on the same spot — leaves at the middle, so what is drawn is
+ * a line of no length rather than one shooting off the graph. Rounded, because a
+ * line on a screen is not read finer than a pixel.
+ */
+function onTheEdge(middle: Point, height: number, run: Point) {
+  const reach = Math.min(
+    run.x ? NODE_WIDTH / 2 / Math.abs(run.x) : Infinity,
+    run.y ? height / 2 / Math.abs(run.y) : Infinity,
+  )
+  const reached = Number.isFinite(reach)
+    ? { x: middle.x + run.x * reach, y: middle.y + run.y * reach }
+    : middle
+
+  return { x: Math.round(reached.x), y: Math.round(reached.y) }
+}
+
+/**
  * How many Scenes a column of the graph holds before the next one starts a new
  * column. A Story numbering its Scenes down one endless column would put the
  * later ones past `GRAPH_REACH`, somewhere the Author could never drag them back

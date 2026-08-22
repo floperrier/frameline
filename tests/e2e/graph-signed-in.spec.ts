@@ -5,11 +5,13 @@ import {
   FLAGS_PER_SCENE,
   GRAPH_REACH,
   NODE_GAP,
+  NODE_HEIGHT,
   NODE_WIDTH,
   NODES_PER_COLUMN,
   VISITS_MAX,
 } from '../../shared/utils/scenes'
 import {
+  openNode,
   readCuts,
   readFlags,
   readScenePlacement,
@@ -324,6 +326,9 @@ test('an Author lays out the graph from the page alone', async ({ page, request 
     await expect(readScenePlacement(scenes[0]!.id)).resolves.toMatchObject({ x: 120, y: 80 })
   }).toPass()
 
+  // Laying a node out needs nothing opened — the slate carries the handle. Everything
+  // written about a Scene is inside the node, so from here the nodes are opened.
+  await openNode(page, 'The arrival')
   await page.getByLabel('Cut from The arrival to').selectOption({ label: 'The platform' })
   await page.getByRole('button', { name: 'Draw Cut from The arrival' }).click()
 
@@ -332,6 +337,7 @@ test('an Author lays out the graph from the page alone', async ({ page, request 
   await cutText.fill('Follow her out')
   await cutText.blur()
 
+  await openNode(page, 'The platform')
   await page.getByRole('radio', { name: 'Opening Scene The platform' }).check()
 
   // Reloading before a write has landed would abort it, so what the page did is
@@ -344,7 +350,13 @@ test('an Author lays out the graph from the page alone', async ({ page, request 
   }).toPass()
 
   // What the page shows has to be what was written, not what the page remembers.
+  // A reload folds every node again: what is folded is the Author's view of the
+  // graph and not a thing about the Story, so nothing was written to remember it.
+  // The Scene below is opened first: an open node overlaps the one under it, and
+  // the one that comes to the front is the one being worked in.
   await page.reload()
+  await openNode(page, 'The platform')
+  await openNode(page, 'The arrival')
   await expect(page.getByRole('textbox', { name: 'Cut to The platform' }))
     .toHaveValue('Follow her out')
   await expect(page.getByRole('radio', { name: 'Opening Scene The platform' })).toBeChecked()
@@ -373,10 +385,11 @@ test('two Scenes moved one after the other are both written', async ({ page, req
   }).toPass()
 })
 
-test('the graph shows several dozen Scenes', async ({ page, author }) => {
+test('the graph of several dozen Scenes is read folded', async ({ page, author }) => {
   const story = await seedStory(author, 'A long Story')
   const names = Array.from({ length: 40 }, (_, place) => `Scene ${place + 1}`)
-  await seedScenes(story, names)
+  const scenes = await seedScenes(story, names)
+  await seedCut(scenes[0]!.id, scenes[1]!.id)
 
   await page.goto(`/stories/${story.id}`)
 
@@ -386,6 +399,23 @@ test('the graph shows several dozen Scenes', async ({ page, author }) => {
   const last = page.getByRole('article', { name: 'Scene 40' })
   await last.scrollIntoViewIfNeeded()
   await expect(last).toBeVisible()
+
+  // Forty nodes and not one open editor among them, which is what makes forty
+  // Scenes readable rather than merely present: a folded node says what is in the
+  // Scene and where it leads, and says it in a fraction of an open node's height.
+  await expect(page.getByLabel('Flags set on entering Scene 40')).toHaveCount(0)
+  await expect(page.getByRole('article', { name: 'Scene 1', exact: true }))
+    .toContainText('1 Shot, on to Scene 2')
+  await expect(last).toContainText('1 Shot, no way on')
+  const folded = (await last.boundingBox())!.height
+  expect(folded).toBeLessThan(NODE_HEIGHT / 3)
+
+  // The editor comes on demand, and for the one Scene asked for: the other
+  // thirty-nine are still folded behind it.
+  await page.getByRole('button', { name: 'Open Scene Scene 40' }).click()
+  await expect(page.getByLabel('Flags set on entering Scene 40')).toBeVisible()
+  expect((await last.boundingBox())!.height).toBeGreaterThan(folded)
+  await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveCount(1)
 })
 
 test('a Scene sets Flags on entry, and a Cut carries Conditions', async ({ request }) => {
@@ -534,6 +564,7 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
   await drawCut(request, from.id, tunnel.id)
 
   await page.goto(`/stories/${story.id}`)
+  await openNode(page, 'The platform')
 
   await page.getByRole('button', { name: 'Move earlier the Cut to The tunnel' }).click()
   await expect(async () => {
@@ -546,6 +577,7 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
   // The way on that comes first has nowhere earlier to go, and the page says so
   // rather than asking.
   await page.reload()
+  await openNode(page, 'The platform')
   await expect(page.getByRole('button', { name: 'Move earlier the Cut to The tunnel' }))
     .toBeDisabled()
   await expect(page.getByRole('button', { name: 'Move later the Cut to The buffet' }))
@@ -564,6 +596,7 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
   await drawCut(request, from.id, to.id)
 
   await page.goto(`/stories/${story.id}`)
+  await openNode(page, 'The arrival')
 
   const flags = page.getByLabel('Flags set on entering The arrival')
   await flags.fill('coat = on')
@@ -603,6 +636,7 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
 
   // What the page shows has to be what was written, not what the page remembers.
   await page.reload()
+  await openNode(page, 'The arrival')
   await expect(page.getByLabel('Flags set on entering The arrival')).toHaveValue('coat = on')
   await expect(page.getByLabel('Condition 1 of the Cut to The platform', { exact: true }))
     .toHaveValue('flag')
