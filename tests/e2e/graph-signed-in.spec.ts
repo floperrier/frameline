@@ -818,7 +818,7 @@ async function openRow(request: APIRequestContext, names = ['The arrival', 'The 
 }
 
 /** The middle of a node, in the page's own coordinates. */
-async function middleOf(page: Page, name: string) {
+async function middleOfNode(page: Page, name: string) {
   const box = (await page.getByRole('article', { name }).boundingBox())!
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
 }
@@ -832,7 +832,7 @@ async function aimFrom(page: Page, name: string) {
 
 /** Moves the hand over a Scene's node, in the steps a hand really crosses a bench in. */
 async function moveOver(page: Page, name: string) {
-  const middle = await middleOf(page, name)
+  const middle = await middleOfNode(page, name)
   await page.mouse.move(middle.x, middle.y, { steps: 5 })
 }
 

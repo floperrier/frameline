@@ -200,18 +200,18 @@ function openOn(scene: Scene) {
 }
 
 /**
- * The bench the nodes are laid out on, which is what a pointer's position has to
- * be read against: the graph scrolls, so where the hand is on the screen is not
- * where it is on the canvas.
+ * The surface the nodes are laid out on, which is what a pointer's position has
+ * to be read against: the bench scrolls, so where the hand is on the screen is
+ * not where it is on the Graph.
  */
-const canvas = useTemplateRef<HTMLElement>('canvas')
+const surface = useTemplateRef<HTMLElement>('surface')
 
 /**
  * The Cut being drawn by hand, held while the gesture is live and nothing
  * otherwise. `landsOn` is worked out once, when the gesture begins: it depends
  * on the departing Scene and the Cuts already leaving it, and neither changes
  * under the Author's hand — see `docs/adr/0015-a-cut-is-drawn-by-hand.md`. `at`
- * is where the hand has reached on the canvas, and `over` the Scene it is over,
+ * is where the hand has reached on the surface, and `over` the Scene it is over,
  * neither of which the keyboard route has until a pointer moves.
  *
  * Held by Scene id and never by the Scene, the same trap the drag that moves a
@@ -267,7 +267,7 @@ function startAiming(scene: Scene, event: PointerEvent) {
 
 function keepAiming(event: PointerEvent) {
   if (!aiming.value) return
-  const on = canvas.value!.getBoundingClientRect()
+  const on = surface.value!.getBoundingClientRect()
   aiming.value.at = { x: event.clientX - on.left, y: event.clientY - on.top }
   aiming.value.over = sceneUnder(event)
 }
@@ -329,6 +329,15 @@ function aimOrLand(scene: Scene) {
   if (!aiming.value) return aimFrom(scene)
   if (aiming.value.fromSceneId === scene.id) return abandonAiming()
   return landOn(scene.id)
+}
+
+/**
+ * Whether the Cut being drawn may land on a node, which is the one question the
+ * bench asks of every Scene while a gesture is live: it lights the node, quiets
+ * the rest, and settles what the hidden button offers.
+ */
+function mayLandOn(scene: Scene) {
+  return !!aiming.value?.landsOn.has(scene.id)
 }
 
 function aimingName(scene: Scene) {
@@ -604,7 +613,7 @@ function atAGlance(scene: Scene) {
 
     <p v-if="!story?.scenes.length" class="none">{{ $t('editor.noScenes') }}</p>
     <div v-else class="graph">
-      <div ref="canvas" class="canvas" :style="{ ...graphSize, '--pitch': `${NUDGE}px` }">
+      <div ref="surface" class="surface" :style="{ ...graphSize, '--pitch': `${NUDGE}px` }">
         <!-- The Cuts are listed under the Scene they leave, so the lines that
              draw them are decoration and nothing reads them out. -->
         <svg aria-hidden="true" :style="graphSize">
@@ -652,8 +661,8 @@ function atAGlance(scene: Scene) {
           :class="{
             opens: story.openingSceneId === scene.id,
             drawing: aiming?.fromSceneId === scene.id,
-            lit: aiming?.landsOn.has(scene.id),
-            quiet: aiming && !aiming.landsOn.has(scene.id),
+            lit: mayLandOn(scene),
+            quiet: aiming && !mayLandOn(scene),
           }"
           :aria-label="scene.name"
           :style="{
@@ -688,8 +697,7 @@ function atAGlance(scene: Scene) {
             <button
               type="button"
               class="aim"
-              :disabled="!!aiming && !aiming.landsOn.has(scene.id)
-                && aiming.fromSceneId !== scene.id"
+              :disabled="!!aiming && !mayLandOn(scene) && aiming.fromSceneId !== scene.id"
               @click="aimOrLand(scene)"
             >
               {{ aimingName(scene) }}
@@ -1081,7 +1089,7 @@ header {
   background: color-mix(in oklab, var(--bench) 70%, black);
 }
 
-.canvas {
+.surface {
   position: relative;
   /* The bench is pricked out every twenty pixels, which is exactly how far an
      arrow key moves a Scene: the grid is the step, not a texture. */
