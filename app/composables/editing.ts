@@ -12,10 +12,61 @@
  * write reads back only when it was refused, which is the one moment where what
  * persisted beats what was typed. See
  * `docs/adr/0008-refetch-is-for-a-refusal.md`.
+ *
+ * Saying nothing at all, though, leaves an Author who typed a Shot and walked
+ * away with no way to know the Story holds it, so a write that landed leaves two
+ * quiet marks instead: `keptAt`, the time the page puts on its bench, and a flash
+ * in the field the writing came from. Both are marks rather than messages —
+ * nothing is announced, because a live region firing every time a field is left
+ * would interrupt the next thing typed.
  */
 export function useEditing(reload: () => Promise<unknown>) {
   const { t } = useI18n()
   const problem = ref('')
+  /**
+   * When a typed change last reached the Story, and nothing until one has: a time
+   * on the bench before the first write would be a claim about a page that has
+   * only been read, and it would have to be rendered on the server to be there.
+   */
+  const keptAt = ref<Date>()
+
+  /**
+   * The field a typed change is coming from, caught on the way down to it. A
+   * typed write starts in a `change` handler, so the event that started it is
+   * still being dispatched when the request goes out and the element under it is
+   * the one to flash — which beats handing the same element to each of the eleven
+   * handlers by hand, and reaches the fields inside a component that only emits.
+   *
+   * Listened for on the document rather than asked of each page, so that a page
+   * using `write` cannot half-wire the mark: what flashes is decided here, and a
+   * page that writes nothing never sees the listener fire. The server has no
+   * document and nothing to flash on it.
+   */
+  let writtenIn: HTMLElement | undefined
+
+  function writingFrom(event: Event) {
+    writtenIn = event.target instanceof HTMLElement ? event.target : undefined
+  }
+
+  if (import.meta.client) {
+    document.addEventListener('change', writingFrom, { capture: true })
+    onScopeDispose(
+      () => document.removeEventListener('change', writingFrom, { capture: true }))
+  }
+
+  /**
+   * Lights the field for a moment. The class is taken off again when the
+   * animation ends, so a field written in twice is lit twice — a second write
+   * landing while the first is still lit adds nothing, but the field is already
+   * saying what that write would have said. Under a reduced-motion preference the
+   * stylesheet cuts the animation to a single tick, which ends it at once and
+   * leaves the class inert.
+   */
+  function flash(field: HTMLElement | undefined) {
+    if (!field) return
+    field.classList.add('kept')
+    field.addEventListener('animationend', () => field.classList.remove('kept'), { once: true })
+  }
 
   async function attempt(act: () => Promise<unknown>) {
     problem.value = ''
@@ -52,8 +103,21 @@ export function useEditing(reload: () => Promise<unknown>) {
    * typing is taken off the screen by a change that worked.
    */
   async function write(act: () => Promise<unknown>) {
-    if (!await attempt(act)) await reload()
+    // Taken now and taken away, because what flashes has to be the field this
+    // very write came out of. A write can also start from a click — a Condition
+    // taken off its row — and that one has no field to light, so it lights
+    // nothing rather than whatever was last typed in somewhere else.
+    const field = writtenIn
+    writtenIn = undefined
+
+    if (!await attempt(act)) {
+      await reload()
+      return
+    }
+
+    keptAt.value = new Date()
+    flash(field)
   }
 
-  return { problem, change, write }
+  return { problem, keptAt, change, write }
 }

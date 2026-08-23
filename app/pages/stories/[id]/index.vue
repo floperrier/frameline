@@ -1,7 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'authenticated' })
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const localePath = useLocalePath()
 const id = useRoute().params.id as string
 // `useFetch` would forward the session cookie itself, but it cannot be given a
@@ -16,7 +16,16 @@ const { data: story, refresh } = await useAsyncData(
   () => send(`/api/stories/${id}`, { headers }) as Promise<StoryInEditor>,
   { deep: true },
 )
-const { problem, change, write } = useEditing(refresh)
+const { problem, keptAt, change, write } = useEditing(refresh)
+
+/**
+ * The time of the last write, told the way a clock is read in the Locale rather
+ * than in the Story's own Language: this is the bench talking about itself. There
+ * is no date on it because there is no session long enough to need one — what an
+ * Author wants from it is that the last thing they typed went somewhere.
+ */
+const kept = computed(() => keptAt.value && new Intl.DateTimeFormat(
+  locale.value, { timeStyle: 'short' }).format(keptAt.value))
 
 /**
  * The public link a Publish hands out. Built from the Story's own id, so it is
@@ -412,6 +421,10 @@ function atAGlance(scene: Scene) {
           <span class="eyebrow">{{ $t('editor.readableAt') }}</span>
           <a class="link" :href="publicLink">{{ publicLink }}</a>
         </p>
+        <!-- What a write leaves behind, beside the two controls that act on the
+             whole Story. Not a live region: it appears every time a field is left,
+             and announcing that would talk over the next thing typed. -->
+        <p v-if="kept" class="kept-at">{{ $t('editor.keptAt', { time: kept }) }}</p>
         <NuxtLink class="preview trail" :to="localePath(`/stories/${id}/preview`)">
           {{ $t('editor.preview') }}
         </NuxtLink>
@@ -823,6 +836,15 @@ header {
   gap: 2px;
   padding-inline-start: var(--s3);
   border-inline-start: 2px solid var(--grease);
+}
+
+/* The time of the last write, set in the face the interface reads its own
+   readings in, and quiet: it is there to be glanced at, never to be the thing
+   the eye lands on when the bench is opened. */
+.kept-at {
+  color: var(--muted);
+  font-family: var(--data);
+  font-size: 0.75rem;
 }
 
 .link {

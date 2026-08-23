@@ -50,6 +50,7 @@
   "editor": {
     "allStories": "All Stories",
     "readableAt": "Anyone can read this Story at",
+    "keptAt": "Kept at {time}",
     "preview": "Preview this Story",
     "unpublish": "Unpublish this Story",
     "publish": "Publish this Story",
