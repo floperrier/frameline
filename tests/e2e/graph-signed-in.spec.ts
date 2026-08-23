@@ -1,4 +1,4 @@
-import type { APIRequestContext } from '@playwright/test'
+import type { APIRequestContext, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 import {
   CONDITIONS_MAX,
@@ -22,7 +22,7 @@ import {
   test,
 } from './author'
 
-/** Draws a Cut between the two Scenes of a graph, as the page's own form would. */
+/** Draws a Cut between the two Scenes of a graph, past the gesture that draws one. */
 async function drawCut(request: APIRequestContext, fromSceneId: string, toSceneId: string) {
   const drawn = await request.post(`/api/scenes/${fromSceneId}/cuts`, { data: { toSceneId } })
   expect(drawn.status()).toBe(201)
@@ -322,8 +322,12 @@ test('an Author lays out the graph from the page alone', async ({ page, request 
   // Laying a node out needs nothing opened — the slate carries the handle. Everything
   // written about a Scene is inside the node, so from here the nodes are opened.
   await openNode(page, 'The arrival')
-  await page.getByLabel('Cut from The arrival to').selectOption({ label: 'The platform' })
-  await page.getByRole('button', { name: 'Draw Cut from The arrival' }).click()
+
+  // A Cut to write the text of, drawn through the hidden button rather than by
+  // hand: the gesture has its own specs below, and the Scene this one lands on is
+  // stacked below the bench's own fold where a pointer would have to scroll to it.
+  await page.getByRole('button', { name: 'Draw a Cut from The arrival' }).press('Enter')
+  await page.getByRole('button', { name: 'Cut from The arrival to The platform' }).press('Enter')
 
   const cutText = page.getByRole('textbox', { name: 'Cut to The platform' })
   await expect(cutText).toBeVisible()
@@ -475,6 +479,14 @@ test('a node is a strip and a body, and only the body scrolls', async ({ page, r
   const tall = (await node.boundingBox())!
   expect((await strip.boundingBox())!.height).toBeCloseTo(tall.height - 2, 0)
   expect(tall.height).toBeLessThanOrEqual((await page.locator('.graph').boundingBox())!.height)
+
+  // The strip takes the touch, which is what makes a Cut immediate under a finger
+  // with no long press to wait out; the body beside it keeps its own, so the node
+  // is still a node a thumb can scroll.
+  const touching = (part: typeof strip) =>
+    part.evaluate(held => getComputedStyle(held).touchAction)
+  expect(await touching(strip)).toBe('none')
+  expect(await touching(node.locator('.body'))).not.toBe('none')
 
   // And it stays where it is while the body beside it scrolls, which is what will
   // let a finger start a gesture on it without the node losing its place.
@@ -786,4 +798,214 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
   await expect(async () => {
     await expect(readCuts(from.id)).resolves.toMatchObject([{ conditions: [] }])
   }).toPass()
+})
+
+/**
+ * A graph of Scenes laid out in one row, so every node is on screen at once and
+ * a gesture from any of them can reach any other. The API stacks a new Scene
+ * under the last, which puts the second one half off the bench.
+ */
+async function openRow(request: APIRequestContext, names = ['The arrival', 'The platform']) {
+  const opened = await openGraph(request, names)
+  for (const [place, scene] of opened.scenes.entries()) {
+    const placed = await request.patch(`/api/scenes/${scene.id}`, {
+      data: { x: place * (NODE_WIDTH + NODE_GAP), y: 0 },
+    })
+    expect(placed.status()).toBe(200)
+  }
+
+  return opened
+}
+
+/** The middle of a node, in the page's own coordinates. */
+async function middleOf(page: Page, name: string) {
+  const box = (await page.getByRole('article', { name }).boundingBox())!
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+}
+
+/** Puts the hand down on a Scene's strip, which is where a Cut is drawn from. */
+async function aimFrom(page: Page, name: string) {
+  const strip = (await page.getByRole('article', { name }).locator('.strip').boundingBox())!
+  await page.mouse.move(strip.x + strip.width / 2, strip.y + strip.height / 2)
+  await page.mouse.down()
+}
+
+/** Moves the hand over a Scene's node, in the steps a hand really crosses a bench in. */
+async function moveOver(page: Page, name: string) {
+  const middle = await middleOf(page, name)
+  await page.mouse.move(middle.x, middle.y, { steps: 5 })
+}
+
+const drawnLine = (page: Page) => page.locator('svg line.drawn')
+
+test('a Cut is drawn by dragging from one Scene to another', async ({ page, request }) => {
+  const { story, scenes } = await openRow(request)
+  await page.goto(`/stories/${story.id}`)
+
+  const arrival = page.getByRole('article', { name: 'The arrival' })
+  const platform = page.getByRole('article', { name: 'The platform' })
+
+  // Nothing is drawn and nothing is lit until the hand goes down: the bench at
+  // rest says nothing about a gesture nobody has begun.
+  await expect(drawnLine(page)).toHaveCount(0)
+  await expect(platform).not.toHaveClass(/lit/)
+
+  await aimFrom(page, 'The arrival')
+  await moveOver(page, 'The platform')
+
+  // The Scene that can take the Cut is lit, the Scene the line left is quiet, and
+  // the node it left keeps a ring so the source is legible from across the bench.
+  await expect(platform).toHaveClass(/lit/)
+  await expect(arrival).toHaveClass(/quiet/)
+  await expect(arrival).toHaveClass(/drawing/)
+
+  // The line follows the hand, in the grease pencil, dashed and marching, with the
+  // arrowhead that says it will land where it is.
+  const line = drawnLine(page)
+  await expect(line).toHaveAttribute('marker-end', 'url(#cut-head)')
+  const drawn = await line.evaluate((held) => {
+    const { stroke, strokeDasharray, animationName, animationDuration } = getComputedStyle(held)
+    return { stroke, strokeDasharray, animationName, animationDuration }
+  })
+  expect(drawn.strokeDasharray).not.toBe('none')
+  // Named against a pattern: the animation is declared in a scoped block, so Vue
+  // hashes the keyframes' name.
+  expect(drawn.animationName).toMatch(/^marching/)
+  expect(Number.parseFloat(drawn.animationDuration)).toBeGreaterThan(0)
+  // The grease pencil, which is the colour every finished Cut is drawn in.
+  expect(drawn.stroke).toBe(
+    await page.locator('svg line').first().evaluate(held => getComputedStyle(held).stroke))
+
+  // And it is the first animation in the product, so it is the first thing that
+  // stops for anyone who has asked for stillness: still dashed, no longer moving.
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await expect.poll(() => line.evaluate(
+    held => Number.parseFloat(getComputedStyle(held).animationDuration))).toBeLessThan(0.001)
+  expect(await line.evaluate(held => getComputedStyle(held).strokeDasharray)).not.toBe('none')
+  await page.emulateMedia({ reducedMotion: null })
+
+  // Letting go over the Scene draws the Cut, the Story holds it, and the bench
+  // says so out loud — a gesture is not a field, so this one is announced.
+  await page.mouse.up()
+  await expect(page.getByRole('status'))
+    .toHaveText('Cut from The arrival to The platform drawn')
+  await expect.poll(() => readCuts(scenes[0]!.id)).toMatchObject([
+    { fromSceneId: scenes[0]!.id, toSceneId: scenes[1]!.id, position: 0 },
+  ])
+
+  // The gesture is over: nothing is lit, and the line is gone.
+  await expect(drawnLine(page)).toHaveCount(0)
+  await expect(platform).not.toHaveClass(/lit/)
+})
+
+test('a Cut cannot be drawn on a Scene itself, or twice to the same Scene', async ({
+  page,
+  request,
+}) => {
+  const { story, scenes } = await openRow(request, ['The arrival', 'The platform', 'The bar'])
+  await drawCut(request, scenes[0]!.id, scenes[1]!.id)
+  await page.goto(`/stories/${story.id}`)
+
+  await aimFrom(page, 'The arrival')
+
+  // The Scene it already reaches is quiet, and the one it does not is lit: what a
+  // Cut may land on is read off the bench rather than out of a list.
+  await expect(page.getByRole('article', { name: 'The platform' })).toHaveClass(/quiet/)
+  await expect(page.getByRole('article', { name: 'The bar' })).toHaveClass(/lit/)
+
+  // Over the Scene it already reaches, the line loses its arrowhead — said before
+  // the Author lets go rather than after.
+  await moveOver(page, 'The platform')
+  await expect(drawnLine(page)).not.toHaveAttribute('marker-end')
+  await page.mouse.up()
+
+  // A second Cut to the same Scene is not what the hand drew, so nothing was
+  // written: the one Cut seeded is still the only one leaving the Scene.
+  await expect.poll(() => readCuts(scenes[0]!.id)).toHaveLength(1)
+
+  // And a Cut on the Scene it left is the other slip the hand cannot make, even
+  // though the server would take it.
+  await aimFrom(page, 'The arrival')
+  await moveOver(page, 'The arrival')
+  await expect(drawnLine(page)).not.toHaveAttribute('marker-end')
+  await page.mouse.up()
+  await expect.poll(() => readCuts(scenes[0]!.id)).toHaveLength(1)
+})
+
+test('Escape abandons a gesture, by pointer and by keyboard', async ({ page, request }) => {
+  const { story, scenes } = await openRow(request)
+  await page.goto(`/stories/${story.id}`)
+
+  // A gesture by pointer, abandoned mid-air: the line goes, the bench stops
+  // lighting anything, and the Story is untouched.
+  await aimFrom(page, 'The arrival')
+  await moveOver(page, 'The platform')
+  await expect(drawnLine(page)).toHaveCount(1)
+  await page.keyboard.press('Escape')
+
+  await expect(drawnLine(page)).toHaveCount(0)
+  await expect(page.getByRole('article', { name: 'The platform' })).not.toHaveClass(/lit/)
+  await expect(page.getByRole('status')).toHaveText('No Cut was drawn')
+
+  // Letting the hand up after Escape draws nothing either: the gesture it would
+  // have landed is already gone.
+  await page.mouse.up()
+  await expect.poll(() => readCuts(scenes[0]!.id)).toEqual([])
+
+  // The same for a gesture the keyboard began.
+  await page.getByRole('button', { name: 'Draw a Cut from The arrival' }).focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('article', { name: 'The platform' })).toHaveClass(/lit/)
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('article', { name: 'The platform' })).not.toHaveClass(/lit/)
+  await expect.poll(() => readCuts(scenes[0]!.id)).toEqual([])
+})
+
+test('the keyboard draws the same Cut, through a button hidden until it is focused', async ({
+  page,
+  request,
+}) => {
+  const { story, scenes } = await openRow(request)
+  await page.goto(`/stories/${story.id}`)
+
+  // The button is in the page for anything that reads it, and nothing an eye can
+  // see until it takes focus — the pattern a skip link uses.
+  const aim = page.getByRole('button', { name: 'Draw a Cut from The arrival' })
+  const seen = async () => (await aim.boundingBox())!.width
+  expect(await seen()).toBeLessThan(2)
+  await aim.focus()
+  expect(await seen()).toBeGreaterThan(2)
+
+  // Pressing it enters the very state the drag enters, and says so, because a
+  // gesture nobody can see beginning is one nobody can follow.
+  await aim.press('Enter')
+  await expect(page.getByRole('status'))
+    .toHaveText(/Drawing a Cut from The arrival/)
+  await expect(page.getByRole('article', { name: 'The platform' })).toHaveClass(/lit/)
+  await expect(page.getByRole('article', { name: 'The arrival' })).toHaveClass(/drawing/)
+
+  // The Scene the line left offers the way out, and every Scene it may land on
+  // offers the landing, named as the Cut it would draw.
+  await expect(page.getByRole('button', { name: 'Abandon the Cut from The arrival' }))
+    .toHaveCount(1)
+  // Pressed rather than clicked, which is the whole point of it: the button is a
+  // pixel of clipped nothing under the strip until focus reaches it.
+  await page.getByRole('button', { name: 'Cut from The arrival to The platform' }).press('Enter')
+
+  await expect(page.getByRole('status'))
+    .toHaveText('Cut from The arrival to The platform drawn')
+  await expect.poll(() => readCuts(scenes[0]!.id)).toMatchObject([
+    { fromSceneId: scenes[0]!.id, toSceneId: scenes[1]!.id },
+  ])
+
+  // The graph is read back with the Cut in it, which is what the next gesture is
+  // worked out from: the folded node now says where the Scene leads.
+  await expect(page.getByRole('article', { name: 'The arrival' }))
+    .toContainText('on to The platform')
+
+  // And with the Cut drawn, the Scene it reaches is one the keyboard cannot land
+  // on twice either: the button that would draw it again is offered disabled.
+  await page.getByRole('button', { name: 'Draw a Cut from The arrival' }).press('Enter')
+  await expect(page.getByRole('button', { name: 'Cut from The arrival to The platform' }))
+    .toBeDisabled()
 })

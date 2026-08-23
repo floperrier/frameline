@@ -43,8 +43,6 @@ function unpublish() {
 }
 
 const newSceneName = ref('')
-/** Which Scene each node's Cut form is aimed at, kept per Scene by its id. */
-const cutTargets = reactive<Record<string, string>>({})
 
 const sceneNames = computed(
   () => new Map(story.value?.scenes.map(scene => [scene.id, scene.name])),
@@ -64,14 +62,20 @@ function cutsFrom(scene: Scene) {
   return story.value?.cuts.filter(cut => cut.fromSceneId === scene.id) ?? []
 }
 
-const { message: sceneCreated, show: announceSceneCreated } = useToast(2000)
+/**
+ * What the bench has just done, said once and gone: a Scene created, a Cut
+ * drawn, a gesture begun or abandoned. One live region for the page rather than
+ * one per thing announced, because two of them in the same corner would talk
+ * over each other and be read out of order.
+ */
+const { message: announced, show: announce } = useToast()
 
 function createScene() {
   const name = newSceneName.value
   return change(async () => {
     await send(`/api/stories/${id}/scenes`, { method: 'POST', body: { name } })
     newSceneName.value = ''
-    announceSceneCreated(t('editor.sceneCreated', { name }))
+    announce(t('editor.sceneCreated', { name }))
   })
 }
 
@@ -195,10 +199,160 @@ function openOn(scene: Scene) {
   return change(() => send(`/api/scenes/${scene.id}/opening`, { method: 'POST' }))
 }
 
-function drawCut(scene: Scene) {
-  const toSceneId = cutTargets[scene.id]
-  return change(() => send(`/api/scenes/${scene.id}/cuts`, { method: 'POST', body: { toSceneId } }))
+/**
+ * The bench the nodes are laid out on, which is what a pointer's position has to
+ * be read against: the graph scrolls, so where the hand is on the screen is not
+ * where it is on the canvas.
+ */
+const canvas = useTemplateRef<HTMLElement>('canvas')
+
+/**
+ * The Cut being drawn by hand, held while the gesture is live and nothing
+ * otherwise. `landsOn` is worked out once, when the gesture begins: it depends
+ * on the departing Scene and the Cuts already leaving it, and neither changes
+ * under the Author's hand — see `docs/adr/0015-a-cut-is-drawn-by-hand.md`. `at`
+ * is where the hand has reached on the canvas, and `over` the Scene it is over,
+ * neither of which the keyboard route has until a pointer moves.
+ *
+ * Held by Scene id and never by the Scene, the same trap the drag that moves a
+ * node avoids: a read landing mid-gesture replaces every Scene in the Story, and
+ * a gesture holding the old object would go on aiming from a Scene nothing draws.
+ */
+const aiming = ref<{
+  fromSceneId: string
+  landsOn: Set<string>
+  at?: Point
+  over?: string
+}>()
+
+/**
+ * The line under the Author's hand. Drawn from the edge of the node it leaves to
+ * the point the hand has reached — and not at all until the hand has moved, so
+ * the keyboard route enters the same aiming without a line pinned to the origin.
+ */
+const drawnLine = computed(() => {
+  const aimed = aiming.value
+  if (!aimed?.at || !sceneById(aimed.fromSceneId)) return
+
+  return cutLineTo(boxOf(aimed.fromSceneId), aimed.at)
+})
+
+/**
+ * Whether the line would land where it is. The arrowhead is what says "this will
+ * land", so over a Scene that cannot take the Cut it is taken off — said before
+ * the Author lets go rather than after. Over the bare bench the head stays: there
+ * is nothing there to refuse it.
+ */
+const landing = computed(
+  () => !aiming.value?.over || aiming.value.landsOn.has(aiming.value.over))
+
+/**
+ * Begins the aiming, from either way in. The pointer and the hidden button enter
+ * this one state rather than two that have to be kept in agreement.
+ */
+function aimFrom(scene: Scene) {
+  aiming.value = {
+    fromSceneId: scene.id,
+    landsOn: scenesACutMayLandOn(story.value?.scenes ?? [], story.value?.cuts ?? [], scene.id),
+  }
+  announce(t('editor.aimingFrom', { name: scene.name }))
 }
+
+function startAiming(scene: Scene, event: PointerEvent) {
+  // Capturing the pointer sends the rest of the gesture to the strip itself, so
+  // the line goes on following a hand that has left the node it started on.
+  ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+  aimFrom(scene)
+}
+
+function keepAiming(event: PointerEvent) {
+  if (!aiming.value) return
+  const on = canvas.value!.getBoundingClientRect()
+  aiming.value.at = { x: event.clientX - on.left, y: event.clientY - on.top }
+  aiming.value.over = sceneUnder(event)
+}
+
+function endAiming(event: PointerEvent) {
+  return landOn(sceneUnder(event))
+}
+
+/**
+ * Which Scene's node the hand is over, asked of the page rather than worked out
+ * from the placements: the boxes are really there, one may be over another, and
+ * the browser already hit-tests them. Pointer capture sends the events to the
+ * strip but leaves what is under the hand alone, which is what makes this the
+ * answer to both "light this one up" and "land here".
+ */
+function sceneUnder(event: PointerEvent) {
+  const under = document.elementFromPoint(event.clientX, event.clientY)
+  return (under?.closest('[data-scene]') as HTMLElement | null)?.dataset.scene
+}
+
+/**
+ * Draws the Cut where the gesture landed, or lets it go where it landed on
+ * nothing it may land on — a Scene it already reaches, the Scene it left, or the
+ * bench. Either way the aiming ends: a gesture that drew nothing leaves the
+ * Story exactly as it was.
+ */
+function landOn(sceneId: string | undefined) {
+  const aimed = aiming.value
+  aiming.value = undefined
+  if (!aimed || !sceneId || !aimed.landsOn.has(sceneId)) return
+
+  const said = {
+    from: sceneNamed(sceneNames.value, aimed.fromSceneId, t),
+    to: sceneNamed(sceneNames.value, sceneId, t),
+  }
+
+  return change(async () => {
+    await send(`/api/scenes/${aimed.fromSceneId}/cuts`, {
+      method: 'POST',
+      body: { toSceneId: sceneId },
+    })
+    announce(t('editor.cutDrawn', said))
+  })
+}
+
+function abandonAiming() {
+  if (!aiming.value) return
+  aiming.value = undefined
+  announce(t('editor.cutAbandoned'))
+}
+
+/**
+ * The keyboard's way through the same aiming, on the one button each node hides
+ * until it is focused. What it does is what the node is to the gesture: nothing
+ * live, so begin from here; the Scene the line left, so let it go; a Scene the
+ * Cut may land on, so land it there.
+ */
+function aimOrLand(scene: Scene) {
+  if (!aiming.value) return aimFrom(scene)
+  if (aiming.value.fromSceneId === scene.id) return abandonAiming()
+  return landOn(scene.id)
+}
+
+function aimingName(scene: Scene) {
+  const aimed = aiming.value
+  if (!aimed) return t('editor.drawCutFrom', { name: scene.name })
+
+  const from = sceneNamed(sceneNames.value, aimed.fromSceneId, t)
+
+  return aimed.fromSceneId === scene.id
+    ? t('editor.abandonCutFrom', { name: from })
+    : t('editor.cutFromTo', { from, to: scene.name })
+}
+
+/**
+ * Escape abandons the gesture, whichever way in began it. Listened for on the
+ * document because a gesture by pointer has focus nowhere in particular — the
+ * hand is on a strip that is not a control — so there is no element to hang it on.
+ */
+function abandonOnEscape(event: KeyboardEvent) {
+  if (event.key === 'Escape') abandonAiming()
+}
+
+onMounted(() => document.addEventListener('keydown', abandonOnEscape))
+onBeforeUnmount(() => document.removeEventListener('keydown', abandonOnEscape))
 
 function moveCut(scene: Scene, cut: Cut, step: -1 | 1) {
   return renumber(scene, 'cuts', movedBy(cutsFrom(scene).map(held => held.id), cut.id, step))
@@ -446,11 +600,11 @@ function atAGlance(scene: Scene) {
     </form>
 
     <p v-if="problem" role="alert">{{ problem }}</p>
-    <p v-if="sceneCreated" class="toast" role="status">{{ sceneCreated }}</p>
+    <p v-if="announced" class="toast" role="status">{{ announced }}</p>
 
     <p v-if="!story?.scenes.length" class="none">{{ $t('editor.noScenes') }}</p>
     <div v-else class="graph">
-      <div class="canvas" :style="{ ...graphSize, '--pitch': `${NUDGE}px` }">
+      <div ref="canvas" class="canvas" :style="{ ...graphSize, '--pitch': `${NUDGE}px` }">
         <!-- The Cuts are listed under the Scene they leave, so the lines that
              draw them are decoration and nothing reads them out. -->
         <svg aria-hidden="true" :style="graphSize">
@@ -471,6 +625,19 @@ function atAGlance(scene: Scene) {
             :y2="line.to.y"
             marker-end="url(#cut-head)"
           />
+
+          <!-- The Cut under the Author's hand: the same grease pencil as the Cuts
+               it is dragged across, told apart from them by its dashes marching,
+               and losing its arrowhead where it cannot land. -->
+          <line
+            v-if="drawnLine"
+            class="drawn"
+            :x1="drawnLine.from.x"
+            :y1="drawnLine.from.y"
+            :x2="drawnLine.to.x"
+            :y2="drawnLine.to.y"
+            :marker-end="landing ? 'url(#cut-head)' : undefined"
+          />
         </svg>
 
         <!-- The node is named by the Scene rather than by its own heading: the
@@ -482,18 +649,52 @@ function atAGlance(scene: Scene) {
           :key="scene.id"
           ref="nodes"
           :data-scene="scene.id"
-          :class="{ opens: story.openingSceneId === scene.id }"
+          :class="{
+            opens: story.openingSceneId === scene.id,
+            drawing: aiming?.fromSceneId === scene.id,
+            lit: aiming?.landsOn.has(scene.id),
+            quiet: aiming && !aiming.landsOn.has(scene.id),
+          }"
           :aria-label="scene.name"
           :style="{
             translate: `${scene.x}px ${scene.y}px`,
             inlineSize: `${NODE_WIDTH}px`,
           }"
         >
-          <!-- The strip down the node's leading edge. It sits outside the part of
-               the node that scrolls, so it runs the node's full height whatever the
-               body beside it is doing, and it carries the mark that says which Scene
-               a Reading opens on. -->
-          <div class="strip" />
+          <!-- The strip down the node's leading edge, and where a Cut is drawn
+               from. It sits outside the part of the node that scrolls, so it runs
+               the node's full height whatever the body beside it is doing, the
+               gesture is immediate under a finger with no long press, and it
+               carries the mark that says which Scene a Reading opens on.
+
+               `.self`, because the button it holds is pressed and not dragged: a
+               pointer going down on it would otherwise begin a gesture the click
+               that follows would have to undo. -->
+          <div
+            class="strip"
+            @pointerdown.self="startAiming(scene, $event)"
+            @pointermove="keepAiming"
+            @pointerup="endAiming"
+            @pointercancel="abandonAiming"
+          >
+            <!-- The keyboard's way into the same aiming: a button hidden until it
+                 takes focus, the pattern a skip link uses, so the gesture stays
+                 the only visible way in while assistive technology still finds a
+                 real button with a real name. It says which Scene it draws from,
+                 and once a gesture is live it says instead what pressing it would
+                 do to that one — land the Cut, or let it go. A Scene the Cut
+                 cannot land on offers it disabled, which is how the hand is kept
+                 out of a Cut on itself and a second Cut to the same Scene. -->
+            <button
+              type="button"
+              class="aim"
+              :disabled="!!aiming && !aiming.landsOn.has(scene.id)
+                && aiming.fromSceneId !== scene.id"
+              @click="aimOrLand(scene)"
+            >
+              {{ aimingName(scene) }}
+            </button>
+          </div>
 
           <div class="body">
             <div class="slate">
@@ -766,21 +967,6 @@ function atAGlance(scene: Scene) {
                   </div>
                 </li>
               </ul>
-
-              <form class="drawing" @submit.prevent="drawCut(scene)">
-                <label class="eyebrow" :for="`cut-from-${scene.id}`">
-                  {{ $t('editor.cutFromTo', { name: scene.name }) }}
-                </label>
-                <select :id="`cut-from-${scene.id}`" v-model="cutTargets[scene.id]" required>
-                  <!-- Nothing is aimed at until the Author says so, so a Cut cannot
-                       be drawn by pressing the button alone. -->
-                  <option value="">{{ $t('editor.chooseScene') }}</option>
-                  <option v-for="other in story.scenes" :key="other.id" :value="other.id">
-                    {{ other.name }}
-                  </option>
-                </select>
-                <button type="submit">{{ $t('editor.drawCutFrom', { name: scene.name }) }}</button>
-              </form>
             </template>
           </div>
         </article>
@@ -924,6 +1110,25 @@ svg path {
   fill: var(--grease);
 }
 
+/* The Cut under the Author's hand. It is the Author's mark, so it is the grease
+   pencil like every finished Cut — and since it is dragged across a bench full of
+   them in that same colour, what tells it apart is that its dashes march. That
+   makes it the first animation in the product, and the stylesheet's own
+   reduced-motion block is what stops it: asked for stillness, the line is still
+   dashed and simply does not move. */
+svg line.drawn {
+  stroke: var(--grease);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  animation: marching 600ms linear infinite;
+}
+
+@keyframes marching {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+
 /* A node is two columns that do not themselves scroll: the strip down its leading
    edge, and the body beside it. The width is the one a phone can show, and the
    strip comes out of it rather than adding to it. */
@@ -946,14 +1151,73 @@ article:focus-within {
   border-color: color-mix(in oklab, var(--light) 45%, var(--edge));
 }
 
+/* While a Cut is being drawn, the Scenes that can take it are lit and every
+   other one goes quiet — the Scene the line left, and any it already reaches — so
+   what the hand may land on is read off the bench rather than out of a list. Two
+   static classes and nothing recomputed as the pointer moves: what a Cut may land
+   on is fixed the moment the gesture begins. */
+article.lit {
+  border-color: var(--grease);
+}
+
+article.quiet {
+  opacity: 0.4;
+}
+
+/* The node the line is leaving keeps a ring, so the source stays legible with the
+   pointer at the far end of the bench. */
+article.drawing {
+  outline: 2px dashed var(--grease);
+  outline-offset: 2px;
+}
+
 /* The strip: a groove down the node's leading edge, running its full height
    because it is a column of the node and not something inside what scrolls. The
    Scene a Reading starts on has it filled with the grease pencil, so the Author
    can see where the Story opens without reading a single radio button — and
    without opening the node the button is folded inside. */
 .strip {
+  position: relative;
   border-inline-end: 1px solid var(--edge);
   background: color-mix(in oklab, var(--bench) 60%, transparent);
+  /* The hand draws a Cut from here, and a finger draws one without waiting: the
+     strip is outside the part of the node that scrolls, so taking the touch off
+     the scroller costs the node's own scrolling nothing. */
+  cursor: crosshair;
+  touch-action: none;
+}
+
+/* The keyboard's way in, hidden until it is focused — the pattern a skip link
+   uses. Off the top of the strip it belongs to rather than out of the page, so
+   focus lands on the node it draws from. */
+.aim {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  /* A button's own padding and border are a floor under its size — it is laid out
+     border-box — so both come off, or the thing nobody can see is still
+     twenty-six pixels of it. */
+  padding: 0;
+  border: 0;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.aim:focus {
+  z-index: 2;
+  inline-size: max-content;
+  block-size: auto;
+  overflow: visible;
+  clip-path: none;
+  padding: var(--s1) var(--s2);
+  border: 1px solid var(--edge);
+  font-family: var(--data);
+  font-size: 0.625rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 article.opens .strip {
@@ -1177,12 +1441,6 @@ article.opens .strip {
   background: color-mix(in oklab, var(--bench) 55%, transparent);
 }
 
-.drawing {
-  display: grid;
-  gap: var(--s2);
-  padding-block-start: var(--s3);
-  border-block-start: 1px solid var(--edge);
-}
 
 /* On a phone the graph is worked on a screen narrower than a node, so it is
    given more of the screen's height rather than a slice of it. In `dvh`, because

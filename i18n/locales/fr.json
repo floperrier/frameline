@@ -90,9 +90,12 @@
     "offeredWhen": "Offerte quand",
     "theCutTo": "la Coupe vers {scene}",
     "deleteCutTo": "Supprimer la Coupe vers {scene}",
-    "cutFromTo": "Coupe depuis {name} vers",
-    "chooseScene": "Choisir une Scène",
-    "drawCutFrom": "Tracer la Coupe depuis {name}"
+    "drawCutFrom": "Tracer une Coupe depuis {name}",
+    "abandonCutFrom": "Abandonner la Coupe depuis {name}",
+    "cutFromTo": "Coupe depuis {from} vers {to}",
+    "aimingFrom": "Coupe en cours de tracé depuis {name} — posez-la sur une autre Scène, ou appuyez sur Échap",
+    "cutDrawn": "Coupe depuis {from} vers {to} tracée",
+    "cutAbandoned": "Aucune Coupe n'a été tracée"
   },
   "conditions": {
     "numbered": "Condition {place}",
