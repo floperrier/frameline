@@ -348,6 +348,19 @@ button:disabled {
   font-size: 0.875rem;
 }
 
+/* A success, said in the accent that is not the alarm's, and gone on its own
+   rather than waiting for a click. */
+.toast {
+  position: fixed;
+  inset-block-end: var(--s4);
+  inset-inline-end: var(--s4);
+  padding: var(--s2) var(--s3);
+  border-inline-start: 2px solid var(--light);
+  background: color-mix(in oklab, var(--light) 12%, var(--bench));
+  box-shadow: var(--lifted);
+  font-size: 0.875rem;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

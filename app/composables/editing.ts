@@ -40,8 +40,9 @@ export function useEditing(reload: () => Promise<unknown>) {
    * on screen as though it had persisted.
    */
   async function change(act: () => Promise<unknown>) {
-    await attempt(act)
+    const succeeded = await attempt(act)
     await reload()
+    return succeeded
   }
 
   /**
