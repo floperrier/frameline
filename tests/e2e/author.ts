@@ -161,6 +161,13 @@ export async function readScenePlacement(id: string) {
   return node!
 }
 
+/** Reads what a Scene is called past the API, to see what a rename really wrote. */
+export async function readSceneName(id: string) {
+  const [scene] = await sql`select name from scenes where id = ${id}` as { name: string }[]
+
+  return scene!.name
+}
+
 /** Reads a Scene's Shots past the API, in the order the Scene numbers them. */
 export async function readShots(sceneId: string) {
   return await sql`

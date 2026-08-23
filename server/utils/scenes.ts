@@ -41,6 +41,19 @@ export async function readSceneName(event: H3Event) {
 }
 
 /**
+ * Reads the name a Scene is being renamed to, where the request may not be
+ * carrying one: a node dragged sends its placement alone, and a rename sends the
+ * two together. A name that is there is held to what a Scene may be called in
+ * the first place — a blank one is refused rather than written over the name the
+ * Scene already answers to.
+ */
+export async function readSceneRename(event: H3Event) {
+  const body = await readBody<{ name?: unknown }>(event)
+
+  return body?.name === undefined ? undefined : await readSceneName(event)
+}
+
+/**
  * Reads where in the graph a Scene has been put. Both coordinates are bounded, so a
  * Scene cannot be written to a place the graph cannot show; whole pixels, so the
  * integer column takes them as they are.

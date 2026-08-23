@@ -89,6 +89,18 @@ function deleteScene(scene: Scene) {
   return change(() => send(`/api/scenes/${scene.id}`, { method: 'DELETE' }))
 }
 
+/**
+ * Writes the name the Author corrected, when they leave the field. The placement
+ * goes with it because the endpoint takes the node whole, and it is the placement
+ * already on screen — the name is the only half that has changed.
+ */
+function renameScene(scene: Scene) {
+  return write(() => send(`/api/scenes/${scene.id}`, {
+    method: 'PATCH',
+    body: { name: scene.name, x: scene.x, y: scene.y },
+  }))
+}
+
 function addShot(scene: Scene) {
   return change(() => send(`/api/scenes/${scene.id}/shots`, { method: 'POST' }))
 }
@@ -448,13 +460,17 @@ function atAGlance(scene: Scene) {
           />
         </svg>
 
+        <!-- The node is named by the Scene rather than by its own heading: the
+             heading holds the field the name is written in once the node is open,
+             and a name read off a field is the label beside it and the value in
+             it. Named this way it follows the Scene as the Author retypes it. -->
         <article
           v-for="scene in story.scenes"
           :key="scene.id"
           ref="nodes"
           :data-scene="scene.id"
           :class="{ opens: story.openingSceneId === scene.id }"
-          :aria-labelledby="`scene-${scene.id}`"
+          :aria-label="scene.name"
           :style="{
             translate: `${scene.x}px ${scene.y}px`,
             inlineSize: `${NODE_WIDTH}px`,
@@ -468,7 +484,35 @@ function atAGlance(scene: Scene) {
 
           <div class="body">
             <div class="slate">
-              <h2 :id="`scene-${scene.id}`">{{ scene.name }}</h2>
+              <!-- The name is the heading, and open it is the heading written in:
+                   a bare field left to write it, the same idiom as a Shot's text
+                   and a Cut's, with no mode to enter first. Folded, the node is
+                   read rather than edited, so the name is the text it says.
+
+                   The label sits outside the heading rather than in it: a heading
+                   is named by what it holds, and a label inside would be read out
+                   ahead of the name the Author is correcting. Outside, the heading
+                   is the field's value and nothing else.
+
+                   It is also the one control in a node that does not carry the
+                   Scene's name after it, the way the fold and the handle do: this
+                   field's own value is that name, so a label carrying it would
+                   rename the field under the Author as they typed in it. Which
+                   Scene it belongs to is what the node itself is named. -->
+              <h2 v-if="!opened.has(scene.id)">{{ scene.name }}</h2>
+              <template v-else>
+                <label class="visually-hidden" :for="`scene-name-${scene.id}`">
+                  {{ $t('editor.sceneName') }}
+                </label>
+                <h2 class="named">
+                  <input
+                    :id="`scene-name-${scene.id}`"
+                    v-model="scene.name"
+                    :maxlength="SCENE_NAME_MAX_LENGTH"
+                    @change="renameScene(scene)"
+                  >
+                </h2>
+              </template>
 
               <div class="grips">
                 <!-- Folding is the Author's view of their own graph, so the button
@@ -923,6 +967,30 @@ article.opens .strip {
   padding-block: var(--s3) var(--s2);
   border-block-end: 1px solid var(--edge);
   background: var(--steel);
+}
+
+/* The heading as it is written in. It takes what the grips leave rather than
+   sizing itself to the name in it, because a field that grew with the Author's
+   typing would push the fold and the handle off the slate. The field inside is
+   the heading's own type on the slate's own ground — dressed as the heading it
+   replaces, not as another box in the node — and the line under it is all that
+   says it is a field. Focus is left to the outline every control here is given. */
+.named {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.named input {
+  padding: 0 var(--s1);
+  background: none;
+}
+
+/* Held off the pointer rather than restating what a hovered field looks like,
+   so the frame that comes up is the one every other field here draws and the
+   two cannot drift apart. */
+.named input:not(:hover) {
+  border-color: transparent;
+  border-block-end-color: var(--edge);
 }
 
 /* The two things done to a node rather than to the Scene in it: opened, and
