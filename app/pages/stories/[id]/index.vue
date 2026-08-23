@@ -487,20 +487,32 @@ function atAGlance(scene: Scene) {
               <!-- The name is the heading, and open it is the heading written in:
                    a bare field left to write it, the same idiom as a Shot's text
                    and a Cut's, with no mode to enter first. Folded, the node is
-                   read rather than edited, so the name is the text it says. -->
+                   read rather than edited, so the name is the text it says.
+
+                   The label sits outside the heading rather than in it: a heading
+                   is named by what it holds, and a label inside would be read out
+                   ahead of the name the Author is correcting. Outside, the heading
+                   is the field's value and nothing else.
+
+                   It is also the one control in a node that does not carry the
+                   Scene's name after it, the way the fold and the handle do: this
+                   field's own value is that name, so a label carrying it would
+                   rename the field under the Author as they typed in it. Which
+                   Scene it belongs to is what the node itself is named. -->
               <h2 v-if="!opened.has(scene.id)">{{ scene.name }}</h2>
-              <h2 v-else class="named">
+              <template v-else>
                 <label class="visually-hidden" :for="`scene-name-${scene.id}`">
                   {{ $t('editor.sceneName') }}
                 </label>
-                <input
-                  :id="`scene-name-${scene.id}`"
-                  v-model="scene.name"
-                  required
-                  :maxlength="SCENE_NAME_MAX_LENGTH"
-                  @change="renameScene(scene)"
-                >
-              </h2>
+                <h2 class="named">
+                  <input
+                    :id="`scene-name-${scene.id}`"
+                    v-model="scene.name"
+                    :maxlength="SCENE_NAME_MAX_LENGTH"
+                    @change="renameScene(scene)"
+                  >
+                </h2>
+              </template>
 
               <div class="grips">
                 <!-- Folding is the Author's view of their own graph, so the button
@@ -961,9 +973,8 @@ article.opens .strip {
    sizing itself to the name in it, because a field that grew with the Author's
    typing would push the fold and the handle off the slate. The field inside is
    the heading's own type on the slate's own ground — dressed as the heading it
-   replaces, not as another box in the node — and says it is a field by the line
-   under it and by the frame that comes up under the pointer. Focus is left to
-   the outline every control here is given. */
+   replaces, not as another box in the node — and the line under it is all that
+   says it is a field. Focus is left to the outline every control here is given. */
 .named {
   flex: 1;
   min-inline-size: 0;
@@ -971,15 +982,15 @@ article.opens .strip {
 
 .named input {
   padding: 0 var(--s1);
-  border-color: transparent;
-  border-block-end-color: var(--edge);
-  border-radius: 0;
   background: none;
 }
 
-.named input:hover {
-  border-color: color-mix(in oklab, var(--edge) 60%, var(--paper));
-  border-radius: var(--machined);
+/* Held off the pointer rather than restating what a hovered field looks like,
+   so the frame that comes up is the one every other field here draws and the
+   two cannot drift apart. */
+.named input:not(:hover) {
+  border-color: transparent;
+  border-block-end-color: var(--edge);
 }
 
 /* The two things done to a node rather than to the Scene in it: opened, and

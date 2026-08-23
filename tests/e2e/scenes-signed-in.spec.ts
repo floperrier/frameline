@@ -117,6 +117,10 @@ test('an Author renames a Scene in its node', async ({ page, request }) => {
   // followed the correction.
   await expect(page.getByRole('article', { name: 'The arrival' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Fold Scene The arrival' })).toBeVisible()
+  // The heading is the field, so what it is called is what the field holds: the
+  // label saying which Scene this is sits outside it rather than in front of the
+  // name.
+  await expect(page.getByRole('heading', { name: 'The arrival' })).toBeVisible()
 })
 
 test('a Scene renamed to nothing is left as it was', async ({ page, request }) => {
