@@ -7,6 +7,7 @@ const failed = computed(() => Boolean(useRoute().query.error))
 <template>
   <main>
     <div class="pitch">
+      <Locales />
       <p class="eyebrow">{{ $t('landing.eyebrow') }}</p>
       <h1>Frameline</h1>
       <p class="line">{{ $t('landing.pitch') }}</p>
