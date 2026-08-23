@@ -418,6 +418,103 @@ test('the graph of several dozen Scenes is read folded', async ({ page, author }
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveCount(1)
 })
 
+test('a node is a strip and a body, and only the body scrolls', async ({ page, request }) => {
+  const { story, scenes } = await openGraph(request)
+  const opening = scenes[0]!
+  // Enough Shots that the node is taller than the bench, which is what puts a
+  // scrollbar inside it and makes it worth asking which column carries it.
+  for (const _ of [1, 2, 3]) await request.post(`/api/scenes/${opening.id}/shots`)
+
+  await page.goto(`/stories/${story.id}`)
+  // Addressed by class, where the rest of the suite goes through roles: which
+  // column of a node carries the scrollbar is a fact about the drawing, and the
+  // drawing has no accessible name to ask for it by.
+  const node = page.getByRole('article', { name: 'The arrival' })
+  const strip = node.locator('.strip')
+  await openNode(page, 'The arrival')
+  await expect(page.getByRole('textbox', { name: 'Shot 3' })).toBeVisible()
+
+  // The strip is a column of the node rather than something inside what scrolls,
+  // so it runs the node's full height, between the node's own two hairlines.
+  const tall = (await node.boundingBox())!
+  expect((await strip.boundingBox())!.height).toBeCloseTo(tall.height - 2, 0)
+  expect(tall.height).toBeLessThanOrEqual((await page.locator('.graph').boundingBox())!.height)
+
+  // And it stays where it is while the body beside it scrolls, which is what will
+  // let a finger start a gesture on it without the node losing its place.
+  const body = node.locator('.body')
+  await body.evaluate(scrolled => scrolled.scrollBy(0, 200))
+  await expect.poll(() => body.evaluate(scrolled => scrolled.scrollTop)).toBeGreaterThan(0)
+  expect((await strip.boundingBox())!.y).toBeCloseTo(tall.y + 1, 0)
+})
+
+test('the Opening Scene is the one whose strip is marked', async ({ page, request }) => {
+  const { story } = await openGraph(request)
+  await page.goto(`/stories/${story.id}`)
+
+  const stripOf = (name: string) => page
+    .getByRole('article', { name })
+    .locator('.strip')
+    .evaluate(strip => getComputedStyle(strip).backgroundColor)
+
+  // The first Scene written opens the Story, and its strip is the grease pencil
+  // where every other node's is the groove the bench is cut with.
+  const plain = await stripOf('The platform')
+  const marked = await stripOf('The arrival')
+  expect(marked).not.toBe(plain)
+
+  // Naming another Scene moves the mark, and it moves on the strip rather than
+  // anywhere the node has to be opened to see.
+  await openNode(page, 'The platform')
+  await page.getByRole('radio', { name: 'Opening Scene The platform' }).check()
+  await expect.poll(() => stripOf('The platform')).toBe(marked)
+  expect(await stripOf('The arrival')).toBe(plain)
+})
+
+test('an open node grows with its writing while folded nodes stay one size', async ({
+  page,
+  request,
+}) => {
+  const { story, scenes } = await openGraph(request, ['The arrival', 'The platform', 'The bar'])
+  // Two ways on out of one Scene and none out of the others: what a folded node
+  // says is not the same length for each, and its height has to be all the same.
+  await drawCut(request, scenes[1]!.id, scenes[0]!.id)
+  await drawCut(request, scenes[1]!.id, scenes[2]!.id)
+  // A Shot apiece, because a Scene an Author has written in has one and a folded
+  // node counts them.
+  for (const scene of scenes) await request.post(`/api/scenes/${scene.id}/shots`)
+
+  // Room enough that the node grows rather than meeting the ceiling on the first
+  // Shot, which is the growth this is about.
+  await page.setViewportSize({ width: 1280, height: 1000 })
+  await page.goto(`/stories/${story.id}`)
+
+  const heightOf = async (name: string) =>
+    (await page.getByRole('article', { name }).boundingBox())!.height
+  const names = ['The arrival', 'The platform', 'The bar']
+  const folded = await Promise.all(names.map(heightOf))
+  expect(new Set(folded).size).toBe(1)
+
+  // Opened, a node is as tall as what is in it...
+  await openNode(page, 'The arrival')
+  await expect(page.getByRole('textbox', { name: 'Shot 1' })).toBeVisible()
+  const opened = await heightOf('The arrival')
+  expect(opened).toBeGreaterThan(folded[0]!)
+
+  // ...and a second Shot makes it taller still, instead of being written into a
+  // box of a fixed height that the Author has to scroll to reach it in.
+  await page.getByRole('button', { name: 'Add Shot to The arrival' }).click()
+  await expect(page.getByRole('textbox', { name: 'Shot 2' })).toBeVisible()
+  await expect.poll(() => heightOf('The arrival')).toBeGreaterThan(opened)
+  expect(await heightOf('The arrival'))
+    .toBeLessThanOrEqual((await page.locator('.graph').boundingBox())!.height)
+
+  // The two the Author did not open are the size they were, and the size of each
+  // other: the shape of a long Story is read off nodes that are all one size.
+  expect(await heightOf('The platform')).toBe(folded[1])
+  expect(await heightOf('The bar')).toBe(folded[2])
+})
+
 test('a Scene sets Flags on entry, and a Cut carries Conditions', async ({ request }) => {
   const { story, scenes } = await openGraph(request)
   const [from, to] = scenes as [{ id: string }, { id: string }]

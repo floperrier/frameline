@@ -47,10 +47,12 @@ nothing, and that record says what the same node costs inside a library.
 
 ## Consequences
 
-The node carries a whole editor in 320 by 420 pixels, so it scrolls inside
-itself, and a Scene with several Shots scrolls sooner. That trade and the numbers
-behind it are in `docs/adr/0006-two-rooms-one-language.md`, along with the folding
-that keeps forty of them readable. The Story-wide things that have nowhere else
+The node carries a whole editor in 320 pixels of width, of which twenty are the
+strip down its leading edge, so a Scene with several Shots is read in a column
+narrower than a phone. It is as tall as its writing up to the height of the
+bench, and scrolls inside itself past that. That trade and the numbers behind it
+are in `docs/adr/0006-two-rooms-one-language.md`, along with the folding that
+keeps forty of them readable. The Story-wide things that have nowhere else
 to live — the title, the Preview, the Publish and the public link — sit in a
 header above the graph that stays on screen while it scrolls.
 

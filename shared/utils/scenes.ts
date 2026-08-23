@@ -100,17 +100,19 @@ export const VISITS_MAX = 100
 export const GRAPH_REACH = 10_000
 
 /**
- * How large a Scene's node is drawn once the Author has opened it, and how far
- * below the last one a new Scene is placed. Shared because the server does the
- * placing and the graph does the drawing, and the spacing clears the height so a
- * new Scene does not land on top of the controls of the one above it.
+ * How wide a Scene's node is drawn, how far below the last one a new Scene is
+ * placed, and how tall a node is taken to be before it has been measured. Shared
+ * because the server does the placing and the graph does the drawing, and the
+ * spacing clears the height so a new Scene does not land on top of the controls
+ * of the one above it.
  *
- * The height shows a Shot with its still and the Flags the Scene sets; the Cuts
- * leaving a Scene are a scroll away inside the node, because a node tall enough
- * to hold all of them would be taller than the graph that holds it. A folded node
- * is far shorter, and is measured rather than named here — see `NodeBox`. The
- * width is left at what a phone can show, because a node wider than the screen is
- * a graph nobody can lay out on one.
+ * The height is the room a Scene is given when it is placed, and the height a
+ * node is assumed to have until it has been measured — see `NodeBox`. It is not
+ * a height any node is drawn at: an open one is as tall as what is in it, capped
+ * at the height of the bench, and a folded one is the height of the two lines it
+ * says. The width is left at what a phone can show, because a node wider
+ * than the screen is a graph nobody can lay out on one, and the strip down a
+ * node's leading edge comes out of it rather than adding to it.
  */
 export const NODE_WIDTH = 320
 export const NODE_HEIGHT = 420
