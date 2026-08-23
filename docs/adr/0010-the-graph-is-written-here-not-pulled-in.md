@@ -5,8 +5,8 @@ status: accepted
 # The graph is written here, not pulled in
 
 The bench draws its own graph. A Scene's node is an `<article>` translated to the
-`x` and `y` the Author dragged it to, the Cuts are `<line>` elements in one
-`aria-hidden` SVG under the nodes, the drag is a pointer capture on the node's
+`x` and `y` the Author dragged it to, the Cuts are `<line>` elements in one SVG
+under the nodes, the drag is a pointer capture on the node's
 handle and the nudge is four arrow keys — about a hundred and fifty lines in
 `app/pages/stories/[id]/index.vue`, with the geometry that puts a line on the
 edge of a box in `shared/utils/scenes.ts`. Vue Flow is not installed, and neither
@@ -56,8 +56,9 @@ There is no zoom and no pan. The graph is a surface as large as the Scenes on
 it, which the browser scrolls, bounded on both sides of the wire by
 `GRAPH_REACH` so nothing can be dropped where nobody can scroll to it, and a new
 Scene is placed by the server in columns of `NODES_PER_COLUMN` so a long Story
-stays inside that reach. There
-is no minimap, no marquee, no snapping beyond the twenty pixels an arrow key
+stays inside that reach — or, when a Cut is dropped on the empty bench, at the
+point of the drop, snapped to the same twenty pixels an arrow key moves a node
+by. There is no minimap, no marquee, no snapping beyond the twenty pixels an arrow key
 moves a node by, and no edge routing: a Cut is a straight line from the edge of
 one box to the edge of another and it crosses whatever sits between them.
 
@@ -66,6 +67,17 @@ folded node is its name, its Shot count and where its ways on land, and
 `docs/adr/0006-two-rooms-one-language.md` carries the drawing of it. That was the
 cheaper half of the problem in #46, and the deliberate order: fold first, zoom
 only if forty Scenes still cannot be seen at once.
+
+The drawing stopped being decoration. It was `aria-hidden` on the grounds that
+every Cut was listed inside the node it left, so the lines said nothing a screen
+reader needed and read nothing out. Two things ended that. A Cut is now drawn by
+dragging from one node to another, and a Cut's text and Conditions are written in
+a panel opened by pressing its line — so a line is a thing to aim at, which needs
+a wide invisible stroke behind each one, a 1.5-pixel target being nobody's idea
+of one. The lines did not thereby become the keyboard route: that is the strip of
+ways on inside the node, which is where a Place is read and changed too. A line
+is a pointer's way to a Cut and a second place the selected one is shown, and the
+accessible account of where a Scene leads stays in the markup, where it was.
 
 Zoom is the ceiling this decision is reopened at, because it is the one thing the
 hand-written graph cannot reasonably grow. A zoom is a viewport transform that
