@@ -3,11 +3,12 @@
  *
  * Two ways in, because the page has two kinds of write and they want opposite
  * things from a refetch. A click that alters the shape of the Story — a Shot
- * added, two Shots swapped, a Cut drawn — learns its result from the server and
- * nowhere else, so it reads the Story back afterwards. What the Author typed is
- * already on screen in the field they typed it into, and reading the Story back
- * would replace that field along with everything else: the next thing they type
- * lands in a form the refetch has just emptied under their hands. So a typed
+ * added, a Scene's Shots renumbered, a Cut drawn — learns its result from the
+ * server and nowhere else, so it reads the Story back afterwards. What the
+ * Author typed is already on screen in the field they typed it into, and reading
+ * the Story back would replace that field along with everything else: the next
+ * thing they type lands in a form the refetch has just emptied under their
+ * hands. So a typed
  * write reads back only when it was refused, which is the one moment where what
  * persisted beats what was typed. See
  * `docs/adr/0008-refetch-is-for-a-refusal.md`.

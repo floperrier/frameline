@@ -105,8 +105,32 @@ function writeShot(shot: Shot) {
   }))
 }
 
-function moveShot(shot: Shot, direction: 'earlier' | 'later') {
-  return change(() => send(`/api/shots/${shot.id}/move`, { method: 'POST', body: { direction } }))
+/**
+ * Writes a whole sequence of Places, which is the only way one is written: the
+ * ids of everything the Scene numbers, in the order they are now in.
+ */
+function renumber(scene: Scene, what: 'shots' | 'cuts', places: string[]) {
+  return change(
+    () => send(`/api/scenes/${scene.id}/${what}/places`, { method: 'PUT', body: { places } }),
+  )
+}
+
+/**
+ * The sequence with one id moved a Place, which is what the two controls that
+ * move a thing earlier or later send. Each is disabled at the end it cannot move
+ * past, so the Place swapped with is always one of the sequence's own.
+ */
+function movedBy(ids: string[], id: string, step: -1 | 1) {
+  const from = ids.indexOf(id)
+  const moved = [...ids]
+  moved[from] = ids[from + step]!
+  moved[from + step] = id
+
+  return moved
+}
+
+function moveShot(scene: Scene, shot: Shot, step: -1 | 1) {
+  return renumber(scene, 'shots', movedBy(scene.shots.map(held => held.id), shot.id, step))
 }
 
 /**
@@ -155,8 +179,8 @@ function drawCut(scene: Scene) {
   return change(() => send(`/api/scenes/${scene.id}/cuts`, { method: 'POST', body: { toSceneId } }))
 }
 
-function moveCut(cut: Cut, direction: 'earlier' | 'later') {
-  return change(() => send(`/api/cuts/${cut.id}/move`, { method: 'POST', body: { direction } }))
+function moveCut(scene: Scene, cut: Cut, step: -1 | 1) {
+  return renumber(scene, 'cuts', movedBy(cutsFrom(scene).map(held => held.id), cut.id, step))
 }
 
 function writeCut(cut: Cut) {
@@ -582,7 +606,11 @@ function atAGlance(scene: Scene) {
                     />
 
                     <div class="row">
-                      <button type="button" :disabled="place === 0" @click="moveShot(shot, 'earlier')">
+                      <button
+                        type="button"
+                        :disabled="place === 0"
+                        @click="moveShot(scene, shot, -1)"
+                      >
                         {{ $t('common.moveEarlier') }}
                         <span class="visually-hidden">
                           {{ $t('editor.shotNumber', { place: place + 1 }) }}
@@ -591,7 +619,7 @@ function atAGlance(scene: Scene) {
                       <button
                         type="button"
                         :disabled="place === scene.shots.length - 1"
-                        @click="moveShot(shot, 'later')"
+                        @click="moveShot(scene, shot, 1)"
                       >
                         {{ $t('common.moveLater') }}
                         <span class="visually-hidden">
@@ -658,7 +686,7 @@ function atAGlance(scene: Scene) {
                     <button
                       type="button"
                       :disabled="place === 0"
-                      @click="moveCut(cut, 'earlier')"
+                      @click="moveCut(scene, cut, -1)"
                     >
                       {{ $t('common.moveEarlier') }}
                       <span class="visually-hidden">
@@ -668,7 +696,7 @@ function atAGlance(scene: Scene) {
                     <button
                       type="button"
                       :disabled="place === cutsFrom(scene).length - 1"
-                      @click="moveCut(cut, 'later')"
+                      @click="moveCut(scene, cut, 1)"
                     >
                       {{ $t('common.moveLater') }}
                       <span class="visually-hidden">

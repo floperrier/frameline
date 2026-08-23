@@ -152,22 +152,13 @@ test('the ways on are offered in the order the Author put them in', async ({ req
   }
   const [first, second, third] = drawn as [{ id: string }, { id: string }, { id: string }]
 
-  await request.post(`/api/cuts/${third.id}/move`, { data: { direction: 'earlier' } })
-  await expect(readCuts(from.id)).resolves.toMatchObject([
-    { text: 'To 0' }, { text: 'To 2' }, { text: 'To 1' },
-  ])
+  const renumbered = await request.put(`/api/scenes/${from.id}/cuts/places`,
+    { data: { places: [third.id, first.id, second.id] } })
 
-  await request.post(`/api/cuts/${first.id}/move`, { data: { direction: 'later' } })
+  expect(renumbered.status()).toBe(200)
   await expect(readCuts(from.id)).resolves.toMatchObject([
-    { text: 'To 2' }, { text: 'To 0' }, { text: 'To 1' },
+    { text: 'To 2', position: 0 }, { text: 'To 0', position: 1 }, { text: 'To 1', position: 2 },
   ])
-
-  // The Cuts at either end have nowhere to go, and asking is not an error.
-  const atTheEnds = await Promise.all([
-    request.post(`/api/cuts/${third.id}/move`, { data: { direction: 'earlier' } }),
-    request.post(`/api/cuts/${second.id}/move`, { data: { direction: 'later' } }),
-  ])
-  for (const response of atTheEnds) expect(response.status()).toBe(200)
 
   // And the Story is read in that order, which is the order the Reader meets.
   await expect((await request.get(`/api/stories/${story.id}`)).json()).resolves.toMatchObject({
@@ -190,7 +181,7 @@ test('taking a Cut away leaves the ways on numbered without a gap', async ({ req
   await expect(readCuts(from.id)).resolves.toMatchObject([{ id: drawn[1]!.id, position: 0 }])
 })
 
-test('a way on can still be moved across a Scene deleted out from under one',
+test('the ways on are renumbered across a Scene deleted out from under one',
   async ({ request }) => {
     const { scenes } = await openGraph(
       request, ['The platform', 'The buffet', 'The tunnel', 'The train'])
@@ -206,12 +197,13 @@ test('a way on can still be moved across a Scene deleted out from under one',
       { toSceneId: buffet.id, position: 0 }, { toSceneId: train.id, position: 2 },
     ])
 
-    // The way on after the hole still moves earlier across it, rather than being
-    // answered with a move that did nothing.
-    expect((await request.post(`/api/cuts/${drawn[2]!.id}/move`,
-      { data: { direction: 'earlier' } })).status()).toBe(200)
+    // Renumbering names the two that are left, and the hole closes behind them:
+    // a sequence is written as the Places it counts out, not as a swap across
+    // whatever numbering was there before.
+    expect((await request.put(`/api/scenes/${from.id}/cuts/places`,
+      { data: { places: [drawn[2]!.id, drawn[0]!.id] } })).status()).toBe(200)
     await expect(readCuts(from.id)).resolves.toMatchObject([
-      { toSceneId: train.id }, { toSceneId: buffet.id },
+      { toSceneId: train.id, position: 0 }, { toSceneId: buffet.id, position: 1 },
     ])
   })
 
@@ -263,7 +255,7 @@ test('a graph that was never drawn reads as absent', async ({ request }) => {
     request.patch(`/api/cuts/${noId}`, { data: { text: 'Follow her' } }),
     request.put(`/api/cuts/${noId}/conditions`, { data: {} }),
     request.put(`/api/scenes/${noId}/flags`, { data: { sets: {} } }),
-    request.post(`/api/cuts/${noId}/move`, { data: { direction: 'earlier' } }),
+    request.put(`/api/scenes/${noId}/cuts/places`, { data: { places: [noId] } }),
     request.delete(`/api/cuts/${noId}`),
   ])
 
@@ -285,7 +277,8 @@ test('the graph belongs to the Author who wrote the Story', async ({ request, ot
       data: { conditions: [{ flag: 'mine', is: 'now' }] },
     }),
     request.put(`/api/scenes/${theirScene.id}/flags`, { data: { sets: { mine: 'now' } } }),
-    request.post(`/api/cuts/${theirCut.id}/move`, { data: { direction: 'later' } }),
+    request.put(`/api/scenes/${theirCut.fromSceneId}/cuts/places`,
+      { data: { places: [theirCut.id] } }),
     request.delete(`/api/cuts/${theirCut.id}`),
   ])
 

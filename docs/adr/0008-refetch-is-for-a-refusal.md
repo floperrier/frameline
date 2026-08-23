@@ -29,10 +29,11 @@ component, in exchange for a case the cheaper answer already handles.
 The line is not success against refusal, though — it is **typed against
 clicked**, and finding that out is what made the cheap answer viable. A click
 that alters the shape of the Story learns its result from the server and nowhere
-else: a Shot added has no other way onto the screen, a Shot moved is a swap of
-two rows the server picks, and a delete answers with nothing to apply. Those keep
-reading the Story back. What the Author typed is already on screen in the field
-they typed it into, so those read back only when refused. `useEditing` offers the
+else: a Shot added has no other way onto the screen, a Shot renumbered is every
+sibling's Place rewritten and not only its own, and a delete answers with
+nothing to apply. Those keep reading the Story back. What the Author typed is
+already on screen in the field they typed it into, so those read back only when
+refused. `useEditing` offers the
 two as `change` and `write`, named rather than switched on a flag, because the
 call sites divide cleanly and a boolean at a call site says nothing about which
 kind of write it is.
