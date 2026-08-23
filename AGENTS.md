@@ -74,11 +74,11 @@ a vendored skill is hashed in `skills-lock.json`.
 
 `pnpm test` runs the Vitest suite over the modules that are pure functions: the
 Reading engine, what a Shot's image is read to be, the Conditions a request is
-allowed to write, the geometry of the lines the graph draws, the two message
-files held against each other, and the language a refusal is phrased in. None of
-them needs a database, because none of them has one in reach. `pnpm test:e2e`
-runs Playwright against a built app and a real Neon branch —
-`docs/git-flow.md` says which branch.
+allowed to write, the sequence of Places it renumbers a Scene by, the geometry
+of the lines the graph draws, the two message files held against each other, and
+the language a refusal is phrased in. None of them needs a database, because
+none of them has one in reach. `pnpm test:e2e` runs Playwright against a built
+app and a real Neon branch — `docs/git-flow.md` says which branch.
 
 ## Running the app
 

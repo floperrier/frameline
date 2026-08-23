@@ -163,9 +163,9 @@
       "shot": "That is not a Shot id.",
       "cut": "That is not a Cut id."
     },
-    "moveDirection": {
-      "shot": "A Shot moves either earlier or later.",
-      "cut": "A Cut moves either earlier or later."
+    "places": {
+      "shot": "The Shots of a Scene are renumbered all at once, each one named exactly once.",
+      "cut": "The ways on leaving a Scene are renumbered all at once, each one named exactly once."
     },
     "tooManyConditions": {
       "shot": "A Shot cannot carry more than {max} Conditions.",

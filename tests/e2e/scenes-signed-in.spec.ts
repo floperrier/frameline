@@ -57,30 +57,71 @@ test('a Scene needs a name', async ({ request }) => {
   expect((await response.json()).message).toContain('A Scene needs a name.')
 })
 
-test('a Shot moves earlier and later, and stays put at either end', async ({ request }) => {
-  const { scene } = await openScene(request)
+test('the Shots of a Scene are renumbered as one sequence', async ({ request }) => {
+  const { story, scene } = await openScene(request)
   const [first, second, third] = await writeShots(request, scene.id, ['First', 'Second', 'Third'])
+  const inOrder = (...shots: { id: string }[]) => ({ data: { places: shots.map(shot => shot.id) } })
 
-  await request.post(`/api/shots/${third!.id}/move`, { data: { direction: 'earlier' } })
-  await expect(readShots(scene.id)).resolves.toMatchObject([
-    { text: 'First' }, { text: 'Third' }, { text: 'Second' },
-  ])
+  const renumbered = await request.put(
+    `/api/scenes/${scene.id}/shots/places`, inOrder(third!, first!, second!))
 
-  await request.post(`/api/shots/${first!.id}/move`, { data: { direction: 'later' } })
-  await expect(readShots(scene.id)).resolves.toMatchObject([
-    { text: 'Third' }, { text: 'First' }, { text: 'Second' },
-  ])
-
-  // The Shots at either end have nowhere to go, and asking is not an error.
-  const atTheEnds = await Promise.all([
-    request.post(`/api/shots/${third!.id}/move`, { data: { direction: 'earlier' } }),
-    request.post(`/api/shots/${second!.id}/move`, { data: { direction: 'later' } }),
-  ])
-  for (const response of atTheEnds) expect(response.status()).toBe(200)
-
+  expect(renumbered.status()).toBe(200)
   await expect(readShots(scene.id)).resolves.toMatchObject([
     { text: 'Third', position: 0 }, { text: 'First', position: 1 }, { text: 'Second', position: 2 },
   ])
+
+  // And the Story is read in that order, which is the order the Reader plays.
+  await expect((await request.get(`/api/stories/${story.id}`)).json()).resolves.toMatchObject({
+    scenes: [{ shots: [{ text: 'Third' }, { text: 'First' }, { text: 'Second' }] }],
+  })
+})
+
+test('a sequence a Scene does not hold leaves its Places alone', async ({ request }) => {
+  const { scene } = await openScene(request)
+  const [first, second, third] = await writeShots(request, scene.id, ['First', 'Second', 'Third'])
+  const { scene: elsewhere } = await openScene(request, 'Another Scene')
+  const [foreign] = await writeShots(request, elsewhere.id, ['Somewhere else'])
+  const ids = (...shots: { id: string }[]) => shots.map(shot => shot.id)
+
+  const refused = await Promise.all([
+    // One missing, one foreign, one twice: each of the three ways a sequence
+    // stops being the Scene's own numbering.
+    ids(third!, first!),
+    ids(third!, first!, second!, foreign!),
+    ids(third!, first!, second!, second!),
+  ].map(places => request.put(`/api/scenes/${scene.id}/shots/places`, { data: { places } })))
+
+  for (const response of refused) {
+    expect(response.status()).toBe(400)
+    expect((await response.json()).message).toContain('renumbered all at once')
+  }
+
+  await expect(readShots(scene.id)).resolves.toMatchObject([
+    { text: 'First', position: 0 }, { text: 'Second', position: 1 }, { text: 'Third', position: 2 },
+  ])
+})
+
+test('an Author renumbers the Shots of a Scene from the controls', async ({ page, request }) => {
+  const { story, scene } = await openScene(request, 'The arrival')
+  await writeShots(request, scene.id, ['First', 'Second', 'Third'])
+
+  await page.goto(`/stories/${story.id}`)
+  await openNode(page, 'The arrival')
+  await page.getByRole('button', { name: 'Move later Shot 1' }).click()
+
+  // The control sends the whole run in its new order, so what the Scene holds is
+  // the numbering and not a swap the page kept to itself.
+  await expect(async () => {
+    await expect(readShots(scene.id)).resolves.toMatchObject([
+      { text: 'Second', position: 0 },
+      { text: 'First', position: 1 },
+      { text: 'Third', position: 2 },
+    ])
+  }).toPass()
+
+  await page.reload()
+  await openNode(page, 'The arrival')
+  await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('Second')
 })
 
 test('deleting a Shot leaves the Scene numbered without a gap', async ({ request }) => {
@@ -116,7 +157,7 @@ test('a Scene that was never written reads as absent', async ({ request }) => {
     request.delete(`/api/scenes/${noId}`),
     request.post(`/api/scenes/${noId}/shots`),
     request.patch(`/api/shots/${noId}`, { data: { text: 'A line', description: '' } }),
-    request.post(`/api/shots/${noId}/move`, { data: { direction: 'earlier' } }),
+    request.put(`/api/scenes/${noId}/shots/places`, { data: { places: [noId] } }),
     request.delete(`/api/shots/${noId}`),
   ])
 
@@ -134,7 +175,8 @@ test('Scenes and Shots belong to the Author who wrote the Story', async ({ reque
     request.delete(`/api/scenes/${theirScene.id}`),
     request.post(`/api/scenes/${theirScene.id}/shots`),
     request.patch(`/api/shots/${theirShot.id}`, { data: { text: 'Mine now', description: '' } }),
-    request.post(`/api/shots/${theirShot.id}/move`, { data: { direction: 'later' } }),
+    request.put(`/api/scenes/${theirScene.id}/shots/places`,
+      { data: { places: [theirShot.id] } }),
     request.delete(`/api/shots/${theirShot.id}`),
   ])
 

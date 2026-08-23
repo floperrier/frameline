@@ -163,9 +163,9 @@
       "shot": "Cet identifiant n'est pas celui d'un Plan.",
       "cut": "Cet identifiant n'est pas celui d'une Coupe."
     },
-    "moveDirection": {
-      "shot": "Un Plan se déplace avant ou après.",
-      "cut": "Une Coupe se déplace avant ou après."
+    "places": {
+      "shot": "Les Plans d'une Scène sont renumérotés tous à la fois, chacun nommé une seule fois.",
+      "cut": "Les Coupes qui quittent une Scène sont renumérotées toutes à la fois, chacune nommée une seule fois."
     },
     "tooManyConditions": {
       "shot": "Un Plan ne peut pas porter plus de {max} Conditions.",
