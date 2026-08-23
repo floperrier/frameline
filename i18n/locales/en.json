@@ -64,6 +64,7 @@
     "confirmDeleteScene": "Delete “{name}”, its {shots} and {cuts}?",
     "glanceWaysOn": "{shots}, on to {waysOn}",
     "glanceNoWayOn": "{shots}, no way on",
+    "sceneName": "Name of this Scene",
     "fold": "Fold",
     "open": "Open",
     "sceneNamed": "Scene {name}",

@@ -1,7 +1,9 @@
 import type { APIRequestContext } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { CONDITIONS_MAX, VISITS_MAX } from '../../shared/utils/scenes'
-import { openNode, readShotConditions, readShots, seedScene, seedStory, test } from './author'
+import { CONDITIONS_MAX, SCENE_NAME_MAX_LENGTH, VISITS_MAX } from '../../shared/utils/scenes'
+import {
+  openNode, readSceneName, readShotConditions, readShots, seedScene, seedStory, test,
+} from './author'
 
 const noId = '00000000-0000-4000-8000-000000000000'
 
@@ -55,6 +57,82 @@ test('a Scene needs a name', async ({ request }) => {
 
   expect(response.status()).toBe(400)
   expect((await response.json()).message).toContain('A Scene needs a name.')
+})
+
+test('an Author corrects the name of a Scene', async ({ request }) => {
+  const { story, scene } = await openScene(request, 'The arival')
+
+  const renamed = await request.patch(
+    `/api/scenes/${scene.id}`, { data: { name: 'The arrival', x: scene.x, y: scene.y } })
+
+  expect(renamed.status()).toBe(200)
+  await expect(renamed.json()).resolves.toMatchObject({ id: scene.id, name: 'The arrival' })
+  await expect((await request.get(`/api/stories/${story.id}`)).json()).resolves.toMatchObject({
+    scenes: [{ id: scene.id, name: 'The arrival' }],
+  })
+})
+
+test('a Scene keeps its name where a request carries none', async ({ request }) => {
+  const { scene } = await openScene(request, 'The arrival')
+
+  const moved = await request.patch(`/api/scenes/${scene.id}`, { data: { x: 40, y: 60 } })
+
+  expect(moved.status()).toBe(200)
+  await expect(readSceneName(scene.id)).resolves.toBe('The arrival')
+})
+
+test('a Scene cannot be renamed to nothing, or to more than a name', async ({ request }) => {
+  const { scene } = await openScene(request, 'The arrival')
+  const rename = (name: string) => request.patch(
+    `/api/scenes/${scene.id}`, { data: { name, x: scene.x, y: scene.y } })
+
+  const refused = await Promise.all([rename('  '), rename('x'.repeat(SCENE_NAME_MAX_LENGTH + 1))])
+
+  expect(refused.map(response => response.status())).toEqual([400, 400])
+  expect((await refused[0]!.json()).message).toContain('A Scene needs a name.')
+  expect((await refused[1]!.json()).message).toContain('cannot be longer than')
+  // The refusals have to mean the Scene was left alone, not merely that the
+  // answer said nothing about a name that was written anyway.
+  await expect(readSceneName(scene.id)).resolves.toBe('The arrival')
+})
+
+test('an Author renames a Scene in its node', async ({ page, request }) => {
+  const { story, scene } = await openScene(request, 'The arival')
+  await page.goto(`/stories/${story.id}`)
+
+  // Folded, the node says the name rather than offering it to be written.
+  await expect(page.getByRole('heading', { name: 'The arival' })).toBeVisible()
+  await openNode(page, 'The arival')
+
+  // Leaving the field is what writes it, as it is for a Shot and for a Cut.
+  const named = page.getByRole('textbox', { name: 'Name of this Scene' })
+  await named.fill('The arrival')
+  await named.blur()
+
+  await expect(async () => {
+    await expect(readSceneName(scene.id)).resolves.toBe('The arrival')
+  }).toPass()
+  // And the node answers to the new name, heading or no heading: the name it
+  // carries is the Scene's, so everything that says which Scene this is has
+  // followed the correction.
+  await expect(page.getByRole('article', { name: 'The arrival' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Fold Scene The arrival' })).toBeVisible()
+})
+
+test('a Scene renamed to nothing is left as it was', async ({ page, request }) => {
+  const { story, scene } = await openScene(request, 'The arrival')
+  await page.goto(`/stories/${story.id}`)
+  await openNode(page, 'The arrival')
+
+  const named = page.getByRole('textbox', { name: 'Name of this Scene' })
+  await named.fill('  ')
+  await named.blur()
+
+  await expect(page.getByRole('alert')).toHaveText('A Scene needs a name.')
+  // The refusal reads the Story back, so the field says what the Scene is
+  // really called rather than the nothing that was refused.
+  await expect(named).toHaveValue('The arrival')
+  await expect(readSceneName(scene.id)).resolves.toBe('The arrival')
 })
 
 test('the Shots of a Scene are renumbered as one sequence', async ({ request }) => {
