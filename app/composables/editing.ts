@@ -31,24 +31,36 @@ export function useEditing(reload: () => Promise<unknown>) {
   const keptAt = ref<Date>()
 
   /**
-   * The field a typed change is coming from, caught on the way down to it. Every
-   * `write` below is called from a `change` handler, so the event that started it
-   * is still being dispatched when the request goes out and the element under it
-   * is the one to flash — which beats handing the same element to each of the
-   * eleven handlers by hand, and reaches the fields inside a component that only
-   * emits.
+   * The field a typed change is coming from, caught on the way down to it. A
+   * typed write starts in a `change` handler, so the event that started it is
+   * still being dispatched when the request goes out and the element under it is
+   * the one to flash — which beats handing the same element to each of the eleven
+   * handlers by hand, and reaches the fields inside a component that only emits.
+   *
+   * Listened for on the document rather than asked of each page, so that a page
+   * using `write` cannot half-wire the mark: what flashes is decided here, and a
+   * page that writes nothing never sees the listener fire. The server has no
+   * document and nothing to flash on it.
    */
-  let typedIn: HTMLElement | undefined
+  let writtenIn: HTMLElement | undefined
 
-  function typing(event: Event) {
-    typedIn = event.target instanceof HTMLElement ? event.target : undefined
+  function writingFrom(event: Event) {
+    writtenIn = event.target instanceof HTMLElement ? event.target : undefined
+  }
+
+  if (import.meta.client) {
+    document.addEventListener('change', writingFrom, { capture: true })
+    onScopeDispose(
+      () => document.removeEventListener('change', writingFrom, { capture: true }))
   }
 
   /**
    * Lights the field for a moment. The class is taken off again when the
-   * animation ends, so the next write in the same field flashes it a second time;
-   * under a reduced-motion preference the stylesheet collapses that animation to
-   * nothing, which ends it at once and leaves the class inert.
+   * animation ends, so a field written in twice is lit twice — a second write
+   * landing while the first is still lit adds nothing, but the field is already
+   * saying what that write would have said. Under a reduced-motion preference the
+   * stylesheet cuts the animation to a single tick, which ends it at once and
+   * leaves the class inert.
    */
   function flash(field: HTMLElement | undefined) {
     if (!field) return
@@ -91,10 +103,21 @@ export function useEditing(reload: () => Promise<unknown>) {
    * typing is taken off the screen by a change that worked.
    */
   async function write(act: () => Promise<unknown>) {
-    if (!await attempt(act)) return reload()
+    // Taken now and taken away, because what flashes has to be the field this
+    // very write came out of. A write can also start from a click — a Condition
+    // taken off its row — and that one has no field to light, so it lights
+    // nothing rather than whatever was last typed in somewhere else.
+    const field = writtenIn
+    writtenIn = undefined
+
+    if (!await attempt(act)) {
+      await reload()
+      return
+    }
+
     keptAt.value = new Date()
-    flash(typedIn)
+    flash(field)
   }
 
-  return { problem, keptAt, typing, change, write }
+  return { problem, keptAt, change, write }
 }

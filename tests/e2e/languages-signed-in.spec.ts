@@ -61,6 +61,13 @@ test.describe('an interface read in French', () => {
     await expect(page.getByLabel('Marqueurs posés à l\'entrée dans The street')).toBeVisible()
     expect(await everythingShown(page)).not.toMatch(A_RAW_KEY)
 
+    // What the bench says about its own writing is in the Locale twice over: the
+    // words, and the clock read the French way rather than the English one.
+    const shot = page.getByRole('textbox', { name: 'Plan 1' })
+    await shot.fill('Une porte s\'ouvre.')
+    await shot.blur()
+    await expect(page.getByText(/^Enregistré à \d{2}:\d{2}$/)).toBeVisible()
+
     // The Aperçu, where a Story's own words and the tool's are on screen at once.
     await page.goto(`/fr/stories/${story.id}/preview`)
     await expect(page.getByText('Sur la table de montage')).toBeVisible()

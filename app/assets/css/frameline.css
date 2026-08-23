@@ -366,8 +366,9 @@ button:disabled {
    and never the grease pencil. It is the quiet half of the pair the bench carries:
    a typed write says nothing on success, because reading the Story back would
    replace the field under the Author's hands, and a spoken confirmation would
-   talk over the next thing typed. The reduced-motion block below collapses it to
-   nothing for anyone who has asked for that. */
+   talk over the next thing typed. The reduced-motion block below cuts it to a
+   single tick for anyone who has asked for that, which is the whole of the
+   difference: the field is still marked, it is simply not lit up to say so. */
 .kept {
   animation: kept 700ms ease-out;
 }

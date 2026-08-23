@@ -16,7 +16,7 @@ const { data: story, refresh } = await useAsyncData(
   () => send(`/api/stories/${id}`, { headers }) as Promise<StoryInEditor>,
   { deep: true },
 )
-const { problem, keptAt, typing, change, write } = useEditing(refresh)
+const { problem, keptAt, change, write } = useEditing(refresh)
 
 /**
  * The time of the last write, told the way a clock is read in the Locale rather
@@ -398,9 +398,7 @@ function atAGlance(scene: Scene) {
 </script>
 
 <template>
-  <!-- Every typed change leaves through a `change` event, so one listener on the
-       way down is enough for the page to know which field a write came from. -->
-  <main @change.capture="typing">
+  <main>
     <!-- The bench's own header: where the Author came from, what they are working
          on, and the two things that can be done to the Story as a whole. It stays
          on screen, because the graph below it scrolls a long way. -->
