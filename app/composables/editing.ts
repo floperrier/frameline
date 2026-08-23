@@ -12,10 +12,49 @@
  * write reads back only when it was refused, which is the one moment where what
  * persisted beats what was typed. See
  * `docs/adr/0008-refetch-is-for-a-refusal.md`.
+ *
+ * Saying nothing at all, though, leaves an Author who typed a Shot and walked
+ * away with no way to know the Story holds it, so a write that landed leaves two
+ * quiet marks instead: `keptAt`, the time the page puts on its bench, and a flash
+ * in the field the writing came from. Both are marks rather than messages —
+ * nothing is announced, because a live region firing every time a field is left
+ * would interrupt the next thing typed.
  */
 export function useEditing(reload: () => Promise<unknown>) {
   const { t } = useI18n()
   const problem = ref('')
+  /**
+   * When a typed change last reached the Story, and nothing until one has: a time
+   * on the bench before the first write would be a claim about a page that has
+   * only been read, and it would have to be rendered on the server to be there.
+   */
+  const keptAt = ref<Date>()
+
+  /**
+   * The field a typed change is coming from, caught on the way down to it. Every
+   * `write` below is called from a `change` handler, so the event that started it
+   * is still being dispatched when the request goes out and the element under it
+   * is the one to flash — which beats handing the same element to each of the
+   * eleven handlers by hand, and reaches the fields inside a component that only
+   * emits.
+   */
+  let typedIn: HTMLElement | undefined
+
+  function typing(event: Event) {
+    typedIn = event.target instanceof HTMLElement ? event.target : undefined
+  }
+
+  /**
+   * Lights the field for a moment. The class is taken off again when the
+   * animation ends, so the next write in the same field flashes it a second time;
+   * under a reduced-motion preference the stylesheet collapses that animation to
+   * nothing, which ends it at once and leaves the class inert.
+   */
+  function flash(field: HTMLElement | undefined) {
+    if (!field) return
+    field.classList.add('kept')
+    field.addEventListener('animationend', () => field.classList.remove('kept'), { once: true })
+  }
 
   async function attempt(act: () => Promise<unknown>) {
     problem.value = ''
@@ -52,8 +91,10 @@ export function useEditing(reload: () => Promise<unknown>) {
    * typing is taken off the screen by a change that worked.
    */
   async function write(act: () => Promise<unknown>) {
-    if (!await attempt(act)) await reload()
+    if (!await attempt(act)) return reload()
+    keptAt.value = new Date()
+    flash(typedIn)
   }
 
-  return { problem, change, write }
+  return { problem, keptAt, typing, change, write }
 }

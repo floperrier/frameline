@@ -361,6 +361,24 @@ button:disabled {
   font-size: 0.875rem;
 }
 
+/* The field a typed change has just been written out of, lit for a moment in the
+   machine's own light — the interface saying it did something, so it is the cyan
+   and never the grease pencil. It is the quiet half of the pair the bench carries:
+   a typed write says nothing on success, because reading the Story back would
+   replace the field under the Author's hands, and a spoken confirmation would
+   talk over the next thing typed. The reduced-motion block below collapses it to
+   nothing for anyone who has asked for that. */
+.kept {
+  animation: kept 700ms ease-out;
+}
+
+@keyframes kept {
+  from {
+    border-color: var(--light);
+    background: color-mix(in oklab, var(--light) 14%, var(--bench));
+  }
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

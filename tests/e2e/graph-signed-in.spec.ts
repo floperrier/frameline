@@ -378,6 +378,49 @@ test('two Scenes moved one after the other are both written', async ({ page, req
   }).toPass()
 })
 
+test('the bench says when a write was kept, and a move says nothing', async ({ page, request }) => {
+  const { story, scenes } = await openGraph(request)
+  expect((await request.post(`/api/scenes/${scenes[0]!.id}/shots`)).status()).toBe(201)
+  await page.goto(`/stories/${story.id}`)
+
+  // Nothing has been written in this session, so the bench has nothing to say
+  // about when: a time here before the first write would be a claim about a page
+  // that has only been read, and it would have had to come off the server.
+  const keptAt = page.getByText(/^Kept at /)
+  await expect(keptAt).toHaveCount(0)
+
+  await openNode(page, 'The arrival')
+  const text = page.getByRole('textbox', { name: 'Shot 1' })
+  await text.fill('She steps off the train.')
+
+  // The field the writing left flashes. The animation is what the test waits for
+  // rather than the class that starts it, because the class is taken off again
+  // the moment it ends and would be gone before an assertion could see it.
+  const flashed = page.evaluate(() => new Promise<string>(resolve =>
+    document.addEventListener(
+      'animationstart', event => resolve((event.target as HTMLElement).id), { once: true })))
+  await text.blur()
+  await expect(flashed).resolves.toBe(await text.getAttribute('id'))
+
+  await expect(keptAt).toHaveCount(1)
+  const said = (await keptAt.textContent())!
+
+  // Both marks are quiet on purpose. A live region firing every time a field is
+  // left would talk over the next thing typed, so a write that landed is seen and
+  // never heard — what does get announced is a refusal, and there was none.
+  await expect(page.getByRole('status')).toHaveCount(0)
+  await expect(page.getByRole('alert')).toHaveCount(0)
+
+  // Moving a node is drawing and not writing, so it leaves the time alone even
+  // though it reaches the server like everything else.
+  await page.getByRole('button', { name: 'Move Scene The arrival' }).click()
+  await page.keyboard.press('ArrowRight')
+  await expect(async () => {
+    await expect(readScenePlacement(scenes[0]!.id)).resolves.toMatchObject({ x: 20 })
+  }).toPass()
+  await expect(keptAt).toHaveText(said)
+})
+
 test('the graph of several dozen Scenes is read folded', async ({ page, author }) => {
   const story = await seedStory(author, 'A long Story')
   const names = Array.from({ length: 40 }, (_, place) => `Scene ${place + 1}`)

@@ -50,6 +50,7 @@
   "editor": {
     "allStories": "Tous les Récits",
     "readableAt": "N'importe qui peut lire ce Récit à",
+    "keptAt": "Enregistré à {time}",
     "preview": "Aperçu de ce Récit",
     "unpublish": "Dépublier ce Récit",
     "publish": "Publier ce Récit",
