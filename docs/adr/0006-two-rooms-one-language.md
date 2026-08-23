@@ -64,14 +64,24 @@ and scrollbars come out of that dark for nothing, and a light theme would be a
 second design rather than an inversion of this one, because the Reading room is
 dark on purpose.
 
-An open Scene's node is drawn 420 pixels tall rather than 300, which shows a Shot
-with its still and the Flags the Scene sets. It does not show everything: a Scene
-with one Shot, one Cut and a Condition on it measures about 730 pixels, so the
-Cuts are a scroll away inside the node, and a Scene with several Shots scrolls
-sooner. A node tall enough to never scroll would be taller than the bench that
-holds it — so scrolling inside a node is the trade, and 420 is where the most is
-visible for the least of it. The node's width stays at what a phone can show: a
-node wider than the screen is a graph nobody can lay out on one.
+An open Scene's node was drawn 420 pixels tall, which showed a Shot with its
+still and the Flags the Scene sets and left the Cuts a scroll away: a Scene with
+one Shot, one Cut and a Condition on it measures about 730 pixels, and one with
+several Shots scrolled sooner. That ceiling is gone. An open node takes the
+height of what is in it, capped at the height of the bench, and what paid for
+that was removing a block rather than finding more room — a Cut's own writing
+left the node for a panel on its line, so an open node holds three things: the
+Shots, the Flags the Scene sets, and a bare strip of the ways on. The 420 was
+the compromise of a world where every node was the same size, and the paragraph
+below had already abandoned that rule; this is the same reversal finished.
+
+The node's width stays at what a phone can show — a node wider than the screen is
+a graph nobody can lay out on one — and it now gives twenty of those pixels to a
+strip down its leading edge. That strip is the surface a Cut is dragged from, and
+it is where the mark naming the Opening Scene moved to. It sits outside the part
+of the node that scrolls, which is what lets a finger start a gesture on it
+without the node losing its scroll, and twenty is the pitch the bench is pricked
+out at rather than a new number.
 
 Every node being the same size was held here to be what makes the graph readable
 as a graph, and forty Scenes said otherwise: forty nodes of the same 420 pixels
@@ -80,4 +90,6 @@ at all. So a node folds — its name, its Shot count and where its ways on land 
 and what a node is the same size as is every other folded node. The Author opens
 one when they mean to write in it. What is folded is the Author's view of their
 own graph and is written nowhere, which is why this is a note about the drawing
-and not a decision about the Story.
+and not a decision about the Story. That rule survives an open node being as
+tall as its writing: uniformity is a property of the folded nodes, and an open
+one is the Author saying which Scene they are working in.
