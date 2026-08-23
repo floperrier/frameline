@@ -55,11 +55,14 @@ function cutsFrom(scene: Scene) {
   return story.value?.cuts.filter(cut => cut.fromSceneId === scene.id) ?? []
 }
 
+const { message: sceneCreated, show: announceSceneCreated } = useToast(2000)
+
 function createScene() {
   const name = newSceneName.value
   return change(async () => {
     await send(`/api/stories/${id}/scenes`, { method: 'POST', body: { name } })
     newSceneName.value = ''
+    announceSceneCreated(t('editor.sceneCreated', { name }))
   })
 }
 
@@ -389,6 +392,7 @@ function atAGlance(scene: Scene) {
     </form>
 
     <p v-if="problem" role="alert">{{ problem }}</p>
+    <p v-if="sceneCreated" class="toast" role="status">{{ sceneCreated }}</p>
 
     <p v-if="!story?.scenes.length" class="none">{{ $t('editor.noScenes') }}</p>
     <div v-else class="graph">

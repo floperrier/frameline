@@ -55,6 +55,7 @@
     "publish": "Publier ce Récit",
     "newSceneName": "Nom d'une nouvelle Scène",
     "createScene": "Créer la Scène",
+    "sceneCreated": "« {name} » créée",
     "noScenes": "Aucune Scène pour l'instant. Nommez-en une ci-dessus, et elle arrive sur la table de montage avec un Plan à écrire.",
     "oneShot": "{count} Plan",
     "manyShots": "{count} Plans",

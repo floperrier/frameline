@@ -168,6 +168,7 @@ test('an Author writes a Story from the page alone', async ({ page, request }) =
   await page.getByLabel('Name of a new Scene').fill('The arrival')
   await page.getByRole('button', { name: 'Create Scene' }).click()
   await expect(page.getByRole('heading', { name: 'The arrival' })).toBeVisible()
+  await expect(page.getByText('“The arrival” created')).toBeVisible()
   await openNode(page, 'The arrival')
 
   // Blurring the Shot is what writes it, so each is left before the next is added.
