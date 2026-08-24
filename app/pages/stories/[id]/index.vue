@@ -600,19 +600,69 @@ function writeFlags(scene: Scene, typed: string) {
 
 /**
  * Writes the whole list a Cut or a Shot carries, because that is what the
- * endpoint takes. A row whose Flag has no name is half a Condition, which the
- * server is right to refuse, so it is left out of what is sent rather than
- * holding back the rest — a Condition taken off has to reach the Story whatever
- * else the Author is in the middle of typing. `carrierId` is the Cut's or the
- * Shot's, never the Story's, which is what `id` means everywhere else here.
+ * endpoint takes. `carrierId` is the Cut's or the Shot's, never the Story's,
+ * which is what `id` means everywhere else here.
  */
 function writeConditions(where: 'cuts' | 'shots', carrierId: string, carried: Condition[]) {
-  const conditions = carried.filter(
-    condition => !('flag' in condition) || condition.flag.trim())
+  return write(() => send(`/api/${where}/${carrierId}/conditions`, {
+    method: 'PUT',
+    body: { conditions: wholeConditions(carried) },
+  }))
+}
 
-  return write(
-    () => send(`/api/${where}/${carrierId}/conditions`, { method: 'PUT', body: { conditions } }),
-  )
+/**
+ * A list of Conditions with the half-written rows left out. A row whose Flag has
+ * no name is half a Condition, which the server is right to refuse, and dropping
+ * it beats holding back the rest — a Condition taken off has to reach the Story
+ * whatever else the Author is in the middle of typing.
+ *
+ * One function, because every route that sends a list sends it from a panel the
+ * Author may be halfway through: the row they are still naming would otherwise
+ * take the whole list down with it, and a Cut duplicated at that moment would
+ * arrive carrying nothing.
+ */
+function wholeConditions(carried: Condition[]) {
+  return carried.filter(condition => !('flag' in condition) || condition.flag.trim())
+}
+
+/**
+ * Writes a second Cut to the same Scene, carrying the Conditions of the first.
+ * The gesture that draws a Cut will not land on a Scene the departing one already
+ * reaches, which is what keeps a slip of the hand from making an accidental
+ * duplicate — but two Cuts to one Scene under opposite Conditions is what
+ * Conditions on a Cut are for, so it is written on purpose from here: an Author
+ * duplicates a Cut at the moment they mean to write its opposite Condition. See
+ * `docs/adr/0015-a-cut-is-drawn-by-hand.md`.
+ *
+ * The Conditions are copied and the text is not. The pair exists to be offered
+ * under opposite tests, so the second is phrased from scratch, and the Condition
+ * that makes it the opposite is the Author's next edit — in the duplicate's own
+ * panel, which is theirs to open from the strip. This one stays on the Cut it was
+ * duplicated from.
+ *
+ * The two writes are one change, and are not one transaction: Conditions refused
+ * after the Cut was written leave a bare duplicate in the strip, which the Author
+ * can go on writing or take away.
+ */
+function duplicateCut(cut: Cut) {
+  const said = {
+    from: sceneNamed(sceneNames.value, cut.fromSceneId, t),
+    to: sceneNamed(sceneNames.value, cut.toSceneId, t),
+  }
+  const conditions = wholeConditions(cut.conditions)
+
+  return change(async () => {
+    const written = await send(`/api/scenes/${cut.fromSceneId}/cuts`, {
+      method: 'POST',
+      body: { toSceneId: cut.toSceneId },
+    }) as Cut
+
+    if (conditions.length) {
+      await send(`/api/cuts/${written.id}/conditions`, { method: 'PUT', body: { conditions } })
+    }
+
+    announce(t('editor.cutDuplicated', said))
+  })
 }
 
 /**
@@ -1252,9 +1302,9 @@ function atAGlance(scene: Scene) {
 
         <!-- Where a Cut is written: on the middle of its own line, above the
              nodes and on the surface, so it scrolls with the bench and stays on
-             the line it edits. It holds the Cut's text, its Conditions and its
-             deletion, and not its Place — a Place is read and changed beside its
-             siblings, which is the strip inside the node. -->
+             the line it edits. It holds the Cut's text, its Conditions, its
+             duplication and its deletion, and not its Place — a Place is read and
+             changed beside its siblings, which is the strip inside the node. -->
         <div
           v-if="panel"
           class="panel"
@@ -1288,6 +1338,13 @@ function atAGlance(scene: Scene) {
             :id="panel.cut.id"
             @write="writeConditions('cuts', panel.cut.id, panel.cut.conditions)"
           />
+
+          <!-- The deliberate route to a second way on to the same Scene, which
+               the aiming gesture withholds so that the hand cannot draw one by
+               accident. -->
+          <button type="button" @click="duplicateCut(panel.cut)">
+            {{ $t('editor.duplicateCutTo', { scene: panel.to }) }}
+          </button>
 
           <button type="button" class="danger" @click="deleteCut(panel.cut)">
             {{ $t('editor.deleteCutTo', { scene: panel.to }) }}

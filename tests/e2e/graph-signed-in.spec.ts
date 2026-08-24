@@ -1243,6 +1243,79 @@ test('a Cut cannot be drawn on a Scene itself, or twice to the same Scene', asyn
   await expect.poll(() => readCuts(scenes[0]!.id)).toHaveLength(1)
 })
 
+test('a second way on to the same Scene is written by duplicating the first',
+  async ({ page, request }) => {
+    const { story, scenes } = await openGraph(request, ['The arrival', 'The platform'])
+    const [from, to] = scenes as [{ id: string }, { id: string }]
+    const first = await drawCut(request, from.id, to.id)
+
+    await page.goto(`/stories/${story.id}`)
+    await openNode(page, 'The arrival')
+    await openWayOn(page, 'The arrival', 'The platform')
+
+    const duplicate = page.getByRole('button', { name: 'Duplicate Cut to The platform' })
+    /**
+     * The row of the strip a way on is offered at, which is also how the bench says
+     * a duplicate has landed on it. Waited for there rather than in the database,
+     * because what follows a duplicate is typed into the panel: the read the
+     * duplicate asks for replaces every Cut in the Story, and a Condition added
+     * before it arrived would be taken off the screen by it — see
+     * `docs/adr/0008-refetch-is-for-a-refusal.md`.
+     */
+    const wayOnAt = (place: number) =>
+      page.getByRole('button', { name: `${place} The platform — way on from The arrival` })
+
+    // Duplicated from the panel: a second Cut to the same Scene, last among the
+    // ways on leaving it. The bench says so out loud, because a Cut that arrives
+    // without a gesture arrives on a strip the Author may not be looking at.
+    await duplicate.click()
+    await expect(page.getByRole('status'))
+      .toHaveText('Another Cut from The arrival to The platform written')
+    await expect(wayOnAt(2)).toBeVisible()
+    await expect.poll(() => readCuts(from.id)).toMatchObject([
+      { id: first.id, position: 0, conditions: [] },
+      { toSceneId: to.id, position: 1, conditions: [] },
+    ])
+
+    // A Condition on the first, because a Condition is what the pair is for: two
+    // ways on to one Scene are offered under opposite tests.
+    await page.getByRole('button', { name: 'Add a Condition to the Cut to The platform' }).click()
+    const flag = page.getByLabel('Flag of Condition 1 of the Cut to The platform')
+    await flag.fill('coat')
+    await flag.blur()
+    const holds = page.getByLabel('holds for Condition 1 of the Cut to The platform')
+    await holds.fill('on')
+    await holds.blur()
+
+    // Duplicated again, the Conditions come with it — and the duplicate is last
+    // among the ways on, not beside the Cut it was copied from.
+    await duplicate.click()
+    await expect(wayOnAt(3)).toBeVisible()
+    await expect.poll(() => readCuts(from.id)).toMatchObject([
+      { id: first.id, position: 0, conditions: [{ flag: 'coat', is: 'on' }] },
+      { position: 1, conditions: [] },
+      { toSceneId: to.id, position: 2, conditions: [{ flag: 'coat', is: 'on' }] },
+    ])
+    const copied = (await readCuts(from.id))[2]!
+
+    // Its own panel opens from its own row of the strip — the rows are told apart
+    // by the Place each is offered at — and what is written in it is written on the
+    // copy alone. The panel it was duplicated from is closed first, because it
+    // opens on the middle of a line that runs between the two nodes and the strip
+    // of the departing one is behind it.
+    await page.keyboard.press('Escape')
+    await wayOnAt(3).click()
+    const opposite = page.getByLabel('holds for Condition 1 of the Cut to The platform')
+    await opposite.fill('off')
+    await opposite.blur()
+
+    await expect.poll(() => readCuts(from.id)).toMatchObject([
+      { id: first.id, conditions: [{ flag: 'coat', is: 'on' }] },
+      { conditions: [] },
+      { id: copied.id, conditions: [{ flag: 'coat', is: 'off' }] },
+    ])
+  })
+
 test('Escape abandons a gesture, by pointer and by keyboard', async ({ page, request }) => {
   const { story, scenes } = await openRow(request)
   await page.goto(`/stories/${story.id}`)

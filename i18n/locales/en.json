@@ -95,11 +95,13 @@
     "writingCutTo": "Writing the Cut to {scene}",
     "theCutTo": "the Cut to {scene}",
     "deleteCutTo": "Delete Cut to {scene}",
+    "duplicateCutTo": "Duplicate Cut to {scene}",
     "drawCutFrom": "Draw a Cut from {name}",
     "abandonCutFrom": "Abandon the Cut from {name}",
     "cutFromTo": "Cut from {from} to {to}",
     "aimingFrom": "Drawing a Cut from {name} — land it on another Scene, or press Escape",
     "cutDrawn": "Cut from {from} to {to} drawn",
+    "cutDuplicated": "Another Cut from {from} to {to} written",
     "cutAbandoned": "No Cut was drawn"
   },
   "conditions": {

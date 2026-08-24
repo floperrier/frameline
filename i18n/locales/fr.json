@@ -95,11 +95,13 @@
     "writingCutTo": "Écriture de la Coupe vers {scene}",
     "theCutTo": "la Coupe vers {scene}",
     "deleteCutTo": "Supprimer la Coupe vers {scene}",
+    "duplicateCutTo": "Dupliquer la Coupe vers {scene}",
     "drawCutFrom": "Tracer une Coupe depuis {name}",
     "abandonCutFrom": "Abandonner la Coupe depuis {name}",
     "cutFromTo": "Coupe depuis {from} vers {to}",
     "aimingFrom": "Coupe en cours de tracé depuis {name} — posez-la sur une autre Scène, ou appuyez sur Échap",
     "cutDrawn": "Coupe depuis {from} vers {to} tracée",
+    "cutDuplicated": "Une autre Coupe depuis {from} vers {to} écrite",
     "cutAbandoned": "Aucune Coupe n'a été tracée"
   },
   "conditions": {
