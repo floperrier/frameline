@@ -98,25 +98,52 @@ export function useEditing(reload: () => Promise<unknown>) {
   }
 
   /**
+   * The typed write the next one waits for. Every endpoint a typed write reaches
+   * takes the whole list rather than a change to it — the Conditions a Cut
+   * carries, the Flags a Scene sets — so two of them in flight at once are not
+   * merged by the server: the one that arrives last wins, whichever was typed
+   * last. One of these rather than one per field, because the two writes that
+   * undo each other are usually not the same field: a Flag's value and a
+   * Condition typed in the same breath both land on the Story.
+   */
+  let previous: Promise<unknown> = Promise.resolve()
+
+  /**
    * What the Author typed, which the form has already written into the fetched
    * Story in place. Read back only on a refusal, so nothing the Author is still
    * typing is taken off the screen by a change that worked.
+   *
+   * Sent behind the typed write before it, so the order they are typed in is the
+   * order the Story receives them in. The Author waits for nothing: the field
+   * they are typing in is theirs already, and only the request queues — but the
+   * marks a landed write leaves, `keptAt` and the flash, are inside the queue
+   * with it, so neither says a write is kept before it is.
    */
-  async function write(act: () => Promise<unknown>) {
+  function write(act: () => Promise<unknown>) {
     // Taken now and taken away, because what flashes has to be the field this
     // very write came out of. A write can also start from a click — a Condition
     // taken off its row — and that one has no field to light, so it lights
-    // nothing rather than whatever was last typed in somewhere else.
+    // nothing rather than whatever was last typed in somewhere else. Read here
+    // and not in the queue, where the field the Author is typing in by then is
+    // somebody else's.
     const field = writtenIn
     writtenIn = undefined
 
-    if (!await attempt(act)) {
-      await reload()
-      return
-    }
+    const turn = previous.then(async () => {
+      if (!await attempt(act)) {
+        await reload()
+        return
+      }
 
-    keptAt.value = new Date()
-    flash(field)
+      keptAt.value = new Date()
+      flash(field)
+    })
+
+    // What the next write waits on cannot be a promise that rejects: a refetch
+    // that failed would otherwise end the queue and take every write typed after
+    // it down with itself. The caller still gets the rejection.
+    previous = turn.catch(() => {})
+    return turn
   }
 
   return { problem, keptAt, change, write }
