@@ -1243,14 +1243,21 @@ function atAGlance(scene: Scene) {
                       @write="writeConditions('shots', shot.id, shot.conditions)"
                     />
 
-                    <div class="row">
+                    <!-- The three controls, as the marks they do rather than the
+                         sentences that name them: in the width a node gives a Shot
+                         the three sentences fill the strip to its end and wrap out
+                         of it in the longer of the two languages. What each one
+                         says is not lost, it moves to where the Shot's other names
+                         are read, by assistive technology alone. -->
+                    <div class="row marks">
                       <button
                         type="button"
                         :disabled="place === 0"
                         @click="moveShot(scene, shot, -1)"
                       >
-                        {{ $t('common.moveEarlier') }}
+                        <span aria-hidden="true">↑</span>
                         <span class="visually-hidden">
+                          {{ $t('common.moveEarlier') }}
                           {{ $t('editor.shotNumber', { place: place + 1 }) }}
                         </span>
                       </button>
@@ -1259,14 +1266,16 @@ function atAGlance(scene: Scene) {
                         :disabled="place === scene.shots.length - 1"
                         @click="moveShot(scene, shot, 1)"
                       >
-                        {{ $t('common.moveLater') }}
+                        <span aria-hidden="true">↓</span>
                         <span class="visually-hidden">
+                          {{ $t('common.moveLater') }}
                           {{ $t('editor.shotNumber', { place: place + 1 }) }}
                         </span>
                       </button>
                       <button type="button" class="danger" @click="deleteShot(shot)">
-                        {{ $t('common.delete') }}
+                        <span aria-hidden="true">×</span>
                         <span class="visually-hidden">
+                          {{ $t('common.delete') }}
                           {{ $t('editor.shotNumber', { place: place + 1 }) }}
                         </span>
                       </button>
@@ -1928,9 +1937,14 @@ article.opens .strip {
   gap: var(--s1);
 }
 
-.written .row button {
+/* A Shot's three controls, each one mark wide: the square the words used to be
+   pressed by, kept as a square rather than shrunk to the mark inside it, so the
+   three sit on one line without asking a finger for more aim than before. */
+.written .row.marks button {
+  min-inline-size: 1.75rem;
   padding: var(--s1) var(--s2);
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
+  line-height: 1.2;
 }
 
 .sets {

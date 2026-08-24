@@ -206,6 +206,29 @@ test('an Author renumbers the Shots of a Scene from the controls', async ({ page
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('Second')
 })
 
+test('a Shot’s three controls are marks on one line', async ({ page, request }) => {
+  const { story, scene } = await openScene(request, 'The arrival')
+  await writeShots(request, scene.id, ['First', 'Second', 'Third'])
+
+  await page.goto(`/stories/${story.id}`)
+  await openNode(page, 'The arrival')
+
+  // Each still says what it does and which Shot it does it to — the words moved
+  // to where assistive technology alone reads them, they did not go.
+  const earlier = page.getByRole('button', { name: 'Move earlier Shot 2' })
+  await expect(earlier).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Move later Shot 2' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Delete Shot 2' })).toBeVisible()
+
+  // The whole point of the marks: each control is about as wide as it is tall
+  // rather than as wide as the sentence it used to be set in, so the three sit on
+  // one line in the width a node gives a Shot.
+  const control = (await earlier.boundingBox())!
+  expect(control.width).toBeLessThan(control.height * 2)
+  const strip = (await page.locator('.written .row').nth(1).boundingBox())!
+  expect(strip.height).toBeLessThan(control.height * 2)
+})
+
 test.describe('dragging a Shot', () => {
   // Tall enough that a Scene of three Shots is on screen at once, because the
   // drag reaches only what the Author can see: there is no auto-scroll at the
