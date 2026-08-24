@@ -165,6 +165,46 @@ function moveShot(scene: Scene, shot: Shot, step: -1 | 1) {
 }
 
 /**
+ * The Shot being dragged by its number, and the Shot the hand is over. Held by
+ * Shot id and not by the Shot, the same trap the other gestures on this page
+ * avoid: a read landing mid-drag replaces every Scene in the Story, and the hand
+ * would be holding a Shot that is no longer the one on screen.
+ *
+ * ponytail: the run does not scroll itself when the drag reaches the end of what
+ * is on screen, so a Shot travels no further than the Author can already see.
+ * Give the drag an auto-scroll at the edge the day a Scene of fifteen Shots asks
+ * for one.
+ */
+const draggedShot = ref<{ shotId: string, over?: string }>()
+
+function startShotDrag(shot: Shot, event: PointerEvent) {
+  // A finger scrolls the node instead. The two controls move a Shot a Place
+  // without a drag, so touch keeps the whole route and loses only the shortcut —
+  // and taking the scroll off a node full of writing would cost it more.
+  if (event.pointerType === 'touch') return
+
+  // Capturing the pointer sends the rest of the gesture to the number itself, so
+  // the hand can leave it for the Shot it is aiming at.
+  ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+  draggedShot.value = { shotId: shot.id }
+}
+
+function keepShotDrag(event: PointerEvent) {
+  if (draggedShot.value) draggedShot.value.over = rowUnder(event, 'shot')
+}
+
+function endShotDrag(scene: Scene) {
+  const dragged = draggedShot.value
+  draggedShot.value = undefined
+  if (!dragged?.over || dragged.over === dragged.shotId) return
+
+  const places = movedInto(scene.shots.map(held => held.id), dragged.shotId, dragged.over)
+  if (!places) return
+
+  return renumber(scene, 'shots', places)
+}
+
+/**
  * When each Shot's still was last attached, kept by the Shot's id. A still is
  * served at an address made of the Shot's own id, so replacing one leaves `src`
  * byte-identical and the browser goes on drawing the image it already has — the
@@ -531,7 +571,7 @@ function startWayDrag(cut: Cut, event: PointerEvent) {
 }
 
 function keepWayDrag(event: PointerEvent) {
-  if (draggedWay.value) draggedWay.value.over = wayUnder(event)
+  if (draggedWay.value) draggedWay.value.over = rowUnder(event, 'way')
 }
 
 function endWayDrag(scene: Scene) {
@@ -539,29 +579,44 @@ function endWayDrag(scene: Scene) {
   draggedWay.value = undefined
   if (!dragged?.over || dragged.over === dragged.cutId) return
 
+  const places = movedInto(cutsFrom(scene.id).map(held => held.id), dragged.cutId, dragged.over)
+  if (!places) return
+
+  // Let go of over a stranger's row nothing was renumbered, so the press that
+  // follows is the press it started as and the Cut's own panel opens.
   renumberedByDrag = true
 
-  return renumber(
-    scene, 'cuts', movedInto(cutsFrom(scene.id).map(held => held.id), dragged.cutId, dragged.over))
+  return renumber(scene, 'cuts', places)
 }
 
 /**
- * Which row of a strip the hand is over, asked of the page rather than worked out
- * from the rows: they are really there and the browser already hit-tests them,
- * which is what makes this the answer to both "light this row" and "drop here".
+ * Which row of a numbered list the hand is over — a way on in a Scene's strip, or
+ * a Shot in its run — asked of the page rather than worked out from the rows:
+ * they are really there and the browser already hit-tests them, which is what
+ * makes this the answer to both "light this row" and "drop here".
  */
-function wayUnder(event: PointerEvent) {
+function rowUnder(event: PointerEvent, what: 'way' | 'shot') {
   const under = document.elementFromPoint(event.clientX, event.clientY)
-  return (under?.closest('[data-way]') as HTMLElement | null)?.dataset.way
+  return (under?.closest(`[data-${what}]`) as HTMLElement | null)?.dataset[what]
 }
 
 /**
- * The sequence with one way on dropped onto another's Place: taken out of where
- * it was and put back where the row under the hand stands, which is the Place the
- * Author aimed at. Everything between the two shifts by one, so a way on dragged
- * across four of them passes them rather than swapping with the last.
+ * The sequence with one thing dropped onto another's Place, or nothing where the
+ * row under the hand is not one of this Scene's own: several nodes are open at
+ * once, so a Shot can be let go of over another Scene's run, and the hit-test
+ * that finds a row asks the whole page rather than one node. A stranger's Place
+ * is not a Place here, and a sequence written around one is a numbering the
+ * Author never aimed at — one the endpoint would take, because it is still a
+ * permutation of what the Scene holds.
+ *
+ * Taken out of where it was and put back where the row under the hand stands,
+ * which is the Place the Author aimed at. Everything between the two shifts by
+ * one, so a thing dragged across four of them passes them rather than swapping
+ * with the last.
  */
 function movedInto(ids: string[], id: string, onto: string) {
+  if (!ids.includes(onto)) return
+
   const moved = ids.filter(other => other !== id)
   const later = ids.indexOf(id) < ids.indexOf(onto)
   moved.splice(moved.indexOf(onto) + (later ? 1 : 0), 0, id)
@@ -1097,10 +1152,28 @@ function atAGlance(scene: Scene) {
                    though the Scene counts from zero, and each one's number sits in
                    the gutter where the edge code would be. -->
               <ol class="shots">
-                <li v-for="(shot, place) in scene.shots" :key="shot.id">
+                <li
+                  v-for="(shot, place) in scene.shots"
+                  :key="shot.id"
+                  :data-shot="shot.id"
+                  :class="{
+                    dragged: draggedShot?.shotId === shot.id,
+                    under: draggedShot?.over === shot.id && draggedShot.shotId !== shot.id,
+                  }"
+                >
                   <!-- The number alone in the gutter, where a frame's edge code would be,
-                       and the word it is a number of kept for anyone listening. -->
-                  <label class="shot-number" :for="`shot-${shot.id}`">
+                       and the word it is a number of kept for anyone listening. It is
+                       also the handle the Shot is dragged by: the gutter holds nothing
+                       else, and the number is what the Author refers to the Shot as, so
+                       there is no second grip to explain. -->
+                  <label
+                    class="shot-number"
+                    :for="`shot-${shot.id}`"
+                    @pointerdown="startShotDrag(shot, $event)"
+                    @pointermove="keepShotDrag"
+                    @pointerup="endShotDrag(scene)"
+                    @pointercancel="draggedShot = undefined"
+                  >
                     <span class="visually-hidden">{{ $t('editor.shot') }} </span>{{ place + 1 }}
                   </label>
                   <div class="written">
@@ -1793,6 +1866,23 @@ article.opens .strip {
   letter-spacing: 0;
   text-align: end;
   font-variant-numeric: tabular-nums;
+  /* The number is what the Shot is dragged by. No `touch-action` here, unlike the
+     three gestures on the bench: a finger goes on scrolling the run, and reaches
+     the same renumbering through the two controls under every Shot. */
+  cursor: grab;
+}
+
+/* The Shot in the hand, and the Shot whose Place it would take: the run says what
+   the gesture is about to do before the Author lets go, as a way on being dragged
+   does. The Place aimed at is washed in the grease pencil rather than outlined in
+   it the way a way on is, because a row of the strip is a bordered thing and a
+   Shot is a whole block of writing — the same mark, put where each can wear it. */
+.shots li.dragged {
+  opacity: 0.5;
+}
+
+.shots li.under {
+  background: color-mix(in oklab, var(--grease) 12%, transparent);
 }
 
 .written {
