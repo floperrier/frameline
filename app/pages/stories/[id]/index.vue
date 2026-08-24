@@ -1185,50 +1185,49 @@ function atAGlance(scene: Scene) {
                       @change="writeShot(shot)"
                     />
 
-                    <!-- The still beside the picker that attached it, small: it is
-                         here to say which image the Shot carries, and the Preview is
-                         where the Author meets it at the size a Reader will. -->
+                    <!-- The thumbnail is the picker: pressing it is how a still is
+                         attached and how it is replaced, and the input doing the work
+                         is behind it, focusable and named as it was. A Shot carrying
+                         no still shows the outline of the thumbnail it would have, so
+                         one nobody has finished reads as unfinished. -->
                     <div class="still">
-                      <img
-                        v-if="shot.image"
-                        :src="stillOf(shot)"
-                        :alt="$t('editor.stillOfShot', { place: place + 1 })"
-                      >
-                      <div>
-                        <label class="eyebrow" :for="`image-${shot.id}`">
-                          {{ $t('editor.image') }}
+                      <label>
+                        <img
+                          v-if="shot.image"
+                          :src="stillOf(shot)"
+                          :alt="$t('editor.stillOfShot', { place: place + 1 })"
+                        >
+                        <input
+                          type="file"
+                          class="visually-hidden"
+                          :accept="SHOT_IMAGE_TYPES.join(',')"
+                          :aria-label="`${$t('editor.image')} ${
+                            $t('editor.imageOfShot', { place: place + 1 })}`"
+                          @change="attachImage(shot, $event)"
+                        >
+                      </label>
+
+                      <!-- The Description beside the still it describes, in the width
+                           the file chrome used to take: it is what the image shows,
+                           and there is nothing to describe until one is attached. A
+                           Shot of text alone is not asked for one. -->
+                      <p v-if="shot.image" class="described">
+                        <label class="eyebrow" :for="`description-${shot.id}`">
+                          {{ $t('editor.description') }}
                           <span class="visually-hidden">
-                            {{ $t('editor.imageOfShot', { place: place + 1 }) }}
+                            {{ $t('editor.descriptionOfShot', { place: place + 1 }) }}
                           </span>
                         </label>
                         <input
-                          :id="`image-${shot.id}`"
-                          type="file"
-                          :accept="SHOT_IMAGE_TYPES.join(',')"
-                          @change="attachImage(shot, $event)"
+                          :id="`description-${shot.id}`"
+                          v-model="shot.description"
+                          type="text"
+                          :maxlength="SHOT_DESCRIPTION_MAX_LENGTH"
+                          :placeholder="$t('editor.whatTheStillShows')"
+                          @change="writeShot(shot)"
                         >
-                      </div>
+                      </p>
                     </div>
-
-                    <!-- The Description sits under the picker, because it is what the
-                         still shows and there is nothing to describe until one is
-                         attached. A Shot of text alone is not asked for one. -->
-                    <p v-if="shot.image" class="described">
-                      <label class="eyebrow" :for="`description-${shot.id}`">
-                        {{ $t('editor.description') }}
-                        <span class="visually-hidden">
-                          {{ $t('editor.descriptionOfShot', { place: place + 1 }) }}
-                        </span>
-                      </label>
-                      <input
-                        :id="`description-${shot.id}`"
-                        v-model="shot.description"
-                        type="text"
-                        :maxlength="SHOT_DESCRIPTION_MAX_LENGTH"
-                        :placeholder="$t('editor.whatTheStillShows')"
-                        @change="writeShot(shot)"
-                      >
-                    </p>
 
                     <!-- The Conditions the Shot plays under, so a Scene can say
                          something different on a return visit without the Author
@@ -1904,7 +1903,8 @@ article.opens .strip {
 }
 
 /* A still is a thumbnail here and nothing more: it says which image the Shot
-   carries, and leaves the node's height to the Flags and the Cuts. */
+   carries, and leaves the node's height to the Flags and the Cuts. The Description
+   sits beside it, in the width the browser's own file chrome used to take. */
 .still {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -1912,8 +1912,37 @@ article.opens .strip {
   gap: var(--s2);
 }
 
-/* The Description under the still it describes, the label above the field, so
-   the two read as one thing said about the image beside them. */
+/* The thumbnail itself is what is pressed to attach a still or to replace one, so
+   the box is the label and the input is clipped away inside it. Drawn whether or
+   not there is a still to put in it: an empty one is the outline of the frame the
+   Shot is missing, which is how an unfinished Shot reads as unfinished. */
+.still label {
+  display: block;
+  inline-size: 4.5rem;
+  block-size: 3rem;
+  border: 1px solid var(--edge);
+  border-radius: var(--machined);
+  background: var(--bench);
+  cursor: pointer;
+}
+
+/* The focus the input takes cannot be seen where the input is, so the ring is drawn
+   round the box that is pressed instead — the same ring as everywhere else. */
+.still label:has(:focus-visible) {
+  outline: 2px solid var(--light);
+  outline-offset: 2px;
+}
+
+.still img {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+/* The Description beside the still it describes, the label above the field, so
+   the two read as one thing said about the image next to them. */
 .described {
   display: grid;
   gap: var(--s1);
@@ -1921,16 +1950,6 @@ article.opens .strip {
 
 .described input {
   font-size: 0.8125rem;
-}
-
-.still img {
-  display: block;
-  inline-size: 4.5rem;
-  block-size: 3rem;
-  object-fit: cover;
-  border: 1px solid var(--edge);
-  border-radius: var(--machined);
-  background: var(--bench);
 }
 
 .written .row {

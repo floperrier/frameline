@@ -144,6 +144,36 @@ test('the Author picks a file in the editor, and a refused one says why', async 
   await expect(street.locator('img')).toBeVisible()
 })
 
+test('the thumbnail is the picker, and an empty one is the outline of a still', async ({ page, request }) => {
+  const { story, shots } = await openShots(request)
+  await page.goto(`/stories/${story.id}`)
+
+  const street = page.getByRole('article', { name: 'The street' })
+  await openNode(page, 'The street')
+  const thumbnail = street.locator('.still > label').first()
+
+  // The Shot carries no still yet and is drawn as the box one would fill, at the
+  // size a thumbnail is: an unfinished Shot is legible as one.
+  expect(await thumbnail.boundingBox()).toMatchObject({ width: 72, height: 48 })
+  await expect(thumbnail.locator('img')).toBeHidden()
+
+  // Pressing the thumbnail is the way in, and the only one: the browser's own file
+  // chrome is behind it rather than beside it, so it is the picker that opens.
+  const opened = page.waitForEvent('filechooser')
+  await thumbnail.click()
+  await (await opened).setFiles({ name: 'still.png', mimeType: 'image/png', buffer: ONE_PIXEL })
+
+  await expect(thumbnail.locator('img')).toBeVisible()
+  await expect.poll(async () => (await reread(request, story.id))[0]!.image)
+    .toBe(`/api/shots/${shots[0]!.id}/image`)
+
+  // And the input is still the named control it was, reached from the Shot's text
+  // by the next Tab: hidden behind the thumbnail is not hidden from the keyboard.
+  await street.getByRole('textbox', { name: 'Shot 1', exact: true }).focus()
+  await page.keyboard.press('Tab')
+  await expect(street.getByLabel('Image of Shot 1')).toBeFocused()
+})
+
 test('the still and the text of a Shot are one beat on screen', async ({ browser, page, request }) => {
   const { story, shots } = await openShots(request)
   await request.put(`/api/shots/${shots[0]!.id}/image`, { data: ONE_PIXEL })
