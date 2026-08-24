@@ -498,13 +498,22 @@ test('an Author writes a Condition on a Shot, and it reads as one line', async (
 
   // The whole point of the row: one Condition on one line in the width a node
   // gives it, so five of them are five lines rather than twenty.
-  const row = page.locator('.when').first()
   const field = (await flag.boundingBox())!
-  expect((await row.boundingBox())!.height).toBeLessThan(field.height * 2)
+  const lines = async (place: number) =>
+    (await page.locator('.when').nth(place).boundingBox())!.height / field.height
+  expect(await lines(0)).toBeLessThan(2)
 
   await expect(async () => {
     await expect(readShotConditions(scene.id)).resolves.toEqual([[{ flag: 'coat', is: 'on' }]])
   }).toPass()
+
+  // A visit count is the long sentence of the two — it names a Scene and counts
+  // entries of it — and two lines is as far as it is allowed to run.
+  await page.getByRole('button', { name: 'Add a Condition to Shot 1 of The booth' }).click()
+  await page
+    .getByLabel('Condition 2 of Shot 1 of The booth', { exact: true })
+    .selectOption('visits')
+  expect(await lines(1)).toBeLessThan(3)
 })
 
 test('a Shot’s Conditions are refused where a Cut’s would be', async ({

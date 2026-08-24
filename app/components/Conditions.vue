@@ -13,9 +13,9 @@
  *
  * The sentence is written the way one is read: the connecting words between the
  * fields are plain text, and every field's label is read by assistive technology
- * alone — a visible label over each of five controls is what made one Condition
- * four lines of a node the width of a phone. Nothing an eye reads is lost, since
- * the words the labels carried are the words now set between the fields.
+ * alone. Nothing an eye reads is lost, since the words the labels carried are the
+ * words now set between the fields; what that buys, and what sizes the fields, is
+ * said in the stylesheet at the foot of this file.
  *
  * The list is edited in place, on the Story the page fetched, and written whole
  * on every change: what the endpoint takes is the list, not a row of it.
@@ -188,7 +188,7 @@ function conditionCalled(place: number) {
         <span class="says" aria-hidden="true">{{ $t('conditions.times') }}</span>
       </template>
 
-      <button type="button" class="danger off" @click="remove(place)">
+      <button type="button" class="danger strike" @click="remove(place)">
         <span aria-hidden="true">×</span>
         <span class="visually-hidden">
           {{ $t('conditions.remove', { place: place + 1 }) }}
@@ -244,12 +244,19 @@ function conditionCalled(place: number) {
   max-inline-size: 6rem;
 }
 
+/* The count of visits, wide enough for the three digits of `VISITS_MAX` and not
+   for the twenty characters a number field asks for by default. Written out
+   rather than left to `field-sizing`, so the field is the same width in a browser
+   that has neither — and a count between one and a hundred has nothing to gain
+   from growing. */
 .when .times {
-  inline-size: 3rem;
+  inline-size: 3.5rem;
 }
 
-/* The Condition's own number, in the gutter of its row: what the Author refers to
-   it by, and what its labels spell out for anyone who cannot see it. */
+/* The Condition's own number, in the gutter of its row — what the Author refers
+   to it by — and the connecting words between its fields, which are the sentence
+   itself and not a label of anything: both stencilled on the machine, the way
+   every other word around a field here is. */
 .numbered,
 .says {
   color: var(--muted);
@@ -260,9 +267,9 @@ function conditionCalled(place: number) {
   font-variant-numeric: tabular-nums;
 }
 
-/* The mark a row is struck by, rather than the sentence "Remove Condition 2" set
-   beside a sentence. */
-.off {
+/* The mark a row is struck out by, rather than the sentence "Remove Condition 2"
+   set beside a sentence. */
+.strike {
   padding: 0 var(--s2);
 }
 
