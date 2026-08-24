@@ -169,9 +169,32 @@ test('the thumbnail is the picker, and an empty one is the outline of a still', 
 
   // And the input is still the named control it was, reached from the Shot's text
   // by the next Tab: hidden behind the thumbnail is not hidden from the keyboard.
+  const picker = street.getByLabel('Image of Shot 1')
   await street.getByRole('textbox', { name: 'Shot 1', exact: true }).focus()
   await page.keyboard.press('Tab')
-  await expect(street.getByLabel('Image of Shot 1')).toBeFocused()
+  await expect(picker).toBeFocused()
+
+  // What it does not take is room. The browser's own file chrome was the widest
+  // thing in the node; clipped away inside the thumbnail it lays nothing out, so
+  // what is left of it sits within the thumbnail's own box.
+  const thumb = (await thumbnail.boundingBox())!
+  const behind = (await picker.boundingBox())!
+  expect(behind.x).toBeGreaterThanOrEqual(thumb.x)
+  expect(behind.x + behind.width).toBeLessThanOrEqual(thumb.x + thumb.width)
+
+  // The Description sits beside the still it describes, and keeps its own label
+  // rather than borrowing the thumbnail's box.
+  const described = (await street.getByLabel('Description of the still of Shot 1')
+    .boundingBox())!
+  expect(described.x).toBeGreaterThan(thumb.x + thumb.width)
+  expect(described.y).toBeLessThan(thumb.y + thumb.height)
+  expect(described.height).toBeLessThan(thumb.height)
+
+  // And the word above it is a label and not a second thumbnail: it is the size of
+  // the line it is, which is what the thumbnail's own rule must not reach past it to
+  // decide.
+  const eyebrow = (await street.locator('.described label').first().boundingBox())!
+  expect(eyebrow.height).toBeLessThan(thumb.height)
 })
 
 test('the still and the text of a Shot are one beat on screen', async ({ browser, page, request }) => {

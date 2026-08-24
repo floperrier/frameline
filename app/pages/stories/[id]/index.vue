@@ -1201,8 +1201,7 @@ function atAGlance(scene: Scene) {
                           type="file"
                           class="visually-hidden"
                           :accept="SHOT_IMAGE_TYPES.join(',')"
-                          :aria-label="`${$t('editor.image')} ${
-                            $t('editor.imageOfShot', { place: place + 1 })}`"
+                          :aria-label="$t('editor.imageOfShot', { place: place + 1 })"
                           @change="attachImage(shot, $event)"
                         >
                       </label>
@@ -1914,9 +1913,10 @@ article.opens .strip {
 
 /* The thumbnail itself is what is pressed to attach a still or to replace one, so
    the box is the label and the input is clipped away inside it. Drawn whether or
-   not there is a still to put in it: an empty one is the outline of the frame the
-   Shot is missing, which is how an unfinished Shot reads as unfinished. */
-.still label {
+   not there is a still to put in it: an empty one is the outline of the still the
+   Shot has not attached, which is how an unfinished Shot reads as unfinished. */
+.still > label {
+  position: relative;
   display: block;
   inline-size: 4.5rem;
   block-size: 3rem;
@@ -1927,8 +1927,9 @@ article.opens .strip {
 }
 
 /* The focus the input takes cannot be seen where the input is, so the ring is drawn
-   round the box that is pressed instead — the same ring as everywhere else. */
-.still label:has(:focus-visible) {
+   round the box that is pressed instead. It is the one in `frameline.css`, restated
+   here because `:has()` cannot reach back to a rule written for `:focus-visible`. */
+.still > label:has(:focus-visible) {
   outline: 2px solid var(--light);
   outline-offset: 2px;
 }
