@@ -1,6 +1,14 @@
 import { describe, expect, test } from 'vitest'
 import type { Cut, Scene } from '../../shared/utils/scenes'
-import { cutLine, cutLineTo, NODE_WIDTH, scenesACutMayLandOn } from '../../shared/utils/scenes'
+import {
+  CUT_DISC_ALONG,
+  cutLine,
+  cutLineTo,
+  discOfCut,
+  middleOfCut,
+  NODE_WIDTH,
+  scenesACutMayLandOn,
+} from '../../shared/utils/scenes'
 
 describe('the line that draws a Cut', () => {
   test('leaves the side of the node it leaves, and lands on the side it lands on', () => {
@@ -44,6 +52,37 @@ describe('the line of a Cut being drawn', () => {
     const inside = { x: 40, y: 40 }
 
     expect(cutLineTo({ x: 0, y: 0, height: 100 }, inside).to).toBe(inside)
+  })
+})
+
+describe('where a Cut\u2019s line is written on', () => {
+  test('opens its panel at the middle of the line, whichever way the line runs', () => {
+    expect(middleOfCut({ from: { x: 0, y: 0 }, to: { x: 400, y: 200 } }))
+      .toEqual({ x: 200, y: 100 })
+    expect(middleOfCut({ from: { x: 400, y: 200 }, to: { x: 0, y: 0 } }))
+      .toEqual({ x: 200, y: 100 })
+  })
+
+  test('rounds the middle, because a panel on a screen sits on whole pixels', () => {
+    expect(middleOfCut({ from: { x: 0, y: 0 }, to: { x: 5, y: 5 } })).toEqual({ x: 3, y: 3 })
+  })
+
+  test('puts the Place\u2019s disc on the line, near the Scene the Cut leaves', () => {
+    const disc = discOfCut({ from: { x: 100, y: 50 }, to: { x: 500, y: 50 } })
+
+    expect(disc).toEqual({ x: 100 + CUT_DISC_ALONG, y: 50 })
+  })
+
+  test('keeps the disc at the end it belongs to on a line shorter than its own reach', () => {
+    const short = { from: { x: 0, y: 0 }, to: { x: 20, y: 0 } }
+
+    expect(discOfCut(short)).toEqual({ x: 10, y: 0 })
+  })
+
+  test('leaves the disc on the edge of a node when there is no line to read', () => {
+    const nowhere = { x: 40, y: 60 }
+
+    expect(discOfCut({ from: nowhere, to: nowhere })).toEqual(nowhere)
   })
 })
 

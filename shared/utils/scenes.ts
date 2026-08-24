@@ -163,6 +163,46 @@ export function cutLineTo(from: NodeBox, at: Point) {
   }
 }
 
+/** The two ends of the line that draws a Cut, as `cutLine` gives them. */
+export type CutLine = { from: Point, to: Point }
+
+/**
+ * The middle of a Cut's line, which is where the panel the Cut is written in
+ * opens. The middle rather than either end, because a panel at an end would open
+ * over one of the two nodes the line joins — and the middle of the line moves
+ * with the nodes, so the panel stays on the Cut it edits as the graph is laid
+ * out.
+ */
+export function middleOfCut({ from, to }: CutLine): Point {
+  return { x: Math.round((from.x + to.x) / 2), y: Math.round((from.y + to.y) / 2) }
+}
+
+/**
+ * How far along its own line, measured from the node it leaves, the disc that
+ * says a way on's Place sits. Twenty-six pixels is the disc's own diameter and a
+ * little over, so it clears the edge of the box it labels instead of sitting half
+ * under it, and it is still near enough that which end of the line it belongs to
+ * is never in question.
+ */
+export const CUT_DISC_ALONG = 26
+
+/**
+ * Where that disc goes: on the line, near the Scene the Cut leaves, because what
+ * it labels is the order that Scene offers its ways on in. Never past the middle
+ * of the line, so two nodes all but touching still carry their discs at the end
+ * they belong to, and on the node's own edge where the line has no length at all.
+ */
+export function discOfCut({ from, to }: CutLine): Point {
+  const length = Math.hypot(to.x - from.x, to.y - from.y)
+  if (!length) return from
+  const along = Math.min(CUT_DISC_ALONG, length / 2)
+
+  return {
+    x: Math.round(from.x + (to.x - from.x) * along / length),
+    y: Math.round(from.y + (to.y - from.y) * along / length),
+  }
+}
+
 function middleOf(node: NodeBox) {
   return { x: node.x + NODE_WIDTH / 2, y: node.y + node.height / 2 }
 }

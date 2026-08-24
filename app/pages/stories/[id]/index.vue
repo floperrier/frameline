@@ -58,8 +58,14 @@ const graphSize = computed(() => {
   }
 })
 
-function cutsFrom(scene: Scene) {
-  return story.value?.cuts.filter(cut => cut.fromSceneId === scene.id) ?? []
+/**
+ * The ways on leaving one Scene, in the Places it numbers them at. Taken by id
+ * rather than by the Scene, because the disc drawn on a Cut's line asks this too
+ * and it has only the id the Cut carries: one answer, so the number in the node
+ * and the number on the bench cannot say two different things.
+ */
+function cutsFrom(sceneId: string) {
+  return story.value?.cuts.filter(cut => cut.fromSceneId === sceneId) ?? []
 }
 
 /**
@@ -96,7 +102,7 @@ function deleteScene(scene: Scene) {
   const asked = {
     name: scene.name,
     shots: countedShots(scene.shots.length),
-    cuts: countedCuts(cutsFrom(scene).length),
+    cuts: countedCuts(cutsFrom(scene.id).length),
   }
   if (!confirm(t('editor.confirmDeleteScene', asked))) return
   return change(() => send(`/api/scenes/${scene.id}`, { method: 'DELETE' }))
@@ -352,23 +358,167 @@ function aimingName(scene: Scene) {
 }
 
 /**
- * Escape abandons the gesture, whichever way in began it. Listened for on the
- * document because a gesture by pointer has focus nowhere in particular — the
- * hand is on a strip that is not a control — so there is no element to hang it on.
+ * Escape lets go of whatever the bench is holding: the Cut being drawn, whichever
+ * way in began it, and the panel a Cut is written in. Listened for on the document
+ * because a gesture by pointer has focus nowhere in particular — the hand is on a
+ * strip that is not a control — so there is no element to hang it on.
  */
-function abandonOnEscape(event: KeyboardEvent) {
-  if (event.key === 'Escape') abandonAiming()
+function letGoOnEscape(event: KeyboardEvent) {
+  if (event.key !== 'Escape') return
+  abandonAiming()
+  closeCut()
 }
 
-onMounted(() => document.addEventListener('keydown', abandonOnEscape))
-onBeforeUnmount(() => document.removeEventListener('keydown', abandonOnEscape))
+onMounted(() => document.addEventListener('keydown', letGoOnEscape))
+onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
 
 function moveCut(scene: Scene, cut: Cut, step: -1 | 1) {
-  return renumber(scene, 'cuts', movedBy(cutsFrom(scene).map(held => held.id), cut.id, step))
+  return renumber(scene, 'cuts', movedBy(cutsFrom(scene.id).map(held => held.id), cut.id, step))
 }
 
 function writeCut(cut: Cut) {
   return write(() => send(`/api/cuts/${cut.id}`, { method: 'PATCH', body: { text: cut.text } }))
+}
+
+/**
+ * The Cut whose panel is open, and never more than one: a second panel would be
+ * a second answer to "which Cut am I writing", and the two would sit over each
+ * other on a bench where lines cross. Held by id, like every other thing the
+ * bench holds across a read — a refetch replaces every Cut in the Story, and the
+ * panel would otherwise be writing into an object nothing draws.
+ *
+ * Which panel is open is the Author's view of their own graph, so it is written
+ * nowhere and lasts as long as the page.
+ */
+const openedCut = ref<string>()
+
+/**
+ * The panel as the page draws it: the Cut it writes, the two Scenes it names, and
+ * where on the surface it opens — the middle of the Cut's own line, so it moves
+ * with the nodes as the Author lays them out. Nothing at all when no line has
+ * been pressed, or when the Cut it was on has since gone.
+ */
+const panel = computed(() => {
+  const cut = story.value?.cuts.find(held => held.id === openedCut.value)
+  if (!cut) return
+
+  return {
+    cut,
+    from: sceneNamed(sceneNames.value, cut.fromSceneId, t),
+    to: sceneNamed(sceneNames.value, cut.toSceneId, t),
+    at: middleOfCut(cutLine(boxOf(cut.fromSceneId), boxOf(cut.toSceneId))),
+  }
+})
+
+const cutText = useTemplateRef<HTMLInputElement>('cutText')
+
+/**
+ * Opens one Cut's panel, closing whichever was open, and closes this one again if
+ * it was the one open. Focus goes into the text as the panel appears: pressed by
+ * hand that is where the Author was going anyway, and reached from the strip it is
+ * the whole point of the route — a panel nobody can type in is not one the
+ * keyboard has reached.
+ */
+async function openCut(cutId: string) {
+  if (openedCut.value === cutId) return closeCut()
+  openedCut.value = cutId
+  await nextTick()
+  cutText.value?.focus()
+}
+
+/**
+ * Closes the panel and puts focus back on the row of the strip it was opened
+ * from, so the keyboard's way into a Cut is also its way out. A panel closed with
+ * the pointer is closed by hand and leaves focus alone — see `closeOnBench`.
+ */
+function closeCut() {
+  const closed = openedCut.value
+  openedCut.value = undefined
+  if (closed) document.getElementById(`way-${closed}`)?.focus()
+}
+
+/**
+ * A press on the bare bench closes the panel. Anywhere that is not a node, the
+ * panel itself or a Cut's own line is the bench — the line stops the press from
+ * reaching here, so pressing one line while another's panel is open opens the
+ * second rather than closing both.
+ */
+function closeOnBench(event: PointerEvent) {
+  // An `Element` rather than an `HTMLElement`, because the drawing is SVG and a
+  // press that reaches here may well have landed on it.
+  const on = event.target as Element | null
+  if (!on?.closest('article, .panel')) openedCut.value = undefined
+}
+
+/**
+ * The way on being dragged within a Scene's strip, and the row the hand is over.
+ * Held by Cut id and not by the Cut, the same trap the other two gestures avoid.
+ */
+const draggedWay = ref<{ cutId: string, over?: string }>()
+
+/**
+ * Whether the drag that has just ended renumbered anything. A row is pressed to
+ * open a Cut and dragged to move it, so the click that follows a drag that moved
+ * one has to be let go of: opening a panel on top of a renumbering is a second
+ * answer to a gesture that already said what it meant.
+ */
+let renumberedByDrag = false
+
+function startWayDrag(cut: Cut, event: PointerEvent) {
+  // Capturing the pointer sends the rest of the gesture to the row itself, so the
+  // hand can leave it for the row it is aiming at.
+  ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+  draggedWay.value = { cutId: cut.id }
+  renumberedByDrag = false
+}
+
+function keepWayDrag(event: PointerEvent) {
+  if (draggedWay.value) draggedWay.value.over = wayUnder(event)
+}
+
+function endWayDrag(scene: Scene) {
+  const dragged = draggedWay.value
+  draggedWay.value = undefined
+  if (!dragged?.over || dragged.over === dragged.cutId) return
+
+  renumberedByDrag = true
+
+  return renumber(
+    scene, 'cuts', movedInto(cutsFrom(scene.id).map(held => held.id), dragged.cutId, dragged.over))
+}
+
+/**
+ * Which row of a strip the hand is over, asked of the page rather than worked out
+ * from the rows: they are really there and the browser already hit-tests them,
+ * which is what makes this the answer to both "light this row" and "drop here".
+ */
+function wayUnder(event: PointerEvent) {
+  const under = document.elementFromPoint(event.clientX, event.clientY)
+  return (under?.closest('[data-way]') as HTMLElement | null)?.dataset.way
+}
+
+/**
+ * The sequence with one way on dropped onto another's Place: taken out of where
+ * it was and put back where the row under the hand stands, which is the Place the
+ * Author aimed at. Everything between the two shifts by one, so a way on dragged
+ * across four of them passes them rather than swapping with the last.
+ */
+function movedInto(ids: string[], id: string, onto: string) {
+  const moved = ids.filter(other => other !== id)
+  const later = ids.indexOf(id) < ids.indexOf(onto)
+  moved.splice(moved.indexOf(onto) + (later ? 1 : 0), 0, id)
+
+  return moved
+}
+
+/**
+ * What a press on a row of the strip does. A drag that renumbered ends in a click
+ * too, and that one opens nothing.
+ */
+function pressWay(cut: Cut) {
+  const dragged = renumberedByDrag
+  renumberedByDrag = false
+  if (!dragged) return openCut(cut.id)
 }
 
 /**
@@ -407,6 +557,13 @@ function writeConditions(where: 'cuts' | 'shots', carrierId: string, carried: Co
   )
 }
 
+/**
+ * Takes a Cut away, from the panel it is written in. Nothing closes the panel
+ * here: the read that follows is what takes the Cut out of the Story, and the
+ * panel is drawn from the Cut it holds — so a delete that landed leaves nothing
+ * to draw, and a refused one leaves the Author looking at the Cut they still
+ * have.
+ */
 function deleteCut(cut: Cut) {
   return change(() => send(`/api/cuts/${cut.id}`, { method: 'DELETE' }))
 }
@@ -518,10 +675,19 @@ onUpdated(measureNodes)
  * yet — the render on the server, and the first one in the browser — is taken to
  * be a full node, and the measurement a moment later moves the line onto the box.
  */
-const cutLines = computed(() => story.value?.cuts.map(cut => ({
-  id: cut.id,
-  ...cutLine(boxOf(cut.fromSceneId), boxOf(cut.toSceneId)),
-})) ?? [])
+const cutLines = computed(() => story.value?.cuts.map((cut) => {
+  const line = cutLine(boxOf(cut.fromSceneId), boxOf(cut.toSceneId))
+
+  // The Place, counted from one for the Author as a Shot's is and read off the
+  // same list the strip in the node reads, and the point near the departing
+  // Scene where the disc saying it sits.
+  return {
+    id: cut.id,
+    ...line,
+    place: cutsFrom(cut.fromSceneId).indexOf(cut) + 1,
+    disc: discOfCut(line),
+  }
+}) ?? [])
 
 function boxOf(sceneId: string): NodeBox {
   const scene = sceneById(sceneId)
@@ -552,7 +718,7 @@ function foldOrOpen(scene: Scene) {
  */
 function atAGlance(scene: Scene) {
   const shots = countedShots(scene.shots.length)
-  const waysOn = cutsFrom(scene).map(cut => sceneNamed(sceneNames.value, cut.toSceneId, t))
+  const waysOn = cutsFrom(scene.id).map(cut => sceneNamed(sceneNames.value, cut.toSceneId, t))
 
   return waysOn.length
     ? t('editor.glanceWaysOn', { shots, waysOn: waysOn.join(', ') })
@@ -612,10 +778,14 @@ function atAGlance(scene: Scene) {
     <p v-if="announced" class="toast" role="status">{{ announced }}</p>
 
     <p v-if="!story?.scenes.length" class="none">{{ $t('editor.noScenes') }}</p>
-    <div v-else class="graph">
+    <div v-else class="graph" @pointerdown="closeOnBench">
       <div ref="surface" class="surface" :style="{ ...graphSize, '--pitch': `${NUDGE}px` }">
-        <!-- The Cuts are listed under the Scene they leave, so the lines that
-             draw them are decoration and nothing reads them out. -->
+        <!-- The drawing is a pointer's way to a Cut and a second place the one
+             being written is shown; the account of where a Scene leads that
+             anything reads out is the strip inside the node — see
+             `docs/adr/0010-the-graph-is-written-here-not-pulled-in.md`. So the
+             lines are hidden from what reads the page rather than being the
+             keyboard's route to a Cut. -->
         <svg aria-hidden="true" :style="graphSize">
           <defs>
             <marker
@@ -625,15 +795,40 @@ function atAGlance(scene: Scene) {
               <path d="M 0 0 L 8 4 L 0 8 z" />
             </marker>
           </defs>
-          <line
-            v-for="line in cutLines"
-            :key="line.id"
-            :x1="line.from.x"
-            :y1="line.from.y"
-            :x2="line.to.x"
-            :y2="line.to.y"
-            marker-end="url(#cut-head)"
-          />
+          <g v-for="line in cutLines" :key="line.id" :data-cut="line.id">
+            <!-- The wide invisible stroke behind the line, which is what the hand
+                 actually aims at: a Cut is written by pressing its line, and a
+                 line and a half of pixels is nobody's idea of a target. The press
+                 stops here, so it does not reach the bench that would close the
+                 panel it just opened — and its default is refused, because a press
+                 on a line focuses nothing and would take the focus off the field
+                 the panel has just put it in. -->
+            <line
+              class="aimed"
+              :x1="line.from.x"
+              :y1="line.from.y"
+              :x2="line.to.x"
+              :y2="line.to.y"
+              @pointerdown.stop.prevent="openCut(line.id)"
+            />
+            <line
+              :class="{ lit: openedCut === line.id }"
+              :x1="line.from.x"
+              :y1="line.from.y"
+              :x2="line.to.x"
+              :y2="line.to.y"
+              marker-end="url(#cut-head)"
+            />
+            <!-- The Place the way on is offered at, on a disc near the Scene it
+                 leaves. It reports the order; nothing reads the order back out of
+                 the drawing — see
+                 `docs/adr/0007-the-order-of-the-ways-on-is-written-not-drawn.md`. -->
+            <!-- Nine pixels of radius, which is what holds two digits of the
+                 data face the number is set in: a Scene offering more than
+                 ninety-nine ways on is not a Scene. -->
+            <circle class="disc" :cx="line.disc.x" :cy="line.disc.y" r="9" />
+            <text class="place" :x="line.disc.x" :y="line.disc.y">{{ line.place }}</text>
+          </g>
 
           <!-- The Cut under the Author's hand: the same grease pencil as the Cuts
                it is dragged across, told apart from them by its dashes marching,
@@ -923,32 +1118,57 @@ function atAGlance(scene: Scene) {
                 />
               </p>
 
-              <ul class="cuts">
-                <li v-for="(cut, place) in cutsFrom(scene)" :key="cut.id">
-                  <label class="eyebrow" :for="`cut-${cut.id}`">
-                    {{ $t('cut.to', { scene: sceneNames.get(cut.toSceneId) }) }}
-                    <span class="visually-hidden">
-                      {{ $t('editor.fromScene', { name: scene.name }) }}
-                    </span>
-                  </label>
-                  <input
-                    :id="`cut-${cut.id}`"
-                    v-model="cut.text"
-                    :maxlength="CUT_TEXT_MAX_LENGTH"
-                    @change="writeCut(cut)"
+              <!-- The ways on, bare: each one's Place, the name it arrives at,
+                   and the two controls that renumber it. A Cut's text and its
+                   Conditions are written in the panel its line opens, and what
+                   stays here is what an Author cannot read a Cut without — where
+                   the Scene leads, and in what order — which is also the route to
+                   a Cut for a hand that is not on a pointer. -->
+              <div class="ways">
+                <p :id="`ways-${scene.id}`" class="eyebrow">
+                  {{ $t('editor.waysOn') }}
+                  <span class="visually-hidden">
+                    {{ $t('editor.fromScene', { name: scene.name }) }}
+                  </span>
+                </p>
+
+                <p v-if="!cutsFrom(scene.id).length" class="none">
+                  {{ $t('editor.noWayOnYet') }}
+                </p>
+                <ol v-else :aria-labelledby="`ways-${scene.id}`">
+                  <li
+                    v-for="(cut, place) in cutsFrom(scene.id)"
+                    :key="cut.id"
+                    :data-way="cut.id"
+                    :class="{
+                      dragged: draggedWay?.cutId === cut.id,
+                      under: draggedWay?.over === cut.id && draggedWay.cutId !== cut.id,
+                    }"
                   >
+                    <!-- The row is pressed to write the Cut and dragged to
+                         renumber it: one control, because the strip holds three
+                         things and a fourth grip for the drag would be a way on
+                         read as a toolbar. Its Place is the number it is offered
+                         at, so a row says which Cut it is without the panel
+                         being open. -->
+                    <button
+                      :id="`way-${cut.id}`"
+                      type="button"
+                      class="way"
+                      :aria-expanded="openedCut === cut.id"
+                      @pointerdown="startWayDrag(cut, $event)"
+                      @pointermove="keepWayDrag"
+                      @pointerup="endWayDrag(scene)"
+                      @pointercancel="draggedWay = undefined"
+                      @click="pressWay(cut)"
+                    >
+                      <span class="numbered">{{ place + 1 }}</span>
+                      {{ sceneNames.get(cut.toSceneId) }}
+                      <span class="visually-hidden">
+                        {{ $t('editor.wayOnFrom', { name: scene.name }) }}
+                      </span>
+                    </button>
 
-                  <Conditions
-                    :lead="$t('editor.offeredWhen')"
-                    :carrier="$t('editor.theCutTo', { scene: sceneNames.get(cut.toSceneId) })"
-                    :conditions="cut.conditions"
-                    :scenes="story.scenes"
-                    :counting="cut.fromSceneId"
-                    :id="cut.id"
-                    @write="writeConditions('cuts', cut.id, cut.conditions)"
-                  />
-
-                  <div class="row">
                     <button
                       type="button"
                       :disabled="place === 0"
@@ -961,7 +1181,7 @@ function atAGlance(scene: Scene) {
                     </button>
                     <button
                       type="button"
-                      :disabled="place === cutsFrom(scene).length - 1"
+                      :disabled="place === cutsFrom(scene.id).length - 1"
                       @click="moveCut(scene, cut, 1)"
                     >
                       {{ $t('common.moveLater') }}
@@ -969,15 +1189,56 @@ function atAGlance(scene: Scene) {
                         {{ $t('editor.theCutTo', { scene: sceneNames.get(cut.toSceneId) }) }}
                       </span>
                     </button>
-                    <button type="button" class="danger" @click="deleteCut(cut)">
-                      {{ $t('editor.deleteCutTo', { scene: sceneNames.get(cut.toSceneId) }) }}
-                    </button>
-                  </div>
-                </li>
-              </ul>
+                  </li>
+                </ol>
+              </div>
             </template>
           </div>
         </article>
+
+        <!-- Where a Cut is written: on the middle of its own line, above the
+             nodes and on the surface, so it scrolls with the bench and stays on
+             the line it edits. It holds the Cut's text, its Conditions and its
+             deletion, and not its Place — a Place is read and changed beside its
+             siblings, which is the strip inside the node. -->
+        <div
+          v-if="panel"
+          class="panel"
+          role="group"
+          :aria-label="$t('editor.writingCutTo', { scene: panel.to })"
+          :style="{
+            insetInlineStart: `${panel.at.x}px`,
+            insetBlockStart: `${panel.at.y}px`,
+          }"
+        >
+          <label class="eyebrow" :for="`cut-${panel.cut.id}`">
+            {{ $t('cut.to', { scene: panel.to }) }}
+            <span class="visually-hidden">
+              {{ $t('editor.fromScene', { name: panel.from }) }}
+            </span>
+          </label>
+          <input
+            :id="`cut-${panel.cut.id}`"
+            ref="cutText"
+            v-model="panel.cut.text"
+            :maxlength="CUT_TEXT_MAX_LENGTH"
+            @change="writeCut(panel.cut)"
+          >
+
+          <Conditions
+            :lead="$t('editor.offeredWhen')"
+            :carrier="$t('editor.theCutTo', { scene: panel.to })"
+            :conditions="panel.cut.conditions"
+            :scenes="story.scenes"
+            :counting="panel.cut.fromSceneId"
+            :id="panel.cut.id"
+            @write="writeConditions('cuts', panel.cut.id, panel.cut.conditions)"
+          />
+
+          <button type="button" class="danger" @click="deleteCut(panel.cut)">
+            {{ $t('editor.deleteCutTo', { scene: panel.to }) }}
+          </button>
+        </div>
       </div>
     </div>
   </main>
@@ -1105,6 +1366,11 @@ header {
 svg {
   position: absolute;
   inset: 0;
+  /* The drawing takes no presses. The one exception is the wide stroke behind each
+     Cut, which asks for them back below: a line paints over that stroke, and a
+     disc paints over both, so leaving the whole of it live would have the hand
+     landing on whichever of the three was drawn last. */
+  pointer-events: none;
 }
 
 /* A Cut is a mark the Author made, so it is drawn in the grease pencil rather
@@ -1116,6 +1382,43 @@ svg line {
 
 svg path {
   fill: var(--grease);
+}
+
+/* What the hand aims at: the same line, twenty pixels of it and none of it drawn.
+   Twenty is the pitch the bench is pricked out at, so the target is the graph's
+   own step rather than a number picked for this one thing. `stroke` decides where
+   a hit lands, not whether the paint can be seen, so nothing here has to be
+   visible to be pressed. */
+svg line.aimed {
+  stroke: transparent;
+  stroke-width: var(--pitch);
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+/* The Cut being written, lit: the panel says which Cut it is holding, and this is
+   the same thing said on the bench, where the Author is looking. */
+svg line.lit {
+  stroke: var(--grease);
+  /* Twice the weight of a finished Cut, which is the whole of the difference: the
+     Cut being written is the same mark, drawn heavier. */
+  stroke-width: 3;
+}
+
+/* The Place a way on is offered at, on a disc near the Scene it leaves. It is the
+   Author's own numbering, so it wears the grease pencil, and the number is punched
+   out of it in the bench's own dark. */
+svg circle.disc {
+  fill: var(--grease);
+}
+
+svg text.place {
+  fill: var(--ink);
+  font-family: var(--data);
+  font-size: 0.625rem;
+  font-variant-numeric: tabular-nums;
+  text-anchor: middle;
+  dominant-baseline: central;
 }
 
 /* The Cut under the Author's hand. It is the Author's mark, so it is the grease
@@ -1434,19 +1737,97 @@ article.opens .strip {
   gap: var(--s2);
 }
 
-/* The Cuts leaving this Scene. Each carries the grease pencil down its edge,
-   because a Cut is drawn and not computed. */
-.cuts {
+/* The bare strip of the ways on leaving this Scene: a row apiece, and nothing
+   between it and the Flags above it — an open node holds three things, and the
+   space between them is what says so. */
+.ways {
   display: grid;
-  gap: var(--s2);
+  gap: var(--s1);
 }
 
-.cuts > li {
+.ways ol {
+  display: grid;
+  gap: var(--s1);
+}
+
+.ways li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1);
+}
+
+/* One way on, read as the line it is rather than as a button: where it arrives,
+   and the Place it is offered at in the gutter. The whole row is the target,
+   because it is pressed to write the Cut and dragged to renumber it. */
+.way {
+  /* Narrow enough that the name and the two controls are one line of a node this
+     width, and free to grow into what they leave: a long Scene name wraps inside
+     the row rather than pushing a control onto a line of its own. */
+  flex: 1 1 4rem;
+  min-inline-size: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s1) var(--s2);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  text-align: start;
+  cursor: grab;
+  /* Dragged rather than scrolled under a finger, the same as the two gestures the
+     bench already carries. */
+  touch-action: none;
+}
+
+/* The Place, in the grease pencil the disc on the line wears, so the number in
+   the node and the number on the bench read as the one number. */
+.numbered {
+  flex: none;
+  min-inline-size: 1.25rem;
+  color: var(--grease);
+  font-family: var(--data);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+/* The row in the hand, and the row whose Place it would take: the gesture says
+   what it is about to do before the Author lets go, the same way the line being
+   drawn does. */
+.ways li.dragged .way {
+  opacity: 0.5;
+}
+
+.ways li.under .way {
+  border-color: var(--grease);
+}
+
+/* The two controls that renumber, held to the size the ones under a Shot are:
+   they are the keyboard's way to do what the drag does. */
+.ways li button:not(.way) {
+  flex: none;
+  padding: var(--s1) var(--s2);
+  font-size: 0.6875rem;
+}
+
+/* The panel one Cut is written in, on the middle of its own line and centred on
+   that point, so it sits over the Cut rather than beside it. On the surface, which
+   is what makes it scroll with the bench, and above the nodes, including whichever
+   one is being worked in. It wears the grease pencil, because everything in it is
+   the Author's mark on a Cut. */
+.panel {
+  position: absolute;
+  z-index: 2;
+  translate: -50% -50%;
   display: grid;
   gap: var(--s2);
-  padding: var(--s2) var(--s3);
-  border-inline-start: 2px solid color-mix(in oklab, var(--grease) 60%, transparent);
-  background: color-mix(in oklab, var(--bench) 55%, transparent);
+  /* Narrower than the twenty rem of a node, because a panel sits between the two
+     boxes its line joins and one wider than they are would cover both. */
+  inline-size: 17rem;
+  padding: var(--s3);
+  border: 1px solid var(--grease);
+  border-radius: var(--machined);
+  background: var(--steel);
+  box-shadow: var(--lifted);
 }
 
 
