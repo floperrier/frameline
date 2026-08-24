@@ -1043,6 +1043,47 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
 })
 
 /**
+ * Two typed changes to the same Flags, with the first one held back on its way
+ * out for longer than the second takes altogether. Every endpoint a typed write
+ * reaches takes the whole list, so a first write arriving after a second does not
+ * merge with it — it undoes it, and the Author watches their own last word lose.
+ */
+test('the second of two typed changes is the one the Story keeps', async ({ page, request }) => {
+  const { story, scenes } = await openGraph(request)
+  const arrival = (scenes as [{ id: string }])[0]
+
+  // Held only the once, so the write typed behind it has every chance to overtake
+  // it, and read back off the response rather than off the request: what is being
+  // proved is the order the two reach the Story in, not the order they left in.
+  const landed: string[] = []
+  let holding = true
+  await page.route(`**/api/scenes/${arrival.id}/flags`, async (route) => {
+    const { sets } = route.request().postDataJSON() as { sets: Record<string, string> }
+    if (holding) {
+      holding = false
+      await new Promise(resolve => setTimeout(resolve, 2000))
+    }
+    const response = await route.fetch()
+    landed.push(sets.coat!)
+    await route.fulfill({ response })
+  })
+
+  await page.goto(`/stories/${story.id}`)
+  await openNode(page, 'The arrival')
+
+  // Typed straight through, the way an Author changing their mind types: the
+  // second value goes out while the first is still on the wire.
+  const flags = page.getByLabel('Flags set on entering The arrival')
+  await flags.fill('coat = on')
+  await flags.blur()
+  await flags.fill('coat = off')
+  await flags.blur()
+
+  await expect.poll(() => landed, { timeout: 15_000 }).toEqual(['on', 'off'])
+  await expect(readFlags(arrival.id)).resolves.toEqual({ coat: 'off' })
+})
+
+/**
  * A graph of Scenes laid out in one row, so every node is on screen at once and
  * a gesture from any of them can reach any other. The API stacks a new Scene
  * under the last, which puts the second one half off the bench.
