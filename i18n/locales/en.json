@@ -105,11 +105,8 @@
     "cutAbandoned": "No Cut was drawn"
   },
   "conditions": {
-    "numbered": "Condition {place}",
     "ofCarrier": "of {carrier}",
     "always": "— always",
-    "aFlagHolds": "A Flag holds",
-    "aSceneEntered": "A Scene has been entered",
     "flag": "Flag",
     "holds": "holds",
     "forCondition": "for {condition}",

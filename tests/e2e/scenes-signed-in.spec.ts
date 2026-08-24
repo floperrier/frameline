@@ -475,6 +475,38 @@ test('a Shot carries the Conditions it plays under', async ({ request }) => {
   })
 })
 
+test('an Author writes a Condition on a Shot, and it reads as one line', async ({
+  page,
+  request,
+}) => {
+  const { story, scene } = await openScene(request, 'The booth')
+  await writeShots(request, scene.id, ['You have been here before.'])
+
+  await page.goto(`/stories/${story.id}`)
+  await openNode(page, 'The booth')
+  await page.getByRole('button', { name: 'Add a Condition to Shot 1 of The booth' }).click()
+
+  // Every field says which Condition of which Shot it belongs to, and nothing but
+  // assistive technology reads it: the row itself is the sentence.
+  const called = 'Condition 1 of Shot 1 of The booth'
+  const flag = page.getByLabel(`Flag of ${called}`)
+  await flag.fill('coat')
+  await flag.blur()
+  const holds = page.getByLabel(`holds for ${called}`)
+  await holds.fill('on')
+  await holds.blur()
+
+  // The whole point of the row: one Condition on one line in the width a node
+  // gives it, so five of them are five lines rather than twenty.
+  const row = page.locator('.when').first()
+  const field = (await flag.boundingBox())!
+  expect((await row.boundingBox())!.height).toBeLessThan(field.height * 2)
+
+  await expect(async () => {
+    await expect(readShotConditions(scene.id)).resolves.toEqual([[{ flag: 'coat', is: 'on' }]])
+  }).toPass()
+})
+
 test('a Shot’s Conditions are refused where a Cut’s would be', async ({
   request,
   otherAuthor,
