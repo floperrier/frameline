@@ -1043,24 +1043,27 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
 })
 
 /**
- * Two typed changes to the same Flags, with the first one held back on its way
- * out for longer than the second takes altogether. Every endpoint a typed write
- * reaches takes the whole list, so a first write arriving after a second does not
- * merge with it — it undoes it, and the Author watches their own last word lose.
+ * Two typed changes to the same Flags, with the first one held back on its way out
+ * for longer than the second takes altogether — which is what an Author on a slow
+ * database is really typing into. Whichever of the two arrives last is the one the
+ * Story keeps, because the endpoint takes the whole list, so the Author's own last
+ * word loses unless the two are sent in the order they were typed.
  */
 test('the second of two typed changes is the one the Story keeps', async ({ page, request }) => {
   const { story, scenes } = await openGraph(request)
-  const arrival = (scenes as [{ id: string }])[0]
+  const [arrival] = scenes as [{ id: string }, { id: string }]
 
-  // Held only the once, so the write typed behind it has every chance to overtake
-  // it, and read back off the response rather than off the request: what is being
-  // proved is the order the two reach the Story in, not the order they left in.
+  // How many more writes to hold back on the wire, which the test arms before
+  // each pair it types: the one in front is held for longer than a round trip, so
+  // the one typed behind it has every chance to overtake it. What each write said
+  // is read off the response rather than the request, because the order being
+  // proved is the one the Story took them in and not the one they left the page in.
   const landed: string[] = []
-  let holding = true
+  let holding = 0
   await page.route(`**/api/scenes/${arrival.id}/flags`, async (route) => {
     const { sets } = route.request().postDataJSON() as { sets: Record<string, string> }
-    if (holding) {
-      holding = false
+    if (holding > 0) {
+      holding -= 1
       await new Promise(resolve => setTimeout(resolve, 2000))
     }
     const response = await route.fetch()
@@ -1071,16 +1074,31 @@ test('the second of two typed changes is the one the Story keeps', async ({ page
   await page.goto(`/stories/${story.id}`)
   await openNode(page, 'The arrival')
 
-  // Typed straight through, the way an Author changing their mind types: the
-  // second value goes out while the first is still on the wire.
+  // Typed straight through, the way an Author changing their mind types, and with
+  // nothing waited for in between: the second value is typed while the first is
+  // still on the wire.
   const flags = page.getByLabel('Flags set on entering The arrival')
+  holding = 1
   await flags.fill('coat = on')
   await flags.blur()
   await flags.fill('coat = off')
   await flags.blur()
 
+  // Longer than the hold, so what is being read is the order and not the wait.
   await expect.poll(() => landed, { timeout: 15_000 }).toEqual(['on', 'off'])
   await expect(readFlags(arrival.id)).resolves.toEqual({ coat: 'off' })
+
+  // A Flag with a name and no value is refused, and the refusal reads the Story
+  // back — without taking down the write typed behind it, which lands after it
+  // and in its turn.
+  holding = 1
+  await flags.fill('coat')
+  await flags.blur()
+  await flags.fill('coat = worn')
+  await flags.blur()
+
+  await expect.poll(() => landed).toEqual(['on', 'off', '', 'worn'])
+  await expect(readFlags(arrival.id)).resolves.toEqual({ coat: 'worn' })
 })
 
 /**

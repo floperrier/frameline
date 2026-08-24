@@ -98,16 +98,15 @@ export function useEditing(reload: () => Promise<unknown>) {
   }
 
   /**
-   * The typed write before this one, which the next has to wait for. Every
-   * endpoint a typed write reaches takes the whole list rather than a change to
-   * it — the Conditions a Cut carries, the Flags a Scene sets — so two of them in
-   * flight at once are not merged by the server: the one that arrives last wins,
-   * whichever was typed last. Held in one queue rather than one per field,
-   * because the two writes that undo each other are usually not the same field:
-   * a Flag's value and a Condition typed in the same breath both land on the
-   * Story.
+   * The typed write the next one waits for. Every endpoint a typed write reaches
+   * takes the whole list rather than a change to it — the Conditions a Cut
+   * carries, the Flags a Scene sets — so two of them in flight at once are not
+   * merged by the server: the one that arrives last wins, whichever was typed
+   * last. One of these rather than one per field, because the two writes that
+   * undo each other are usually not the same field: a Flag's value and a
+   * Condition typed in the same breath both land on the Story.
    */
-  let queued: Promise<unknown> = Promise.resolve()
+  let previous: Promise<unknown> = Promise.resolve()
 
   /**
    * What the Author typed, which the form has already written into the fetched
@@ -130,7 +129,7 @@ export function useEditing(reload: () => Promise<unknown>) {
     const field = writtenIn
     writtenIn = undefined
 
-    const turn = queued.then(async () => {
+    const turn = previous.then(async () => {
       if (!await attempt(act)) {
         await reload()
         return
@@ -143,7 +142,7 @@ export function useEditing(reload: () => Promise<unknown>) {
     // What the next write waits on cannot be a promise that rejects: a refetch
     // that failed would otherwise end the queue and take every write typed after
     // it down with itself. The caller still gets the rejection.
-    queued = turn.catch(() => {})
+    previous = turn.catch(() => {})
     return turn
   }
 
