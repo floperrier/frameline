@@ -128,7 +128,7 @@ export const NODE_SPACING = NODE_HEIGHT + NODE_GAP
  */
 export type NodeBox = { x: number, y: number, height: number }
 
-type Point = { x: number, y: number }
+export type Point = { x: number, y: number }
 
 /**
  * Where the line that draws a Cut meets the two nodes: on the edge of the box it
@@ -144,6 +144,22 @@ export function cutLine(from: NodeBox, to: NodeBox) {
   return {
     from: onTheEdge(leaving, from.height, towards),
     to: onTheEdge(landing, to.height, { x: -towards.x, y: -towards.y }),
+  }
+}
+
+/**
+ * Where the line of a Cut being drawn runs: off the edge of the node it is left
+ * from, and to the point the hand has reached. The far end is the point itself
+ * rather than the edge of anything, because there is nothing there yet — a Cut
+ * under the Author's hand lands wherever they are, and only the near end has a
+ * box to leave.
+ */
+export function cutLineTo(from: NodeBox, at: Point) {
+  const leaving = middleOf(from)
+
+  return {
+    from: onTheEdge(leaving, from.height, { x: at.x - leaving.x, y: at.y - leaving.y }),
+    to: at,
   }
 }
 
@@ -269,6 +285,27 @@ export function sceneNamed(names: Map<string, string>, sceneId: string, say: Phr
  */
 export function cutNamed(cut: Cut, sceneName: (id: string) => string, say: Phrase) {
   return cut.text || say('cut.to', { scene: sceneName(cut.toSceneId) })
+}
+
+/**
+ * The Scenes a Cut leaving one Scene may land on: every Scene in the Story bar
+ * the one it leaves and the ones it already reaches. It is what lights up while
+ * a Cut is being drawn, and it is fixed the moment the gesture begins — it
+ * depends on the departing Scene and the Cuts already leaving it, and neither
+ * changes under the Author's hand.
+ *
+ * The server allows both of the slips this withholds: a Scene that cuts to
+ * itself is one a Reading re-enters, and two Cuts to one Scene under opposite
+ * Conditions is what Conditions on a Cut are for. What the hand cannot do by
+ * accident is still written on purpose, from the Cut's own panel — see
+ * `docs/adr/0015-a-cut-is-drawn-by-hand.md`.
+ */
+export function scenesACutMayLandOn(scenes: Scene[], cuts: Cut[], fromSceneId: string) {
+  const reached = new Set(
+    cuts.filter(cut => cut.fromSceneId === fromSceneId).map(cut => cut.toSceneId))
+
+  return new Set(
+    scenes.map(scene => scene.id).filter(id => id !== fromSceneId && !reached.has(id)))
 }
 
 /**

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { cutLine, NODE_WIDTH } from '../../shared/utils/scenes'
+import type { Cut, Scene } from '../../shared/utils/scenes'
+import { cutLine, cutLineTo, NODE_WIDTH, scenesACutMayLandOn } from '../../shared/utils/scenes'
 
 describe('the line that draws a Cut', () => {
   test('leaves the side of the node it leaves, and lands on the side it lands on', () => {
@@ -29,5 +30,49 @@ describe('the line that draws a Cut', () => {
     const line = cutLine({ x: 40, y: 60, height: 90 }, { x: 40, y: 60, height: 90 })
 
     expect(line.from).toEqual(line.to)
+  })
+})
+
+describe('the line of a Cut being drawn', () => {
+  test('leaves the edge of the node it is drawn from, and ends at the hand', () => {
+    const line = cutLineTo({ x: 0, y: 0, height: 100 }, { x: 600, y: 50 })
+
+    expect(line).toEqual({ from: { x: NODE_WIDTH, y: 50 }, to: { x: 600, y: 50 } })
+  })
+
+  test('ends at the hand exactly, even where the hand is inside the node it left', () => {
+    const inside = { x: 40, y: 40 }
+
+    expect(cutLineTo({ x: 0, y: 0, height: 100 }, inside).to).toBe(inside)
+  })
+})
+
+describe('the Scenes a Cut may land on', () => {
+  const scene = (id: string) => ({ id }) as Scene
+  const cut = (fromSceneId: string, toSceneId: string) => ({ fromSceneId, toSceneId }) as Cut
+  const scenes = ['arrival', 'platform', 'bar'].map(scene)
+
+  test('is every other Scene in the Story, where nothing has been drawn yet', () => {
+    expect(scenesACutMayLandOn(scenes, [], 'arrival')).toEqual(new Set(['platform', 'bar']))
+  })
+
+  test('never holds the Scene the Cut leaves, so the hand cannot slip into a Cut on itself', () => {
+    expect(scenesACutMayLandOn(scenes, [], 'bar').has('bar')).toBe(false)
+  })
+
+  test('drops a Scene the departing Scene already reaches', () => {
+    const drawn = [cut('arrival', 'platform')]
+
+    expect(scenesACutMayLandOn(scenes, drawn, 'arrival')).toEqual(new Set(['bar']))
+  })
+
+  test('counts only the Cuts leaving this Scene, not the ones arriving at it', () => {
+    const drawn = [cut('platform', 'bar'), cut('bar', 'arrival')]
+
+    expect(scenesACutMayLandOn(scenes, drawn, 'arrival')).toEqual(new Set(['platform', 'bar']))
+  })
+
+  test('is empty in a Story of one Scene, which has nowhere to cut to', () => {
+    expect(scenesACutMayLandOn([scene('arrival')], [], 'arrival')).toEqual(new Set())
   })
 })
