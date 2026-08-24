@@ -56,6 +56,7 @@
     "publish": "Publish this Story",
     "newSceneName": "Name of a new Scene",
     "createScene": "Create Scene",
+    "provisionalSceneName": "A new Scene",
     "sceneCreated": "“{name}” created",
     "noScenes": "No Scenes yet. Name one above, and it lands on the bench with a Shot to write.",
     "oneShot": "{count} Shot",

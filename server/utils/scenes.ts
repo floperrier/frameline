@@ -74,6 +74,22 @@ export async function readScenePlacement(event: H3Event) {
 }
 
 /**
+ * Reads where a Scene is being placed, where the request may be carrying no
+ * placement at all: a Scene written by dropping a Cut on the bare bench says
+ * where it landed, and one written from the form at the top of the page leaves
+ * the endpoint to choose a spot itself. A placement that is there is held to the
+ * same bound as one on a Scene already written — a Story cannot be seeded with a
+ * node beyond the graph's reach any more than it can be dragged to one.
+ */
+export async function readScenePlacementOffered(event: H3Event) {
+  const body = await readBody<{ x?: unknown, y?: unknown }>(event)
+
+  return body?.x === undefined && body?.y === undefined
+    ? undefined
+    : await readScenePlacement(event)
+}
+
+/**
  * Reads the Flags a Scene sets on entry, as a flat object of names to values. A
  * Flag is a name *and* a value, so neither half may be blank: a Flag set to
  * nothing is one the engine cannot tell from a Flag never set. Names and values

@@ -5,9 +5,13 @@ import {
   cutLine,
   cutLineTo,
   discOfCut,
+  GRAPH_REACH,
   middleOfCut,
+  NODE_PITCH,
   NODE_WIDTH,
   scenesACutMayLandOn,
+  snappedWithinReach,
+  withinReach,
 } from '../../shared/utils/scenes'
 
 describe('the line that draws a Cut', () => {
@@ -113,5 +117,30 @@ describe('the Scenes a Cut may land on', () => {
 
   test('is empty in a Story of one Scene, which has nowhere to cut to', () => {
     expect(scenesACutMayLandOn([scene('arrival')], [], 'arrival')).toEqual(new Set())
+  })
+})
+
+describe('where a node may sit', () => {
+  test('holds a placement inside the graph\u2019s reach, on a whole pixel', () => {
+    expect(withinReach(-40)).toBe(0)
+    expect(withinReach(GRAPH_REACH + 40)).toBe(GRAPH_REACH)
+    expect(withinReach(120.6)).toBe(121)
+  })
+
+  test('snaps a point the hand landed on to the nearest crossing of the pitch', () => {
+    expect(snappedWithinReach({ x: 0, y: 0 })).toEqual({ x: 0, y: 0 })
+    expect(snappedWithinReach({ x: 9, y: 11 })).toEqual({ x: 0, y: NODE_PITCH })
+    expect(snappedWithinReach({ x: 331, y: 249 })).toEqual({ x: 340, y: 240 })
+  })
+
+  test('snaps by the very step an arrow key moves a node, so the two lattices are one', () => {
+    const { x } = snappedWithinReach({ x: NODE_PITCH * 7 + 1, y: 0 })
+
+    expect(x % NODE_PITCH).toBe(0)
+    expect(x).toBe(NODE_PITCH * 7)
+  })
+
+  test('never snaps a point back out of the reach it was held inside', () => {
+    expect(snappedWithinReach({ x: GRAPH_REACH + 500, y: -500 })).toEqual({ x: GRAPH_REACH, y: 0 })
   })
 })

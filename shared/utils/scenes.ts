@@ -100,6 +100,15 @@ export const VISITS_MAX = 100
 export const GRAPH_REACH = 10_000
 
 /**
+ * The pitch the bench is pricked out at: how far one arrow key moves a node, how
+ * wide the strip a Cut is drawn from is, and the grid a Scene written by dropping
+ * a Cut on the bare bench snaps to. One number, so a Story laid out by hand and a
+ * Story written by dragging line up on the same lattice — see
+ * `docs/adr/0015-a-cut-is-drawn-by-hand.md`.
+ */
+export const NODE_PITCH = 20
+
+/**
  * How wide a Scene's node is drawn, how far below the last one a new Scene is
  * placed, and how tall a node is taken to be before it has been measured. Shared
  * because the server does the placing and the graph does the drawing, and the
@@ -129,6 +138,30 @@ export const NODE_SPACING = NODE_HEIGHT + NODE_GAP
 export type NodeBox = { x: number, y: number, height: number }
 
 export type Point = { x: number, y: number }
+
+/**
+ * How far along one axis a node may sit: never outside the graph's reach, and on
+ * a whole pixel, because the column that holds it is an integer. The same bound
+ * the server refuses a placement by, held here so a node under the hand stops at
+ * the edge rather than being pulled back by a refusal.
+ */
+export function withinReach(pixels: number) {
+  return Math.min(GRAPH_REACH, Math.max(0, Math.round(pixels)))
+}
+
+/**
+ * Where a point the hand landed on puts a node: on the nearest crossing of the
+ * bench's own pitch, and within the graph's reach. One function for both, because
+ * a Scene dropped outside the reach and then snapped could be snapped back out of
+ * it. Only a Scene the gesture writes is snapped — a node the Author drags goes
+ * exactly where they put it, which is `withinReach` and nothing more; what the
+ * pitch is for here is a Scene that arrives where nobody aimed it precisely.
+ */
+export function snappedWithinReach({ x, y }: Point): Point {
+  const snapped = (pixels: number) => withinReach(Math.round(pixels / NODE_PITCH) * NODE_PITCH)
+
+  return { x: snapped(x), y: snapped(y) }
+}
 
 /**
  * Where the line that draws a Cut meets the two nodes: on the edge of the box it

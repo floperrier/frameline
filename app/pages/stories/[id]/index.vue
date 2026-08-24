@@ -279,7 +279,17 @@ function keepAiming(event: PointerEvent) {
 }
 
 function endAiming(event: PointerEvent) {
-  return landOn(sceneUnder(event))
+  return landOn(sceneUnder(event), onTheBench(event))
+}
+
+/**
+ * Whether the hand let go on the bench at all. Pointer capture keeps the line
+ * following a hand that has left the graph entirely — over the form at the top of
+ * the page, over the toast — and a drop up there is a gesture abandoned rather
+ * than a Scene written at the corner of a bench the hand never reached.
+ */
+function onTheBench(event: PointerEvent) {
+  return !!document.elementFromPoint(event.clientX, event.clientY)?.closest('.graph')
 }
 
 /**
@@ -295,15 +305,18 @@ function sceneUnder(event: PointerEvent) {
 }
 
 /**
- * Draws the Cut where the gesture landed, or lets it go where it landed on
- * nothing it may land on — a Scene it already reaches, the Scene it left, or the
- * bench. Either way the aiming ends: a gesture that drew nothing leaves the
- * Story exactly as it was.
+ * Draws the Cut where the gesture landed, or lets it go where it landed on a
+ * Scene it may not land on — one it already reaches, or the one it left. Landing
+ * on the bare bench writes the Scene that was not there; landing off the bench, or
+ * on nothing at all, which is the keyboard route abandoned, leaves the Story
+ * exactly as it was.
  */
-function landOn(sceneId: string | undefined) {
+function landOn(sceneId: string | undefined, onBench = false) {
   const aimed = aiming.value
   aiming.value = undefined
-  if (!aimed || !sceneId || !aimed.landsOn.has(sceneId)) return
+  if (!aimed) return
+  if (!sceneId) return onBench && aimed.at ? writeSceneAt(aimed.fromSceneId, aimed.at) : undefined
+  if (!aimed.landsOn.has(sceneId)) return
 
   const said = {
     from: sceneNamed(sceneNames.value, aimed.fromSceneId, t),
@@ -317,6 +330,51 @@ function landOn(sceneId: string | undefined) {
     })
     announce(t('editor.cutDrawn', said))
   })
+}
+
+/**
+ * Writes the Scene a gesture landed on the bare bench, and the Cut to it. The
+ * Scene goes where the hand let go, snapped to the bench's own pitch, and it
+ * arrives under a provisional name with its node opened on that name in a field:
+ * a name typed in the middle of a gesture could never be corrected, so the
+ * gesture leaves the Author in the field that corrects it — see
+ * `docs/adr/0015-a-cut-is-drawn-by-hand.md`.
+ *
+ * The two writes are one change, so the bench reads the Story back once and finds
+ * the Scene and the Cut in it together. They are not one transaction, and nothing
+ * here pretends otherwise: a Cut refused after the Scene was written leaves the
+ * Scene on the bench under its provisional name, which the Author can name or
+ * delete — the same place a Scene written from the form at the top of the page
+ * would have left them.
+ */
+async function writeSceneAt(fromSceneId: string, at: Point) {
+  const name = t('editor.provisionalSceneName')
+  const said = { from: sceneNamed(sceneNames.value, fromSceneId, t), to: name }
+  let writtenId: string | undefined
+
+  await change(async () => {
+    const written = await send(`/api/stories/${id}/scenes`, {
+      method: 'POST',
+      body: { name, ...snappedWithinReach(at) },
+    }) as Scene
+    await send(`/api/scenes/${fromSceneId}/cuts`, {
+      method: 'POST',
+      body: { toSceneId: written.id },
+    })
+
+    writtenId = written.id
+    opened.add(written.id)
+    announce(t('editor.cutDrawn', said))
+  })
+
+  // After the read the change asks for and the render it causes, which is what
+  // puts the field in the page at all. Selected rather than left with a cursor in
+  // it: the name is provisional, so the first thing typed replaces it.
+  if (!writtenId) return
+  await nextTick()
+  const naming = document.getElementById(`scene-name-${writtenId}`) as HTMLInputElement | null
+  naming?.focus()
+  naming?.select()
 }
 
 function abandonAiming() {
@@ -619,9 +677,10 @@ function endDrag() {
 
 /**
  * The keyboard moves a node too — a graph that only answers to a pointer is not
- * one everyone can lay out. How far one press moves it is also the pitch the
- * bench is pricked out at and the width of a node's strip, so the graph is handed
- * it as `--pitch` rather than the twenty being written again in the stylesheet.
+ * one everyone can lay out. How far one press moves it is `NODE_PITCH`, which is
+ * also the width of a node's strip and the grid a Scene dropped on the bench
+ * snaps to, so the graph is handed it as `--pitch` rather than the twenty being
+ * written again in the stylesheet.
  */
 const NUDGES: Record<string, [number, number]> = {
   ArrowLeft: [-1, 0],
@@ -629,19 +688,14 @@ const NUDGES: Record<string, [number, number]> = {
   ArrowUp: [0, -1],
   ArrowDown: [0, 1],
 }
-const NUDGE = 20
 
 function nudge(scene: Scene, event: KeyboardEvent) {
   const nudged = NUDGES[event.key]
   if (!nudged) return
   event.preventDefault()
-  scene.x = withinReach(scene.x + nudged[0] * NUDGE)
-  scene.y = withinReach(scene.y + nudged[1] * NUDGE)
+  scene.x = withinReach(scene.x + nudged[0] * NODE_PITCH)
+  scene.y = withinReach(scene.y + nudged[1] * NODE_PITCH)
   return moveScene(scene)
-}
-
-function withinReach(pixels: number) {
-  return Math.min(GRAPH_REACH, Math.max(0, Math.round(pixels)))
 }
 
 /**
@@ -779,7 +833,7 @@ function atAGlance(scene: Scene) {
 
     <p v-if="!story?.scenes.length" class="none">{{ $t('editor.noScenes') }}</p>
     <div v-else class="graph" @pointerdown="closeOnBench">
-      <div ref="surface" class="surface" :style="{ ...graphSize, '--pitch': `${NUDGE}px` }">
+      <div ref="surface" class="surface" :style="{ ...graphSize, '--pitch': `${NODE_PITCH}px` }">
         <!-- The drawing is a pointer's way to a Cut and a second place the one
              being written is shown; the account of where a Scene leads that
              anything reads out is the strip inside the node — see
