@@ -9,9 +9,12 @@ import { useDb } from '../../../db'
  * the first Scene an Author writes the one a Reading starts on, without their
  * having to say so.
  *
- * The spot is read off how many Scenes the Story already has rather than off
- * where they sit, so a Scene the Author has dragged elsewhere does not push the
- * next one out of the graph's reach.
+ * The Author may say where the Scene goes — a Cut dropped on the bare bench
+ * writes the Scene it lands on at the point of the drop — and where they say
+ * nothing the endpoint places it itself, at the next free spot. That spot is read
+ * off how many Scenes the Story already has rather than off where they sit, so a
+ * Scene the Author has dragged elsewhere does not push the next one out of the
+ * graph's reach.
  *
  * Inserting from a select over the Author's own Stories also proves the Story is
  * theirs: a Story they do not own selects nothing, so nothing is written and the
@@ -21,6 +24,18 @@ export default defineEventHandler(async (event) => {
   const { user: author } = await requireUserSession(event)
   const id = readId(event, 'Story')
   const name = await readSceneName(event)
+  const placed = await readScenePlacementOffered(event)
+
+  // Where the Author placed the Scene themselves, and the next free spot in the
+  // graph where they left it to us. Cast, because a parameter standing where a
+  // column's value goes carries no type for Postgres to read the integer column
+  // against.
+  const at = placed
+    ? { x: sql`${placed.x}::int`, y: sql`${placed.y}::int` }
+    : {
+        x: sql`(written_before / ${NODES_PER_COLUMN}) * ${NODE_WIDTH + NODE_GAP}`,
+        y: sql`(written_before % ${NODES_PER_COLUMN}) * ${NODE_SPACING}`,
+      }
 
   const { rows } = await useDb().execute<Scene>(sql`
     with written as (
@@ -28,8 +43,8 @@ export default defineEventHandler(async (event) => {
       select
         stories.id,
         ${name},
-        (written_before / ${NODES_PER_COLUMN}) * ${NODE_WIDTH + NODE_GAP},
-        (written_before % ${NODES_PER_COLUMN}) * ${NODE_SPACING}
+        ${at.x},
+        ${at.y}
       from stories
       cross join lateral (
         select count(*) from scenes where story_id = stories.id

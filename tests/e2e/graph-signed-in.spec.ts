@@ -6,14 +6,18 @@ import {
   GRAPH_REACH,
   NODE_GAP,
   NODE_HEIGHT,
+  NODE_PITCH,
+  NODE_SPACING,
   NODE_WIDTH,
   NODES_PER_COLUMN,
+  snappedWithinReach,
   VISITS_MAX,
 } from '../../shared/utils/scenes'
 import {
   openNode,
   readCuts,
   readFlags,
+  readSceneName,
   readScenePlacement,
   seedCut,
   seedScene,
@@ -96,6 +100,37 @@ test('a Scene cannot be put out of the graph’s reach', async ({ request }) => 
 
   for (const response of refused) expect(response.status()).toBe(400)
   await expect(readScenePlacement(scene.id)).resolves.toMatchObject({ x: 0 })
+})
+
+test('a Scene is written where the Author places it, or where the graph has room', async ({
+  request,
+}) => {
+  const { story } = await openGraph(request)
+
+  // A placement the Author sends is the placement the Scene is written at, rather
+  // than the next spot down the column.
+  const placed = await request.post(`/api/stories/${story.id}/scenes`, {
+    data: { name: 'The buffet', x: 740, y: 260 },
+  })
+  expect(placed.status()).toBe(201)
+  await expect(readScenePlacement((await placed.json()).id))
+    .resolves.toMatchObject({ x: 740, y: 260 })
+
+  // One outside the graph's reach is refused, and half a placement is no
+  // placement: neither writes a Scene.
+  const refused = await Promise.all([
+    request.post(`/api/stories/${story.id}/scenes`,
+      { data: { name: 'Nowhere', x: GRAPH_REACH + 1, y: 0 } }),
+    request.post(`/api/stories/${story.id}/scenes`, { data: { name: 'Nowhere', x: 40 } }),
+  ])
+  for (const response of refused) expect(response.status()).toBe(400)
+
+  // And a Scene sent with no placement at all is still placed by the endpoint,
+  // under the three already written.
+  const chosen = await request.post(`/api/stories/${story.id}/scenes`,
+    { data: { name: 'The tunnel' } })
+  expect(chosen.status()).toBe(201)
+  expect(await chosen.json()).toMatchObject({ x: 0, y: 3 * NODE_SPACING })
 })
 
 test('Scenes go on in columns, so that none is placed out of reach', async ({ request }) => {
@@ -1103,6 +1138,75 @@ test('a Cut is drawn by dragging from one Scene to another', async ({ page, requ
   // The gesture is over: nothing is lit, and the line is gone.
   await expect(drawnLine(page)).toHaveCount(0)
   await expect(platform).not.toHaveClass(/lit/)
+})
+
+test('letting go over the bare bench writes the Scene and cuts to it', async ({
+  page,
+  request,
+}) => {
+  const { story, scenes } = await openRow(request)
+  await page.goto(`/stories/${story.id}`)
+
+  // A point of bare bench beside the row, off the pitch on both axes so that the
+  // snapping has something to do.
+  const surface = (await page.locator('.surface').boundingBox())!
+  const platform = (await page.getByRole('article', { name: 'The platform' }).boundingBox())!
+  const drop = { x: platform.x + platform.width + 51, y: platform.y + 29 }
+
+  await aimFrom(page, 'The arrival')
+  await page.mouse.move(drop.x, drop.y, { steps: 5 })
+
+  // Over the bench the line keeps its arrowhead: there is nothing there to refuse
+  // the Cut, because the Scene it lands on is about to be written.
+  await expect(drawnLine(page)).toHaveAttribute('marker-end', 'url(#cut-head)')
+  await page.mouse.up()
+
+  // The Scene is written under a provisional name, and the bench says the Cut was
+  // drawn to it.
+  await expect(page.getByRole('status')).toHaveText('Cut from The arrival to A new Scene drawn')
+  const written = page.getByRole('article', { name: 'A new Scene' })
+  await expect(written).toHaveCount(1)
+
+  // It sits where the hand let go, snapped to the pitch the bench is pricked out
+  // at and the arrow keys move a node by.
+  const read = await (await request.get(`/api/stories/${story.id}`)).json()
+  const scene = read.scenes.find((held: { name: string }) => held.name === 'A new Scene')
+  const placement = await readScenePlacement(scene.id)
+  expect(placement).toMatchObject(
+    snappedWithinReach({ x: drop.x - surface.x, y: drop.y - surface.y }))
+  expect(placement.x % NODE_PITCH).toBe(0)
+  expect(placement.y % NODE_PITCH).toBe(0)
+
+  // And the Cut that drew it is in the Story, leaving the Scene the gesture began
+  // on for the Scene it wrote.
+  await expect.poll(() => readCuts(scenes[0]!.id)).toMatchObject([
+    { fromSceneId: scenes[0]!.id, toSceneId: scene.id, position: 0 },
+  ])
+
+  // The node arrives open on its name, in the field, with the provisional name
+  // selected — so the name is replaced by typing it, without leaving the bench.
+  const naming = written.getByLabel('Name of this Scene')
+  await expect(naming).toBeFocused()
+  await expect(naming).toHaveValue('A new Scene')
+  // Typed and tabbed out of rather than filled through the field's own locator:
+  // the node is named by the Scene, so the name under the hand changes as it is
+  // typed, and the field is reached from the keyboard that is already in it.
+  await page.keyboard.type('The buffet')
+  await page.keyboard.press('Tab')
+
+  await expect.poll(() => readSceneName(scene.id)).toBe('The buffet')
+  await expect(page.getByRole('article', { name: 'The buffet' })).toHaveCount(1)
+
+  // And a hand that leaves the bench altogether has drawn nothing: pointer capture
+  // keeps the line following it over the form at the top of the page, but a Scene
+  // is written where the Author aimed on the bench or nowhere at all.
+  await aimFrom(page, 'The arrival')
+  const form = (await page.getByLabel('Name of a new Scene').boundingBox())!
+  await page.mouse.move(form.x + form.width / 2, form.y + form.height / 2, { steps: 5 })
+  await page.mouse.up()
+
+  expect((await (await request.get(`/api/stories/${story.id}`)).json()).scenes).toHaveLength(3)
+  await expect.poll(() => readCuts(scenes[0]!.id)).toHaveLength(1)
 })
 
 test('a Cut cannot be drawn on a Scene itself, or twice to the same Scene', async ({
