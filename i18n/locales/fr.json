@@ -105,11 +105,8 @@
     "cutAbandoned": "Aucune Coupe n'a été tracée"
   },
   "conditions": {
-    "numbered": "Condition {place}",
     "ofCarrier": "de {carrier}",
     "always": "— toujours",
-    "aFlagHolds": "Un Marqueur vaut",
-    "aSceneEntered": "Une Scène a été entrée",
     "flag": "Marqueur",
     "holds": "vaut",
     "forCondition": "pour {condition}",

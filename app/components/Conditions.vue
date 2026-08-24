@@ -11,6 +11,12 @@
  * every label ends in, so a Story of forty Cuts and two hundred Shots has no two
  * labels alike — and where the Scene a fresh visit count starts on comes from.
  *
+ * The sentence is written the way one is read: the connecting words between the
+ * fields are plain text, and every field's label is read by assistive technology
+ * alone. Nothing an eye reads is lost, since the words the labels carried are the
+ * words now set between the fields; what that buys, and what sizes the fields, is
+ * said in the stylesheet at the foot of this file.
+ *
  * The list is edited in place, on the Story the page fetched, and written whole
  * on every change: what the endpoint takes is the list, not a row of it.
  */
@@ -91,58 +97,56 @@ function conditionCalled(place: number) {
     </p>
 
     <div v-for="(condition, place) in conditions" :key="place" class="when">
-      <label class="eyebrow" :for="`when-${id}-${place}`">
-        {{ $t('conditions.numbered', { place: place + 1 }) }}
-        <span class="visually-hidden">{{ $t('conditions.ofCarrier', { carrier }) }}</span>
+      <span class="numbered" aria-hidden="true">{{ place + 1 }}</span>
+      <label class="visually-hidden" :for="`when-${id}-${place}`">
+        {{ conditionCalled(place) }}
       </label>
       <select
         :id="`when-${id}-${place}`"
         :value="conditionKind(condition)"
         @change="choose(place, ($event.target as HTMLSelectElement).value as ConditionKind)"
       >
-        <option value="flag">{{ $t('conditions.aFlagHolds') }}</option>
-        <option value="visits">{{ $t('conditions.aSceneEntered') }}</option>
+        <option value="flag">{{ $t('conditions.flag') }}</option>
+        <option value="visits">{{ $t('conditions.scene') }}</option>
       </select>
 
       <template v-if="'flag' in condition">
-        <label class="eyebrow" :for="`flag-${id}-${place}`">
+        <label class="visually-hidden" :for="`flag-${id}-${place}`">
           {{ $t('conditions.flag') }}
-          <span class="visually-hidden">
-            {{ $t('conditions.ofCarrier', { carrier: conditionCalled(place) }) }}
-          </span>
+          {{ $t('conditions.ofCarrier', { carrier: conditionCalled(place) }) }}
         </label>
         <input
           :id="`flag-${id}-${place}`"
           v-model="condition.flag"
           class="data"
+          size="8"
           :maxlength="FLAG_NAME_MAX_LENGTH"
           @change="emit('write')"
         >
-        <label class="eyebrow" :for="`is-${id}-${place}`">
+        <span class="says" aria-hidden="true">{{ $t('conditions.holds') }}</span>
+        <label class="visually-hidden" :for="`is-${id}-${place}`">
           {{ $t('conditions.holds') }}
-          <span class="visually-hidden">
-            {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
-          </span>
+          {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
         </label>
         <input
           :id="`is-${id}-${place}`"
           v-model="condition.is"
           class="data"
+          size="8"
           :maxlength="FLAG_VALUE_MAX_LENGTH"
           @change="emit('write')"
         >
       </template>
 
       <template v-else>
-        <label class="eyebrow" :for="`counted-${id}-${place}`">
+        <label class="visually-hidden" :for="`counted-${id}-${place}`">
           {{ $t('conditions.scene') }}
-          <span class="visually-hidden">
-            {{ $t('conditions.countedBy', { condition: conditionCalled(place) }) }}
-          </span>
+          {{ $t('conditions.countedBy', { condition: conditionCalled(place) }) }}
         </label>
         <select
           :id="`counted-${id}-${place}`"
           v-model="condition.scene"
+          class="counted"
           @change="emit('write')"
         >
           <!-- A Scene deleted since the Condition was written is still what it
@@ -155,11 +159,10 @@ function conditionCalled(place: number) {
             {{ counted.name }}
           </option>
         </select>
-        <label class="eyebrow" :for="`visits-${id}-${place}`">
+        <span class="says" aria-hidden="true">{{ $t('conditions.entered') }}</span>
+        <label class="visually-hidden" :for="`visits-${id}-${place}`">
           {{ $t('conditions.entered') }}
-          <span class="visually-hidden">
-            {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
-          </span>
+          {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
         </label>
         <select
           :id="`visits-${id}-${place}`"
@@ -169,11 +172,9 @@ function conditionCalled(place: number) {
           <option value="at least">{{ $t('conditions.atLeast') }}</option>
           <option value="fewer than">{{ $t('conditions.fewerThan') }}</option>
         </select>
-        <label class="eyebrow" :for="`times-${id}-${place}`">
+        <label class="visually-hidden" :for="`times-${id}-${place}`">
           {{ $t('conditions.times') }}
-          <span class="visually-hidden">
-            {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
-          </span>
+          {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
         </label>
         <input
           :id="`times-${id}-${place}`"
@@ -184,11 +185,15 @@ function conditionCalled(place: number) {
           :max="VISITS_MAX"
           @change="emit('write')"
         >
+        <span class="says" aria-hidden="true">{{ $t('conditions.times') }}</span>
       </template>
 
-      <button type="button" class="danger" @click="remove(place)">
-        {{ $t('conditions.remove', { place: place + 1 }) }}
-        <span class="visually-hidden">{{ $t('conditions.ofCarrier', { carrier }) }}</span>
+      <button type="button" class="danger strike" @click="remove(place)">
+        <span aria-hidden="true">×</span>
+        <span class="visually-hidden">
+          {{ $t('conditions.remove', { place: place + 1 }) }}
+          {{ $t('conditions.ofCarrier', { carrier }) }}
+        </span>
       </button>
     </div>
 
@@ -201,7 +206,10 @@ function conditionCalled(place: number) {
 
 <style scoped>
 /* The Conditions of one Cut or one Shot, stacked, each read across its own row as
-   the sentence it is: "offered when a Flag holds — coat — on". */
+   the sentence it is: "played when — Flag — coat — holds — on". The connecting
+   words are plain text between the fields and the labels are read by assistive
+   technology alone, because a visible label over every one of five controls is
+   what turned one sentence into five lines in a node the width of a phone. */
 .conditions {
   display: grid;
   gap: var(--s1);
@@ -211,25 +219,63 @@ function conditionCalled(place: number) {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--s1) var(--s2);
+  gap: var(--s1);
+  font-size: 0.75rem;
 }
 
+/* Each field is as wide as what is in it and no wider — `field-sizing` where the
+   browser has it, and the `size` attribute on the two typed fields where it does
+   not, so a Condition still reads across one row rather than the twenty
+   characters an input asks for by default. */
 .when select,
 .when input {
+  field-sizing: content;
   inline-size: auto;
-  flex: 1 1 6rem;
-  padding: var(--s1) var(--s2);
-  font-size: 0.8125rem;
+  min-inline-size: 3rem;
+  max-inline-size: 100%;
+  padding: var(--s1);
+  font-size: 0.75rem;
 }
 
+/* A Scene's name is the Author's to write and can be long: the field says as much
+   of it as the row has room for rather than pushing the rest of the sentence off
+   the line, so a visit count reads across two lines at worst. */
+.when .counted {
+  max-inline-size: 6rem;
+}
+
+/* The count of visits, wide enough for the three digits of `VISITS_MAX` and not
+   for the twenty characters a number field asks for by default. Written out
+   rather than left to `field-sizing`, so the field is the same width in a browser
+   that has neither — and a count between one and a hundred has nothing to gain
+   from growing. */
 .when .times {
-  flex: 0 0 4.5rem;
+  inline-size: 3.5rem;
+}
+
+/* The Condition's own number, in the gutter of its row — what the Author refers
+   to it by — and the connecting words between its fields, which are the sentence
+   itself and not a label of anything: both stencilled on the machine, the way
+   every other word around a field here is. */
+.numbered,
+.says {
+  color: var(--muted);
+  font-family: var(--data);
+}
+
+.numbered {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The mark a row is struck out by, rather than the sentence "Remove Condition 2"
+   set beside a sentence. */
+.strike {
+  padding: 0 var(--s2);
 }
 
 /* Data the Author types rather than prose: a Condition's two sides, the count of
    visits. */
 .data {
   font-family: var(--data);
-  font-size: 0.8125rem;
 }
 </style>
