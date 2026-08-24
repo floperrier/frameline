@@ -77,7 +77,11 @@ a wide invisible stroke behind each one, a 1.5-pixel target being nobody's idea
 of one. The lines did not thereby become the keyboard route: that is the strip of
 ways on inside the node, which is where a Place is read and changed too. A line
 is a pointer's way to a Cut and a second place the selected one is shown, and the
-accessible account of where a Scene leads stays in the markup, where it was.
+accessible account of where a Scene leads stays in the markup, where it was. So
+the drawing is `aria-hidden` still, the wide strokes and the numbered discs with
+it: what a line carries is a shortcut for the hand, and reading out forty
+unfocusable lines and the numbers on their discs would be reading out a drawing
+rather than a Story.
 
 Zoom is the ceiling this decision is reopened at, because it is the one thing the
 hand-written graph cannot reasonably grow. A zoom is a viewport transform that
