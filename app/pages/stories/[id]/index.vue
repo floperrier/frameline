@@ -198,8 +198,10 @@ function endShotDrag(scene: Scene) {
   draggedShot.value = undefined
   if (!dragged?.over || dragged.over === dragged.shotId) return
 
-  return renumber(
-    scene, 'shots', movedInto(scene.shots.map(held => held.id), dragged.shotId, dragged.over))
+  const places = movedInto(scene.shots.map(held => held.id), dragged.shotId, dragged.over)
+  if (!places) return
+
+  return renumber(scene, 'shots', places)
 }
 
 /**
@@ -577,10 +579,14 @@ function endWayDrag(scene: Scene) {
   draggedWay.value = undefined
   if (!dragged?.over || dragged.over === dragged.cutId) return
 
+  const places = movedInto(cutsFrom(scene.id).map(held => held.id), dragged.cutId, dragged.over)
+  if (!places) return
+
+  // Let go of over a stranger's row nothing was renumbered, so the press that
+  // follows is the press it started as and the Cut's own panel opens.
   renumberedByDrag = true
 
-  return renumber(
-    scene, 'cuts', movedInto(cutsFrom(scene.id).map(held => held.id), dragged.cutId, dragged.over))
+  return renumber(scene, 'cuts', places)
 }
 
 /**
@@ -595,12 +601,22 @@ function rowUnder(event: PointerEvent, what: 'way' | 'shot') {
 }
 
 /**
- * The sequence with one thing dropped onto another's Place: taken out of where it
- * was and put back where the row under the hand stands, which is the Place the
- * Author aimed at. Everything between the two shifts by one, so a thing dragged
- * across four of them passes them rather than swapping with the last.
+ * The sequence with one thing dropped onto another's Place, or nothing where the
+ * row under the hand is not one of this Scene's own: several nodes are open at
+ * once, so a Shot can be let go of over another Scene's run, and the hit-test
+ * that finds a row asks the whole page rather than one node. A stranger's Place
+ * is not a Place here, and a sequence written around one is a numbering the
+ * Author never aimed at — one the endpoint would take, because it is still a
+ * permutation of what the Scene holds.
+ *
+ * Taken out of where it was and put back where the row under the hand stands,
+ * which is the Place the Author aimed at. Everything between the two shifts by
+ * one, so a thing dragged across four of them passes them rather than swapping
+ * with the last.
  */
 function movedInto(ids: string[], id: string, onto: string) {
+  if (!ids.includes(onto)) return
+
   const moved = ids.filter(other => other !== id)
   const later = ids.indexOf(id) < ids.indexOf(onto)
   moved.splice(moved.indexOf(onto) + (later ? 1 : 0), 0, id)
@@ -1857,8 +1873,10 @@ article.opens .strip {
 }
 
 /* The Shot in the hand, and the Shot whose Place it would take: the run says what
-   the gesture is about to do before the Author lets go, the same way a way on
-   being dragged does. */
+   the gesture is about to do before the Author lets go, as a way on being dragged
+   does. The Place aimed at is washed in the grease pencil rather than outlined in
+   it the way a way on is, because a row of the strip is a bordered thing and a
+   Shot is a whole block of writing — the same mark, put where each can wear it. */
 .shots li.dragged {
   opacity: 0.5;
 }

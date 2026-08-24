@@ -210,7 +210,7 @@ test.describe('dragging a Shot', () => {
   // Tall enough that a Scene of three Shots is on screen at once, because the
   // drag reaches only what the Author can see: there is no auto-scroll at the
   // edge of the run, and the page says so where the gesture is written.
-  test.use({ viewport: { width: 1280, height: 1400 } })
+  test.use({ viewport: { width: 1280, height: 1400 }, hasTouch: true })
 
   test('an Author drags a Shot by its number to the Place it belongs', async ({
     page, request,
@@ -239,17 +239,71 @@ test.describe('dragging a Shot', () => {
     await expect(page.getByRole('textbox', { name: 'Shot 3' })).toHaveValue('First')
 
     // A finger says nothing here: it scrolls the node, and the two controls are
-    // its route to the same renumbering.
-    for (const type of ['pointerdown', 'pointermove', 'pointerup']) {
-      await number(first!).dispatchEvent(
-        type, { pointerType: 'touch', pointerId: 1, isPrimary: true })
-    }
+    // its route to the same renumbering. The same gesture as above, aimed at the
+    // same two Shots and carrying the same points — everything but the finger it
+    // is made with — so what leaves the Scene as it was is the finger itself.
+    //
+    // What this pins is the scrolling: give the number a `touch-action` of none
+    // and the finger renumbers, which is the browser saying the gesture was the
+    // page's rather than the scroller's. The Shot drag refuses a finger twice
+    // over, and the second refusal — `pointerType`, for a run with nothing to
+    // scroll — is not one an assertion here can tell apart from the first.
+    await touchShot(page, number(third!), number(first!))
     await expect(readShots(scene.id)).resolves.toMatchObject([
       { text: 'Second', position: 0 },
       { text: 'Third', position: 1 },
       { text: 'First', position: 2 },
     ])
   })
+
+  test('a Shot let go of over another Scene is left where it was', async ({ page, request }) => {
+    const { story, scene } = await openScene(request, 'The arrival')
+    const [first] = await writeShots(request, scene.id, ['First', 'Second', 'Third'])
+    const elsewhere = await (await request.post(`/api/stories/${story.id}/scenes`,
+      { data: { name: 'The platform' } })).json()
+    const [theirs] = await writeShots(request, elsewhere.id, ['Theirs'])
+    const number = (shot: { id: string }) => page.locator(`[data-shot="${shot.id}"] .shot-number`)
+
+    // Side by side, so both runs are on the bench at once and the hand can carry
+    // a Shot from one node into the other.
+    await request.patch(`/api/scenes/${scene.id}`, { data: { x: 0, y: 0 } })
+    await request.patch(`/api/scenes/${elsewhere.id}`, { data: { x: 360, y: 0 } })
+
+    await page.goto(`/stories/${story.id}`)
+    await openNode(page, 'The arrival')
+    await openNode(page, 'The platform')
+    await dragShot(page, number(first!), number(theirs!))
+
+    // A row of another Scene is no Place of this one, so neither Scene was
+    // renumbered: the drop said nothing rather than something else.
+    await expect(readShots(scene.id)).resolves.toMatchObject([
+      { text: 'First', position: 0 },
+      { text: 'Second', position: 1 },
+      { text: 'Third', position: 2 },
+    ])
+    await expect(readShots(elsewhere.id)).resolves.toMatchObject([{ text: 'Theirs', position: 0 }])
+  })
+
+  /**
+   * The same drag by finger rather than by mouse. Driven through the browser
+   * itself — Playwright's touchscreen taps but does not drag — so the page
+   * answers a real finger rather than an event a test made up, which is the
+   * whole of what is under test here.
+   */
+  async function touchShot(page: Page, held: Locator, onto: Locator) {
+    const from = await pointOn(held)
+    const to = await pointOn(onto)
+    const finger = await page.context().newCDPSession(page)
+    const touch = (type: string, at: { x: number, y: number }) => finger.send(
+      'Input.dispatchTouchEvent',
+      { type, touchPoints: type === 'touchEnd' ? [] : [{ x: at.x, y: at.y }] },
+    )
+
+    await touch('touchStart', from)
+    await touch('touchMove', to)
+    await touch('touchEnd', to)
+    await page.waitForTimeout(500)
+  }
 
   /**
    * Drags a Shot by its number onto another's, which is what renumbers a Scene
@@ -260,17 +314,20 @@ test.describe('dragging a Shot', () => {
    * bench a Scene is opened on — which is the ceiling the drag is written with.
    */
   async function dragShot(page: Page, held: Locator, onto: Locator) {
-    const at = async (number: Locator) => {
-      const box = (await number.boundingBox())!
-      return { x: box.x + box.width / 2, y: box.y + 12 }
-    }
-    const from = await at(held)
-    const to = await at(onto)
+    const from = await pointOn(held)
+    const to = await pointOn(onto)
 
     await page.mouse.move(from.x, from.y)
     await page.mouse.down()
     await page.mouse.move(to.x, to.y, { steps: 5 })
     await page.mouse.up()
+  }
+
+  /** Where on a Shot's number a gesture takes hold of it. */
+  async function pointOn(number: Locator) {
+    const box = (await number.boundingBox())!
+
+    return { x: box.x + box.width / 2, y: box.y + 12 }
   }
 })
 
