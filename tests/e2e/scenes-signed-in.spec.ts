@@ -1,4 +1,4 @@
-import type { APIRequestContext } from '@playwright/test'
+import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 import { CONDITIONS_MAX, SCENE_NAME_MAX_LENGTH, VISITS_MAX } from '../../shared/utils/scenes'
 import {
@@ -204,6 +204,74 @@ test('an Author renumbers the Shots of a Scene from the controls', async ({ page
   await page.reload()
   await openNode(page, 'The arrival')
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('Second')
+})
+
+test.describe('dragging a Shot', () => {
+  // Tall enough that a Scene of three Shots is on screen at once, because the
+  // drag reaches only what the Author can see: there is no auto-scroll at the
+  // edge of the run, and the page says so where the gesture is written.
+  test.use({ viewport: { width: 1280, height: 1400 } })
+
+  test('an Author drags a Shot by its number to the Place it belongs', async ({
+    page, request,
+  }) => {
+    const { story, scene } = await openScene(request, 'The arrival')
+    const [first, , third] = await writeShots(request, scene.id, ['First', 'Second', 'Third'])
+    const number = (shot: { id: string }) => page.locator(`[data-shot="${shot.id}"] .shot-number`)
+
+    await page.goto(`/stories/${story.id}`)
+    await openNode(page, 'The arrival')
+    await dragShot(page, number(first!), number(third!))
+
+    // Dropped on the Shot that stood last, it takes that Place and the two it
+    // passed come up one apiece: a drag crosses the run rather than swapping
+    // with a neighbour, which is what it is for.
+    await expect(async () => {
+      await expect(readShots(scene.id)).resolves.toMatchObject([
+        { text: 'Second', position: 0 },
+        { text: 'Third', position: 1 },
+        { text: 'First', position: 2 },
+      ])
+    }).toPass()
+
+    await page.reload()
+    await openNode(page, 'The arrival')
+    await expect(page.getByRole('textbox', { name: 'Shot 3' })).toHaveValue('First')
+
+    // A finger says nothing here: it scrolls the node, and the two controls are
+    // its route to the same renumbering.
+    for (const type of ['pointerdown', 'pointermove', 'pointerup']) {
+      await number(first!).dispatchEvent(
+        type, { pointerType: 'touch', pointerId: 1, isPrimary: true })
+    }
+    await expect(readShots(scene.id)).resolves.toMatchObject([
+      { text: 'Second', position: 0 },
+      { text: 'Third', position: 1 },
+      { text: 'First', position: 2 },
+    ])
+  })
+
+  /**
+   * Drags a Shot by its number onto another's, which is what renumbers a Scene
+   * by hand. By mouse, because that is the input the gesture answers to.
+   *
+   * Aimed at the top of each number rather than its middle: a number is as tall
+   * as the Shot it belongs to, and the third of them has its middle below the
+   * bench a Scene is opened on — which is the ceiling the drag is written with.
+   */
+  async function dragShot(page: Page, held: Locator, onto: Locator) {
+    const at = async (number: Locator) => {
+      const box = (await number.boundingBox())!
+      return { x: box.x + box.width / 2, y: box.y + 12 }
+    }
+    const from = await at(held)
+    const to = await at(onto)
+
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(to.x, to.y, { steps: 5 })
+    await page.mouse.up()
+  }
 })
 
 test('deleting a Shot leaves the Scene numbered without a gap', async ({ request }) => {
