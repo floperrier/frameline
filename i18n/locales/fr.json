@@ -125,6 +125,11 @@
     "toCarrier": "à {carrier}",
     "called": "Condition {place} de {carrier}"
   },
+  "cue": {
+    "heading": "Ensuite",
+    "dismiss": "Je me débrouille",
+    "nameScene": "Un Récit commence toujours par une Scène. Nommez-en une ici — « L’arrivée » fera l’affaire — et elle se pose sur l’établi avec un Plan à écrire."
+  },
   "preview": {
     "back": "Retour au Récit",
     "nobodyElse": "Personne d'autre ne peut voir ceci",

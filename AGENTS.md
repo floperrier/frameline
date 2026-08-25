@@ -76,8 +76,10 @@ a vendored skill is hashed in `skills-lock.json`.
 Reading engine, what a Shot's image is read to be, the Conditions a request is
 allowed to write, the sequence of Places it renumbers a Scene by, the Scenes a
 Cut may land on, the geometry of the lines the graph draws, the two message
-files held against each other, the language a refusal is phrased in, and the two
-Leaders — that each holds together as a work, and that the two of them are one
+files held against each other, the language a refusal is phrased in, the Cues the
+bench asks a Story for — whose targets are held against the editor's template
+read as source, the way the message files are held against each other — and the
+two Leaders, that each holds together as a work and that the two of them are one
 shape in two languages. None of them needs a database, because none of them has
 one in reach. `pnpm test:e2e` runs
 Playwright against a built app and a real Neon branch — `docs/git-flow.md` says which branch.

@@ -125,6 +125,11 @@
     "toCarrier": "to {carrier}",
     "called": "Condition {place} of {carrier}"
   },
+  "cue": {
+    "heading": "Next",
+    "dismiss": "I can take it from here",
+    "nameScene": "Every Story starts with a Scene. Name one here — “The arrival” will do — and it lands on the bench with a Shot to write."
+  },
   "preview": {
     "back": "Back to the Story",
     "nobodyElse": "Nobody else can reach this",
