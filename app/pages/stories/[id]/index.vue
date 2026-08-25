@@ -219,16 +219,15 @@ const SHOT_SCROLL_STILL_TICK = 200
 const SHOT_SCROLL_STILL_STEP = 100
 
 /**
- * The run that scrolls a node's body under a dragged Shot: the body itself, the
- * way it is going, how far it goes each tick, where the hand last was, and the
- * timer driving it. One run per drag, started with the gesture and stopped with
- * it however it ends, so nothing goes on scrolling without a hand on it. A way
- * of zero — a hand at rest away from both edges — is a tick that moves nothing,
- * which is cheaper than starting and stopping the timer at every edge.
+ * The run that scrolls a node's body under a dragged Shot: the body itself, how
+ * far it goes each tick, where the hand last was, and the timer driving it. One
+ * run per drag, started with the gesture and stopped with it however it ends, so
+ * nothing goes on scrolling without a hand on it. A hand at rest away from both
+ * edges is a tick that moves nothing, which is cheaper than starting and
+ * stopping the timer at every edge.
  */
 let shotScroll: {
   body: HTMLElement
-  way: number
   step: number
   at: { clientX: number, clientY: number }
   tick: ReturnType<typeof setInterval>
@@ -240,26 +239,41 @@ let shotScroll: {
  * past either. The pointer is captured, so a hand that has left the body
  * altogether is a hand outside every band rather than one pinned to the edge it
  * left by.
+ *
+ * The bands are measured against what is on screen of the body and not against
+ * the whole of it. A node opened near the foot of the window has its own bottom
+ * edge below the fold, where no pointer can go, and a band drawn there would be
+ * one the hand could never reach — so the band sits at the bottom of what the
+ * Author can see, which is as far down as they can drag anything.
  */
 function shotScrollWay(body: HTMLElement, y: number) {
   const box = body.getBoundingClientRect()
-  if (y >= box.top && y < box.top + SHOT_SCROLL_BAND) return -1
-  if (y <= box.bottom && y > box.bottom - SHOT_SCROLL_BAND) return 1
+  const top = Math.max(box.top, 0)
+  const bottom = Math.min(box.bottom, window.innerHeight)
+  if (y >= top && y < top + SHOT_SCROLL_BAND) return -1
+  if (y <= bottom && y > bottom - SHOT_SCROLL_BAND) return 1
 
   return 0
 }
 
 /**
- * One tick of the run. The Shot the hand is over is asked for again after the
- * body has moved, because the hand may not have: the list comes to meet a
- * pointer standing still in the band, and the row under it is whichever one has
- * arrived there.
+ * One tick of the run. Which way it goes is worked out here rather than kept
+ * from the last move, because the body can come out from under a hand that has
+ * not moved — the press on a Shot's number focuses its field, and a browser that
+ * scrolls the page to show it takes the bands with it.
+ *
+ * The Shot the hand is over is asked for again once the body has moved, for the
+ * same reason: the list comes to meet a pointer standing still in the band, and
+ * the row under it is whichever one has arrived there.
  */
 function runShotScroll() {
   const run = shotScroll
-  if (!run?.way || !draggedShot.value) return
+  if (!run || !draggedShot.value) return
 
-  run.body.scrollTop += run.way * run.step
+  const way = shotScrollWay(run.body, run.at.clientY)
+  if (!way) return
+
+  run.body.scrollTop += way * run.step
   draggedShot.value.over = rowUnder(run.at, 'shot')
 }
 
@@ -294,7 +308,6 @@ function startShotDrag(shot: Shot, event: PointerEvent) {
   const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   shotScroll = {
     body,
-    way: 0,
     step: still ? SHOT_SCROLL_STILL_STEP : SHOT_SCROLL_STEP,
     at: { clientX: event.clientX, clientY: event.clientY },
     tick: setInterval(runShotScroll, still ? SHOT_SCROLL_STILL_TICK : SHOT_SCROLL_TICK),
@@ -304,10 +317,7 @@ function startShotDrag(shot: Shot, event: PointerEvent) {
 function keepShotDrag(event: PointerEvent) {
   if (!draggedShot.value) return
   draggedShot.value.over = rowUnder(event, 'shot')
-  if (!shotScroll) return
-
-  shotScroll.at = { clientX: event.clientX, clientY: event.clientY }
-  shotScroll.way = shotScrollWay(shotScroll.body, event.clientY)
+  if (shotScroll) shotScroll.at = { clientX: event.clientX, clientY: event.clientY }
 }
 
 /** A gesture abandoned: the Shot is put down where it was, and the run stops. */
