@@ -354,28 +354,41 @@ test.describe('dragging a Shot', () => {
 
         // Into the band at the body's bottom edge, and then nothing: the hand
         // stays where it is while the run carries the list past it.
-        await page.mouse.move(band.x, band.y, { steps: 5 })
+        const scrolled = () => body.evaluate(scroller => scroller.scrollTop)
         const elsewhere = () => page.evaluate(() => [
           window.scrollY, document.querySelector('.graph')!.scrollTop,
         ])
         const before = await elsewhere()
-        // Long enough for the run to cross a Scene of fourteen Shots on a machine
-        // with other things on its mind: it travels five hundred pixels a second,
-        // and there are about nine hundred of them to cross.
-        await expect(number(last)).toBeInViewport({ timeout: 15_000 })
+        await page.mouse.move(band.x, band.y, { steps: 5 })
+        await expect.poll(scrolled).toBeGreaterThan(0)
+
+        // Out of the band and back into the middle of the run, where the hand is
+        // over a row rather than an edge: the run stops with it.
+        await page.mouse.move(band.x, pressed.y + pressed.height / 2, { steps: 5 })
+        const stopped = await scrolled()
+        await page.waitForTimeout(300)
+        expect(await scrolled()).toBe(stopped)
+
+        // Back into the band, and this time all the way to the foot of the run.
+        // Long enough for it to cross a Scene of fourteen Shots on a machine with
+        // other things on its mind: it travels five hundred pixels a second, and
+        // there are about nine hundred of them to cross.
+        await page.mouse.move(band.x, band.y, { steps: 5 })
+        await expect.poll(
+          () => body.evaluate(scroller => scroller.scrollHeight - scroller.clientHeight
+            - scroller.scrollTop),
+          { timeout: 15_000 },
+        ).toBeLessThan(2)
+        await expect(number(last)).toBeInViewport()
 
         // Neither the bench nor the window went anywhere while it ran: the only
         // thing the run scrolls is the body the drag is inside.
         expect(await elsewhere()).toEqual(before)
 
-        // Out of the band and onto the Shot that stood last, which stops the run
-        // and is the Place the Author aimed at.
+        // Onto the Shot that stood last, which is the Place the Author aimed at,
+        // asked for where it stands now that the list has stopped moving.
         const onto = await pointOn(number(last))
         await page.mouse.move(onto.x, onto.y, { steps: 5 })
-        const stopped = await body.evaluate(scroller => scroller.scrollTop)
-        await page.waitForTimeout(300)
-        expect(await body.evaluate(scroller => scroller.scrollTop)).toBe(stopped)
-
         await page.mouse.up()
 
         await expect(async () => {
