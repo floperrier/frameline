@@ -2,7 +2,7 @@ import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 import { CONDITIONS_MAX, SCENE_NAME_MAX_LENGTH, VISITS_MAX } from '../../shared/utils/scenes'
 import {
-  openNode, readSceneName, readShotConditions, readShots, seedScene, seedStory, test,
+  openNode, readCuts, readSceneName, readShotConditions, readShots, seedScene, seedStory, test,
 } from './author'
 
 const noId = '00000000-0000-4000-8000-000000000000'
@@ -466,10 +466,49 @@ test('an Author writes a Story from the page alone', async ({ page, request }) =
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('She steps off the train.')
   await expect(page.getByRole('textbox', { name: 'Shot 2' })).toBeHidden()
 
-  // Deleting a Scene takes Shots with it, so it is asked about first.
-  page.once('dialog', dialog => dialog.accept())
+  // Deleting a Scene takes Shots and Cuts with it, so it is asked about first —
+  // on the bench's own surface, read like any other part of the interface.
   await page.getByRole('button', { name: 'Delete Scene The arrival' }).click()
+  const asking = page.getByRole('dialog')
+  await expect(asking).toContainText('“The arrival” goes, and with it 1 Shot')
+  await asking.getByRole('button', { name: 'Delete Scene' }).click()
   await expect(page.getByText('No Scenes yet.')).toBeVisible()
+})
+
+test('a Scene dismissed from the confirmation is left exactly as it was', async ({
+  page,
+  request,
+}) => {
+  const { story, scene } = await openScene(request, 'The booth')
+  await writeShots(request, scene.id, ['The projector ticks over.', 'Nobody is in it.'])
+  const lobby = await (await request.post(
+    `/api/stories/${story.id}/scenes`, { data: { name: 'The lobby' } })).json()
+  // A Cut at each end, because the schema cascades a delete from both of them and
+  // only the ways on were ever counted.
+  await request.post(`/api/scenes/${scene.id}/cuts`, { data: { toSceneId: lobby.id } })
+  await request.post(`/api/scenes/${lobby.id}/cuts`, { data: { toSceneId: scene.id } })
+
+  await page.goto(`/stories/${story.id}`)
+  await openNode(page, 'The booth')
+  const control = page.getByRole('button', { name: 'Delete Scene The booth' })
+  await control.click()
+
+  const asking = page.getByRole('dialog')
+  await expect(asking).toContainText(
+    '“The booth” goes, and with it 2 Shots, 1 Cut leaving it and 1 Cut arriving at it.')
+
+  // What a stray Enter would land on is the answer that destroys nothing.
+  await expect(asking.getByRole('button', { name: 'Leave it' })).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(asking).toBeHidden()
+  await expect(control).toBeFocused()
+
+  // Dismissed means untouched, which the page cannot be asked about: the Scene,
+  // its Shots and the Cuts at both of its ends are read past the API.
+  await expect(readSceneName(scene.id)).resolves.toBe('The booth')
+  await expect(readShots(scene.id)).resolves.toHaveLength(2)
+  await expect(readCuts(scene.id)).resolves.toHaveLength(1)
+  await expect(readCuts(lobby.id)).resolves.toHaveLength(1)
 })
 
 test('a Shot carries the Conditions it plays under', async ({ request }) => {

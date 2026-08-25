@@ -17,6 +17,7 @@ const { data: story, refresh } = await useAsyncData(
   { deep: true },
 )
 const { problem, keptAt, change, write } = useEditing(refresh)
+const { asked, ask, answer } = useConfirming()
 
 /**
  * The time of the last write, told the way a clock is read in the Locale rather
@@ -69,6 +70,17 @@ function cutsFrom(sceneId: string) {
 }
 
 /**
+ * The ways in arriving at one Scene — the counterpart of `cutsFrom`, and drawn
+ * from the same list, because the schema cascades a delete from both ends of a
+ * Cut and only one end was ever counted. In no Place: a Cut is numbered among
+ * the ways on leaving the Scene it departs, and the Scene it arrives at has no
+ * say in that order.
+ */
+function cutsInto(sceneId: string) {
+  return story.value?.cuts.filter(cut => cut.toSceneId === sceneId) ?? []
+}
+
+/**
  * What the bench has just done, said once and gone: a Scene created, a Cut
  * drawn, a gesture begun or abandoned. One live region for the page rather than
  * one per thing announced, because two of them in the same corner would talk
@@ -98,13 +110,21 @@ function countedCuts(many: number) {
   return t(many === 1 ? 'editor.oneCut' : 'editor.manyCuts', { count: many })
 }
 
-function deleteScene(scene: Scene) {
-  const asked = {
+/**
+ * A Scene goes with its Shots and with the Cuts at both of its ends, and the
+ * Author named none of them, so it is asked about and all three are counted
+ * separately — the ways in were destroyed uncounted before. See
+ * `docs/adr/0017-a-confirmation-is-drawn-on-the-bench.md`.
+ */
+async function deleteScene(scene: Scene) {
+  const named = {
     name: scene.name,
     shots: countedShots(scene.shots.length),
-    cuts: countedCuts(cutsFrom(scene.id).length),
+    waysOn: countedCuts(cutsFrom(scene.id).length),
+    waysIn: countedCuts(cutsInto(scene.id).length),
   }
-  if (!confirm(t('editor.confirmDeleteScene', asked))) return
+  const asking = t('editor.confirmDeleteScene', named)
+  if (!await ask(asking, t('editor.deleteScene'))) return
   return change(() => send(`/api/scenes/${scene.id}`, { method: 'DELETE' }))
 }
 
@@ -1432,6 +1452,8 @@ function atAGlance(scene: Scene) {
         </div>
       </div>
     </div>
+
+    <Confirmation :asked="asked" @answer="answer" />
   </main>
 </template>
 

@@ -14,6 +14,10 @@
     "moveEarlier": "Déplacer avant",
     "moveLater": "Déplacer après"
   },
+  "confirmation": {
+    "heading": "C'est sans retour",
+    "dismiss": "Ne rien supprimer"
+  },
   "scene": {
     "gone": "une Scène disparue",
     "goneOption": "Une Scène disparue"
@@ -45,7 +49,8 @@
     "open": "Ouvrir",
     "title": "Titre",
     "rename": "Renommer",
-    "confirmDelete": "Supprimer « {title} » ? C'est sans retour."
+    "confirmDelete": "« {title} » disparaît, et tout ce qui y est écrit.",
+    "deleteStory": "Supprimer le Récit"
   },
   "editor": {
     "allStories": "Tous les Récits",
@@ -63,7 +68,7 @@
     "manyShots": "{count} Plans",
     "oneCut": "{count} Coupe",
     "manyCuts": "{count} Coupes",
-    "confirmDeleteScene": "Supprimer « {name} », ses {shots} et ses {cuts} ?",
+    "confirmDeleteScene": "« {name} » disparaît, et avec elle {shots}, {waysOn} au départ et {waysIn} à l'arrivée.",
     "glanceWaysOn": "{shots}, vers {waysOn}",
     "glanceNoWayOn": "{shots}, aucune issue",
     "sceneName": "Nom de cette Scène",
