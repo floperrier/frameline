@@ -81,6 +81,14 @@ always is.
 _Affiché_: Condition
 _Avoid_: rule, guard, requirement, predicate, gate
 
+**Leader**:
+The short Story an Author is given when their account is created, written to be
+taken apart rather than read: three Scenes carrying Flags, Conditions and Stills
+already working. Theirs like any other Story — they change it, publish it, delete
+it — and there is one per Language, never a translation of another.
+_Affiché_: Amorce
+_Avoid_: tutorial, sample, template, demo, onboarding, exemple, didacticiel
+
 ### The reading
 
 **State**:
