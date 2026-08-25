@@ -7,7 +7,7 @@ import { useDb } from '../../db'
  * order and a node of the graph, and the Cuts that join them.
  */
 export default defineEventHandler(async (event) => {
-  const { user: author } = await requireUserSession(event)
+  const author = await requireAuthor(event)
   const id = readId(event, 'Story')
 
   const [story] = await useDb()

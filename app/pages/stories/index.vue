@@ -79,7 +79,17 @@ async function signOut() {
       </div>
     </form>
 
-    <p v-if="problem" role="alert">{{ problem }}</p>
+    <!-- The door sits inside the refusal, so it is announced with the sentence
+         that gives it its sense, and it opens in a second tab: the tab holding
+         this page is never navigated, so what is being typed survives. Nothing
+         moves the focus. See
+         `docs/adr/0016-the-door-is-reopened-beside-the-bench.md`. -->
+    <p v-if="problem" role="alert">
+      {{ problem.said }}
+      <NuxtLink v-if="problem.door" :to="localePath('/')" target="_blank">
+        {{ $t('error.signInAgain') }}
+      </NuxtLink>
+    </p>
 
     <p v-if="!stories?.length" class="none">{{ $t('stories.none') }}</p>
     <!-- One slate a Story: what it is called, and the two things that can be

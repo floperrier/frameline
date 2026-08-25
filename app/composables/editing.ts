@@ -22,7 +22,14 @@
  */
 export function useEditing(reload: () => Promise<unknown>) {
   const { t } = useI18n()
-  const problem = ref('')
+  /**
+   * Why the last change was refused, and — at most — the one gesture that
+   * refusal offers. A door beside a refusal is not a kind of refusal, so this is
+   * one optional flag rather than a taxonomy: the words come from the server and
+   * whether a door belongs beside them is read off the status. See
+   * `docs/adr/0016-the-door-is-reopened-beside-the-bench.md`.
+   */
+  const problem = ref<{ said: string, door?: boolean }>()
   /**
    * When a typed change last reached the Story, and nothing until one has: a time
    * on the bench before the first write would be a claim about a page that has
@@ -69,7 +76,7 @@ export function useEditing(reload: () => Promise<unknown>) {
   }
 
   async function attempt(act: () => Promise<unknown>) {
-    problem.value = ''
+    problem.value = undefined
     try {
       await act()
       return true
@@ -80,8 +87,15 @@ export function useEditing(reload: () => Promise<unknown>) {
       // down to ASCII. See `docs/adr/0009-a-refusal-travels-in-the-body.md`.
       // The refusal itself arrives already in the Author's language, negotiated
       // by the server from the same request that carried the change.
-      problem.value = (error as { data?: { message?: string } }).data?.message
-        ?? t('error.refused')
+      const refused = error as { statusCode?: number, data?: { message?: string } }
+
+      problem.value = {
+        said: refused.data?.message ?? t('error.refused'),
+        // A shut door is recognised by the status and never by the phrase: the
+        // words are the server's, and a sentence cannot say whether a door
+        // belongs beside it.
+        door: refused.statusCode === 401,
+      }
       return false
     }
   }
@@ -89,12 +103,26 @@ export function useEditing(reload: () => Promise<unknown>) {
   /**
    * A click that alters the shape of the Story. The Story is read back either
    * way: the click's own result is in it, and a refused one would otherwise sit
-   * on screen as though it had persisted.
+   * on screen as though it had persisted — the one exception being the shut door
+   * `readBack` names.
    */
   async function change(act: () => Promise<unknown>) {
     const succeeded = await attempt(act)
-    await reload()
+    await readBack()
     return succeeded
+  }
+
+  /**
+   * The read that follows a refusal, except behind a shut door — where the read
+   * would be refused as well, and a refused read is what empties the page:
+   * `useAsyncData` puts its default back when a fetch fails, so the Story would
+   * go to nothing and take the field being typed in with it. That is the work
+   * this refusal exists to keep. See
+   * `docs/adr/0016-the-door-is-reopened-beside-the-bench.md`.
+   */
+  async function readBack() {
+    if (problem.value?.door) return
+    await reload()
   }
 
   /**
@@ -131,7 +159,7 @@ export function useEditing(reload: () => Promise<unknown>) {
 
     const turn = previous.then(async () => {
       if (!await attempt(act)) {
-        await reload()
+        await readBack()
         return
       }
 

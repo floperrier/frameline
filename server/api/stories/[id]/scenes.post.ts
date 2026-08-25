@@ -21,7 +21,7 @@ import { useDb } from '../../../db'
  * Story reads as absent.
  */
 export default defineEventHandler(async (event) => {
-  const { user: author } = await requireUserSession(event)
+  const author = await requireAuthor(event)
   const id = readId(event, 'Story')
   const name = await readSceneName(event)
   const placed = await readScenePlacementOffered(event)

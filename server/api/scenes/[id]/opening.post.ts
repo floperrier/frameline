@@ -7,7 +7,7 @@ import { useDb } from '../../../db'
  * without anything having to say so.
  */
 export default defineEventHandler(async (event) => {
-  const { user: author } = await requireUserSession(event)
+  const author = await requireAuthor(event)
   const id = readId(event, 'Scene')
 
   const { rows } = await useDb().execute<{ id: string, openingSceneId: string }>(sql`

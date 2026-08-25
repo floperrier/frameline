@@ -161,7 +161,8 @@
   "error": {
     "refused": "That did not work. Please try again.",
     "wentWrong": "Something went wrong.",
-    "home": "Back to Frameline"
+    "home": "Back to Frameline",
+    "signInAgain": "Sign in again in a new tab"
   },
   "refusals": {
     "noSuch": {
@@ -202,6 +203,7 @@
     "imageMissing": "An image is a file to upload.",
     "imageHeavy": "An image cannot weigh more than {mb} MB.",
     "imageType": "A Shot carries a JPEG, a PNG or a WebP image, and nothing else.",
-    "openingScene": "A Story needs an opening Scene before it can be published."
+    "openingScene": "A Story needs an opening Scene before it can be published.",
+    "signedOut": "You are no longer signed in, so nothing was written."
   }
 }

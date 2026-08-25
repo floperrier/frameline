@@ -11,7 +11,7 @@ import { useDb } from '../../../db'
  * belongs to, behind the same guard a Cut's endpoint writes behind.
  */
 export default defineEventHandler(async (event) => {
-  const { user: author } = await requireUserSession(event)
+  const author = await requireAuthor(event)
   const id = readId(event, 'Shot')
   const conditions = await readConditions(event, 'Shot')
 

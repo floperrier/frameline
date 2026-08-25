@@ -12,7 +12,7 @@ import { useDb } from '../../../db'
  * driver has no transactions to hold a read and a write together.
  */
 export default defineEventHandler(async (event) => {
-  const { user: author } = await requireUserSession(event)
+  const author = await requireAuthor(event)
   const id = readId(event, 'Scene')
   const toSceneId = await readTargetSceneId(event)
 

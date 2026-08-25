@@ -8,7 +8,7 @@ import { useDb } from '../../../db'
  * is not refused so much as absent.
  */
 export default defineEventHandler(async (event) => {
-  const { user: author } = await requireUserSession(event)
+  const author = await requireAuthor(event)
   const id = readId(event, 'Shot')
   const image = await readShotImage(event)
 

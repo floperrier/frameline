@@ -4,7 +4,7 @@ import { useDb } from '../../db'
 
 /** Writes what the Reader will be offered at the end of the Scene the Cut leaves. */
 export default defineEventHandler(async (event) => {
-  const { user: author } = await requireUserSession(event)
+  const author = await requireAuthor(event)
   const id = readId(event, 'Cut')
   const text = await readCutText(event)
 

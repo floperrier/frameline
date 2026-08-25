@@ -8,7 +8,7 @@ import { useDb } from '../../../db'
  * Author who sends none has taken the last one away.
  */
 export default defineEventHandler(async (event) => {
-  const { user: author } = await requireUserSession(event)
+  const author = await requireAuthor(event)
   const id = readId(event, 'Scene')
   const sets = await readSceneFlags(event)
 

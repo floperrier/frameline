@@ -15,7 +15,7 @@ import { useDb } from '../../../db'
  */
 export default defineEventHandler(async (event) => {
   const id = readId(event, 'Story')
-  const { user: author } = await requireUserSession(event)
+  const author = await requireAuthor(event)
 
   const [published] = await useDb()
     .update(stories)

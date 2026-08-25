@@ -22,8 +22,8 @@ const { asked, ask, answer } = useConfirming()
 /**
  * The time of the last write, told the way a clock is read in the Locale rather
  * than in the Story's own Language: this is the bench talking about itself. There
- * is no date on it because there is no session long enough to need one — what an
- * Author wants from it is that the last thing they typed went somewhere.
+ * is no date on it because nobody sits at the bench long enough to need one —
+ * what an Author wants from it is that the last thing they typed went somewhere.
  */
 const kept = computed(() => keptAt.value && new Intl.DateTimeFormat(
   locale.value, { timeStyle: 'short' }).format(keptAt.value))
@@ -1145,7 +1145,17 @@ function atAGlance(scene: Scene) {
       </div>
     </form>
 
-    <p v-if="problem" role="alert">{{ problem }}</p>
+    <!-- The door sits inside the refusal, so it is announced with the sentence
+         that gives it its sense, and it opens in a second tab: the tab holding
+         this page is never navigated, so what is being typed survives. Nothing
+         moves the focus. See
+         `docs/adr/0016-the-door-is-reopened-beside-the-bench.md`. -->
+    <p v-if="problem" role="alert">
+      {{ problem.said }}
+      <NuxtLink v-if="problem.door" :to="localePath('/')" target="_blank">
+        {{ $t('error.signInAgain') }}
+      </NuxtLink>
+    </p>
     <p v-if="announced" class="toast" role="status">{{ announced }}</p>
 
     <p v-if="!story?.scenes.length" class="none">{{ $t('editor.noScenes') }}</p>
