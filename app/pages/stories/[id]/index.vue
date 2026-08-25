@@ -240,10 +240,20 @@ function stillOf(shot: Shot) {
 }
 
 /**
- * Attaches the still the Author picked, sent as the whole request body. The input
- * is cleared afterwards so picking the same file twice is a change twice — an
- * Author whose first upload was refused would otherwise have to pick another file
- * before they could retry the same one.
+ * Attaches a still, sent as the whole request body. One function for both ways in:
+ * a file picked and a file dropped are the same file handed to the same endpoint.
+ */
+function attach(shot: Shot, file: File) {
+  return change(async () => {
+    await send(`/api/shots/${shot.id}/image`, { method: 'PUT', body: file })
+    attachedAt[shot.id] = Date.now()
+  })
+}
+
+/**
+ * Attaches the still the Author picked. The input is cleared afterwards so picking
+ * the same file twice is a change twice — an Author whose first upload was refused
+ * would otherwise have to pick another file before they could retry the same one.
  */
 function attachImage(shot: Shot, event: Event) {
   const picker = event.target as HTMLInputElement
@@ -251,10 +261,75 @@ function attachImage(shot: Shot, event: Event) {
   if (!picked) return
   picker.value = ''
 
-  return change(async () => {
-    await send(`/api/shots/${shot.id}/image`, { method: 'PUT', body: picked })
-    attachedAt[shot.id] = Date.now()
-  })
+  return attach(shot, picked)
+}
+
+/**
+ * The Shot whose thumbnail a file is over, held by Shot id rather than by the
+ * Shot, the same trap the drags on this page avoid: a read landing mid-gesture
+ * replaces every Scene in the Story. `over` is what the other gestures call it,
+ * because it is the same fact — what the hand is aimed at, before it lets go.
+ */
+const fileOver = ref<string>()
+
+/**
+ * A file over a thumbnail. The template refuses the default, which is the whole of
+ * saying yes — an element that does not refuse it is not a drop target at all — and
+ * this puts the mark on and the copy cursor with it. The event stops at the
+ * thumbnail so the page's own refusal does not take that cursor back off it.
+ */
+function overStill(shot: Shot, event: DragEvent) {
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+  fileOver.value = shot.id
+}
+
+/**
+ * The file leaving again. Asked of the thumbnail and not of what is inside it:
+ * moving onto the image or the input leaves the label by the letter of the event,
+ * and the mark would flicker off under a hand that has not gone anywhere. Nor does
+ * a thumbnail take the mark off its neighbour — a file crossing from one to the
+ * next enters the second before it leaves the first.
+ */
+function leaveStill(shot: Shot, event: DragEvent) {
+  const thumbnail = event.currentTarget as HTMLElement
+  if (fileOver.value !== shot.id) return
+
+  if (!thumbnail.contains(event.relatedTarget as Node | null)) fileOver.value = undefined
+}
+
+/**
+ * The file dropped on a thumbnail. A drop carries what the Author let go of rather
+ * than what the picker offered, so it may hold several files, or one of a kind the
+ * endpoint will refuse: the first image is the one taken, and the rest are passed
+ * over without a word about them. A drop of one file that is no image at all is
+ * still sent, because the endpoint is what says what an image is — and it says so
+ * in the same phrase a picked file is refused in.
+ */
+function dropStill(shot: Shot, event: DragEvent) {
+  fileOver.value = undefined
+  const dropped = [...event.dataTransfer?.files ?? []]
+  const still = dropped.find(file => SHOT_IMAGE_TYPES.includes(file.type)) ?? dropped[0]
+  if (!still) return
+
+  return attach(shot, still)
+}
+
+/**
+ * A file let go of anywhere but a thumbnail. What the browser does with an image
+ * dropped on a page is leave the editor and open the file, which would take the
+ * Story off the screen along with everything the Author had open, so the default
+ * is refused for the whole page and the cursor says as much: the thumbnails stop
+ * their own events before they reach here, and nothing else takes a file.
+ *
+ * A file and nothing else, though. Dragging a line of text from one field into
+ * another is the browser's to carry out, and a page that refused every drop would
+ * take that away from every field on it.
+ */
+function refuseDrop(event: DragEvent) {
+  if (!event.dataTransfer?.types.includes('Files')) return
+
+  event.preventDefault()
+  event.dataTransfer.dropEffect = 'none'
 }
 
 function deleteShot(shot: Shot) {
@@ -906,7 +981,7 @@ function atAGlance(scene: Scene) {
 </script>
 
 <template>
-  <main>
+  <main @dragover="refuseDrop" @drop="refuseDrop">
     <!-- The bench's own header: where the Author came from, what they are working
          on, and the two things that can be done to the Story as a whole. It stays
          on screen, because the graph below it scrolls a long way. -->
@@ -1209,9 +1284,17 @@ function atAGlance(scene: Scene) {
                          attached and how it is replaced, and the input doing the work
                          is behind it, focusable and named as it was. A Shot carrying
                          no still shows the outline of the thumbnail it would have, so
-                         one nobody has finished reads as unfinished. -->
+                         one nobody has finished reads as unfinished. It is also where
+                         a file is dropped, which is the same file the picker would
+                         have handed over. -->
                     <div class="still">
-                      <label>
+                      <label
+                        :class="{ over: fileOver === shot.id }"
+                        @dragenter.prevent.stop="overStill(shot, $event)"
+                        @dragover.prevent.stop="overStill(shot, $event)"
+                        @dragleave="leaveStill(shot, $event)"
+                        @drop.prevent.stop="dropStill(shot, $event)"
+                      >
                         <img
                           v-if="shot.image"
                           :src="stillOf(shot)"
@@ -1954,6 +2037,15 @@ article.opens .strip {
 .still > label:has(:focus-visible) {
   outline: 2px solid var(--light);
   outline-offset: 2px;
+}
+
+/* While a file is over the thumbnail: the grease pencil a dragged Shot and a Cut
+   being drawn both wear, because it is the same promise — this is what letting go
+   would do. Drawn in the tokens rather than left to the browser, which marks a drop
+   target in nothing this room owns. */
+.still > label.over {
+  border-color: var(--grease);
+  background: color-mix(in oklab, var(--grease) 12%, var(--bench));
 }
 
 .still img {
