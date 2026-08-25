@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { neon } from '@neondatabase/serverless'
 import { test as base, type APIRequestContext, type Page } from '@playwright/test'
+import { dismissalOf } from '../../app/utils/cues'
 import type { Cut, Flags, Scene, Shot } from '../../shared/utils/scenes'
 import { NODE_GAP, NODE_SPACING, NODE_WIDTH, NODES_PER_COLUMN } from '../../shared/utils/scenes'
 import { sealSession, type H3Event } from 'h3'
@@ -30,11 +31,34 @@ type Story = { id: string, title: string }
  *
  * `otherAuthor` is a second Author nobody is signed in as, so that what one
  * Author cannot reach can be written by someone real rather than made up.
+ *
+ * `guided` is whether the bench's guided path is left switched on. It is off for
+ * every spec but its own: a Story part-written is a Story the guidance has
+ * something to say about, and the bubble it says it in is a panel over the bench
+ * that a spec about something else would be clicking through. Waving it away is
+ * exactly what an Author who knows what they are doing does, and it is a key in
+ * local storage per Story — which a spec cannot write before it knows which
+ * Story, so the read is answered instead, for every Story at once.
  */
-export const test = base.extend<{ author: Author, otherAuthor: Author }>({
+export const test = base.extend<{ author: Author, otherAuthor: Author, guided: boolean }>({
   author: ({}, use) => withFreshAuthor(use),
 
   otherAuthor: ({}, use) => withFreshAuthor(use),
+
+  guided: [false, { option: true }],
+
+  page: async ({ page, guided }, use) => {
+    if (!guided) {
+      await page.addInitScript((waved) => {
+        const read = Storage.prototype.getItem
+        Storage.prototype.getItem = function (key: string) {
+          return key.startsWith(waved) ? '1' : read.call(this, key)
+        }
+      }, dismissalOf(''))
+    }
+
+    await use(page)
+  },
 
   context: async ({ context, baseURL, author }, use) => {
     await context.addCookies([

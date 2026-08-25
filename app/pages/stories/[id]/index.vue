@@ -1257,6 +1257,7 @@ function atAGlance(scene: Scene) {
                that follows would have to undo. -->
           <div
             class="strip"
+            data-cue="draw-cut"
             @pointerdown.self="startAiming(scene, $event)"
             @pointermove="keepAiming"
             @pointerup="endAiming"
@@ -1318,6 +1319,7 @@ function atAGlance(scene: Scene) {
                 <button
                   type="button"
                   class="fold"
+                  data-cue="open-scene"
                   :aria-expanded="opened.has(scene.id)"
                   @click="foldOrOpen(scene)"
                 >
@@ -1402,6 +1404,7 @@ function atAGlance(scene: Scene) {
                     <textarea
                       :id="`shot-${shot.id}`"
                       v-model="shot.text"
+                      data-cue="shot-text"
                       rows="2"
                       :maxlength="SHOT_TEXT_MAX_LENGTH"
                       @change="writeShot(shot)"
@@ -1666,7 +1669,7 @@ function atAGlance(scene: Scene) {
     <Confirmation :asked="asked" @answer="answer" />
     <!-- The step the bench is asking for, if it is asking for one. Last, so it
          is drawn over the bench it is lighting a part of. -->
-    <Cue :story="story ?? undefined" />
+    <Cue :story="story ?? undefined" :opened="opened" />
   </main>
 </template>
 
