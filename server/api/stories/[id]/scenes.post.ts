@@ -16,6 +16,12 @@ import { useDb } from '../../../db'
  * Scene the Author has dragged elsewhere does not push the next one out of the
  * graph's reach.
  *
+ * The Scene arrives with no Shot in it, and deliberately: a Shot with neither
+ * text nor Still is one the Author has not written yet, so a Scene that carried
+ * one would arrive holding something unwritten for the folded node to count and
+ * for a Delete to ask about. Add Shot is the one way a Shot is written, and no
+ * sentence in the product may promise otherwise — see #113.
+ *
  * Inserting from a select over the Author's own Stories also proves the Story is
  * theirs: a Story they do not own selects nothing, so nothing is written and the
  * Story reads as absent.
