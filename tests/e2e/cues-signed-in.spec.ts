@@ -19,6 +19,14 @@ test('the bench asks a new Story for its first Scene', async ({ page, author }) 
   const field = page.getByLabel('Name of a new Scene')
   expect(await page.locator('.spotlight').boundingBox()).toEqual(await field.boundingBox())
 
+  // And follows it. The bench moves under the light for all sorts of reasons —
+  // the graph scrolls, a node folds, the window changes shape — and the light is
+  // on the target rather than where the target was.
+  await page.setViewportSize({ width: 900, height: 700 })
+  await expect
+    .poll(() => page.locator('.spotlight').boundingBox())
+    .toEqual(await field.boundingBox())
+
   // The very field being pointed at is still typed into, which is why none of
   // this is modal.
   await field.fill('The arrival')

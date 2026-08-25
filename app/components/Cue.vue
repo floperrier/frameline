@@ -59,7 +59,12 @@ function dismiss() {
 function look() {
   const target = cue.value && document.querySelector(`[data-cue="${cue.value.target}"]`)
   const seen = target?.getBoundingClientRect()
-  if (!alike(box.value, seen)) box.value = seen
+  // A target inside a folded node is in the document and has no rectangle worth
+  // pointing at: an element that draws nothing measures nothing, and a light on
+  // a rectangle of no size would be a dot in the corner of the bench. Read as
+  // absent, so the bubble goes adrift rather than being wrong about the screen.
+  const found = seen?.width && seen.height ? seen : undefined
+  if (!alike(box.value, found)) box.value = found
 
   looking = cue.value ? requestAnimationFrame(look) : 0
 }
@@ -111,6 +116,14 @@ const said = computed(() => box.value && {
     Math.min(box.value.left, window.innerWidth - BUBBLE_WIDTH - BUBBLE_GAP),
   )}px`,
 })
+
+/**
+ * How wide the bubble is, written here rather than in the stylesheet because the
+ * clamp above has to agree with it: a width in the stylesheet and a number in the
+ * arithmetic would be one fact in two places, and the placement would go wrong
+ * the first time one of them changed.
+ */
+const wide = { inlineSize: `min(${BUBBLE_WIDTH}px, calc(100vw - 2 * var(--s4)))` }
 </script>
 
 <template>
@@ -120,7 +133,12 @@ const said = computed(() => box.value && {
          node or scroll the target off the bench at any moment, and a bubble
          pointing at nothing would be the guidance being wrong about the screen;
          adrift, it carries the same sentence from a corner. -->
-    <aside class="bubble" :class="{ adrift: !said }" :style="said" :aria-label="$t('cue.heading')">
+    <aside
+      class="bubble"
+      :class="{ adrift: !said }"
+      :style="{ ...wide, ...said }"
+      :aria-label="$t('cue.heading')"
+    >
       <p class="eyebrow">{{ $t('cue.heading') }}</p>
       <p class="asked">{{ $t(`cue.${cue.name}`) }}</p>
       <button type="button" @click="dismiss">{{ $t('cue.dismiss') }}</button>
@@ -148,7 +166,6 @@ const said = computed(() => box.value && {
   display: grid;
   gap: var(--s2);
   justify-items: start;
-  inline-size: min(320px, calc(100vw - 2 * var(--s4)));
   padding: var(--s3) var(--s4) var(--s4);
   border: 1px solid var(--light);
   border-radius: var(--machined);
