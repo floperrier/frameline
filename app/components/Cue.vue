@@ -14,9 +14,14 @@
  * talk over the field the Author is typing in — the same reason the bench's
  * `keptAt` mark is not one either.
  */
-const { story } = defineProps<{
-  /** The Story on the bench, which is the whole of what a Cue is computed from. */
+const { story, opened } = defineProps<{
+  /** The Story on the bench, which is nearly the whole of what a Cue is computed from. */
   story?: StoryInEditor
+  /**
+   * Which Scenes have their node open. The rest of what a Cue asks about is in
+   * the Story; this is not, and a Cue may not point into a folded node.
+   */
+  opened: ReadonlySet<string>
 }>()
 
 /**
@@ -36,7 +41,8 @@ const BUBBLE_WIDTH = 320
  */
 const dismissed = ref(true)
 
-const cue = computed(() => !dismissed.value && story ? cueShowing(story) : undefined)
+const cue = computed(() =>
+  !dismissed.value && story ? cueShowing(story, opened) : undefined)
 
 /** Where the target is on screen, or nothing when the target is not on screen at all. */
 const box = ref<DOMRect>()
@@ -48,6 +54,10 @@ function dismiss() {
 
 /**
  * The target's rectangle, read every frame for as long as a Cue is showing.
+ *
+ * A target the editor draws once per node — the fold, the strip a Cut is drawn
+ * from — is found on the first node of the graph, which is the first Scene the
+ * Author wrote and the one the path is walked on.
  *
  * A frame at a time rather than on a list of the things that move it: the graph
  * scrolls, a node folds, the window resizes, a Refusal appears above the bench

@@ -128,7 +128,11 @@
   "cue": {
     "heading": "Ensuite",
     "dismiss": "Je me débrouille",
-    "nameScene": "Un Récit commence toujours par une Scène. Nommez-en une ici — « L’arrivée » fera l’affaire — et elle se pose sur l’établi avec un Plan à écrire."
+    "nameScene": "Un Récit commence toujours par une Scène. Nommez-en une ici — « L’arrivée » fera l’affaire — et elle se pose sur l’établi avec un Plan à écrire.",
+    "openScene": "Une Scène est repliée sur le Graphe tant qu’on ne l’ouvre pas. Ouvrez celle-ci : ce qu’elle contient est la suite de Plans que le Lecteur parcourt.",
+    "writeShot": "Un Plan, c’est un Photogramme et son texte, tout ce que le Lecteur voit d’un coup. Ajoutez-en un, et écrivez la première chose qu’il lit.",
+    "secondScene": "Un Récit bifurque entre les Scènes, jamais à l’intérieur d’une seule. Nommez ici une deuxième Scène, celle où mène la première.",
+    "drawCut": "Une Coupe est l’issue. Tirez depuis la bande au bord de la première Scène jusqu’à la seconde, puis lâchez."
   },
   "preview": {
     "back": "Retour au Récit",

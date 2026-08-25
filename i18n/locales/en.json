@@ -128,7 +128,11 @@
   "cue": {
     "heading": "Next",
     "dismiss": "I can take it from here",
-    "nameScene": "Every Story starts with a Scene. Name one here — “The arrival” will do — and it lands on the bench with a Shot to write."
+    "nameScene": "Every Story starts with a Scene. Name one here — “The arrival” will do — and it lands on the bench with a Shot to write.",
+    "openScene": "A Scene is folded on the graph until you open it. Open this one, and what is inside is the run of Shots a Reader plays.",
+    "writeShot": "A Shot is a Still and its text, as much as the Reader is shown at once. Add one, and write the first thing they read.",
+    "secondScene": "A Story branches between Scenes, never inside one. Name a second Scene here, the one this Scene leads to.",
+    "drawCut": "A Cut is the way on. Drag from the strip down the edge of the first Scene onto the second, and let go."
   },
   "preview": {
     "back": "Back to the Story",

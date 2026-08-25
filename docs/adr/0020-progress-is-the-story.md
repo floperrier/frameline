@@ -29,6 +29,14 @@ past three steps meets three Repères without telling the bench anything, and an
 Author who undoes one gets that Repère back. That falls out of predicates; with
 stored progress it is a synchronisation problem.
 
+**What is folded is the one thing asked besides the Story.** A Repère may not
+point into a node the Author has folded, so opening one is a step like the rest —
+and whether a node is open is how the Author is looking at their own work rather
+than anything about the work, so it lives in the page and nowhere else. The step
+reads it, and is met either by the node being open or by there being something
+written in the Story already: a Story that arrives written, an Amorce among them,
+is never asked to open anything.
+
 **The one fact that is not in the Story goes in the browser.** That the Author
 waved the guidance away before finishing is not a property of the Story, so it is
 a key in local storage, kept per Story: knowing what you are doing today does not
