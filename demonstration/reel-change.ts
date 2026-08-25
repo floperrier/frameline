@@ -6,51 +6,12 @@
  * does not have.
  *
  * A Shot is one still and its text, so the two are written on the same line
- * here. The still is a recipe rather than a photograph — see `write.ts` for what
+ * here. The still is a recipe rather than a photograph — see `work.ts` for what
  * develops it — because the work is shot on what this repository can hold, and a
  * dark room with one lit thing in it is a still either way.
  */
 
-import type { Condition, Flags } from '../shared/utils/scenes.ts'
-
-/**
- * A shape the light does something to: the colour it comes out, the ImageMagick
- * primitive that draws it, how far the light spreads past its edge, and how much
- * of the still's brightness it is allowed.
- */
-export type Lit = { colour: string, draw: string, blur?: number, opacity?: number }
-
-/**
- * One still, as the four things that make it: the ground it is graded from top
- * to bottom, the shapes lit from behind it, the shapes the light lands on, and
- * how much grain the stock carries.
- */
-export type Still = {
-  ground: [string, string]
-  glow?: Lit[]
-  form?: Lit[]
-  grain?: number
-}
-
-/**
- * One Shot of the work: the beat, what the still of it shows for a Reader who
- * cannot see it, and the recipe the still is developed from. The Description is
- * written here beside the still rather than left to the text, because the text
- * carries the beat and the Description carries the frame.
- */
-export type Shot = { text: string, description: string, still: Still }
-
-/**
- * The work as a whole. A Scene is placed in the graph by hand, because where a
- * Scene sits is part of reading the Story at a glance; a Cut names the Scenes it
- * joins rather than identifying them, and so does the Condition it is offered
- * under — `write.ts` puts the ids in once the Scenes exist.
- */
-export type Work = {
-  title: string
-  scenes: { name: string, at: [number, number], sets?: Flags, shots: Shot[] }[]
-  cuts: { from: string, to: string, text: string, when?: Condition[] }[]
-}
+import type { Work } from './work.ts'
 
 /* Seeded from the product's own tokens in `app/assets/css/frameline.css` — the
    room a still is looked at in, the paper the light is, the grease pencil, which

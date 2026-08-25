@@ -75,9 +75,11 @@ a vendored skill is hashed in `skills-lock.json`.
 `pnpm test` runs the Vitest suite over the modules that are pure functions: the
 Reading engine, what a Shot's image is read to be, the Conditions a request is
 allowed to write, the sequence of Places it renumbers a Scene by, the Scenes a
-Cut may land on, the geometry of the lines the graph draws, the two message files
-held against each other, and the language a refusal is phrased in. None of them
-needs a database, because none of them has one in reach. `pnpm test:e2e` runs
+Cut may land on, the geometry of the lines the graph draws, the two message
+files held against each other, the language a refusal is phrased in, and the two
+Leaders — that each holds together as a work, and that the two of them are one
+shape in two languages. None of them needs a database, because none of them has
+one in reach. `pnpm test:e2e` runs
 Playwright against a built app and a real Neon branch — `docs/git-flow.md` says which branch.
 
 ## Running the app
@@ -88,17 +90,24 @@ Migrations are generated from `server/db/schema.ts` with `pnpm db:generate`.
 
 ## The demonstration work
 
-`demonstration/` holds *Reel Change*, the short work the product exists to carry:
-`reel-change.ts` is the work itself — its Scenes, Shots, Cuts and Conditions, and
-the recipe for each still — and `write.ts` writes it into a running instance
+`demonstration/` holds the two works this repository carries. *Reel Change* is
+the short film the product exists to carry: `reel-change.ts` is the work itself —
+its Scenes, Shots, Cuts and Conditions, and the recipe for each still. The
+Leaders are the three-Scene Story a new Author is given, one per Language, in
+`leaders.ts`; their stills are the WebP files in `stills/`, developed once by
+`stills.ts` and committed, because the runtime this deploys to has no ImageMagick
+on it — see `docs/adr/0018-a-leader-exists-once-per-language.md`. `work.ts` is
+what both are written as, and `write.ts` writes either into a running instance
 through the same API the editor uses, then publishes it.
 
 ```sh
 node --env-file=.env demonstration/write.ts --author you@example.com
+node --env-file=.env demonstration/write.ts --author you@example.com --leader fr
 ```
 
 The Author has to have signed in to that instance already, `DATABASE_URL` and
-`NUXT_SESSION_PASSWORD` have to be the ones it runs on, ImageMagick has to be on
-the path — the stills are developed by `magick`, not stored here — and Node has to
-be 22.18 or newer, which is the version that strips the types itself. Running it
-again writes a second copy rather than replacing the first.
+`NUXT_SESSION_PASSWORD` have to be the ones it runs on, and Node has to be 22.18
+or newer, which is the version that strips the types itself. ImageMagick has to
+be on the path for *Reel Change*, whose stills are developed by `magick` as the
+work is written rather than stored here; a Leader's are already bytes and need
+none. Running it again writes a second copy rather than replacing the first.

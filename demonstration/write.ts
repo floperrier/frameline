@@ -1,7 +1,9 @@
 /**
- * Writes the demonstration work into a running Frameline and publishes it.
+ * Writes one of the works in this directory into a running Frameline and
+ * publishes it: *Reel Change* by default, or a Leader in the Language named.
  *
  *   node --env-file=.env demonstration/write.ts --author me@example.com
+ *   node --env-file=.env demonstration/write.ts --author me@example.com --leader fr
  *   node demonstration/write.ts --origin https://… --author me@example.com
  *
  * It goes through the HTTP API an Author's own browser goes through — a Story, a
@@ -13,6 +15,8 @@
  * exactly as the end-to-end suite does in `tests/e2e/author.ts`.
  *
  * Node 22.18 or newer runs it as it stands, because it strips the types itself.
+ * ImageMagick develops *Reel Change*'s stills as the work is written; a Leader's
+ * are the WebP files committed beside it, so a Leader needs none.
  *
  * Two things have to be true of the environment it runs against: `DATABASE_URL`
  * and `NUXT_SESSION_PASSWORD` are the ones that instance uses, and the Author has
@@ -20,33 +24,34 @@
  * values — see `docs/deploy.md` — and running it twice writes the work twice,
  * because publishing is the only thing here that is not an addition.
  */
-import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { promisify } from 'node:util'
+import { readFile } from 'node:fs/promises'
 import { neon } from '@neondatabase/serverless'
 import { sealSession, type H3Event } from 'h3'
-import { SHOT_IMAGE_MAX_BYTES } from '../shared/utils/scenes.ts'
+import { imageTypeOf } from '../shared/utils/scenes.ts'
 import type { Condition } from '../shared/utils/scenes.ts'
-import { REEL_CHANGE, type Lit, type Still } from './reel-change.ts'
-
-const run = promisify(execFile)
-
-/** The size every still is shot at: sixteen by nine, the shape of a gate. */
-const FRAME = '1600x900'
+import { LEADERS, LEADER_LANGUAGES, stillPath, type LeaderLanguage } from './leaders.ts'
+import { REEL_CHANGE } from './reel-change.ts'
+import { develop, type Shot } from './work.ts'
 
 const origin = argument('origin') ?? 'http://localhost:3100'
 const email = argument('author')
 
 if (!email) throw new Error('Which Author is writing this: --author <email>')
 
+const work = chosen()
+
 const cookie = `nuxt-session=${await sealAuthorSession(await authorNamed(email))}`
 
-const story = await api('POST', '/api/stories', { title: REEL_CHANGE.title }) as { id: string }
+const story = await api('POST', '/api/stories', {
+  title: work.title,
+  language: work.language,
+}) as { id: string }
 
 // Scenes first, so a Cut has both its ends to join by the time it is drawn.
 const written = new Map<string, string>()
 
-for (const scene of REEL_CHANGE.scenes) {
+for (const scene of work.scenes) {
   const [x, y] = scene.at
   const { id } = await api('POST', `/api/stories/${story.id}/scenes`, { name: scene.name }) as
     { id: string }
@@ -59,14 +64,23 @@ for (const scene of REEL_CHANGE.scenes) {
     const { id: shotId } = await api('POST', `/api/scenes/${id}/shots`) as { id: string }
     await api('PATCH', `/api/shots/${shotId}`, {
       text: shot.text,
-      description: shot.description,
+      description: shot.description ?? '',
     })
-    await attach(shotId, await develop(shot.still))
+    const still = await stillOf(shot)
+    if (still) await attach(shotId, still)
+    if (shot.when) {
+      await api('PUT', `/api/shots/${shotId}/conditions`, { conditions: shot.when.map(identified) })
+    }
     process.stdout.write('.')
   }
 }
 
-for (const cut of REEL_CHANGE.cuts) {
+// The first Scene written is already the one the Story opens on, so this says
+// again what is usually already true. One request, and a work that opens
+// somewhere other than where it starts needs nothing special here.
+if (work.opening) await api('POST', `/api/scenes/${sceneNamed(work.opening)}/opening`)
+
+for (const cut of work.cuts) {
   const { id } = await api('POST', `/api/scenes/${sceneNamed(cut.from)}/cuts`, {
     toSceneId: sceneNamed(cut.to),
   }) as { id: string }
@@ -79,7 +93,35 @@ for (const cut of REEL_CHANGE.cuts) {
 
 await api('POST', `/api/stories/${story.id}/publish`)
 
-console.log(`\n${REEL_CHANGE.title} is readable at ${origin}/read/${story.id}`)
+console.log(`\n${work.title} is readable at ${origin}/read/${story.id}`)
+
+/**
+ * The work this run writes: a Leader in the Language asked for, or the
+ * demonstration where nothing is asked for.
+ */
+function chosen() {
+  const language = argument('leader')
+  if (language === undefined) return REEL_CHANGE
+
+  const leader = LEADERS[language as LeaderLanguage]
+  if (!leader) {
+    throw new Error(`No Leader is written in ${language}: --leader ${LEADER_LANGUAGES.join(' | ')}`)
+  }
+
+  return leader
+}
+
+/**
+ * The bytes of a Shot's still: a Leader's, read from the WebP committed beside
+ * it, or the demonstration's, developed here and now from its recipe. A Shot
+ * that names neither is text alone and carries nothing.
+ */
+async function stillOf(shot: Shot) {
+  if (!shot.still) return undefined
+  return typeof shot.still === 'string'
+    ? await readFile(stillPath(shot.still))
+    : await develop(shot.still)
+}
 
 /** A Condition as the API takes it: a Scene named in the work, identified here. */
 function identified(condition: Condition) {
@@ -94,57 +136,13 @@ function sceneNamed(name: string) {
   return id
 }
 
-/**
- * The still the recipe describes, as the bytes of a JPEG. Three passes over one
- * ImageMagick invocation, in the order light reaches film: what glows is screened
- * onto the ground, because light adds; what the light falls on is laid over it,
- * because a dark shape in front of a lamp has to be able to block it; and the
- * grain and the falloff at the corners go over everything, so one still is graded
- * like the next.
- */
-async function develop(still: Still) {
-  const [top, bottom] = still.ground
-
-  const { stdout } = await run('magick', [
-    '-size', FRAME, `gradient:${top}-${bottom}`,
-    ...(still.glow ?? []).flatMap(lit => layer(lit, 'black', 'screen')),
-    ...(still.form ?? []).flatMap(lit => layer(lit, 'none', 'over')),
-    '-attenuate', String(still.grain ?? 1), '+noise', 'Gaussian',
-    // The corners fall away, the way they do through any real lens, and the whole
-    // still comes back a little off full colour: nothing here was ever graded.
-    '(', '-size', FRAME, 'radial-gradient:#ffffff-#333333', ')', '-compose', 'multiply', '-composite',
-    '-modulate', '100,88',
-    '-depth', '8', '-strip', '-quality', '84', 'jpg:-',
-  ], { encoding: 'buffer', maxBuffer: 8 * 1024 * 1024 })
-
-  // Grain is the worst thing that can be done to a JPEG, so the one thing a still
-  // can get wrong by itself is coming out too heavy for the Shot's own row. Said
-  // here rather than found out by a refused PUT halfway through writing the work.
-  if (stdout.length > SHOT_IMAGE_MAX_BYTES) {
-    throw new Error(`A still developed to ${stdout.length} bytes, past what a Shot may carry`)
-  }
-
-  return stdout
-}
-
-/** One shape on its own transparent or black sheet, blurred and dimmed, then composited. */
-function layer(lit: Lit, over: string, compose: string) {
-  return [
-    '(', '-size', FRAME, `xc:${over}`,
-    '-fill', lit.colour, '-draw', lit.draw,
-    '-blur', `0x${lit.blur ?? 4}`,
-    ...(lit.opacity === undefined
-      ? []
-      : ['-alpha', 'set', '-channel', 'A', '-evaluate', 'multiply', String(lit.opacity), '+channel']),
-    ')', '-compose', compose, '-composite',
-  ]
-}
-
 /** Attaches a still. The whole body is the file, as the editor's picker sends it. */
 async function attach(shotId: string, image: Buffer) {
   const response = await fetch(`${origin}/api/shots/${shotId}/image`, {
     method: 'PUT',
-    headers: { cookie, 'content-type': 'image/jpeg' },
+    // The type is read off the bytes the same way the server reads them, so a
+    // still developed as a WebP is not announced as a JPEG.
+    headers: { cookie, 'content-type': imageTypeOf(image) ?? 'application/octet-stream' },
     body: new Uint8Array(image),
   })
 
