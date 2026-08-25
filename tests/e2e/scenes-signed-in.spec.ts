@@ -230,9 +230,9 @@ test('a Shot’s three controls are marks on one line', async ({ page, request }
 })
 
 test.describe('dragging a Shot', () => {
-  // Tall enough that a Scene of three Shots is on screen at once, because the
-  // drag reaches only what the Author can see: there is no auto-scroll at the
-  // edge of the run, and the page says so where the gesture is written.
+  // Tall enough that a Scene of three Shots is on screen at once, so the drags
+  // below say what a drop does and nothing about what a long run scrolls — that
+  // is the test at the end of this block, which asks for a short bench instead.
   test.use({ viewport: { width: 1280, height: 1400 }, hasTouch: true })
 
   test('an Author drags a Shot by its number to the Place it belongs', async ({
@@ -306,6 +306,107 @@ test.describe('dragging a Shot', () => {
     ])
     await expect(readShots(elsewhere.id)).resolves.toMatchObject([{ text: 'Theirs', position: 0 }])
   })
+
+  // Twice over, because the run is written twice: a glide of a few pixels a frame
+  // for an Author who asked for nothing, and a stride of a Shot's row every fifth
+  // of a second for one who asked for less motion. Both travel the same distance
+  // in the same time, and the Place has to be reachable either way.
+  for (const motion of ['no-preference', 'reduce'] as const) {
+    test.describe(`to a Place off screen, with ${motion} motion`, () => {
+      // Tall enough that the whole of an open node is on screen — bands, foot and
+      // all, so every point this drag needs is one a hand could reach — and short
+      // enough that a Scene of fourteen Shots still overflows the bench the node
+      // is capped at, which is what gives the run somewhere to go.
+      test.use({ viewport: { width: 1280, height: 1100 }, reducedMotion: motion })
+
+      test('a Shot dragged to the edge of a long run scrolls the node to it', async ({
+        page, request,
+      }) => {
+        const { story, scene } = await openScene(request, 'The arrival')
+        const texts = [...Array(14)].map((_, at) => `Shot ${at + 1}`)
+        const written = await writeShots(request, scene.id, texts)
+        const number = (shot: { id: string }) =>
+          page.locator(`[data-shot="${shot.id}"] .shot-number`)
+        const first = written[0]!
+        const last = written.at(-1)!
+
+        await page.goto(`/stories/${story.id}`)
+        await openNode(page, 'The arrival')
+
+        // The Place the drag is aimed at is off the foot of the node when it
+        // begins: the body is capped at the height of the bench, and the run is
+        // longer than that. The whole of the body is on screen, which is what
+        // makes the rest of this a gesture rather than an arrangement of points.
+        const body = page.locator('.body')
+        const box = (await body.boundingBox())!
+        expect(box.y + box.height).toBeLessThan(page.viewportSize()!.height)
+        expect((await number(last).boundingBox())!.y).toBeGreaterThan(box.y + box.height)
+
+        const held = await pointOn(number(first))
+        await page.mouse.move(held.x, held.y)
+        await page.mouse.down()
+
+        // The band is measured after the press, not before it: pressing a Shot's
+        // number focuses that Shot's field, and a browser that scrolls the page
+        // to show it has moved the body since the box above was taken.
+        const pressed = (await body.boundingBox())!
+        const band = { x: held.x, y: pressed.y + pressed.height - 8 }
+
+        // Into the band at the body's bottom edge, and then nothing: the hand
+        // stays where it is while the run carries the list past it.
+        const scrolled = () => body.evaluate(scroller => scroller.scrollTop)
+        const elsewhere = () => page.evaluate(() => [
+          window.scrollY, document.querySelector('.graph')!.scrollTop,
+        ])
+        const before = await elsewhere()
+        await page.mouse.move(band.x, band.y, { steps: 5 })
+        await expect.poll(scrolled).toBeGreaterThan(0)
+
+        // Out of the band and back into the middle of the run, where the hand is
+        // over a row rather than an edge: the run stops with it.
+        await page.mouse.move(band.x, pressed.y + pressed.height / 2, { steps: 5 })
+        const stopped = await scrolled()
+        await page.waitForTimeout(300)
+        expect(await scrolled()).toBe(stopped)
+
+        // Back into the band, and this time all the way to the foot of the run.
+        // Long enough for it to cross a Scene of fourteen Shots on a machine with
+        // other things on its mind: it travels five hundred pixels a second, and
+        // there are about nine hundred of them to cross.
+        await page.mouse.move(band.x, band.y, { steps: 5 })
+        await expect.poll(
+          () => body.evaluate(scroller => scroller.scrollHeight - scroller.clientHeight
+            - scroller.scrollTop),
+          { timeout: 15_000 },
+        ).toBeLessThan(2)
+        await expect(number(last)).toBeInViewport()
+
+        // Neither the bench nor the window went anywhere while it ran: the only
+        // thing the run scrolls is the body the drag is inside.
+        expect(await elsewhere()).toEqual(before)
+
+        // Onto the Shot that stood last, which is the Place the Author aimed at,
+        // asked for where it stands now that the list has stopped moving.
+        const onto = await pointOn(number(last))
+        await page.mouse.move(onto.x, onto.y, { steps: 5 })
+        await page.mouse.up()
+
+        await expect(async () => {
+          await expect(readShots(scene.id)).resolves.toMatchObject([
+            ...texts.slice(1).map((text, at) => ({ text, position: at })),
+            { text: 'Shot 1', position: texts.length - 1 },
+          ])
+        }).toPass()
+
+        // And no run outlives the gesture that started it: the same point in the
+        // band, with nothing in hand, scrolls nothing.
+        await page.mouse.move(band.x, band.y, { steps: 5 })
+        const ended = await body.evaluate(scroller => scroller.scrollTop)
+        await page.waitForTimeout(300)
+        expect(await body.evaluate(scroller => scroller.scrollTop)).toBe(ended)
+      })
+    })
+  }
 
   /**
    * The same drag by finger rather than by mouse. Driven through the browser
