@@ -20,7 +20,9 @@ const DOOR = 'Sign in again in a new tab'
 
 test.use({ extraHTTPHeaders: {} })
 
-test('a write with the door shut is refused in words, offers the door, and keeps what was typed', async ({ page, context, author }) => {
+test('a write with the door shut is refused in words, offers the door, and keeps what was typed', async ({
+  page, context, author,
+}) => {
   const story = await seedStory(author, 'A Story')
   const scene = await seedScene(story, 'The street')
 

@@ -54,8 +54,14 @@ export function failSignIn(event: H3Event, provider: string, reason: unknown) {
  * its query by the Author, and that refusal is a `404`.
  */
 export async function requireAuthor(event: H3Event) {
-  const { user } = await requireUserSession(
-    event, { message: saying(event)('refusals.signedOut') })
+  // Refused here rather than by handing `requireUserSession` a message, which
+  // would have every authorized request negotiate a language and look up a
+  // phrase it is never going to say.
+  const { user } = await getUserSession(event)
+
+  if (!user) {
+    throw createError({ statusCode: 401, message: saying(event)('refusals.signedOut') })
+  }
 
   return user
 }

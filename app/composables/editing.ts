@@ -20,16 +20,19 @@
  * nothing is announced, because a live region firing every time a field is left
  * would interrupt the next thing typed.
  */
+/**
+ * Why the last change was refused, and — at most — the one gesture that refusal
+ * offers. A door beside a refusal is not a kind of refusal, so this is one
+ * optional flag rather than a taxonomy: the words come from the server and
+ * whether a door belongs beside them is read off the status. The surface is
+ * `Refusal.vue`, the way `useConfirming`'s is `Confirmation.vue`. See
+ * `docs/adr/0016-the-door-is-reopened-beside-the-bench.md`.
+ */
+export type Problem = { said: string, door?: boolean }
+
 export function useEditing(reload: () => Promise<unknown>) {
   const { t } = useI18n()
-  /**
-   * Why the last change was refused, and — at most — the one gesture that
-   * refusal offers. A door beside a refusal is not a kind of refusal, so this is
-   * one optional flag rather than a taxonomy: the words come from the server and
-   * whether a door belongs beside them is read off the status. See
-   * `docs/adr/0016-the-door-is-reopened-beside-the-bench.md`.
-   */
-  const problem = ref<{ said: string, door?: boolean }>()
+  const problem = ref<Problem>()
   /**
    * When a typed change last reached the Story, and nothing until one has: a time
    * on the bench before the first write would be a claim about a page that has
@@ -93,7 +96,9 @@ export function useEditing(reload: () => Promise<unknown>) {
         said: refused.data?.message ?? t('error.refused'),
         // A shut door is recognised by the status and never by the phrase: the
         // words are the server's, and a sentence cannot say whether a door
-        // belongs beside it.
+        // belongs beside it. A `401` carrying no body — a proxy's, not ours —
+        // therefore offers the door beside the general refusal, which is the
+        // right gesture under a sentence that says less than it could.
         door: refused.statusCode === 401,
       }
       return false
