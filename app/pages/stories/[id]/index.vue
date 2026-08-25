@@ -1140,7 +1140,17 @@ function atAGlance(scene: Scene) {
     <form class="naming" @submit.prevent="createScene">
       <label class="eyebrow" for="new-scene-name">{{ $t('editor.newSceneName') }}</label>
       <div class="row">
-        <input id="new-scene-name" v-model="newSceneName" required :maxlength="SCENE_NAME_MAX_LENGTH">
+        <!-- `data-cue` is how the guided path finds this field. The attribute
+             lives here rather than a selector living in the guidance, so that
+             removing the field takes its target with it visibly — see
+             `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md`. -->
+        <input
+          id="new-scene-name"
+          v-model="newSceneName"
+          data-cue="new-scene-name"
+          required
+          :maxlength="SCENE_NAME_MAX_LENGTH"
+        >
         <button type="submit">{{ $t('editor.createScene') }}</button>
       </div>
     </form>
@@ -1654,6 +1664,9 @@ function atAGlance(scene: Scene) {
     </div>
 
     <Confirmation :asked="asked" @answer="answer" />
+    <!-- The step the bench is asking for, if it is asking for one. Last, so it
+         is drawn over the bench it is lighting a part of. -->
+    <Cue :story="story ?? undefined" />
   </main>
 </template>
 

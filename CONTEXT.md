@@ -89,6 +89,16 @@ it — and there is one per Language, never a translation of another.
 _Affiché_: Amorce
 _Avoid_: tutorial, sample, template, demo, onboarding, exemple, didacticiel
 
+**Cue**:
+One step of what the bench asks of an Author writing their first Story: a test on
+the Story open on the bench, an element it points at, and a sentence it says. Met
+by the Author doing the thing, in whatever order they get there. Named after the
+cue marks that tell a projectionist to act now, and never a Flag — _Repère_ and
+_Marqueur_ sit close enough together in French that the two have to be told
+apart on purpose.
+_Affiché_: Repère
+_Avoid_: hint, tip, tour, step, onboarding, coach mark, marqueur, astuce
+
 ### The reading
 
 **State**:
