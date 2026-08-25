@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { neon } from '@neondatabase/serverless'
 import { test as base, type APIRequestContext, type Page } from '@playwright/test'
-import { dismissalOf } from '../../app/utils/cues'
+import { DISMISSED } from '../../app/utils/cues'
 import type { Cut, Flags, Scene, Shot } from '../../shared/utils/scenes'
 import { NODE_GAP, NODE_SPACING, NODE_WIDTH, NODES_PER_COLUMN } from '../../shared/utils/scenes'
 import { sealSession, type H3Event } from 'h3'
@@ -54,7 +54,7 @@ export const test = base.extend<{ author: Author, otherAuthor: Author, guided: b
         Storage.prototype.getItem = function (key: string) {
           return key.startsWith(waved) ? '1' : read.call(this, key)
         }
-      }, dismissalOf(''))
+      }, DISMISSED)
     }
 
     await use(page)

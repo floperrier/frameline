@@ -3,11 +3,12 @@
  * one step at a time.
  *
  * A Cue is a predicate over the Story the bench already holds, never a listener
- * on what the Author did. The one thing it reads besides the Story is which nodes
- * the Author has open, because no Cue may point into a node they have folded. The editor fetches the whole Story and reads it back
- * after every write, so a Cue asks a question of that data — this Story has at
- * least one Scene — and is therefore idempotent, survives a reload, and cannot
- * disagree with the screen. Nothing stores progress, because the Story is the
+ * on what the Author did. The one thing it reads besides the Story is which
+ * nodes the Author has open, because no Cue may point into one they have
+ * folded. The editor fetches the whole Story and reads it back after every
+ * write, so a Cue asks a question of that data — this Story has at least one
+ * Scene — and is therefore idempotent, survives a reload, and cannot disagree
+ * with the screen. Nothing stores progress, because the Story is the
  * progress: see `docs/adr/0020-progress-is-the-story.md`.
  *
  * The Cues are met in whatever order the Author arrives at them, and nothing
@@ -59,12 +60,17 @@ export const CUES: Cue[] = [
     target: 'open-scene',
     met: (story, opened) => story.scenes.some(scene => opened.has(scene.id)) || written(story),
   },
-  // Written rather than merely added: a Shot with neither text nor Still is one
-  // the Author has not written yet, and the sentence carries the whole gesture.
+  // Written rather than merely added, and written is text: a Shot is asked for
+  // here as the beat it carries, so a still attached to an empty one has not met
+  // this. The sentence carries the whole gesture, because a Scene the API writes
+  // arrives with no Shot in it to point at.
   { name: 'writeShot', target: 'shot-text', met: written },
   // The thesis of the product, in the order it can be shown in: a second Scene
   // first, because a Cut needs somewhere to land.
   { name: 'secondScene', target: 'new-scene-name', met: story => story.scenes.length > 1 },
+  // Any Cut at all, rather than one from the first Scene to the second: the
+  // sentence asks for the one the Story needs, and an Author who drew it the
+  // other way round has joined two Scenes and is not told they did it wrong.
   { name: 'drawCut', target: 'draw-cut', met: story => story.cuts.length > 0 },
 ]
 
@@ -83,10 +89,18 @@ export function cueShowing(story: StoryInEditor, opened: ReadonlySet<string>) {
 }
 
 /**
+ * What every key a dismissal is remembered under starts with. Exported because
+ * the end-to-end suite waves the guidance away for every Story at once and
+ * cannot know their ids beforehand, and a prefix taken by calling `dismissalOf`
+ * with nothing would depend on this ending in a separator without saying so.
+ */
+export const DISMISSED = 'frameline.cue-dismissed.'
+
+/**
  * Where a browser remembers that this Story's guidance was dismissed. Kept per
  * Story rather than once for the Author: knowing what you are doing today does
  * not mean the Story started in six months' time should be left unguided.
  */
 export function dismissalOf(storyId: string) {
-  return `frameline.cue-dismissed.${storyId}`
+  return `${DISMISSED}${storyId}`
 }

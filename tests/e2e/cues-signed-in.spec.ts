@@ -5,7 +5,7 @@ import { seedCut, seedScene, seedStory, test } from './author'
 const FIRST_CUE = /Every Story starts with a Scene/
 
 /** The sentence said next, once the Story has the Scene the first asked for. */
-const NEXT_CUE = /A node stays folded/
+const NEXT_CUE = /A Scene is folded on the graph/
 
 // The one spec the guidance is left switched on for; every other one waves it
 // away, the way an Author who knows their way around the bench does.
@@ -116,14 +116,14 @@ test('the bench walks an Author from a bare Story to two Scenes and a Cut', asyn
 
   // Opened. The guidance asks for the node rather than unfolding it itself, and
   // nothing inside the Scene is pointed at until the Author has done so.
-  await expect(bubble(page)).toContainText(/A node stays folded/)
+  await expect(bubble(page)).toContainText(NEXT_CUE)
   const fold = page.getByRole('button', { name: 'Open Scene The arrival' })
   await lights(page, fold)
   await fold.click()
 
   // Written. The sentence carries the whole gesture — a Shot is added and then
   // written — so it is said from the corner until there is a field to say it at.
-  await expect(bubble(page)).toContainText(/A Shot is one beat/)
+  await expect(bubble(page)).toContainText(/A Shot is a Still and its text/)
   await expect(bubble(page)).toHaveClass(/adrift/)
   await page.getByRole('button', { name: 'Add Shot' }).click()
   const shot = page.getByRole('textbox', { name: 'Shot 1' })
