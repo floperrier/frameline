@@ -5,7 +5,7 @@
  * this id names.
  */
 export default defineEventHandler(async (event) => {
-  const { user: author } = await requireUserSession(event)
+  const author = await requireAuthor(event)
   const id = readId(event, 'Scene')
   const places = await readPlaces(event, 'Cut')
 

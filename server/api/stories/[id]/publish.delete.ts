@@ -8,7 +8,7 @@ import { useDb } from '../../../db'
  * Reader was halfway through simply has nowhere to go.
  */
 export default defineEventHandler(async (event) => {
-  const { user: author } = await requireUserSession(event)
+  const author = await requireAuthor(event)
   const id = readId(event, 'Story')
 
   const [story] = await useDb()

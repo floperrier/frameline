@@ -2,7 +2,7 @@ import { stories } from '../../db/schema'
 import { useDb } from '../../db'
 
 export default defineEventHandler(async (event) => {
-  const { user: author } = await requireUserSession(event)
+  const author = await requireAuthor(event)
   const title = await readStoryTitle(event)
   // A Story says what it is written in as it is named, because nothing
   // translates a Story and there is no later moment at which the answer changes.

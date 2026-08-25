@@ -161,7 +161,8 @@
   "error": {
     "refused": "Cela n'a pas fonctionné. Réessayez.",
     "wentWrong": "Quelque chose s'est mal passé.",
-    "home": "Retour à Frameline"
+    "home": "Retour à Frameline",
+    "signInAgain": "Se reconnecter dans un nouvel onglet"
   },
   "refusals": {
     "noSuch": {
@@ -202,6 +203,7 @@
     "imageMissing": "Un photogramme est un fichier à envoyer.",
     "imageHeavy": "Un photogramme ne peut pas peser plus de {mb} Mo.",
     "imageType": "Un Plan porte un photogramme JPEG, PNG ou WebP, et rien d'autre.",
-    "openingScene": "Un Récit a besoin d'une Scène d'ouverture avant d'être publié."
+    "openingScene": "Un Récit a besoin d'une Scène d'ouverture avant d'être publié.",
+    "signedOut": "La connexion n'est plus ouverte, donc rien n'a été écrit."
   }
 }

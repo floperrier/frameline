@@ -8,7 +8,7 @@ import { useDb } from '../../db'
  * transactions on neon-http a second statement could be the one that fails.
  */
 export default defineEventHandler(async (event) => {
-  const { user: author } = await requireUserSession(event)
+  const author = await requireAuthor(event)
   const id = readId(event, 'Shot')
 
   const { rows } = await useDb().execute<{ id: string }>(sql`

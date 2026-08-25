@@ -8,7 +8,7 @@ import { useDb } from '../../db'
  * and the Description is only ever written from beside the still it describes.
  */
 export default defineEventHandler(async (event) => {
-  const { user: author } = await requireUserSession(event)
+  const author = await requireAuthor(event)
   const id = readId(event, 'Shot')
   const text = await readShotText(event)
   const description = await readShotDescription(event)

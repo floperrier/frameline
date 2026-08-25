@@ -14,7 +14,7 @@ import { useDb } from '../../../db'
  * pointing outside the Story it belongs to.
  */
 export default defineEventHandler(async (event) => {
-  const { user: author } = await requireUserSession(event)
+  const author = await requireAuthor(event)
   const id = readId(event, 'Cut')
   const conditions = await readConditions(event, 'Cut')
 

@@ -3,7 +3,7 @@ import { stories } from '../../db/schema'
 import { useDb } from '../../db'
 
 export default defineEventHandler(async (event) => {
-  const { user: author } = await requireUserSession(event)
+  const author = await requireAuthor(event)
   const id = readId(event, 'Story')
   const title = await readStoryTitle(event)
 

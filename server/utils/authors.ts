@@ -40,3 +40,28 @@ export function failSignIn(event: H3Event, provider: string, reason: unknown) {
   console.error(`Signing in with ${provider} failed:`, reason)
   return sendRedirect(event, '/?error=' + provider)
 }
+
+/**
+ * The Author behind a request, or a refusal they can read. `requireUserSession`
+ * refuses with `Unauthorized`, hardcoded English, which nitro passes through in
+ * the body and the page shows as it stands — so the one refusal not written here
+ * went out in a language nobody chose. It is phrased through `saying` like every
+ * other, from the request that carried the write. The status stays `401`, which
+ * is what the page reads to offer the door beside the bench. See
+ * `docs/adr/0016-the-door-is-reopened-beside-the-bench.md`.
+ *
+ * Whose Story it is remains the call site's question: every one of them scopes
+ * its query by the Author, and that refusal is a `404`.
+ */
+export async function requireAuthor(event: H3Event) {
+  // Refused here rather than by handing `requireUserSession` a message, which
+  // would have every authorized request negotiate a language and look up a
+  // phrase it is never going to say.
+  const { user } = await getUserSession(event)
+
+  if (!user) {
+    throw createError({ statusCode: 401, message: saying(event)('refusals.signedOut') })
+  }
+
+  return user
+}

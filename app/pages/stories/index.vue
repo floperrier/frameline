@@ -79,7 +79,7 @@ async function signOut() {
       </div>
     </form>
 
-    <p v-if="problem" role="alert">{{ problem }}</p>
+    <Refusal :problem="problem" />
 
     <p v-if="!stories?.length" class="none">{{ $t('stories.none') }}</p>
     <!-- One slate a Story: what it is called, and the two things that can be

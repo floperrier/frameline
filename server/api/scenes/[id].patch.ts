@@ -9,7 +9,7 @@ import { useDb } from '../../db'
  * request carrying no name moves a Scene and leaves what it is called alone.
  */
 export default defineEventHandler(async (event) => {
-  const { user: author } = await requireUserSession(event)
+  const author = await requireAuthor(event)
   const id = readId(event, 'Scene')
   const name = await readSceneRename(event)
   const { x, y } = await readScenePlacement(event)

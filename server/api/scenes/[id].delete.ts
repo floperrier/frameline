@@ -4,7 +4,7 @@ import { useDb } from '../../db'
 
 /** Deletes a Scene. Its Shots go with it: they cascade from the Scene in Postgres. */
 export default defineEventHandler(async (event) => {
-  const { user: author } = await requireUserSession(event)
+  const author = await requireAuthor(event)
   const id = readId(event, 'Scene')
 
   const [scene] = await useDb()

@@ -71,5 +71,12 @@ records no provider — only `{ id, email, name }`. The Author picks GitHub or
 Google again as they did the first time, and the second tab lands on the Stories
 list, which is how they see the door is open before coming back to try again.
 
+The shut door is also the one refusal nothing is read back after.
+`docs/adr/0008-refetch-is-for-a-refusal.md` has a refused write read the Story
+back, because what persisted beats what was typed — but a read with the door shut
+is refused as well, and `useAsyncData` puts its default back when a fetch fails,
+so the Story would go to nothing and take the field being typed in with it. The
+work this refusal exists to keep would be the thing it destroyed.
+
 Nothing announces that it reopened. The page does not watch for the door, so the
 refusal stays on screen until the Author acts, and the next attempt clears it.
