@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test'
 import { ONE_PIXEL, openNode, seedScene, seedStory, test, writeStory } from './author'
 import { SHOT_DESCRIPTION_MAX_LENGTH, SHOT_IMAGE_MAX_BYTES } from '../../shared/utils/scenes'
-import type { APIRequestContext } from '@playwright/test'
+import type { APIRequestContext, Page } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
 /** The Shots of the first Scene of a Story written the way an Author writes one. */
@@ -300,4 +300,131 @@ test('a Description is the Author’s to write, to change and to take away', asy
   expect(tooLong.status()).toBe(400)
   expect((await tooLong.json()).message).toContain('A Description says what a still shows')
   expect((await reread(request, story.id))[0]!.description).toBe('A door, opening.')
+})
+
+/**
+ * The files a hand lets go of, built in the page because a `DataTransfer` cannot
+ * be carried into it: what a drop hands over is a real `File` either way, and the
+ * bytes travel as base64 for want of a `Buffer` in a browser.
+ */
+function droppedFiles(page: Page, files: { name: string, type: string, bytes: Buffer }[]) {
+  return page.evaluateHandle((carried) => {
+    const dropped = new DataTransfer()
+
+    for (const file of carried) {
+      const bytes = Uint8Array.from(atob(file.base64), letter => letter.charCodeAt(0))
+      dropped.items.add(new File([bytes], file.name, { type: file.type }))
+    }
+
+    return dropped
+  }, files.map(file => ({ ...file, base64: file.bytes.toString('base64') })))
+}
+
+test('the Author drops a file on a thumbnail, and the still is the one dropped', async ({ page, request }) => {
+  const { story, shots } = await openShots(request)
+  await page.goto(`/stories/${story.id}`)
+
+  const street = page.getByRole('article', { name: 'The street' })
+  await openNode(page, 'The street')
+  const thumbnail = street.locator('.still > label').first()
+
+  // While the file is over it the thumbnail says it will take the drop, in the
+  // grease pencil the other gestures on the bench are marked in.
+  const carried = await droppedFiles(page, [{ name: 'dropped.png', type: 'image/png', bytes: ONE_PIXEL }])
+  await thumbnail.dispatchEvent('dragenter', { dataTransfer: carried })
+  await thumbnail.dispatchEvent('dragover', { dataTransfer: carried })
+  await expect(thumbnail).toHaveClass(/over/)
+
+  await thumbnail.dispatchEvent('drop', { dataTransfer: carried })
+  await expect(thumbnail).not.toHaveClass(/over/)
+  await expect(thumbnail.locator('img')).toBeVisible()
+  await expect.poll(async () => (await reread(request, story.id))[0]!.image)
+    .toBe(`/api/shots/${shots[0]!.id}/image`)
+
+  // A second drop replaces the still, and the new one is what is on screen: the
+  // address is the Shot's own, so it is asked for under a time the browser has
+  // nothing drawn for.
+  const shown = () => thumbnail.locator('img').getAttribute('src')
+  const first = await shown()
+  const again = await droppedFiles(page, [{ name: 'other.png', type: 'image/png', bytes: ONE_PIXEL }])
+  await thumbnail.dispatchEvent('drop', { dataTransfer: again })
+  await expect.poll(shown).not.toBe(first)
+  expect(await shown()).toContain('?at=')
+
+  // The thumbnail is the picker it was: pressing it opens the file chrome, and
+  // the input behind it is still focusable and still named.
+  const opened = page.waitForEvent('filechooser')
+  await thumbnail.click()
+  await (await opened).setFiles({ name: 'picked.png', mimeType: 'image/png', buffer: ONE_PIXEL })
+  await expect(street.getByLabel('Image of Shot 1')).toBeAttached()
+  await street.getByRole('textbox', { name: 'Shot 1', exact: true }).focus()
+  await page.keyboard.press('Tab')
+  await expect(street.getByLabel('Image of Shot 1')).toBeFocused()
+})
+
+test('a drop of several files takes the first image, and a refused one says why', async ({ page, request }) => {
+  const { story, shots } = await openShots(request)
+  await page.goto(`/stories/${story.id}`)
+
+  const street = page.getByRole('article', { name: 'The street' })
+  await openNode(page, 'The street')
+  const thumbnail = street.locator('.still > label').first()
+
+  // Notes and two images: the first image is attached, and nothing is said about
+  // the rest of what the hand was holding.
+  const several = await droppedFiles(page, [
+    { name: 'notes.txt', type: 'text/plain', bytes: Buffer.from('Not a still at all') },
+    { name: 'still.png', type: 'image/png', bytes: ONE_PIXEL },
+    { name: 'spare.png', type: 'image/png', bytes: ONE_PIXEL },
+  ])
+  await thumbnail.dispatchEvent('drop', { dataTransfer: several })
+  await expect(thumbnail.locator('img')).toBeVisible()
+  await expect.poll(async () => (await reread(request, story.id))[0]!.image)
+    .toBe(`/api/shots/${shots[0]!.id}/image`)
+  // Asked once the drop has landed, so it is silence about the other two files
+  // rather than a page that has not got round to saying anything yet.
+  await expect(page.getByRole('alert')).toBeHidden()
+
+  // A file the endpoint refuses is refused in the Author's own words — the phrase
+  // a picked file of the same kind gets — and the still already attached stands.
+  const refused = await droppedFiles(page, [
+    { name: 'notes.txt', type: 'text/plain', bytes: Buffer.from('Not a still at all') },
+  ])
+  await thumbnail.dispatchEvent('drop', { dataTransfer: refused })
+  await expect(page.getByRole('alert')).toContainText('a JPEG, a PNG or a WebP image')
+  await expect(thumbnail.locator('img')).toBeVisible()
+})
+
+test('a file dropped anywhere but a thumbnail does not take the editor off the screen', async ({ page, request }) => {
+  const story = await writeStory(request)
+  await page.goto(`/stories/${story.id}`)
+  await expect(page.getByRole('heading', { name: story.title })).toBeVisible()
+
+  // The page refuses the default for both events, which is what stops the browser
+  // opening the file in place of the editor. Read off the events themselves: a
+  // synthesised drop would not navigate whether the page refused it or not.
+  const carrying = (kinds: string[], types: string[]) =>
+    page.getByRole('heading', { name: story.title }).evaluate((on, { kinds, types }) =>
+      kinds.map((kind) => {
+        const carried = new DataTransfer()
+        // A file is announced as one by the kinds the drag carries, which is all a
+        // page is told about it until it is let go of.
+        if (types.includes('Files')) {
+          carried.items.add(new File([new Uint8Array([1])], 'dropped.png', { type: 'image/png' }))
+        }
+        else for (const type of types) carried.setData(type, 'A line of writing')
+
+        const event = new DragEvent(kind, { bubbles: true, cancelable: true, dataTransfer: carried })
+        on.dispatchEvent(event)
+
+        return event.defaultPrevented
+      }), { kinds, types })
+
+  expect(await carrying(['dragover', 'drop'], ['Files'])).toEqual([true, true])
+  await expect(page.getByRole('heading', { name: story.title })).toBeVisible()
+
+  // A line of text dragged from one field to another is the browser's to carry
+  // out, and the page refusing every drop would have taken that away from every
+  // field on it.
+  expect(await carrying(['dragover', 'drop'], ['text/plain'])).toEqual([false, false])
 })
