@@ -75,8 +75,9 @@ for (const scene of work.scenes) {
   }
 }
 
-// The first Scene written is already the one the Story opens on, so the opening
-// is said again only where the work names another.
+// The first Scene written is already the one the Story opens on, so this says
+// again what is usually already true. One request, and a work that opens
+// somewhere other than where it starts needs nothing special here.
 if (work.opening) await api('POST', `/api/scenes/${sceneNamed(work.opening)}/opening`)
 
 for (const cut of work.cuts) {
@@ -102,11 +103,12 @@ function chosen() {
   const language = argument('leader')
   if (language === undefined) return REEL_CHANGE
 
-  if (!LEADER_LANGUAGES.includes(language as LeaderLanguage)) {
+  const leader = LEADERS[language as LeaderLanguage]
+  if (!leader) {
     throw new Error(`No Leader is written in ${language}: --leader ${LEADER_LANGUAGES.join(' | ')}`)
   }
 
-  return LEADERS[language as LeaderLanguage]
+  return leader
 }
 
 /**

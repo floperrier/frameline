@@ -54,6 +54,15 @@ line of what they say is shared. No test holds their text against the other's:
 neither is a translation of the other, and a spec that checked otherwise would
 make them one work again.
 
+**Every Condition a Leader carries has to be one a Reading can fail.** A
+Condition that holds in every Reading of the Story teaches nothing: the Author
+previews the work, sees the Shot play, and never learns what the test was for.
+So the way past the Scene that sets the Flag is offered to everybody, and the
+Condition counting visits counts the Scene its own Shot is in. `leaders.spec.ts`
+holds that: for each Flag a Shot tests, there is a route from the opening Scene
+to that Shot's Scene, over Cuts offered unconditionally, which never enters the
+Scene setting the Flag.
+
 **A Language with no Leader written is an ordinary case.** An Author whose
 Locale has no Leader is given none, which is the same page every Author saw
 before Leaders existed. Adding a Language means writing a work, not filling in

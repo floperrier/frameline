@@ -102,6 +102,29 @@ function textOf(work: Work) {
   ].filter(Boolean)
 }
 
+/**
+ * The Scenes a Reading can reach without ever entering one of them, taking only
+ * the ways on that are offered to everybody. Under-counting on purpose: a Cut
+ * carrying Conditions might be offered too, and a route that needs none is the
+ * one an Author is certain to find.
+ */
+function reachedWithout(work: Work, avoiding: string) {
+  const reached = new Set<string>()
+  const walking = [work.opening ?? work.scenes[0]!.name]
+
+  while (walking.length) {
+    const scene = walking.pop()!
+    if (scene === avoiding || reached.has(scene)) continue
+
+    reached.add(scene)
+    walking.push(...work.cuts
+      .filter(cut => cut.from === scene && !cut.when?.length)
+      .map(cut => cut.to))
+  }
+
+  return reached
+}
+
 describe.each(LEADER_LANGUAGES)('the Leader written in %s', (language: LeaderLanguage) => {
   const leader = LEADERS[language]
 
@@ -150,6 +173,23 @@ describe.each(LEADER_LANGUAGES)('the Leader written in %s', (language: LeaderLan
 
     for (const condition of conditionsOf(leader)) {
       if ('flag' in condition) expect(set).toContain(condition.flag)
+    }
+  })
+
+  it('tests a Flag on a Shot a Reading can arrive without', () => {
+    // A Condition every Reading meets teaches nothing: the Author previews the
+    // Story, sees the Shot play, and never learns what the test was for. So for
+    // each Flag a Shot tests, there has to be a way to the Scene it is in that
+    // misses the Scene setting that Flag.
+    for (const scene of leader.scenes) {
+      for (const shot of scene.shots) {
+        for (const condition of shot.when ?? []) {
+          if (!('flag' in condition)) continue
+
+          const setter = leader.scenes.find(other => condition.flag in (other.sets ?? {}))!
+          expect(reachedWithout(leader, setter.name)).toContain(scene.name)
+        }
+      }
     }
   })
 

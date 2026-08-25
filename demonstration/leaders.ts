@@ -42,9 +42,14 @@ function strip(x: number, y: number, height: number) {
   return `roundrectangle ${x},${y} ${x + 10},${y + height} 4,4`
 }
 
+/** Several shapes on one sheet, which ImageMagick draws in one pass. */
+function all(...shapes: string[]) {
+  return shapes.join(' ')
+}
+
 /** Two bars inside a panel, standing for the text a Shot carries. */
 function lines(x: number, y: number, width: number) {
-  return `${panel(x, y, width, 16)} ${panel(x, y + 40, Math.round(width * 0.6), 16)}`
+  return all(panel(x, y, width, 16), panel(x, y + 40, Math.round(width * 0.6), 16))
 }
 
 /** The two ways on of `a-cut`, leaving one edge and landing on different Scenes. */
@@ -63,14 +68,15 @@ export const LEADER_STILLS: Record<string, Still> = {
     form: [
       {
         colour: STEEL,
-        draw: `${panel(140, 330, 380, 240)} ${panel(610, 330, 380, 240)} ${panel(1080, 330, 380, 240)}`,
+        draw: all(
+          panel(140, 330, 380, 240), panel(610, 330, 380, 240), panel(1080, 330, 380, 240)),
         blur: 2,
       },
       { colour: LIGHT, draw: strip(140, 330, 240), blur: 2, opacity: 0.9 },
-      { colour: EDGE, draw: `${strip(610, 330, 240)} ${strip(1080, 330, 240)}`, blur: 2 },
+      { colour: EDGE, draw: all(strip(610, 330, 240), strip(1080, 330, 240)), blur: 2 },
       {
         colour: PAPER,
-        draw: `${lines(190, 400, 280)} ${lines(660, 400, 280)} ${lines(1130, 400, 280)}`,
+        draw: all(lines(190, 400, 280), lines(660, 400, 280), lines(1130, 400, 280)),
         blur: 2,
         opacity: 0.45,
       },
@@ -84,7 +90,8 @@ export const LEADER_STILLS: Record<string, Still> = {
     form: [
       {
         colour: STEEL,
-        draw: `${panel(120, 330, 380, 240)} ${panel(1060, 100, 380, 240)} ${panel(1060, 560, 380, 240)}`,
+        draw: all(
+          panel(120, 330, 380, 240), panel(1060, 100, 380, 240), panel(1060, 560, 380, 240)),
         blur: 2,
       },
       {
@@ -95,13 +102,13 @@ export const LEADER_STILLS: Record<string, Still> = {
       },
       {
         colour: EDGE,
-        draw: `${strip(120, 330, 240)} ${strip(1060, 100, 240)} ${strip(1060, 560, 240)}`,
+        draw: all(strip(120, 330, 240), strip(1060, 100, 240), strip(1060, 560, 240)),
         blur: 2,
       },
       { colour: PAPER, draw: lines(170, 400, 280), blur: 2, opacity: 0.45 },
       {
         colour: PAPER,
-        draw: `${lines(1110, 170, 280)} ${lines(1110, 630, 280)}`,
+        draw: all(lines(1110, 170, 280), lines(1110, 630, 280)),
         blur: 2,
         opacity: 0.25,
       },
@@ -125,7 +132,9 @@ export const LEADER_STILLS: Record<string, Still> = {
 
   'a-condition': {
     ground: [BENCH, DARK],
-    glow: [{ colour: LIGHT, draw: 'polygon 800,300 980,450 800,600 620,450', blur: 60, opacity: 0.45 }],
+    glow: [
+      { colour: LIGHT, draw: 'polygon 800,300 980,450 800,600 620,450', blur: 60, opacity: 0.45 },
+    ],
     form: [
       { colour: STEEL, draw: panel(80, 330, 380, 240), blur: 2 },
       { colour: LIGHT, draw: strip(80, 330, 240), blur: 2, opacity: 0.9 },
@@ -138,6 +147,29 @@ export const LEADER_STILLS: Record<string, Still> = {
     grain: 0.8,
   },
 
+  'a-gap': {
+    ground: [BENCH, DARK],
+    glow: [{ colour: LIGHT, draw: panel(140, 330, 380, 240), blur: 70, opacity: 0.3 }],
+    form: [
+      {
+        colour: STEEL,
+        draw: all(panel(140, 330, 380, 240), panel(1080, 330, 380, 240)),
+        blur: 2,
+      },
+      { colour: EDGE, draw: all(strip(140, 330, 240), strip(1080, 330, 240)), blur: 2 },
+      {
+        colour: PAPER,
+        draw: all(lines(190, 400, 280), lines(1130, 400, 280)),
+        blur: 2,
+        opacity: 0.45,
+      },
+      // Where the Shot that does not play would have been: the run closes over
+      // it, and nothing says it was ever there.
+      { colour: EDGE, draw: panel(610, 330, 380, 240), blur: 3, opacity: 0.12 },
+    ],
+    grain: 0.6,
+  },
+
   'a-state': {
     ground: [BENCH, DARK],
     glow: [{ colour: LIGHT, draw: panel(120, 250, 640, 120), blur: 55, opacity: 0.3 }],
@@ -145,14 +177,20 @@ export const LEADER_STILLS: Record<string, Still> = {
       // The Flags one Reading holds, one to a plate.
       {
         colour: STEEL,
-        draw: `${panel(120, 250, 640, 120)} ${panel(120, 400, 640, 120)} ${panel(120, 550, 640, 120)}`,
+        draw: all(
+          panel(120, 250, 640, 120), panel(120, 400, 640, 120), panel(120, 550, 640, 120)),
         blur: 2,
       },
-      { colour: GREASE, draw: `${strip(120, 250, 120)} ${strip(120, 400, 120)}`, blur: 2, opacity: 0.9 },
+      {
+        colour: GREASE,
+        draw: all(strip(120, 250, 120), strip(120, 400, 120)),
+        blur: 2,
+        opacity: 0.9,
+      },
       { colour: EDGE, draw: strip(120, 550, 120), blur: 2 },
       {
         colour: PAPER,
-        draw: `${lines(190, 285, 420)} ${lines(190, 435, 420)} ${lines(190, 585, 420)}`,
+        draw: all(lines(190, 285, 420), lines(190, 435, 420), lines(190, 585, 420)),
         blur: 2,
         opacity: 0.4,
       },
@@ -202,6 +240,17 @@ const ENGLISH: Work = {
           text: 'This Shot has no Still. A Shot may be text alone, or a Still alone — what '
             + 'it may not be is neither.',
         },
+        {
+          text: 'You have stood here before, which is the only reason this beat is playing: '
+            + 'a Condition can count how often a Reading has entered a Scene, and no Flag '
+            + 'was set to tell it.',
+          description: 'Plates stacked on the left and two rows of dots on the right: the '
+            + 'Flags one Reading holds, and the times it has entered a Scene.',
+          still: 'a-state',
+          // A Condition needing no Flag at all, and the one an Author can watch
+          // arrive: the Scene it counts is the Scene the Shot is in.
+          when: [{ scene: 'Where a Story starts', visits: 'at least', times: 2 }],
+        },
       ],
     },
 
@@ -242,9 +291,9 @@ const ENGLISH: Work = {
         {
           text: 'This beat is playing because you came through the second Scene and it set '
             + 'that Flag. Arrive here another way and this Shot is not in the run at all.',
-          description: 'Plates stacked on the left and two rows of dots on the right: the '
-            + 'Flags one Reading holds, and the times it has entered a Scene.',
-          still: 'a-state',
+          description: 'A run of two panels with a gap between them where a third would '
+            + 'stand, drawn as an outline and nothing more.',
+          still: 'a-gap',
           when: [{ flag: 'cut', is: 'taken' }],
         },
       ],
@@ -256,10 +305,10 @@ const ENGLISH: Work = {
     {
       from: 'Where a Story starts',
       to: 'What a Condition tests',
-      text: 'Skip ahead — you have stood here before',
-      // A Condition needs no Flag at all: this way on is not there the first time
-      // through, and is there on every pass after it.
-      when: [{ scene: 'Where a Story starts', visits: 'at least', times: 2 }],
+      // Offered to everyone, and on purpose: it is the way past the Scene that
+      // sets the Flag, so the Condition testing that Flag is one an Author can
+      // watch fail as well as hold.
+      text: 'Skip the second Scene',
     },
     {
       from: 'What a Cut offers',
@@ -287,7 +336,8 @@ const FRENCH: Work = {
       at: [60, 380],
       shots: [
         {
-          text: 'Ceci est un Plan : un Photogramme et son texte, montrés d’un seul temps. '
+          text: 'Ceci est un Plan : un Photogramme et son texte, montrés comme un seul '
+            + 'temps. '
             + 'La Scène où vous êtes en est une suite, et elle se déroule dans le même ordre '
             + 'pour chaque Lecteur.',
           description: 'Trois panneaux alignés sur un établi sombre, le premier éclairé : une '
@@ -295,8 +345,19 @@ const FRENCH: Work = {
           still: 'a-scene',
         },
         {
-          text: 'Ce Plan n’a pas de Photogramme. Un Plan peut n’être que du texte, ou qu’une '
-            + 'image — ce qu’il ne peut pas être, c’est ni l’un ni l’autre.',
+          text: 'Ce Plan n’a pas de Photogramme. Un Plan peut n’être que du texte, ou qu’un '
+            + 'Photogramme seul — ce qu’il ne peut pas être, c’est ni l’un ni l’autre.',
+        },
+        {
+          text: 'Vous êtes déjà venu ici, et c’est la seule raison pour laquelle ce temps se '
+            + 'joue : une Condition sait compter les entrées d’une Lecture dans une Scène, '
+            + 'et aucun Marqueur ne le lui a dit.',
+          description: 'Des plaques empilées à gauche et deux rangées de points à droite : '
+            + 'les Marqueurs qu’une Lecture porte, et le nombre d’entrées dans une Scène.',
+          still: 'a-state',
+          // Une Condition qui n’a besoin d’aucun Marqueur, et celle qu’un Auteur
+          // peut voir arriver : la Scène qu’elle compte est celle du Plan.
+          when: [{ scene: 'Là où un Récit commence', visits: 'at least', times: 2 }],
         },
       ],
     },
@@ -331,19 +392,19 @@ const FRENCH: Work = {
         {
           text: 'Une Condition est un test plat sur l’État, porté par un Plan ou par une '
             + 'Coupe. Là où elle ne tient pas, le Plan n’est pas joué et la Coupe n’est pas '
-            + 'offerte : rien n’est refusé, la chose n’est simplement pas là. Rien ici n’est '
-            + 'précieux — modifiez, cassez, supprimez.',
+            + 'offerte : rien n’est refusé, la chose n’est simplement pas là. Rien ici '
+            + 'n’est précieux — modifiez, cassez, supprimez.',
           description: 'Deux panneaux séparés par un losange éclairé, le plus loin presque '
-            + 'éteint dans le cadre.',
+            + 'sorti du cadre tant il est éteint.',
           still: 'a-condition',
         },
         {
-          text: 'Ce temps se joue parce que vous êtes passé par la deuxième Scène et qu’elle '
-            + 'a posé ce Marqueur. Arrivez ici autrement et ce Plan n’est pas dans la suite '
-            + 'du tout.',
-          description: 'Des plaques empilées à gauche et deux rangées de points à droite : '
-            + 'les Marqueurs qu’une Lecture porte, et le nombre d’entrées dans une Scène.',
-          still: 'a-state',
+          text: 'Ce temps se joue parce que votre Lecture a traversé la deuxième Scène, '
+            + 'qui a posé ce Marqueur. Arrivez ici autrement et ce Plan n’est pas dans la '
+            + 'suite du tout.',
+          description: 'Une suite de deux panneaux avec, entre eux, la place d’un troisième, '
+            + 'tracée en contour et rien de plus.',
+          still: 'a-gap',
           when: [{ flag: 'coupe', is: 'prise' }],
         },
       ],
@@ -355,10 +416,10 @@ const FRENCH: Work = {
     {
       from: 'Là où un Récit commence',
       to: 'Ce que teste une Condition',
-      text: 'Passer devant — vous êtes déjà venu ici',
-      // Une Condition n’a besoin d’aucun Marqueur : cette issue n’est pas là au
-      // premier passage, et elle est là à tous les suivants.
-      when: [{ scene: 'Là où un Récit commence', visits: 'at least', times: 2 }],
+      // Offerte à tout le monde, et à dessein : c’est l’issue qui contourne la
+      // Scène posant le Marqueur, donc la Condition qui teste ce Marqueur est
+      // une Condition qu’un Auteur peut voir échouer autant que tenir.
+      text: 'Sauter la deuxième Scène',
     },
     {
       from: 'Ce qu’offre une Coupe',
