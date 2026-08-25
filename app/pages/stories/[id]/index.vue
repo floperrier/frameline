@@ -189,13 +189,89 @@ function moveShot(scene: Scene, shot: Shot, step: -1 | 1) {
  * Shot id and not by the Shot, the same trap the other gestures on this page
  * avoid: a read landing mid-drag replaces every Scene in the Story, and the hand
  * would be holding a Shot that is no longer the one on screen.
- *
- * ponytail: the run does not scroll itself when the drag reaches the end of what
- * is on screen, so a Shot travels no further than the Author can already see.
- * Give the drag an auto-scroll at the edge the day a Scene of fifteen Shots asks
- * for one.
  */
 const draggedShot = ref<{ shotId: string, over?: string }>()
+
+/**
+ * The band along a body's top and bottom edge that a dragged Shot scrolls it
+ * from, and how far the body travels each tick of the run. Both are felt rather
+ * than derived, which is why they are named here with the reasoning rather than
+ * dropped into the arithmetic below.
+ *
+ * The band is about the height of a Shot's own number: wide enough to fall into
+ * with a hand that is already carrying something, and narrow enough that a hand
+ * resting halfway down a run scrolls nothing. The step comes to five hundred
+ * pixels a second, which crosses a node full of Shots in a couple of seconds —
+ * slow enough that the row aimed at can be let go of as it comes past.
+ *
+ * Under `prefers-reduced-motion` the run still travels: refusing to scroll would
+ * put the far end of a long Scene out of reach of the gesture that exists to
+ * reach it, and the two controls are the route for a hand that wants no drag at
+ * all. What it loses is the glide — the same distance in the same time, taken a
+ * Shot's row at a stride every fifth of a second instead of a few pixels a
+ * frame, so the list steps to where the hand is pointing rather than sliding
+ * there.
+ */
+const SHOT_SCROLL_BAND = 48
+const SHOT_SCROLL_TICK = 16
+const SHOT_SCROLL_STEP = 8
+const SHOT_SCROLL_STILL_TICK = 200
+const SHOT_SCROLL_STILL_STEP = 100
+
+/**
+ * The run that scrolls a node's body under a dragged Shot: the body itself, the
+ * way it is going, how far it goes each tick, where the hand last was, and the
+ * timer driving it. One run per drag, started with the gesture and stopped with
+ * it however it ends, so nothing goes on scrolling without a hand on it. A way
+ * of zero — a hand at rest away from both edges — is a tick that moves nothing,
+ * which is cheaper than starting and stopping the timer at every edge.
+ */
+let shotScroll: {
+  body: HTMLElement
+  way: number
+  step: number
+  at: { clientX: number, clientY: number }
+  tick: ReturnType<typeof setInterval>
+} | undefined
+
+/**
+ * Which way the body under the hand should be running: back in the band along
+ * its top edge, on in the one along its bottom, and nowhere between the two or
+ * past either. The pointer is captured, so a hand that has left the body
+ * altogether is a hand outside every band rather than one pinned to the edge it
+ * left by.
+ */
+function shotScrollWay(body: HTMLElement, y: number) {
+  const box = body.getBoundingClientRect()
+  if (y >= box.top && y < box.top + SHOT_SCROLL_BAND) return -1
+  if (y <= box.bottom && y > box.bottom - SHOT_SCROLL_BAND) return 1
+
+  return 0
+}
+
+/**
+ * One tick of the run. The Shot the hand is over is asked for again after the
+ * body has moved, because the hand may not have: the list comes to meet a
+ * pointer standing still in the band, and the row under it is whichever one has
+ * arrived there.
+ */
+function runShotScroll() {
+  const run = shotScroll
+  if (!run?.way || !draggedShot.value) return
+
+  run.body.scrollTop += run.way * run.step
+  draggedShot.value.over = rowUnder(run.at, 'shot')
+}
+
+/** Stops the run, whatever ended the gesture that started it. */
+function stopShotScroll() {
+  if (shotScroll) clearInterval(shotScroll.tick)
+  shotScroll = undefined
+}
+
+// Leaving the page ends the gesture as surely as letting go does, and a timer
+// left ticking would go on scrolling a node that is no longer on screen.
+onBeforeUnmount(stopShotScroll)
 
 function startShotDrag(shot: Shot, event: PointerEvent) {
   // A finger scrolls the node instead. The two controls move a Shot a Place
@@ -205,17 +281,44 @@ function startShotDrag(shot: Shot, event: PointerEvent) {
 
   // Capturing the pointer sends the rest of the gesture to the number itself, so
   // the hand can leave it for the Shot it is aiming at.
-  ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+  const handle = event.currentTarget as HTMLElement
+  handle.setPointerCapture(event.pointerId)
   draggedShot.value = { shotId: shot.id }
+
+  // What scrolls is the body this drag is inside, never the bench and never the
+  // window: a Shot carried to the edge of its run must not take the graph with
+  // it. A node folded shut has no body to scroll and no run to drag within.
+  const body = handle.closest('.body')
+  if (!(body instanceof HTMLElement)) return
+
+  const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  shotScroll = {
+    body,
+    way: 0,
+    step: still ? SHOT_SCROLL_STILL_STEP : SHOT_SCROLL_STEP,
+    at: { clientX: event.clientX, clientY: event.clientY },
+    tick: setInterval(runShotScroll, still ? SHOT_SCROLL_STILL_TICK : SHOT_SCROLL_TICK),
+  }
 }
 
 function keepShotDrag(event: PointerEvent) {
-  if (draggedShot.value) draggedShot.value.over = rowUnder(event, 'shot')
+  if (!draggedShot.value) return
+  draggedShot.value.over = rowUnder(event, 'shot')
+  if (!shotScroll) return
+
+  shotScroll.at = { clientX: event.clientX, clientY: event.clientY }
+  shotScroll.way = shotScrollWay(shotScroll.body, event.clientY)
+}
+
+/** A gesture abandoned: the Shot is put down where it was, and the run stops. */
+function cancelShotDrag() {
+  draggedShot.value = undefined
+  stopShotScroll()
 }
 
 function endShotDrag(scene: Scene) {
   const dragged = draggedShot.value
-  draggedShot.value = undefined
+  cancelShotDrag()
   if (!dragged?.over || dragged.over === dragged.shotId) return
 
   const places = movedInto(scene.shots.map(held => held.id), dragged.shotId, dragged.over)
@@ -689,9 +792,13 @@ function endWayDrag(scene: Scene) {
  * a Shot in its run — asked of the page rather than worked out from the rows:
  * they are really there and the browser already hit-tests them, which is what
  * makes this the answer to both "light this row" and "drop here".
+ *
+ * Asked at a point rather than of an event, because the run that scrolls a body
+ * under a dragged Shot asks it between one move and the next, when the list has
+ * come to the hand rather than the other way about.
  */
-function rowUnder(event: PointerEvent, what: 'way' | 'shot') {
-  const under = document.elementFromPoint(event.clientX, event.clientY)
+function rowUnder(at: { clientX: number, clientY: number }, what: 'way' | 'shot') {
+  const under = document.elementFromPoint(at.clientX, at.clientY)
   return (under?.closest(`[data-${what}]`) as HTMLElement | null)?.dataset[what]
 }
 
@@ -1267,7 +1374,7 @@ function atAGlance(scene: Scene) {
                     @pointerdown="startShotDrag(shot, $event)"
                     @pointermove="keepShotDrag"
                     @pointerup="endShotDrag(scene)"
-                    @pointercancel="draggedShot = undefined"
+                    @pointercancel="cancelShotDrag"
                   >
                     <span class="visually-hidden">{{ $t('editor.shot') }} </span>{{ place + 1 }}
                   </label>
@@ -1980,7 +2087,11 @@ article.opens .strip {
   font-variant-numeric: tabular-nums;
   /* The number is what the Shot is dragged by. No `touch-action` here, unlike the
      three gestures on the bench: a finger goes on scrolling the run, and reaches
-     the same renumbering through the two controls under every Shot. */
+     the same renumbering through the two controls under every Shot. What the
+     number does refuse is being selected: a mouse held down on text drags a
+     selection, and the browser scrolls the bench and the page after it — which is
+     the graph moving under a gesture that is about one node's run. */
+  user-select: none;
   cursor: grab;
 }
 
