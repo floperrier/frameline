@@ -14,6 +14,10 @@
     "moveEarlier": "Move earlier",
     "moveLater": "Move later"
   },
+  "confirmation": {
+    "heading": "This cannot be undone",
+    "dismiss": "Leave it"
+  },
   "scene": {
     "gone": "a Scene that is gone",
     "goneOption": "A Scene that is gone"
@@ -45,7 +49,8 @@
     "open": "Open",
     "title": "Title",
     "rename": "Rename",
-    "confirmDelete": "Delete “{title}”? This cannot be undone."
+    "confirmDelete": "“{title}” goes, and everything written in it.",
+    "deleteStory": "Delete Story"
   },
   "editor": {
     "allStories": "All Stories",
@@ -63,7 +68,7 @@
     "manyShots": "{count} Shots",
     "oneCut": "{count} Cut",
     "manyCuts": "{count} Cuts",
-    "confirmDeleteScene": "Delete “{name}”, its {shots} and {cuts}?",
+    "confirmDeleteScene": "“{name}” goes, and with it {shots}, {waysOn} leaving it and {waysIn} arriving at it.",
     "glanceWaysOn": "{shots}, on to {waysOn}",
     "glanceNoWayOn": "{shots}, no way on",
     "sceneName": "Name of this Scene",

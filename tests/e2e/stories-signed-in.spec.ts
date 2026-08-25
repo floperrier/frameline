@@ -25,6 +25,30 @@ test('an Author writes, renames and deletes a Story', async ({ request }) => {
   expect(renameOfDeleted.status()).toBe(404)
 })
 
+test('an Author is asked before a Story goes, and can leave it', async ({ page, request }) => {
+  const story = await (await request.post('/api/stories', { data: { title: 'A Story' } })).json()
+
+  await page.goto('/stories')
+  const control = page.getByRole('button', { name: 'Delete A Story' })
+  await control.click()
+
+  // The Story is named in the question, and by nothing but its title: the list
+  // carries ids and titles, so there is nothing to count.
+  const asking = page.getByRole('dialog')
+  await expect(asking).toContainText('“A Story” goes, and everything written in it.')
+
+  await asking.getByRole('button', { name: 'Leave it' }).click()
+  await expect(asking).toBeHidden()
+  await expect(control).toBeFocused()
+  await expect(readStory(story.id)).resolves.toEqual({ id: story.id, title: 'A Story' })
+
+  // The destructive verb says what it does, and only then is the Story gone.
+  await control.click()
+  await asking.getByRole('button', { name: 'Delete Story' }).click()
+  await expect(page.getByText('No Stories yet.')).toBeVisible()
+  await expect(readStory(story.id)).resolves.toBeUndefined()
+})
+
 test('a Story needs a title', async ({ request }) => {
   const response = await request.post('/api/stories', { data: { title: '   ' } })
 

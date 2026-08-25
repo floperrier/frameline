@@ -6,6 +6,7 @@ const localePath = useLocalePath()
 const { user: author, clear } = useUserSession()
 const { data: stories, refresh } = await useFetch('/api/stories')
 const { problem, change, write } = useEditing(refresh)
+const { asked, ask, answer } = useConfirming()
 
 const newTitle = ref('')
 // English is preselected, so the common case costs the Author no interaction.
@@ -24,8 +25,13 @@ function renameStory(id: string, title: string) {
   return write(() => send(`/api/stories/${id}`, { method: 'PATCH', body: { title } }))
 }
 
-function deleteStory(id: string, title: string) {
-  if (!confirm(t('stories.confirmDelete', { title }))) return
+/**
+ * A Story goes with everything written in it, none of which the Author named in
+ * the act, so it is asked about — by title and by nothing else, which is all the
+ * list carries. See `docs/adr/0017-a-confirmation-is-drawn-on-the-bench.md`.
+ */
+async function deleteStory(id: string, title: string) {
+  if (!await ask(t('stories.confirmDelete', { title }), t('stories.deleteStory'))) return
   return change(() => send(`/api/stories/${id}`, { method: 'DELETE' }))
 }
 
@@ -96,6 +102,8 @@ async function signOut() {
         </div>
       </li>
     </ul>
+
+    <Confirmation :asked="asked" @answer="answer" />
   </main>
 </template>
 
