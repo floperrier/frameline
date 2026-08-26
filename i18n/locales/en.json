@@ -148,7 +148,7 @@
     "secondScene": "A Story branches between Scenes, never inside one. Name a second Scene here, the one this Scene leads to.",
     "drawCut": "A Cut is the way on. Drag from the strip down the edge of the first Scene onto the second, and let go.",
     "setFlag": "State is what one Reading carries with it. Give this Scene a Flag — “courage = high” — and it is set on every Reader who enters.",
-    "openingScene": "A Reading has to start somewhere, and nothing marks where this Story does. Mark the Scene it opens on here — any of them will do, and you can name another whenever you like.",
+    "openingScene": "A Reading has to start somewhere, and nothing marks where this Story does. Open a Scene and mark it as the one to start on — any of them will do, and you can name another whenever you like.",
     "putCondition": "A Condition makes the same Scene play differently to different Readers, without branching. Open the second Scene, add a Shot, and have it played when that Flag holds something else — “low” will do. Nothing plays it yet, which is the point.",
     "previewCondition": "Nothing plays that Shot, and the Preview says why: it reads the Story on the engine a Reader runs, and shows what each Shot it skipped asked for beside what the State actually holds. Open it, read that, then come back and put the value right.",
     "publish": "That is a Story that works. Publish it, and anybody can read it at a link of its own — the one this page then shows, to hand to whoever you wrote it for."
@@ -157,7 +157,7 @@
     "back": "Back to the Story",
     "nobodyElse": "Nobody else can reach this",
     "heading": "Preview of {title}",
-    "noOpeningScene": "This Story has no opening Scene, so there is nothing to read yet.",
+    "noOpeningScene": "This Story has no opening Scene, so there is nothing to read yet. Go back to the Story and mark the Scene it opens on.",
     "bench": "On the bench",
     "benchNote": "nobody reading this sees it",
     "waysOnHidden": "Ways on this Reading is not offered",

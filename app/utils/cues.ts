@@ -108,7 +108,9 @@ export const CUES: Cue[] = [
   // being about reading: the two steps left send the Author to the Preview and
   // to Publish, and both of them refuse a Story that has nowhere to start. Met
   // by every Story that never lost its opening, so the ordinary path never sees
-  // it.
+  // it. The sentence carries the whole gesture the way the Condition's does: the
+  // mark is drawn inside a node, and this is the one Cue that can be arrived at
+  // with every node folded, so it may not say "here".
   {
     name: 'openingScene',
     target: 'opening-scene',

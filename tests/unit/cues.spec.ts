@@ -122,13 +122,7 @@ describe('the Cue the bench is showing', () => {
     expect(asking(story)).toBe('putCondition')
   })
 
-  /**
-   * A Story is allowed to sit with no opening Scene, and the one way to get there
-   * is to delete the Scene it opened on — writing a Scene into a Story that has
-   * none makes it the opening. From then on the path points at the radio, because
-   * the steps left are the Preview and Publish and both of them refuse a Story
-   * with nowhere to start.
-   */
+  /** The one step that is skipped by every Story that never lost its opening. */
   it('asks for an opening Scene once the Story has lost the one it had', () => {
     const story = joined()
     sets(story, 0, { courage: 'high' })
