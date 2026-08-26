@@ -54,9 +54,9 @@ test.describe('an interface read in French', () => {
     await expect(page.getByRole('link', { name: 'Tous les Récits' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Publier ce Récit', exact: true })).toBeVisible()
 
-    // The words of the craft, on a Scene opened for editing: a Shot is a Plan and
-    // a Flag is a Marqueur, as `CONTEXT.md` says they are shown.
-    await page.getByRole('button', { name: 'Ouvrir Scène The street' }).click()
+    // The words of the craft, on a Scene in the panel it is written in: a Shot is
+    // a Plan and a Flag is a Marqueur, as `CONTEXT.md` says they are shown.
+    await page.getByRole('button', { name: 'Écrire Scène The street' }).click()
     await expect(page.getByRole('button', { name: 'Ajouter un Plan' })).toBeVisible()
     await expect(page.getByLabel('Marqueurs posés à l\'entrée dans The street')).toBeVisible()
     expect(await everythingShown(page)).not.toMatch(A_RAW_KEY)
@@ -82,7 +82,7 @@ test.describe('an interface read in French', () => {
     await page.getByRole('button', { name: 'Publier ce Récit', exact: true }).click()
     await expect(page.getByRole('alert')).toHaveText(
       'Un Récit a besoin d\'une Scène d\'ouverture avant d\'être publié. '
-      + 'Ouvrez une Scène sur le Graphe et marquez-la comme celle par laquelle commencer.')
+      + 'Écrivez une Scène sur le Graphe et marquez-la comme celle par laquelle commencer.')
 
     // The Reader's page carries no locale segment whatever language it is read
     // in — see `docs/adr/0012-the-public-link-carries-no-locale.md` — and the

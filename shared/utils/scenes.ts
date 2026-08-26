@@ -109,34 +109,30 @@ export const GRAPH_REACH = 10_000
 export const NODE_PITCH = 20
 
 /**
- * How wide a Scene's node is drawn, how far below the last one a new Scene is
- * placed, and how tall a node is taken to be before it has been measured. Shared
- * because the server does the placing and the graph does the drawing, and the
- * spacing clears the height so a new Scene does not land on top of the controls
- * of the one above it.
+ * How wide and how tall a Scene's node is drawn, and how far below the last one
+ * a new Scene is placed. Shared because the server does the placing and the
+ * graph does the drawing, and the spacing clears the height so a new Scene does
+ * not land on top of the one above it.
  *
- * The height is the room a Scene is given when it is placed, and the height a
- * node is assumed to have until it has been measured — see `NodeBox`. It is not
- * a height any node is drawn at: an open one is as tall as what is in it, capped
- * at the height of the bench, and a folded one is the height of the two lines it
- * says. The width is left at what a phone can show, because a node wider
- * than the screen is a graph nobody can lay out on one, and the strip down a
- * node's leading edge comes out of it rather than adding to it.
+ * Every node is exactly this tall: a card is what an Author needs to recognise a
+ * Scene at a glance — its name, the still of its first Shot, its Shot count and
+ * where its ways on land — and a Scene is written in the panel at the edge of the
+ * bench rather than inside the card. So the height is known rather than measured,
+ * and the line that draws a Cut leaves a box the graph can work out for itself.
+ * The width is left at what a phone can show, because a node wider than the
+ * screen is a graph nobody can lay out on one, and the strip down a node's
+ * leading edge comes out of it rather than adding to it.
  */
 export const NODE_WIDTH = 320
-export const NODE_HEIGHT = 420
+export const NODE_HEIGHT = 160
 export const NODE_GAP = 40
 export const NODE_SPACING = NODE_HEIGHT + NODE_GAP
 
 /**
- * A node's box on the graph: where the Author put it, and how tall it is drawn.
- * The height is measured off the page rather than taken from `NODE_HEIGHT`,
- * because a node is as tall as its Shots and the stills in them, and shorter
- * again while the Author has it folded. The width is `NODE_WIDTH` for every node,
- * so no box carries one.
+ * A point on the graph's surface — where the Author put a node, or where their
+ * hand has reached. A node's box is this point and the two constants above, so
+ * nothing carries a size around with it.
  */
-export type NodeBox = { x: number, y: number, height: number }
-
 export type Point = { x: number, y: number }
 
 /**
@@ -169,14 +165,14 @@ export function snappedWithinReach({ x, y }: Point): Point {
  * inside the nodes crossed whatever sat between them and arrived under the node it
  * arrived at; a line between edges says which Scene leads to which at a glance.
  */
-export function cutLine(from: NodeBox, to: NodeBox) {
+export function cutLine(from: Point, to: Point) {
   const leaving = middleOf(from)
   const landing = middleOf(to)
   const towards = { x: landing.x - leaving.x, y: landing.y - leaving.y }
 
   return {
-    from: onTheEdge(leaving, from.height, towards),
-    to: onTheEdge(landing, to.height, { x: -towards.x, y: -towards.y }),
+    from: onTheEdge(leaving, towards),
+    to: onTheEdge(landing, { x: -towards.x, y: -towards.y }),
   }
 }
 
@@ -187,28 +183,17 @@ export function cutLine(from: NodeBox, to: NodeBox) {
  * under the Author's hand lands wherever they are, and only the near end has a
  * box to leave.
  */
-export function cutLineTo(from: NodeBox, at: Point) {
+export function cutLineTo(from: Point, at: Point) {
   const leaving = middleOf(from)
 
   return {
-    from: onTheEdge(leaving, from.height, { x: at.x - leaving.x, y: at.y - leaving.y }),
+    from: onTheEdge(leaving, { x: at.x - leaving.x, y: at.y - leaving.y }),
     to: at,
   }
 }
 
 /** The two ends of the line that draws a Cut, as `cutLine` gives them. */
 export type CutLine = { from: Point, to: Point }
-
-/**
- * The middle of a Cut's line, which is where the panel the Cut is written in
- * opens. The middle rather than either end, because a panel at an end would open
- * over one of the two nodes the line joins — and the middle of the line moves
- * with the nodes, so the panel stays on the Cut it edits as the graph is laid
- * out.
- */
-export function middleOfCut({ from, to }: CutLine): Point {
-  return { x: Math.round((from.x + to.x) / 2), y: Math.round((from.y + to.y) / 2) }
-}
 
 /**
  * How far along its own line, measured from the node it leaves, the disc that
@@ -236,8 +221,8 @@ export function discOfCut({ from, to }: CutLine): Point {
   }
 }
 
-function middleOf(node: NodeBox) {
-  return { x: node.x + NODE_WIDTH / 2, y: node.y + node.height / 2 }
+function middleOf(node: Point) {
+  return { x: node.x + NODE_WIDTH / 2, y: node.y + NODE_HEIGHT / 2 }
 }
 
 /**
@@ -247,10 +232,10 @@ function middleOf(node: NodeBox) {
  * the middle, so what is drawn is a line of no length rather than one shooting off
  * the graph. Rounded, because a line on a screen is not read finer than a pixel.
  */
-function onTheEdge(middle: Point, height: number, towards: Point) {
+function onTheEdge(middle: Point, towards: Point) {
   const reach = Math.min(
     towards.x ? NODE_WIDTH / 2 / Math.abs(towards.x) : Infinity,
-    towards.y ? height / 2 / Math.abs(towards.y) : Infinity,
+    towards.y ? NODE_HEIGHT / 2 / Math.abs(towards.y) : Infinity,
   )
   const reached = Number.isFinite(reach)
     ? { x: middle.x + towards.x * reach, y: middle.y + towards.y * reach }

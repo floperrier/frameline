@@ -98,9 +98,9 @@ function createScene() {
 }
 
 /**
- * `1 Shot` and `2 Shots`: a folded node counts them, and a Delete asks about
- * them. One phrase a count rather than a suffix on a noun, because a plural is
- * not a letter added in every language the interface is read in.
+ * `1 Shot` and `2 Shots`: a card counts them, and a Delete asks about them. One
+ * phrase a count rather than a suffix on a noun, because a plural is not a
+ * letter added in every language the interface is read in.
  */
 function countedShots(many: number) {
   return t(many === 1 ? 'editor.oneShot' : 'editor.manyShots', { count: many })
@@ -193,8 +193,8 @@ function moveShot(scene: Scene, shot: Shot, step: -1 | 1) {
 const draggedShot = ref<{ shotId: string, over?: string }>()
 
 /**
- * The band along a body's top and bottom edge that a dragged Shot scrolls it
- * from, and how far the body travels each tick of the run. Both are felt rather
+ * The band along the panel's top and bottom edge that a dragged Shot scrolls it
+ * from, and how far the panel travels each tick of the run. Both are felt rather
  * than derived, which is why they are named here with the reasoning rather than
  * dropped into the arithmetic below.
  *
@@ -219,8 +219,8 @@ const SHOT_SCROLL_STILL_TICK = 200
 const SHOT_SCROLL_STILL_STEP = 100
 
 /**
- * The run that scrolls a node's body under a dragged Shot: the body itself, how
- * far it goes each tick, where the hand last was, and the timer driving it. One
+ * The run that scrolls the panel under a dragged Shot: the panel itself, how far
+ * it goes each tick, where the hand last was, and the timer driving it. One
  * run per drag, started with the gesture and stopped with it however it ends, so
  * nothing goes on scrolling without a hand on it. A hand at rest away from both
  * edges is a tick that moves nothing, which is cheaper than starting and
@@ -240,11 +240,10 @@ let shotScroll: {
  * altogether is a hand outside every band rather than one pinned to the edge it
  * left by.
  *
- * The bands are measured against what is on screen of the body and not against
- * the whole of it. A node opened near the foot of the window has its own bottom
- * edge below the fold, where no pointer can go, and a band drawn there would be
- * one the hand could never reach — so the band sits at the bottom of what the
- * Author can see, which is as far down as they can drag anything.
+ * The bands are measured against what is on screen of the panel and not against
+ * the whole of it. A panel whose foot is below the fold, where no pointer can go,
+ * would carry a band the hand could never reach — so the band sits at the bottom
+ * of what the Author can see, which is as far down as they can drag anything.
  */
 function shotScrollWay(body: HTMLElement, y: number) {
   const box = body.getBoundingClientRect()
@@ -258,7 +257,7 @@ function shotScrollWay(body: HTMLElement, y: number) {
 
 /**
  * One tick of the run. Which way it goes is worked out here rather than kept
- * from the last move, because the body can come out from under a hand that has
+ * from the last move, because the panel can come out from under a hand that has
  * not moved — the press on a Shot's number focuses its field, and a browser that
  * scrolls the page to show it takes the bands with it.
  *
@@ -299,10 +298,10 @@ function startShotDrag(shot: Shot, event: PointerEvent) {
   handle.setPointerCapture(event.pointerId)
   draggedShot.value = { shotId: shot.id }
 
-  // What scrolls is the body this drag is inside, never the bench and never the
+  // What scrolls is the panel this drag is inside, never the bench and never the
   // window: a Shot carried to the edge of its run must not take the graph with
-  // it. A node folded shut has no body to scroll and no run to drag within.
-  const body = handle.closest('.body')
+  // it.
+  const body = handle.closest('.panel')
   if (!(body instanceof HTMLElement)) return
 
   const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -488,7 +487,7 @@ const drawnLine = computed(() => {
   const aimed = aiming.value
   if (!aimed?.at || !sceneById(aimed.fromSceneId)) return
 
-  return cutLineTo(boxOf(aimed.fromSceneId), aimed.at)
+  return cutLineTo(pointOf(aimed.fromSceneId), aimed.at)
 })
 
 /**
@@ -583,7 +582,7 @@ function landOn(sceneId: string | undefined, onBench = false) {
 /**
  * Writes the Scene a gesture landed on the bare bench, and the Cut to it. The
  * Scene goes where the hand let go, snapped to the bench's own pitch, and it
- * arrives under a provisional name with its node opened on that name in a field:
+ * arrives under a provisional name with the panel open on that name in a field:
  * a name typed in the middle of a gesture could never be corrected, so the
  * gesture leaves the Author in the field that corrects it — see
  * `docs/adr/0015-a-cut-is-drawn-by-hand.md`.
@@ -611,7 +610,7 @@ async function writeSceneAt(fromSceneId: string, at: Point) {
     })
 
     writtenId = written.id
-    opened.add(written.id)
+    writing.value = { scene: written.id }
     announce(t('editor.cutDrawn', said))
   })
 
@@ -620,9 +619,8 @@ async function writeSceneAt(fromSceneId: string, at: Point) {
   // it: the name is provisional, so the first thing typed replaces it.
   if (!writtenId) return
   await nextTick()
-  const naming = document.getElementById(`scene-name-${writtenId}`) as HTMLInputElement | null
-  naming?.focus()
-  naming?.select()
+  sceneName.value?.focus()
+  sceneName.value?.select()
 }
 
 function abandonAiming() {
@@ -665,14 +663,20 @@ function aimingName(scene: Scene) {
 
 /**
  * Escape lets go of whatever the bench is holding: the Cut being drawn, whichever
- * way in began it, and the panel a Cut is written in. Listened for on the document
- * because a gesture by pointer has focus nowhere in particular — the hand is on a
- * strip that is not a control — so there is no element to hang it on.
+ * way in began it, and the panel at the edge of the bench. Listened for on the
+ * document because a gesture by pointer has focus nowhere in particular — the
+ * hand is on a strip that is not a control — so there is no element to hang it
+ * on.
  */
 function letGoOnEscape(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
+  // Not while a confirmation is up. `<dialog>` answers Escape itself, and the
+  // control the question was asked from is in the panel: closing the panel out
+  // from under that answer would take the focus it hands back with it.
+  if (asked.value) return
+
   abandonAiming()
-  closeCut()
+  closePanel()
 }
 
 onMounted(() => document.addEventListener('keydown', letGoOnEscape))
@@ -687,73 +691,110 @@ function writeCut(cut: Cut) {
 }
 
 /**
- * The Cut whose panel is open, and never more than one: a second panel would be
- * a second answer to "which Cut am I writing", and the two would sit over each
- * other on a bench where lines cross. Held by id, like every other thing the
- * bench holds across a read — a refetch replaces every Cut in the Story, and the
- * panel would otherwise be writing into an object nothing draws.
+ * What the panel at the trailing edge of the bench is writing: one Scene, or one
+ * Cut, and never both. One panel, so one answer to "what am I writing" — a
+ * second would be a second answer, and on a bench where lines cross the two
+ * would sit over each other.
  *
- * Which panel is open is the Author's view of their own graph, so it is written
+ * Held by id, like every other thing the bench holds across a read: a refetch
+ * replaces every Scene and every Cut in the Story, and the panel would otherwise
+ * be writing into an object nothing draws.
+ *
+ * What is in the panel is the Author's view of their own graph, so it is written
  * nowhere and lasts as long as the page.
  */
-const openedCut = ref<string>()
+const writing = ref<{ scene: string } | { cut: string }>()
+
+/** The Scene the panel is writing, or nothing when it is writing a Cut. */
+const sceneWritten = computed(() => {
+  const held = writing.value
+  return held && 'scene' in held ? sceneById(held.scene) : undefined
+})
 
 /**
- * The panel as the page draws it: the Cut it writes, the two Scenes it names, and
- * where on the surface it opens — the middle of the Cut's own line, so it moves
- * with the nodes as the Author lays them out. Nothing at all when no line has
- * been pressed, or when the Cut it was on has since gone.
+ * The Cut the panel is writing, and the two Scenes it joins by name. Nothing at
+ * all when a Scene is what is being written, or when the Cut has since gone.
  */
-const panel = computed(() => {
-  const cut = story.value?.cuts.find(held => held.id === openedCut.value)
+const cutWritten = computed(() => {
+  const held = writing.value
+  const cut = held && 'cut' in held ? cutById(held.cut) : undefined
   if (!cut) return
 
   return {
     cut,
     from: sceneNamed(sceneNames.value, cut.fromSceneId, t),
     to: sceneNamed(sceneNames.value, cut.toSceneId, t),
-    at: middleOfCut(cutLine(boxOf(cut.fromSceneId), boxOf(cut.toSceneId))),
   }
 })
 
+function cutById(cutId: string) {
+  return story.value?.cuts.find(cut => cut.id === cutId)
+}
+
+const sceneName = useTemplateRef<HTMLInputElement>('sceneName')
 const cutText = useTemplateRef<HTMLInputElement>('cutText')
 
 /**
- * Opens one Cut's panel, closing whichever was open, and closes this one again if
- * it was the one open. Focus goes into the text as the panel appears: pressed by
- * hand that is where the Author was going anyway, and reached from the strip it is
- * the whole point of the route — a panel nobody can type in is not one the
- * keyboard has reached.
+ * Puts one Scene in the panel, taking out whatever was there, and takes it out
+ * again if it was already the one being written. Focus goes into the name as the
+ * panel appears, which is the first field of the Scene and the same promise the
+ * Cut's panel makes: a panel nobody can type in is not one the keyboard has
+ * reached.
+ */
+async function writeScene(sceneId: string) {
+  if (sceneWritten.value?.id === sceneId) return closePanel()
+  writing.value = { scene: sceneId }
+  await nextTick()
+  sceneName.value?.focus()
+}
+
+/**
+ * Puts one Cut in the panel, and takes it out again if it was the one being
+ * written. Focus goes into the text: pressed by hand that is where the Author was
+ * going anyway, and reached from the strip of ways on it is the whole point of
+ * the route.
  */
 async function openCut(cutId: string) {
-  if (openedCut.value === cutId) return closeCut()
-  openedCut.value = cutId
+  const held = writing.value
+  if (held && 'cut' in held && held.cut === cutId) return closePanel()
+  writing.value = { cut: cutId }
   await nextTick()
   cutText.value?.focus()
 }
 
 /**
- * Closes the panel and puts focus back on the row of the strip it was opened
- * from, so the keyboard's way into a Cut is also its way out. A panel closed with
- * the pointer is closed by hand and leaves focus alone — see `closeOnBench`.
+ * Closes the panel and puts focus back on the write button of the card it
+ * belongs to — the Scene being written, or the Scene a Cut leaves — so the
+ * keyboard comes back out onto the bench rather than at the top of the page. A
+ * panel closed with the pointer on the bare bench is closed by hand and leaves
+ * focus alone: see `closeOnBench`.
+ *
+ * The card's button rather than the control the panel was opened from, which for
+ * a Cut is a row of the ways on: one panel holds one thing, so opening a Cut took
+ * the Scene out of the panel and that row is no longer in the page to hand focus
+ * back to. The card is the one anchor both routes share, and the Cut's panel
+ * offers the way back to the Scene's for a hand that wants the row again.
  */
-function closeCut() {
-  const closed = openedCut.value
-  openedCut.value = undefined
-  if (closed) document.getElementById(`way-${closed}`)?.focus()
+function closePanel() {
+  const held = writing.value
+  if (!held) return
+
+  const sceneId = 'scene' in held ? held.scene : cutById(held.cut)?.fromSceneId
+  writing.value = undefined
+  if (sceneId) document.getElementById(`write-${sceneId}`)?.focus()
 }
 
 /**
- * A press on the bare bench closes the panel. Anywhere that is not a node, the
- * panel itself or a Cut's own line is the bench — the line stops the press from
- * reaching here, so pressing one line while another's panel is open opens the
- * second rather than closing both.
+ * A press on the bare bench closes the panel. Anywhere that is not a card or a
+ * Cut's own line is the bench — the line stops the press from reaching here, so
+ * pressing one line while another Cut is in the panel writes the second rather
+ * than closing on both.
  */
 function closeOnBench(event: PointerEvent) {
   // An `Element` rather than an `HTMLElement`, because the drawing is SVG and a
   // press that reaches here may well have landed on it.
   const on = event.target as Element | null
-  if (!on?.closest('article, .panel')) openedCut.value = undefined
+  if (!on?.closest('article')) writing.value = undefined
 }
 
 /**
@@ -814,12 +855,12 @@ function rowUnder(at: { clientX: number, clientY: number }, what: 'way' | 'shot'
 
 /**
  * The sequence with one thing dropped onto another's Place, or nothing where the
- * row under the hand is not one of this Scene's own: several nodes are open at
- * once, so a Shot can be let go of over another Scene's run, and the hit-test
- * that finds a row asks the whole page rather than one node. A stranger's Place
- * is not a Place here, and a sequence written around one is a numbering the
- * Author never aimed at — one the endpoint would take, because it is still a
- * permutation of what the Scene holds.
+ * row under the hand is not one of this Scene's own: the hit-test that finds a
+ * row asks the whole page rather than the one list, so what it comes back with is
+ * held against that list before anything is written. A stranger's Place is not a
+ * Place here, and a sequence written around one is a numbering the Author never
+ * aimed at — one the endpoint would take, because it is still a permutation of
+ * what the Scene holds.
  *
  * Taken out of where it was and put back where the row under the hand stands,
  * which is the Place the Author aimed at. Everything between the two shifts by
@@ -972,8 +1013,19 @@ function sceneById(id: string) {
   return story.value?.scenes.find(scene => scene.id === id)
 }
 
+/**
+ * Begins the drag that lays a Scene out. A card is dragged from anywhere on it —
+ * there is nothing on it to type into, so the whole box is the handle — bar the
+ * controls it carries and the strip down its leading edge, which is where a Cut
+ * is drawn from. One test for every control rather than a list of the two or
+ * three there are today: a button on a card is pressed, never dragged, and a
+ * button added tomorrow is out of the gesture without anyone remembering to say
+ * so.
+ */
 function startDrag(scene: Scene, event: PointerEvent) {
-  // Capturing the pointer sends the rest of the gesture to the handle itself, so
+  if ((event.target as Element).closest('button, .strip')) return
+
+  // Capturing the pointer sends the rest of the gesture to the card itself, so
   // dragging survives the pointer leaving the Scene it is dragging.
   ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
   drag = { id: scene.id, pointerX: event.clientX, pointerY: event.clientY, x: scene.x, y: scene.y }
@@ -994,10 +1046,11 @@ function endDrag() {
 
 /**
  * The keyboard moves a node too — a graph that only answers to a pointer is not
- * one everyone can lay out. How far one press moves it is `NODE_PITCH`, which is
- * also the width of a node's strip and the grid a Scene dropped on the bench
- * snaps to, so the graph is handed it as `--pitch` rather than the twenty being
- * written again in the stylesheet.
+ * one everyone can lay out — so the card itself takes focus and the four arrow
+ * keys. How far one press moves it is `NODE_PITCH`, which is also the width of a
+ * node's strip and the grid a Scene dropped on the bench snaps to, so the graph
+ * is handed it as `--pitch` rather than the twenty being written again in the
+ * stylesheet.
  */
 const NUDGES: Record<string, [number, number]> = {
   ArrowLeft: [-1, 0],
@@ -1016,38 +1069,13 @@ function nudge(scene: Scene, event: KeyboardEvent) {
 }
 
 /**
- * How tall each node is drawn, by Scene. Measured off the page rather than
- * worked out from the Story, because a node's height is its Shots, the stills in
- * them, the Conditions they carry and whether the Author has it folded — and a
- * Cut has to leave the edge of the box that is really there.
- *
- * ponytail: measured after every render rather than watched by a
- * `ResizeObserver`, because everything that changes a node's height here is
- * something the page rendered. Observe the boxes the day one of them is resized
- * by something else — a window narrow enough to reflow a node, say.
- */
-const nodes = useTemplateRef<HTMLElement[]>('nodes')
-const nodeHeights = reactive<Record<string, number>>({})
-
-function measureNodes() {
-  for (const node of nodes.value ?? []) {
-    const sceneId = node.dataset.scene!
-    // Written only where it changed: this runs after every render, and writing a
-    // height back unchanged would ask for the next render forever.
-    if (nodeHeights[sceneId] !== node.offsetHeight) nodeHeights[sceneId] = node.offsetHeight
-  }
-}
-
-onMounted(measureNodes)
-onUpdated(measureNodes)
-
-/**
- * Every Cut as the line that draws it. A Scene whose node has not been measured
- * yet — the render on the server, and the first one in the browser — is taken to
- * be a full node, and the measurement a moment later moves the line onto the box.
+ * Every Cut as the line that draws it. Every card is `NODE_WIDTH` by
+ * `NODE_HEIGHT`, so the box a line leaves and the box it lands on are known from
+ * the Story alone: the lines are right in the very first frame, on the server as
+ * in the browser, and nothing is measured after a render.
  */
 const cutLines = computed(() => story.value?.cuts.map((cut) => {
-  const line = cutLine(boxOf(cut.fromSceneId), boxOf(cut.toSceneId))
+  const line = cutLine(pointOf(cut.fromSceneId), pointOf(cut.toSceneId))
 
   // The Place, counted from one for the Author as a Shot's is and read off the
   // same list the strip in the node reads, and the point near the departing
@@ -1060,40 +1088,44 @@ const cutLines = computed(() => story.value?.cuts.map((cut) => {
   }
 }) ?? [])
 
-function boxOf(sceneId: string): NodeBox {
-  const scene = sceneById(sceneId)
-  return {
-    x: scene?.x ?? 0,
-    y: scene?.y ?? 0,
-    height: nodeHeights[sceneId] ?? NODE_HEIGHT,
-  }
-}
-
 /**
- * Which nodes the Author has opened, by Scene. What is folded is how the Author
- * is reading the graph and nothing about the Story, so it is never written
- * anywhere: it lasts as long as the page and no longer. Folded is where a node
- * starts, because a Story of forty Scenes opened is forty editors to scroll
- * through before the shape of the work can be seen at all.
+ * Where a Scene's card sits, which with the two constants is the whole of its
+ * box. A Cut naming a Scene the bench has not got — read back a moment before
+ * the Scene it joins — is drawn from the graph's own corner rather than from
+ * nowhere.
  */
-const opened = reactive(new Set<string>())
+function pointOf(sceneId: string): Point {
+  const scene = sceneById(sceneId)
 
-function foldOrOpen(scene: Scene) {
-  if (!opened.delete(scene.id)) opened.add(scene.id)
+  return { x: scene?.x ?? 0, y: scene?.y ?? 0 }
 }
 
 /**
- * What a folded node says about a Scene, under its name: how many Shots are in
- * it, and where its ways on land. The ways on are named rather than counted,
- * because where a Scene leads is the one thing a graph is read for.
+ * How many of the ways on leaving a Scene its card names before it starts
+ * counting them. Three is what fits the one line the card gives them at this
+ * width; past that, what an Author wants off a card is that there are more of
+ * them, and the names are read in the panel.
+ */
+const WAYS_ON_NAMED = 3
+
+/**
+ * What a card says about a Scene, under its name: how many Shots are in it, and
+ * where its ways on land. The ways on are named rather than counted, because
+ * where a Scene leads is the one thing a graph is read for — and the ones past
+ * the third are counted, because a card is the same size for every Scene.
  */
 function atAGlance(scene: Scene) {
   const shots = countedShots(scene.shots.length)
-  const waysOn = cutsFrom(scene.id).map(cut => sceneNamed(sceneNames.value, cut.toSceneId, t))
+  const landing = cutsFrom(scene.id).map(cut => sceneNamed(sceneNames.value, cut.toSceneId, t))
+  const named = landing.slice(0, WAYS_ON_NAMED).join(', ')
+  const rest = landing.length - WAYS_ON_NAMED
 
-  return waysOn.length
-    ? t('editor.glanceWaysOn', { shots, waysOn: waysOn.join(', ') })
-    : t('editor.glanceNoWayOn', { shots })
+  if (!landing.length) return t('editor.glanceNoWayOn', { shots })
+
+  return t('editor.glanceWaysOn', {
+    shots,
+    waysOn: rest > 0 ? `${named} ${t('editor.moreWaysOn', { count: rest })}` : named,
+  })
 }
 </script>
 
@@ -1166,527 +1198,563 @@ function atAGlance(scene: Scene) {
     <p v-if="announced" class="toast" role="status">{{ announced }}</p>
 
     <p v-if="!story?.scenes.length" class="none">{{ $t('editor.noScenes') }}</p>
-    <div v-else class="graph" @pointerdown="closeOnBench">
-      <div ref="surface" class="surface" :style="{ ...graphSize, '--pitch': `${NODE_PITCH}px` }">
-        <!-- The drawing is a pointer's way to a Cut and a second place the one
-             being written is shown; the account of where a Scene leads that
-             anything reads out is the strip inside the node — see
-             `docs/adr/0010-the-graph-is-written-here-not-pulled-in.md`. So the
-             lines are hidden from what reads the page rather than being the
-             keyboard's route to a Cut. -->
-        <svg aria-hidden="true" :style="graphSize">
-          <defs>
-            <marker
-              id="cut-head" viewBox="0 0 8 8" refX="7" refY="4"
-              markerWidth="8" markerHeight="8" orient="auto-start-reverse"
-            >
-              <path d="M 0 0 L 8 4 L 0 8 z" />
-            </marker>
-          </defs>
-          <g v-for="line in cutLines" :key="line.id" :data-cut="line.id">
-            <!-- The wide invisible stroke behind the line, which is what the hand
-                 actually aims at: a Cut is written by pressing its line, and a
-                 line and a half of pixels is nobody's idea of a target. The press
-                 stops here, so it does not reach the bench that would close the
-                 panel it just opened — and its default is refused, because a press
-                 on a line focuses nothing and would take the focus off the field
-                 the panel has just put it in. -->
+    <!-- The bench: the graph, and the panel a Scene or a Cut is written in docked
+         at its trailing edge. The panel pushes the graph rather than covering it,
+         so nothing the Author is working on ends up hidden underneath it. -->
+    <div v-else class="bench">
+      <div class="graph" @pointerdown="closeOnBench">
+        <div ref="surface" class="surface" :style="{ ...graphSize, '--pitch': `${NODE_PITCH}px` }">
+          <!-- The drawing is a pointer's way to a Cut and a second place the one
+               being written is shown; the account of where a Scene leads that
+               anything reads out is the card and the panel — see
+               `docs/adr/0010-the-graph-is-written-here-not-pulled-in.md`. So the
+               lines are hidden from what reads the page rather than being the
+               keyboard's route to a Cut. -->
+          <svg aria-hidden="true" :style="graphSize">
+            <defs>
+              <marker
+                id="cut-head" viewBox="0 0 8 8" refX="7" refY="4"
+                markerWidth="8" markerHeight="8" orient="auto-start-reverse"
+              >
+                <path d="M 0 0 L 8 4 L 0 8 z" />
+              </marker>
+            </defs>
+            <g v-for="line in cutLines" :key="line.id" :data-cut="line.id">
+              <!-- The wide invisible stroke behind the line, which is what the
+                   hand actually aims at: a Cut is written by pressing its line,
+                   and a line and a half of pixels is nobody's idea of a target.
+                   The press stops here, so it does not reach the bench that would
+                   close the panel it just opened — and its default is refused,
+                   because a press on a line focuses nothing and would take the
+                   focus off the field the panel has just put it in. -->
+              <line
+                class="aimed"
+                :x1="line.from.x"
+                :y1="line.from.y"
+                :x2="line.to.x"
+                :y2="line.to.y"
+                @pointerdown.stop.prevent="openCut(line.id)"
+              />
+              <line
+                :class="{ lit: cutWritten?.cut.id === line.id }"
+                :x1="line.from.x"
+                :y1="line.from.y"
+                :x2="line.to.x"
+                :y2="line.to.y"
+                marker-end="url(#cut-head)"
+              />
+              <!-- The Place the way on is offered at, on a disc near the Scene it
+                   leaves. It reports the order; nothing reads the order back out
+                   of the drawing — see
+                   `docs/adr/0007-the-order-of-the-ways-on-is-written-not-drawn.md`. -->
+              <!-- Nine pixels of radius, which is what holds two digits of the
+                   data face the number is set in: a Scene offering more than
+                   ninety-nine ways on is not a Scene. -->
+              <circle class="disc" :cx="line.disc.x" :cy="line.disc.y" r="9" />
+              <text class="place" :x="line.disc.x" :y="line.disc.y">{{ line.place }}</text>
+            </g>
+
+            <!-- The Cut under the Author's hand: the same grease pencil as the
+                 Cuts it is dragged across, told apart from them by its dashes
+                 marching, and losing its arrowhead where it cannot land. -->
             <line
-              class="aimed"
-              :x1="line.from.x"
-              :y1="line.from.y"
-              :x2="line.to.x"
-              :y2="line.to.y"
-              @pointerdown.stop.prevent="openCut(line.id)"
+              v-if="drawnLine"
+              class="drawn"
+              :x1="drawnLine.from.x"
+              :y1="drawnLine.from.y"
+              :x2="drawnLine.to.x"
+              :y2="drawnLine.to.y"
+              :marker-end="landing ? 'url(#cut-head)' : undefined"
             />
-            <line
-              :class="{ lit: openedCut === line.id }"
-              :x1="line.from.x"
-              :y1="line.from.y"
-              :x2="line.to.x"
-              :y2="line.to.y"
-              marker-end="url(#cut-head)"
-            />
-            <!-- The Place the way on is offered at, on a disc near the Scene it
-                 leaves. It reports the order; nothing reads the order back out of
-                 the drawing — see
-                 `docs/adr/0007-the-order-of-the-ways-on-is-written-not-drawn.md`. -->
-            <!-- Nine pixels of radius, which is what holds two digits of the
-                 data face the number is set in: a Scene offering more than
-                 ninety-nine ways on is not a Scene. -->
-            <circle class="disc" :cx="line.disc.x" :cy="line.disc.y" r="9" />
-            <text class="place" :x="line.disc.x" :y="line.disc.y">{{ line.place }}</text>
-          </g>
+          </svg>
 
-          <!-- The Cut under the Author's hand: the same grease pencil as the Cuts
-               it is dragged across, told apart from them by its dashes marching,
-               and losing its arrowhead where it cannot land. -->
-          <line
-            v-if="drawnLine"
-            class="drawn"
-            :x1="drawnLine.from.x"
-            :y1="drawnLine.from.y"
-            :x2="drawnLine.to.x"
-            :y2="drawnLine.to.y"
-            :marker-end="landing ? 'url(#cut-head)' : undefined"
-          />
-        </svg>
-
-        <!-- The node is named by the Scene rather than by its own heading: the
-             heading holds the field the name is written in once the node is open,
-             and a name read off a field is the label beside it and the value in
-             it. Named this way it follows the Scene as the Author retypes it. -->
-        <article
-          v-for="scene in story.scenes"
-          :key="scene.id"
-          ref="nodes"
-          :data-scene="scene.id"
-          :class="{
-            opens: story.openingSceneId === scene.id,
-            drawing: aiming?.fromSceneId === scene.id,
-            lit: mayLandOn(scene),
-            quiet: aiming && !mayLandOn(scene),
-          }"
-          :aria-label="scene.name"
-          :style="{
-            translate: `${scene.x}px ${scene.y}px`,
-            inlineSize: `${NODE_WIDTH}px`,
-          }"
-        >
-          <!-- The strip down the node's leading edge, and where a Cut is drawn
-               from. It sits outside the part of the node that scrolls, so it runs
-               the node's full height whatever the body beside it is doing, the
-               gesture is immediate under a finger with no long press, and it
-               carries the mark that says which Scene a Reading opens on.
-
-               `.self`, because the button it holds is pressed and not dragged: a
-               pointer going down on it would otherwise begin a gesture the click
-               that follows would have to undo. -->
-          <div
-            class="strip"
-            data-cue="draw-cut"
-            @pointerdown.self="startAiming(scene, $event)"
-            @pointermove="keepAiming"
-            @pointerup="endAiming"
-            @pointercancel="abandonAiming"
+          <!-- A Scene's card: what an Author needs to recognise the Scene at a
+               glance, and nothing to type into. It is named by the Scene rather
+               than by its own heading, and it is the whole of the drag that lays
+               the graph out — dragged from anywhere on it bar its controls and the
+               strip, and focusable so the four arrow keys move it too. -->
+          <article
+            v-for="scene in story.scenes"
+            :key="scene.id"
+            :data-scene="scene.id"
+            tabindex="0"
+            :class="{
+              opens: story.openingSceneId === scene.id,
+              written: sceneWritten?.id === scene.id,
+              drawing: aiming?.fromSceneId === scene.id,
+              lit: mayLandOn(scene),
+              quiet: aiming && !mayLandOn(scene),
+            }"
+            :aria-label="scene.name"
+            :style="{
+              translate: `${scene.x}px ${scene.y}px`,
+              inlineSize: `${NODE_WIDTH}px`,
+              blockSize: `${NODE_HEIGHT}px`,
+            }"
+            @pointerdown="startDrag(scene, $event)"
+            @pointermove="keepDragging"
+            @pointerup="endDrag"
+            @keydown="nudge(scene, $event)"
           >
-            <!-- The keyboard's way into the same aiming: a button hidden until it
-                 takes focus, the pattern a skip link uses, so the gesture stays
-                 the only visible way in while assistive technology still finds a
-                 real button with a real name. It says which Scene it draws from,
-                 and once a gesture is live it says instead what pressing it would
-                 do to that one — land the Cut, or let it go. A Scene the Cut
-                 cannot land on offers it disabled, which is how the hand is kept
-                 out of a Cut on itself and a second Cut to the same Scene. -->
-            <button
-              type="button"
-              class="aim"
-              :disabled="!!aiming && !mayLandOn(scene) && aiming.fromSceneId !== scene.id"
-              @click="aimOrLand(scene)"
+            <!-- The strip down the card's leading edge, and where a Cut is drawn
+                 from. It runs the card's full height, the gesture is immediate
+                 under a finger with no long press, and it carries the mark that
+                 says which Scene a Reading opens on.
+
+                 `.self`, because the button it holds is pressed and not dragged: a
+                 pointer going down on it would otherwise begin a gesture the click
+                 that follows would have to undo. -->
+            <div
+              class="strip"
+              data-cue="draw-cut"
+              @pointerdown.self="startAiming(scene, $event)"
+              @pointermove="keepAiming"
+              @pointerup="endAiming"
+              @pointercancel="abandonAiming"
             >
-              {{ aimingName(scene) }}
+              <!-- The keyboard's way into the same aiming: a button hidden until
+                   it takes focus, the pattern a skip link uses, so the gesture
+                   stays the only visible way in while assistive technology still
+                   finds a real button with a real name. It says which Scene it
+                   draws from, and once a gesture is live it says instead what
+                   pressing it would do to that one — land the Cut, or let it go. A
+                   Scene the Cut cannot land on offers it disabled, which is how
+                   the hand is kept out of a Cut on itself and a second Cut to the
+                   same Scene. -->
+              <button
+                type="button"
+                class="aim"
+                :disabled="!!aiming && !mayLandOn(scene) && aiming.fromSceneId !== scene.id"
+                @click="aimOrLand(scene)"
+              >
+                {{ aimingName(scene) }}
+              </button>
+            </div>
+
+            <div class="card">
+              <div class="slate">
+                <h2>{{ scene.name }}</h2>
+
+                <!-- Write, not Open and not Modify: it is the word the code and
+                     the glossary already use for putting words into a Story. The
+                     panel it opens is elsewhere on the page, so the button says
+                     which Scene it is for, and it is where focus comes back to
+                     when the panel is closed from the keyboard. -->
+                <button
+                  :id="`write-${scene.id}`"
+                  type="button"
+                  class="write"
+                  data-cue="write-scene"
+                  :aria-expanded="sceneWritten?.id === scene.id"
+                  @click="writeScene(scene.id)"
+                >
+                  {{ $t('editor.write') }}
+                  <span class="visually-hidden">
+                    {{ $t('editor.sceneNamed', { name: scene.name }) }}
+                  </span>
+                </button>
+              </div>
+
+              <div class="summary">
+                <!-- The still of the first Shot, at the size a card can carry it:
+                     what an Author recognises a Scene by before they have read a
+                     word of it. A Scene whose first Shot has none shows the
+                     outline of the frame it would be, the way a Shot with no still
+                     does in the panel. -->
+                <div class="frame">
+                  <img
+                    v-if="scene.shots[0]?.image"
+                    :src="stillOf(scene.shots[0])"
+                    :alt="$t('editor.stillOfShot', { place: 1 })"
+                  >
+                </div>
+
+                <p class="glance">{{ atAGlance(scene) }}</p>
+              </div>
+
+              <!-- The mark that says a Reading opens here, read on the card and
+                   set in the panel. The strip wears the grease pencil for it too,
+                   which is the same fact said in colour for whoever is looking at
+                   the whole bench at once. -->
+              <p v-if="story.openingSceneId === scene.id" class="eyebrow opening-mark">
+                {{ $t('editor.openingScene') }}
+              </p>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <!-- Where a Scene and a Cut are written: one panel at the trailing edge of
+           the bench, holding one or the other and never both. -->
+      <!-- A group rather than a landmark: what holds it together is that it is
+           one thing being written, and it is named by which thing that is. -->
+      <div
+        v-if="sceneWritten || cutWritten"
+        class="panel"
+        role="group"
+        :aria-label="sceneWritten
+          ? $t('editor.writingScene', { name: sceneWritten.name })
+          : $t('editor.writingCutTo', { scene: cutWritten!.to })"
+      >
+        <!-- The panel is closed explicitly. Drawn at every width rather than only
+             below the breakpoint: on a narrow screen it is the whole of the way
+             out, because the panel covers the bench there and there is no bare
+             bench left to press, and a control that came and went with the width
+             would be one an Author had to learn twice. -->
+        <button type="button" class="close" @click="closePanel">
+          {{ $t('editor.closePanel') }}
+        </button>
+
+        <template v-if="sceneWritten">
+          <!-- The name is the heading and the heading is written in: a bare field,
+               the same idiom as a Shot's text and a Cut's, with no mode to enter
+               first.
+
+               The label sits outside the heading rather than in it: a heading is
+               named by what it holds, and a label inside would be read out ahead
+               of the name the Author is correcting. Outside, the heading is the
+               field's value and nothing else. It is also the one control here that
+               does not carry the Scene's name after it — this field's own value is
+               that name, and a label carrying it would rename the field under the
+               Author as they typed. Which Scene the panel is on is what the panel
+               itself is named. -->
+          <label class="visually-hidden" :for="`scene-name-${sceneWritten.id}`">
+            {{ $t('editor.sceneName') }}
+          </label>
+          <h2 class="named">
+            <input
+              :id="`scene-name-${sceneWritten.id}`"
+              ref="sceneName"
+              v-model="sceneWritten.name"
+              :maxlength="SCENE_NAME_MAX_LENGTH"
+              @change="renameScene(sceneWritten)"
+            >
+          </h2>
+
+          <div class="standing">
+            <!-- `data-cue` is on the line rather than on the radio: the spotlight
+                 is a rectangle, and a radio's own is a dot beside the words that
+                 say what it marks. -->
+            <p class="opening" data-cue="opening-scene">
+              <input
+                :id="`opening-${sceneWritten.id}`"
+                type="radio"
+                name="opening-scene"
+                :checked="story.openingSceneId === sceneWritten.id"
+                @change="openOn(sceneWritten)"
+              >
+              <label class="eyebrow" :for="`opening-${sceneWritten.id}`">
+                {{ $t('editor.openingScene') }}
+                <span class="visually-hidden">{{ sceneWritten.name }}</span>
+              </label>
+            </p>
+
+            <button type="button" class="danger" @click="deleteScene(sceneWritten)">
+              {{ $t('editor.deleteScene') }}
+              <span class="visually-hidden">{{ sceneWritten.name }}</span>
             </button>
           </div>
 
-          <div class="body">
-            <div class="slate">
-              <!-- The name is the heading, and open it is the heading written in:
-                   a bare field left to write it, the same idiom as a Shot's text
-                   and a Cut's, with no mode to enter first. Folded, the node is
-                   read rather than edited, so the name is the text it says.
-
-                   The label sits outside the heading rather than in it: a heading
-                   is named by what it holds, and a label inside would be read out
-                   ahead of the name the Author is correcting. Outside, the heading
-                   is the field's value and nothing else.
-
-                   It is also the one control in a node that does not carry the
-                   Scene's name after it, the way the fold and the handle do: this
-                   field's own value is that name, so a label carrying it would
-                   rename the field under the Author as they typed in it. Which
-                   Scene it belongs to is what the node itself is named. -->
-              <h2 v-if="!opened.has(scene.id)">{{ scene.name }}</h2>
-              <template v-else>
-                <label class="visually-hidden" :for="`scene-name-${scene.id}`">
-                  {{ $t('editor.sceneName') }}
-                </label>
-                <h2 class="named">
-                  <input
-                    :id="`scene-name-${scene.id}`"
-                    v-model="scene.name"
-                    :maxlength="SCENE_NAME_MAX_LENGTH"
-                    @change="renameScene(scene)"
-                  >
-                </h2>
-              </template>
-
-              <div class="grips">
-                <!-- Folding is the Author's view of their own graph, so the button
-                     says what pressing it does rather than what the node is. -->
-                <button
-                  type="button"
-                  class="fold"
-                  data-cue="open-scene"
-                  :aria-expanded="opened.has(scene.id)"
-                  @click="foldOrOpen(scene)"
-                >
-                  {{ opened.has(scene.id) ? $t('editor.fold') : $t('editor.open') }}
-                  <span class="visually-hidden">
-                    {{ $t('editor.sceneNamed', { name: scene.name }) }}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  class="handle"
-                  @pointerdown="startDrag(scene, $event)"
-                  @pointermove="keepDragging"
-                  @pointerup="endDrag"
-                  @keydown="nudge(scene, $event)"
-                >
-                  {{ $t('editor.move') }}
-                  <span class="visually-hidden">
-                    {{ $t('editor.sceneNamed', { name: scene.name }) }}
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Folded, a node is the Scene's name and this line: enough to read the
-                 graph, and nothing the Author has to scroll past to reach the next
-                 Scene. -->
-            <p v-if="!opened.has(scene.id)" class="glance">{{ atAGlance(scene) }}</p>
-
-            <template v-else>
-              <div class="standing">
-                <!-- `data-cue` is on the line rather than on the radio: the
-                     spotlight is a rectangle, and a radio's own is a dot beside
-                     the words that say what it marks. -->
-                <p class="opening" data-cue="opening-scene">
-                  <input
-                    :id="`opening-${scene.id}`"
-                    type="radio"
-                    name="opening-scene"
-                    :checked="story.openingSceneId === scene.id"
-                    @change="openOn(scene)"
-                  >
-                  <label class="eyebrow" :for="`opening-${scene.id}`">
-                    {{ $t('editor.openingScene') }}
-                    <span class="visually-hidden">{{ scene.name }}</span>
-                  </label>
-                </p>
-
-                <button type="button" class="danger" @click="deleteScene(scene)">
-                  {{ $t('editor.deleteScene') }}
-                  <span class="visually-hidden">{{ scene.name }}</span>
-                </button>
-              </div>
-
-              <!-- The Shots as the run they are: numbered from one for the Author,
-                   though the Scene counts from zero, and each one's number sits in
-                   the gutter where the edge code would be. -->
-              <ol class="shots">
-                <li
-                  v-for="(shot, place) in scene.shots"
-                  :key="shot.id"
-                  :data-shot="shot.id"
-                  :class="{
-                    dragged: draggedShot?.shotId === shot.id,
-                    under: draggedShot?.over === shot.id && draggedShot.shotId !== shot.id,
-                  }"
-                >
-                  <!-- The number alone in the gutter, where a frame's edge code would be,
-                       and the word it is a number of kept for anyone listening. It is
-                       also the handle the Shot is dragged by: the gutter holds nothing
-                       else, and the number is what the Author refers to the Shot as, so
-                       there is no second grip to explain. -->
-                  <label
-                    class="shot-number"
-                    :for="`shot-${shot.id}`"
-                    @pointerdown="startShotDrag(shot, $event)"
-                    @pointermove="keepShotDrag"
-                    @pointerup="endShotDrag(scene)"
-                    @pointercancel="cancelShotDrag"
-                  >
-                    <span class="visually-hidden">{{ $t('editor.shot') }} </span>{{ place + 1 }}
-                  </label>
-                  <div class="written">
-                    <textarea
-                      :id="`shot-${shot.id}`"
-                      v-model="shot.text"
-                      data-cue="shot-text"
-                      rows="2"
-                      :maxlength="SHOT_TEXT_MAX_LENGTH"
-                      @change="writeShot(shot)"
-                    />
-
-                    <!-- The thumbnail is the picker: pressing it is how a still is
-                         attached and how it is replaced, and the input doing the work
-                         is behind it, focusable and named as it was. A Shot carrying
-                         no still shows the outline of the thumbnail it would have, so
-                         one nobody has finished reads as unfinished. It is also where
-                         a file is dropped, which is the same file the picker would
-                         have handed over. -->
-                    <div class="still">
-                      <label
-                        :class="{ over: fileOver === shot.id }"
-                        @dragenter.prevent.stop="overStill(shot, $event)"
-                        @dragover.prevent.stop="overStill(shot, $event)"
-                        @dragleave="leaveStill(shot, $event)"
-                        @drop.prevent.stop="dropStill(shot, $event)"
-                      >
-                        <img
-                          v-if="shot.image"
-                          :src="stillOf(shot)"
-                          :alt="$t('editor.stillOfShot', { place: place + 1 })"
-                        >
-                        <input
-                          type="file"
-                          class="visually-hidden"
-                          :accept="SHOT_IMAGE_TYPES.join(',')"
-                          :aria-label="$t('editor.imageOfShot', { place: place + 1 })"
-                          @change="attachImage(shot, $event)"
-                        >
-                      </label>
-
-                      <!-- The Description beside the still it describes, in the width
-                           the file chrome used to take: it is what the image shows,
-                           and there is nothing to describe until one is attached. A
-                           Shot of text alone is not asked for one. -->
-                      <p v-if="shot.image" class="described">
-                        <label class="eyebrow" :for="`description-${shot.id}`">
-                          {{ $t('editor.description') }}
-                          <span class="visually-hidden">
-                            {{ $t('editor.descriptionOfShot', { place: place + 1 }) }}
-                          </span>
-                        </label>
-                        <input
-                          :id="`description-${shot.id}`"
-                          v-model="shot.description"
-                          type="text"
-                          :maxlength="SHOT_DESCRIPTION_MAX_LENGTH"
-                          :placeholder="$t('editor.whatTheStillShows')"
-                          @change="writeShot(shot)"
-                        >
-                      </p>
-                    </div>
-
-                    <!-- The Conditions the Shot plays under, so a Scene can say
-                         something different on a return visit without the Author
-                         drawing a second Scene to hold the changed line.
-
-                         The guided path points at the whole list rather than at
-                         one field of it, because what it asks for is a Condition
-                         and a Condition is the row it is added as: `data-cue`
-                         lands on the component's own root, which is that list. -->
-                    <Conditions
-                      data-cue="shot-condition"
-                      :lead="$t('editor.playedWhen')"
-                      :carrier="$t('editor.shotOfScene', { place: place + 1, scene: scene.name })"
-                      :conditions="shot.conditions"
-                      :scenes="story.scenes"
-                      :counting="scene.id"
-                      :id="shot.id"
-                      @write="writeConditions('shots', shot.id, shot.conditions)"
-                    />
-
-                    <!-- The three controls, as the marks they do rather than the
-                         sentences that name them: in the width a node gives a Shot
-                         the three sentences fill the strip to its end and wrap out
-                         of it in the longer of the two languages. What each one
-                         says is not lost, it moves to where the Shot's other names
-                         are read, by assistive technology alone. -->
-                    <div class="row marks">
-                      <button
-                        type="button"
-                        :disabled="place === 0"
-                        @click="moveShot(scene, shot, -1)"
-                      >
-                        <span aria-hidden="true">↑</span>
-                        <span class="visually-hidden">
-                          {{ $t('common.moveEarlier') }}
-                          {{ $t('editor.shotNumber', { place: place + 1 }) }}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        :disabled="place === scene.shots.length - 1"
-                        @click="moveShot(scene, shot, 1)"
-                      >
-                        <span aria-hidden="true">↓</span>
-                        <span class="visually-hidden">
-                          {{ $t('common.moveLater') }}
-                          {{ $t('editor.shotNumber', { place: place + 1 }) }}
-                        </span>
-                      </button>
-                      <button type="button" class="danger" @click="deleteShot(shot)">
-                        <span aria-hidden="true">×</span>
-                        <span class="visually-hidden">
-                          {{ $t('common.delete') }}
-                          {{ $t('editor.shotNumber', { place: place + 1 }) }}
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                </li>
-              </ol>
-
-              <button type="button" @click="addShot(scene)">
-                {{ $t('editor.addShot') }}
-                <span class="visually-hidden">{{ $t('editor.toScene', { name: scene.name }) }}</span>
-              </button>
-
-              <p class="sets">
-                <label class="eyebrow" :for="`flags-${scene.id}`">
-                  {{ $t('editor.flagsSet') }}
-                  <span class="visually-hidden">{{ scene.name }}</span>
-                </label>
+          <!-- The Shots as the run they are: numbered from one for the Author,
+               though the Scene counts from zero, and each one's number sits in
+               the gutter where the edge code would be. -->
+          <ol class="shots">
+            <li
+              v-for="(shot, place) in sceneWritten.shots"
+              :key="shot.id"
+              :data-shot="shot.id"
+              :class="{
+                dragged: draggedShot?.shotId === shot.id,
+                under: draggedShot?.over === shot.id && draggedShot.shotId !== shot.id,
+              }"
+            >
+              <!-- The number alone in the gutter, where a frame's edge code would
+                   be, and the word it is a number of kept for anyone listening. It
+                   is also the handle the Shot is dragged by: the gutter holds
+                   nothing else, and the number is what the Author refers to the
+                   Shot as, so there is no second grip to explain. -->
+              <label
+                class="shot-number"
+                :for="`shot-${shot.id}`"
+                @pointerdown="startShotDrag(shot, $event)"
+                @pointermove="keepShotDrag"
+                @pointerup="endShotDrag(sceneWritten)"
+                @pointercancel="cancelShotDrag"
+              >
+                <span class="visually-hidden">{{ $t('editor.shot') }} </span>{{ place + 1 }}
+              </label>
+              <div class="written">
                 <textarea
-                  :id="`flags-${scene.id}`"
-                  class="data"
-                  data-cue="scene-flags"
+                  :id="`shot-${shot.id}`"
+                  v-model="shot.text"
+                  data-cue="shot-text"
                   rows="2"
-                  :value="flagLines(scene.sets)"
-                  :placeholder="$t('editor.flagsPlaceholder', { separator: FLAG_SEPARATOR })"
-                  @change="writeFlags(scene, ($event.target as HTMLTextAreaElement).value)"
+                  :maxlength="SHOT_TEXT_MAX_LENGTH"
+                  @change="writeShot(shot)"
                 />
-              </p>
 
-              <!-- The ways on, bare: each one's Place, the name it arrives at,
-                   and the two controls that renumber it. A Cut's text and its
-                   Conditions are written in the panel its line opens, and what
-                   stays here is what an Author cannot read a Cut without — where
-                   the Scene leads, and in what order — which is also the route to
-                   a Cut for a hand that is not on a pointer. -->
-              <div class="ways">
-                <p :id="`ways-${scene.id}`" class="eyebrow">
-                  {{ $t('editor.waysOn') }}
-                  <span class="visually-hidden">
-                    {{ $t('editor.fromScene', { name: scene.name }) }}
-                  </span>
-                </p>
-
-                <p v-if="!cutsFrom(scene.id).length" class="none">
-                  {{ $t('editor.noWayOnYet') }}
-                </p>
-                <ol v-else :aria-labelledby="`ways-${scene.id}`">
-                  <li
-                    v-for="(cut, place) in cutsFrom(scene.id)"
-                    :key="cut.id"
-                    :data-way="cut.id"
-                    :class="{
-                      dragged: draggedWay?.cutId === cut.id,
-                      under: draggedWay?.over === cut.id && draggedWay.cutId !== cut.id,
-                    }"
+                <!-- The thumbnail is the picker: pressing it is how a still is
+                     attached and how it is replaced, and the input doing the work
+                     is behind it, focusable and named as it was. A Shot carrying
+                     no still shows the outline of the thumbnail it would have, so
+                     one nobody has finished reads as unfinished. It is also where
+                     a file is dropped, which is the same file the picker would
+                     have handed over. -->
+                <div class="still">
+                  <label
+                    :class="{ over: fileOver === shot.id }"
+                    @dragenter.prevent.stop="overStill(shot, $event)"
+                    @dragover.prevent.stop="overStill(shot, $event)"
+                    @dragleave="leaveStill(shot, $event)"
+                    @drop.prevent.stop="dropStill(shot, $event)"
                   >
-                    <!-- The row is pressed to write the Cut and dragged to
-                         renumber it: one control, because the strip holds three
-                         things and a fourth grip for the drag would be a way on
-                         read as a toolbar. Its Place is the number it is offered
-                         at, so a row says which Cut it is without the panel
-                         being open. -->
-                    <button
-                      :id="`way-${cut.id}`"
-                      type="button"
-                      class="way"
-                      :aria-expanded="openedCut === cut.id"
-                      @pointerdown="startWayDrag(cut, $event)"
-                      @pointermove="keepWayDrag"
-                      @pointerup="endWayDrag(scene)"
-                      @pointercancel="draggedWay = undefined"
-                      @click="pressWay(cut)"
+                    <img
+                      v-if="shot.image"
+                      :src="stillOf(shot)"
+                      :alt="$t('editor.stillOfShot', { place: place + 1 })"
                     >
-                      <span class="numbered">{{ place + 1 }}</span>
-                      {{ sceneNames.get(cut.toSceneId) }}
-                      <span class="visually-hidden">
-                        {{ $t('editor.wayOnFrom', { name: scene.name }) }}
-                      </span>
-                    </button>
+                    <input
+                      type="file"
+                      class="visually-hidden"
+                      :accept="SHOT_IMAGE_TYPES.join(',')"
+                      :aria-label="$t('editor.imageOfShot', { place: place + 1 })"
+                      @change="attachImage(shot, $event)"
+                    >
+                  </label>
 
-                    <button
-                      type="button"
-                      :disabled="place === 0"
-                      @click="moveCut(scene, cut, -1)"
+                  <!-- The Description beside the still it describes, in the width
+                       the file chrome used to take: it is what the image shows,
+                       and there is nothing to describe until one is attached. A
+                       Shot of text alone is not asked for one. -->
+                  <p v-if="shot.image" class="described">
+                    <label class="eyebrow" :for="`description-${shot.id}`">
+                      {{ $t('editor.description') }}
+                      <span class="visually-hidden">
+                        {{ $t('editor.descriptionOfShot', { place: place + 1 }) }}
+                      </span>
+                    </label>
+                    <input
+                      :id="`description-${shot.id}`"
+                      v-model="shot.description"
+                      type="text"
+                      :maxlength="SHOT_DESCRIPTION_MAX_LENGTH"
+                      :placeholder="$t('editor.whatTheStillShows')"
+                      @change="writeShot(shot)"
                     >
+                  </p>
+                </div>
+
+                <!-- The Conditions the Shot plays under, so a Scene can say
+                     something different on a return visit without the Author
+                     drawing a second Scene to hold the changed line.
+
+                     The guided path points at the whole list rather than at one
+                     field of it, because what it asks for is a Condition and a
+                     Condition is the row it is added as: `data-cue` lands on the
+                     component's own root, which is that list. -->
+                <Conditions
+                  data-cue="shot-condition"
+                  :lead="$t('editor.playedWhen')"
+                  :carrier="$t('editor.shotOfScene', {
+                    place: place + 1,
+                    scene: sceneWritten.name,
+                  })"
+                  :conditions="shot.conditions"
+                  :scenes="story.scenes"
+                  :counting="sceneWritten.id"
+                  :id="shot.id"
+                  @write="writeConditions('shots', shot.id, shot.conditions)"
+                />
+
+                <!-- The three controls, as the marks they do rather than the
+                     sentences that name them: in the width the panel gives a Shot
+                     the three sentences fill the strip to its end and wrap out of
+                     it in the longer of the two languages. What each one says is
+                     not lost, it moves to where the Shot's other names are read,
+                     by assistive technology alone. -->
+                <div class="row marks">
+                  <button
+                    type="button"
+                    :disabled="place === 0"
+                    @click="moveShot(sceneWritten, shot, -1)"
+                  >
+                    <span aria-hidden="true">↑</span>
+                    <span class="visually-hidden">
                       {{ $t('common.moveEarlier') }}
-                      <span class="visually-hidden">
-                        {{ $t('editor.theCutTo', { scene: sceneNames.get(cut.toSceneId) }) }}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      :disabled="place === cutsFrom(scene.id).length - 1"
-                      @click="moveCut(scene, cut, 1)"
-                    >
+                      {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    :disabled="place === sceneWritten.shots.length - 1"
+                    @click="moveShot(sceneWritten, shot, 1)"
+                  >
+                    <span aria-hidden="true">↓</span>
+                    <span class="visually-hidden">
                       {{ $t('common.moveLater') }}
-                      <span class="visually-hidden">
-                        {{ $t('editor.theCutTo', { scene: sceneNames.get(cut.toSceneId) }) }}
-                      </span>
-                    </button>
-                  </li>
-                </ol>
+                      {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                    </span>
+                  </button>
+                  <button type="button" class="danger" @click="deleteShot(shot)">
+                    <span aria-hidden="true">×</span>
+                    <span class="visually-hidden">
+                      {{ $t('common.delete') }}
+                      {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                    </span>
+                  </button>
+                </div>
               </div>
-            </template>
-          </div>
-        </article>
+            </li>
+          </ol>
 
-        <!-- Where a Cut is written: on the middle of its own line, above the
-             nodes and on the surface, so it scrolls with the bench and stays on
-             the line it edits. It holds the Cut's text, its Conditions, its
-             duplication and its deletion, and not its Place — a Place is read and
-             changed beside its siblings, which is the strip inside the node. -->
-        <div
-          v-if="panel"
-          class="panel"
-          role="group"
-          :aria-label="$t('editor.writingCutTo', { scene: panel.to })"
-          :style="{
-            insetInlineStart: `${panel.at.x}px`,
-            insetBlockStart: `${panel.at.y}px`,
-          }"
-        >
-          <label class="eyebrow" :for="`cut-${panel.cut.id}`">
-            {{ $t('cut.to', { scene: panel.to }) }}
+          <button type="button" @click="addShot(sceneWritten)">
+            {{ $t('editor.addShot') }}
             <span class="visually-hidden">
-              {{ $t('editor.fromScene', { name: panel.from }) }}
+              {{ $t('editor.toScene', { name: sceneWritten.name }) }}
             </span>
+          </button>
+
+          <p class="sets">
+            <label class="eyebrow" :for="`flags-${sceneWritten.id}`">
+              {{ $t('editor.flagsSet') }}
+              <span class="visually-hidden">{{ sceneWritten.name }}</span>
+            </label>
+            <textarea
+              :id="`flags-${sceneWritten.id}`"
+              class="data"
+              data-cue="scene-flags"
+              rows="2"
+              :value="flagLines(sceneWritten.sets)"
+              :placeholder="$t('editor.flagsPlaceholder', { separator: FLAG_SEPARATOR })"
+              @change="writeFlags(sceneWritten, ($event.target as HTMLTextAreaElement).value)"
+            />
+          </p>
+
+          <!-- The ways on, bare: each one's Place, the name it arrives at, and the
+               two controls that renumber it. A Cut's text and its Conditions are
+               written in the panel a way on hands over to, and what stays here is
+               what an Author cannot read a Cut without — where the Scene leads,
+               and in what order — which is also the route to a Cut for a hand that
+               is not on a pointer. -->
+          <div class="ways">
+            <p :id="`ways-${sceneWritten.id}`" class="eyebrow">
+              {{ $t('editor.waysOn') }}
+              <span class="visually-hidden">
+                {{ $t('editor.fromScene', { name: sceneWritten.name }) }}
+              </span>
+            </p>
+
+            <p v-if="!cutsFrom(sceneWritten.id).length" class="none">
+              {{ $t('editor.noWayOnYet') }}
+            </p>
+            <ol v-else :aria-labelledby="`ways-${sceneWritten.id}`">
+              <li
+                v-for="(cut, place) in cutsFrom(sceneWritten.id)"
+                :key="cut.id"
+                :data-way="cut.id"
+                :class="{
+                  dragged: draggedWay?.cutId === cut.id,
+                  under: draggedWay?.over === cut.id && draggedWay.cutId !== cut.id,
+                }"
+              >
+                <!-- The row is pressed to write the Cut and dragged to renumber
+                     it: one control, because the strip holds three things and a
+                     fourth grip for the drag would be a way on read as a toolbar.
+                     Its Place is the number it is offered at, so a row says which
+                     Cut it is before it is opened. -->
+                <button
+                  :id="`way-${cut.id}`"
+                  type="button"
+                  class="way"
+                  @pointerdown="startWayDrag(cut, $event)"
+                  @pointermove="keepWayDrag"
+                  @pointerup="endWayDrag(sceneWritten)"
+                  @pointercancel="draggedWay = undefined"
+                  @click="pressWay(cut)"
+                >
+                  <span class="numbered">{{ place + 1 }}</span>
+                  {{ sceneNames.get(cut.toSceneId) }}
+                  <span class="visually-hidden">
+                    {{ $t('editor.wayOnFrom', { name: sceneWritten.name }) }}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  :disabled="place === 0"
+                  @click="moveCut(sceneWritten, cut, -1)"
+                >
+                  {{ $t('common.moveEarlier') }}
+                  <span class="visually-hidden">
+                    {{ $t('editor.theCutTo', { scene: sceneNames.get(cut.toSceneId) }) }}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  :disabled="place === cutsFrom(sceneWritten.id).length - 1"
+                  @click="moveCut(sceneWritten, cut, 1)"
+                >
+                  {{ $t('common.moveLater') }}
+                  <span class="visually-hidden">
+                    {{ $t('editor.theCutTo', { scene: sceneNames.get(cut.toSceneId) }) }}
+                  </span>
+                </button>
+              </li>
+            </ol>
+          </div>
+        </template>
+
+        <template v-else-if="cutWritten">
+          <!-- The Cut names the Scene it leaves, and the name is the way back: a
+               Cut is written in the same panel the Scene was, so the panel that
+               took the Scene's place hands it back. -->
+          <button
+            type="button"
+            class="back trail"
+            @click="writeScene(cutWritten.cut.fromSceneId)"
+          >
+            {{ $t('editor.backToScene', { name: cutWritten.from }) }}
+          </button>
+
+          <label class="eyebrow" :for="`cut-${cutWritten.cut.id}`">
+            {{ $t('cut.to', { scene: cutWritten.to }) }}
           </label>
           <input
-            :id="`cut-${panel.cut.id}`"
+            :id="`cut-${cutWritten.cut.id}`"
             ref="cutText"
-            v-model="panel.cut.text"
+            v-model="cutWritten.cut.text"
             :maxlength="CUT_TEXT_MAX_LENGTH"
-            @change="writeCut(panel.cut)"
+            @change="writeCut(cutWritten.cut)"
           >
 
           <Conditions
             :lead="$t('editor.offeredWhen')"
-            :carrier="$t('editor.theCutTo', { scene: panel.to })"
-            :conditions="panel.cut.conditions"
+            :carrier="$t('editor.theCutTo', { scene: cutWritten.to })"
+            :conditions="cutWritten.cut.conditions"
             :scenes="story.scenes"
-            :counting="panel.cut.fromSceneId"
-            :id="panel.cut.id"
-            @write="writeConditions('cuts', panel.cut.id, panel.cut.conditions)"
+            :counting="cutWritten.cut.fromSceneId"
+            :id="cutWritten.cut.id"
+            @write="writeConditions('cuts', cutWritten.cut.id, cutWritten.cut.conditions)"
           />
 
-          <!-- The deliberate route to a second way on to the same Scene, which
-               the aiming gesture withholds so that the hand cannot draw one by
+          <!-- The deliberate route to a second way on to the same Scene, which the
+               aiming gesture withholds so that the hand cannot draw one by
                accident. -->
-          <button type="button" @click="duplicateCut(panel.cut)">
-            {{ $t('editor.duplicateCutTo', { scene: panel.to }) }}
+          <button type="button" @click="duplicateCut(cutWritten.cut)">
+            {{ $t('editor.duplicateCutTo', { scene: cutWritten.to }) }}
           </button>
 
-          <button type="button" class="danger" @click="deleteCut(panel.cut)">
-            {{ $t('editor.deleteCutTo', { scene: panel.to }) }}
+          <button type="button" class="danger" @click="deleteCut(cutWritten.cut)">
+            {{ $t('editor.deleteCutTo', { scene: cutWritten.to }) }}
           </button>
-        </div>
+        </template>
       </div>
     </div>
 
     <Confirmation :asked="asked" @answer="answer" />
     <!-- The step the bench is asking for, if it is asking for one. Last, so it
          is drawn over the bench it is lighting a part of. -->
-    <Cue :story="story ?? undefined" :opened="opened" />
+    <Cue :story="story ?? undefined" :writing="sceneWritten?.id" />
   </main>
 </template>
 
@@ -1780,14 +1848,26 @@ header {
   max-inline-size: 46ch;
 }
 
-/* The bench the graph is laid out on. Its height is named here rather than only
-   set, because it is also the ceiling an open node grows to. */
-.graph {
+/* The bench: the graph, and the panel docked at its trailing edge. The panel is
+   a column of the bench rather than something floating over it, so it pushes the
+   graph narrower instead of covering whatever the Author was working on. Its
+   height is named here because both columns are that tall. */
+.bench {
   /* ponytail: the bench can be dragged taller, and `--bench-height` does not
-     follow it, so a node opened after a resize is capped at the height the bench
-     started at. Measure the bench the day an Author complains. */
+     follow it, so the panel keeps the height the bench started at. Measure the
+     bench the day an Author complains. */
   --bench-height: min(70dvh, 44rem);
 
+  display: flex;
+  align-items: start;
+  gap: var(--s3);
+}
+
+.graph {
+  /* Whatever the panel leaves, and never less than nothing: a graph that refused
+     to be narrowed would push the panel off the screen instead. */
+  flex: 1;
+  min-inline-size: 0;
   overflow: auto;
   resize: vertical;
   block-size: var(--bench-height);
@@ -1886,26 +1966,40 @@ svg line.drawn {
   }
 }
 
-/* A node is two columns that do not themselves scroll: the strip down its leading
-   edge, and the body beside it. The width is the one a phone can show, and the
-   strip comes out of it rather than adding to it. */
+/* A card is two columns of a fixed box: the strip down its leading edge, and the
+   Scene at a glance beside it. Every card is the same size, which is what lets a
+   Cut's line be drawn against a geometry nobody has to measure. The width is the
+   one a phone can show, and the strip comes out of it rather than adding to it.
+
+   The whole card is the handle that lays the graph out, so it takes the drag
+   rather than passing it to a scroller — the two controls on it are pressed, and
+   `startDrag` leaves them alone. */
 article {
   position: absolute;
   display: grid;
   grid-template-columns: var(--pitch) minmax(0, 1fr);
-  /* The body scrolls inside a box with machined corners, so the box clips it. */
+  /* Nothing on a card scrolls: what does not fit is clipped by the box, which has
+     machined corners of its own. */
   overflow: hidden;
   border: 1px solid var(--edge);
   border-radius: var(--machined);
   background: var(--steel);
   box-shadow: var(--lifted);
+  cursor: move;
+  touch-action: none;
 }
 
-/* Whichever node is being worked in comes to the front, so two nodes dragged
-   over each other are both reachable. */
+/* Whichever card is being worked on comes to the front, so two dragged over each
+   other are both reachable. */
 article:focus-within {
   z-index: 1;
   border-color: color-mix(in oklab, var(--light) 45%, var(--edge));
+}
+
+/* The Scene the panel is writing, said on the bench as well: the Author's eye is
+   on the graph, and the panel is at the edge of it. */
+article.written {
+  border-color: var(--light);
 }
 
 /* While a Cut is being drawn, the Scenes that can take it are lit and every
@@ -1928,20 +2022,17 @@ article.drawing {
   outline-offset: 2px;
 }
 
-/* The strip: a groove down the node's leading edge, running its full height
-   because it is a column of the node and not something inside what scrolls. The
-   Scene a Reading starts on has it filled with the grease pencil, so the Author
-   can see where the Story opens without reading a single radio button — and
-   without opening the node the button is folded inside. */
+/* The strip: a groove down the card's leading edge, running its full height
+   because it is a column of the card. The Scene a Reading starts on has it filled
+   with the grease pencil, so the Author can see where the Story opens without
+   reading a single word — the card says it in words as well, for whoever is not
+   reading the colour. */
 .strip {
   position: relative;
   border-inline-end: 1px solid var(--edge);
   background: color-mix(in oklab, var(--bench) 60%, transparent);
-  /* The hand draws a Cut from here, and a finger draws one without waiting: the
-     strip is outside the part of the node that scrolls, so taking the touch off
-     the scroller costs the node's own scrolling nothing. */
+  /* The hand draws a Cut from here, and a finger draws one without waiting. */
   cursor: crosshair;
-  touch-action: none;
 }
 
 /* The keyboard's way in, hidden until it is focused — the pattern a skip link
@@ -1981,45 +2072,45 @@ article.opens .strip {
   background: var(--grease);
 }
 
-/* The body: everything the Author reads and writes, and the only part of a node
-   that scrolls. An open one is as tall as what is in it, up to the height of the
-   bench, past which it scrolls inside itself rather than over the Scenes below. */
-.body {
+/* The card's face: the Scene's name and the button that writes it, the still of
+   its first Shot with what the Scene is at a glance, and the mark that says a
+   Reading opens here. Three rows in a fixed box, so what is on a card is what
+   fits one. */
+.card {
   display: grid;
-  /* Tight, because everything a Scene is — its Shots, the Flags it sets and the
-     Cuts leaving it — has to fit a node before the node has to be scrolled. */
+  grid-template-rows: auto auto 1fr;
   gap: var(--s2);
-  align-content: start;
-  /* Less the node's two hairlines, so the box the Author sees is the height of the
-     bench and not two pixels past it. */
-  max-block-size: calc(var(--bench-height) - 2px);
-  overflow: auto;
-  padding: 0 var(--s3) var(--s3);
+  padding: var(--s2) var(--s3) var(--s3);
+  overflow: hidden;
 }
 
-/* The slate: the Scene's name, and the grip that moves it. It stays put while
-   the node scrolls, so the node being dragged always says which one it is. */
+/* The slate: the Scene's name, and the button that opens the panel it is written
+   in. */
 .slate {
-  position: sticky;
-  inset-block-start: 0;
-  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--s2);
-  padding-block: var(--s3) var(--s2);
+  padding-block-end: var(--s2);
   border-block-end: 1px solid var(--edge);
-  background: var(--steel);
 }
 
-/* The heading as it is written in. It takes what the grips leave rather than
-   sizing itself to the name in it, because a field that grew with the Author's
-   typing would push the fold and the handle off the slate. The field inside is
-   the heading's own type on the slate's own ground — dressed as the heading it
-   replaces, not as another box in the node — and the line under it is all that
-   says it is a field. Focus is left to the outline every control here is given. */
+/* A card is one line of name, whatever the Author called the Scene: a long name
+   is cut off rather than pushing the button off the card or the still off the
+   bottom of it. */
+.slate h2 {
+  min-inline-size: 0;
+  overflow: hidden;
+  font-size: 1rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The panel's heading, as it is written in: the field inside is the heading's own
+   type on the panel's own ground — dressed as the heading it replaces, not as
+   another box — and the line under it is all that says it is a field. Focus is
+   left to the outline every control here is given. */
 .named {
-  flex: 1;
   min-inline-size: 0;
 }
 
@@ -2036,45 +2127,66 @@ article.opens .strip {
   border-block-end-color: var(--edge);
 }
 
-/* The two things done to a node rather than to the Scene in it: opened, and
-   moved. Both stay on the slate, so a folded node is still one the Author can
-   lay out. */
-.grips {
+/* The one thing done to a Scene from its card: writing it. A target a thumb can
+   find on a phone rather than the size of its ten-pixel label, and a pointer
+   rather than the card's own move cursor, because this is pressed and not
+   dragged. */
+.write {
   flex: none;
-  display: flex;
-  gap: var(--s1);
-}
-
-.fold,
-.handle {
-  /* Targets a thumb can find on a phone rather than the size of their
-     ten-pixel labels — and the handle is the only pointer route to moving a
-     Scene at all. */
   min-block-size: 2.25rem;
   padding: var(--s1) var(--s3);
   font-family: var(--data);
   font-size: 0.625rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+  cursor: pointer;
 }
 
-.handle {
-  cursor: move;
-  touch-action: none;
+/* The still of the first Shot, and what the Scene is at a glance beside it. */
+.summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--s2);
 }
 
-/* What a folded node says: read at a glance, so it is a line of quiet type under
-   the Scene's name and not a table of counts. Held to two lines, because every
-   folded node is the size of every other one and a Scene with a long list of ways
-   on would otherwise be taller than its neighbours. */
+/* The frame the first Shot's still is shown in, drawn whether or not there is a
+   still to put in it: an empty one is the outline of the still nobody has
+   attached, which is how an unfinished Scene reads as unfinished. */
+.frame {
+  inline-size: 5.5rem;
+  block-size: 3.5rem;
+  border: 1px solid var(--edge);
+  border-radius: var(--machined);
+  background: var(--bench);
+}
+
+.frame img {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+/* What the card says: read at a glance, so it is a line of quiet type beside the
+   still and not a table of counts. Held to three lines, because every card is the
+   size of every other one and a Scene with a long list of ways on would otherwise
+   run out of the box. */
 .glance {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  block-size: 2lh;
+  -webkit-line-clamp: 3;
   overflow: hidden;
   color: var(--muted);
   font-size: 0.8125rem;
+}
+
+/* The mark that says a Reading opens on this Scene, at the foot of the card in
+   the grease pencil the strip is filled with: the same fact, in words. */
+.opening-mark {
+  align-self: end;
+  color: var(--grease);
 }
 
 .standing {
@@ -2161,8 +2273,9 @@ article.opens .strip {
 }
 
 /* A still is a thumbnail here and nothing more: it says which image the Shot
-   carries, and leaves the node's height to the Flags and the Cuts. The Description
-   sits beside it, in the width the browser's own file chrome used to take. */
+   carries, and leaves the panel's height to the Flags and the Cuts. The
+   Description sits beside it, in the width the browser's own file chrome used to
+   take. */
 .still {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -2241,8 +2354,8 @@ article.opens .strip {
 }
 
 /* The bare strip of the ways on leaving this Scene: a row apiece, and nothing
-   between it and the Flags above it — an open node holds three things, and the
-   space between them is what says so. */
+   between it and the Flags above it — the panel holds three things, and the space
+   between them is what says so. */
 .ways {
   display: grid;
   gap: var(--s1);
@@ -2312,35 +2425,62 @@ article.opens .strip {
   font-size: 0.6875rem;
 }
 
-/* The panel one Cut is written in, on the middle of its own line and centred on
-   that point, so it sits over the Cut rather than beside it. On the surface, which
-   is what makes it scroll with the bench, and above the nodes, including whichever
-   one is being worked in. It wears the grease pencil, because everything in it is
-   the Author's mark on a Cut. */
+/* The panel a Scene or a Cut is written in, docked at the trailing edge of the
+   bench. Three hundred and eighty pixels is a node's own width and a little over:
+   wide enough for a Shot's text, its still and its Description on the lines they
+   sit on inside a node today, and narrow enough to leave the graph most of the
+   screen. It is as tall as the bench and scrolls inside itself, so a Scene of
+   twenty Shots is read here rather than down the page. */
 .panel {
-  position: absolute;
-  z-index: 2;
-  translate: -50% -50%;
+  flex: none;
   display: grid;
   gap: var(--s2);
-  /* Narrower than the twenty rem of a node, because a panel sits between the two
-     boxes its line joins and one wider than they are would cover both. */
-  inline-size: 17rem;
+  align-content: start;
+  justify-items: start;
+  inline-size: 380px;
+  block-size: var(--bench-height);
+  overflow: auto;
   padding: var(--s3);
-  border: 1px solid var(--grease);
+  border: 1px solid var(--edge);
   border-radius: var(--machined);
   background: var(--steel);
   box-shadow: var(--lifted);
 }
 
+/* Everything in the panel is one column of it, whatever the grid would rather do
+   with a lone button. */
+.panel > * {
+  justify-self: stretch;
+}
+
+.close,
+.back {
+  justify-self: start;
+}
 
 /* On a phone the graph is worked on a screen narrower than a node, so it is
    given more of the screen's height rather than a slice of it. In `dvh`, because
    a browser's own chrome comes and goes and `vh` would leave the bench taller
-   than the screen it is on — three nested scrollbars deep. */
+   than the screen it is on — three nested scrollbars deep.
+
+   There is no room beside the graph at this width, so the panel stops being a
+   column of the bench and covers it instead — which is why it carries a control
+   that closes it: on a wide screen the graph is still there to press. */
 @media (max-width: 44rem) {
-  .graph {
+  .bench {
     --bench-height: 70dvh;
+  }
+
+  .panel {
+    position: fixed;
+    inset: 0;
+    z-index: 3;
+    inline-size: auto;
+    block-size: auto;
+    /* The page's own margin, because at this width the panel *is* the page. */
+    padding: var(--s4);
+    border: none;
+    border-radius: 0;
   }
 }
 </style>

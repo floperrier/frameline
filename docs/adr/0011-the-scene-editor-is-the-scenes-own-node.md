@@ -1,8 +1,14 @@
 ---
-status: accepted
+status: superseded by 0021
 ---
 
 # The Scene editor is the Scene's own node
+
+Superseded by
+`docs/adr/0021-a-scene-is-written-in-a-panel-at-the-edge-of-the-bench.md`: the
+second of the two reopening conditions below arrived, and a Scene is now written
+in a panel docked at the edge of the bench rather than inside its own node. What
+follows is the record as it stood.
 
 An Author works on one surface. `/stories/[id]` is the graph, and a Scene's node
 opened on it is where that Scene is written: its Shots with their text, their

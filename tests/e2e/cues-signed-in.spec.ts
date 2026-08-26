@@ -1,6 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test'
+import { NODE_GAP, NODE_WIDTH } from '../../shared/utils/scenes'
 import {
-  openNode,
+  writeScene,
   readShots,
   seedCut,
   seedFlags,
@@ -16,7 +17,7 @@ import {
 const FIRST_CUE = /Every Story starts with a Scene/
 
 /** The sentence said next, once the Story has the Scene the first asked for. */
-const NEXT_CUE = /A Scene is folded on the graph/
+const NEXT_CUE = /A Scene is written in the panel/
 
 // The one spec the guidance is left switched on for; every other one waves it
 // away, the way an Author who knows their way around the bench does.
@@ -38,8 +39,8 @@ test('the bench asks a new Story for its first Scene', async ({ page, author }) 
   expect(await page.locator('.spotlight').boundingBox()).toEqual(await field.boundingBox())
 
   // And follows it. The bench moves under the light for all sorts of reasons —
-  // the graph scrolls, a node folds, the window changes shape — and the light is
-  // on the target rather than where the target was.
+  // the graph scrolls, the panel opens beside it, the window changes shape — and
+  // the light is on the target rather than where the target was.
   await page.setViewportSize({ width: 900, height: 700 })
   await expect
     .poll(() => page.locator('.spotlight').boundingBox())
@@ -86,9 +87,9 @@ test('a Story that is past every step is guided not at all', async ({ page, auth
 
   await page.goto(`/stories/${story.id}`)
 
-  // Every node folded, and nothing is asked of them: a node is opened for the
-  // sake of what is written in it, and this Story is already written. This is
-  // what an Author finds when they open a Leader.
+  // Nothing in the panel, and nothing asked for: the panel is opened for the sake
+  // of what is written in it, and this Story is already written. This is what an
+  // Author finds when they open a Leader.
   await expect(page.getByRole('heading', { name: 'The arrival' })).toBeVisible()
   await expect(bubble(page)).toBeHidden()
   await expect(page.locator('.spotlight')).toBeHidden()
@@ -98,7 +99,7 @@ test('a Story that is past every step is guided not at all', async ({ page, auth
  * A Story is allowed to sit with no opening Scene — the Author decides where
  * their Story starts — and the only way to arrive there is to delete the Scene it
  * opened on. The guidance has to follow: the last step is a Publish that would
- * refuse, and what is left to do is the mark inside a node.
+ * refuse, and what is left to do is the mark in the panel.
  */
 test('an Author who deleted the Scene their Story opened on is sent to the mark', async ({
   page,
@@ -125,20 +126,19 @@ test('an Author who deleted the Scene their Story opened on is sent to the mark'
 
   // The Scene the Story opens on goes, and the Story is left with nowhere for a
   // Reading to start.
-  await openNode(page, 'The arrival')
+  await writeScene(page, 'The arrival')
   await page.getByRole('button', { name: 'Delete Scene The arrival' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Delete Scene', exact: true }).click()
 
   // The bench stops asking for the Publish, which would refuse, and asks for the
-  // mark instead — from the corner while every node is folded, because the mark
-  // is drawn inside one.
+  // mark instead — from the corner while the panel is closed, because the mark is
+  // set in the panel.
   await expect(bubble(page)).toContainText(/nothing marks where this Story does/)
   await expect(bubble(page)).toHaveClass(/adrift/)
 
-  const node = page.getByRole('article', { name: 'The platform' })
-  await openNode(page, 'The platform')
-  await lights(page, node.locator('.opening'))
-  await node.getByRole('radio', { name: 'Opening Scene The platform' }).check()
+  await writeScene(page, 'The platform')
+  await lights(page, page.locator('.panel .opening'))
+  await page.getByRole('radio', { name: 'Opening Scene The platform' }).check()
 
   // Marked, and the path is back at the step it was on.
   await expect(bubble(page)).toContainText(/That is a Story that works/)
@@ -165,7 +165,7 @@ test('an Author who knows what they are doing waves the guidance away', async ({
  * next.
  *
  * A tall bench, because the second Scene is stacked under the first and the Cut
- * between them is drawn by hand across both nodes.
+ * between them is drawn by hand across both cards.
  */
 test('the bench walks an Author from a bare Story to a published one', async ({
   page,
@@ -180,12 +180,12 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await page.getByLabel('Name of a new Scene').fill('The arrival')
   await page.getByRole('button', { name: 'Create Scene' }).click()
 
-  // Opened. The guidance asks for the node rather than unfolding it itself, and
+  // Written. The guidance asks for the panel rather than opening it itself, and
   // nothing inside the Scene is pointed at until the Author has done so.
   await expect(bubble(page)).toContainText(NEXT_CUE)
-  const fold = page.getByRole('button', { name: 'Open Scene The arrival' })
-  await lights(page, fold)
-  await fold.click()
+  const write = page.getByRole('button', { name: 'Write Scene The arrival' })
+  await lights(page, write)
+  await write.click()
 
   // Written. The sentence carries the whole gesture — a Shot is added and then
   // written — so it is said from the corner until there is a field to say it at.
@@ -203,36 +203,45 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await page.getByLabel('Name of a new Scene').fill('The platform')
   await page.getByRole('button', { name: 'Create Scene' }).click()
 
-  // And the Cut, drawn from the strip the light is now on.
+  // And the Cut, drawn from the strip the light is now on. The second Scene is
+  // laid out beside the first before the hand goes down: the API stacks a new
+  // Scene under the last, the bubble pointing at the strip is drawn over the
+  // bench just below it, and a hand cannot let go through the guidance.
   await expect(bubble(page)).toContainText(/A Cut is the way on/)
+  const read = await (await page.request.get(`/api/stories/${story.id}`)).json()
+  const beside = read.scenes.find((scene: { name: string }) => scene.name === 'The platform')
+  await page.request.patch(`/api/scenes/${beside.id}`, {
+    data: { x: NODE_WIDTH + NODE_GAP, y: 0 },
+  })
+  await page.reload()
+
   const arrival = page.getByRole('article', { name: 'The arrival' })
   await lights(page, arrival.locator('.strip'))
   await drag(page, arrival.locator('.strip'), page.getByRole('article', { name: 'The platform' }))
 
   await expect(page.getByRole('status')).toHaveText('Cut from The arrival to The platform drawn')
 
-  // A Flag on the first Scene, in the field the light moves to inside the node
-  // the Author already has open.
+  // A Flag on the first Scene, in the field the light moves to once the Scene is
+  // back in the panel.
   await expect(bubble(page)).toContainText(/State is what one Reading carries/)
+  await writeScene(page, 'The arrival')
   const flags = page.getByLabel('Flags set on entering The arrival')
   await lights(page, flags)
   await flags.fill('courage = high')
   await flags.blur()
 
-  // And a Condition on the second Scene, which is folded and has no Shot in it:
-  // the sentence carries that whole gesture from the corner, the way the first
-  // Shot's did.
+  // And a Condition on the second Scene, which has no Shot in it yet: the
+  // sentence carries that whole gesture, because the Cue names the Conditions of
+  // the Shot in the panel and the panel holds whichever Scene the Author put
+  // there.
   await expect(bubble(page)).toContainText(/A Condition makes the same Scene play differently/)
-  await expect(bubble(page)).toHaveClass(/adrift/)
-  const platform = page.getByRole('article', { name: 'The platform' })
-  await platform.getByRole('button', { name: 'Open Scene The platform' }).click()
-  await platform.getByRole('button', { name: 'Add Shot' }).click()
+  await writeScene(page, 'The platform')
+  await page.getByRole('button', { name: 'Add Shot to The platform' }).click()
 
-  // The light is on the second Scene's Conditions and not on the first Scene's,
-  // which the editor draws the same control for and which is nearer the top of
-  // the bench.
+  // The light is on the Conditions of the Shot in the panel, which is the one the
+  // sentence just asked for.
   const carrier = 'Shot 1 of The platform'
-  await lights(page, platform.locator('.conditions'))
+  await lights(page, page.locator('.panel .conditions').first())
   await page.getByRole('button', { name: `Add a Condition to ${carrier}` }).click()
 
   // Written against a value the Flag does not hold, which is what the sentence
@@ -256,12 +265,13 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await expect(bench.getByText('needs courage to hold low, holds high')).toBeVisible()
 
   // Back to the bench and corrected, which is all the step ever asked of the
-  // Story: nowhere is it written that the Preview was opened. The nodes are
-  // folded again, because what is open is how the Author is looking at the work
-  // and does not survive leaving the page.
+  // Story: nowhere is it written that the Preview was opened. The panel is closed
+  // again, because what is in it is how the Author is looking at the work and does
+  // not survive leaving the page.
   await page.getByRole('link', { name: 'Back to the Story' }).click()
   await lights(page, page.getByRole('link', { name: 'Preview this Story' }))
-  await platform.getByRole('button', { name: 'Open Scene The platform' }).click()
+  await expect(page.locator('.panel')).toHaveCount(0)
+  await writeScene(page, 'The platform')
   await holds.fill('high')
   await holds.blur()
 

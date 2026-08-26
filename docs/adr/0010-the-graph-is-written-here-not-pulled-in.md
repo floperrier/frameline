@@ -68,6 +68,19 @@ folded node is its name, its Shot count and where its ways on land, and
 cheaper half of the problem in #46, and the deliberate order: fold first, zoom
 only if forty Scenes still cannot be seen at once.
 
+Folding is since gone, and the reopening condition of the sibling record with it.
+`docs/adr/0011-the-scene-editor-is-the-scenes-own-node.md` said the two decisions
+were taken together and would come apart together; only one of them has. A Scene
+is written in a panel at the edge of the bench and a node is a fixed-height card
+— see
+`docs/adr/0021-a-scene-is-written-in-a-panel-at-the-edge-of-the-bench.md` —
+so legibility at forty Scenes is now bought with every node being one size, still
+not with zoom. This record stands: the graph is still written here, the node is
+still ordinary markup, and what came out of the node was the editor rather than
+the drawing. What it loses is the measurement named above — every card is
+`NODE_WIDTH` by `NODE_HEIGHT`, so the boxes a line joins are known from the Story
+and nothing arrives late at all.
+
 The drawing stopped being decoration. It was `aria-hidden` on the grounds that
 every Cut was listed inside the node it left, so the lines said nothing a screen
 reader needed and read nothing out. Two things ended that. A Cut is now drawn by

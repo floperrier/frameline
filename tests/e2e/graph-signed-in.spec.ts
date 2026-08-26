@@ -14,7 +14,7 @@ import {
   VISITS_MAX,
 } from '../../shared/utils/scenes'
 import {
-  openNode,
+  writeScene,
   readCuts,
   readFlags,
   readSceneName,
@@ -342,10 +342,10 @@ test('an Author lays out the graph from the page alone', async ({ page, request 
   const node = page.getByRole('article', { name: 'The arrival' })
   await expect(node).toBeVisible()
 
-  // The handle moves the node by the keyboard as well as by the pointer, which
-  // is also the only way a test can say where a Scene ended up.
-  const handle = page.getByRole('button', { name: 'Move Scene The arrival' })
-  await handle.click()
+  // The card itself takes focus and the four arrow keys — there is no handle,
+  // because there is nothing on a card to type into — which is also the only way
+  // a test can say where a Scene ended up.
+  await node.focus()
   await page.keyboard.press('ArrowRight')
   await page.keyboard.press('ArrowDown')
   await expect(async () => {
@@ -353,19 +353,33 @@ test('an Author lays out the graph from the page alone', async ({ page, request 
     expect(node).toMatchObject({ x: 20, y: 20 })
   }).toPass()
 
-  // And the pointer drags it, which is how an Author actually lays out a graph.
-  const grip = (await handle.boundingBox())!
-  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2)
+  // And the pointer drags it from anywhere on the card, which is how an Author
+  // actually lays out a graph: the point taken here is the foot of the card,
+  // which carries no control at all.
+  const box = (await node.boundingBox())!
+  const held = { x: box.x + box.width / 2, y: box.y + box.height - 8 }
+  await page.mouse.move(held.x, held.y)
   await page.mouse.down()
-  await page.mouse.move(grip.x + grip.width / 2 + 100, grip.y + grip.height / 2 + 60, { steps: 5 })
+  await page.mouse.move(held.x + 100, held.y + 60, { steps: 5 })
   await page.mouse.up()
   await expect(async () => {
     await expect(readScenePlacement(scenes[0]!.id)).resolves.toMatchObject({ x: 120, y: 80 })
   }).toPass()
 
-  // Laying a node out needs nothing opened — the slate carries the handle. Everything
-  // written about a Scene is inside the node, so from here the nodes are opened.
-  await openNode(page, 'The arrival')
+  // The button that writes the Scene is pressed and never dragged, so a hand that
+  // wanders while pressing it leaves the Scene where it was.
+  const write = page.getByRole('button', { name: 'Write Scene The arrival' })
+  const button = (await write.boundingBox())!
+  await page.mouse.move(button.x + button.width / 2, button.y + button.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(button.x + button.width / 2 + 80, button.y + button.height / 2, { steps: 5 })
+  await page.mouse.up()
+  await expect(readScenePlacement(scenes[0]!.id)).resolves.toMatchObject({ x: 120, y: 80 })
+
+  // Everything written about a Scene is in the panel at the edge of the bench, so
+  // from here the panel is opened.
+  await writeScene(page, 'The arrival')
+  await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
 
   // A Cut to write the text of, drawn through the hidden button rather than by
   // hand: the gesture has its own specs below, and the Scene this one lands on is
@@ -373,8 +387,8 @@ test('an Author lays out the graph from the page alone', async ({ page, request 
   await page.getByRole('button', { name: 'Draw a Cut from The arrival' }).press('Enter')
   await page.getByRole('button', { name: 'Cut from The arrival to The platform' }).press('Enter')
 
-  // The node keeps a bare strip of the ways on, and the writing is done in the
-  // panel that strip opens.
+  // The Scene keeps a bare strip of the ways on, and the Cut's own text is
+  // written in the panel a row of that strip hands over to.
   await expect(page.getByRole('textbox', { name: 'Cut to The platform' })).toBeHidden()
   await openWayOn(page, 'The arrival', 'The platform')
 
@@ -383,10 +397,8 @@ test('an Author lays out the graph from the page alone', async ({ page, request 
   await cutText.fill('Follow her out')
   await cutText.blur()
 
-  // The panel is above the nodes, so it is let go of before the node under it is
-  // the one being worked in.
-  await page.keyboard.press('Escape')
-  await openNode(page, 'The platform')
+  // One panel, so writing the other Scene takes the Cut's place in it.
+  await writeScene(page, 'The platform')
   await page.getByRole('radio', { name: 'Opening Scene The platform' }).check()
 
   // Reloading before a write has landed would abort it, so what the page did is
@@ -399,26 +411,97 @@ test('an Author lays out the graph from the page alone', async ({ page, request 
   }).toPass()
 
   // What the page shows has to be what was written, not what the page remembers.
-  // A reload folds every node again: what is folded is the Author's view of the
+  // A reload leaves the panel closed: what is in it is the Author's view of the
   // graph and not a thing about the Story, so nothing was written to remember it.
-  // The Scene below is opened first: an open node overlaps the one under it, and
-  // the one that comes to the front is the one being worked in.
   await page.reload()
-  await openNode(page, 'The platform')
-  await openNode(page, 'The arrival')
+  await expect(page.locator('.panel')).toHaveCount(0)
+  await writeScene(page, 'The platform')
+  await expect(page.getByRole('radio', { name: 'Opening Scene The platform' })).toBeChecked()
+  await writeScene(page, 'The arrival')
   await openWayOn(page, 'The arrival', 'The platform')
   await expect(page.getByRole('textbox', { name: 'Cut to The platform' }))
     .toHaveValue('Follow her out')
-  await expect(page.getByRole('radio', { name: 'Opening Scene The platform' })).toBeChecked()
   await expect(page.getByRole('article', { name: 'The arrival' }))
     .toHaveCSS('translate', '120px 80px')
 
   // Taken away from the panel it is written in, which goes with it.
   await page.getByRole('button', { name: 'Delete Cut to The platform' }).click()
   await expect(page.getByRole('textbox', { name: 'Cut to The platform' })).toBeHidden()
-  await expect(page.getByRole('button', { name: 'The platform — way on from The arrival' }))
-    .toBeHidden()
   await expect(readCuts(scenes[0]!.id)).resolves.toEqual([])
+})
+
+test('the panel pushes the graph aside, and covers it on a narrow screen', async ({
+  page,
+  request,
+}) => {
+  const { story } = await openGraph(request)
+  await page.goto(`/stories/${story.id}`)
+
+  const graph = page.locator('.graph')
+  const panel = page.locator('.panel')
+  const wide = (await graph.boundingBox())!.width
+
+  await writeScene(page, 'The arrival')
+
+  // Room taken from the graph rather than laid over it, so nothing the Author is
+  // working on can end up hidden underneath.
+  const narrowed = (await graph.boundingBox())!
+  const beside = (await panel.boundingBox())!
+  expect(narrowed.width).toBeLessThan(wide)
+  expect(beside.x).toBeGreaterThanOrEqual(narrowed.x + narrowed.width - 1)
+
+  // Below the width the graph already breaks at there is no room beside it, so the
+  // panel covers the graph — and is closed explicitly, because there is no bare
+  // bench left to press.
+  await page.setViewportSize({ width: 600, height: 800 })
+  await expect.poll(async () => (await panel.boundingBox())!.x).toBeLessThan(
+    (await graph.boundingBox())!.x + 1)
+  await page.getByRole('button', { name: 'Close this panel' }).click()
+  await expect(panel).toHaveCount(0)
+})
+
+test('the panel is closed by Escape, and focus comes back to the card', async ({
+  page,
+  request,
+}) => {
+  const { story } = await openGraph(request)
+  await page.goto(`/stories/${story.id}`)
+
+  const write = page.getByRole('button', { name: 'Write Scene The arrival' })
+  await write.click()
+  await expect(write).toHaveAttribute('aria-expanded', 'true')
+
+  // The panel opens on the field the Scene is named in, so the keyboard has
+  // reached what it opened.
+  await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeFocused()
+
+  await page.keyboard.press('Escape')
+  await expect(page.locator('.panel')).toHaveCount(0)
+  await expect(write).toHaveAttribute('aria-expanded', 'false')
+  await expect(write).toBeFocused()
+})
+
+test('a Cut takes the Scene\u2019s place in the panel, and hands it back', async ({
+  page,
+  request,
+}) => {
+  const { story, scenes } = await openGraph(request)
+  await drawCut(request, scenes[0]!.id, scenes[1]!.id)
+  await page.goto(`/stories/${story.id}`)
+
+  await writeScene(page, 'The arrival')
+  await openWayOn(page, 'The arrival', 'The platform')
+
+  // One panel: the Cut took the Scene's place in it rather than opening beside it.
+  await expect(page.getByRole('group', { name: 'Writing the Cut to The platform' }))
+    .toBeVisible()
+  await expect(page.getByRole('group', { name: 'Writing The arrival' })).toHaveCount(0)
+
+  // And it names the Scene it leaves, which is the way back to that Scene.
+  await page.getByRole('button', { name: 'Back to The arrival' }).click()
+  await expect(page.getByRole('textbox', { name: 'Name of this Scene' }))
+    .toHaveValue('The arrival')
+  await expect(page.getByRole('textbox', { name: 'Cut to The platform' })).toBeHidden()
 })
 
 test('two Scenes moved one after the other are both written', async ({ page, request }) => {
@@ -428,7 +511,7 @@ test('two Scenes moved one after the other are both written', async ({ page, req
   // Moving one Scene and then another straight away has to write both: a single
   // wait shared by the graph would drop the first.
   for (const name of ['The arrival', 'The platform']) {
-    await page.getByRole('button', { name: `Move Scene ${name}` }).click()
+    await page.getByRole('article', { name }).focus()
     await page.keyboard.press('ArrowRight')
   }
 
@@ -450,7 +533,7 @@ test('the bench says when a write was kept, and a move says nothing', async ({ p
   const keptAt = page.getByText(/^Kept at /)
   await expect(keptAt).toHaveCount(0)
 
-  await openNode(page, 'The arrival')
+  await writeScene(page, 'The arrival')
   const text = page.getByRole('textbox', { name: 'Shot 1' })
   await text.fill('She steps off the train.')
 
@@ -474,7 +557,7 @@ test('the bench says when a write was kept, and a move says nothing', async ({ p
 
   // Moving a node is drawing and not writing, so it leaves the time alone even
   // though it reaches the server like everything else.
-  await page.getByRole('button', { name: 'Move Scene The arrival' }).click()
+  await page.getByRole('article', { name: 'The arrival' }).focus()
   await page.keyboard.press('ArrowRight')
   await expect(async () => {
     await expect(readScenePlacement(scenes[0]!.id)).resolves.toMatchObject({ x: 20 })
@@ -482,7 +565,7 @@ test('the bench says when a write was kept, and a move says nothing', async ({ p
   await expect(keptAt).toHaveText(said)
 })
 
-test('the graph of several dozen Scenes is read folded', async ({ page, author }) => {
+test('the graph of several dozen Scenes is read as cards', async ({ page, author }) => {
   const story = await seedStory(author, 'A long Story')
   const names = Array.from({ length: 40 }, (_, place) => `Scene ${place + 1}`)
   const scenes = await seedScenes(story, names)
@@ -497,60 +580,76 @@ test('the graph of several dozen Scenes is read folded', async ({ page, author }
   await last.scrollIntoViewIfNeeded()
   await expect(last).toBeVisible()
 
-  // Forty nodes and not one open editor among them, which is what makes forty
-  // Scenes readable rather than merely present: a folded node says what is in the
-  // Scene and where it leads, and says it in a fraction of an open node's height.
+  // Forty cards and nothing to type into among them, which is what makes forty
+  // Scenes readable rather than merely present: a card says what is in the Scene
+  // and where it leads, and every one of them is the same box.
   await expect(page.getByLabel('Flags set on entering Scene 40')).toHaveCount(0)
   await expect(page.getByRole('article', { name: 'Scene 1', exact: true }))
     .toContainText('1 Shot, on to Scene 2')
   await expect(last).toContainText('1 Shot, no way on')
-  const folded = (await last.boundingBox())!.height
-  expect(folded).toBeLessThan(NODE_HEIGHT / 3)
+  expect((await last.boundingBox())!.height).toBeCloseTo(NODE_HEIGHT, 0)
 
-  // The editor comes on demand, and for the one Scene asked for: the other
-  // thirty-nine are still folded behind it.
-  await page.getByRole('button', { name: 'Open Scene Scene 40' }).click()
+  // The editor comes on demand, in the panel, and for the one Scene asked for:
+  // the card it was opened from is the size every other card is.
+  await writeScene(page, 'Scene 40')
   await expect(page.getByLabel('Flags set on entering Scene 40')).toBeVisible()
-  expect((await last.boundingBox())!.height).toBeGreaterThan(folded)
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveCount(1)
+  expect((await last.boundingBox())!.height).toBeCloseTo(NODE_HEIGHT, 0)
 })
 
-test('a node is a strip and a body, and only the body scrolls', async ({ page, request }) => {
+test('a card names three of the ways on and counts the rest', async ({ page, author }) => {
+  const story = await seedStory(author, 'A branching Story')
+  const scenes = await seedScenes(
+    story, ['The junction', 'North', 'South', 'East', 'West'])
+  for (const landing of scenes.slice(1)) await seedCut(scenes[0]!.id, landing.id)
+
+  await page.goto(`/stories/${story.id}`)
+
+  // Three named and a count of the rest, because a card is the same size for
+  // every Scene and where a Scene leads is what a graph is read for.
+  await expect(page.getByRole('article', { name: 'The junction' }))
+    .toContainText('1 Shot, on to North, South, East and 1 more')
+})
+
+test('a card is a strip and a face, and the panel beside it is what scrolls', async ({
+  page,
+  request,
+}) => {
   const { story, scenes } = await openGraph(request)
   const opening = scenes[0]!
-  // Enough Shots that the node is taller than the bench, which is what puts a
-  // scrollbar inside it and makes it worth asking which column carries it.
+  // Enough Shots that what is written about the Scene is taller than the panel,
+  // which is what puts a scrollbar there and nowhere on the bench.
   for (const _ of [1, 2, 3]) await request.post(`/api/scenes/${opening.id}/shots`)
 
   await page.goto(`/stories/${story.id}`)
-  // Addressed by class, where the rest of the suite goes through roles: which
-  // column of a node carries the scrollbar is a fact about the drawing, and the
+  // Addressed by class, where the rest of the suite goes through roles: which part
+  // of the bench carries the scrollbar is a fact about the drawing, and the
   // drawing has no accessible name to ask for it by.
   const node = page.getByRole('article', { name: 'The arrival' })
   const strip = node.locator('.strip')
-  await openNode(page, 'The arrival')
+  const card = (await node.boundingBox())!
+
+  // A card is the one size whatever the Scene holds, and the strip is a column of
+  // it, so it runs the card's full height between its own two hairlines.
+  expect(card.height).toBeCloseTo(NODE_HEIGHT, 0)
+  expect((await strip.boundingBox())!.height).toBeCloseTo(card.height - 2, 0)
+
+  // The whole card takes the touch: it is dragged from anywhere on it, and there
+  // is nothing on it to scroll instead.
+  expect(await node.evaluate(held => getComputedStyle(held).touchAction)).toBe('none')
+
+  await writeScene(page, 'The arrival')
   await expect(page.getByRole('textbox', { name: 'Shot 3' })).toBeVisible()
 
-  // The strip is a column of the node rather than something inside what scrolls,
-  // so it runs the node's full height, between the node's own two hairlines.
-  const tall = (await node.boundingBox())!
-  expect((await strip.boundingBox())!.height).toBeCloseTo(tall.height - 2, 0)
-  expect(tall.height).toBeLessThanOrEqual((await page.locator('.graph').boundingBox())!.height)
-
-  // The strip takes the touch, which is what makes a Cut immediate under a finger
-  // with no long press to wait out; the body beside it keeps its own, so the node
-  // is still a node a thumb can scroll.
-  const touching = (part: typeof strip) =>
-    part.evaluate(held => getComputedStyle(held).touchAction)
-  expect(await touching(strip)).toBe('none')
-  expect(await touching(node.locator('.body'))).not.toBe('none')
-
-  // And it stays where it is while the body beside it scrolls, which is what will
-  // let a finger start a gesture on it without the node losing its place.
-  const body = node.locator('.body')
-  await body.evaluate(scrolled => scrolled.scrollBy(0, 200))
-  await expect.poll(() => body.evaluate(scrolled => scrolled.scrollTop)).toBeGreaterThan(0)
-  expect((await strip.boundingBox())!.y).toBeCloseTo(tall.y + 1, 0)
+  // The panel is as tall as the bench and scrolls inside itself, so a Scene of
+  // several Shots is read there rather than down the page — and the card it was
+  // opened from has neither moved nor changed size.
+  const panel = page.locator('.panel')
+  expect((await panel.boundingBox())!.height)
+    .toBeLessThanOrEqual((await page.locator('.graph').boundingBox())!.height)
+  await panel.evaluate(scrolled => scrolled.scrollBy(0, 200))
+  await expect.poll(() => panel.evaluate(scrolled => scrolled.scrollTop)).toBeGreaterThan(0)
+  expect(await node.boundingBox()).toEqual(card)
 })
 
 test('the Opening Scene is the one whose strip is marked', async ({ page, request }) => {
@@ -568,56 +667,50 @@ test('the Opening Scene is the one whose strip is marked', async ({ page, reques
   const marked = await stripOf('The arrival')
   expect(marked).not.toBe(plain)
 
-  // Naming another Scene moves the mark, and it moves on the strip rather than
-  // anywhere the node has to be opened to see.
-  await openNode(page, 'The platform')
+  // The card says it in words too, for whoever is not reading the colour.
+  await expect(page.getByRole('article', { name: 'The arrival' }))
+    .toContainText('Opening Scene')
+  await expect(page.getByRole('article', { name: 'The platform' }))
+    .not.toContainText('Opening Scene')
+
+  // Naming another Scene moves the mark, and it moves on the card rather than
+  // anywhere the Author has to open a panel to see.
+  await writeScene(page, 'The platform')
   await page.getByRole('radio', { name: 'Opening Scene The platform' }).check()
   await expect.poll(() => stripOf('The platform')).toBe(marked)
   expect(await stripOf('The arrival')).toBe(plain)
+  await expect(page.getByRole('article', { name: 'The platform' }))
+    .toContainText('Opening Scene')
+  await expect(page.getByRole('article', { name: 'The arrival' }))
+    .not.toContainText('Opening Scene')
 })
 
-test('an open node grows with its writing while folded nodes stay one size', async ({
-  page,
-  request,
-}) => {
+test('every card is one size, whatever the Scene in it holds', async ({ page, request }) => {
   const { story, scenes } = await openGraph(request, ['The arrival', 'The platform', 'The bar'])
-  // Two ways on out of one Scene and none out of the others: what a folded node
-  // says is not the same length for each, and its height has to be all the same.
+  // Two ways on out of one Scene and none out of the others: what a card says is
+  // not the same length for each, and its height has to be all the same.
   await drawCut(request, scenes[1]!.id, scenes[0]!.id)
   await drawCut(request, scenes[1]!.id, scenes[2]!.id)
-  // A Shot apiece, because a Scene an Author has written in has one and a folded
-  // node counts them.
+  // A Shot apiece, because a Scene an Author has written in has one and a card
+  // counts them.
   for (const scene of scenes) await request.post(`/api/scenes/${scene.id}/shots`)
 
-  // Room enough that the node grows rather than meeting the ceiling on the first
-  // Shot, which is the growth this is about.
-  await page.setViewportSize({ width: 1280, height: 1000 })
   await page.goto(`/stories/${story.id}`)
 
   const heightOf = async (name: string) =>
     (await page.getByRole('article', { name }).boundingBox())!.height
   const names = ['The arrival', 'The platform', 'The bar']
-  const folded = await Promise.all(names.map(heightOf))
-  expect(new Set(folded).size).toBe(1)
+  const sizes = await Promise.all(names.map(heightOf))
+  expect(new Set(sizes).size).toBe(1)
+  expect(sizes[0]).toBeCloseTo(NODE_HEIGHT, 0)
 
-  // Opened, a node is as tall as what is in it...
-  await openNode(page, 'The arrival')
-  await expect(page.getByRole('textbox', { name: 'Shot 1' })).toBeVisible()
-  const opened = await heightOf('The arrival')
-  expect(opened).toBeGreaterThan(folded[0]!)
-
-  // ...and a second Shot makes it taller still, instead of being written into a
-  // box of a fixed height that the Author has to scroll to reach it in.
+  // Writing a Scene puts it in the panel and leaves its card exactly as it was:
+  // the shape of a long Story is read off cards that are all one size, and a
+  // second Shot grows the panel rather than the bench.
+  await writeScene(page, 'The arrival')
   await page.getByRole('button', { name: 'Add Shot to The arrival' }).click()
   await expect(page.getByRole('textbox', { name: 'Shot 2' })).toBeVisible()
-  await expect.poll(() => heightOf('The arrival')).toBeGreaterThan(opened)
-  expect(await heightOf('The arrival'))
-    .toBeLessThanOrEqual((await page.locator('.graph').boundingBox())!.height)
-
-  // The two the Author did not open are the size they were, and the size of each
-  // other: the shape of a long Story is read off nodes that are all one size.
-  expect(await heightOf('The platform')).toBe(folded[1])
-  expect(await heightOf('The bar')).toBe(folded[2])
+  expect(await Promise.all(names.map(heightOf))).toEqual(sizes)
 })
 
 test('a Scene sets Flags on entry, and a Cut carries Conditions', async ({ request }) => {
@@ -766,7 +859,7 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
   await drawCut(request, from.id, tunnel.id)
 
   await page.goto(`/stories/${story.id}`)
-  await openNode(page, 'The platform')
+  await writeScene(page, 'The platform')
 
   await page.getByRole('button', { name: 'Move earlier the Cut to The tunnel' }).click()
   await expect(async () => {
@@ -779,7 +872,7 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
   // The way on that comes first has nowhere earlier to go, and the page says so
   // rather than asking.
   await page.reload()
-  await openNode(page, 'The platform')
+  await writeScene(page, 'The platform')
   await expect(page.getByRole('button', { name: 'Move earlier the Cut to The tunnel' }))
     .toBeDisabled()
   await expect(page.getByRole('button', { name: 'Move later the Cut to The buffet' }))
@@ -842,7 +935,7 @@ async function layOut(request: APIRequestContext, at: Record<string, [number, nu
   return opened
 }
 
-test('a Cut is written in the panel its own line opens', async ({ page, request }) => {
+test('a Cut is written in the panel its own line hands over to', async ({ page, request }) => {
   const { story, scenes } = await layOut(request, {
     'The arrival': [0, 0],
     'The platform': [400, 220],
@@ -864,30 +957,20 @@ test('a Cut is written in the panel its own line opens', async ({ page, request 
   await expect(drawing(first).locator('text.place')).toHaveText('1')
   await expect(drawing(second).locator('text.place')).toHaveText('2')
 
-  // Pressing a line opens the panel at the middle of that line, and the Cut it
-  // holds is lit on the bench.
+  // Pressing a line puts that Cut in the panel at the edge of the bench, and the
+  // Cut it holds is lit on the bench itself.
   await lineOf(first).click()
   await expect(panelOn('The platform')).toBeVisible()
   await expect(drawing(first).locator('line.lit')).toHaveCount(1)
   await expect(page.getByRole('textbox', { name: 'Cut to The platform' })).toBeFocused()
 
-  // To the pixel, give or take the half one a panel of an odd height is centred
-  // on: the line's own middle is where the panel's middle is.
-  const online = (await lineOf(first).boundingBox())!
-  const opened = (await panelOn('The platform').boundingBox())!
-  expect(Math.abs((opened.x + opened.width / 2) - (online.x + online.width / 2)))
-    .toBeLessThan(1)
-  expect(Math.abs((opened.y + opened.height / 2) - (online.y + online.height / 2)))
-    .toBeLessThan(1)
-
-  // The panel is on the surface the nodes are on, so the bench carries it as it
-  // scrolls rather than leaving it behind on the line it no longer sits over.
+  // The panel is beside the graph rather than over it, so scrolling the bench
+  // leaves it exactly where it was: what it is writing is not where it is drawn.
   const bench = page.locator('.graph')
+  const docked = (await panelOn('The platform').boundingBox())!
   await bench.evaluate(scrolled => scrolled.scrollTop = 60)
-  await expect(async () => {
-    const scrolled = (await panelOn('The platform').boundingBox())!
-    expect(scrolled.y).toBeCloseTo(opened.y - 60, 0)
-  }).toPass()
+  await expect.poll(() => bench.evaluate(scrolled => scrolled.scrollTop)).toBe(60)
+  expect(await panelOn('The platform').boundingBox()).toEqual(docked)
   await bench.evaluate(scrolled => scrolled.scrollTop = 0)
 
   // One panel at a time: opening another closes the first.
@@ -925,7 +1008,7 @@ test('a Cut is written in the panel its own line opens', async ({ page, request 
     ])
   }).toPass()
 
-  // And taken away from the same panel, which goes with the line it sat on.
+  // And taken away from the same panel, which goes with the Cut it was writing.
   await page.getByRole('button', { name: 'Delete Cut to The platform' }).click()
   await expect(panelOn('The platform')).toBeHidden()
   await expect(async () => {
@@ -941,32 +1024,30 @@ test('the strip is the way to a Cut for a hand that is not on a pointer',
 
     await page.goto(`/stories/${story.id}`)
 
-    // Folded, the node says where it leads in a line. Open, it does not say it
-    // twice: the strip says the same thing better.
+    // The card says where the Scene leads, and the panel says it again as the
+    // strip of ways on: the card is read, the strip is the route.
     const node = page.getByRole('article', { name: 'The arrival' })
     await expect(node).toContainText('on to The platform')
-    await openNode(page, 'The arrival')
-    await expect(node).not.toContainText('on to The platform')
+    await writeScene(page, 'The arrival')
 
     // The strip holds the Place, where the way on arrives, and the two controls —
-    // and no text and no Conditions: those are the panel's.
+    // and no text and no Conditions: those are the Cut's own panel.
     const row = page.getByRole('button', { name: 'The platform — way on from The arrival' })
     await expect(row).toHaveText(/1\s+The platform/)
-    await expect(row).toHaveAttribute('aria-expanded', 'false')
     await expect(page.getByRole('textbox', { name: 'Cut to The platform' })).toBeHidden()
     await expect(page.getByRole('button', { name: 'Delete Cut to The platform' })).toBeHidden()
 
-    // Reached from the keyboard, the row opens the panel and hands over the text.
+    // Reached from the keyboard, the row hands the panel over to the Cut and puts
+    // the focus in its text.
     await row.press('Enter')
-    await expect(row).toHaveAttribute('aria-expanded', 'true')
     await expect(page.getByRole('textbox', { name: 'Cut to The platform' })).toBeFocused()
 
-    // And Escape gives the focus back to the row it was opened from, so the way in
-    // is the way out.
+    // And Escape closes the panel, giving the focus back to the card of the Scene
+    // the Cut leaves — which is where the way in started.
     await page.keyboard.press('Escape')
     await expect(page.getByRole('group', { name: 'Writing the Cut to The platform' }))
-      .toBeHidden()
-    await expect(row).toBeFocused()
+      .toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Write Scene The arrival' })).toBeFocused()
   })
 
 /**
@@ -981,7 +1062,7 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
   await drawCut(request, from.id, to.id)
 
   await page.goto(`/stories/${story.id}`)
-  await openNode(page, 'The arrival')
+  await writeScene(page, 'The arrival')
 
   const flags = page.getByLabel('Flags set on entering The arrival')
   await flags.fill('coat = on')
@@ -1022,7 +1103,7 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
 
   // What the page shows has to be what was written, not what the page remembers.
   await page.reload()
-  await openNode(page, 'The arrival')
+  await writeScene(page, 'The arrival')
   await expect(page.getByLabel('Flags set on entering The arrival')).toHaveValue('coat = on')
   await openWayOn(page, 'The arrival', 'The platform')
   await expect(page.getByLabel('Condition 1 of the Cut to The platform', { exact: true }))
@@ -1072,7 +1153,7 @@ test('the second of two typed changes is the one the Story keeps', async ({ page
   })
 
   await page.goto(`/stories/${story.id}`)
-  await openNode(page, 'The arrival')
+  await writeScene(page, 'The arrival')
 
   // Typed straight through, the way an Author changing their mind types, and with
   // nothing waited for in between: the second value is typed while the first is
@@ -1242,13 +1323,13 @@ test('letting go over the bare bench writes the Scene and cuts to it', async ({
     { fromSceneId: scenes[0]!.id, toSceneId: scene.id, position: 0 },
   ])
 
-  // The node arrives open on its name, in the field, with the provisional name
+  // The panel arrives open on its name, in the field, with the provisional name
   // selected — so the name is replaced by typing it, without leaving the bench.
-  const naming = written.getByLabel('Name of this Scene')
+  const naming = page.getByLabel('Name of this Scene')
   await expect(naming).toBeFocused()
   await expect(naming).toHaveValue('A new Scene')
   // Typed and tabbed out of rather than filled through the field's own locator:
-  // the node is named by the Scene, so the name under the hand changes as it is
+  // the panel is named by the Scene, so the name under the hand changes as it is
   // typed, and the field is reached from the keyboard that is already in it.
   await page.keyboard.type('The buffet')
   await page.keyboard.press('Tab')
@@ -1309,7 +1390,7 @@ test('a second way on to the same Scene is written by duplicating the first',
     const first = await drawCut(request, from.id, to.id)
 
     await page.goto(`/stories/${story.id}`)
-    await openNode(page, 'The arrival')
+    await writeScene(page, 'The arrival')
     await openWayOn(page, 'The arrival', 'The platform')
 
     const duplicate = page.getByRole('button', { name: 'Duplicate Cut to The platform' })
@@ -1320,9 +1401,14 @@ test('a second way on to the same Scene is written by duplicating the first',
      * duplicate asks for replaces every Cut in the Story, and a Condition added
      * before it arrived would be taken off the screen by it — see
      * `docs/adr/0008-refetch-is-for-a-refusal.md`.
+     *
+     * The strip is the Scene's, and one panel holds one thing, so reading it means
+     * taking the way back the Cut's panel offers to the Scene it leaves.
      */
     const wayOnAt = (place: number) =>
       page.getByRole('button', { name: `${place} The platform — way on from The arrival` })
+    const backToTheArrival = () =>
+      page.getByRole('button', { name: 'Back to The arrival' }).click()
 
     // Duplicated from the panel: a second Cut to the same Scene, last among the
     // ways on leaving it. The bench says so out loud, because a Cut that arrives
@@ -1330,6 +1416,7 @@ test('a second way on to the same Scene is written by duplicating the first',
     await duplicate.click()
     await expect(page.getByRole('status'))
       .toHaveText('Another Cut from The arrival to The platform written')
+    await backToTheArrival()
     await expect(wayOnAt(2)).toBeVisible()
     await expect.poll(() => readCuts(from.id)).toMatchObject([
       { id: first.id, position: 0, conditions: [] },
@@ -1338,6 +1425,7 @@ test('a second way on to the same Scene is written by duplicating the first',
 
     // A Condition on the first, because a Condition is what the pair is for: two
     // ways on to one Scene are offered under opposite tests.
+    await wayOnAt(1).click()
     await page.getByRole('button', { name: 'Add a Condition to the Cut to The platform' }).click()
     const flag = page.getByLabel('Flag of Condition 1 of the Cut to The platform')
     await flag.fill('coat')
@@ -1349,6 +1437,7 @@ test('a second way on to the same Scene is written by duplicating the first',
     // Duplicated again, the Conditions come with it — and the duplicate is last
     // among the ways on, not beside the Cut it was copied from.
     await duplicate.click()
+    await backToTheArrival()
     await expect(wayOnAt(3)).toBeVisible()
     await expect.poll(() => readCuts(from.id)).toMatchObject([
       { id: first.id, position: 0, conditions: [{ flag: 'coat', is: 'on' }] },
@@ -1359,10 +1448,7 @@ test('a second way on to the same Scene is written by duplicating the first',
 
     // Its own panel opens from its own row of the strip — the rows are told apart
     // by the Place each is offered at — and what is written in it is written on the
-    // copy alone. The panel it was duplicated from is closed first, because it
-    // opens on the middle of a line that runs between the two nodes and the strip
-    // of the departing one is behind it.
-    await page.keyboard.press('Escape')
+    // copy alone.
     await wayOnAt(3).click()
     const opposite = page.getByLabel('holds for Condition 1 of the Cut to The platform')
     await opposite.fill('off')
@@ -1442,7 +1528,7 @@ test('the keyboard draws the same Cut, through a button hidden until it is focus
   ])
 
   // The graph is read back with the Cut in it, which is what the next gesture is
-  // worked out from: the folded node now says where the Scene leads.
+  // worked out from: the card now says where the Scene leads.
   await expect(page.getByRole('article', { name: 'The arrival' }))
     .toContainText('on to The platform')
 

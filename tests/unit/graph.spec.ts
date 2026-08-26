@@ -6,7 +6,7 @@ import {
   cutLineTo,
   discOfCut,
   GRAPH_REACH,
-  middleOfCut,
+  NODE_HEIGHT,
   NODE_PITCH,
   NODE_WIDTH,
   scenesACutMayLandOn,
@@ -16,30 +16,37 @@ import {
 
 describe('the line that draws a Cut', () => {
   test('leaves the side of the node it leaves, and lands on the side it lands on', () => {
-    const line = cutLine({ x: 0, y: 0, height: 100 }, { x: 360, y: 0, height: 100 })
+    const middle = NODE_HEIGHT / 2
+    const line = cutLine({ x: 0, y: 0 }, { x: 360, y: 0 })
 
-    expect(line).toEqual({ from: { x: NODE_WIDTH, y: 50 }, to: { x: 360, y: 50 } })
+    expect(line).toEqual({ from: { x: NODE_WIDTH, y: middle }, to: { x: 360, y: middle } })
   })
 
   test('leaves the foot of a node it drops to, and the head of one it rises to', () => {
-    const above = { x: 0, y: 0, height: 100 }
-    const below = { x: 0, y: 300, height: 60 }
+    const above = { x: 0, y: 0 }
+    const below = { x: 0, y: 300 }
+    const foot = { x: NODE_WIDTH / 2, y: NODE_HEIGHT }
+    const head = { x: NODE_WIDTH / 2, y: 300 }
 
-    expect(cutLine(above, below)).toEqual({ from: { x: 160, y: 100 }, to: { x: 160, y: 300 } })
-    expect(cutLine(below, above)).toEqual({ from: { x: 160, y: 300 }, to: { x: 160, y: 100 } })
+    expect(cutLine(above, below)).toEqual({ from: foot, to: head })
+    expect(cutLine(below, above)).toEqual({ from: head, to: foot })
   })
 
-  test('reads the height each node is really drawn at', () => {
-    const rising = { x: 0, y: 800, height: 90 }
+  /**
+   * Every card is one size, so a box is where the Author put it and nothing else:
+   * the same Cut rising into two Scenes meets the foot of each exactly
+   * `NODE_HEIGHT` below the point it was placed at, with nothing measured off a
+   * page to say so.
+   */
+  test('reads every node as the one size a card is', () => {
+    const rising = { x: 0, y: 800 }
 
-    // The same Cut, rising into a node the Author has open and into one they have
-    // folded: it meets the foot of each, which is not the same place.
-    expect(cutLine(rising, { x: 0, y: 0, height: 420 }).to.y).toBe(420)
-    expect(cutLine(rising, { x: 0, y: 0, height: 90 }).to.y).toBe(90)
+    expect(cutLine(rising, { x: 0, y: 0 }).to.y).toBe(NODE_HEIGHT)
+    expect(cutLine(rising, { x: 0, y: 200 }).to.y).toBe(200 + NODE_HEIGHT)
   })
 
   test('is no line at all between two nodes dropped on the same spot', () => {
-    const line = cutLine({ x: 40, y: 60, height: 90 }, { x: 40, y: 60, height: 90 })
+    const line = cutLine({ x: 40, y: 60 }, { x: 40, y: 60 })
 
     expect(line.from).toEqual(line.to)
   })
@@ -47,30 +54,20 @@ describe('the line that draws a Cut', () => {
 
 describe('the line of a Cut being drawn', () => {
   test('leaves the edge of the node it is drawn from, and ends at the hand', () => {
-    const line = cutLineTo({ x: 0, y: 0, height: 100 }, { x: 600, y: 50 })
+    const at = { x: 600, y: NODE_HEIGHT / 2 }
+    const line = cutLineTo({ x: 0, y: 0 }, at)
 
-    expect(line).toEqual({ from: { x: NODE_WIDTH, y: 50 }, to: { x: 600, y: 50 } })
+    expect(line).toEqual({ from: { x: NODE_WIDTH, y: NODE_HEIGHT / 2 }, to: at })
   })
 
   test('ends at the hand exactly, even where the hand is inside the node it left', () => {
     const inside = { x: 40, y: 40 }
 
-    expect(cutLineTo({ x: 0, y: 0, height: 100 }, inside).to).toBe(inside)
+    expect(cutLineTo({ x: 0, y: 0 }, inside).to).toBe(inside)
   })
 })
 
-describe('where a Cut\u2019s line is written on', () => {
-  test('opens its panel at the middle of the line, whichever way the line runs', () => {
-    expect(middleOfCut({ from: { x: 0, y: 0 }, to: { x: 400, y: 200 } }))
-      .toEqual({ x: 200, y: 100 })
-    expect(middleOfCut({ from: { x: 400, y: 200 }, to: { x: 0, y: 0 } }))
-      .toEqual({ x: 200, y: 100 })
-  })
-
-  test('rounds the middle, because a panel on a screen sits on whole pixels', () => {
-    expect(middleOfCut({ from: { x: 0, y: 0 }, to: { x: 5, y: 5 } })).toEqual({ x: 3, y: 3 })
-  })
-
+describe('the disc that says a way on\u2019s Place', () => {
   test('puts the Place\u2019s disc on the line, near the Scene the Cut leaves', () => {
     const disc = discOfCut({ from: { x: 100, y: 50 }, to: { x: 500, y: 50 } })
 

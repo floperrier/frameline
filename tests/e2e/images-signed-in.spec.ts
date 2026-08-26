@@ -1,8 +1,17 @@
 import { expect } from '@playwright/test'
-import { ONE_PIXEL, openNode, seedScene, seedStory, test, writeStory } from './author'
+import { ONE_PIXEL, writeScene, seedScene, seedStory, test, writeStory } from './author'
 import { SHOT_DESCRIPTION_MAX_LENGTH, SHOT_IMAGE_MAX_BYTES } from '../../shared/utils/scenes'
 import type { APIRequestContext, Page } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
+
+/**
+ * The panel one Scene is written in. The Shots of both Scenes of this Story
+ * number from one, so a Shot's own controls are found through the panel holding
+ * the Scene rather than by their labels alone.
+ */
+function writing(page: Page) {
+  return page.locator('.panel')
+}
 
 /** The Shots of the first Scene of a Story written the way an Author writes one. */
 async function openShots(request: APIRequestContext) {
@@ -55,14 +64,31 @@ test('a Shot keeps the still attached last, and shows it', async ({ page, reques
   // database: the address of a still is the Shot's own, so the second upload
   // would otherwise leave the browser drawing the image it already had.
   await page.goto(`/stories/${story.id}`)
-  const street = page.getByRole('article', { name: 'The street' })
-  await openNode(page, 'The street')
+  await writeScene(page, 'The street')
+  const street = writing(page)
   const shown = () => street.locator('img').getAttribute('src')
 
   const first = await shown()
   await street.getByLabel('Image of Shot 1')
     .setInputFiles({ name: 'other.png', mimeType: 'image/png', buffer: ONE_PIXEL })
   await expect.poll(shown).not.toBe(first)
+})
+
+test('a card shows the still of the Scene\u2019s first Shot', async ({ page, request }) => {
+  const { story, shots } = await openShots(request)
+  await request.put(`/api/shots/${shots[0]!.id}/image`, { data: ONE_PIXEL })
+
+  await page.goto(`/stories/${story.id}`)
+
+  // What an Author recognises a Scene by before they have read a word of it, read
+  // off the card with nothing opened.
+  await expect(page.getByRole('article', { name: 'The street' })
+    .getByRole('img', { name: 'The still of Shot 1' }))
+    .toHaveAttribute('src', `/api/shots/${shots[0]!.id}/image`)
+
+  // The other Scene's first Shot carries none, so its card is the outline of the
+  // still nobody has attached — the same way an unfinished Shot reads in the panel.
+  await expect(page.getByRole('article', { name: 'The bar' }).locator('img')).toHaveCount(0)
 })
 
 test('an upload of the wrong kind, or too heavy, is refused by its reason', async ({ request }) => {
@@ -125,10 +151,8 @@ test('the Author picks a file in the editor, and a refused one says why', async 
   const story = await writeStory(request)
   await page.goto(`/stories/${story.id}`)
 
-  // The Shots of both Scenes number from one, so the picker is found through the
-  // node it sits in rather than by its label alone.
-  const street = page.getByRole('article', { name: 'The street' })
-  await openNode(page, 'The street')
+  await writeScene(page, 'The street')
+  const street = writing(page)
   const picker = street.getByLabel('Image of Shot 1')
   await picker.setInputFiles({ name: 'still.png', mimeType: 'image/png', buffer: ONE_PIXEL })
   await expect(street.locator('img')).toBeVisible()
@@ -148,8 +172,8 @@ test('the thumbnail is the picker, and an empty one is the outline of a still', 
   const { story, shots } = await openShots(request)
   await page.goto(`/stories/${story.id}`)
 
-  const street = page.getByRole('article', { name: 'The street' })
-  await openNode(page, 'The street')
+  await writeScene(page, 'The street')
+  const street = writing(page)
   const thumbnail = street.locator('.still > label').first()
 
   // The Shot carries no still yet and is drawn as the box one would fill, at the
@@ -175,7 +199,7 @@ test('the thumbnail is the picker, and an empty one is the outline of a still', 
   await expect(picker).toBeFocused()
 
   // What it does not take is room. The browser's own file chrome was the widest
-  // thing in the node; clipped away inside the thumbnail it lays nothing out, so
+  // thing in the panel; clipped away inside the thumbnail it lays nothing out, so
   // what is left of it sits within the thumbnail's own box.
   const thumb = (await thumbnail.boundingBox())!
   const behind = (await picker.boundingBox())!
@@ -238,8 +262,8 @@ test('a still says what it shows, and the Reader is given it', async ({ browser,
 
   // The Author meets it in the editor beside the picker that attached the still.
   await page.goto(`/stories/${story.id}`)
-  const street = page.getByRole('article', { name: 'The street' })
-  await openNode(page, 'The street')
+  await writeScene(page, 'The street')
+  const street = writing(page)
   await expect(street.getByLabel('Description of the still of Shot 1')).toHaveValue(description)
 
   // Replacing the still leaves the Description standing: the bytes changed, and
@@ -264,8 +288,8 @@ test('a Description is the Author’s to write, to change and to take away', asy
   // A Shot with no still has nothing to describe, so nothing is asked of the
   // Author there.
   await page.goto(`/stories/${story.id}`)
-  const street = page.getByRole('article', { name: 'The street' })
-  await openNode(page, 'The street')
+  await writeScene(page, 'The street')
+  const street = writing(page)
   await expect(street.getByLabel('Description of the still of Shot 2')).toBeHidden()
 
   const field = street.getByLabel('Description of the still of Shot 1')
@@ -324,8 +348,8 @@ test('the Author drops a file on a thumbnail, and the still is the one dropped',
   const { story, shots } = await openShots(request)
   await page.goto(`/stories/${story.id}`)
 
-  const street = page.getByRole('article', { name: 'The street' })
-  await openNode(page, 'The street')
+  await writeScene(page, 'The street')
+  const street = writing(page)
   const thumbnail = street.locator('.still > label').first()
 
   // While the file is over it the thumbnail says it will take the drop, in the
@@ -366,8 +390,8 @@ test('a drop of several files takes the first image, and a refused one says why'
   const { story, shots } = await openShots(request)
   await page.goto(`/stories/${story.id}`)
 
-  const street = page.getByRole('article', { name: 'The street' })
-  await openNode(page, 'The street')
+  await writeScene(page, 'The street')
+  const street = writing(page)
   const thumbnail = street.locator('.still > label').first()
 
   // Notes and two images: the first image is attached, and nothing is said about

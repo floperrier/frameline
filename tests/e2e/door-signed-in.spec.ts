@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test'
-import { openNode, readShots, seedScene, seedStory, test } from './author'
+import { writeScene, readShots, seedScene, seedStory, test } from './author'
 
 /**
  * The door shutting under an Author who is already writing — the one refusal that
@@ -27,7 +27,7 @@ test('a write with the door shut is refused in words, offers the door, and keeps
   const scene = await seedScene(story, 'The street')
 
   await page.goto(`/stories/${story.id}`)
-  await openNode(page, 'The street')
+  await writeScene(page, 'The street')
 
   // Kept to be put back, because the whole point of the second tab is that this
   // one is still the tab it was.

@@ -2,7 +2,7 @@ import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 import { CONDITIONS_MAX, SCENE_NAME_MAX_LENGTH, VISITS_MAX } from '../../shared/utils/scenes'
 import {
-  openNode, readCuts, readSceneName, readShotConditions, readShots, seedScene, seedStory, test,
+  writeScene, readCuts, readSceneName, readShotConditions, readShots, seedScene, seedStory, test,
 } from './author'
 
 const noId = '00000000-0000-4000-8000-000000000000'
@@ -96,13 +96,13 @@ test('a Scene cannot be renamed to nothing, or to more than a name', async ({ re
   await expect(readSceneName(scene.id)).resolves.toBe('The arrival')
 })
 
-test('an Author renames a Scene in its node', async ({ page, request }) => {
+test('an Author renames a Scene in the panel', async ({ page, request }) => {
   const { story, scene } = await openScene(request, 'The arival')
   await page.goto(`/stories/${story.id}`)
 
-  // Folded, the node says the name rather than offering it to be written.
+  // On its card the Scene's name is read rather than offered to be written.
   await expect(page.getByRole('heading', { name: 'The arival' })).toBeVisible()
-  await openNode(page, 'The arival')
+  await writeScene(page, 'The arival')
 
   // Leaving the field is what writes it, as it is for a Shot and for a Cut.
   const named = page.getByRole('textbox', { name: 'Name of this Scene' })
@@ -112,21 +112,21 @@ test('an Author renames a Scene in its node', async ({ page, request }) => {
   await expect(async () => {
     await expect(readSceneName(scene.id)).resolves.toBe('The arrival')
   }).toPass()
-  // And the node answers to the new name, heading or no heading: the name it
-  // carries is the Scene's, so everything that says which Scene this is has
-  // followed the correction.
+  // And the card answers to the new name: the name it carries is the Scene's, so
+  // everything that says which Scene this is has followed the correction.
   await expect(page.getByRole('article', { name: 'The arrival' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Fold Scene The arrival' })).toBeVisible()
-  // The heading is the field, so what it is called is what the field holds: the
-  // label saying which Scene this is sits outside it rather than in front of the
-  // name.
-  await expect(page.getByRole('heading', { name: 'The arrival' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Write Scene The arrival' })).toBeVisible()
+  // The panel's heading is the field, so what it is called is what the field
+  // holds: the label saying which Scene this is sits outside it rather than in
+  // front of the name.
+  await expect(page.locator('.panel').getByRole('heading', { name: 'The arrival' }))
+    .toBeVisible()
 })
 
 test('a Scene renamed to nothing is left as it was', async ({ page, request }) => {
   const { story, scene } = await openScene(request, 'The arrival')
   await page.goto(`/stories/${story.id}`)
-  await openNode(page, 'The arrival')
+  await writeScene(page, 'The arrival')
 
   const named = page.getByRole('textbox', { name: 'Name of this Scene' })
   await named.fill('  ')
@@ -188,7 +188,7 @@ test('an Author renumbers the Shots of a Scene from the controls', async ({ page
   await writeShots(request, scene.id, ['First', 'Second', 'Third'])
 
   await page.goto(`/stories/${story.id}`)
-  await openNode(page, 'The arrival')
+  await writeScene(page, 'The arrival')
   await page.getByRole('button', { name: 'Move later Shot 1' }).click()
 
   // The control sends the whole run in its new order, so what the Scene holds is
@@ -202,7 +202,7 @@ test('an Author renumbers the Shots of a Scene from the controls', async ({ page
   }).toPass()
 
   await page.reload()
-  await openNode(page, 'The arrival')
+  await writeScene(page, 'The arrival')
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('Second')
 })
 
@@ -211,7 +211,7 @@ test('a Shot’s three controls are marks on one line', async ({ page, request }
   await writeShots(request, scene.id, ['First', 'Second', 'Third'])
 
   await page.goto(`/stories/${story.id}`)
-  await openNode(page, 'The arrival')
+  await writeScene(page, 'The arrival')
 
   // Each still says what it does and which Shot it does it to — the words moved
   // to where assistive technology alone reads them, they did not go.
@@ -243,7 +243,7 @@ test.describe('dragging a Shot', () => {
     const number = (shot: { id: string }) => page.locator(`[data-shot="${shot.id}"] .shot-number`)
 
     await page.goto(`/stories/${story.id}`)
-    await openNode(page, 'The arrival')
+    await writeScene(page, 'The arrival')
     await dragShot(page, number(first!), number(third!))
 
     // Dropped on the Shot that stood last, it takes that Place and the two it
@@ -258,10 +258,10 @@ test.describe('dragging a Shot', () => {
     }).toPass()
 
     await page.reload()
-    await openNode(page, 'The arrival')
+    await writeScene(page, 'The arrival')
     await expect(page.getByRole('textbox', { name: 'Shot 3' })).toHaveValue('First')
 
-    // A finger says nothing here: it scrolls the node, and the two controls are
+    // A finger says nothing here: it scrolls the panel, and the two controls are
     // its route to the same renumbering. The same gesture as above, aimed at the
     // same two Shots and carrying the same points — everything but the finger it
     // is made with — so what leaves the Scene as it was is the finger itself.
@@ -279,32 +279,31 @@ test.describe('dragging a Shot', () => {
     ])
   })
 
-  test('a Shot let go of over another Scene is left where it was', async ({ page, request }) => {
+  test('a Shot let go of away from the run is left where it was', async ({ page, request }) => {
     const { story, scene } = await openScene(request, 'The arrival')
     const [first] = await writeShots(request, scene.id, ['First', 'Second', 'Third'])
-    const elsewhere = await (await request.post(`/api/stories/${story.id}/scenes`,
-      { data: { name: 'The platform' } })).json()
-    const [theirs] = await writeShots(request, elsewhere.id, ['Theirs'])
     const number = (shot: { id: string }) => page.locator(`[data-shot="${shot.id}"] .shot-number`)
 
-    // Side by side, so both runs are on the bench at once and the hand can carry
-    // a Shot from one node into the other.
-    await request.patch(`/api/scenes/${scene.id}`, { data: { x: 0, y: 0 } })
-    await request.patch(`/api/scenes/${elsewhere.id}`, { data: { x: 360, y: 0 } })
-
     await page.goto(`/stories/${story.id}`)
-    await openNode(page, 'The arrival')
-    await openNode(page, 'The platform')
-    await dragShot(page, number(first!), number(theirs!))
+    await writeScene(page, 'The arrival')
 
-    // A row of another Scene is no Place of this one, so neither Scene was
-    // renumbered: the drop said nothing rather than something else.
+    // Let go of over the bare bench rather than over a Place: one panel holds one
+    // Scene's run, so anywhere that is not a row of it is nowhere the drop could
+    // mean anything. The hit-test asks the whole page, and what it comes back
+    // with is held against the run before a Place is written.
+    const held = await pointOn(number(first!))
+    const bench = (await page.locator('.graph').boundingBox())!
+    await page.mouse.move(held.x, held.y)
+    await page.mouse.down()
+    await page.mouse.move(bench.x + bench.width / 2, bench.y + bench.height - 20, { steps: 5 })
+    await page.mouse.up()
+
+    // Nothing was renumbered: the drop said nothing rather than something else.
     await expect(readShots(scene.id)).resolves.toMatchObject([
       { text: 'First', position: 0 },
       { text: 'Second', position: 1 },
       { text: 'Third', position: 2 },
     ])
-    await expect(readShots(elsewhere.id)).resolves.toMatchObject([{ text: 'Theirs', position: 0 }])
   })
 
   // Twice over, because the run is written twice: a glide of a few pixels a frame
@@ -313,13 +312,13 @@ test.describe('dragging a Shot', () => {
   // in the same time, and the Place has to be reachable either way.
   for (const motion of ['no-preference', 'reduce'] as const) {
     test.describe(`to a Place off screen, with ${motion} motion`, () => {
-      // Tall enough that the whole of an open node is on screen — bands, foot and
+      // Tall enough that the whole of the panel is on screen — bands, foot and
       // all, so every point this drag needs is one a hand could reach — and short
-      // enough that a Scene of fourteen Shots still overflows the bench the node
-      // is capped at, which is what gives the run somewhere to go.
+      // enough that a Scene of fourteen Shots still overflows the height of the
+      // bench the panel is capped at, which is what gives the run somewhere to go.
       test.use({ viewport: { width: 1280, height: 1100 }, reducedMotion: motion })
 
-      test('a Shot dragged to the edge of a long run scrolls the node to it', async ({
+      test('a Shot dragged to the edge of a long run scrolls the panel to it', async ({
         page, request,
       }) => {
         const { story, scene } = await openScene(request, 'The arrival')
@@ -331,13 +330,13 @@ test.describe('dragging a Shot', () => {
         const last = written.at(-1)!
 
         await page.goto(`/stories/${story.id}`)
-        await openNode(page, 'The arrival')
+        await writeScene(page, 'The arrival')
 
-        // The Place the drag is aimed at is off the foot of the node when it
-        // begins: the body is capped at the height of the bench, and the run is
-        // longer than that. The whole of the body is on screen, which is what
+        // The Place the drag is aimed at is off the foot of the panel when it
+        // begins: the panel is capped at the height of the bench, and the run is
+        // longer than that. The whole of the panel is on screen, which is what
         // makes the rest of this a gesture rather than an arrangement of points.
-        const body = page.locator('.body')
+        const body = page.locator('.panel')
         const box = (await body.boundingBox())!
         expect(box.y + box.height).toBeLessThan(page.viewportSize()!.height)
         expect((await number(last).boundingBox())!.y).toBeGreaterThan(box.y + box.height)
@@ -348,11 +347,11 @@ test.describe('dragging a Shot', () => {
 
         // The band is measured after the press, not before it: pressing a Shot's
         // number focuses that Shot's field, and a browser that scrolls the page
-        // to show it has moved the body since the box above was taken.
+        // to show it has moved the panel since the box above was taken.
         const pressed = (await body.boundingBox())!
         const band = { x: held.x, y: pressed.y + pressed.height - 8 }
 
-        // Into the band at the body's bottom edge, and then nothing: the hand
+        // Into the band at the panel's bottom edge, and then nothing: the hand
         // stays where it is while the run carries the list past it.
         const scrolled = () => body.evaluate(scroller => scroller.scrollTop)
         const elsewhere = () => page.evaluate(() => [
@@ -382,7 +381,7 @@ test.describe('dragging a Shot', () => {
         await expect(number(last)).toBeInViewport()
 
         // Neither the bench nor the window went anywhere while it ran: the only
-        // thing the run scrolls is the body the drag is inside.
+        // thing the run scrolls is the panel the drag is inside.
         expect(await elsewhere()).toEqual(before)
 
         // Onto the Shot that stood last, which is the Place the Author aimed at,
@@ -435,7 +434,7 @@ test.describe('dragging a Shot', () => {
    *
    * Aimed at the top of each number rather than its middle: a number is as tall
    * as the Shot it belongs to, and the third of them has its middle below the
-   * bench a Scene is opened on — which is the ceiling the drag is written with.
+   * panel a Scene is written in — which is the ceiling the drag is written with.
    */
   async function dragShot(page: Page, held: Locator, onto: Locator) {
     const from = await pointOn(held)
@@ -524,10 +523,10 @@ test('the Story page shows a Scene and the Shots in it', async ({ page, request 
 
   await page.goto(`/stories/${story.id}`)
 
-  // A node is folded until the Author opens it: what a Scene is made of is read
-  // there, and the graph is read without it.
+  // A card carries nothing to type into: what a Scene is made of is read in the
+  // panel, and the graph is read without it.
   await expect(page.getByRole('heading', { name: 'The arrival' })).toBeVisible()
-  await openNode(page, 'The arrival')
+  await writeScene(page, 'The arrival')
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('She steps off the train.')
 
   await page.getByRole('button', { name: 'Add Shot' }).click()
@@ -542,7 +541,7 @@ test('an Author writes a Story from the page alone', async ({ page, request }) =
   await page.getByRole('button', { name: 'Create Scene' }).click()
   await expect(page.getByRole('heading', { name: 'The arrival' })).toBeVisible()
   await expect(page.getByText('“The arrival” created')).toBeVisible()
-  await openNode(page, 'The arrival')
+  await writeScene(page, 'The arrival')
 
   // Blurring the Shot is what writes it, so each is left before the next is added.
   for (const [place, line] of ['She steps off the train.', 'The platform is empty.'].entries()) {
@@ -560,7 +559,7 @@ test('an Author writes a Story from the page alone', async ({ page, request }) =
 
   // What the page shows has to be what was written, not what the page remembers.
   await page.reload()
-  await openNode(page, 'The arrival')
+  await writeScene(page, 'The arrival')
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('The platform is empty.')
 
   await page.getByRole('button', { name: 'Delete Shot 1' }).click()
@@ -590,7 +589,7 @@ test('a Scene dismissed from the confirmation is left exactly as it was', async 
   await request.post(`/api/scenes/${lobby.id}/cuts`, { data: { toSceneId: scene.id } })
 
   await page.goto(`/stories/${story.id}`)
-  await openNode(page, 'The booth')
+  await writeScene(page, 'The booth')
   const control = page.getByRole('button', { name: 'Delete Scene The booth' })
   await control.click()
 
@@ -646,7 +645,7 @@ test('an Author writes a Condition on a Shot, and it reads as one line', async (
   await writeShots(request, scene.id, ['You have been here before.'])
 
   await page.goto(`/stories/${story.id}`)
-  await openNode(page, 'The booth')
+  await writeScene(page, 'The booth')
   await page.getByRole('button', { name: 'Add a Condition to Shot 1 of The booth' }).click()
 
   // Every field says which Condition of which Shot it belongs to, and nothing but
@@ -730,7 +729,7 @@ test('an Author puts a Condition on a Shot from the page alone', async ({ page, 
   await writeShots(request, scene.id, ['The projector ticks over.'])
 
   await page.goto(`/stories/${story.id}`)
-  await openNode(page, 'The booth')
+  await writeScene(page, 'The booth')
 
   await page.getByRole('button', { name: 'Add a Condition to Shot 1 of The booth' }).click()
   // A visit count is whole the moment it is chosen, and starts on the Scene the
@@ -747,7 +746,7 @@ test('an Author puts a Condition on a Shot from the page alone', async ({ page, 
 
   // What the page shows has to be what was written, not what the page remembers.
   await page.reload()
-  await openNode(page, 'The booth')
+  await writeScene(page, 'The booth')
   await expect(page.getByLabel('Condition 1 of Shot 1 of The booth', { exact: true }))
     .toHaveValue('visits')
   await expect(page.getByLabel('times for Condition 1 of Shot 1 of The booth')).toHaveValue('2')
