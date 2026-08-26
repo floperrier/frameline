@@ -122,24 +122,47 @@ describe('the Cue the bench is showing', () => {
     expect(asking(story)).toBe('putCondition')
   })
 
-  it('asks nothing once a Shot of the second Scene tests that Flag', () => {
+  it('asks for the Preview once a Shot of the second Scene tests that Flag', () => {
     const story = joined()
     sets(story, 0, { courage: 'high' })
     playedWhen(story, 1, { flag: 'courage', is: 'low' })
 
-    expect(asking(story)).toBeUndefined()
+    expect(asking(story)).toBe('previewCondition')
   })
 
   /**
-   * Written broken on purpose is what the step asks for, and written whole is not
-   * a failure of it: the Author who guessed the value right the first time has
-   * still written a Condition, and the Cue that puts a broken one right is the
-   * next ticket's.
+   * Written broken on purpose is what the Condition step asks for, and the step
+   * after it is met by the value being right however the Author got there: the
+   * one who guessed it right the first time, or never opened the Preview at all,
+   * is past both and asked to publish.
    */
-  it('takes a Condition that holds as the Condition it asked for', () => {
+  it('asks for the Publish once the Condition names a value the Flag holds', () => {
     const story = joined()
     sets(story, 0, { courage: 'high' })
     playedWhen(story, 1, { flag: 'courage', is: 'high' })
+
+    expect(asking(story)).toBe('publish')
+  })
+
+  /**
+   * The Flag is set on one Scene and tested on another, so what has to match is
+   * the value some Scene of this Story actually sets it to. A Condition against a
+   * value nothing sets is the broken one the Preview has to explain.
+   */
+  it('goes on asking for the Preview while the value is one no Scene sets', () => {
+    const story = joined()
+    sets(story, 0, { courage: 'high' })
+    sets(story, 1, { coat: 'on' })
+    playedWhen(story, 1, { flag: 'courage', is: 'mislaid' })
+
+    expect(asking(story)).toBe('previewCondition')
+  })
+
+  it('asks nothing once that Story is published', () => {
+    const story = joined()
+    sets(story, 0, { courage: 'high' })
+    playedWhen(story, 1, { flag: 'courage', is: 'high' })
+    story.publishedAt = '2026-01-01T00:00:00.000Z'
 
     expect(asking(story)).toBeUndefined()
   })

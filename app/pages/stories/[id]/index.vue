@@ -1125,13 +1125,20 @@ function atAGlance(scene: Scene) {
              whole Story. Not a live region: it appears every time a field is left,
              and announcing that would talk over the next thing typed. -->
         <p v-if="kept" class="kept-at">{{ $t('editor.keptAt', { time: kept }) }}</p>
-        <NuxtLink class="preview trail" :to="localePath(`/stories/${id}/preview`)">
+        <NuxtLink
+          class="preview trail"
+          data-cue="preview"
+          :to="localePath(`/stories/${id}/preview`)"
+        >
           {{ $t('editor.preview') }}
         </NuxtLink>
         <button v-if="story?.publishedAt" type="button" @click="unpublish">
           {{ $t('editor.unpublish') }}
         </button>
-        <button v-else type="button" class="primary" @click="publish">
+        <!-- The guided path ends here, so `data-cue` is on this one and not on
+             the button that unpublishes: the Cue is met by the Story being
+             published, and by then there is nothing left to point at. -->
+        <button v-else type="button" class="primary" data-cue="publish" @click="publish">
           {{ $t('editor.publish') }}
         </button>
       </div>

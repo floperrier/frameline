@@ -134,7 +134,9 @@
     "secondScene": "Un Récit bifurque entre les Scènes, jamais à l’intérieur d’une seule. Nommez ici une deuxième Scène, celle où mène la première.",
     "drawCut": "Une Coupe est l’issue. Tirez depuis la bande au bord de la première Scène jusqu’à la seconde, puis lâchez.",
     "setFlag": "L’État est ce qu’une Lecture emporte avec elle. Posez un Marqueur sur cette Scène — « courage = élevé » — et il est posé pour tout Lecteur qui y entre.",
-    "putCondition": "Une Condition fait jouer la même Scène différemment selon le Lecteur, sans bifurquer. Ouvrez la deuxième Scène, ajoutez-y un Plan, et faites-le jouer quand ce Marqueur vaut autre chose — « faible » fera l’affaire. Rien ne le joue encore, et c’est tout l’intérêt."
+    "putCondition": "Une Condition fait jouer la même Scène différemment selon le Lecteur, sans bifurquer. Ouvrez la deuxième Scène, ajoutez-y un Plan, et faites-le jouer quand ce Marqueur vaut autre chose — « faible » fera l’affaire. Rien ne le joue encore, et c’est tout l’intérêt.",
+    "previewCondition": "Rien ne joue ce Plan, et l’Aperçu dit pourquoi : il lit le Récit sur le moteur d’une Lecture, et montre pour chaque Plan qu’il a écarté ce que son test demandait, en face de ce que l’État contient vraiment. Ouvrez-le, lisez cela, puis revenez corriger la valeur.",
+    "publish": "Voilà un Récit qui fonctionne. Publiez-le : n’importe qui peut alors le lire à son propre lien — celui que cette page affiche ensuite, à donner à qui vous l’avez écrit."
   },
   "preview": {
     "back": "Retour au Récit",
