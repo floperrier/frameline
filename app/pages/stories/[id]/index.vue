@@ -1359,7 +1359,10 @@ function atAGlance(scene: Scene) {
 
             <template v-else>
               <div class="standing">
-                <p class="opening">
+                <!-- `data-cue` is on the line rather than on the radio: the
+                     spotlight is a rectangle, and a radio's own is a dot beside
+                     the words that say what it marks. -->
+                <p class="opening" data-cue="opening-scene">
                   <input
                     :id="`opening-${scene.id}`"
                     type="radio"

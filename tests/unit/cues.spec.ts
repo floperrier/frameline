@@ -122,6 +122,16 @@ describe('the Cue the bench is showing', () => {
     expect(asking(story)).toBe('putCondition')
   })
 
+  /** The one step that is skipped by every Story that never lost its opening. */
+  it('asks for an opening Scene once the Story has lost the one it had', () => {
+    const story = joined()
+    sets(story, 0, { courage: 'high' })
+    playedWhen(story, 1, { flag: 'courage', is: 'low' })
+    story.openingSceneId = null
+
+    expect(asking(story)).toBe('openingScene')
+  })
+
   it('asks for the Preview once a Shot of the second Scene tests that Flag', () => {
     const story = joined()
     sets(story, 0, { courage: 'high' })
