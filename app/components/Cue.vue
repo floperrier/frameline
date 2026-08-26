@@ -14,14 +14,15 @@
  * talk over the field the Author is typing in — the same reason the bench's
  * `keptAt` mark is not one either.
  */
-const { story, opened } = defineProps<{
+const { story, writing } = defineProps<{
   /** The Story on the bench, which is nearly the whole of what a Cue is computed from. */
   story?: StoryInEditor
   /**
-   * Which Scenes have their node open. The rest of what a Cue asks about is in
-   * the Story; this is not, and a Cue may not point into a folded node.
+   * Which Scene is in the panel at the edge of the bench, if one is. The rest of
+   * what a Cue asks about is in the Story; this is not, and a Cue may not point
+   * into a panel nobody has opened.
    */
-  opened: ReadonlySet<string>
+  writing?: string
 }>()
 
 /**
@@ -42,7 +43,7 @@ const BUBBLE_WIDTH = 320
 const dismissed = ref(true)
 
 const cue = computed(() =>
-  !dismissed.value && story ? cueShowing(story, opened) : undefined)
+  !dismissed.value && story ? cueShowing(story, writing) : undefined)
 
 /** Where the target is on screen, or nothing when the target is not on screen at all. */
 const box = ref<DOMRect>()
@@ -50,22 +51,13 @@ const box = ref<DOMRect>()
 /**
  * What the Cue showing is pointing at, as a selector.
  *
- * A target the editor draws once per node — the fold, the strip a Cut is drawn
- * from, the field a Scene's Flags are typed in — is found on the first node of
- * the graph, which is the first Scene the Author wrote and where most of the path
- * is walked. A Cue asking about a particular Scene says which, and is scoped to
- * that node by the id the node carries; one naming a Scene the Story has not got
- * yet points at nothing, and the bubble goes adrift rather than lighting the
- * wrong Scene's copy of the control.
+ * A target the editor draws once per card — the button that writes a Scene, the
+ * strip a Cut is drawn from — is found on the first card of the graph, which is
+ * the first Scene the Author wrote and where most of the path is walked.
+ * Everything else a Cue points at is in the panel, which holds one Scene by
+ * construction, so nothing has to be scoped to a Scene by id.
  */
-const pointing = computed(() => {
-  if (!cue.value) return undefined
-
-  const within = story && cue.value.within?.(story)
-  if (cue.value.within && !within) return undefined
-
-  return `${within ? `[data-scene="${within}"] ` : ''}[data-cue="${cue.value.target}"]`
-})
+const pointing = computed(() => cue.value && `[data-cue="${cue.value.target}"]`)
 
 function dismiss() {
   localStorage.setItem(dismissalOf(story!.id), '1')
@@ -76,19 +68,21 @@ function dismiss() {
  * The target's rectangle, read every frame for as long as a Cue is showing.
  *
  * A frame at a time rather than on a list of the things that move it: the graph
- * scrolls, a node folds, the window resizes, a Refusal appears above the bench
- * and pushes everything down, and a spotlight that lags one of those is a
- * defect an Author sees immediately. Nothing is written unless the rectangle
- * actually changed, so a bench nobody is touching costs a read and no render,
- * and the loop stops the moment the Cue is met — which is the point of the Cue.
+ * scrolls, the panel opens and pushes it narrower, the window resizes, a Refusal
+ * appears above the bench and pushes everything down, and a spotlight that lags
+ * one of those is a defect an Author sees immediately. Nothing is written unless
+ * the rectangle actually changed, so a bench nobody is touching costs a read and
+ * no render, and the loop stops the moment the Cue is met — which is the point of
+ * the Cue.
  */
 function look() {
   const target = pointing.value ? document.querySelector(pointing.value) : null
   const seen = target?.getBoundingClientRect()
-  // A target inside a folded node is in the document and has no rectangle worth
-  // pointing at: an element that draws nothing measures nothing, and a light on
-  // a rectangle of no size would be a dot in the corner of the bench. Read as
-  // absent, so the bubble goes adrift rather than being wrong about the screen.
+  // A target scrolled out of the panel it is in is in the document and has no
+  // rectangle worth pointing at: an element that draws nothing measures nothing,
+  // and a light on a rectangle of no size would be a dot in the corner of the
+  // bench. Read as absent, so the bubble goes adrift rather than being wrong
+  // about the screen.
   const found = seen?.width && seen.height ? seen : undefined
   if (!alike(box.value, found)) box.value = found
 
@@ -155,8 +149,8 @@ const wide = { inlineSize: `min(${BUBBLE_WIDTH}px, calc(100vw - 2 * var(--s4)))`
 <template>
   <template v-if="cue">
     <div v-if="lit" class="spotlight" :style="lit" />
-    <!-- Drawn whether or not there is anything to point at. The Author can fold a
-         node or scroll the target off the bench at any moment, and a bubble
+    <!-- Drawn whether or not there is anything to point at. The Author can close
+         the panel or scroll the target off the bench at any moment, and a bubble
          pointing at nothing would be the guidance being wrong about the screen;
          adrift, it carries the same sentence from a corner. -->
     <aside

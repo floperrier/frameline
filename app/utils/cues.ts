@@ -3,9 +3,9 @@
  * one step at a time.
  *
  * A Cue is a predicate over the Story the bench already holds, never a listener
- * on what the Author did. The one thing it reads besides the Story is which
- * nodes the Author has open, because no Cue may point into one they have
- * folded. The editor fetches the whole Story and reads it back after every
+ * on what the Author did. The one thing it reads besides the Story is which Scene
+ * is in the panel at the edge of the bench, because no Cue may point into a panel
+ * that is not open. The editor fetches the whole Story and reads it back after every
  * write, so a Cue asks a question of that data — this Story has at least one
  * Scene — and is therefore idempotent, survives a reload, and cannot disagree
  * with the screen. Nothing stores progress, because the Story is the
@@ -38,35 +38,27 @@ export type Cue = {
   target: string
   /**
    * Whether the bench already holds what this Cue asks for: the Story, and which
-   * of its nodes the Author has open. What is folded is the one thing a Cue asks
-   * about that is not in the Story — it is how the Author is looking at their own
-   * work and is never written anywhere — and a Cue may not point into a node the
-   * Author has folded, so opening one is a step like the rest.
+   * Scene is in the panel. The panel is the one thing a Cue asks about that is not
+   * in the Story — it is how the Author is looking at their own work and is never
+   * written anywhere — and a Cue may not point into a panel nobody has opened, so
+   * writing a Scene is a step like the rest.
    */
-  met: (story: StoryInEditor, opened: ReadonlySet<string>) => boolean
-  /**
-   * Which Scene's node the target is looked for in, where the target is one the
-   * editor draws once per node and the Cue asks about a particular Scene. Without
-   * it the first node of the graph is the one pointed at, which is the first Scene
-   * the Author wrote and where most of the path is walked. A Cue naming a Scene
-   * the Story has not got yet points at nothing, and the bubble goes adrift.
-   */
-  within?: (story: StoryInEditor) => string | undefined
+  met: (story: StoryInEditor, writing?: string) => boolean
 }
 
 export const CUES: Cue[] = [
   // The only thing a Story cannot be without, so it is the only thing asked for
   // before anything else exists to point at.
   { name: 'nameScene', target: 'new-scene-name', met: story => story.scenes.length > 0 },
-  // Nothing inside a Scene can be pointed at while its node is folded, so the
-  // node is opened by the Author before anything in it is asked for — and only
-  // for the sake of what is written in it, so a Story whose Shots are already
-  // written is never asked to open anything. A Leader, which arrives finished
-  // with every node folded, is asked nothing at all.
+  // Nothing inside a Scene can be pointed at until the Scene is in the panel, so
+  // the Author puts one there before anything in it is asked for — and only for
+  // the sake of what is written in it, so a Story whose Shots are already written
+  // is never asked to open the panel at all. A Leader, which arrives finished, is
+  // asked nothing.
   {
-    name: 'openScene',
-    target: 'open-scene',
-    met: (story, opened) => story.scenes.some(scene => opened.has(scene.id)) || written(story),
+    name: 'writeScene',
+    target: 'write-scene',
+    met: (story, writing) => Boolean(writing) || written(story),
   },
   // Written rather than merely added, and written is text: a Shot is asked for
   // here as the beat it carries, so a still attached to an empty one has not met
@@ -98,7 +90,6 @@ export const CUES: Cue[] = [
   {
     name: 'putCondition',
     target: 'shot-condition',
-    within: story => story.scenes[1]?.id,
     met: story => Boolean(conditionTaught(story)),
   },
   // A Story is allowed to sit with no opening Scene — the Author decides where
@@ -109,8 +100,8 @@ export const CUES: Cue[] = [
   // to Publish, and both of them refuse a Story that has nowhere to start. Met
   // by every Story that never lost its opening, so the ordinary path never sees
   // it. The sentence carries the whole gesture the way the Condition's does: the
-  // mark is drawn inside a node, and this is the one Cue that can be arrived at
-  // with every node folded, so it may not say "here".
+  // mark is set in the panel, and this is the one Cue that can be arrived at with
+  // no Scene in it, so it may not say "here".
   {
     name: 'openingScene',
     target: 'opening-scene',
@@ -174,8 +165,8 @@ function conditionTaught(story: StoryInEditor, holding = false) {
  * at all once every one of them has. A Story that arrives finished — a Leader, or
  * the Author's fourth — therefore asks nothing.
  */
-export function cueShowing(story: StoryInEditor, opened: ReadonlySet<string>) {
-  return CUES.find(cue => !cue.met(story, opened))
+export function cueShowing(story: StoryInEditor, writing?: string) {
+  return CUES.find(cue => !cue.met(story, writing))
 }
 
 /**

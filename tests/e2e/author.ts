@@ -139,12 +139,13 @@ export async function seedScenes(story: Story, names: string[]) {
 }
 
 /**
- * Opens a Scene's node on the graph, the way the Author would. A node starts
- * folded — its name, its Shot count and its ways on, and the editor on demand —
- * so a test that writes anything about a Scene from the page unfolds it first.
+ * Puts a Scene in the panel at the edge of the bench, the way the Author would. A
+ * card carries nothing to type into — the Scene's name, the still of its first
+ * Shot, its Shot count and where its ways on land — so a test that writes
+ * anything about a Scene from the page opens its panel first.
  */
-export async function openNode(page: Page, name: string) {
-  await page.getByRole('button', { name: `Open Scene ${name}` }).click()
+export async function writeScene(page: Page, name: string) {
+  await page.getByRole('button', { name: `Write Scene ${name}` }).click()
 }
 
 /** Draws a Cut on behalf of an Author nobody is signed in as. */

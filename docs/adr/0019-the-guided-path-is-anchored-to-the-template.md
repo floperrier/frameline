@@ -69,7 +69,16 @@ guidance builds, and it is built out of two things the template says about
 itself rather than out of a class. One naming a Scene the Story has not got yet
 points at nothing, which is the same degradation as a folded node.
 
-The Author may fold a node or scroll a target off the bench at any moment, so the
+That scoping is since gone. A Scene is written in a panel at the edge of the
+bench rather than inside its node — see
+`docs/adr/0021-a-scene-is-written-in-a-panel-at-the-edge-of-the-bench.md` — so
+every target inside a Scene is drawn once, in a panel that holds one Scene by
+construction, and the only targets drawn per node are the two on the card itself.
+There is nothing left to say "which Scene", so the guidance names a `data-cue`
+and nothing else, and the whole of what it asks about outside the Story is which
+Scene is in the panel.
+
+A target can be scrolled out of the panel or off the bench at any moment, so the
 bubble degrades rather than pointing at nothing: with no rectangle to work from
 it becomes a fixed panel carrying the same sentence.
 

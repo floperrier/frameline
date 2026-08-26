@@ -58,12 +58,12 @@ function playedWhen(story: StoryInEditor, scene: number, ...conditions: Conditio
   ] as StoryInEditor['scenes'][number]['shots']
 }
 
-/** No node open, which is how every node starts. */
-const FOLDED: ReadonlySet<string> = new Set()
-
-/** What the bench is asking for, of a Story with the nodes it is given open. */
-function asking(story: StoryInEditor, opened: ReadonlySet<string> = FOLDED) {
-  return cueShowing(story, opened)?.name
+/**
+ * What the bench is asking for, of a Story with the Scene it is given in the
+ * panel — and of one with nothing in it, which is where the bench starts.
+ */
+function asking(story: StoryInEditor, writing?: string) {
+  return cueShowing(story, writing)?.name
 }
 
 describe('the Cue the bench is showing', () => {
@@ -71,43 +71,43 @@ describe('the Cue the bench is showing', () => {
     expect(asking(onTheBench())).toBe('nameScene')
   })
 
-  it('asks for the node to be opened once there is a Scene in it', () => {
-    expect(asking(onTheBench([['The arrival']]))).toBe('openScene')
+  it('asks for the Scene to be written once there is one on the bench', () => {
+    expect(asking(onTheBench([['The arrival']]))).toBe('writeScene')
   })
 
-  it('asks for a Shot to be written once a node is open', () => {
+  it('asks for a Shot to be written once a Scene is in the panel', () => {
     const story = onTheBench([['The arrival']])
 
-    expect(asking(story, new Set(['The arrival']))).toBe('writeShot')
+    expect(asking(story, 'The arrival')).toBe('writeShot')
   })
 
   it('reads a Shot of blank space as one nobody has written', () => {
     const story = onTheBench([['The arrival', '   ']])
 
-    expect(asking(story, new Set(['The arrival']))).toBe('writeShot')
+    expect(asking(story, 'The arrival')).toBe('writeShot')
   })
 
   it('asks for a second Scene once the first Shot is written', () => {
     const story = onTheBench([['The arrival', 'The train pulls in.']])
 
-    expect(asking(story, new Set(['The arrival']))).toBe('secondScene')
+    expect(asking(story, 'The arrival')).toBe('secondScene')
   })
 
   it('asks for a Cut once there are two Scenes to join', () => {
     const story = onTheBench([['The arrival', 'The train pulls in.'], ['The platform']])
 
-    expect(asking(story, new Set(['The arrival']))).toBe('drawCut')
+    expect(asking(story, 'The arrival')).toBe('drawCut')
   })
 
   it('asks for a Flag once the two Scenes are joined', () => {
-    expect(asking(joined(), new Set(['The arrival']))).toBe('setFlag')
+    expect(asking(joined(), 'The arrival')).toBe('setFlag')
   })
 
   it('asks for a Condition once a Flag is set', () => {
     const story = joined()
     sets(story, 0, { courage: 'high' })
 
-    expect(asking(story, new Set(['The arrival']))).toBe('putCondition')
+    expect(asking(story, 'The arrival')).toBe('putCondition')
   })
 
   /**
@@ -235,8 +235,8 @@ describe('the Cue the bench is showing', () => {
 
   /**
    * Nothing blocks and nothing is confirmed, so an Author who improvises past
-   * three steps meets three Cues and is asked for the fourth, whatever their
-   * nodes are folded to.
+   * three steps meets three Cues and is asked for the fourth, whatever the panel
+   * is holding.
    */
   it('asks for what is still missing when the Author works out of order', () => {
     const story = onTheBench([['The arrival', 'The train pulls in.'], ['The platform']])
@@ -245,11 +245,11 @@ describe('the Cue the bench is showing', () => {
   })
 
   /**
-   * A node is opened for the sake of what is written in it, so a Story that
-   * arrives written — a Leader — is never asked to open one, and a Leader, which
-   * is past every step, is asked nothing at all.
+   * The panel is opened for the sake of what is written in it, so a Story that
+   * arrives written — a Leader — is never asked to open it, and a Leader, which is
+   * past every step, is asked nothing at all.
    */
-  it('asks a Story whose Shots are already written to open nothing', () => {
+  it('asks a Story whose Shots are already written to open no panel', () => {
     const story = onTheBench([['The arrival', 'The train pulls in.']])
 
     expect(asking(story)).toBe('secondScene')

@@ -88,6 +88,6 @@ test('a Story with no opening Scene cannot be published', async ({ page, request
 
   await expect(page.getByRole('alert')).toHaveText(
     'A Story needs an opening Scene before it can be published. '
-    + 'Open a Scene on the graph and mark it as the one to start on.')
+    + 'Write a Scene on the graph and mark it as the one to start on.')
   await expect(page.getByRole('button', { name: 'Publish this Story', exact: true })).toBeVisible()
 })

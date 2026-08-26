@@ -63,7 +63,10 @@ _Avoid_: choice, option, link, branch, edge, transition, raccord, montage
 **Graph**:
 A whole Story seen at once, as its Scenes and the Cuts between them. A Scene is
 drawn in it as a node and a Cut as an edge — words for the drawing, never for the
-Scene or the Cut itself.
+Scene or the Cut itself. A node is drawn as a card, which is a word for that
+drawing on the same terms: the Scene it stands for is never a card, and what a
+Scene is written in is the panel at the edge of the bench — see
+`docs/adr/0021-a-scene-is-written-in-a-panel-at-the-edge-of-the-bench.md`.
 _Affiché_: Graphe
 _Avoid_: map, tree, flowchart, board, canvas
 
