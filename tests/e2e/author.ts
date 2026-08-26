@@ -128,8 +128,9 @@ export async function seedScenes(story: Story, names: string[]) {
     from unnest(${names}::text[]) with ordinality as named (name, place)
     returning id, name` as Pick<Scene, 'id' | 'name'>[]
 
-  // A Shot apiece, because a Scene the API made always has one, and a graph
-  // seeded without them is a graph no Author could have written.
+  // A Shot apiece, written rather than empty, because a Scene the API made
+  // arrives with none and an Author's first move inside one is to write a Shot:
+  // a graph seeded without them is a graph no Author would have stopped at.
   await sql`
     insert into shots (scene_id, text, position)
     select id, 'Their Shot', 0 from unnest(${scenes.map(scene => scene.id)}::uuid[]) as seeded (id)`
