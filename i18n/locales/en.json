@@ -37,7 +37,21 @@
     "specimenScene": "The street",
     "specimenShot": "The door gives on the third push. Rain, and the neon of the bar opposite, already lit at four in the afternoon.",
     "specimenCutOne": "Cross to the bar",
-    "specimenCutTwo": "Stay in the doorway until it eases"
+    "specimenCutTwo": "Stay in the doorway until it eases",
+    "made": "What a Story is made of",
+    "terms": {
+      "storyTerm": "Story",
+      "storyLine": "A whole work, owned by you and handed to a Reader as one link.",
+      "sceneTerm": "Scene",
+      "sceneLine": "A linear run of Shots, and the only unit at which a Story branches.",
+      "shotTerm": "Shot",
+      "shotLine": "One beat: an image, its text, or both. The smallest thing a Reader is shown.",
+      "cutTerm": "Cut",
+      "cutLine": "A way on from one Scene to another, offered at the end of a Scene for the Reader to take.",
+      "conditionTerm": "Condition",
+      "conditionLine": "A test that decides whether a Shot plays or a Cut is offered, so the same Scene reads differently without ever branching."
+    },
+    "reading": "Read a published Story on the engine a Reader runs"
   },
   "stories": {
     "heading": "Stories",
