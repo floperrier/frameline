@@ -101,6 +101,22 @@ export const CUES: Cue[] = [
     within: story => story.scenes[1]?.id,
     met: story => Boolean(conditionTaught(story)),
   },
+  // What puts the broken Condition right, and the one Cue whose sentence asks for
+  // something outside the bench: open the Preview, watch the Shot not play, read
+  // what the interface says the test asked for against what the State holds, and
+  // come back and correct it. The trip through the Preview is instructed and not
+  // tracked — whether the Author opened it is not a property of the Story and
+  // nothing here stores anything — so the predicate is only the end of the
+  // gesture, and an Author who fixed the value without ever previewing is not
+  // stuck.
+  {
+    name: 'previewCondition',
+    target: 'preview',
+    met: story => Boolean(conditionTaught(story, true)),
+  },
+  // The reward rather than a lesson: a Story that works, handed out at a link
+  // anybody can read.
+  { name: 'publish', target: 'publish', met: story => Boolean(story.publishedAt) },
 ]
 
 /** Whether anything has been written in this Story yet: one Shot carrying text. */
@@ -114,13 +130,28 @@ function written(story: StoryInEditor) {
  * a Flag nothing sets is not the one that was asked for — it would test the
  * absence of a Flag, which is a thing an Author can mean but is not this lesson —
  * and neither is a visit count, which the Leader teaches instead.
+ *
+ * `holding` asks the same question of the value as well: not merely a Flag that
+ * is set, but the value it is set to, which is the Condition the Author corrected
+ * after the Preview explained why the Shot did not play.
+ *
+ * Any Scene setting it to that value counts, the same way any Scene setting a
+ * Flag at all meets the Cue before this one. Asking whether the value is the one
+ * the second Scene actually arrives holding would mean running the Reading engine
+ * from the opening Scene — which is what the Preview is for, and far more than a
+ * predicate over the Story on the bench. The cost of the lenient reading is a
+ * Story whose fourth Scene sets the same Flag to the value its second tests: the
+ * Cue reads as met while a Reader still never plays that Shot. The cost of the
+ * strict one is the whole engine in here, and an Author told they are wrong when
+ * they are not.
  */
-function conditionTaught(story: StoryInEditor) {
-  const set = new Set(story.scenes.flatMap(scene => Object.keys(scene.sets)))
+function conditionTaught(story: StoryInEditor, holding = false) {
+  const flagsSet = story.scenes.flatMap(scene => Object.entries(scene.sets))
 
   return story.scenes[1]?.shots
     .flatMap(shot => shot.conditions)
-    .find(condition => 'flag' in condition && set.has(condition.flag))
+    .find(condition => 'flag' in condition && flagsSet.some(([flag, value]) =>
+      flag === condition.flag && (!holding || value === condition.is)))
 }
 
 /**

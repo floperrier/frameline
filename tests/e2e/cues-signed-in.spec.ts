@@ -1,5 +1,13 @@
 import { expect, type Locator, type Page } from '@playwright/test'
-import { seedCut, seedFlags, seedScene, seedShotConditions, seedStory, test } from './author'
+import {
+  seedCut,
+  seedFlags,
+  seedPublication,
+  seedScene,
+  seedShotConditions,
+  seedStory,
+  test,
+} from './author'
 
 /** The sentence the first Cue says, which is how the guidance is recognised. */
 const FIRST_CUE = /Every Story starts with a Scene/
@@ -68,7 +76,10 @@ test('a Story that is past every step is guided not at all', async ({ page, auth
   const platform = await seedScene(story, 'The platform')
   await seedCut(arrival.id, platform.id)
   await seedFlags(arrival.id, { courage: 'high' })
-  await seedShotConditions(platform.shots[0]!.id, [{ flag: 'courage', is: 'low' }])
+  // The Condition names the value the Flag holds, which is the step the Preview
+  // teaches, and the Story is out at its link, which is the last one.
+  await seedShotConditions(platform.shots[0]!.id, [{ flag: 'courage', is: 'high' }])
+  await seedPublication(story)
 
   await page.goto(`/stories/${story.id}`)
 
@@ -95,15 +106,15 @@ test('an Author who knows what they are doing waves the guidance away', async ({
 })
 
 /**
- * The path from a Story with nothing in it to two Scenes joined by a Cut and a
- * Condition on the second, walked as one spec rather than one per step: what the
- * guidance is is the order the steps come in, and a spec per step would never
- * have crossed from one to the next.
+ * The whole path, from a Story with nothing in it to a link anybody can read,
+ * walked as one spec rather than one per step: what the guidance is is the order
+ * the steps come in, and a spec per step would never have crossed from one to the
+ * next.
  *
  * A tall bench, because the second Scene is stacked under the first and the Cut
  * between them is drawn by hand across both nodes.
  */
-test('the bench walks an Author from a bare Story to two Scenes, a Cut and a Condition', async ({
+test('the bench walks an Author from a bare Story to a published one', async ({
   page,
   author,
 }) => {
@@ -174,9 +185,40 @@ test('the bench walks an Author from a bare Story to two Scenes, a Cut and a Con
   // Written against a value the Flag does not hold, which is what the sentence
   // asked for and what gives the Preview something to explain.
   await page.getByLabel(`Flag of Condition 1 of ${carrier}`).fill('courage')
-  await page.getByLabel(`holds for Condition 1 of ${carrier}`).fill('low')
-  await page.getByLabel(`holds for Condition 1 of ${carrier}`).blur()
+  const holds = page.getByLabel(`holds for Condition 1 of ${carrier}`)
+  await holds.fill('low')
+  await holds.blur()
 
+  // The Preview, which is where the Condition stops being an idea about State
+  // and becomes a Shot that does not play.
+  await expect(bubble(page)).toContainText(/Nothing plays that Shot/)
+  await lights(page, page.getByRole('link', { name: 'Preview this Story' }))
+  await page.getByRole('link', { name: 'Preview this Story' }).click()
+
+  // Taken to the second Scene, where the bench names the Shot the Reading left
+  // out and both sides of the test it failed.
+  await page.getByRole('button', { name: 'Next Shot' }).click()
+  await page.getByRole('button', { name: 'Cut to The platform' }).click()
+  const bench = page.getByRole('region', { name: /On the bench/ })
+  await expect(bench.getByText('needs courage to hold low, holds high')).toBeVisible()
+
+  // Back to the bench and corrected, which is all the step ever asked of the
+  // Story: nowhere is it written that the Preview was opened. The nodes are
+  // folded again, because what is open is how the Author is looking at the work
+  // and does not survive leaving the page.
+  await page.getByRole('link', { name: 'Back to the Story' }).click()
+  await lights(page, page.getByRole('link', { name: 'Preview this Story' }))
+  await platform.getByRole('button', { name: 'Open Scene The platform' }).click()
+  await holds.fill('high')
+  await holds.blur()
+
+  // And the reward: a Story that works, out at a link anybody can read.
+  await expect(bubble(page)).toContainText(/That is a Story that works/)
+  const publish = page.getByRole('button', { name: 'Publish this Story' })
+  await lights(page, publish)
+  await publish.click()
+
+  await expect(page.getByRole('link', { name: new RegExp(`/read/${story.id}$`) })).toBeVisible()
   await expect(bubble(page)).toBeHidden()
   await expect(page.locator('.spotlight')).toBeHidden()
 })

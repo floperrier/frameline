@@ -168,6 +168,22 @@ export async function readCuts(fromSceneId: string) {
     order by position` as Cut[]
 }
 
+/**
+ * Publishes a Story past the API, so a spec can start from one already out. The
+ * opening Scene comes with it — the API refuses to publish a Story without one,
+ * and a Scene seeded past the API leaves it unset — so what is seeded is a Story
+ * the product would have allowed.
+ */
+export async function seedPublication(story: Story) {
+  await sql`
+    update stories set
+      published_at = now(),
+      opening_scene_id = coalesce(
+        opening_scene_id,
+        (select id from scenes where story_id = ${story.id} order by created_at limit 1))
+    where id = ${story.id}`
+}
+
 /** Sets the Flags a Scene carries, past the API, on behalf of an Author. */
 export async function seedFlags(sceneId: string, sets: Flags) {
   await sql`update scenes set sets = ${JSON.stringify(sets)}::jsonb where id = ${sceneId}`
