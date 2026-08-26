@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url'
+
 export default defineNuxtConfig({
   modules: ['nuxt-auth-utils', '@nuxt/fonts', '@nuxtjs/i18n'],
   compatibilityDate: '2026-08-19',
@@ -55,6 +57,18 @@ export default defineNuxtConfig({
   routeRules: {
     '/read/**': { headers: { 'cache-control': 'no-store' } },
     '/api/read/**': { headers: { 'cache-control': 'no-store' } },
+  },
+  // The Leaders' stills, which planting reads as it writes a Leader into a new
+  // account. They are committed WebP files beside the work rather than developed
+  // at planting time — see
+  // `docs/adr/0018-a-leader-exists-once-per-language.md` — and the deployed
+  // bundle is not the repository, so they ride in as a server asset instead of
+  // being read off a path that does not survive the build.
+  nitro: {
+    serverAssets: [{
+      baseName: 'leaders',
+      dir: fileURLToPath(new URL('demonstration/stills', import.meta.url)),
+    }],
   },
   runtimeConfig: {
     databaseUrl: process.env.DATABASE_URL ?? '',

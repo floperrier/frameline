@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { authors } from '../db/schema'
 import { useDb } from '../db'
@@ -9,6 +9,12 @@ import { useDb } from '../db'
  * only safe for an email the provider vouches for. Google always reports
  * `email_verified`; GitHub reports it for the primary email it hands back, and
  * only ever makes a verified email public, so an absent flag is not a rejection.
+ *
+ * Two statements rather than the one upsert this used to be, because an account
+ * being created is a fact this has to know rather than infer: the insert does
+ * nothing where the email is already an Author's, so a row coming back means the
+ * account is new and the Leader is planted in it. Nothing else in the product
+ * can tell a first sign-in from the hundredth.
  */
 export async function signInAuthor(
   event: H3Event,
@@ -19,14 +25,32 @@ export async function signInAuthor(
     return failSignIn(event, provider, 'no email the provider vouches for')
   }
 
-  const [author] = await useDb()
+  const [created] = await useDb()
     .insert(authors)
     .values({ email: identity.email, name: identity.name ?? null })
-    .onConflictDoUpdate({
-      target: authors.email,
-      set: { name: sql`coalesce(excluded.name, ${authors.name})` },
-    })
+    .onConflictDoNothing({ target: authors.email })
     .returning()
+
+  const [author] = created
+    ? [created]
+    : await useDb()
+      .update(authors)
+      // The name the provider hands back, and the one already held where it
+      // hands back none: an Author who signed in with the other provider keeps
+      // the name they arrived with.
+      .set({ name: sql`coalesce(${identity.name ?? null}::text, ${authors.name})` })
+      .where(eq(authors.email, identity.email))
+      .returning()
+
+  // A Leader in the Language the Locale of this very request asks for, planted
+  // before the session is sealed so the account's first `Stories` page has it.
+  // It never refuses: see `plantLeader`.
+  if (created) {
+    await plantLeader(created.id, localeOf(
+      getRequestHeader(event, 'accept-language'),
+      getCookie(event, LOCALE_COOKIE),
+    ))
+  }
 
   await setUserSession(event, {
     user: { id: author!.id, email: author!.email, name: author!.name },
