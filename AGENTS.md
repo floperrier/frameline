@@ -113,3 +113,5 @@ or newer, which is the version that strips the types itself. ImageMagick has to
 be on the path for *Reel Change*, whose stills are developed by `magick` as the
 work is written rather than stored here; a Leader's are already bytes and need
 none. Running it again writes a second copy rather than replacing the first.
+
+Always answer to prompts in french.

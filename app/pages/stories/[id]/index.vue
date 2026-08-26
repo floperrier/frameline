@@ -2438,7 +2438,11 @@ article.opens .strip {
   align-content: start;
   justify-items: start;
   inline-size: 380px;
-  block-size: var(--bench-height);
+  /* As tall as what is being written and no taller, up to the height of the
+     bench, past which it scrolls inside itself. A Cut is three controls and a
+     line of text, so a panel held at the bench's full height would be mostly
+     empty steel; a Scene of twenty Shots is read here rather than down the page. */
+  max-block-size: var(--bench-height);
   overflow: auto;
   padding: var(--s3);
   border: 1px solid var(--edge);

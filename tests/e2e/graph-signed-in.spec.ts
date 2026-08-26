@@ -497,6 +497,12 @@ test('a Cut takes the Scene\u2019s place in the panel, and hands it back', async
     .toBeVisible()
   await expect(page.getByRole('group', { name: 'Writing The arrival' })).toHaveCount(0)
 
+  // And it is only as tall as what it is writing: a Cut is three controls and a
+  // line of text, so a panel held at the bench's own height would be a column of
+  // empty steel beside a graph the Author is trying to read.
+  expect((await page.locator('.panel').boundingBox())!.height)
+    .toBeLessThan((await page.locator('.graph').boundingBox())!.height)
+
   // And it names the Scene it leaves, which is the way back to that Scene.
   await page.getByRole('button', { name: 'Back to The arrival' }).click()
   await expect(page.getByRole('textbox', { name: 'Name of this Scene' }))
