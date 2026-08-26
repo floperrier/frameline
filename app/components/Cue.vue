@@ -47,6 +47,26 @@ const cue = computed(() =>
 /** Where the target is on screen, or nothing when the target is not on screen at all. */
 const box = ref<DOMRect>()
 
+/**
+ * What the Cue showing is pointing at, as a selector.
+ *
+ * A target the editor draws once per node — the fold, the strip a Cut is drawn
+ * from, the field a Scene's Flags are typed in — is found on the first node of
+ * the graph, which is the first Scene the Author wrote and where most of the path
+ * is walked. A Cue asking about a particular Scene says which, and is scoped to
+ * that node by the id the node carries; one naming a Scene the Story has not got
+ * yet points at nothing, and the bubble goes adrift rather than lighting the
+ * wrong Scene's copy of the control.
+ */
+const pointing = computed(() => {
+  if (!cue.value) return undefined
+
+  const within = story && cue.value.within?.(story)
+  if (cue.value.within && !within) return undefined
+
+  return `${within ? `[data-scene="${within}"] ` : ''}[data-cue="${cue.value.target}"]`
+})
+
 function dismiss() {
   localStorage.setItem(dismissalOf(story!.id), '1')
   dismissed.value = true
@@ -54,10 +74,6 @@ function dismiss() {
 
 /**
  * The target's rectangle, read every frame for as long as a Cue is showing.
- *
- * A target the editor draws once per node — the fold, the strip a Cut is drawn
- * from — is found on the first node of the graph, which is the first Scene the
- * Author wrote and the one the path is walked on.
  *
  * A frame at a time rather than on a list of the things that move it: the graph
  * scrolls, a node folds, the window resizes, a Refusal appears above the bench
@@ -67,7 +83,7 @@ function dismiss() {
  * and the loop stops the moment the Cue is met — which is the point of the Cue.
  */
 function look() {
-  const target = cue.value && document.querySelector(`[data-cue="${cue.value.target}"]`)
+  const target = pointing.value ? document.querySelector(pointing.value) : null
   const seen = target?.getBoundingClientRect()
   // A target inside a folded node is in the document and has no rectangle worth
   // pointing at: an element that draws nothing measures nothing, and a light on
