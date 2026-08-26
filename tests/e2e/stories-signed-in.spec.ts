@@ -90,7 +90,9 @@ test('the Stories page lists what the Author wrote', async ({ page, request }) =
   await expect(page.getByRole('link', { name: 'Open A Listed Story' })).toBeVisible()
 })
 
-test('an Author on the landing page is shown their Stories rather than a door', async ({ page }) => {
+test('an Author on the landing page is shown their Stories rather than a door', async ({
+  page,
+}) => {
   await page.goto('/')
 
   // Both places the way in is offered — beside the pitch and at the foot — carry

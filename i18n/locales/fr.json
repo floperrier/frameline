@@ -41,17 +41,17 @@
     "made": "De quoi un Récit est fait",
     "terms": {
       "storyTerm": "Récit",
-      "storyLine": "Une œuvre entière, qui vous appartient et qui ne se donne qu’en un lien.",
+      "storyLine": "Une œuvre entière, qui vous appartient et qui se donne à un Lecteur en un seul lien.",
       "sceneTerm": "Scène",
       "sceneLine": "Une suite linéaire de Plans, et la seule unité où un Récit se ramifie.",
       "shotTerm": "Plan",
-      "shotLine": "Un temps : une image, son texte, ou les deux. Le plus petit élément montré à la lecture.",
+      "shotLine": "Un temps : une image, son texte, ou les deux. Le plus petit élément montré à un Lecteur.",
       "cutTerm": "Coupe",
-      "cutLine": "Un passage d’une Scène à une autre, offert à la fin d’une Scène à qui vous lit.",
+      "cutLine": "Un passage d’une Scène à une autre, offert à la fin d’une Scène pour qu’un Lecteur le prenne.",
       "conditionTerm": "Condition",
       "conditionLine": "Un test qui décide si un Plan se joue ou si une Coupe est offerte : la même Scène se lit autrement, sans jamais se ramifier."
     },
-    "reading": "Lire un Récit publié sur le moteur que fait tourner une Lecture"
+    "reading": "Lire un Récit publié sur le moteur qu’un Lecteur fait tourner"
   },
   "stories": {
     "heading": "Récits",

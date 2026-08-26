@@ -14,10 +14,10 @@ test('a signed-out Author is offered both ways to sign in', async ({ page }) => 
  * before they scroll, the five structural terms below it, and the doors again at
  * the foot so being convinced on the way down is enough.
  *
- * The Reading link is not asserted here. Which Story it points at is
- * configuration — `NUXT_PUBLIC_LANDING_STORY` — and nothing publishes a Story
- * into the branch this suite runs against, so a run with the variable unset is
- * the honest case and shows no link at all.
+ * Which Story the Reading link points at is configuration —
+ * `NUXT_PUBLIC_LANDING_STORY` — and nothing publishes a Story into the branch
+ * this suite runs against, so the variable is unset here and the case asserted
+ * is the one that matters: no link at all rather than a dead one.
  */
 test('a visitor reads what a Story is made of, and finds the doors again at the foot', async ({
   page,
@@ -26,8 +26,8 @@ test('a visitor reads what a Story is made of, and finds the doors again at the 
 
   // The opening still fills the screen on its own: the terms below it are past
   // the fold rather than in it.
-  const terms = page.getByRole('heading', { name: 'Story', exact: true })
-  await expect(terms).not.toBeInViewport()
+  const firstTerm = page.getByRole('heading', { name: 'Story', exact: true })
+  await expect(firstTerm).not.toBeInViewport()
 
   for (const term of ['Story', 'Scene', 'Shot', 'Cut', 'Condition']) {
     await expect(page.getByRole('heading', { name: term, exact: true })).toBeVisible()
@@ -37,6 +37,10 @@ test('a visitor reads what a Story is made of, and finds the doors again at the 
   // anything a visitor can take.
   await expect(page.getByText('Cross to the bar')).toBeVisible()
   await expect(page.getByRole('link', { name: 'Cross to the bar' })).toHaveCount(0)
+
+  // No Story is named for this deployment, so there is nothing to read yet and
+  // nothing pretending there is.
+  await expect(page.getByRole('link', { name: /on the engine a Reader runs/ })).toHaveCount(0)
 
   // Two of each door now, and the second pair is under everything said to
   // convince anyone of it.

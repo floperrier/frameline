@@ -21,7 +21,7 @@ const landingStory = useRuntimeConfig().public.landingStory
         <h1>Frameline</h1>
         <p class="line">{{ $t('landing.pitch') }}</p>
 
-        <Doors :failed="failed" />
+        <Doors class="settled" :failed="failed" />
       </div>
 
       <!-- The thesis, and the one thing worth showing before anyone signs in: a
@@ -54,9 +54,9 @@ const landingStory = useRuntimeConfig().public.landingStory
         <li>
           <!-- A Story: Scenes, and the Cuts between them, seen at once. -->
           <div class="figure story" aria-hidden="true">
-            <span class="node" />
-            <span class="node" />
-            <span class="node" />
+            <span class="node"></span>
+            <span class="node"></span>
+            <span class="node"></span>
           </div>
           <h3>{{ $t('landing.terms.storyTerm') }}</h3>
           <p class="line">{{ $t('landing.terms.storyLine') }}</p>
@@ -64,11 +64,11 @@ const landingStory = useRuntimeConfig().public.landingStory
 
         <li>
           <!-- A Scene: one node, and the run of Shots inside it. -->
-          <div class="figure scene" aria-hidden="true">
+          <div class="figure run" aria-hidden="true">
             <span class="node">
-              <span class="bar" />
-              <span class="bar" />
-              <span class="bar" />
+              <span class="bar"></span>
+              <span class="bar"></span>
+              <span class="bar"></span>
             </span>
           </div>
           <h3>{{ $t('landing.terms.sceneTerm') }}</h3>
@@ -77,11 +77,11 @@ const landingStory = useRuntimeConfig().public.landingStory
 
         <li>
           <!-- A Shot: the gate, with an image in it and its text under. -->
-          <div class="figure shot-of" aria-hidden="true">
+          <div class="figure" aria-hidden="true">
             <span class="frame">
-              <span class="still" />
-              <span class="bar" />
-              <span class="bar short" />
+              <span class="still"></span>
+              <span class="bar"></span>
+              <span class="bar short"></span>
             </span>
           </div>
           <h3>{{ $t('landing.terms.shotTerm') }}</h3>
@@ -91,9 +91,9 @@ const landingStory = useRuntimeConfig().public.landingStory
         <li>
           <!-- A Cut: the grease-pencil mark, and the Scene it leads on to. -->
           <div class="figure cut" aria-hidden="true">
-            <span class="node" />
-            <span class="splice" />
-            <span class="node" />
+            <span class="node"></span>
+            <span class="splice"></span>
+            <span class="node"></span>
           </div>
           <h3>{{ $t('landing.terms.cutTerm') }}</h3>
           <p class="line">{{ $t('landing.terms.cutLine') }}</p>
@@ -101,11 +101,11 @@ const landingStory = useRuntimeConfig().public.landingStory
 
         <li>
           <!-- A Condition: the same run of Shots, one of which does not play. -->
-          <div class="figure scene" aria-hidden="true">
+          <div class="figure run" aria-hidden="true">
             <span class="node">
-              <span class="bar" />
-              <span class="bar unplayed" />
-              <span class="bar" />
+              <span class="bar"></span>
+              <span class="bar unplayed"></span>
+              <span class="bar"></span>
             </span>
           </div>
           <h3>{{ $t('landing.terms.conditionTerm') }}</h3>
@@ -130,9 +130,11 @@ const landingStory = useRuntimeConfig().public.landingStory
    bench. It reads top to bottom in three movements — the opening screen, the
    five terms, the way in — and the first of them is still a screen of its own. */
 main {
+  --page-pad: var(--s5);
+
   display: grid;
   gap: var(--s6);
-  padding: var(--s5) var(--s4);
+  padding: var(--page-pad) var(--s4);
   background: var(--room);
 }
 
@@ -143,17 +145,18 @@ main {
   gap: var(--s6);
   /* The padding above is the page's, so the screen the opening fills is what is
      left of the viewport once the page has its margins. */
-  min-block-size: calc(100dvh - 2 * var(--s5));
+  min-block-size: calc(100dvh - 2 * var(--page-pad));
 }
 
 @media (min-width: 60rem) {
   main {
-    padding: var(--s6);
+    --page-pad: var(--s6);
+
+    padding: var(--page-pad);
   }
 
   .opening {
     grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
-    min-block-size: calc(100dvh - 2 * var(--s6));
   }
 
   /* The one rule on the page, and it does the work of a wall: the pitch on this
@@ -189,13 +192,10 @@ main {
 }
 
 /* The doors' own treatment is the component's; where they sit under the pitch is
-   this page's. */
-.pitch :deep(.doors) {
+   this page's, so it is handed to them as a class rather than reached for
+   through one of theirs. */
+.settled {
   margin-block-start: var(--s3);
-}
-
-.pitch :deep(.enter) {
-  margin-block-start: var(--s2);
 }
 
 .specimen {
@@ -271,8 +271,8 @@ main {
 
 /* The Cuts between them, drawn as the hairline they are on the graph. */
 .story .node + .node {
-  margin-inline-start: var(--s4);
   position: relative;
+  margin-inline-start: var(--s4);
 }
 
 .story .node + .node::before {
@@ -286,7 +286,7 @@ main {
 
 /* An open node: the run of Shots inside a Scene, which is what the Scene and the
    Condition figures are both about. */
-.scene .node {
+.run .node {
   display: grid;
   align-content: center;
   gap: var(--s1);
@@ -296,7 +296,6 @@ main {
 }
 
 .bar {
-  border-radius: 1px;
   background: color-mix(in oklab, var(--muted) 70%, var(--edge));
   block-size: 3px;
 }
@@ -310,7 +309,7 @@ main {
 
 /* The gate again, at the size of a figure: a Still, and the Shot's text under
    it. */
-.shot-of .frame {
+.figure .frame {
   display: grid;
   gap: var(--s1);
   padding: var(--s2);
@@ -318,7 +317,7 @@ main {
 }
 
 .still {
-  border-radius: 1px;
+  border-radius: var(--machined);
   background: color-mix(in oklab, var(--light) 18%, var(--steel));
   block-size: 1.5rem;
 }
