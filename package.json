@@ -13,7 +13,8 @@
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "prepare": "husky"
+    "prepare": "husky",
+    "pr": "n=$(git branch --show-current | grep -oE '^[0-9]+' || true); gh pr create --title \"$(git log -1 --format=%s)\" --body \"$(sed \"s/^Closes #$/Closes #$n/\" .github/pull_request_template.md)\""
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
