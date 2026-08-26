@@ -1280,7 +1280,7 @@ function atAGlance(scene: Scene) {
             tabindex="0"
             :class="{
               opens: story.openingSceneId === scene.id,
-              written: sceneWritten?.id === scene.id,
+              writing: sceneWritten?.id === scene.id,
               drawing: aiming?.fromSceneId === scene.id,
               lit: mayLandOn(scene),
               quiet: aiming && !mayLandOn(scene),
@@ -1362,10 +1362,15 @@ function atAGlance(scene: Scene) {
                      outline of the frame it would be, the way a Shot with no still
                      does in the panel. -->
                 <div class="frame">
+                  <!-- `draggable="false"`, because a browser drags an image out of
+                       a page by default and the whole card is the handle that lays
+                       the graph out: the native drag took the gesture and the Scene
+                       stayed where it was. -->
                   <img
                     v-if="scene.shots[0]?.image"
                     :src="stillOf(scene.shots[0])"
                     :alt="$t('editor.stillOfShot', { place: 1 })"
+                    draggable="false"
                   >
                 </div>
 
@@ -1997,8 +2002,12 @@ article:focus-within {
 }
 
 /* The Scene the panel is writing, said on the bench as well: the Author's eye is
-   on the graph, and the panel is at the edge of it. */
-article.written {
+   on the graph, and the panel is at the edge of it.
+
+   Not `.written`, which is a Shot's own block of writing in the panel and carries
+   a grid gap: a card wearing that class inherited the gap and shifted its own
+   face eight pixels sideways the moment its Scene was opened. */
+article.writing {
   border-color: var(--light);
 }
 
@@ -2082,6 +2091,9 @@ article.opens .strip {
   gap: var(--s2);
   padding: var(--s2) var(--s3) var(--s3);
   overflow: hidden;
+  /* The card is the handle, so a drag across it moves the Scene rather than
+     sweeping a selection through its name and the line under it. */
+  user-select: none;
 }
 
 /* The slate: the Scene's name, and the button that opens the panel it is written
@@ -2163,6 +2175,8 @@ article.opens .strip {
 
 .frame img {
   display: block;
+  /* Safari drags an image by itself whatever the attribute says. */
+  -webkit-user-drag: none;
   inline-size: 100%;
   block-size: 100%;
   object-fit: cover;

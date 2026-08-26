@@ -14,6 +14,7 @@ import {
   VISITS_MAX,
 } from '../../shared/utils/scenes'
 import {
+  ONE_PIXEL,
   writeScene,
   readCuts,
   readFlags,
@@ -479,6 +480,40 @@ test('the panel is closed by Escape, and focus comes back to the card', async ({
   await expect(page.locator('.panel')).toHaveCount(0)
   await expect(write).toHaveAttribute('aria-expanded', 'false')
   await expect(write).toBeFocused()
+})
+
+test('a card keeps its own shape, and drags from the still on it', async ({
+  page,
+  request,
+}) => {
+  const { story, scenes } = await openGraph(request)
+  const shot = await (await request.post(`/api/scenes/${scenes[0]!.id}/shots`)).json()
+  expect((await request.put(`/api/shots/${shot.id}/image`, { data: ONE_PIXEL })).status()).toBe(200)
+
+  await page.goto(`/stories/${story.id}`)
+  const card = page.getByRole('article', { name: 'The arrival' })
+  const face = card.locator('.card')
+
+  // Putting the Scene in the panel is said on the bench and changes nothing else
+  // about the card. Pinned to the pixel, because the class that says it once
+  // collided with the one a Shot's own writing wears and inherited its grid gap,
+  // which shifted the card's face sideways the moment an Author pressed Write.
+  const shut = (await face.boundingBox())!
+  await writeScene(page, 'The arrival')
+  await expect(card).toHaveClass(/writing/)
+  expect(await face.boundingBox()).toEqual(shut)
+
+  // And the still is part of the handle. A browser drags an image out of a page by
+  // itself, and that native drag took the gesture and left the Scene where it was.
+  await page.getByRole('button', { name: 'Close this panel' }).click()
+  const still = (await card.locator('.frame img').boundingBox())!
+  const held = { x: still.x + still.width / 2, y: still.y + still.height / 2 }
+  await page.mouse.move(held.x, held.y)
+  await page.mouse.down()
+  await page.mouse.move(held.x + 120, held.y + 60, { steps: 8 })
+  await page.mouse.up()
+
+  await expect.poll(() => readScenePlacement(scenes[0]!.id)).toMatchObject({ x: 120, y: 60 })
 })
 
 test('a Cut takes the Scene\u2019s place in the panel, and hands it back', async ({
