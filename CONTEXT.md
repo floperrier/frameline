@@ -69,7 +69,10 @@ _Avoid_: map, tree, flowchart, board, canvas
 
 **Opening Scene**:
 The one Scene a Reading starts on, named by the Story itself. The first Scene an
-Author writes becomes it, and the Author can name another.
+Author writes becomes it, and the Author can name another. Deleting it leaves the
+Story with none — where a Story starts is the Author's to say, so the role is not
+passed on behind their back — and a Story with none can be neither previewed nor
+published until one is marked.
 _Affiché_: Scène d'ouverture
 _Avoid_: start, entry point, root, first scene, home
 

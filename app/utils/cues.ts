@@ -101,6 +101,19 @@ export const CUES: Cue[] = [
     within: story => story.scenes[1]?.id,
     met: story => Boolean(conditionTaught(story)),
   },
+  // A Story is allowed to sit with no opening Scene — the Author decides where
+  // their Story starts, which is why the radio is drawn on every node — and the
+  // one way to arrive there is to delete the Scene the Story opened on. Asked
+  // for here because this is where the path stops being about writing and starts
+  // being about reading: the two steps left send the Author to the Preview and
+  // to Publish, and both of them refuse a Story that has nowhere to start. Met
+  // by every Story that never lost its opening, so the ordinary path never sees
+  // it.
+  {
+    name: 'openingScene',
+    target: 'opening-scene',
+    met: story => Boolean(story.openingSceneId),
+  },
   // What puts the broken Condition right, and the one Cue whose sentence asks for
   // something outside the bench: open the Preview, watch the Shot not play, read
   // what the interface says the test asked for against what the State holds, and

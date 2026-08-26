@@ -1,9 +1,12 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 import {
+  openNode,
+  readShots,
   seedCut,
   seedFlags,
   seedPublication,
   seedScene,
+  seedScenes,
   seedShotConditions,
   seedStory,
   test,
@@ -89,6 +92,56 @@ test('a Story that is past every step is guided not at all', async ({ page, auth
   await expect(page.getByRole('heading', { name: 'The arrival' })).toBeVisible()
   await expect(bubble(page)).toBeHidden()
   await expect(page.locator('.spotlight')).toBeHidden()
+})
+
+/**
+ * A Story is allowed to sit with no opening Scene — the Author decides where
+ * their Story starts — and the only way to arrive there is to delete the Scene it
+ * opened on. The guidance has to follow: the last step is a Publish that would
+ * refuse, and what is left to do is the mark inside a node.
+ */
+test('an Author who deleted the Scene their Story opened on is sent to the mark', async ({
+  page,
+  author,
+}) => {
+  const story = await seedStory(author, 'A Story')
+  const [arrival, platform, bar] = await seedScenes(
+    story, ['The arrival', 'The platform', 'The bar'])
+  await seedCut(platform!.id, bar!.id)
+
+  // The Flag and the Condition go on every Scene, so that the Story is past both
+  // of those steps whichever Scene the deletion leaves second. What the deletion
+  // takes away is the opening Scene and nothing else: the Cut it leaves behind
+  // joins the two Scenes that outlive it.
+  for (const scene of [arrival, platform, bar]) {
+    await seedFlags(scene!.id, { courage: 'high' })
+    const [shot] = await readShots(scene!.id)
+    await seedShotConditions(shot!.id, [{ flag: 'courage', is: 'high' }])
+  }
+  await page.request.post(`/api/scenes/${arrival!.id}/opening`)
+
+  await page.goto(`/stories/${story.id}`)
+  await expect(bubble(page)).toContainText(/That is a Story that works/)
+
+  // The Scene the Story opens on goes, and the Story is left with nowhere for a
+  // Reading to start.
+  await openNode(page, 'The arrival')
+  await page.getByRole('button', { name: 'Delete Scene The arrival' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete Scene', exact: true }).click()
+
+  // The bench stops asking for the Publish, which would refuse, and asks for the
+  // mark instead — from the corner while every node is folded, because the mark
+  // is drawn inside one.
+  await expect(bubble(page)).toContainText(/nothing marks where this Story does/)
+  await expect(bubble(page)).toHaveClass(/adrift/)
+
+  const node = page.getByRole('article', { name: 'The platform' })
+  await openNode(page, 'The platform')
+  await lights(page, node.locator('.opening'))
+  await node.getByRole('radio', { name: 'Opening Scene The platform' }).check()
+
+  // Marked, and the path is back at the step it was on.
+  await expect(bubble(page)).toContainText(/That is a Story that works/)
 })
 
 test('an Author who knows what they are doing waves the guidance away', async ({ page, author }) => {

@@ -86,7 +86,8 @@ test('a Story with no opening Scene cannot be published', async ({ page, request
   await page.goto(`/stories/${story.id}`)
   await page.getByRole('button', { name: 'Publish this Story', exact: true }).click()
 
-  await expect(page.getByRole('alert'))
-    .toHaveText('A Story needs an opening Scene before it can be published.')
+  await expect(page.getByRole('alert')).toHaveText(
+    'A Story needs an opening Scene before it can be published. '
+    + 'Open a Scene on the graph and mark it as the one to start on.')
   await expect(page.getByRole('button', { name: 'Publish this Story', exact: true })).toBeVisible()
 })

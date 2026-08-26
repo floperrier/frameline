@@ -80,8 +80,9 @@ test.describe('an interface read in French', () => {
     })).json()
     await page.goto(`/fr/stories/${empty.id}`)
     await page.getByRole('button', { name: 'Publier ce Récit', exact: true }).click()
-    await expect(page.getByRole('alert'))
-      .toHaveText('Un Récit a besoin d\'une Scène d\'ouverture avant d\'être publié.')
+    await expect(page.getByRole('alert')).toHaveText(
+      'Un Récit a besoin d\'une Scène d\'ouverture avant d\'être publié. '
+      + 'Ouvrez une Scène sur le Graphe et marquez-la comme celle par laquelle commencer.')
 
     // The Reader's page carries no locale segment whatever language it is read
     // in — see `docs/adr/0012-the-public-link-carries-no-locale.md` — and the
