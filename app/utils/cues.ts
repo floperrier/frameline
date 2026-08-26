@@ -134,13 +134,23 @@ function written(story: StoryInEditor) {
  * `holding` asks the same question of the value as well: not merely a Flag that
  * is set, but the value it is set to, which is the Condition the Author corrected
  * after the Preview explained why the Shot did not play.
+ *
+ * Any Scene setting it to that value counts, the same way any Scene setting a
+ * Flag at all meets the Cue before this one. Asking whether the value is the one
+ * the second Scene actually arrives holding would mean running the Reading engine
+ * from the opening Scene — which is what the Preview is for, and far more than a
+ * predicate over the Story on the bench. The cost of the lenient reading is a
+ * Story whose fourth Scene sets the same Flag to the value its second tests: the
+ * Cue reads as met while a Reader still never plays that Shot. The cost of the
+ * strict one is the whole engine in here, and an Author told they are wrong when
+ * they are not.
  */
 function conditionTaught(story: StoryInEditor, holding = false) {
-  const set = story.scenes.flatMap(scene => Object.entries(scene.sets))
+  const flagsSet = story.scenes.flatMap(scene => Object.entries(scene.sets))
 
   return story.scenes[1]?.shots
     .flatMap(shot => shot.conditions)
-    .find(condition => 'flag' in condition && set.some(([flag, value]) =>
+    .find(condition => 'flag' in condition && flagsSet.some(([flag, value]) =>
       flag === condition.flag && (!holding || value === condition.is)))
 }
 

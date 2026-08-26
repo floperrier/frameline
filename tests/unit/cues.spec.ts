@@ -158,6 +158,29 @@ describe('the Cue the bench is showing', () => {
     expect(asking(story)).toBe('previewCondition')
   })
 
+  /**
+   * Any Scene setting the Flag to that value counts, including one no Reading has
+   * been through by the time the second Scene plays. The strict reading is the
+   * Reading engine run from the opening Scene, which is what the Preview is for
+   * and far more than a predicate over the Story on the bench. Pinned here rather
+   * than left to be found, because it is the one case where the Cue is met and a
+   * Reader still never plays that Shot.
+   */
+  it('takes the value from any Scene, downstream of the one testing it or not', () => {
+    const story = onTheBench([
+      ['The arrival', 'She steps off the train.'],
+      ['The platform'],
+      ['The bar'],
+      ['The last train'],
+    ])
+    story.cuts = [{ id: 'a-cut' }] as StoryInEditor['cuts']
+    sets(story, 0, { courage: 'high' })
+    sets(story, 3, { courage: 'low' })
+    playedWhen(story, 1, { flag: 'courage', is: 'low' })
+
+    expect(asking(story)).toBe('publish')
+  })
+
   it('asks nothing once that Story is published', () => {
     const story = joined()
     sets(story, 0, { courage: 'high' })
