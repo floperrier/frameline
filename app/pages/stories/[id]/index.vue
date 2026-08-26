@@ -1463,8 +1463,14 @@ function atAGlance(scene: Scene) {
 
                     <!-- The Conditions the Shot plays under, so a Scene can say
                          something different on a return visit without the Author
-                         drawing a second Scene to hold the changed line. -->
+                         drawing a second Scene to hold the changed line.
+
+                         The guided path points at the whole list rather than at
+                         one field of it, because what it asks for is a Condition
+                         and a Condition is the row it is added as: `data-cue`
+                         lands on the component's own root, which is that list. -->
                     <Conditions
+                      data-cue="shot-condition"
                       :lead="$t('editor.playedWhen')"
                       :carrier="$t('editor.shotOfScene', { place: place + 1, scene: scene.name })"
                       :conditions="shot.conditions"
@@ -1528,6 +1534,7 @@ function atAGlance(scene: Scene) {
                 <textarea
                   :id="`flags-${scene.id}`"
                   class="data"
+                  data-cue="scene-flags"
                   rows="2"
                   :value="flagLines(scene.sets)"
                   :placeholder="$t('editor.flagsPlaceholder', { separator: FLAG_SEPARATOR })"

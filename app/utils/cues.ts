@@ -44,6 +44,14 @@ export type Cue = {
    * Author has folded, so opening one is a step like the rest.
    */
   met: (story: StoryInEditor, opened: ReadonlySet<string>) => boolean
+  /**
+   * Which Scene's node the target is looked for in, where the target is one the
+   * editor draws once per node and the Cue asks about a particular Scene. Without
+   * it the first node of the graph is the one pointed at, which is the first Scene
+   * the Author wrote and where most of the path is walked. A Cue naming a Scene
+   * the Story has not got yet points at nothing, and the bubble goes adrift.
+   */
+  within?: (story: StoryInEditor) => string | undefined
 }
 
 export const CUES: Cue[] = [
@@ -72,11 +80,47 @@ export const CUES: Cue[] = [
   // sentence asks for the one the Story needs, and an Author who drew it the
   // other way round has joined two Scenes and is not told they did it wrong.
   { name: 'drawCut', target: 'draw-cut', met: story => story.cuts.length > 0 },
+  // Where State comes from, asked for on the first Scene because that is where a
+  // Reading starts and so the one place a Flag is certain to have been set by the
+  // time the second Scene plays. Any Flag on any Scene meets it, though: an
+  // Author who set one somewhere else has set a Flag and is not told they did it
+  // wrong.
+  {
+    name: 'setFlag',
+    target: 'scene-flags',
+    met: story => story.scenes.some(scene => Object.keys(scene.sets).length > 0),
+  },
+  // The thesis the product exists for: a Scene plays differently without
+  // branching. Asked for on the second Scene, where a Flag the first sets is
+  // already in State, and asked for broken on purpose — the sentence names a
+  // value the Flag does not hold, so the Preview has something to explain. What
+  // puts it right is the next Cue.
+  {
+    name: 'putCondition',
+    target: 'shot-condition',
+    within: story => story.scenes[1]?.id,
+    met: story => Boolean(conditionTaught(story)),
+  },
 ]
 
 /** Whether anything has been written in this Story yet: one Shot carrying text. */
 function written(story: StoryInEditor) {
   return story.scenes.some(scene => scene.shots.some(shot => shot.text.trim()))
+}
+
+/**
+ * The Condition the guided path asked for: one on a Shot of the second Scene
+ * testing a Flag that some Scene of this Story actually sets. A Condition naming
+ * a Flag nothing sets is not the one that was asked for — it would test the
+ * absence of a Flag, which is a thing an Author can mean but is not this lesson —
+ * and neither is a visit count, which the Leader teaches instead.
+ */
+function conditionTaught(story: StoryInEditor) {
+  const set = new Set(story.scenes.flatMap(scene => Object.keys(scene.sets)))
+
+  return story.scenes[1]?.shots
+    .flatMap(shot => shot.conditions)
+    .find(condition => 'flag' in condition && set.has(condition.flag))
 }
 
 /**

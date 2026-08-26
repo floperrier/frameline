@@ -60,6 +60,15 @@ refusal appears above the bench and pushes everything down — and a light that
 lags any one of those is a defect an Author sees at once. Nothing is written
 unless the rectangle changed, and the loop stops the moment the step is met.
 
+A target the editor draws once per node — the fold, the strip a Cut is drawn
+from, the field a Scene's Flags are typed in — is found on the first node of the
+graph, which is the first Scene the Author wrote and where most of the path is
+walked. A Repère that asks about a particular Scene says which, and is scoped to
+that node by the id the node already carries: this is the one selector the
+guidance builds, and it is built out of two things the template says about
+itself rather than out of a class. One naming a Scene the Story has not got yet
+points at nothing, which is the same degradation as a folded node.
+
 The Author may fold a node or scroll a target off the bench at any moment, so the
 bubble degrades rather than pointing at nothing: with no rectangle to work from
 it becomes a fixed panel carrying the same sentence.

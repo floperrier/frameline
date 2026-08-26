@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { CUES, cueShowing } from '../../app/utils/cues.ts'
-import type { StoryInEditor } from '../../shared/utils/scenes.ts'
+import type { Condition, StoryInEditor } from '../../shared/utils/scenes.ts'
 import en from '../../i18n/locales/en.json'
 
 /**
@@ -33,6 +33,29 @@ function onTheBench(scenes: [name: string, shot?: string][] = []): StoryInEditor
     })) as StoryInEditor['scenes'],
     cuts: [],
   }
+}
+
+/**
+ * The Story the path has got to by the time State is what is being taught: two
+ * Scenes, the first written, and a Cut joining them.
+ */
+function joined() {
+  const story = onTheBench([['The arrival', 'She steps off the train.'], ['The platform']])
+  story.cuts = [{ id: 'a-cut' }] as StoryInEditor['cuts']
+
+  return story
+}
+
+/** The Flags one Scene of this Story sets on entry. */
+function sets(story: StoryInEditor, scene: number, flags: Record<string, string>) {
+  story.scenes[scene]!.sets = flags
+}
+
+/** One Shot of this Scene, carrying the Conditions it plays under. */
+function playedWhen(story: StoryInEditor, scene: number, ...conditions: Condition[]) {
+  story.scenes[scene]!.shots = [
+    { id: 'a-shot', text: 'The train is gone.', conditions },
+  ] as StoryInEditor['scenes'][number]['shots']
 }
 
 /** No node open, which is how every node starts. */
@@ -76,11 +99,82 @@ describe('the Cue the bench is showing', () => {
     expect(asking(story, new Set(['The arrival']))).toBe('drawCut')
   })
 
-  it('asks nothing once the two Scenes are joined', () => {
-    const story = onTheBench([['The arrival', 'The train pulls in.'], ['The platform']])
-    story.cuts = [{ id: 'a-cut' }] as StoryInEditor['cuts']
+  it('asks for a Flag once the two Scenes are joined', () => {
+    expect(asking(joined(), new Set(['The arrival']))).toBe('setFlag')
+  })
 
-    expect(asking(story, new Set(['The arrival']))).toBeUndefined()
+  it('asks for a Condition once a Flag is set', () => {
+    const story = joined()
+    sets(story, 0, { courage: 'high' })
+
+    expect(asking(story, new Set(['The arrival']))).toBe('putCondition')
+  })
+
+  /**
+   * The Flag is asked for on the first Scene, because that is where a Reading
+   * starts, but any Flag anywhere is a Flag set: an Author who put one on the
+   * second Scene has met the step and is not told they did it wrong.
+   */
+  it('takes a Flag set on any Scene as the Flag it asked for', () => {
+    const story = joined()
+    sets(story, 1, { courage: 'high' })
+
+    expect(asking(story)).toBe('putCondition')
+  })
+
+  it('asks nothing once a Shot of the second Scene tests that Flag', () => {
+    const story = joined()
+    sets(story, 0, { courage: 'high' })
+    playedWhen(story, 1, { flag: 'courage', is: 'low' })
+
+    expect(asking(story)).toBeUndefined()
+  })
+
+  /**
+   * Written broken on purpose is what the step asks for, and written whole is not
+   * a failure of it: the Author who guessed the value right the first time has
+   * still written a Condition, and the Cue that puts a broken one right is the
+   * next ticket's.
+   */
+  it('takes a Condition that holds as the Condition it asked for', () => {
+    const story = joined()
+    sets(story, 0, { courage: 'high' })
+    playedWhen(story, 1, { flag: 'courage', is: 'high' })
+
+    expect(asking(story)).toBeUndefined()
+  })
+
+  it('goes on asking while the Condition on the second Scene names no Flag that is set', () => {
+    const story = joined()
+    sets(story, 0, { courage: 'high' })
+    playedWhen(story, 1, { flag: 'coat', is: 'on' })
+
+    expect(asking(story)).toBe('putCondition')
+  })
+
+  /**
+   * A visit count is a Condition, and it is not this lesson: the Leader teaches
+   * it, already working, and what is taught here is where State comes from.
+   */
+  it('does not take a visit count as the Condition it asked for', () => {
+    const story = joined()
+    sets(story, 0, { courage: 'high' })
+    playedWhen(story, 1, { scene: 'The platform', visits: 'at least', times: 2 })
+
+    expect(asking(story)).toBe('putCondition')
+  })
+
+  /**
+   * The Condition is asked for on the second Scene, where a Flag the first sets
+   * is already in State. One on the first Scene's own Shot is a Condition the
+   * Author wrote somewhere else, and the step is still waiting.
+   */
+  it('does not take a Condition on the first Scene as the one it asked for', () => {
+    const story = joined()
+    sets(story, 0, { courage: 'high' })
+    playedWhen(story, 0, { flag: 'courage', is: 'low' })
+
+    expect(asking(story)).toBe('putCondition')
   })
 
   /**
