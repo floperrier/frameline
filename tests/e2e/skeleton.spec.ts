@@ -3,8 +3,45 @@ import { expect, test } from '@playwright/test'
 test('a signed-out Author is offered both ways to sign in', async ({ page }) => {
   await page.goto('/')
 
-  await expect(page.getByRole('link', { name: 'Sign in with GitHub' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Sign in with Google' })).toBeVisible()
+  // Each door is on the page twice — beside the pitch and again at the foot — so
+  // the first of each pair is the one the opening screen offers.
+  await expect(page.getByRole('link', { name: 'Sign in with GitHub' }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Sign in with Google' }).first()).toBeVisible()
+})
+
+/**
+ * The landing page explaining itself: the opening screen a visitor is shown
+ * before they scroll, the five structural terms below it, and the doors again at
+ * the foot so being convinced on the way down is enough.
+ *
+ * The Reading link is not asserted here. Which Story it points at is
+ * configuration — `NUXT_PUBLIC_LANDING_STORY` — and nothing publishes a Story
+ * into the branch this suite runs against, so a run with the variable unset is
+ * the honest case and shows no link at all.
+ */
+test('a visitor reads what a Story is made of, and finds the doors again at the foot', async ({
+  page,
+}) => {
+  await page.goto('/')
+
+  // The opening still fills the screen on its own: the terms below it are past
+  // the fold rather than in it.
+  const terms = page.getByRole('heading', { name: 'Story', exact: true })
+  await expect(terms).not.toBeInViewport()
+
+  for (const term of ['Story', 'Scene', 'Shot', 'Cut', 'Condition']) {
+    await expect(page.getByRole('heading', { name: term, exact: true })).toBeVisible()
+  }
+
+  // The specimen is still a specimen: a Cut in it is text on the page and not
+  // anything a visitor can take.
+  await expect(page.getByText('Cross to the bar')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Cross to the bar' })).toHaveCount(0)
+
+  // Two of each door now, and the second pair is under everything said to
+  // convince anyone of it.
+  await expect(page.getByRole('link', { name: 'Sign in with GitHub' })).toHaveCount(2)
+  await expect(page.getByRole('link', { name: 'Sign in with Google' })).toHaveCount(2)
 })
 
 test('Stories are not reachable without a signed-in Author', async ({ page }) => {

@@ -72,6 +72,11 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     databaseUrl: process.env.DATABASE_URL ?? '',
+    // The published Story the landing page sends a visitor to read, named by
+    // `NUXT_PUBLIC_LANDING_STORY` rather than written into the page: which
+    // Leader is published is a fact about the deployment, not about the code.
+    // Unset, the link is not shown, so there is no dead link to reach.
+    public: { landingStory: '' },
     oauth: {
       github: { clientId: '', clientSecret: '' },
       google: { clientId: '', clientSecret: '' },
