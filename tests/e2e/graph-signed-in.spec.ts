@@ -1745,3 +1745,118 @@ test('the bare bench is pushed about under the hand', async ({ page, request }) 
 
   await expect.poll(() => readScenePlacement(scenes[0]!.id)).toMatchObject({ x: 1000, y: 540 })
 })
+
+/**
+ * A keydown as a layout other than the one the shortcut was written on sends it.
+ * On a French keyboard the digit row carries letters until it is shifted, so
+ * `⌘0` arrives as `à`: what says which key was pressed is where it sits, and that
+ * is `code`.
+ */
+function pressAt(page: Page, key: string, code: string) {
+  return page.evaluate(([key, code]) => document.dispatchEvent(new KeyboardEvent('keydown', {
+    key, code, ctrlKey: true, bubbles: true, cancelable: true,
+  })), [key, code])
+}
+
+test('the zoom is reached from where the hand is, whatever it is on', async ({
+  page,
+  request,
+}) => {
+  const { story } = await openWideGraph(request)
+  // A window no taller than a laptop's, because the fault this holds against is a
+  // control docked below the fold of one.
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await page.goto(`/stories/${story.id}`)
+
+  const level = page.locator('.zooming .level')
+  const percent = async () => Number.parseInt(
+    (await level.textContent())!.match(/(\d+)%/)![1]!, 10)
+  await expect(level).toContainText('100%')
+
+  // The controls are on screen without the page being scrolled to them: a control
+  // that exists so nobody has to hunt for a Scene may not be hunted for itself.
+  const controls = (await page.locator('.zooming').boundingBox())!
+  expect(controls.y).toBeGreaterThanOrEqual(0)
+  expect(controls.y + controls.height).toBeLessThanOrEqual(720)
+
+  // One notch of a mouse wheel is a step back rather than a plunge: the ratio is
+  // tuned for the scores of small deltas a pinch sends, and a notch is a hundred
+  // of them at once.
+  const graph = (await page.locator('.graph').boundingBox())!
+  await page.mouse.move(graph.x + graph.width / 2, graph.y + graph.height / 2)
+  await page.keyboard.down('Control')
+  await page.mouse.wheel(0, 100)
+  await page.keyboard.up('Control')
+  await expect(level).not.toContainText('100%')
+  const notch = await percent()
+  expect(notch).toBeGreaterThan(60)
+  expect(notch).toBeLessThan(95)
+
+  // What Safari sends while two fingers pinch, which is not a wheel with Ctrl at
+  // all: its own gestures, carrying the whole gesture's scale rather than a step.
+  await page.locator('.graph').evaluate((box) => {
+    const send = (kind: string, scale: number) => box.dispatchEvent(Object.assign(
+      new Event(kind, { bubbles: true, cancelable: true }),
+      { scale, clientX: 400, clientY: 300 }))
+    send('gesturestart', 1)
+    send('gesturechange', 0.5)
+    send('gestureend', 0.5)
+  })
+  await expect.poll(percent).toBeLessThan(notch)
+
+  // And the shortcuts, off a French layout, where none of the three keys carries
+  // the character the shortcut is named after: the fit pulls back to the whole
+  // Story, and the two steps go the two ways from there.
+  await pressAt(page, 'à', 'Digit0')
+  await expect.poll(percent).toBeLessThan(notch)
+  const fitted = await percent()
+
+  await pressAt(page, '=', 'Equal')
+  await expect.poll(percent).toBeGreaterThan(fitted)
+  const closer = await percent()
+
+  await pressAt(page, ')', 'Minus')
+  await expect.poll(percent).toBeLessThan(closer)
+})
+
+test('the bench takes the width it is given and never more', async ({ page, request }) => {
+  const { story, scenes } = await openWideGraph(request)
+  await page.goto(`/stories/${story.id}`)
+  await expect(page.getByRole('article', { name: 'The arrival' })).toBeVisible()
+
+  /**
+   * The frame is exactly as wide as the bench, and the page does not scroll
+   * sideways: the surface inside it is wider than any window — ten thousand
+   * pixels are within a node's reach — and it is the graph that scrolls or is
+   * pushed about, never the frame that grows to hold it.
+   */
+  const framed = async () => await page.evaluate(() => {
+    const wide = (selector: string) =>
+      Math.round(document.querySelector(selector)!.getBoundingClientRect().width)
+
+    return {
+      graph: wide('.graph') === wide('.bench'),
+      sideways: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    }
+  })
+
+  for (const width of [1512, 1100, 820]) {
+    await page.setViewportSize({ width, height: 760 })
+    expect(await framed()).toEqual({ graph: true, sideways: false })
+  }
+
+  // And after a node is dragged towards the edge of the screen, which is what
+  // makes the surface wider than it was.
+  await page.setViewportSize({ width: 1280, height: 760 })
+  const node = page.getByRole('article', { name: 'The arrival' })
+  await node.scrollIntoViewIfNeeded()
+  const card = (await node.boundingBox())!
+  await page.mouse.move(card.x + card.width / 2, card.y + card.height - 8)
+  await page.mouse.down()
+  await page.mouse.move(1275, card.y + card.height - 8, { steps: 8 })
+  await page.mouse.up()
+
+  await expect.poll(() => readScenePlacement(scenes[0]!.id).then(node => node.x))
+    .toBeGreaterThan(600)
+  expect(await framed()).toEqual({ graph: true, sideways: false })
+})

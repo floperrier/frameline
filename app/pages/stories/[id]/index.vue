@@ -591,38 +591,105 @@ function zoomToFit() {
  * — it is about a notch of a mouse wheel to a quarter of the scale. Tune it the
  * day the zoom feels heavy under somebody's hand.
  */
-const ZOOM_PER_WHEEL = 200
+const ZOOM_PER_WHEEL = 100
 
 /**
- * The wheel with Ctrl or Command held, which is also exactly what a trackpad
- * sends while two fingers pinch: the browser reports a pinch as a wheel with
- * Ctrl, so the gesture and the modifier are one handler rather than two. The
- * default is refused, because what the browser would otherwise do with it is zoom
- * the whole page — the header, the panel and the bench together.
+ * The most one event of it may be worth, and what a line of it is worth in
+ * pixels. Two hands turn this wheel and they are two orders of magnitude apart:
+ * a trackpad pinch arrives as scores of events a few pixels each, and a mouse
+ * wheel as one event of a hundred. Uncapped, the ratio that makes a pinch smooth
+ * takes a single notch of the mouse from the surface's own size to two thirds of
+ * it; capped, a notch is a step of about a quarter and a pinch is untouched,
+ * because no event of one ever reaches the cap. A wheel that reports lines rather
+ * than pixels — Firefox — is read at a line to sixteen pixels first.
+ */
+const ZOOM_WHEEL_CAP = 25
+const ZOOM_WHEEL_LINE = 16
+
+/**
+ * The wheel with Ctrl or Command held, which is also what Chromium sends while
+ * two fingers pinch a trackpad. The default is refused, because what the browser
+ * would otherwise do with it is zoom the whole page — the header, the panel and
+ * the bench together.
  *
  * Anchored on the pointer, so the Scene under the cursor is the Scene still under
- * it afterwards.
+ * it afterwards. Safari does not come through here at all: see `pinch` below.
  */
 function zoomByWheel(event: WheelEvent) {
   if (!event.ctrlKey && !event.metaKey) return
   event.preventDefault()
 
-  zoomAbout(zoom.value * Math.exp(-event.deltaY / ZOOM_PER_WHEEL), pointOnSurface(event), false)
+  const pixels = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+    ? event.deltaY * ZOOM_WHEEL_LINE
+    : event.deltaY
+  const held = Math.max(-ZOOM_WHEEL_CAP, Math.min(ZOOM_WHEEL_CAP, pixels))
+
+  zoomAbout(zoom.value * Math.exp(-held / ZOOM_PER_WHEEL), pointOnSurface(event), false)
+}
+
+/**
+ * What WebKit sends while two fingers pinch, and nothing else does. Safari does
+ * not report a pinch as a wheel with Ctrl the way Chromium does — it sends these
+ * gestures of its own and zooms the whole page itself — so a bench that only
+ * listened for the wheel had no pinch at all in the browser most likely to be
+ * open on a trackpad. `scale` is the whole gesture so far rather than the step,
+ * one being where it began, so the scale to go to is the one the gesture started
+ * from multiplied by it.
+ *
+ * Not in `lib.dom`, because it is nobody's standard: the two fields read here are
+ * named rather than a whole interface being declared for them.
+ */
+type Pinch = Event & { scale: number, clientX: number, clientY: number }
+
+let pinched: { zoom: number, anchor: Point } | undefined
+
+function startPinch(event: Event) {
+  event.preventDefault()
+  const at = event as Pinch
+  pinched = { zoom: zoom.value, anchor: pointOnSurface(at) }
+}
+
+function pinch(event: Event) {
+  if (!pinched) return
+  event.preventDefault()
+
+  zoomAbout(pinched.zoom * (event as Pinch).scale, pinched.anchor, false)
+}
+
+function endPinch() {
+  pinched = undefined
 }
 
 /**
  * The three shortcuts a viewport is expected to answer, taken off the browser's
- * own page zoom: on this page the thing to make larger is the graph. `=` as well
- * as `+`, because the key that carries the plus is pressed without its shift on
- * most layouts.
+ * own page zoom: on this page the thing to make larger is the graph.
+ *
+ * Read off the key the Author pressed *and* off where that key sits, because the
+ * character it carries depends on the layout: on a French keyboard the digit row
+ * is letters until it is shifted, so `⌘0` arrives as `à` and a shortcut that only
+ * knew `event.key` answered nothing at all. `event.code` is the position, which
+ * is the same on every layout — and the numeric keypad is named there too, so it
+ * comes along for free.
  */
-const ZOOMS: Record<string, -1 | 1> = { '+': 1, '=': 1, '-': -1, '_': -1 }
+const ZOOMS: Record<string, -1 | 1> = {
+  '+': 1,
+  '=': 1,
+  'Equal': 1,
+  'NumpadAdd': 1,
+  '-': -1,
+  '_': -1,
+  'Minus': -1,
+  'NumpadSubtract': -1,
+}
+
+const FITS = ['0', 'Digit0', 'Numpad0']
 
 function zoomOnKeys(event: KeyboardEvent) {
   if (!(event.metaKey || event.ctrlKey) || !graph.value) return
 
-  const zooming = ZOOMS[event.key]
-  if (!zooming && event.key !== '0') return
+  const zooming = ZOOMS[event.key] ?? ZOOMS[event.code]
+  const fitting = FITS.includes(event.key) || FITS.includes(event.code)
+  if (!zooming && !fitting) return
 
   event.preventDefault()
   return zooming ? zoomBy(zooming) : zoomToFit()
@@ -1460,6 +1527,9 @@ function atAGlance(scene: Scene) {
           @pointerup="releaseBench"
           @pointercancel="letGoOfBench"
           @wheel="zoomByWheel"
+          @gesturestart="startPinch"
+          @gesturechange="pinch"
+          @gestureend="endPinch"
         >
           <!-- What the bench scrolls: the surface at the size it is drawn at. A
                scale moves nothing in the layout, so this box is what says how far
@@ -1660,8 +1730,10 @@ function atAGlance(scene: Scene) {
         <!-- How far back the Author is standing, and the three ways of changing
              it. Docked in the corner of the window rather than laid on the
              surface, so it is the same size at every scale and never lands on a
-             Scene. The pointer's own routes are the wheel and the shortcuts;
-             these are what a hand with neither reaches for. -->
+             Scene — and at the head of it rather than the foot, because a bench
+             is taller than most windows and a control below the fold is one the
+             Author has to scroll to find. The pointer's own routes are the wheel
+             and the pinch; these are what a hand with neither reaches for. -->
         <div class="zooming">
           <button
             type="button"
@@ -2181,6 +2253,13 @@ header {
   position: relative;
   flex: 1;
   min-inline-size: 0;
+  /* And never anything to do with what is inside it. The surface is as wide as
+     the Scenes an Author has dragged apart — ten thousand pixels of it are within
+     reach — and the window onto it is a window: it takes the width the bench
+     leaves and the graph scrolls or is pushed about inside it. Size containment
+     says that in one word, so no engine's reading of an automatic minimum size
+     can hand the frame its content's width instead. */
+  contain: inline-size;
 }
 
 .graph {
@@ -2193,19 +2272,24 @@ header {
 }
 
 /* The zoom controls, in the corner of the window and not on the surface: they
-   are the same size at every scale, and they sit at the foot of the bench where
-   the graph is emptiest. */
+   are the same size at every scale. At the head of the bench and at its trailing
+   edge — a bench is `min(70dvh, 44rem)` tall and the Scenes are laid out in
+   columns from the leading edge, so this is the one corner that is both empty and
+   certain to be on screen. Lifted off the graph the way the confirmation and the
+   Cue's bubble are, because it is the machine talking rather than part of the
+   drawing. */
 .zooming {
   position: absolute;
-  inset-block-end: var(--s3);
-  inset-inline-start: var(--s3);
+  inset-block-start: var(--s3);
+  inset-inline-end: var(--s3);
   display: flex;
   align-items: center;
   gap: var(--s1);
   padding: var(--s1);
-  border: 1px solid var(--edge);
+  border: 1px solid var(--light);
   border-radius: var(--machined);
   background: var(--steel);
+  box-shadow: var(--lifted);
 }
 
 .zooming button {

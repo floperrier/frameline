@@ -137,3 +137,29 @@ The `prefers-reduced-motion` half of it is small and belongs here: a step of the
 zoom travels the distance so that what moved can be seen to have moved, and an
 Author who has asked for no motion simply gets the new scale. The wheel is not
 eased either way, because it is continuous already.
+
+What the hundred lines do not save is the browsers disagreeing. Three of them
+came out of the first day of use, and they are the cost this decision really
+carries — the library would have had them solved.
+
+A pinch is not one event. Chromium reports it as a wheel with Ctrl held, so the
+gesture and the modifier are one handler; WebKit sends `gesturestart` and
+`gesturechange` of its own and zooms the whole page itself, so Safari had no pinch
+on the bench at all until those were taken too. `scale` there is the whole
+gesture rather than a step, which is why the gesture holds the scale it began
+from.
+
+A wheel is not one hand. A trackpad sends scores of events a few pixels each and
+a mouse sends one of a hundred, so the ratio that makes a pinch smooth takes a
+single notch from the surface's own size to two thirds of it. The delta is capped
+per event: a notch is a step, and no event of a pinch ever reaches the cap.
+
+A key is not a character. `⌘0` on a French layout arrives as `à`, because the
+digit row carries letters until it is shifted, so the shortcuts are read off
+`event.code` — where the key sits, which every layout agrees on — as well as off
+`event.key`. The numeric keypad comes along with it.
+
+And the frame is a frame: `contain: inline-size` on the window onto the graph, so
+that no engine's reading of an automatic minimum size can hand it the width of a
+surface an Author has dragged ten thousand pixels wide. What scrolls or is pushed
+about is the graph inside it.
