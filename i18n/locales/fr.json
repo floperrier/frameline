@@ -127,7 +127,8 @@
     "zoomIn": "Se rapprocher du Graphe",
     "zoomLevel": "Échelle",
     "fitGraph": "Ajuster le Graphe",
-    "zoomShortcuts": "{key}− et {key}+ pour l’échelle, {key}0 ajuste",
+    "scaleShortcut": "pour l’échelle",
+    "fitShortcut": "ajuste",
     "pushBench": "glissez la table pour déplacer la vue",
     "commandKey": "⌘",
     "controlKey": "Ctrl"

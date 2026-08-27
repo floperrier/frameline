@@ -127,7 +127,8 @@
     "zoomIn": "Come closer to the graph",
     "zoomLevel": "Zoom",
     "fitGraph": "Fit the graph",
-    "zoomShortcuts": "{key}− and {key}+ scale, {key}0 fits",
+    "scaleShortcut": "scale",
+    "fitShortcut": "fits",
     "pushBench": "drag the bench to move the view",
     "commandKey": "⌘",
     "controlKey": "Ctrl"

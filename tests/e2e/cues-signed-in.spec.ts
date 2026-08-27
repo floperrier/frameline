@@ -2,6 +2,7 @@ import { expect, type Locator, type Page } from '@playwright/test'
 import { NODE_GAP, NODE_WIDTH } from '../../shared/utils/scenes'
 import {
   writeScene,
+  readShotConditions,
   readShots,
   seedCut,
   seedFlags,
@@ -252,7 +253,12 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await holds.blur()
 
   // The Preview, which is where the Condition stops being an idea about State
-  // and becomes a Shot that does not play.
+  // and becomes a Shot that does not play. The Condition is read back out of the
+  // Story before the page is left: the write goes when the field is left, and a
+  // Preview that opened first would be explaining a Story that had not been
+  // written yet.
+  await expect.poll(() => readShotConditions(beside.id))
+    .toEqual([[{ flag: 'courage', is: 'low' }]])
   await expect(bubble(page)).toContainText(/Nothing plays that Shot/)
   await lights(page, page.getByRole('link', { name: 'Preview this Story' }))
   await page.getByRole('link', { name: 'Preview this Story' }).click()

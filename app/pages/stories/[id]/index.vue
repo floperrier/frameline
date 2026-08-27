@@ -1640,11 +1640,25 @@ function atAGlance(scene: Scene) {
              the push that moves the view. Written out rather than left to be
              discovered, and written with the key this platform actually calls it.
              Not a live region and not a tooltip — it is a legend on an instrument,
-             read once and then known. -->
+             read once and then known.
+
+             A key is drawn as a key. `<kbd>` is the element for exactly this, and
+             a combination is a run of them shoulder to shoulder, so `⌘` and `0`
+             read as two keys pressed together rather than as a word. Nothing
+             separates one binding from the next but the space between them: a
+             character there would be one more thing to translate and one more
+             thing read out. -->
         <p class="graven">
-          {{ $t('editor.zoomShortcuts', { key: modifier }) }}
-          <span aria-hidden="true"> &middot; </span>
-          {{ $t('editor.pushBench') }}
+          <span class="binding">
+            <span class="combination"><kbd>{{ modifier }}</kbd><kbd>&minus;</kbd></span>
+            <span class="combination"><kbd>{{ modifier }}</kbd><kbd>+</kbd></span>
+            {{ $t('editor.scaleShortcut') }}
+          </span>
+          <span class="binding">
+            <span class="combination"><kbd>{{ modifier }}</kbd><kbd>0</kbd></span>
+            {{ $t('editor.fitShortcut') }}
+          </span>
+          <span class="binding">{{ $t('editor.pushBench') }}</span>
         </p>
       </div>
     </div>
@@ -2500,10 +2514,50 @@ header {
    face at the size of an engraving, because that is what it is — read once and
    then known, rather than something the eye has to get past every time. */
 .graven {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1) var(--s4);
   color: var(--muted);
   font-family: var(--data);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   letter-spacing: 0.02em;
+}
+
+/* One binding: the keys, then what they do. The keys of a combination touch each
+   other and the combinations stand well apart, so `⌘−` and `⌘+` read as two
+   things to press and not as one run of four keys. */
+.binding {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+/* A combination is pressed at once, so its keys are drawn touching. */
+.combination {
+  display: inline-flex;
+  gap: 2px;
+}
+
+/* A key, drawn as a key: the machine's own materials, a hairline of a radius like
+   everything else machined here, and one lit edge along the top where a keycap
+   catches the light. Sized in `em` off the legend it sits in, so it never drags
+   the line it is on out of rhythm. */
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 1.7em;
+  padding: 0.25em 0.4em;
+  border: 1px solid color-mix(in oklab, var(--edge) 80%, var(--paper));
+  border-block-start-color: color-mix(in oklab, var(--edge) 40%, var(--paper));
+  border-radius: var(--machined);
+  background: color-mix(in oklab, var(--steel) 60%, var(--paper) 8%);
+  box-shadow: inset 0 -1px 0 color-mix(in oklab, black 45%, transparent);
+  color: var(--paper);
+  font-family: inherit;
+  font-size: 0.75rem;
+  line-height: 1;
 }
 
 /* What the bench scrolls, and what the push moves. Never smaller than half a
