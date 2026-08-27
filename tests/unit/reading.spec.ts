@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { Condition, Flags } from '../../shared/utils/scenes'
+import type { Condition, Sets } from '../../shared/utils/scenes'
 import type { Position, State, StoryToRead } from '../../shared/utils/reading'
-import { OPENING, advance, reading, take, unmet } from '../../shared/utils/reading'
+import { advance, opening, reading, take, unmet } from '../../shared/utils/reading'
 import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
 import type { Phrase } from '../../shared/utils/phrases'
 
@@ -21,7 +21,7 @@ function story(
   scenes: Record<string, Written[]>,
   exits: [from: string, text: string, to: string, conditions?: Condition[]][] = [],
   openingSceneId: string | null = Object.keys(scenes)[0] ?? null,
-  sets: Record<string, Flags> = {},
+  sets: Record<string, Sets> = {},
 ): StoryToRead {
   return {
     openingSceneId,
@@ -43,6 +43,15 @@ function story(
     })),
   }
 }
+
+/**
+ * Where a Reading starts, under a seed this suite states rather than one drawn
+ * for it: every test but the ones about the draw itself wants the same Reading
+ * twice, and a seed drawn behind them would be the one thing they could not
+ * state. The Position is the whole of a Reading, seed included, so stating it is
+ * stating the Reading.
+ */
+const OPENING = opening(1)
 
 /** What the Reader is shown at a point in a Reading: the Shot's text, or the Exits on offer. */
 function shown(read: StoryToRead, at: Position) {
@@ -200,7 +209,7 @@ describe('an Exit carrying Conditions', () => {
    * One Scene the Reading stands in and two ways out of it, the second one
    * conditional — so what is offered says whether the Conditions passed.
    */
-  function ways(conditions: Condition[], sets: Record<string, Flags> = {}) {
+  function ways(conditions: Condition[], sets: Record<string, Sets> = {}) {
     return story(
       { Street: ['A door opens.'], Bar: ['Smoke.'], Alley: ['Rain.'] },
       [['Street', 'Stay outside', 'Alley'], ['Street', 'Go in', 'Bar', conditions]],
@@ -479,5 +488,142 @@ describe('a Shot carrying Conditions', () => {
 
   it('holds no run at all where the Reading stands in no Scene', () => {
     expect(run(story({}, [], null), OPENING)).toEqual([])
+  })
+})
+
+describe('a Scene drawing one of several values for a Flag', () => {
+  /**
+   * One Scene whose weather is drawn from three values, and three Shots each
+   * playing under one of them: what the Reader is shown is what was drawn, which
+   * is how these read the draw without reaching for the hash behind it.
+   */
+  const weather = story(
+    {
+      Street: [
+        ['Rain on the awning.', [{ flag: 'weather', is: 'rain' }]],
+        ['Sun on the awning.', [{ flag: 'weather', is: 'sun' }]],
+        ['Haze over the street.', [{ flag: 'weather', is: 'haze' }]],
+      ],
+    },
+    [],
+    'Street',
+    { Street: { weather: ['rain', 'sun', 'haze'] } },
+  )
+
+  /** The Positions a hundred Readings of one Story open at, each under its own seed. */
+  const seeds = Array.from({ length: 100 }, (_, seed) => opening(seed))
+
+  it('plays the one Shot the drawn value matches, and none of the others', () => {
+    for (const at of seeds.slice(0, 20)) {
+      expect(run(weather, at)).toHaveLength(1)
+      expect(shown(weather, at).text).toMatch(/Rain on the awning\.|Sun on the awning\.|Haze over/)
+    }
+  })
+
+  it('shows the same variant every time one Position is read', () => {
+    const at = opening(7)
+    expect(shown(weather, at)).toEqual(shown(weather, at))
+    // The Reader going back a beat and coming forward again is the same
+    // Position read a third time, and the run it plays does not move under them.
+    expect(run(weather, at)).toEqual(run(weather, advance(at)))
+  })
+
+  it('reaches every value in the list, across the seeds Readings are drawn under', () => {
+    expect(new Set(seeds.map(at => shown(weather, at).text)).size).toBe(3)
+  })
+
+  it('draws again on a second entry to the Scene, so a Story read round may differ', () => {
+    const looping = story(
+      {
+        Street: [
+          ['Rain on the awning.', [{ flag: 'weather', is: 'rain' }]],
+          ['Sun on the awning.', [{ flag: 'weather', is: 'sun' }]],
+        ],
+        Corner: ['She turns back.'],
+      },
+      [['Street', 'Walk on', 'Corner'], ['Corner', 'Back to the street', 'Street']],
+      'Street',
+      { Street: { weather: ['rain', 'sun'] } },
+    )
+
+    /** The Position two Exits on, standing in the Street for the second time. */
+    const roundAgain = (at: Position) => {
+      const onward = take(advance(at), reading(looping, advance(at)).exits[0]!)
+      return take(advance(onward), reading(looping, advance(onward)).exits[0]!)
+    }
+
+    const differed = seeds.filter(at =>
+      shown(looping, at).text !== shown(looping, roundAgain(at)).text)
+    expect(differed.length).toBeGreaterThan(0)
+  })
+
+  it('leaves a later Scene’s draw alone when an earlier Scene is edited', () => {
+    /** One Scene ahead of another, whose Shots are the Author's to change. */
+    const ahead = (street: Written[]) => story(
+      {
+        Street: street,
+        Bar: [
+          ['Whisky.', [{ flag: 'drink', is: 'whisky' }]],
+          ['Beer.', [{ flag: 'drink', is: 'beer' }]],
+        ],
+      },
+      [['Street', 'Go in', 'Bar']],
+      'Street',
+      { Bar: { drink: ['whisky', 'beer'] } },
+    )
+
+    const written = ahead(['A door opens.'])
+    // A Shot added to the Scene before it, and a Shot the same Scene skips: both
+    // shift what the walk passes through, and neither is part of the draw's key.
+    const added = ahead(['A door opens.', 'She steps out.'])
+    const skipped = ahead([
+      'A door opens.',
+      ['Only on the way back.', [{ flag: 'coat', is: 'on' }]],
+    ])
+
+    for (const at of seeds.slice(0, 20)) {
+      const inTheBar = (read: StoryToRead, from: Position) =>
+        take(from, reading(read, from).exits[0]!)
+      const drank = (read: StoryToRead, beats: number) => {
+        let from = at
+        for (let beat = 0; beat < beats; beat++) from = advance(from)
+        return reading(read, inTheBar(read, from)).state.flags.drink
+      }
+
+      expect(drank(added, 2)).toBe(drank(written, 1))
+      expect(drank(skipped, 1)).toBe(drank(written, 1))
+    }
+  })
+
+  it('decides an Exit in a later Scene, the way a Flag the Author set does', () => {
+    const tossing = story(
+      { Street: ['A coin comes down.'], Heads: ['Heads.'], Tails: ['Tails.'] },
+      [
+        ['Street', 'Heads', 'Heads', [{ flag: 'coin', is: 'heads' }]],
+        ['Street', 'Tails', 'Tails', [{ flag: 'coin', is: 'tails' }]],
+      ],
+      'Street',
+      { Street: { coin: ['heads', 'tails'] } },
+    )
+
+    for (const at of seeds.slice(0, 20)) {
+      const endOfStreet = advance(at)
+      const { state, exits } = reading(tossing, endOfStreet)
+      expect(exits.map(exit => exit.text))
+        .toEqual([state.flags.coin === 'heads' ? 'Heads' : 'Tails'])
+    }
+  })
+
+  it('leaves a Flag given one value behaving exactly as it did', () => {
+    const setting = story(
+      { Street: ['A door opens.'] },
+      [],
+      'Street',
+      { Street: { coat: 'on', weather: ['rain', 'sun'] } },
+    )
+
+    for (const at of seeds.slice(0, 20)) {
+      expect(reading(setting, at).state.flags.coat).toBe('on')
+    }
   })
 })

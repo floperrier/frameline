@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { neon } from '@neondatabase/serverless'
 import { test as base, type APIRequestContext, type Page } from '@playwright/test'
 import { DISMISSED } from '../../app/utils/steps'
-import type { Condition, Exit, Flags, Scene, Shot } from '../../shared/utils/scenes'
+import type { Condition, Exit, Scene, Sets, Shot } from '../../shared/utils/scenes'
 import { NODE_GAP, NODE_SPACING, NODE_WIDTH, NODES_PER_COLUMN } from '../../shared/utils/scenes'
 import { sealSession, type H3Event } from 'h3'
 
@@ -186,7 +186,7 @@ export async function seedPublication(story: Story) {
 }
 
 /** Sets the Flags a Scene carries, past the API, on behalf of an Author. */
-export async function seedFlags(sceneId: string, sets: Flags) {
+export async function seedFlags(sceneId: string, sets: Sets) {
   await sql`update scenes set sets = ${JSON.stringify(sets)}::jsonb where id = ${sceneId}`
 }
 
@@ -199,7 +199,7 @@ export async function seedShotConditions(shotId: string, conditions: Condition[]
 /** Reads the Flags a Scene sets on entry, past the API. */
 export async function readFlags(sceneId: string) {
   const [scene] = await sql`
-    select sets from scenes where id = ${sceneId}` as { sets: Flags }[]
+    select sets from scenes where id = ${sceneId}` as { sets: Sets }[]
 
   return scene!.sets
 }

@@ -90,13 +90,15 @@ export async function readScenePlacementOffered(event: H3Event) {
 }
 
 /**
- * Reads the Flags a Scene sets on entry, as a flat object of names to values. A
- * Flag is a name *and* a value, so neither half may be blank: a Flag set to
- * nothing is one the engine cannot tell from a Flag never set. Names and values
- * hold no newline and no separator, which is what lets the editor show them back
- * as one `name = value` line apiece.
+ * Reads the Flags a Scene sets on entry, as a flat object of names to values —
+ * or, where the Author named several for one Flag, to the list one value is drawn
+ * from on each entry. A Flag is a name *and* a value, so neither half may be
+ * blank: a Flag set to nothing is one the engine cannot tell from a Flag never
+ * set. A name holds no newline and neither separator, and a value holds no
+ * newline and not the one that tells a draw's values apart — which is what lets
+ * the editor show them back as one line apiece.
  */
-export async function readSceneFlags(event: H3Event): Promise<Flags> {
+export async function readSceneFlags(event: H3Event): Promise<Sets> {
   const body = await readBody<{ sets?: unknown }>(event)
   const sets = body?.sets
 
@@ -110,21 +112,55 @@ export async function readSceneFlags(event: H3Event): Promise<Flags> {
     })
   }
 
-  const flags: Flags = {}
+  const flags: Sets = {}
   for (const [name, value] of entries) {
     const flag = name.trim()
-    const held = typeof value === 'string' ? value.trim() : ''
+    if (!flag || flag.length > FLAG_NAME_MAX_LENGTH) throw badFlags(event)
+    if (flag.includes(FLAG_SEPARATOR) || flag.includes('\n')) throw badFlags(event)
 
-    if (!flag || !held) throw badFlags(event)
-    if (flag.length > FLAG_NAME_MAX_LENGTH || held.length > FLAG_VALUE_MAX_LENGTH) {
-      throw badFlags(event)
-    }
-    if (flag.includes(FLAG_SEPARATOR) || `${flag}${held}`.includes('\n')) throw badFlags(event)
-
-    flags[flag] = held
+    flags[flag] = Array.isArray(value) ? drawnFrom(event, value) : oneValue(event, value)
   }
 
   return flags
+}
+
+/**
+ * One value a Flag may hold, whether it stands alone or is one of a list: short
+ * enough to be a Flag's value on its own, and holding no newline and not the
+ * separator a draw's values are told apart by, so the line the editor writes it
+ * back on can be read as the line it was typed on. It may hold the separator
+ * between a name and a value, which a line is only split on once.
+ */
+function oneValue(event: H3Event, value: unknown) {
+  const held = typeof value === 'string' ? value.trim() : ''
+
+  if (!held || held.length > FLAG_VALUE_MAX_LENGTH) throw badFlags(event)
+  if (held.includes('\n')) throw badFlags(event)
+  if (held.includes(FLAG_VALUES_SEPARATOR)) {
+    throw createError({
+      statusCode: 400,
+      message: saying(event)('refusals.flagValueSeparator', { separator: FLAG_VALUES_SEPARATOR }),
+    })
+  }
+
+  return held
+}
+
+/**
+ * The values a Flag is drawn from. At least two, because a list of one is a plain
+ * value and reaches here as one, and at most `FLAG_VALUES_MAX` — a draw is a beat
+ * coming back differently, not a table to roll on.
+ */
+function drawnFrom(event: H3Event, values: unknown[]) {
+  if (values.length < 2) throw badFlags(event)
+  if (values.length > FLAG_VALUES_MAX) {
+    throw createError({
+      statusCode: 400,
+      message: saying(event)('refusals.tooManyFlagValues', { max: FLAG_VALUES_MAX }),
+    })
+  }
+
+  return values.map(value => oneValue(event, value))
 }
 
 function badFlags(event: H3Event) {

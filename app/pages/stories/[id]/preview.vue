@@ -24,7 +24,22 @@ const { data: story } = await useAsyncData(
  * engine is a pure function of it, so reading it a second time here costs a walk
  * of the Exits taken and buys a State nobody had to hand out.
  */
-const at = ref<Position>(OPENING)
+const at = ref<Position>(UNDRAWN)
+
+/**
+ * The reel above, which holds the Position and is the only thing that may move
+ * it. All this asks of it is another draw — a Position rerolled here would be a
+ * second Position, and the Reading would go on reading its own.
+ */
+const reel = useTemplateRef<{ reroll: () => void }>('reel')
+
+/**
+ * Whether any Scene of this Story draws a Flag, which is whether there is
+ * anything for another draw to change. A Story with none is read the same way
+ * whatever the seed, so the control is not offered rather than offered and inert.
+ */
+const draws = computed(() =>
+  story.value?.scenes.some(scene => Object.values(scene.sets).some(Array.isArray)))
 const shown = computed(() => story.value && reading(story.value, at.value))
 
 /** Scenes are read by name here as everywhere else an Author reads them. */
@@ -119,7 +134,7 @@ function why(conditions: Condition[]) {
          the room to itself, so the two are given a surface of this page's own
          rather than the room being taught to hold both. -->
     <div v-else-if="story" class="cutting">
-      <Reading :story="story" @at="at = $event" />
+      <Reading ref="reel" :story="story" @at="at = $event" />
 
       <!-- What is on the bench is the Author's own instrument and no part of the
            Story, so it sits under the projection and never in it. Named, because
@@ -129,6 +144,18 @@ function why(conditions: Condition[]) {
           {{ $t('preview.bench') }}
           <span aria-hidden="true">·</span>
           {{ $t('preview.benchNote') }}
+        </p>
+
+        <!-- The one control on the bench, and no part of the Story: the same
+             Reading at the same Position, read against another draw. It sits with
+             the State it changes rather than in the reel, because what an Author
+             is doing here is looking at their own variants and not reading. -->
+        <p v-if="draws" class="draw">
+          <button type="button" class="trail" @click="reel?.reroll()">
+            {{ $t('preview.reroll') }}
+          </button>
+          <span aria-hidden="true">·</span>
+          {{ $t('preview.rerollNote') }}
         </p>
 
         <!-- Why a way on is missing, which is the question a Preview could not
@@ -276,6 +303,15 @@ h1 {
 
 .none {
   margin-block-start: var(--s2);
+  color: var(--muted);
+}
+
+/* The draw, offered the way the bench says everything else: the control first
+   and what it does beside it, in the machine's own small voice. */
+.draw {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
   color: var(--muted);
 }
 

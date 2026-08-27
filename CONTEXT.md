@@ -124,7 +124,9 @@ _Avoid_: variables, memory, save, progress, context, session data
 
 **Flag**:
 A single named value in State, set by the Author and tested by Conditions. A
-Scene carries the Flags it sets, and sets them on every entry.
+Scene carries the Flags it sets, and sets them on every entry. A Scene may name
+several values for one Flag, and one of them is drawn on each entry — what holds
+a list is the Scene, never the State, where a Flag is the one value drawn.
 _Affiché_: Marqueur
 _Avoid_: variable, switch, toggle, key, drapeau
 
@@ -134,9 +136,10 @@ _Affiché_: Lecture
 _Avoid_: session, playthrough, run, visit
 
 **Position**:
-How far one Reading has got: the Exits it has taken, in order, and how many Shots
-of the Scene it stands in are behind it. Everything else about a Reading — the
-Scene, the Shot on screen, the Exits on offer, the State — is computed from it.
+How far one Reading has got: the Exits it has taken, in order, how many Shots
+of the Scene it stands in are behind it, and the seed every draw a Scene makes
+comes out of. Everything else about a Reading — the Scene, the Shot on screen,
+the Exits on offer, the State — is computed from it.
 Where a Shot or an Exit comes in its own list is a Place, never a Position.
 _Affiché_: Position
 _Avoid_: cursor, pointer, progress, step, index
