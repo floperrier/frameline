@@ -122,5 +122,13 @@ replaces every Scene in the Story, and a gesture holding the old object would go
 on aiming from a Scene nothing draws any more — the same reason the drag that
 moves a node holds an id, and the same trap.
 
-This is reopened by zoom, along with everything else about the bench. A node at a
-quarter of its size has no twenty-pixel strip to drag from.
+Zoom has since arrived — see
+`docs/adr/0010-the-graph-is-written-here-not-pulled-in.md` — and this is what it
+did to the gesture. The pointer is read on the surface rather than on the screen,
+so a Cut lands where the hand is at every scale, and the Scene a Cut dropped on
+the bare bench writes is snapped on the same lattice it always was. What a
+quarter takes is the strip: twenty surface pixels are five on screen, which is
+nothing to aim at. So the gesture is a gesture for a bench near its own size, and
+a pulled-back bench keeps both of the routes that never needed the strip — the
+hidden button on each node, which is the keyboard's way through the same aiming,
+and coming closer, which is now one press away.

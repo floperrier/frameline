@@ -9,9 +9,13 @@ import {
   NODE_HEIGHT,
   NODE_PITCH,
   NODE_WIDTH,
+  onTheSurface,
   scenesACutMayLandOn,
   snappedWithinReach,
   withinReach,
+  ZOOM_MAX,
+  ZOOM_MIN,
+  zoomedAbout,
 } from '../../shared/utils/scenes'
 
 describe('the line that draws a Cut', () => {
@@ -139,5 +143,58 @@ describe('where a node may sit', () => {
 
   test('never snaps a point back out of the reach it was held inside', () => {
     expect(snappedWithinReach({ x: GRAPH_REACH + 500, y: -500 })).toEqual({ x: GRAPH_REACH, y: 0 })
+  })
+})
+
+describe('where a point on the screen lands on the surface', () => {
+  const surface = { left: 100, top: 50 }
+
+  test('takes the surface\u2019s own corner off, so a scrolled bench reads true', () => {
+    expect(onTheSurface({ x: 140, y: 90 }, surface, 1)).toEqual({ x: 40, y: 40 })
+  })
+
+  test('undoes the scale, so a pixel of the window is not read as a pixel of the surface', () => {
+    expect(onTheSurface({ x: 140, y: 90 }, surface, ZOOM_MIN)).toEqual({ x: 160, y: 160 })
+    expect(onTheSurface({ x: 200, y: 100 }, surface, 0.5)).toEqual({ x: 200, y: 100 })
+  })
+
+  /**
+   * The hand outside the surface is a real position and not a refusal: a Cut is
+   * drawn from a node with the pointer up above the graph's own corner, and the
+   * point it is aimed at is held within reach where it is written, not here.
+   */
+  test('reads a point above and behind the corner as the negative it is', () => {
+    expect(onTheSurface({ x: 80, y: 30 }, surface, 0.5)).toEqual({ x: -40, y: -40 })
+  })
+})
+
+describe('the zoom, and the scroll that holds a point still under it', () => {
+  const nowhere = { x: 0, y: 0 }
+
+  test('never pulls back further than the far end, nor closer than the surface\u2019s own size', () => {
+    expect(zoomedAbout(1, 0.05, nowhere, nowhere).zoom).toBe(ZOOM_MIN)
+    expect(zoomedAbout(ZOOM_MIN, 4, nowhere, nowhere).zoom).toBe(ZOOM_MAX)
+  })
+
+  test('leaves the corner of the surface alone, because it is the point it scales about', () => {
+    expect(zoomedAbout(1, 0.5, nowhere, { x: 300, y: 200 }).scroll).toEqual({ x: 300, y: 200 })
+  })
+
+  test('keeps the point it is anchored on where it was on screen', () => {
+    const anchor = { x: 800, y: 400 }
+    const { zoom, scroll } = zoomedAbout(1, 0.5, anchor, { x: 600, y: 300 })
+
+    // Where the anchor sits from the corner of what scrolls, less where the
+    // scroll now is, is where it sits on screen: the same as before the zoom.
+    expect(anchor.x * zoom - scroll.x).toBe(anchor.x * 1 - 600)
+    expect(anchor.y * zoom - scroll.y).toBe(anchor.y * 1 - 300)
+  })
+
+  test('anchors on the bound it was held at, not on the scale it was asked for', () => {
+    const anchor = { x: 400, y: 400 }
+    const { zoom, scroll } = zoomedAbout(0.5, 0.05, anchor, { x: 200, y: 200 })
+
+    expect(zoom).toBe(ZOOM_MIN)
+    expect(scroll).toEqual({ x: 200 + 400 * (ZOOM_MIN - 0.5), y: 200 + 400 * (ZOOM_MIN - 0.5) })
   })
 })

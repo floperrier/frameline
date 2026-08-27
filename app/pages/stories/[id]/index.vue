@@ -49,15 +49,63 @@ const sceneNames = computed(
   () => new Map(story.value?.scenes.map(scene => [scene.id, scene.name])),
 )
 
-/** The graph is as large as the Scenes in it, so it scrolls no further than them. */
+/**
+ * How far back the Author is standing from their own graph, where one is the
+ * surface's own size. Like what is in the panel, it is the Author's view of their
+ * own work rather than part of it: it is written nowhere, and every load opens on
+ * the bench at its own size.
+ */
+const zoom = ref(1)
+
+/**
+ * Whether the scale should travel to where it is going or arrive there. The
+ * buttons and the shortcuts are steps, and a step that jumps leaves the Author
+ * working out what moved; the wheel is already continuous, and easing it would
+ * put the surface a frame behind the hand turning it. Set by whichever route is
+ * zooming rather than timed, so nothing has to be unset afterwards.
+ */
+const eased = ref(false)
+
+/**
+ * How far back the Author is standing, as a reading. A percentage written the way
+ * one is written in the Locale rather than in the Story's own Language: this is
+ * the bench talking about itself, like the time of the last write above.
+ */
+const zoomShown = computed(
+  () => new Intl.NumberFormat(locale.value, { style: 'percent' }).format(zoom.value))
+
+/**
+ * The graph is as large as the Scenes in it, so it scrolls no further than them.
+ * In surface pixels, which is what a Scene's placement is in and what the lines
+ * are drawn in: the scale the bench is looked at through is not in here.
+ */
 const graphSize = computed(() => {
   const scenes = story.value?.scenes ?? []
   const furthest = (of: (scene: Scene) => number) => Math.max(0, ...scenes.map(of))
+
   return {
-    width: `${furthest(scene => scene.x) + NODE_WIDTH + NODE_GAP}px`,
-    height: `${furthest(scene => scene.y) + NODE_HEIGHT + NODE_GAP}px`,
+    width: furthest(scene => scene.x) + NODE_WIDTH + NODE_GAP,
+    height: furthest(scene => scene.y) + NODE_HEIGHT + NODE_GAP,
   }
 })
+
+/** The surface itself, and the drawing on it: the size above, in pixels of CSS. */
+const surfaceSize = computed(() => ({
+  width: `${graphSize.value.width}px`,
+  height: `${graphSize.value.height}px`,
+}))
+
+/**
+ * How far the bench scrolls: the surface at the size it is *drawn* at. A scale
+ * is a transform and a transform moves nothing in the layout, so the box that
+ * scrolls is a box of its own around the surface — without it a bench zoomed out
+ * would scroll as far as a bench at its own size, and one zoomed in would stop
+ * short of half its Scenes.
+ */
+const spreadSize = computed(() => ({
+  width: `${graphSize.value.width * zoom.value}px`,
+  height: `${graphSize.value.height * zoom.value}px`,
+}))
 
 /**
  * The ways on leaving one Scene, in the Places it numbers them at. Taken by id
@@ -454,10 +502,211 @@ function openOn(scene: Scene) {
 
 /**
  * The surface the nodes are laid out on, which is what a pointer's position has
- * to be read against: the bench scrolls, so where the hand is on the screen is
- * not where it is on the Graph.
+ * to be read against: the bench scrolls and it is drawn at a scale, so where the
+ * hand is on the screen is not where it is on the Graph.
  */
 const surface = useTemplateRef<HTMLElement>('surface')
+
+/** The box the surface is looked at through: what scrolls, and what pans. */
+const graph = useTemplateRef<HTMLElement>('graph')
+
+/**
+ * Where a pointer is on the surface. Read off the surface's own rectangle every
+ * time rather than kept from the start of a gesture, because the bench can move
+ * under a hand that is in the middle of one — a Scene dragged to the edge scrolls
+ * the bench, and the panel opening beside it narrows the graph.
+ */
+function pointOnSurface(at: { clientX: number, clientY: number }) {
+  return onTheSurface(
+    { x: at.clientX, y: at.clientY }, surface.value!.getBoundingClientRect(), zoom.value)
+}
+
+/**
+ * The middle of what is on screen of the bench, as a point on the surface. The
+ * anchor for every zoom that has no pointer behind it: what an Author is looking
+ * at is what stays put.
+ */
+function middleOfBench() {
+  const box = graph.value!.getBoundingClientRect()
+
+  return pointOnSurface({
+    clientX: box.left + box.width / 2,
+    clientY: box.top + box.height / 2,
+  })
+}
+
+/**
+ * Pulls the bench back or brings it closer, holding one point of the surface
+ * where it is. The scroll is written after the render, because the box that
+ * scrolls is only as large as the new scale once it has been drawn at it: set
+ * before, a scroll past the old extent would be clamped to it and the anchor
+ * would slide.
+ */
+function zoomAbout(to: number, anchor: Point, smoothly = true) {
+  const scroller = graph.value
+  if (!scroller) return
+
+  const zoomed = zoomedAbout(
+    zoom.value, to, anchor, { x: scroller.scrollLeft, y: scroller.scrollTop })
+  eased.value = smoothly
+  zoom.value = zoomed.zoom
+
+  return nextTick(() => {
+    scroller.scrollLeft = zoomed.scroll.x
+    scroller.scrollTop = zoomed.scroll.y
+  })
+}
+
+/**
+ * One press of a zoom control. A quarter at a time, which is the whole range in
+ * three steps and lands on the scale the fit usually wants anyway.
+ */
+const ZOOM_STEP = 0.25
+
+function zoomBy(step: -1 | 1) {
+  if (graph.value) zoomAbout(zoom.value + step * ZOOM_STEP, middleOfBench())
+}
+
+/**
+ * Far enough back to see the whole Story at once — or as far back as the bench
+ * goes, on a Story larger than a quarter of the screen can hold, which is the
+ * bound doing its job rather than the fit failing.
+ */
+function zoomToFit() {
+  const scroller = graph.value
+  if (!scroller) return
+
+  const { width, height } = graphSize.value
+  zoomAbout(
+    Math.min(scroller.clientWidth / width, scroller.clientHeight / height), middleOfBench())
+}
+
+/**
+ * How much of a wheel makes how much of a zoom. A ratio rather than a difference,
+ * so a notch pulls back as far as it pushes in, and read off the pixels the wheel
+ * reports so a trackpad's hundred small deltas and a mouse's three large ones
+ * arrive at the same place.
+ *
+ * ponytail: two hundred is a number to be felt at a trackpad rather than derived
+ * — it is about a notch of a mouse wheel to a quarter of the scale. Tune it the
+ * day the zoom feels heavy under somebody's hand.
+ */
+const ZOOM_PER_WHEEL = 200
+
+/**
+ * The wheel with Ctrl or Command held, which is also exactly what a trackpad
+ * sends while two fingers pinch: the browser reports a pinch as a wheel with
+ * Ctrl, so the gesture and the modifier are one handler rather than two. The
+ * default is refused, because what the browser would otherwise do with it is zoom
+ * the whole page — the header, the panel and the bench together.
+ *
+ * Anchored on the pointer, so the Scene under the cursor is the Scene still under
+ * it afterwards.
+ */
+function zoomByWheel(event: WheelEvent) {
+  if (!event.ctrlKey && !event.metaKey) return
+  event.preventDefault()
+
+  zoomAbout(zoom.value * Math.exp(-event.deltaY / ZOOM_PER_WHEEL), pointOnSurface(event), false)
+}
+
+/**
+ * The three shortcuts a viewport is expected to answer, taken off the browser's
+ * own page zoom: on this page the thing to make larger is the graph. `=` as well
+ * as `+`, because the key that carries the plus is pressed without its shift on
+ * most layouts.
+ */
+const ZOOMS: Record<string, -1 | 1> = { '+': 1, '=': 1, '-': -1, '_': -1 }
+
+function zoomOnKeys(event: KeyboardEvent) {
+  if (!(event.metaKey || event.ctrlKey) || !graph.value) return
+
+  const zooming = ZOOMS[event.key]
+  if (!zooming && event.key !== '0') return
+
+  event.preventDefault()
+  return zooming ? zoomBy(zooming) : zoomToFit()
+}
+
+/**
+ * How far a press may travel and still be a press. The bench does one thing on a
+ * press — it closes the panel — and it now does another on a drag, so the two are
+ * told apart by how far the hand went before it let go.
+ *
+ * ponytail: four pixels is the slack in a hand that means to press, felt rather
+ * than derived. Raise it the day a press on the bench stops closing the panel
+ * under somebody's hand.
+ */
+const PAN_SLACK = 4
+
+/**
+ * The hand pushing the bench about: where it went down, where it was last seen,
+ * and which pointer it is. Held while the gesture is live and nothing otherwise,
+ * like every other gesture here.
+ */
+let pushing: { pointerId: number, from: Point, last: Point } | undefined
+
+/**
+ * A press on the bare bench. Anywhere that is not a card is the bench — a Cut's
+ * line stops its own press from reaching here, so pressing one line while another
+ * Cut is in the panel writes the second rather than closing on both, and a press
+ * on a card is that card's own drag.
+ *
+ * The pointer is captured so the push survives the hand leaving the graph, which
+ * on a bench pulled back to a quarter is most of the screen.
+ */
+function pressBench(event: PointerEvent) {
+  if ((event.target as Element | null)?.closest('article')) return
+
+  const at = { x: event.clientX, y: event.clientY }
+  pushing = { pointerId: event.pointerId, from: at, last: { ...at } }
+  // A finger is not captured: the browser is about to scroll the bench itself,
+  // and it says so by cancelling the pointer — see `panBench`.
+  if (event.pointerType !== 'touch') {
+    ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+  }
+}
+
+/**
+ * The push itself: the view goes the way the hand does, which means the scroll
+ * goes the other way. In screen pixels and not surface ones — what is being moved
+ * is the window onto the surface, not anything on it.
+ *
+ * A finger moves nothing here. The browser pans an overflowing box under a touch
+ * already, with the momentum that goes with it, and taking that over would be
+ * writing a worse one; what a touch does keep is the distance, which is what says
+ * whether the press that ends was a press at all.
+ */
+function panBench(event: PointerEvent) {
+  const pushed = pushing
+  if (!pushed || event.pointerId !== pushed.pointerId || !graph.value) return
+
+  if (event.pointerType !== 'touch') {
+    graph.value.scrollLeft -= event.clientX - pushed.last.x
+    graph.value.scrollTop -= event.clientY - pushed.last.y
+  }
+  pushed.last = { x: event.clientX, y: event.clientY }
+}
+
+/**
+ * The hand let go. A press that stayed put closes the panel, which is what a
+ * press on the bare bench has always done; one that pushed the bench somewhere
+ * closes nothing, because moving the view is not saying anything about what is
+ * being written.
+ */
+function releaseBench(event: PointerEvent) {
+  const pushed = pushing
+  pushing = undefined
+  if (!pushed || event.pointerId !== pushed.pointerId) return
+
+  const travelled = Math.hypot(event.clientX - pushed.from.x, event.clientY - pushed.from.y)
+  if (travelled < PAN_SLACK) writing.value = undefined
+}
+
+/** A push the browser took over — a finger scrolling the bench — moves nothing. */
+function letGoOfBench() {
+  pushing = undefined
+}
 
 /**
  * The Cut being drawn by hand, held while the gesture is live and nothing
@@ -520,8 +769,7 @@ function startAiming(scene: Scene, event: PointerEvent) {
 
 function keepAiming(event: PointerEvent) {
   if (!aiming.value) return
-  const on = surface.value!.getBoundingClientRect()
-  aiming.value.at = { x: event.clientX - on.left, y: event.clientY - on.top }
+  aiming.value.at = pointOnSurface(event)
   aiming.value.over = sceneUnder(event)
 }
 
@@ -679,8 +927,14 @@ function letGoOnEscape(event: KeyboardEvent) {
   closePanel()
 }
 
-onMounted(() => document.addEventListener('keydown', letGoOnEscape))
-onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
+onMounted(() => {
+  document.addEventListener('keydown', letGoOnEscape)
+  document.addEventListener('keydown', zoomOnKeys)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', letGoOnEscape)
+  document.removeEventListener('keydown', zoomOnKeys)
+})
 
 function moveCut(scene: Scene, cut: Cut, step: -1 | 1) {
   return renumber(scene, 'cuts', movedBy(cutsFrom(scene.id).map(held => held.id), cut.id, step))
@@ -767,7 +1021,7 @@ async function openCut(cutId: string) {
  * belongs to — the Scene being written, or the Scene a Cut leaves — so the
  * keyboard comes back out onto the bench rather than at the top of the page. A
  * panel closed with the pointer on the bare bench is closed by hand and leaves
- * focus alone: see `closeOnBench`.
+ * focus alone: see `releaseBench`.
  *
  * The card's button rather than the control the panel was opened from, which for
  * a Cut is a row of the ways on: one panel holds one thing, so opening a Cut took
@@ -782,19 +1036,6 @@ function closePanel() {
   const sceneId = 'scene' in held ? held.scene : cutById(held.cut)?.fromSceneId
   writing.value = undefined
   if (sceneId) document.getElementById(`write-${sceneId}`)?.focus()
-}
-
-/**
- * A press on the bare bench closes the panel. Anywhere that is not a card or a
- * Cut's own line is the bench — the line stops the press from reaching here, so
- * pressing one line while another Cut is in the panel writes the second rather
- * than closing on both.
- */
-function closeOnBench(event: PointerEvent) {
-  // An `Element` rather than an `HTMLElement`, because the drawing is SVG and a
-  // press that reaches here may well have landed on it.
-  const on = event.target as Element | null
-  if (!on?.closest('article')) writing.value = undefined
 }
 
 /**
@@ -1028,14 +1269,19 @@ function startDrag(scene: Scene, event: PointerEvent) {
   // Capturing the pointer sends the rest of the gesture to the card itself, so
   // dragging survives the pointer leaving the Scene it is dragging.
   ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
-  drag = { id: scene.id, pointerX: event.clientX, pointerY: event.clientY, x: scene.x, y: scene.y }
+  const at = pointOnSurface(event)
+  drag = { id: scene.id, pointerX: at.x, pointerY: at.y, x: scene.x, y: scene.y }
 }
 
 function keepDragging(event: PointerEvent) {
   const dragged = drag && sceneById(drag.id)
   if (!drag || !dragged) return
-  dragged.x = withinReach(drag.x + event.clientX - drag.pointerX)
-  dragged.y = withinReach(drag.y + event.clientY - drag.pointerY)
+  // In surface pixels at both ends, so the node travels exactly as far as the
+  // hand does whatever the bench is being looked at through: a card dragged an
+  // inch on a bench pulled back to a quarter crosses four times as much graph.
+  const at = pointOnSurface(event)
+  dragged.x = withinReach(drag.x + at.x - drag.pointerX)
+  dragged.y = withinReach(drag.y + at.y - drag.pointerY)
 }
 
 function endDrag() {
@@ -1202,190 +1448,247 @@ function atAGlance(scene: Scene) {
          at its trailing edge. The panel pushes the graph rather than covering it,
          so nothing the Author is working on ends up hidden underneath it. -->
     <div v-else class="bench">
-      <div class="graph" @pointerdown="closeOnBench">
-        <div ref="surface" class="surface" :style="{ ...graphSize, '--pitch': `${NODE_PITCH}px` }">
-          <!-- The drawing is a pointer's way to a Cut and a second place the one
-               being written is shown; the account of where a Scene leads that
-               anything reads out is the card and the panel — see
-               `docs/adr/0010-the-graph-is-written-here-not-pulled-in.md`. So the
-               lines are hidden from what reads the page rather than being the
-               keyboard's route to a Cut. -->
-          <svg aria-hidden="true" :style="graphSize">
-            <defs>
-              <marker
-                id="cut-head" viewBox="0 0 8 8" refX="7" refY="4"
-                markerWidth="8" markerHeight="8" orient="auto-start-reverse"
-              >
-                <path d="M 0 0 L 8 4 L 0 8 z" />
-              </marker>
-            </defs>
-            <g v-for="line in cutLines" :key="line.id" :data-cut="line.id">
-              <!-- The wide invisible stroke behind the line, which is what the
-                   hand actually aims at: a Cut is written by pressing its line,
-                   and a line and a half of pixels is nobody's idea of a target.
-                   The press stops here, so it does not reach the bench that would
-                   close the panel it just opened — and its default is refused,
-                   because a press on a line focuses nothing and would take the
-                   focus off the field the panel has just put it in. -->
-              <line
-                class="aimed"
-                :x1="line.from.x"
-                :y1="line.from.y"
-                :x2="line.to.x"
-                :y2="line.to.y"
-                @pointerdown.stop.prevent="openCut(line.id)"
-              />
-              <line
-                :class="{ lit: cutWritten?.cut.id === line.id }"
-                :x1="line.from.x"
-                :y1="line.from.y"
-                :x2="line.to.x"
-                :y2="line.to.y"
-                marker-end="url(#cut-head)"
-              />
-              <!-- The Place the way on is offered at, on a disc near the Scene it
-                   leaves. It reports the order; nothing reads the order back out
-                   of the drawing — see
-                   `docs/adr/0007-the-order-of-the-ways-on-is-written-not-drawn.md`. -->
-              <!-- Nine pixels of radius, which is what holds two digits of the
-                   data face the number is set in: a Scene offering more than
-                   ninety-nine ways on is not a Scene. -->
-              <circle class="disc" :cx="line.disc.x" :cy="line.disc.y" r="9" />
-              <text class="place" :x="line.disc.x" :y="line.disc.y">{{ line.place }}</text>
-            </g>
-
-            <!-- The Cut under the Author's hand: the same grease pencil as the
-                 Cuts it is dragged across, told apart from them by its dashes
-                 marching, and losing its arrowhead where it cannot land. -->
-            <line
-              v-if="drawnLine"
-              class="drawn"
-              :x1="drawnLine.from.x"
-              :y1="drawnLine.from.y"
-              :x2="drawnLine.to.x"
-              :y2="drawnLine.to.y"
-              :marker-end="landing ? 'url(#cut-head)' : undefined"
-            />
-          </svg>
-
-          <!-- A Scene's card: what an Author needs to recognise the Scene at a
-               glance, and nothing to type into. It is named by the Scene rather
-               than by its own heading, and it is the whole of the drag that lays
-               the graph out — dragged from anywhere on it bar its controls and the
-               strip, and focusable so the four arrow keys move it too. -->
-          <article
-            v-for="scene in story.scenes"
-            :key="scene.id"
-            :data-scene="scene.id"
-            tabindex="0"
-            :class="{
-              opens: story.openingSceneId === scene.id,
-              writing: sceneWritten?.id === scene.id,
-              drawing: aiming?.fromSceneId === scene.id,
-              lit: mayLandOn(scene),
-              quiet: aiming && !mayLandOn(scene),
-            }"
-            :aria-label="scene.name"
-            :style="{
-              translate: `${scene.x}px ${scene.y}px`,
-              inlineSize: `${NODE_WIDTH}px`,
-              blockSize: `${NODE_HEIGHT}px`,
-            }"
-            @pointerdown="startDrag(scene, $event)"
-            @pointermove="keepDragging"
-            @pointerup="endDrag"
-            @keydown="nudge(scene, $event)"
-          >
-            <!-- The strip down the card's leading edge, and where a Cut is drawn
-                 from. It runs the card's full height, the gesture is immediate
-                 under a finger with no long press, and it carries the mark that
-                 says which Scene a Reading opens on.
-
-                 `.self`, because the button it holds is pressed and not dragged: a
-                 pointer going down on it would otherwise begin a gesture the click
-                 that follows would have to undo. -->
+      <!-- The window onto the graph: the box that scrolls, and the zoom controls
+           docked in its corner. They are outside the surface, so they keep their
+           own size whatever the bench is being looked at through. -->
+      <div class="viewport">
+        <div
+          ref="graph"
+          class="graph"
+          @pointerdown="pressBench"
+          @pointermove="panBench"
+          @pointerup="releaseBench"
+          @pointercancel="letGoOfBench"
+          @wheel="zoomByWheel"
+        >
+          <!-- What the bench scrolls: the surface at the size it is drawn at. A
+               scale moves nothing in the layout, so this box is what says how far
+               there is to go. -->
+          <div class="spread" :style="spreadSize">
             <div
-              class="strip"
-              data-cue="draw-cut"
-              @pointerdown.self="startAiming(scene, $event)"
-              @pointermove="keepAiming"
-              @pointerup="endAiming"
-              @pointercancel="abandonAiming"
+              ref="surface"
+              class="surface"
+              :class="{ eased }"
+              :style="{ ...surfaceSize, '--pitch': `${NODE_PITCH}px`, scale: zoom }"
             >
-              <!-- The keyboard's way into the same aiming: a button hidden until
-                   it takes focus, the pattern a skip link uses, so the gesture
-                   stays the only visible way in while assistive technology still
-                   finds a real button with a real name. It says which Scene it
-                   draws from, and once a gesture is live it says instead what
-                   pressing it would do to that one — land the Cut, or let it go. A
-                   Scene the Cut cannot land on offers it disabled, which is how
-                   the hand is kept out of a Cut on itself and a second Cut to the
-                   same Scene. -->
-              <button
-                type="button"
-                class="aim"
-                :disabled="!!aiming && !mayLandOn(scene) && aiming.fromSceneId !== scene.id"
-                @click="aimOrLand(scene)"
-              >
-                {{ aimingName(scene) }}
-              </button>
-            </div>
-
-            <div class="card">
-              <div class="slate">
-                <h2>{{ scene.name }}</h2>
-
-                <!-- Write, not Open and not Modify: it is the word the code and
-                     the glossary already use for putting words into a Story. The
-                     panel it opens is elsewhere on the page, so the button says
-                     which Scene it is for, and it is where focus comes back to
-                     when the panel is closed from the keyboard. -->
-                <button
-                  :id="`write-${scene.id}`"
-                  type="button"
-                  class="write"
-                  data-cue="write-scene"
-                  :aria-expanded="sceneWritten?.id === scene.id"
-                  @click="writeScene(scene.id)"
-                >
-                  {{ $t('editor.write') }}
-                  <span class="visually-hidden">
-                    {{ $t('editor.sceneNamed', { name: scene.name }) }}
-                  </span>
-                </button>
-              </div>
-
-              <div class="summary">
-                <!-- The still of the first Shot, at the size a card can carry it:
-                     what an Author recognises a Scene by before they have read a
-                     word of it. A Scene whose first Shot has none shows the
-                     outline of the frame it would be, the way a Shot with no still
-                     does in the panel. -->
-                <div class="frame">
-                  <!-- `draggable="false"`, because a browser drags an image out of
-                       a page by default and the whole card is the handle that lays
-                       the graph out: the native drag took the gesture and the Scene
-                       stayed where it was. -->
-                  <img
-                    v-if="scene.shots[0]?.image"
-                    :src="stillOf(scene.shots[0])"
-                    :alt="$t('editor.stillOfShot', { place: 1 })"
-                    draggable="false"
+              <!-- The drawing is a pointer's way to a Cut and a second place the one
+                   being written is shown; the account of where a Scene leads that
+                   anything reads out is the card and the panel — see
+                   `docs/adr/0010-the-graph-is-written-here-not-pulled-in.md`. So the
+                   lines are hidden from what reads the page rather than being the
+                   keyboard's route to a Cut. -->
+              <svg aria-hidden="true" :style="surfaceSize">
+                <defs>
+                  <marker
+                    id="cut-head" viewBox="0 0 8 8" refX="7" refY="4"
+                    markerWidth="8" markerHeight="8" orient="auto-start-reverse"
                   >
+                    <path d="M 0 0 L 8 4 L 0 8 z" />
+                  </marker>
+                </defs>
+                <g v-for="line in cutLines" :key="line.id" :data-cut="line.id">
+                  <!-- The wide invisible stroke behind the line, which is what the
+                       hand actually aims at: a Cut is written by pressing its line,
+                       and a line and a half of pixels is nobody's idea of a target.
+                       The press stops here, so it does not reach the bench that would
+                       close the panel it just opened — and its default is refused,
+                       because a press on a line focuses nothing and would take the
+                       focus off the field the panel has just put it in. -->
+                  <line
+                    class="aimed"
+                    :x1="line.from.x"
+                    :y1="line.from.y"
+                    :x2="line.to.x"
+                    :y2="line.to.y"
+                    @pointerdown.stop.prevent="openCut(line.id)"
+                  />
+                  <line
+                    :class="{ lit: cutWritten?.cut.id === line.id }"
+                    :x1="line.from.x"
+                    :y1="line.from.y"
+                    :x2="line.to.x"
+                    :y2="line.to.y"
+                    marker-end="url(#cut-head)"
+                  />
+                  <!-- The Place the way on is offered at, on a disc near the Scene it
+                       leaves. It reports the order; nothing reads the order back out
+                       of the drawing — see
+                       `docs/adr/0007-the-order-of-the-ways-on-is-written-not-drawn.md`. -->
+                  <!-- Nine pixels of radius, which is what holds two digits of the
+                       data face the number is set in: a Scene offering more than
+                       ninety-nine ways on is not a Scene. -->
+                  <circle class="disc" :cx="line.disc.x" :cy="line.disc.y" r="9" />
+                  <text class="place" :x="line.disc.x" :y="line.disc.y">{{ line.place }}</text>
+                </g>
+
+                <!-- The Cut under the Author's hand: the same grease pencil as the
+                     Cuts it is dragged across, told apart from them by its dashes
+                     marching, and losing its arrowhead where it cannot land. -->
+                <line
+                  v-if="drawnLine"
+                  class="drawn"
+                  :x1="drawnLine.from.x"
+                  :y1="drawnLine.from.y"
+                  :x2="drawnLine.to.x"
+                  :y2="drawnLine.to.y"
+                  :marker-end="landing ? 'url(#cut-head)' : undefined"
+                />
+              </svg>
+
+              <!-- A Scene's card: what an Author needs to recognise the Scene at a
+                   glance, and nothing to type into. It is named by the Scene rather
+                   than by its own heading, and it is the whole of the drag that lays
+                   the graph out — dragged from anywhere on it bar its controls and the
+                   strip, and focusable so the four arrow keys move it too. -->
+              <article
+                v-for="scene in story.scenes"
+                :key="scene.id"
+                :data-scene="scene.id"
+                tabindex="0"
+                :class="{
+                  opens: story.openingSceneId === scene.id,
+                  writing: sceneWritten?.id === scene.id,
+                  drawing: aiming?.fromSceneId === scene.id,
+                  lit: mayLandOn(scene),
+                  quiet: aiming && !mayLandOn(scene),
+                }"
+                :aria-label="scene.name"
+                :style="{
+                  translate: `${scene.x}px ${scene.y}px`,
+                  inlineSize: `${NODE_WIDTH}px`,
+                  blockSize: `${NODE_HEIGHT}px`,
+                }"
+                @pointerdown="startDrag(scene, $event)"
+                @pointermove="keepDragging"
+                @pointerup="endDrag"
+                @keydown="nudge(scene, $event)"
+              >
+                <!-- The strip down the card's leading edge, and where a Cut is drawn
+                     from. It runs the card's full height, the gesture is immediate
+                     under a finger with no long press, and it carries the mark that
+                     says which Scene a Reading opens on.
+
+                     `.self`, because the button it holds is pressed and not dragged: a
+                     pointer going down on it would otherwise begin a gesture the click
+                     that follows would have to undo. -->
+                <div
+                  class="strip"
+                  data-cue="draw-cut"
+                  @pointerdown.self="startAiming(scene, $event)"
+                  @pointermove="keepAiming"
+                  @pointerup="endAiming"
+                  @pointercancel="abandonAiming"
+                >
+                  <!-- The keyboard's way into the same aiming: a button hidden until
+                       it takes focus, the pattern a skip link uses, so the gesture
+                       stays the only visible way in while assistive technology still
+                       finds a real button with a real name. It says which Scene it
+                       draws from, and once a gesture is live it says instead what
+                       pressing it would do to that one — land the Cut, or let it go. A
+                       Scene the Cut cannot land on offers it disabled, which is how
+                       the hand is kept out of a Cut on itself and a second Cut to the
+                       same Scene. -->
+                  <button
+                    type="button"
+                    class="aim"
+                    :disabled="!!aiming && !mayLandOn(scene) && aiming.fromSceneId !== scene.id"
+                    @click="aimOrLand(scene)"
+                  >
+                    {{ aimingName(scene) }}
+                  </button>
                 </div>
 
-                <p class="glance">{{ atAGlance(scene) }}</p>
-              </div>
+                <div class="card">
+                  <div class="slate">
+                    <h2>{{ scene.name }}</h2>
 
-              <!-- The mark that says a Reading opens here, read on the card and
-                   set in the panel. The strip wears the grease pencil for it too,
-                   which is the same fact said in colour for whoever is looking at
-                   the whole bench at once. -->
-              <p v-if="story.openingSceneId === scene.id" class="eyebrow opening-mark">
-                {{ $t('editor.openingScene') }}
-              </p>
+                    <!-- Write, not Open and not Modify: it is the word the code and
+                         the glossary already use for putting words into a Story. The
+                         panel it opens is elsewhere on the page, so the button says
+                         which Scene it is for, and it is where focus comes back to
+                         when the panel is closed from the keyboard. -->
+                    <button
+                      :id="`write-${scene.id}`"
+                      type="button"
+                      class="write"
+                      data-cue="write-scene"
+                      :aria-expanded="sceneWritten?.id === scene.id"
+                      @click="writeScene(scene.id)"
+                    >
+                      {{ $t('editor.write') }}
+                      <span class="visually-hidden">
+                        {{ $t('editor.sceneNamed', { name: scene.name }) }}
+                      </span>
+                    </button>
+                  </div>
+
+                  <div class="summary">
+                    <!-- The still of the first Shot, at the size a card can carry it:
+                         what an Author recognises a Scene by before they have read a
+                         word of it. A Scene whose first Shot has none shows the
+                         outline of the frame it would be, the way a Shot with no still
+                         does in the panel. -->
+                    <div class="frame">
+                      <!-- `draggable="false"`, because a browser drags an image out of
+                           a page by default and the whole card is the handle that lays
+                           the graph out: the native drag took the gesture and the Scene
+                           stayed where it was. -->
+                      <img
+                        v-if="scene.shots[0]?.image"
+                        :src="stillOf(scene.shots[0])"
+                        :alt="$t('editor.stillOfShot', { place: 1 })"
+                        draggable="false"
+                      >
+                    </div>
+
+                    <p class="glance">{{ atAGlance(scene) }}</p>
+                  </div>
+
+                  <!-- The mark that says a Reading opens here, read on the card and
+                       set in the panel. The strip wears the grease pencil for it too,
+                       which is the same fact said in colour for whoever is looking at
+                       the whole bench at once. -->
+                  <p v-if="story.openingSceneId === scene.id" class="eyebrow opening-mark">
+                    {{ $t('editor.openingScene') }}
+                  </p>
+                </div>
+              </article>
             </div>
-          </article>
+          </div>
+        </div>
+
+        <!-- How far back the Author is standing, and the three ways of changing
+             it. Docked in the corner of the window rather than laid on the
+             surface, so it is the same size at every scale and never lands on a
+             Scene. The pointer's own routes are the wheel and the shortcuts;
+             these are what a hand with neither reaches for. -->
+        <div class="zooming">
+          <button
+            type="button"
+            :disabled="zoom <= ZOOM_MIN"
+            :aria-label="$t('editor.zoomOut')"
+            @click="zoomBy(-1)"
+          >
+            <span aria-hidden="true">&minus;</span>
+          </button>
+          <!-- The scale as a reading, in the face the bench reads its own
+               numbers in. It says what the two buttons have done, so it is named
+               for whoever cannot see it move. -->
+          <p class="level">
+            <span class="visually-hidden">{{ $t('editor.zoomLevel') }}</span>
+            {{ zoomShown }}
+          </p>
+          <button
+            type="button"
+            :disabled="zoom >= ZOOM_MAX"
+            :aria-label="$t('editor.zoomIn')"
+            @click="zoomBy(1)"
+          >
+            <span aria-hidden="true">+</span>
+          </button>
+          <button type="button" class="fit" @click="zoomToFit">
+            {{ $t('editor.fitGraph') }}
+          </button>
         </div>
       </div>
 
@@ -1866,13 +2169,21 @@ header {
   display: flex;
   align-items: start;
   gap: var(--s3);
+  /* The bench is a cell of the page's own grid, and what is inside it is a
+     surface a great deal wider than the screen: without this the cell is sized to
+     the graph and the whole page scrolls sideways instead of the bench. */
+  min-inline-size: 0;
+}
+
+.viewport {
+  /* Whatever the panel leaves, and never less than nothing: a graph that refused
+     to be narrowed would push the panel off the screen instead. */
+  position: relative;
+  flex: 1;
+  min-inline-size: 0;
 }
 
 .graph {
-  /* Whatever the panel leaves, and never less than nothing: a graph that refused
-     to be narrowed would push the panel off the screen instead. */
-  flex: 1;
-  min-inline-size: 0;
   overflow: auto;
   resize: vertical;
   block-size: var(--bench-height);
@@ -1881,8 +2192,44 @@ header {
   background: color-mix(in oklab, var(--bench) 70%, black);
 }
 
+/* The zoom controls, in the corner of the window and not on the surface: they
+   are the same size at every scale, and they sit at the foot of the bench where
+   the graph is emptiest. */
+.zooming {
+  position: absolute;
+  inset-block-end: var(--s3);
+  inset-inline-start: var(--s3);
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: var(--s1);
+  border: 1px solid var(--edge);
+  border-radius: var(--machined);
+  background: var(--steel);
+}
+
+.zooming button {
+  padding: var(--s1) var(--s2);
+  line-height: 1;
+}
+
+/* The reading between the two buttons, in the face the interface sets its own
+   numbers in, and wide enough for three digits so the buttons do not shuffle
+   about as the scale changes. */
+.zooming .level {
+  min-inline-size: 4ch;
+  color: var(--muted);
+  font-family: var(--data);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
 .surface {
   position: relative;
+  /* The scale is taken from the surface's own corner, which is the corner the
+     nodes are placed from: what is drawn at half size is the whole graph, and a
+     Scene's coordinates are untouched by it. */
+  transform-origin: 0 0;
   /* The bench is pricked out every twenty pixels, which is exactly how far an
      arrow key moves a Scene: the grid is the step, not a texture. */
   background-image:
@@ -1892,6 +2239,15 @@ header {
       transparent 0
     );
   background-size: var(--pitch) var(--pitch);
+}
+
+/* A step of the zoom travels, so that what moved can be seen to have moved. The
+   wheel is not eased — it is continuous already, and easing it would leave the
+   surface a frame behind the hand. Under `prefers-reduced-motion` this is cut to
+   a single tick with every other transition on the page, by the block at the foot
+   of `app/assets/css/frameline.css`: the scale is simply the new one. */
+.surface.eased {
+  transition: scale 120ms ease-out;
 }
 
 svg {
