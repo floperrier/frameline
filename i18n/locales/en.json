@@ -126,7 +126,11 @@
     "zoomOut": "Pull back from the graph",
     "zoomIn": "Come closer to the graph",
     "zoomLevel": "Zoom",
-    "fitGraph": "Fit the graph"
+    "fitGraph": "Fit the graph",
+    "zoomShortcuts": "{key}− and {key}+ scale, {key}0 fits",
+    "pushBench": "drag the bench to move the view",
+    "commandKey": "⌘",
+    "controlKey": "Ctrl"
   },
   "conditions": {
     "ofCarrier": "of {carrier}",

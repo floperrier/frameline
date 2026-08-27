@@ -173,3 +173,12 @@ trying. So the controls live in the row above the bench, in the flow of the page
 where they are always on screen, the same size at every scale, and over nothing.
 A bench is `min(70dvh, 44rem)` tall, which is why the foot of it is no place for
 them either.
+
+What they are is an instrument rather than a pair of arrows: a graduation from a
+quarter to the whole, notched at the four scales the two buttons step between, so
+an Author sees which step they are on and can put the thumb on another. It is an
+`<input type="range">`, which is where the drag, the arrow keys and the announced
+value come from without any of them being written. Under it, engraved in the data
+face, is what the hand can do that no control shows — the three shortcuts, in the
+name this platform gives the key, and the push that moves the view. A gesture
+nobody is told about is a gesture nobody uses.

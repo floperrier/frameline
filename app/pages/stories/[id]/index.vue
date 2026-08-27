@@ -75,6 +75,32 @@ const zoomShown = computed(
   () => new Intl.NumberFormat(locale.value, { style: 'percent' }).format(zoom.value))
 
 /**
+ * The scale as the graduation carries it: whole percentages, which is what a
+ * slider can be dragged and arrow-keyed along. The reading beside it is the same
+ * number in the Locale's own way of writing one, so the two never disagree.
+ */
+const ZOOM_GRADUATION = { min: ZOOM_MIN * 100, max: ZOOM_MAX * 100 }
+
+const graduated = computed(() => Math.round(zoom.value * 100))
+
+/**
+ * Which key the shortcuts are written with. The two platforms name it
+ * differently, and a hint that names the wrong one is worse than no hint at all.
+ * Asked of the browser after the page is in one — the server has no platform to
+ * ask — and Command until then, because that is what most of this bench is opened
+ * on.
+ */
+const modifier = ref(t('editor.commandKey'))
+
+onMounted(() => {
+  // `platform` is the deprecated one and the only one every browser answers:
+  // `userAgentData` is Chromium's alone.
+  if (!/Mac|iPhone|iPad|iPod/.test(navigator.platform)) {
+    modifier.value = t('editor.controlKey')
+  }
+})
+
+/**
  * The graph is as large as the Scenes in it, so it scrolls no further than them.
  * In surface pixels, which is what a Scene's placement is in and what the lines
  * are drawn in: the scale the bench is looked at through is not in here.
@@ -522,6 +548,27 @@ function pointOnSurface(at: { clientX: number, clientY: number }) {
 }
 
 /**
+ * Where a pointer is on the surface, with the hand kept on the bench: a point
+ * outside the window onto the graph is read at the edge of it instead.
+ *
+ * What this is for is the two gestures that put something somewhere. The panel
+ * opens beside the graph and narrows it, so the hand that is still holding a card
+ * can be over the panel — and a node that went on following it would be dropped
+ * where the Author cannot see it and never aimed it. Held at the edge, the card
+ * stops at the edge of the bench, which is where they can see it stop. The line
+ * of a Cut being drawn reaches the same edge and no further, for the same reason:
+ * it can only land on something that is on the bench.
+ */
+function pointOnBench(at: { clientX: number, clientY: number }) {
+  const box = graph.value!.getBoundingClientRect()
+
+  return pointOnSurface({
+    clientX: Math.min(box.right, Math.max(box.left, at.clientX)),
+    clientY: Math.min(box.bottom, Math.max(box.top, at.clientY)),
+  })
+}
+
+/**
  * The middle of what is on screen of the bench, as a point on the surface. The
  * anchor for every zoom that has no pointer behind it: what an Author is looking
  * at is what stays put.
@@ -568,17 +615,35 @@ function zoomBy(step: -1 | 1) {
 }
 
 /**
+ * The scale an Author asked for outright, off the graduation. Not eased: the
+ * thumb is already travelling under their hand, and a scale easing after it would
+ * arrive where the hand no longer is.
+ */
+function zoomToScale(percent: number) {
+  if (graph.value) zoomAbout(percent / 100, middleOfBench(), false)
+}
+
+/**
  * Far enough back to see the whole Story at once — or as far back as the bench
  * goes, on a Story larger than a quarter of the screen can hold, which is the
  * bound doing its job rather than the fit failing.
+ *
+ * The one route that anchors on nothing. Every other way of zooming holds a point
+ * where it was, because the Author is looking at that point; this one is what they
+ * press when they have lost the work — pushed the bench into the room around it,
+ * or dragged a Scene somewhere they cannot find — so it goes to the corner the
+ * Scenes are laid out from and shows the whole of them.
  */
 function zoomToFit() {
   const scroller = graph.value
   if (!scroller) return
 
   const { width, height } = graphSize.value
-  zoomAbout(
-    Math.min(scroller.clientWidth / width, scroller.clientHeight / height), middleOfBench())
+  zoomAbout(Math.min(scroller.clientWidth / width, scroller.clientHeight / height), { x: 0, y: 0 })
+  return nextTick(() => {
+    scroller.scrollLeft = 0
+    scroller.scrollTop = 0
+  })
 }
 
 /**
@@ -707,11 +772,19 @@ function zoomOnKeys(event: KeyboardEvent) {
 const PAN_SLACK = 4
 
 /**
- * The hand pushing the bench about: where it went down, where it was last seen,
- * and which pointer it is. Held while the gesture is live and nothing otherwise,
- * like every other gesture here.
+ * The hand pushing the bench about: which pointer it is, where it went down, and
+ * where the bench was scrolled to when it did. Held while the gesture is live and
+ * nothing otherwise, like every other gesture here.
+ *
+ * The scroll at the start rather than the scroll a moment ago, because the view
+ * is written from the origin of the gesture every time. Taking the difference
+ * from the last position and subtracting it read the browser's own `scrollTop`
+ * back on every event, and that value is quantised: half a pixel of rounding an
+ * event, always the same way, is four pixels of drift in eight events and a great
+ * deal more under a trackpad, which sends scores of them. The bench has to arrive
+ * exactly where the hand put it.
  */
-let pushing: { pointerId: number, from: Point, last: Point } | undefined
+let pushing: { pointerId: number, from: Point, scroll: Point } | undefined
 
 /**
  * A press on the bare bench. Anywhere that is not a card is the bench — a Cut's
@@ -723,10 +796,13 @@ let pushing: { pointerId: number, from: Point, last: Point } | undefined
  * on a bench pulled back to a quarter is most of the screen.
  */
 function pressBench(event: PointerEvent) {
-  if ((event.target as Element | null)?.closest('article')) return
+  if ((event.target as Element | null)?.closest('article') || !graph.value) return
 
-  const at = { x: event.clientX, y: event.clientY }
-  pushing = { pointerId: event.pointerId, from: at, last: { ...at } }
+  pushing = {
+    pointerId: event.pointerId,
+    from: { x: event.clientX, y: event.clientY },
+    scroll: { x: graph.value.scrollLeft, y: graph.value.scrollTop },
+  }
   // A finger is not captured: the browser is about to scroll the bench itself,
   // and it says so by cancelling the pointer — see `panBench`.
   if (event.pointerType !== 'touch') {
@@ -741,18 +817,16 @@ function pressBench(event: PointerEvent) {
  *
  * A finger moves nothing here. The browser pans an overflowing box under a touch
  * already, with the momentum that goes with it, and taking that over would be
- * writing a worse one; what a touch does keep is the distance, which is what says
- * whether the press that ends was a press at all.
+ * writing a worse one. How far the press travelled is read off where it went down
+ * when it is let go, so a touch still says whether it was a press at all.
  */
 function panBench(event: PointerEvent) {
   const pushed = pushing
   if (!pushed || event.pointerId !== pushed.pointerId || !graph.value) return
+  if (event.pointerType === 'touch') return
 
-  if (event.pointerType !== 'touch') {
-    graph.value.scrollLeft -= event.clientX - pushed.last.x
-    graph.value.scrollTop -= event.clientY - pushed.last.y
-  }
-  pushed.last = { x: event.clientX, y: event.clientY }
+  graph.value.scrollLeft = pushed.scroll.x - (event.clientX - pushed.from.x)
+  graph.value.scrollTop = pushed.scroll.y - (event.clientY - pushed.from.y)
 }
 
 /**
@@ -836,7 +910,7 @@ function startAiming(scene: Scene, event: PointerEvent) {
 
 function keepAiming(event: PointerEvent) {
   if (!aiming.value) return
-  aiming.value.at = pointOnSurface(event)
+  aiming.value.at = pointOnBench(event)
   aiming.value.over = sceneUnder(event)
 }
 
@@ -1336,7 +1410,7 @@ function startDrag(scene: Scene, event: PointerEvent) {
   // Capturing the pointer sends the rest of the gesture to the card itself, so
   // dragging survives the pointer leaving the Scene it is dragging.
   ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
-  const at = pointOnSurface(event)
+  const at = pointOnBench(event)
   drag = { id: scene.id, pointerX: at.x, pointerY: at.y, x: scene.x, y: scene.y }
 }
 
@@ -1346,7 +1420,7 @@ function keepDragging(event: PointerEvent) {
   // In surface pixels at both ends, so the node travels exactly as far as the
   // hand does whatever the bench is being looked at through: a card dragged an
   // inch on a bench pulled back to a quarter crosses four times as much graph.
-  const at = pointOnSurface(event)
+  const at = pointOnBench(event)
   dragged.x = withinReach(drag.x + at.x - drag.pointerX)
   dragged.y = withinReach(drag.y + at.y - drag.pointerY)
 }
@@ -1510,42 +1584,68 @@ function atAGlance(scene: Scene) {
         </div>
       </form>
 
-      <!-- How far back the Author is standing, and the three ways of changing it.
-           Above the bench and in the flow of the page rather than floating in a
-           corner of it: a control laid over the surface is a control something on
-           the surface can end up under — the button that writes a Scene did, on a
+      <!-- How far back the Author is standing, and the ways of changing it. Above
+           the bench and in the flow of the page rather than floating in a corner
+           of it: a control laid over the surface is a control something on the
+           surface can end up under — the button that writes a Scene did, on a
            graph scrolled so that its card came up under this one — and a bench is
            taller than most windows, so the foot of it is below the fold. Here it
            is always on screen, it is the same size at every scale, and it covers
-           nothing. The pointer's own routes are the wheel and the pinch; these are
-           what a hand with neither reaches for. -->
+           nothing. -->
       <div v-if="story?.scenes.length" class="zooming">
-        <button
-          type="button"
-          :disabled="zoom <= ZOOM_MIN"
-          :aria-label="$t('editor.zoomOut')"
-          @click="zoomBy(-1)"
-        >
-          <span aria-hidden="true">&minus;</span>
-        </button>
-        <!-- The scale as a reading, in the face the bench reads its own numbers
-             in. It says what the two buttons have done, so it is named for
-             whoever cannot see it move. -->
-        <p class="level">
-          <span class="visually-hidden">{{ $t('editor.zoomLevel') }}</span>
-          {{ zoomShown }}
+        <div class="dial">
+          <button
+            type="button"
+            :disabled="zoom <= ZOOM_MIN"
+            :aria-label="$t('editor.zoomOut')"
+            @click="zoomBy(-1)"
+          >
+            <span aria-hidden="true">&minus;</span>
+          </button>
+
+          <!-- The graduation, which says where in its range the bench is standing
+               and not merely that it can be moved. A range input, so the hand
+               drags it, the keyboard steps it and what reads the page announces
+               it, none of which had to be written. -->
+          <label class="visually-hidden" for="zoom-level">{{ $t('editor.zoomLevel') }}</label>
+          <input
+            id="zoom-level"
+            type="range"
+            :min="ZOOM_GRADUATION.min"
+            :max="ZOOM_GRADUATION.max"
+            :value="graduated"
+            @input="zoomToScale(Number(($event.target as HTMLInputElement).value))"
+          >
+
+          <!-- The scale as a reading, in the face the bench sets its own numbers
+               in. Hidden from what reads the page, because the graduation beside
+               it announces the very same number as its own value: one control,
+               one voice. -->
+          <p class="level" aria-hidden="true">{{ zoomShown }}</p>
+
+          <button
+            type="button"
+            :disabled="zoom >= ZOOM_MAX"
+            :aria-label="$t('editor.zoomIn')"
+            @click="zoomBy(1)"
+          >
+            <span aria-hidden="true">+</span>
+          </button>
+          <button type="button" class="fit" @click="zoomToFit">
+            {{ $t('editor.fitGraph') }}
+          </button>
+        </div>
+
+        <!-- What the hand can do that no control here shows: the shortcuts, and
+             the push that moves the view. Written out rather than left to be
+             discovered, and written with the key this platform actually calls it.
+             Not a live region and not a tooltip — it is a legend on an instrument,
+             read once and then known. -->
+        <p class="graven">
+          {{ $t('editor.zoomShortcuts', { key: modifier }) }}
+          <span aria-hidden="true"> &middot; </span>
+          {{ $t('editor.pushBench') }}
         </p>
-        <button
-          type="button"
-          :disabled="zoom >= ZOOM_MAX"
-          :aria-label="$t('editor.zoomIn')"
-          @click="zoomBy(1)"
-        >
-          <span aria-hidden="true">+</span>
-        </button>
-        <button type="button" class="fit" @click="zoomToFit">
-          {{ $t('editor.fitGraph') }}
-        </button>
       </div>
     </div>
 
@@ -2284,6 +2384,10 @@ header {
 .graph {
   overflow: auto;
   resize: vertical;
+  /* The bare bench is pushed about, and a surface that can be pushed says so
+     before it is pressed. The cards inside it keep their own cursor: they are
+     dragged, which is a different thing done to a different object. */
+  cursor: grab;
   block-size: var(--bench-height);
   border: 1px solid var(--edge);
   border-radius: var(--machined);
@@ -2296,29 +2400,120 @@ header {
    bubble are, because this is the bench talking about how it is being looked at
    rather than part of the drawing. */
 .zooming {
-  display: flex;
-  align-items: center;
+  display: grid;
   gap: var(--s1);
-  padding: var(--s1);
+  justify-items: end;
+  padding: var(--s1) var(--s2) var(--s2);
   border: 1px solid var(--edge);
   border-radius: var(--machined);
   background: var(--steel);
 }
 
-.zooming button {
+.dial {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+}
+
+.dial button {
   padding: var(--s1) var(--s2);
   line-height: 1;
 }
 
-/* The reading between the two buttons, in the face the interface sets its own
-   numbers in, and wide enough for three digits so the buttons do not shuffle
-   about as the scale changes. */
-.zooming .level {
+/* The reading, in the face the interface sets its own numbers in, and wide enough
+   for three digits so nothing beside it shuffles about as the scale changes. */
+.level {
   min-inline-size: 4ch;
-  color: var(--muted);
+  color: var(--paper);
   font-family: var(--data);
   font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
   text-align: center;
+}
+
+/* The graduation. Its track carries four notches, which are the four scales the
+   two buttons step between — a quarter, a half, three quarters, the surface's own
+   size — so the marks on it say something rather than decorate it: an Author can
+   see which step they are on and put the thumb on another. The thumb is a mark
+   rather than a knob, the shape of the one a cut is made at. */
+.dial input[type='range'] {
+  appearance: none;
+  inline-size: 7rem;
+  background: none;
+}
+
+.dial input[type='range']::-webkit-slider-runnable-track {
+  block-size: 14px;
+  border: 1px solid var(--edge);
+  border-radius: 1px;
+  /* The notches sit a third of the track apart, which is where the quarters fall
+     between the two ends: the track runs from a quarter to the whole. */
+  background:
+    color-mix(in oklab, var(--bench) 70%, black)
+    repeating-linear-gradient(
+      to right,
+      var(--edge) 0 1px,
+      transparent 1px calc(100% / 3)
+    );
+}
+
+.dial input[type='range']::-moz-range-track {
+  block-size: 14px;
+  border: 1px solid var(--edge);
+  border-radius: 1px;
+  /* The notches sit a third of the track apart, which is where the quarters fall
+     between the two ends: the track runs from a quarter to the whole. */
+  background:
+    color-mix(in oklab, var(--bench) 70%, black)
+    repeating-linear-gradient(
+      to right,
+      var(--edge) 0 1px,
+      transparent 1px calc(100% / 3)
+    );
+}
+
+.dial input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  inline-size: 4px;
+  block-size: 20px;
+  margin-block-start: -4px;
+  border: none;
+  border-radius: 1px;
+  background: var(--paper);
+  cursor: grab;
+}
+
+.dial input[type='range']::-moz-range-thumb {
+  inline-size: 4px;
+  block-size: 20px;
+  border: none;
+  border-radius: 1px;
+  background: var(--paper);
+  cursor: grab;
+}
+
+.dial input[type='range']:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+
+/* The legend: what the hand can do that no control here shows. Set in the data
+   face at the size of an engraving, because that is what it is — read once and
+   then known, rather than something the eye has to get past every time. */
+.graven {
+  color: var(--muted);
+  font-family: var(--data);
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+}
+
+/* What the bench scrolls, and what the push moves. Never smaller than half a
+   frame past the window itself: a Story whose Scenes all fit on screen would
+   otherwise have nothing to push — the extent would be the extent of the cards —
+   and the gesture would be dead on the Story every Author has on their first day.
+   A bench has room around the work on it. */
+.spread {
+  min-inline-size: 150%;
+  min-block-size: 150%;
 }
 
 .surface {
