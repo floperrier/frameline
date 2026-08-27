@@ -47,6 +47,14 @@ the Description carries the frame.
 _Affiché_: Description
 _Avoid_: alt, alt text, label, caption, tooltip, legend
 
+**Synopsis**:
+The few lines an Author writes presenting their Story to whoever is deciding
+whether to read it, carried by the Story wherever it is presented. Never a
+Description: a Description says what one Still shows to a Reader who cannot see
+it, and a Story has one Synopsis where it has as many Descriptions as Stills.
+_Affiché_: Synopsis
+_Avoid_: description, blurb, summary, pitch, résumé, présentation
+
 **Place**:
 Where a Shot comes in its Scene's run, or a Cut in the ways on offered at the end
 of the Scene it leaves — the Author's own numbering, counted from the first, with
