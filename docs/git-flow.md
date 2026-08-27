@@ -12,7 +12,10 @@ give the same commits a second place to sit.
 1. Branch from `main`, named after the issue it closes:
    `git switch -c 12-rename-a-scene`.
 2. Commit as you go and push early.
-3. Open the pull request on the first push: `gh pr create --fill`.
+3. Open the pull request on the first push: `pnpm pr`. It fills the body from
+   `.github/pull_request_template.md`, with `Closes #` already carrying the
+   number the branch is named after. `gh pr create --fill` would take the
+   commit messages instead and never see the template.
 4. Merge once the checks are green:
    `gh pr merge --squash --delete-branch`. Vercel deploys `main` to production.
 
