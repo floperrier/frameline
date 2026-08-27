@@ -135,9 +135,13 @@ _Avoid_: cursor, pointer, progress, step, index
 ### The people
 
 **Author**:
-A signed-in person who writes Stories. The only actor who can change anything.
+A signed-in person who writes Stories. The only actor who can change anything —
+and the only one who can Comment on a Story or gather one into a List, since
+those are signed and a Reader has no account to sign with. An Author standing in
+front of another Author's Story is still an Author: there is one kind of account
+here, not two.
 _Affiché_: Auteur
-_Avoid_: user, creator, owner, writer, director
+_Avoid_: user, creator, owner, writer, director, member, community member
 
 **Reader**:
 Anyone who plays a published Story. Needs no account.
@@ -153,9 +157,67 @@ _Avoid_: test, play mode, simulate, dry run, rehearse
 
 **Publish**:
 To make a Story readable by Readers at a public link. A Story that has never been
-published is visible only to its Author.
+published is visible only to its Author. Publishing puts the Story nowhere
+anybody browses — being found is a second act, see Listed.
 _Affiché_: Publier
 _Avoid_: release, share, deploy, ship, go live
+
+### The community
+
+The words in this section are ordinary words, deliberately. The grammar of cinema
+names the work and everything inside it; what surrounds the work — accounts,
+being found, being answered — is named in plain language, because a catalogue is
+a catalogue and calling it a programme buys a metaphor at the cost of a reader
+understanding the screen. See
+`docs/adr/0022-the-metaphor-stops-at-the-edge-of-the-work.md`.
+
+**Listed**:
+Said of a published Story its Author has chosen to show in the Catalogue. A
+published Story that is not Listed is readable by anyone holding its link and
+found by nobody else, which is what publishing alone has always meant.
+_Affiché_: Répertorié
+_Avoid_: public, private, visible, indexed, featured, promoted, unlisted
+
+**Catalogue**:
+Every Listed Story, most recently published first, readable by anyone with or
+without an account. The one place a Story is found rather than sent.
+_Affiché_: Catalogue
+_Avoid_: programme, feed, gallery, explore, discover, browse, library, showcase
+
+**Name**:
+What an Author is called wherever they appear to someone else — beside a Listed
+Story, under a Comment, on their Profile. It arrives from the provider they
+signed in with and is theirs to rewrite; nothing appears until it is set, and an
+Author's email is never it.
+_Affiché_: Nom
+_Avoid_: pseudo, username, handle, display name, nickname, alias
+
+**Profile**:
+The page an Author's Name leads to: that Name, and the Stories they have Listed.
+Never a place where what an Author has said about other people's Stories is
+gathered up.
+_Affiché_: Profil
+_Avoid_: account, page, wall, bio, biography, dashboard
+
+**Comment**:
+What one Author writes to another about a published Story, carrying their Name.
+It is said of the Story whole and never of one Scene or Shot, which would tell
+somebody who has not read it how it is built.
+_Affiché_: Commentaire
+_Avoid_: review, feedback, note, rating, score, reaction, avis, retour
+
+**List**:
+Stories an Author has gathered together under a title of their own. A List is
+theirs alone until they say otherwise.
+_Affiché_: Liste
+_Avoid_: collection, playlist, folder, shelf, watchlist, sélection
+
+**Favourites**:
+The one List every account has from the start, which no Author writes the title
+of and none can delete. To favourite a Story is to put it in this List and
+nothing else — there is no second mechanism.
+_Affiché_: Favoris
+_Avoid_: bookmark, saved, liked, wishlist, star, étoile, coup de cœur
 
 ### The languages
 
