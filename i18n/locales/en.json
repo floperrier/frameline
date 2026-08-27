@@ -122,7 +122,11 @@
     "aimingFrom": "Drawing a Cut from {name} — land it on another Scene, or press Escape",
     "cutDrawn": "Cut from {from} to {to} drawn",
     "cutDuplicated": "Another Cut from {from} to {to} written",
-    "cutAbandoned": "No Cut was drawn"
+    "cutAbandoned": "No Cut was drawn",
+    "zoomOut": "Pull back from the graph",
+    "zoomIn": "Come closer to the graph",
+    "zoomLevel": "Zoom",
+    "fitGraph": "Fit the graph"
   },
   "conditions": {
     "ofCarrier": "of {carrier}",

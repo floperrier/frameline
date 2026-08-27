@@ -122,7 +122,11 @@
     "aimingFrom": "Coupe en cours de tracé depuis {name} — posez-la sur une autre Scène, ou appuyez sur Échap",
     "cutDrawn": "Coupe depuis {from} vers {to} tracée",
     "cutDuplicated": "Une autre Coupe depuis {from} vers {to} écrite",
-    "cutAbandoned": "Aucune Coupe n'a été tracée"
+    "cutAbandoned": "Aucune Coupe n'a été tracée",
+    "zoomOut": "S'éloigner du Graphe",
+    "zoomIn": "Se rapprocher du Graphe",
+    "zoomLevel": "Échelle",
+    "fitGraph": "Ajuster le Graphe"
   },
   "conditions": {
     "ofCarrier": "de {carrier}",

@@ -1579,3 +1579,169 @@ test('the keyboard draws the same Cut, through a button hidden until it is focus
   await expect(page.getByRole('button', { name: 'Cut from The arrival to The platform' }))
     .toBeDisabled()
 })
+
+/**
+ * A Story laid out far enough apart that the bench has somewhere to go: a graph
+ * smaller than the window scrolls nowhere, zooms about nothing in particular and
+ * would prove none of what follows.
+ */
+async function openWideGraph(request: APIRequestContext) {
+  return await layOut(request, { 'The arrival': [600, 300], 'The platform': [2400, 1400] })
+}
+
+/** How wide the surface of that graph is, which is what the bench scrolls across. */
+const WIDE_SURFACE = 2400 + NODE_WIDTH + NODE_GAP
+
+test('the bench pulls back to the whole Story, and comes closer under the pointer', async ({
+  page,
+  request,
+}) => {
+  const { story, scenes } = await openWideGraph(request)
+  await page.goto(`/stories/${story.id}`)
+
+  const node = page.getByRole('article', { name: 'The arrival' })
+  const graph = page.locator('.graph')
+  const level = page.locator('.zooming .level')
+  const pullBack = page.getByRole('button', { name: 'Pull back from the graph' })
+  const comeCloser = page.getByRole('button', { name: 'Come closer to the graph' })
+
+  // Every load opens on the bench at its own size, which is as close as it comes:
+  // a card is read and never typed into, so magnifying one buys nothing.
+  await expect(level).toContainText('100%')
+  await expect(comeCloser).toBeDisabled()
+  const own = (await node.boundingBox())!.width
+
+  // A step back draws the card smaller and leaves the Scene exactly where the
+  // Author put it: the scale is how the graph is looked at, not what it holds.
+  await pullBack.click()
+  await expect(level).toContainText('75%')
+  // Polled, because a step of the zoom travels rather than jumping: what is read
+  // the instant the reading changes is a card halfway there.
+  await expect.poll(async () => (await node.boundingBox())!.width).toBeCloseTo(own * 0.75, 0)
+  await expect(readScenePlacement(scenes[0]!.id)).resolves.toMatchObject({ x: 600, y: 300 })
+
+  // And the bench scrolls exactly as far as the surface is now drawn, rather than
+  // as far as the surface would be at its own size.
+  await expect.poll(() => graph.evaluate(box => box.scrollWidth))
+    .toBeCloseTo(WIDE_SURFACE * 0.75, -0.5)
+
+  // A quarter is the far end of it, which is where forty Scenes fit on a screen.
+  await pullBack.click()
+  await pullBack.click()
+  await expect(level).toContainText('25%')
+  await expect(pullBack).toBeDisabled()
+
+  // The fit pulls back until the whole Story is on screen, which is until the
+  // bench has nowhere left to scroll.
+  await comeCloser.click()
+  await comeCloser.click()
+  await page.getByRole('button', { name: 'Fit the graph' }).click()
+  await expect.poll(() => graph.evaluate(
+    box => box.scrollWidth <= box.clientWidth + 1 && box.scrollHeight <= box.clientHeight + 1,
+  )).toBe(true)
+  await expect(page.getByRole('article', { name: 'The platform' })).toBeInViewport()
+
+  // The three shortcuts a viewport is expected to answer, taken off the browser's
+  // own page zoom: `⌘0` fits, and the other two step about the middle of what is
+  // on screen.
+  for (let step = 0; step < 4; step++) await page.keyboard.press('Control+=')
+  await expect(level).toContainText('100%')
+  await page.keyboard.press('Control+-')
+  await expect(level).toContainText('75%')
+  await page.keyboard.press('Control+0')
+  await expect(level).not.toContainText('75%')
+
+  // The wheel with Ctrl held — which is what a trackpad sends while two fingers
+  // pinch — comes closer about the pointer: the corner of the card the cursor is
+  // on is the corner it is still on afterwards.
+  for (let step = 0; step < 4; step++) await page.keyboard.press('Control+=')
+  await pullBack.click()
+  await expect.poll(async () => (await node.boundingBox())!.width).toBeCloseTo(own * 0.75, 0)
+  await graph.evaluate((box) => {
+    box.scrollLeft = 0
+    box.scrollTop = 0
+  })
+  const corner = (await node.boundingBox())!
+  await page.mouse.move(corner.x, corner.y)
+  await page.keyboard.down('Control')
+  await page.mouse.wheel(0, -120)
+  await page.keyboard.up('Control')
+
+  await expect.poll(async () => (await node.boundingBox())!.width).toBeGreaterThan(corner.width)
+  const anchored = (await node.boundingBox())!
+  expect(Math.abs(anchored.x - corner.x)).toBeLessThanOrEqual(2)
+  expect(Math.abs(anchored.y - corner.y)).toBeLessThanOrEqual(2)
+
+  // A step of the zoom travels, so that what moved can be seen to have moved —
+  // and for an Author who has asked for no motion it is cut to the single tick
+  // the stylesheet cuts every other transition on the page to.
+  const easing = () => page.locator('.surface').evaluate(
+    surface => Number.parseFloat(getComputedStyle(surface).transitionDuration))
+
+  await pullBack.click()
+  expect(await easing()).toBeGreaterThan(0.01)
+
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await pullBack.click()
+  expect(await easing()).toBeLessThan(0.001)
+
+  // None of it is written anywhere: the bench opens at its own size again.
+  await page.reload()
+  await expect(level).toContainText('100%')
+})
+
+test('the bare bench is pushed about under the hand', async ({ page, request }) => {
+  const { story, scenes } = await openWideGraph(request)
+  const cut = await drawCut(request, scenes[0]!.id, scenes[1]!.id)
+  await page.goto(`/stories/${story.id}`)
+
+  const graph = page.locator('.graph')
+  const scrolledTo = () => graph.evaluate(
+    box => ({ x: Math.round(box.scrollLeft), y: Math.round(box.scrollTop) }))
+  const panel = page.getByRole('group', { name: 'Writing The arrival' })
+
+  await writeScene(page, 'The arrival')
+  await expect(panel).toBeVisible()
+
+  // Dragging the bare bench moves the view, and moving the view says nothing
+  // about what is being written: the panel it would close on a press stays open.
+  // Bare bench: away from both cards, and away from the zoom controls docked in
+  // the corner, which are a thing to press rather than a place to push from.
+  const box = (await graph.boundingBox())!
+  const bare = { x: box.x + box.width - 60, y: box.y + 200 }
+  await page.mouse.move(bare.x, bare.y)
+  await page.mouse.down()
+  await page.mouse.move(bare.x - 200, bare.y - 80, { steps: 5 })
+  await page.mouse.up()
+
+  await expect.poll(scrolledTo).toEqual({ x: 200, y: 80 })
+  await expect(panel).toBeVisible()
+
+  // A press that stayed put is a press, and a press on the bare bench has always
+  // closed the panel.
+  await page.mouse.click(bare.x, bare.y)
+  await expect(panel).toBeHidden()
+
+  // Pulled back to a quarter, where the whole of this Story is on screen at once
+  // and every line of it can be reached without scrolling to it.
+  const pullBack = page.getByRole('button', { name: 'Pull back from the graph' })
+  for (let step = 0; step < 3; step++) await pullBack.click()
+  await expect(page.locator('.zooming .level')).toContainText('25%')
+
+  // A press on a Cut's line is that Cut's own gesture still: it opens the panel
+  // it has always opened rather than pushing the bench or closing anything.
+  await page.locator(`[data-cut="${cut.id}"] line.aimed`).click()
+  await expect(page.getByRole('group', { name: 'Writing the Cut to The platform' })).toBeVisible()
+
+  // And a Scene dragged on a bench pulled back travels as far as the hand does: a
+  // hundred pixels at a quarter is four hundred pixels of graph.
+  const node = page.getByRole('article', { name: 'The arrival' })
+  const card = (await node.boundingBox())!
+  const held = { x: card.x + card.width / 2, y: card.y + card.height - 4 }
+  await page.mouse.move(held.x, held.y)
+  await page.mouse.down()
+  await page.mouse.move(held.x + 100, held.y + 60, { steps: 5 })
+  await page.mouse.up()
+
+  await expect.poll(() => readScenePlacement(scenes[0]!.id)).toMatchObject({ x: 1000, y: 540 })
+})

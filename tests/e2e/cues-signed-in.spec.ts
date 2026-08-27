@@ -289,6 +289,19 @@ test('the bench walks an Author from a bare Story to a published one', async ({
 /** That the light is on this control, and on nothing else. */
 async function lights(page: Page, target: Locator) {
   await expect(target).toBeVisible()
+  // The target is read until it holds still before it is read for the comparison,
+  // because the bench moves under it — the panel opens beside it, the graph is
+  // pulled back — and a rectangle read while it is still on its way would be held
+  // against a light that has already arrived.
+  let last: string | undefined
+  await expect.poll(async () => {
+    const seen = JSON.stringify(await target.boundingBox())
+    const held = seen === last
+    last = seen
+
+    return held
+  }).toBe(true)
+
   await expect.poll(() => page.locator('.spotlight').boundingBox())
     .toEqual(await target.boundingBox())
 }
@@ -302,3 +315,48 @@ async function drag(page: Page, from: Locator, onto: Locator) {
   await page.mouse.move(node.x + node.width / 2, node.y + node.height / 2, { steps: 5 })
   await page.mouse.up()
 }
+
+/**
+ * The light is on a rectangle read off the page a frame at a time, so a bench
+ * drawn at three quarters of its size, or pushed across the screen under the
+ * hand, is a target that has moved like any other. Proved on the step whose
+ * target is on the surface itself — the strip a Cut is drawn from — because that
+ * is the only kind of target the scale touches at all.
+ */
+test('the light follows its target through a zoom and a push', async ({
+  page,
+  author,
+  request,
+}) => {
+  const story = await seedStory(author, 'A Story')
+  await seedScenes(story, ['The arrival', 'The platform'])
+  // Laid out far apart, so the bench has somewhere to be pushed to and something
+  // to be pulled back from — and read back in the order the graph draws them,
+  // because the light is on the first card of it and the seed does not promise
+  // which Scene that is.
+  const read = await (await request.get(`/api/stories/${story.id}`)).json()
+  await request.patch(`/api/scenes/${read.scenes[0].id}`, { data: { x: 600, y: 300 } })
+  await request.patch(`/api/scenes/${read.scenes[1].id}`, { data: { x: 2400, y: 1400 } })
+  await page.goto(`/stories/${story.id}`)
+
+  const strip = page.locator('[data-cue="draw-cut"]').first()
+  await expect(bubble(page)).toContainText(/A Cut is the way on/)
+  await lights(page, strip)
+
+  // Asked for with no motion, so the step arrives rather than travels: what is
+  // held against the light is where the strip ends up, never a frame of it on the
+  // way there.
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.getByRole('button', { name: 'Pull back from the graph' }).click()
+  // Once the bench says how far back it is standing, it is standing there: the
+  // reading and the scale are written in the one render.
+  await expect(page.locator('.zooming .level')).toContainText('75%')
+  await lights(page, strip)
+
+  const box = (await page.locator('.graph').boundingBox())!
+  await page.mouse.move(box.x + box.width - 60, box.y + 300)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width - 160, box.y + 240, { steps: 5 })
+  await page.mouse.up()
+  await lights(page, strip)
+})

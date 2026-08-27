@@ -160,6 +160,56 @@ export function snappedWithinReach({ x, y }: Point): Point {
 }
 
 /**
+ * How far back the Author may stand from their own graph, and how close they may
+ * come. A quarter of the surface's own size is where forty Scenes fit on a
+ * screen at once, and the surface's own size is the near end because there is
+ * nothing above it: a card is read and never typed into — what a Scene is
+ * written in is the panel at the edge of the bench — so magnifying one buys
+ * nothing.
+ */
+export const ZOOM_MIN = 0.25
+export const ZOOM_MAX = 1
+
+/**
+ * Where a point on the screen lands on the surface the nodes are laid out on.
+ * Two things sit between the two: the bench scrolls, so the surface's own corner
+ * is somewhere else on screen, and the surface is drawn at a scale, so a pixel of
+ * it is not a pixel of the window. Every gesture that reads a pointer goes
+ * through here — the drag that lays a Scene out, the Cut drawn by hand, the push
+ * that pans the bench — because a Scene that lands where the hand is at one zoom
+ * and a finger's width away at another is the defect a viewport arrives with.
+ *
+ * The rectangle is the surface's own, as the browser reports it, which already
+ * carries the scale: what is left to undo is the scale itself.
+ */
+export function onTheSurface(client: Point, surface: { left: number, top: number }, zoom: number) {
+  return { x: (client.x - surface.left) / zoom, y: (client.y - surface.top) / zoom }
+}
+
+/**
+ * The scale after a zoom, and the scroll that keeps one point of the surface
+ * where it was on screen. The point is the pointer's for a wheel or a pinch, and
+ * the middle of what is on screen for the buttons and the shortcuts, which have
+ * no pointer to anchor on.
+ *
+ * A surface point sits at `point * zoom` from the corner of what scrolls, so
+ * holding it still under a changed scale is the difference between the two,
+ * multiplied out. One function for every route in, so the bound and the anchoring
+ * cannot be one thing by wheel and another by button.
+ */
+export function zoomedAbout(zoom: number, to: number, anchor: Point, scroll: Point) {
+  const held = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, to))
+
+  return {
+    zoom: held,
+    scroll: {
+      x: scroll.x + anchor.x * (held - zoom),
+      y: scroll.y + anchor.y * (held - zoom),
+    },
+  }
+}
+
+/**
  * Where the line that draws a Cut meets the two nodes: on the edge of the box it
  * leaves, and on the edge of the box it lands on. A line between two points fixed
  * inside the nodes crossed whatever sat between them and arrived under the node it

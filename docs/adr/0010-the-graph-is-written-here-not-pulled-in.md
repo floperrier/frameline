@@ -52,8 +52,10 @@ are one: the library's node is a box for a label, and this one is a room.
 
 ## Consequences
 
-There is no zoom and no pan. The graph is a surface as large as the Scenes on
-it, which the browser scrolls, bounded on both sides of the wire by
+There is a zoom and a pan, and they are written here too — see the last section,
+which is the reopening condition met and declined. The graph is a surface as
+large as the Scenes on it, drawn at a scale from a quarter to its own size inside
+a box the browser scrolls, bounded on both sides of the wire by
 `GRAPH_REACH` so nothing can be dropped where nobody can scroll to it, and a new
 Scene is placed by the server in columns of `NODES_PER_COLUMN` so a long Story
 stays inside that reach — or, when a Cut is dropped on the empty bench, at the
@@ -96,12 +98,42 @@ it: what a line carries is a shortcut for the hand, and reading out forty
 unfocusable lines and the numbers on their discs would be reading out a drawing
 rather than a Story.
 
-Zoom is the ceiling this decision is reopened at, because it is the one thing the
-hand-written graph cannot reasonably grow. A zoom is a viewport transform that
-every other part has to agree with — the pointer maths of the drag, the arrow
-key's twenty pixels, the coordinates the lines are drawn in, what "within reach"
-means, and where the browser's scroll now is — and writing that agreement is
-writing Vue Flow. So the day the Author needs to see the whole shape of a large
-Story at once, the library comes back, `shared/utils/scenes.ts` goes away with
-it, and the node's markup moves into a custom node component behind
-`<ClientOnly>` with the server-rendered bench as its fallback.
+Zoom was the ceiling this decision was to be reopened at, because it was the one
+thing the hand-written graph was thought unable to grow. A zoom is a viewport
+transform that every other part has to agree with — the pointer maths of the
+drag, the arrow key's twenty pixels, the coordinates the lines are drawn in, what
+"within reach" means, and where the browser's scroll now is — and writing that
+agreement was taken to be writing Vue Flow. So the day the Author needed to see
+the whole shape of a large Story at once, the library would come back,
+`shared/utils/scenes.ts` would go away with it, and the node's markup would move
+into a custom node component behind `<ClientOnly>` with the server-rendered bench
+as its fallback.
+
+That day arrived, the library was looked at again, and it was declined. The
+agreement the paragraph above dreads turned out to be one number and one
+function. The scale is `scale()` on the surface with its origin in the surface's
+own corner, so a Scene's coordinates, `cutLine`, `discOfCut`, `withinReach`, the
+`NODE_PITCH` snap and every line already drawn are untouched by it — the graph is
+drawn in surface pixels at every scale, as it always was. What had to agree is
+what reads screen pixels, and there are three: the drag that lays a Scene out,
+the Cut drawn by hand, and the push that pans. All three go through
+`onTheSurface`, which takes the surface's own rectangle off a client point and
+undoes the scale, and it is a pure function with a spec of its own beside
+`cutLine`. The scroll extent is the surface's size multiplied by the scale, on a
+box around it, because a transform moves nothing in the layout. The whole of it
+is about a hundred lines and two exported functions.
+
+Against that, the library still costs what it cost: the graph inside
+`<ClientOnly>` and the Author's Scenes out of the server's HTML, a node that is a
+box for a label rather than ordinary markup, and every gesture on a card opting
+out of the library's own. Everything Vue Flow would bring here is this transform
+and this division, and taking it would take back the markup that makes a node a
+card. So the record stands with its ceiling raised: the graph is written here,
+zoom and all. What would reopen it now is a want the transform cannot answer — a
+minimap, marquee selection, edge routing that goes round the nodes rather than
+across them — and not the viewport, which has arrived.
+
+The `prefers-reduced-motion` half of it is small and belongs here: a step of the
+zoom travels the distance so that what moved can be seen to have moved, and an
+Author who has asked for no motion simply gets the new scale. The wheel is not
+eased either way, because it is continuous already.
