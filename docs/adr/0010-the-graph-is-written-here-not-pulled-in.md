@@ -163,3 +163,13 @@ And the frame is a frame: `contain: inline-size` on the window onto the graph, s
 that no engine's reading of an automatic minimum size can hand it the width of a
 surface an Author has dragged ten thousand pixels wide. What scrolls or is pushed
 about is the graph inside it.
+
+The zoom's own controls are not on that surface either, and the reason is the
+surface is worked at rather than looked at. A control floating in a corner of the
+graph is a control something on the graph ends up under: the button that writes a
+Scene did, on a bench scrolled so that its card came up beneath the corner, and
+the press meant for the Scene was taken by the zoom for as long as anyone kept
+trying. So the controls live in the row above the bench, in the flow of the page,
+where they are always on screen, the same size at every scale, and over nothing.
+A bench is `min(70dvh, 44rem)` tall, which is why the foot of it is no place for
+them either.

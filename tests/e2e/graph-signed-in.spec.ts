@@ -1817,6 +1817,18 @@ test('the zoom is reached from where the hand is, whatever it is on', async ({
 
   await pressAt(page, ')', 'Minus')
   await expect.poll(percent).toBeLessThan(closer)
+
+  // And the controls cover nothing, because anything they covered could not be
+  // pressed. The card scrolled to the head of the bench is the case that caught
+  // it: a control floating in that corner took the press meant for the button
+  // that writes the Scene, and went on taking it.
+  for (let step = 0; step < 4; step++) await pressAt(page, '=', 'Equal')
+  await expect(level).toContainText('100%')
+
+  const platform = page.getByRole('article', { name: 'The platform' })
+  await platform.scrollIntoViewIfNeeded()
+  await writeScene(page, 'The platform')
+  await expect(page.getByRole('group', { name: 'Writing The platform' })).toBeVisible()
 })
 
 test('the bench takes the width it is given and never more', async ({ page, request }) => {

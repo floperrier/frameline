@@ -1489,23 +1489,65 @@ function atAGlance(scene: Scene) {
       </div>
     </header>
 
-    <form class="naming" @submit.prevent="createScene">
-      <label class="eyebrow" for="new-scene-name">{{ $t('editor.newSceneName') }}</label>
-      <div class="row">
-        <!-- `data-cue` is how the guided path finds this field. The attribute
-             lives here rather than a selector living in the guidance, so that
-             removing the field takes its target with it visibly — see
-             `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md`. -->
-        <input
-          id="new-scene-name"
-          v-model="newSceneName"
-          data-cue="new-scene-name"
-          required
-          :maxlength="SCENE_NAME_MAX_LENGTH"
+    <!-- The row above the bench: where a Scene is named, and how far back the
+         Author is standing to look at the ones they have. -->
+    <div class="tools">
+      <form class="naming" @submit.prevent="createScene">
+        <label class="eyebrow" for="new-scene-name">{{ $t('editor.newSceneName') }}</label>
+        <div class="row">
+          <!-- `data-cue` is how the guided path finds this field. The attribute
+               lives here rather than a selector living in the guidance, so that
+               removing the field takes its target with it visibly — see
+               `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md`. -->
+          <input
+            id="new-scene-name"
+            v-model="newSceneName"
+            data-cue="new-scene-name"
+            required
+            :maxlength="SCENE_NAME_MAX_LENGTH"
+          >
+          <button type="submit">{{ $t('editor.createScene') }}</button>
+        </div>
+      </form>
+
+      <!-- How far back the Author is standing, and the three ways of changing it.
+           Above the bench and in the flow of the page rather than floating in a
+           corner of it: a control laid over the surface is a control something on
+           the surface can end up under — the button that writes a Scene did, on a
+           graph scrolled so that its card came up under this one — and a bench is
+           taller than most windows, so the foot of it is below the fold. Here it
+           is always on screen, it is the same size at every scale, and it covers
+           nothing. The pointer's own routes are the wheel and the pinch; these are
+           what a hand with neither reaches for. -->
+      <div v-if="story?.scenes.length" class="zooming">
+        <button
+          type="button"
+          :disabled="zoom <= ZOOM_MIN"
+          :aria-label="$t('editor.zoomOut')"
+          @click="zoomBy(-1)"
         >
-        <button type="submit">{{ $t('editor.createScene') }}</button>
+          <span aria-hidden="true">&minus;</span>
+        </button>
+        <!-- The scale as a reading, in the face the bench reads its own numbers
+             in. It says what the two buttons have done, so it is named for
+             whoever cannot see it move. -->
+        <p class="level">
+          <span class="visually-hidden">{{ $t('editor.zoomLevel') }}</span>
+          {{ zoomShown }}
+        </p>
+        <button
+          type="button"
+          :disabled="zoom >= ZOOM_MAX"
+          :aria-label="$t('editor.zoomIn')"
+          @click="zoomBy(1)"
+        >
+          <span aria-hidden="true">+</span>
+        </button>
+        <button type="button" class="fit" @click="zoomToFit">
+          {{ $t('editor.fitGraph') }}
+        </button>
       </div>
-    </form>
+    </div>
 
     <Refusal :problem="problem" />
     <p v-if="announced" class="toast" role="status">{{ announced }}</p>
@@ -1725,42 +1767,6 @@ function atAGlance(scene: Scene) {
               </article>
             </div>
           </div>
-        </div>
-
-        <!-- How far back the Author is standing, and the three ways of changing
-             it. Docked in the corner of the window rather than laid on the
-             surface, so it is the same size at every scale and never lands on a
-             Scene — and at the head of it rather than the foot, because a bench
-             is taller than most windows and a control below the fold is one the
-             Author has to scroll to find. The pointer's own routes are the wheel
-             and the pinch; these are what a hand with neither reaches for. -->
-        <div class="zooming">
-          <button
-            type="button"
-            :disabled="zoom <= ZOOM_MIN"
-            :aria-label="$t('editor.zoomOut')"
-            @click="zoomBy(-1)"
-          >
-            <span aria-hidden="true">&minus;</span>
-          </button>
-          <!-- The scale as a reading, in the face the bench reads its own
-               numbers in. It says what the two buttons have done, so it is named
-               for whoever cannot see it move. -->
-          <p class="level">
-            <span class="visually-hidden">{{ $t('editor.zoomLevel') }}</span>
-            {{ zoomShown }}
-          </p>
-          <button
-            type="button"
-            :disabled="zoom >= ZOOM_MAX"
-            :aria-label="$t('editor.zoomIn')"
-            @click="zoomBy(1)"
-          >
-            <span aria-hidden="true">+</span>
-          </button>
-          <button type="button" class="fit" @click="zoomToFit">
-            {{ $t('editor.fitGraph') }}
-          </button>
         </div>
       </div>
 
@@ -2203,9 +2209,22 @@ header {
   word-break: break-all;
 }
 
+/* The row above the bench: the naming form takes the width it needs, the zoom
+   controls sit at the trailing edge over the graph they act on, and on a narrow
+   screen the two wrap rather than squeezing each other. */
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--s2) var(--s4);
+}
+
 .naming {
   display: grid;
   gap: var(--s2);
+  flex: 1;
+  min-inline-size: 18rem;
   max-inline-size: 34rem;
 }
 
@@ -2271,25 +2290,19 @@ header {
   background: color-mix(in oklab, var(--bench) 70%, black);
 }
 
-/* The zoom controls, in the corner of the window and not on the surface: they
-   are the same size at every scale. At the head of the bench and at its trailing
-   edge — a bench is `min(70dvh, 44rem)` tall and the Scenes are laid out in
-   columns from the leading edge, so this is the one corner that is both empty and
-   certain to be on screen. Lifted off the graph the way the confirmation and the
-   Cue's bubble are, because it is the machine talking rather than part of the
-   drawing. */
+/* The zoom controls: in the flow of the row above the bench, so nothing on the
+   surface can come up underneath them and nothing they cover can be pressed.
+   Drawn in the machine's own materials, the way the confirmation and the Cue's
+   bubble are, because this is the bench talking about how it is being looked at
+   rather than part of the drawing. */
 .zooming {
-  position: absolute;
-  inset-block-start: var(--s3);
-  inset-inline-end: var(--s3);
   display: flex;
   align-items: center;
   gap: var(--s1);
   padding: var(--s1);
-  border: 1px solid var(--light);
+  border: 1px solid var(--edge);
   border-radius: var(--machined);
   background: var(--steel);
-  box-shadow: var(--lifted);
 }
 
 .zooming button {
