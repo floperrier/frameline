@@ -99,6 +99,16 @@ Nothing is deep-linkable below the Story still, and which Scene is in the panel
 is written nowhere: it is the Author's view of their own graph and lasts as long
 as the page.
 
+The panel pushes the graph rather than covering it, so nothing being worked on
+ends up hidden underneath — and that push is what narrows the graph, which the
+drag that lays a Scene out had to be taught. A hand holding a card can be out over
+the panel; a card that went on following it was dropped where the Author could
+neither see it nor aim it. So the point a drag reads is held at the edge of the
+window onto the graph: the card stops where it can be seen to stop, with part of
+it still on the bench. See
+`docs/adr/0010-the-graph-is-written-here-not-pulled-in.md`, which carries the rest
+of the viewport.
+
 The reopening condition is a second thing worth writing at the same time as a
 Scene. A panel holds one, so the day an Author needs a Cut's Conditions and the
 Scene they test side by side — or two Scenes' Shots against each other — the

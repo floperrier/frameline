@@ -1589,6 +1589,21 @@ async function openWideGraph(request: APIRequestContext) {
   return await layOut(request, { 'The arrival': [600, 300], 'The platform': [2400, 1400] })
 }
 
+/**
+ * Whether a Scene's card is wholly inside the window onto the graph, which is
+ * what "on screen" means on a bench: a card can be in the browser's viewport and
+ * still be clipped out of the frame it belongs to.
+ */
+async function framed(page: Page, name: string) {
+  const card = (await page.getByRole('article', { name }).boundingBox())!
+  const frame = (await page.locator('.graph').boundingBox())!
+
+  return card.x >= frame.x - 1
+    && card.y >= frame.y - 1
+    && card.x + card.width <= frame.x + frame.width + 1
+    && card.y + card.height <= frame.y + frame.height + 1
+}
+
 /** How wide the surface of that graph is, which is what the bench scrolls across. */
 const WIDE_SURFACE = 2400 + NODE_WIDTH + NODE_GAP
 
@@ -1631,15 +1646,15 @@ test('the bench pulls back to the whole Story, and comes closer under the pointe
   await expect(level).toContainText('25%')
   await expect(pullBack).toBeDisabled()
 
-  // The fit pulls back until the whole Story is on screen, which is until the
-  // bench has nowhere left to scroll.
+  // The fit pulls back until the whole Story is inside the window onto it. Not
+  // until the scroll runs out: a bench keeps room around the work on it, so there
+  // is always somewhere left to push it.
   await comeCloser.click()
   await comeCloser.click()
   await page.getByRole('button', { name: 'Fit the graph' }).click()
-  await expect.poll(() => graph.evaluate(
-    box => box.scrollWidth <= box.clientWidth + 1 && box.scrollHeight <= box.clientHeight + 1,
-  )).toBe(true)
-  await expect(page.getByRole('article', { name: 'The platform' })).toBeInViewport()
+  for (const name of ['The arrival', 'The platform']) {
+    await expect.poll(() => framed(page, name)).toBe(true)
+  }
 
   // The three shortcuts a viewport is expected to answer, taken off the browser's
   // own page zoom: `⌘0` fits, and the other two step about the middle of what is
@@ -1734,8 +1749,14 @@ test('the bare bench is pushed about under the hand', async ({ page, request }) 
   await expect(page.getByRole('group', { name: 'Writing the Cut to The platform' })).toBeVisible()
 
   // And a Scene dragged on a bench pulled back travels as far as the hand does: a
-  // hundred pixels at a quarter is four hundred pixels of graph.
+  // hundred pixels at a quarter is four hundred pixels of graph. The panel is
+  // closed for it, because it narrows the graph and what is measured here is the
+  // scale rather than the room left beside it — and the card is held to be in the
+  // frame first, since a hand can only drag what is on the bench.
+  await page.keyboard.press('Escape')
   const node = page.getByRole('article', { name: 'The arrival' })
+  await node.scrollIntoViewIfNeeded()
+  await expect.poll(() => framed(page, 'The arrival')).toBe(true)
   const card = (await node.boundingBox())!
   const held = { x: card.x + card.width / 2, y: card.y + card.height - 4 }
   await page.mouse.move(held.x, held.y)
@@ -1744,4 +1765,228 @@ test('the bare bench is pushed about under the hand', async ({ page, request }) 
   await page.mouse.up()
 
   await expect.poll(() => readScenePlacement(scenes[0]!.id)).toMatchObject({ x: 1000, y: 540 })
+})
+
+/**
+ * A keydown as a layout other than the one the shortcut was written on sends it.
+ * On a French keyboard the digit row carries letters until it is shifted, so
+ * `⌘0` arrives as `à`: what says which key was pressed is where it sits, and that
+ * is `code`.
+ */
+function pressAt(page: Page, key: string, code: string) {
+  return page.evaluate(([key, code]) => document.dispatchEvent(new KeyboardEvent('keydown', {
+    key, code, ctrlKey: true, bubbles: true, cancelable: true,
+  })), [key, code])
+}
+
+test('the zoom is reached from where the hand is, whatever it is on', async ({
+  page,
+  request,
+}) => {
+  const { story } = await openWideGraph(request)
+  // A window no taller than a laptop's, because the fault this holds against is a
+  // control docked below the fold of one.
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await page.goto(`/stories/${story.id}`)
+
+  const level = page.locator('.zooming .level')
+  const percent = async () => Number.parseInt(
+    (await level.textContent())!.match(/(\d+)%/)![1]!, 10)
+  await expect(level).toContainText('100%')
+
+  // The controls are on screen without the page being scrolled to them: a control
+  // that exists so nobody has to hunt for a Scene may not be hunted for itself.
+  const controls = (await page.locator('.zooming').boundingBox())!
+  expect(controls.y).toBeGreaterThanOrEqual(0)
+  expect(controls.y + controls.height).toBeLessThanOrEqual(720)
+
+  // One notch of a mouse wheel is a step back rather than a plunge: the ratio is
+  // tuned for the scores of small deltas a pinch sends, and a notch is a hundred
+  // of them at once.
+  const graph = (await page.locator('.graph').boundingBox())!
+  await page.mouse.move(graph.x + graph.width / 2, graph.y + graph.height / 2)
+  await page.keyboard.down('Control')
+  await page.mouse.wheel(0, 100)
+  await page.keyboard.up('Control')
+  await expect(level).not.toContainText('100%')
+  const notch = await percent()
+  expect(notch).toBeGreaterThan(60)
+  expect(notch).toBeLessThan(95)
+
+  // What Safari sends while two fingers pinch, which is not a wheel with Ctrl at
+  // all: its own gestures, carrying the whole gesture's scale rather than a step.
+  await page.locator('.graph').evaluate((box) => {
+    const send = (kind: string, scale: number) => box.dispatchEvent(Object.assign(
+      new Event(kind, { bubbles: true, cancelable: true }),
+      { scale, clientX: 400, clientY: 300 }))
+    send('gesturestart', 1)
+    send('gesturechange', 0.5)
+    send('gestureend', 0.5)
+  })
+  await expect.poll(percent).toBeLessThan(notch)
+
+  // And the shortcuts, off a French layout, where none of the three keys carries
+  // the character the shortcut is named after: the fit pulls back to the whole
+  // Story, and the two steps go the two ways from there.
+  await pressAt(page, 'à', 'Digit0')
+  await expect.poll(percent).toBeLessThan(notch)
+  const fitted = await percent()
+
+  await pressAt(page, '=', 'Equal')
+  await expect.poll(percent).toBeGreaterThan(fitted)
+  const closer = await percent()
+
+  await pressAt(page, ')', 'Minus')
+  await expect.poll(percent).toBeLessThan(closer)
+
+  // And the controls cover nothing, because anything they covered could not be
+  // pressed. The card scrolled to the head of the bench is the case that caught
+  // it: a control floating in that corner took the press meant for the button
+  // that writes the Scene, and went on taking it.
+  for (let step = 0; step < 4; step++) await pressAt(page, '=', 'Equal')
+  await expect(level).toContainText('100%')
+
+  const platform = page.getByRole('article', { name: 'The platform' })
+  await platform.scrollIntoViewIfNeeded()
+  await writeScene(page, 'The platform')
+  await expect(page.getByRole('group', { name: 'Writing The platform' })).toBeVisible()
+})
+
+test('the bench takes the width it is given and never more', async ({ page, request }) => {
+  const { story, scenes } = await openWideGraph(request)
+  await page.goto(`/stories/${story.id}`)
+  await expect(page.getByRole('article', { name: 'The arrival' })).toBeVisible()
+
+  /**
+   * The frame is exactly as wide as the bench, and the page does not scroll
+   * sideways: the surface inside it is wider than any window — ten thousand
+   * pixels are within a node's reach — and it is the graph that scrolls or is
+   * pushed about, never the frame that grows to hold it.
+   */
+  const framed = async () => await page.evaluate(() => {
+    const wide = (selector: string) =>
+      Math.round(document.querySelector(selector)!.getBoundingClientRect().width)
+
+    return {
+      graph: wide('.graph') === wide('.bench'),
+      sideways: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    }
+  })
+
+  for (const width of [1512, 1100, 820]) {
+    await page.setViewportSize({ width, height: 760 })
+    expect(await framed()).toEqual({ graph: true, sideways: false })
+  }
+
+  // And after a node is dragged towards the edge of the screen, which is what
+  // makes the surface wider than it was.
+  await page.setViewportSize({ width: 1280, height: 760 })
+  const node = page.getByRole('article', { name: 'The arrival' })
+  await node.scrollIntoViewIfNeeded()
+  const card = (await node.boundingBox())!
+  await page.mouse.move(card.x + card.width / 2, card.y + card.height - 8)
+  await page.mouse.down()
+  await page.mouse.move(1275, card.y + card.height - 8, { steps: 8 })
+  await page.mouse.up()
+
+  await expect.poll(() => readScenePlacement(scenes[0]!.id).then(node => node.x))
+    .toBeGreaterThan(600)
+  expect(await framed()).toEqual({ graph: true, sideways: false })
+})
+
+test('the bench is pushed about on the Story an Author has on their first day', async ({
+  page,
+  request,
+}) => {
+  // Three Scenes in the column the server places them in, which is a Story that
+  // fits on screen whole: the surface is no larger than the cards on it.
+  const { story } = await openGraph(request, ['The arrival', 'The platform', 'The bar'])
+  await page.goto(`/stories/${story.id}`)
+  await expect(page.getByRole('article', { name: 'The arrival' })).toBeVisible()
+
+  const graph = page.locator('.graph')
+  const scrolledTo = () => graph.evaluate(
+    box => ({ x: Math.round(box.scrollLeft), y: Math.round(box.scrollTop) }))
+
+  // A bench keeps room around the work on it, so there is somewhere to push even
+  // a Story that fits: without it the gesture would be dead on every new Story,
+  // which is the one an Author meets first.
+  expect(await graph.evaluate(
+    box => box.scrollWidth > box.clientWidth && box.scrollHeight > box.clientHeight)).toBe(true)
+
+  const box = (await graph.boundingBox())!
+  const bare = { x: box.x + box.width - 120, y: box.y + box.height / 2 }
+  await page.mouse.move(bare.x, bare.y)
+  await page.mouse.down()
+  await page.mouse.move(bare.x - 200, bare.y - 100, { steps: 8 })
+  await page.mouse.up()
+
+  await expect.poll(scrolledTo).toEqual({ x: 200, y: 100 })
+
+  // And the fit brings the whole Story back into the frame, which is the way back
+  // from a push that took the work off screen.
+  await page.getByRole('button', { name: 'Fit the graph' }).click()
+  for (const name of ['The arrival', 'The bar']) {
+    await expect.poll(() => framed(page, name)).toBe(true)
+  }
+})
+
+test('a Scene dragged past the edge of the bench stops there', async ({ page, request }) => {
+  const { story, scenes } = await openGraph(request)
+  await page.goto(`/stories/${story.id}`)
+
+  // The panel narrows the graph, so the hand that is still holding a card can be
+  // over the panel. What it may not do is take the card with it: a Scene dropped
+  // under the panel is a Scene the Author cannot see and never aimed at.
+  await writeScene(page, 'The arrival')
+  await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
+
+  const frame = (await page.locator('.graph').boundingBox())!
+  const node = page.getByRole('article', { name: 'The arrival' })
+  const card = (await node.boundingBox())!
+  await page.mouse.move(card.x + card.width / 2, card.y + card.height - 8)
+  await page.mouse.down()
+  // Well past the trailing edge of the graph, out over the panel and beyond it.
+  await page.mouse.move(frame.x + frame.width + 300, card.y + card.height - 8, { steps: 10 })
+  await page.mouse.up()
+
+  // The hand stopped at the edge, so the card did: part of it is still on the
+  // bench, which is what makes it a card the Author can take hold of again.
+  await expect.poll(async () => {
+    const dropped = (await node.boundingBox())!
+    return dropped.x < frame.x + frame.width
+  }).toBe(true)
+  await expect.poll(() => readScenePlacement(scenes[0]!.id).then(node => node.x))
+    .toBeLessThan(GRAPH_REACH)
+})
+
+test('the graduation says which scale the bench is at, and goes straight to another', async ({
+  page,
+  request,
+}) => {
+  const { story } = await openGraph(request)
+  await page.goto(`/stories/${story.id}`)
+
+  const dial = page.getByRole('slider', { name: 'Zoom' })
+  const level = page.locator('.level')
+  await expect(dial).toHaveValue('100')
+
+  // Dragged straight to a scale, rather than stepped to it a quarter at a time.
+  await dial.fill('40')
+  await expect(level).toContainText('40%')
+  await expect(page.getByRole('article', { name: 'The arrival' })).toHaveCount(1)
+
+  // The two buttons and the graduation are one state: stepping moves the thumb.
+  await page.getByRole('button', { name: 'Pull back from the graph' }).click()
+  await expect(dial).toHaveValue('25')
+  await expect(level).toContainText('25%')
+
+  // And what the hand can do that no control shows is written under them, with the
+  // key this platform calls it by — and the keys are drawn as keys, so `⌘0` reads
+  // as two of them pressed together rather than as a word.
+  const graven = page.locator('.graven')
+  await expect(graven).toContainText('fits')
+  await expect(graven).toContainText('drag the bench to move the view')
+  await expect(graven.locator('kbd')).toHaveCount(6)
+  await expect(graven.locator('kbd').last()).toHaveText('0')
 })

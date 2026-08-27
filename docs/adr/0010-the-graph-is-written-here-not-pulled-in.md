@@ -137,3 +137,48 @@ The `prefers-reduced-motion` half of it is small and belongs here: a step of the
 zoom travels the distance so that what moved can be seen to have moved, and an
 Author who has asked for no motion simply gets the new scale. The wheel is not
 eased either way, because it is continuous already.
+
+What the hundred lines do not save is the browsers disagreeing. Three of them
+came out of the first day of use, and they are the cost this decision really
+carries — the library would have had them solved.
+
+A pinch is not one event. Chromium reports it as a wheel with Ctrl held, so the
+gesture and the modifier are one handler; WebKit sends `gesturestart` and
+`gesturechange` of its own and zooms the whole page itself, so Safari had no pinch
+on the bench at all until those were taken too. `scale` there is the whole
+gesture rather than a step, which is why the gesture holds the scale it began
+from.
+
+A wheel is not one hand. A trackpad sends scores of events a few pixels each and
+a mouse sends one of a hundred, so the ratio that makes a pinch smooth takes a
+single notch from the surface's own size to two thirds of it. The delta is capped
+per event: a notch is a step, and no event of a pinch ever reaches the cap.
+
+A key is not a character. `⌘0` on a French layout arrives as `à`, because the
+digit row carries letters until it is shifted, so the shortcuts are read off
+`event.code` — where the key sits, which every layout agrees on — as well as off
+`event.key`. The numeric keypad comes along with it.
+
+And the frame is a frame: `contain: inline-size` on the window onto the graph, so
+that no engine's reading of an automatic minimum size can hand it the width of a
+surface an Author has dragged ten thousand pixels wide. What scrolls or is pushed
+about is the graph inside it.
+
+The zoom's own controls are not on that surface either, and the reason is the
+surface is worked at rather than looked at. A control floating in a corner of the
+graph is a control something on the graph ends up under: the button that writes a
+Scene did, on a bench scrolled so that its card came up beneath the corner, and
+the press meant for the Scene was taken by the zoom for as long as anyone kept
+trying. So the controls live in the row above the bench, in the flow of the page,
+where they are always on screen, the same size at every scale, and over nothing.
+A bench is `min(70dvh, 44rem)` tall, which is why the foot of it is no place for
+them either.
+
+What they are is an instrument rather than a pair of arrows: a graduation from a
+quarter to the whole, notched at the four scales the two buttons step between, so
+an Author sees which step they are on and can put the thumb on another. It is an
+`<input type="range">`, which is where the drag, the arrow keys and the announced
+value come from without any of them being written. Under it, engraved in the data
+face, is what the hand can do that no control shows — the three shortcuts, in the
+name this platform gives the key, and the push that moves the view. A gesture
+nobody is told about is a gesture nobody uses.
