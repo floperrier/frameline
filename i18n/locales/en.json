@@ -57,7 +57,19 @@
   "catalogue": {
     "heading": "Catalogue",
     "line": "Stories their Authors have listed here, most recently published first. Anyone can read them, with or without an account.",
-    "none": "No Stories are listed yet. The first one an Author lists appears here."
+    "none": "No Stories are listed yet. The first one an Author lists appears here.",
+    "by": "By"
+  },
+  "author": {
+    "name": "Your Name",
+    "save": "Save",
+    "askedBeforeListing": "Every entry in the Catalogue is signed. Write the Name you want to appear under, and this Story is listed.",
+    "list": "List it under this Name"
+  },
+  "profile": {
+    "line": "What {name} has listed in the Catalogue, most recently published first.",
+    "none": "{name} has nothing in the Catalogue.",
+    "unnamed": "An Author"
   },
   "stories": {
     "heading": "Stories",
@@ -218,13 +230,15 @@
       "story": "No such Story.",
       "scene": "No such Scene.",
       "shot": "No such Shot.",
-      "exit": "No such Exit."
+      "exit": "No such Exit.",
+      "author": "No such Author."
     },
     "notAnId": {
       "story": "That is not a Story id.",
       "scene": "That is not a Scene id.",
       "shot": "That is not a Shot id.",
-      "exit": "That is not an Exit id."
+      "exit": "That is not an Exit id.",
+      "author": "That is not an Author id."
     },
     "places": {
       "shot": "The Shots of a Scene are renumbered all at once, each one named exactly once.",
@@ -254,6 +268,9 @@
     "imageMissing": "An image is a file to upload.",
     "imageHeavy": "An image cannot weigh more than {mb} MB.",
     "imageType": "A Shot carries a JPEG, a PNG or a WebP image, and nothing else.",
+    "authorName": "A Name is what you appear under, so it cannot be empty.",
+    "authorNameLong": "A Name cannot be longer than {max} characters.",
+    "nameBeforeListing": "A Story is listed under its Author's Name, so write yours before listing it.",
     "listPublished": "A Story is published before it is listed, because an entry in the Catalogue leads to its public link.",
     "openingScene": "A Story needs an opening Scene before it can be published. Write a Scene on the graph and mark it as the one to start on.",
     "signedOut": "You are no longer signed in, so nothing was written."

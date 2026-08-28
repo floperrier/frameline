@@ -12,10 +12,20 @@ import { useDb } from '../../../db'
  * link that answers with a not-found is worse than no entry. Being published is
  * part of the statement that lists, scoped by Author beside it, so the check and
  * the write cannot fall apart between them.
+ *
+ * A Name comes first, because every entry in the Catalogue is signed and this is
+ * the one moment an Author has a reason to write one — publishing never asks. It
+ * is a refusal the Author can act on rather than a silent entry with no name on
+ * it, and the bench answers it by asking for the Name in the listing itself —
+ * see `docs/adr/0025-a-name-is-asked-for-in-the-listing.md`.
  */
 export default defineEventHandler(async (event) => {
   const id = readId(event, 'Story')
   const author = await requireAuthor(event)
+
+  if (!await nameOf(author.id)) {
+    throw createError({ statusCode: 400, message: saying(event)('refusals.nameBeforeListing') })
+  }
 
   const [listed] = await useDb()
     .update(stories)

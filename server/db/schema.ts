@@ -2,10 +2,26 @@ import { boolean, customType, integer, jsonb, pgTable, text, timestamp, uuid } f
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import type { Condition, Sets } from '../../shared/utils/scenes'
 
+// `name` is the Name an Author appears under wherever somebody else meets them:
+// beside a Listed Story, on their Profile. It arrives from the provider they
+// signed in with, which may hand back none, and it is theirs to rewrite — so it
+// is nullable, and an Author with none is asked for one the first time they list
+// a Story — see `docs/adr/0025-a-name-is-asked-for-in-the-listing.md`. `email` is
+// what an Author is keyed on and is never shown to anybody, here or anywhere
+// else.
+//
+// `avatar` is the picture the provider hands back, held as the URL it hands back
+// and nothing else: no bytes, no resizing, no column of images. A Shot's Image
+// lives in its row because the Image belongs to the Shot — see
+// `docs/adr/0005-a-shots-image-lives-in-its-row.md` — and an avatar belongs to
+// the provider, which goes on serving it: see
+// `docs/adr/0026-an-avatar-is-a-url-not-bytes.md`. Null where the provider hands
+// none, or for an Author who last signed in before the column existed.
 export const authors = pgTable('authors', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: text('email').notNull().unique(),
   name: text('name'),
+  avatar: text('avatar'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 

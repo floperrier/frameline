@@ -57,7 +57,19 @@
   "catalogue": {
     "heading": "Catalogue",
     "line": "Les Récits que leurs Auteurs ont répertoriés ici, du plus récemment publié au plus ancien. N’importe qui peut les lire, avec ou sans compte.",
-    "none": "Aucun Récit n’est encore répertorié. Le premier qu’un Auteur répertorie paraîtra ici."
+    "none": "Aucun Récit n’est encore répertorié. Le premier qu’un Auteur répertorie paraîtra ici.",
+    "by": "Par"
+  },
+  "author": {
+    "name": "Votre Nom",
+    "save": "Enregistrer",
+    "askedBeforeListing": "Chaque entrée du Catalogue est signée. Écrivez le Nom sous lequel vous voulez paraître, et ce Récit sera répertorié.",
+    "list": "Répertorier sous ce Nom"
+  },
+  "profile": {
+    "line": "Ce que {name} a répertorié au Catalogue, du plus récemment publié au plus ancien.",
+    "none": "{name} n’a rien au Catalogue.",
+    "unnamed": "Un Auteur"
   },
   "stories": {
     "heading": "Récits",
@@ -218,13 +230,15 @@
       "story": "Ce Récit n'existe pas.",
       "scene": "Cette Scène n'existe pas.",
       "shot": "Ce Plan n'existe pas.",
-      "exit": "Cette Sortie n'existe pas."
+      "exit": "Cette Sortie n'existe pas.",
+      "author": "Cet Auteur n'existe pas."
     },
     "notAnId": {
       "story": "Cet identifiant n'est pas celui d'un Récit.",
       "scene": "Cet identifiant n'est pas celui d'une Scène.",
       "shot": "Cet identifiant n'est pas celui d'un Plan.",
-      "exit": "Cet identifiant n'est pas celui d'une Sortie."
+      "exit": "Cet identifiant n'est pas celui d'une Sortie.",
+      "author": "Cet identifiant n'est pas celui d'un Auteur."
     },
     "places": {
       "shot": "Les Plans d'une Scène sont renumérotés tous à la fois, chacun nommé une seule fois.",
@@ -254,6 +268,9 @@
     "imageMissing": "Une image est un fichier à envoyer.",
     "imageHeavy": "Une image ne peut pas peser plus de {mb} Mo.",
     "imageType": "Un Plan porte une image JPEG, PNG ou WebP, et rien d'autre.",
+    "authorName": "Un Nom est ce sous quoi vous paraissez, il ne peut donc pas être vide.",
+    "authorNameLong": "Un Nom ne peut pas dépasser {max} caractères.",
+    "nameBeforeListing": "Un Récit est répertorié sous le Nom de son Auteur : écrivez le vôtre avant de le répertorier.",
     "listPublished": "Un Récit est publié avant d’être répertorié, car une entrée du Catalogue mène à son lien public.",
     "openingScene": "Un Récit a besoin d'une Scène d'ouverture avant d'être publié. Écrivez une Scène sur le Graphe et marquez-la comme celle par laquelle commencer.",
     "signedOut": "La connexion n'est plus ouverte, donc rien n'a été écrit."

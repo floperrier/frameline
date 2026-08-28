@@ -41,7 +41,8 @@ if (!email) throw new Error('Which Author is writing this: --author <email>')
 
 const work = chosen()
 
-const cookie = `nuxt-session=${await sealAuthorSession(await authorNamed(email))}`
+const author = await authorNamed(email)
+const cookie = `nuxt-session=${await sealAuthorSession(author)}`
 
 const story = await api('POST', '/api/stories', {
   title: work.title,
@@ -97,7 +98,19 @@ await api('POST', `/api/stories/${story.id}/publish`)
 // Catalogue with something in it — an empty one reads as broken rather than as
 // new. A Sample written from here is a copy for whoever ran the script, and is
 // left unlisted like the one planted in every new account.
-if (work === REEL_CHANGE) await api('POST', `/api/stories/${story.id}/listed`)
+//
+// Every entry in the Catalogue is signed, so an Author with no Name yet is told
+// where to write one rather than handed the API's refusal: the product asks for
+// it in the listing on the bench, and this script is not that.
+if (work === REEL_CHANGE) {
+  if (!author.name) {
+    throw new Error(
+      `${email} has no Name yet, and a listed Story is signed. `
+      + `Write one on ${origin}/stories, then run this again.`)
+  }
+
+  await api('POST', `/api/stories/${story.id}/listed`)
+}
 
 console.log(`\n${work.title} is readable at ${origin}/read/${story.id}`)
 

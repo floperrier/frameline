@@ -18,6 +18,12 @@ const { data: story, refresh } = await useAsyncData(
 )
 const { problem, keptAt, change, write } = useEditing(refresh)
 const { asked, ask, answer } = useConfirming()
+const { user: author, fetch: refreshAuthor } = useUserSession()
+
+// Whether the listing is standing there asking for a Name, and what has been
+// typed into it. Both start where an Author with a Name never sees them.
+const askingName = ref(false)
+const authorName = ref(author.value?.name ?? '')
 
 /**
  * The time of the last write, told the way a clock is read in the Locale rather
@@ -51,7 +57,35 @@ function unpublish() {
  * Unlisting leaves it published, and every link already sent goes on working.
  */
 function list() {
+  // Every entry in the Catalogue is signed, so an Author with no Name yet is
+  // asked for one here, in the act that needs it. It is the only moment the
+  // product asks: publishing never does, and a settings page would be a room
+  // built for one field somebody would have to be sent to — see
+  // `docs/adr/0025-a-name-is-asked-for-in-the-listing.md`.
+  if (!author.value?.name) {
+    askingName.value = true
+    return
+  }
+
   return change(() => send(`/api/stories/${id}/listed`, { method: 'POST' }))
+}
+
+/**
+ * The Name, and the listing it was asked for, in one gesture: the Author wrote
+ * the Name to get the Story listed, so being asked and then having to click
+ * again would be the product asking twice for one decision. The session carries
+ * the Name and the server reseals it, so it is read back here — from then on the
+ * button lists without asking anything.
+ */
+async function listUnder() {
+  const name = authorName.value
+  const listed = await change(async () => {
+    await send('/api/author', { method: 'PATCH', body: { name } })
+    await send(`/api/stories/${id}/listed`, { method: 'POST' })
+  })
+
+  await refreshAuthor()
+  if (listed) askingName.value = false
 }
 
 function unlist() {
@@ -1576,6 +1610,23 @@ function atAGlance(scene: Scene) {
         <button v-else-if="story?.publishedAt" type="button" @click="list">
           {{ $t('editor.list') }}
         </button>
+        <!-- The Name asked for in the listing itself, and only where there is
+             none: an Author who has one lists in a single click and is asked
+             nothing. -->
+        <form v-if="askingName" class="signing" @submit.prevent="listUnder">
+          <p class="asked">{{ $t('author.askedBeforeListing') }}</p>
+          <label class="eyebrow" for="author-name">{{ $t('author.name') }}</label>
+          <div class="row">
+            <input
+              id="author-name"
+              v-model="authorName"
+              required
+              autofocus
+              :maxlength="AUTHOR_NAME_MAX_LENGTH"
+            >
+            <button type="submit" class="primary">{{ $t('author.list') }}</button>
+          </div>
+        </form>
         <button v-if="story?.publishedAt" type="button" @click="unpublish">
           {{ $t('editor.unpublish') }}
         </button>
@@ -2324,6 +2375,29 @@ header {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--s3);
+}
+
+/* The Name asked for in the listing: a whole row of the release panel, because
+   it is a sentence and a field rather than another control beside the buttons. */
+.signing {
+  display: grid;
+  gap: var(--s1);
+  flex: 1 1 100%;
+  max-inline-size: 34rem;
+}
+
+.signing .asked {
+  color: var(--muted);
+}
+
+.signing .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.signing .row input {
+  flex: 1 1 14rem;
 }
 
 /* A published Story wears the grease pencil: the link is the one thing on the

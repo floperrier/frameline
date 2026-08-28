@@ -2,7 +2,7 @@ import type { H3Event } from 'h3'
 
 export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-type Kind = 'Story' | 'Scene' | 'Shot' | 'Exit'
+type Kind = 'Story' | 'Scene' | 'Shot' | 'Exit' | 'Author'
 
 /**
  * Which message each of the four things is refused with. A key apiece rather
@@ -16,6 +16,7 @@ const NOT_AN_ID: Record<Kind, string> = {
   Scene: 'refusals.notAnId.scene',
   Shot: 'refusals.notAnId.shot',
   Exit: 'refusals.notAnId.exit',
+  Author: 'refusals.notAnId.author',
 }
 
 const NO_SUCH: Record<Kind, string> = {
@@ -23,12 +24,13 @@ const NO_SUCH: Record<Kind, string> = {
   Scene: 'refusals.noSuch.scene',
   Shot: 'refusals.noSuch.shot',
   Exit: 'refusals.noSuch.exit',
+  Author: 'refusals.noSuch.author',
 }
 
 /**
- * Reads the id of a Story, a Scene, a Shot or an Exit from the path. Rejecting a
- * malformed id here keeps Postgres from failing the uuid cast, which would read
- * as a server fault rather than a bad request.
+ * Reads the id of a Story, a Scene, a Shot, an Exit or an Author from the path.
+ * Rejecting a malformed id here keeps Postgres from failing the uuid cast, which
+ * would read as a server fault rather than a bad request.
  */
 export function readId(event: H3Event, kind: Kind) {
   const id = getRouterParam(event, 'id')
