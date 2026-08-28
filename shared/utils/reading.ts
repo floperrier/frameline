@@ -31,17 +31,17 @@ export type StoryToShow = Omit<StoryToRead, 'scenes'> & {
  * makes the engine a pure function and the whole of it testable.
  *
  * The seed is what every draw a Scene makes comes out of. It is a part of the
- * Position rather than a term of its own — see
+ * Path rather than a term of its own — see
  * `docs/adr/0024-the-seed-belongs-to-the-position.md` — because a Reading is its
- * Position and nothing else: a seed kept anywhere else would make `reading()`
+ * Path and nothing else: a seed kept anywhere else would make `reading()`
  * impure, and two Readings that took the same Exits under the same seed would
  * stop being the same Reading.
  */
-export type Position = { seed: number, taken: string[], shot: number }
+export type Path = { seed: number, taken: string[], shot: number }
 
 /**
  * Everything one Reading has accumulated: what each Flag holds, and how often
- * each Scene has been entered. Computed from the Position on every read and kept
+ * each Scene has been entered. Computed from the Path on every read and kept
  * nowhere, so no two Readings can reach the same State.
  */
 export type State = { flags: Flags, visits: Record<string, number> }
@@ -116,30 +116,30 @@ function entered(visits: number, say: Phrase) {
  * Every Reading starts here: the opening Scene, first Shot, nothing taken, and a
  * seed drawn for it. Drawing that seed is the one impure moment in the whole
  * engine, and it happens here — called by whatever starts a Reading — rather than
- * inside `reading()`, which stays a pure function of the Position it is handed.
+ * inside `reading()`, which stays a pure function of the Path it is handed.
  * A seed may be passed in, which is what a test states and what a reroll
  * replaces.
  */
-export function opening(seed = Math.floor(Math.random() * 2 ** 32)): Position {
+export function opening(seed = Math.floor(Math.random() * 2 ** 32)): Path {
   return { seed, taken: [], shot: 0 }
 }
 
 /**
  * Where a Reading stands before a seed has been drawn for it: the opening
- * Position under a seed of none. A screen renders on the server and then again in
+ * Path under a seed of none. A screen renders on the server and then again in
  * the browser hydrating it, and a seed drawn twice would be two different
  * Stories either side of that — so the screens start here, and draw once the
  * Reading is in the browser it will stay in.
  */
-export const UNDRAWN: Position = opening(0)
+export const UNDRAWN: Path = opening(0)
 
 /**
- * The same Position under a different draw: the Author's reroll. Nothing about
+ * The same Path under a different draw: the Author's reroll. Nothing about
  * where the Reading has got to changes, so the Exits taken and the Shot on screen
  * are the ones they were — what changes is which value every draw comes out
  * with, which is the whole of the control the Preview offers.
  */
-export function rerolled(at: Position): Position {
+export function rerolled(at: Path): Path {
   return { ...at, seed: opening().seed }
 }
 
@@ -148,7 +148,7 @@ export function rerolled(at: Position): Position {
  * the seed, the Scene, how many times this Reading has entered it, and the Flag's
  * name — the four things that identify the draw — so each draw is independent of
  * every other: a Shot added upstream, or one skipped by a Condition, leaves it
- * where it was, and a Position replayed after an edit shows the Story it showed.
+ * where it was, and a Path replayed after an edit shows the Story it showed.
  * A sequential generator threaded through the walk would shift every later draw
  * instead; see `docs/adr/0024-the-seed-belongs-to-the-position.md`.
  */
@@ -178,14 +178,14 @@ function hashed(key: string) {
 
 /**
  * What the Reader is shown at one point in a Reading — a screenful, not the
- * Reading itself, which is the Position: the Shot on screen, or —
+ * Reading itself, which is the Path: the Shot on screen, or —
  * once the Shots of the Scene have run out — the Exits on offer. Never both, so
- * the Scene plays to its end before it asks anything. `ended` is the path
+ * the Scene plays to its end before it asks anything. `ended` is the Path
  * reaching its end: no Shot left and no Exit out, which the Reader is owed as an
  * ending rather than a screen that has simply stopped answering.
  *
  * `run` is the Shots of that Scene this Reading plays — the Author's run minus
- * the ones a Condition skips — which is what the Position counts and what the
+ * the ones a Condition skips — which is what the Path counts and what the
  * screen numbers the beat against. It is here rather than read off the Scene
  * because the Scene alone cannot say it: the same Scene is a different run to a
  * Reading that has been there before.
@@ -218,7 +218,7 @@ export type Shown = {
  * count of entries, so a Scene read a second time draws again and a Story that
  * loops is worth looping through.
  */
-function walk(story: StoryToRead, { seed, taken }: Position) {
+function walk(story: StoryToRead, { seed, taken }: Path) {
   const state: State = { flags: {}, visits: {} }
 
   function enter(id: string) {
@@ -244,19 +244,19 @@ function walk(story: StoryToRead, { seed, taken }: Position) {
   return { sceneId, state }
 }
 
-/** What this Story shows a Reading standing at this Position. */
-export function reading(story: StoryToRead, at: Position): Shown {
+/** What this Story shows a Reading that has taken this Path. */
+export function reading(story: StoryToRead, at: Path): Shown {
   const { sceneId, state } = walk(story, at)
   // The run this Reading plays, judged against the State it arrived with: a Shot
   // whose Conditions fail is left out of the run rather than played to nobody,
-  // so the Position counts the beats the Reader actually saw and the one after
+  // so the Path counts the beats the Reader actually saw and the one after
   // the skipped Shot is the next one on screen. Judged once for the whole Scene,
   // because nothing inside a Scene changes State — only entering one does.
   const run = story.scenes.find(scene => scene.id === sceneId)
     ?.shots.filter(shot => holds(shot.conditions, state)) ?? []
   const shot = run[at.shot]
   // A Story with no opening Scene has no Exits to offer either, so the empty
-  // Scene and the missing one both end the path. An Exit one of whose Conditions
+  // Scene and the missing one both end the Path. An Exit one of whose Conditions
   // fails is not among them, which is what makes it invisible rather than
   // refused.
   const exits = shot
@@ -267,11 +267,11 @@ export function reading(story: StoryToRead, at: Position): Shown {
 }
 
 /** The Reader asks for the next Shot of the Scene. */
-export function advance(at: Position): Position {
+export function advance(at: Path): Path {
   return { ...at, shot: at.shot + 1 }
 }
 
 /** The Reader takes one of the Exits on offer, and the Scene it arrives at starts over. */
-export function take(at: Position, exit: Exit): Position {
+export function take(at: Path, exit: Exit): Path {
   return { ...at, taken: [...at.taken, exit.id], shot: 0 }
 }

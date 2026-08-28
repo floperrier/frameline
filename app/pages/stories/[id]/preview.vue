@@ -6,7 +6,7 @@
 // What a Reader never gets is the bench under it — the State the Reading has
 // accumulated, and the ways on its Conditions are hiding. None of that is drawn
 // by the Reading itself: the Reading says where it has got to, and everything
-// here is worked out again from that Position, so a Reader's Reading carries no
+// here is worked out again from that Path, so a Reader's Reading carries no
 // inspection code to be kept switched off.
 definePageMeta({ middleware: 'authenticated' })
 
@@ -24,12 +24,12 @@ const { data: story } = await useAsyncData(
  * engine is a pure function of it, so reading it a second time here costs a walk
  * of the Exits taken and buys a State nobody had to hand out.
  */
-const at = ref<Position>(UNDRAWN)
+const at = ref<Path>(UNDRAWN)
 
 /**
- * The reel above, which holds the Position and is the only thing that may move
- * it. All this asks of it is another draw — a Position rerolled here would be a
- * second Position, and the Reading would go on reading its own.
+ * The reel above, which holds the Path and is the only thing that may move
+ * it. All this asks of it is another draw — a Path rerolled here would be a
+ * second Path, and the Reading would go on reading its own.
  */
 const reel = useTemplateRef<{ reroll: () => void }>('reel')
 
@@ -147,7 +147,7 @@ function why(conditions: Condition[]) {
         </p>
 
         <!-- The one control on the bench, and no part of the Story: the same
-             Reading at the same Position, read against another draw. It sits with
+             Reading at the same Path, read against another draw. It sits with
              the State it changes rather than in the reel, because what an Author
              is doing here is looking at their own variants and not reading. -->
         <p v-if="draws" class="draw">

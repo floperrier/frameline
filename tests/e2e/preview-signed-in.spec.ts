@@ -371,7 +371,7 @@ test('a Scene draws one of several values, and the Author draws it again',
     expect(first).toMatch(/Rain on the awning\.|Sun on the awning\.|Haze over the street\./)
     expect(first.toLowerCase()).toContain(await drawn())
 
-    // Drawing again keeps the Position — still the third beat of a three-beat
+    // Drawing again keeps the Path — still the third beat of a three-beat
     // Scene — and only the draw changes, until a variant the Author has not seen
     // comes up. A press that draws the same value again is not a failure, so the
     // button is pressed until it differs rather than once.

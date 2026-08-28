@@ -9,7 +9,7 @@ import { useDb } from '../../db'
  * as an id nobody ever wrote.
  *
  * A Reading is not stored anywhere. The Reader is handed the Story and keeps
- * their own Position in it, which is why two Readers of one Story can never
+ * their own Path in it, which is why two Readers of one Story can never
  * share what they have accumulated — there is nothing here to share.
  */
 export default defineEventHandler(async (event) => {

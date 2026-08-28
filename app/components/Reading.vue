@@ -5,7 +5,7 @@
  * meets can go untested by a Preview, and nothing an Author previews can behave
  * differently once it is published.
  *
- * The Position lives here and nowhere else. It never leaves the browser, so
+ * The Path lives here and nowhere else. It never leaves the browser, so
  * every Reading starts with empty State and two Readers of one Story cannot
  * share what they have accumulated — there is no place for them to share it.
  * Leaving the page starts the Story over for the same reason.
@@ -17,20 +17,20 @@ const { t } = useI18n()
 /**
  * Where the Reading has got to, said out loud on every move. The whole of what
  * this component offers whoever draws it, and the reason a Preview can put the
- * State on a bench beside it without this knowing who is watching: the Position
+ * State on a bench beside it without this knowing who is watching: the Path
  * is all a Preview needs, because everything else is a pure function of it.
  * A Reader's Reading is the same component with nobody listening.
  */
-const emit = defineEmits<{ at: [Position] }>()
+const emit = defineEmits<{ at: [Path] }>()
 
-const at = ref<Position>(UNDRAWN)
+const at = ref<Path>(UNDRAWN)
 const shown = computed(() => reading(story, at.value))
 const shownAt = () => emit('at', at.value)
 
 /**
  * The seed every draw a Scene makes comes out of, drawn once the Reading is in
  * the browser and said out loud like every other move. Here rather than in the
- * Position this starts at, because the server renders this page too and a seed
+ * Path this starts at, because the server renders this page too and a seed
  * drawn there and drawn again here would be two Stories either side of
  * hydration. It is the one impure moment in a Reading — see
  * `docs/adr/0024-the-seed-belongs-to-the-position.md`.
@@ -54,7 +54,7 @@ onMounted(() => {
 const frame = useTemplateRef<HTMLElement>('frame')
 const exits = useTemplateRef<HTMLElement>('exits')
 
-async function moveTo(to: Position) {
+async function moveTo(to: Path) {
   at.value = to
   shownAt()
   await nextTick()
@@ -62,11 +62,11 @@ async function moveTo(to: Position) {
 }
 
 /**
- * The same Position under another draw, which is the one thing about a Reading
+ * The same Path under another draw, which is the one thing about a Reading
  * something outside it may change: the Preview's reroll. Nothing moves, so
  * nothing takes focus — the Author presses the button again and again, and what
  * changes is the Story around it. Exposed rather than taken as a prop, because
- * the Position lives here and a second place to hold it is a second Reading.
+ * the Path lives here and a second place to hold it is a second Reading.
  */
 function reroll() {
   at.value = rerolled(at.value)
@@ -90,7 +90,7 @@ const run = computed(() => shown.value.run)
 
 /**
  * Which Shot of the run the frame holds, numbered from one for the Reader as the
- * editor numbers them for the Author. Once the Scene has played out the Position
+ * editor numbers them for the Author. Once the Scene has played out the Path
  * has walked past the last Shot and the frame is still holding it, so the count
  * stops at the length of the run: every tick lit, and the run said to be over.
  */
@@ -116,7 +116,7 @@ function offered(exit: Exit) {
     <!-- One Shot at a time, and the Exits only once the Scene has played out —
          behind the frame it played out on, which is held rather than taken away. -->
     <template v-if="held">
-      <!-- Keyed on the Position, so arriving at a Shot draws the frame again:
+      <!-- Keyed on the Path, so arriving at a Shot draws the frame again:
            each beat is thrown onto the screen rather than swapped into it, and
            reading a Scene again throws its first frame again. -->
       <!-- The frame holds nothing but the Author's own work — the image, what it
@@ -212,7 +212,7 @@ function offered(exit: Exit) {
 /* The Scene has played out and the frame it ended on is held behind the ways on:
    the same beat, pushed back into the room so that what is being asked of the
    Reader is the lit thing on screen. It is not arriving, so it is not thrown a
-   second time — the Position has moved past the last Shot and the frame has not.
+   second time — the Path has moved past the last Shot and the frame has not.
 
    The image takes the push back and the prose only half of it: the last beat has
    to stay as readable as it was to whoever is reading it while they choose, and a

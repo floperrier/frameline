@@ -58,7 +58,7 @@ _Avoid_: description, blurb, summary, pitch, résumé, présentation
 **Place**:
 Where a Shot comes in its Scene's run, or an Exit in the ways on offered at the end
 of the Scene it leaves — the Author's own numbering, counted from the first, with
-nothing missing. Never used of a Reading, which has a Position instead.
+nothing missing.
 _Affiché_: Rang
 _Avoid_: index, order, rank, slot, sort key
 
@@ -135,14 +135,15 @@ One traversal of a published Story by one Reader, carrying its own State.
 _Affiché_: Lecture
 _Avoid_: session, playthrough, run, visit
 
-**Position**:
+**Path**:
 How far one Reading has got: the Exits it has taken, in order, how many Shots
 of the Scene it stands in are behind it, and the seed every draw a Scene makes
 comes out of. Everything else about a Reading — the Scene, the Shot on screen,
-the Exits on offer, the State — is computed from it.
-Where a Shot or an Exit comes in its own list is a Place, never a Position.
-_Affiché_: Position
-_Avoid_: cursor, pointer, progress, step, index
+the Exits on offer, the State — is computed from it. Both the route taken and the
+taking of it, which is why it is not a point: where a Shot or an Exit comes in its
+own list is a Place.
+_Affiché_: Parcours
+_Avoid_: position, cursor, pointer, progress, step, index
 
 ### The people
 

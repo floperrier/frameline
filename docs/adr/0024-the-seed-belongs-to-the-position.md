@@ -84,3 +84,10 @@ The Author's control over the draw is the reroll and nothing more. The seed is
 never shown, never typed, and never carried in a link: a number an Author could
 set by hand would be a second thing to understand about a Story that is supposed
 to read as a Story.
+
+## Since
+
+A Position is now a Path, shown as _Parcours_ — see the glossary in `CONTEXT.md`.
+What was decided here is untouched by the renaming: read Position as Path
+throughout, including in the title and in the file name, which stay as they were
+written.

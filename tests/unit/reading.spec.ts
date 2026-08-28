@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Condition, Sets } from '../../shared/utils/scenes'
-import type { Position, State, StoryToRead } from '../../shared/utils/reading'
+import type { Path, State, StoryToRead } from '../../shared/utils/reading'
 import { advance, opening, reading, take, unmet } from '../../shared/utils/reading'
 import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
 import type { Phrase } from '../../shared/utils/phrases'
@@ -48,19 +48,19 @@ function story(
  * Where a Reading starts, under a seed this suite states rather than one drawn
  * for it: every test but the ones about the draw itself wants the same Reading
  * twice, and a seed drawn behind them would be the one thing they could not
- * state. The Position is the whole of a Reading, seed included, so stating it is
+ * state. The Path is the whole of a Reading, seed included, so stating it is
  * stating the Reading.
  */
 const OPENING = opening(1)
 
 /** What the Reader is shown at a point in a Reading: the Shot's text, or the Exits on offer. */
-function shown(read: StoryToRead, at: Position) {
+function shown(read: StoryToRead, at: Path) {
   const { shot, exits, ended } = reading(read, at)
   return { text: shot?.text, offered: exits.map(exit => exit.text), ended }
 }
 
 /** The run of Shots this Reading plays, which is the Scene's own minus the skipped. */
-function run(read: StoryToRead, at: Position) {
+function run(read: StoryToRead, at: Path) {
   return reading(read, at).run.map(shot => shot.text)
 }
 
@@ -171,7 +171,7 @@ describe('a Reading given an Exit it was never offered', () => {
   )
 
   it('stays where it is rather than jumping to the far side of the Story', () => {
-    const elsewhere: Position = { taken: ['exit-1'], shot: 0 }
+    const elsewhere: Path = { taken: ['exit-1'], shot: 0 }
     expect(shown(branching, elsewhere)).toEqual({
       text: 'A door opens.',
       offered: [],
@@ -295,7 +295,7 @@ describe('an Exit carrying Conditions', () => {
       { Street: ['A door opens.'], Bar: ['Smoke.'] },
       [['Street', 'Go in', 'Bar', [{ flag: 'key', is: 'found' }]]],
     )
-    const forged: Position = { taken: ['exit-0'], shot: 0 }
+    const forged: Path = { taken: ['exit-0'], shot: 0 }
     expect(shown(shut, forged).text).toBe('A door opens.')
   })
 })
@@ -326,10 +326,10 @@ describe('a Scene read a second time', () => {
     expect(shown(returning, endOfStreetAgain).offered).toEqual(['Give up'])
   })
 
-  it('lets the same Exit be taken once and no more, however the Position asks', () => {
+  it('lets the same Exit be taken once and no more, however the Path asks', () => {
     // The way in is offered on the first visit to the street and not on the
     // second, so a Reading that comes back and claims to take it again is a
-    // Position no Reader could have reached: the walk stops where it stopped.
+    // Path no Reader could have reached: the walk stops where it stopped.
     const endOfStreet = advance(OPENING)
     const inTheBar = take(endOfStreet, reading(returning, endOfStreet).exits[0]!)
     const endOfBar = advance(inTheBar)
@@ -337,7 +337,7 @@ describe('a Scene read a second time', () => {
 
     expect(shown(returning, backOutside).text).toBe('A door opens.')
 
-    const twice: Position = { taken: [...backOutside.taken, 'exit-0'], shot: 0 }
+    const twice: Path = { taken: [...backOutside.taken, 'exit-0'], shot: 0 }
     expect(shown(returning, twice).text).toBe('A door opens.')
     expect(reading(returning, twice).state.visits).toEqual({ Street: 2, Bar: 1 })
   })
@@ -510,7 +510,7 @@ describe('a Scene drawing one of several values for a Flag', () => {
     { Street: { weather: ['rain', 'sun', 'haze'] } },
   )
 
-  /** The Positions a hundred Readings of one Story open at, each under its own seed. */
+  /** The Paths a hundred Readings of one Story open at, each under its own seed. */
   const seeds = Array.from({ length: 100 }, (_, seed) => opening(seed))
 
   it('plays the one Shot the drawn value matches, and none of the others', () => {
@@ -520,11 +520,11 @@ describe('a Scene drawing one of several values for a Flag', () => {
     }
   })
 
-  it('shows the same variant every time one Position is read', () => {
+  it('shows the same variant every time one Path is read', () => {
     const at = opening(7)
     expect(shown(weather, at)).toEqual(shown(weather, at))
     // The Reader going back a beat and coming forward again is the same
-    // Position read a third time, and the run it plays does not move under them.
+    // Path read a third time, and the run it plays does not move under them.
     expect(run(weather, at)).toEqual(run(weather, advance(at)))
   })
 
@@ -546,8 +546,8 @@ describe('a Scene drawing one of several values for a Flag', () => {
       { Street: { weather: ['rain', 'sun'] } },
     )
 
-    /** The Position two Exits on, standing in the Street for the second time. */
-    const roundAgain = (at: Position) => {
+    /** The Path two Exits on, standing in the Street for the second time. */
+    const roundAgain = (at: Path) => {
       const onward = take(advance(at), reading(looping, advance(at)).exits[0]!)
       return take(advance(onward), reading(looping, advance(onward)).exits[0]!)
     }
@@ -582,7 +582,7 @@ describe('a Scene drawing one of several values for a Flag', () => {
     ])
 
     for (const at of seeds.slice(0, 20)) {
-      const inTheBar = (read: StoryToRead, from: Position) =>
+      const inTheBar = (read: StoryToRead, from: Path) =>
         take(from, reading(read, from).exits[0]!)
       const drank = (read: StoryToRead, beats: number) => {
         let from = at

@@ -42,7 +42,7 @@ const landingStory = useRuntimeConfig().public.landingStory
     </div>
 
     <!-- The second movement: the five structural terms, each with a figure of
-         the thing itself. Only these five — State, Flag, Preview and Position
+         the thing itself. Only these five — State, Flag, Preview and Path
          mean nothing to somebody who has not written a line, and they are
          learned on the bench. Every figure is drawn from the same primitives as
          the bench draws a Story with, and every one of them is decoration: the
