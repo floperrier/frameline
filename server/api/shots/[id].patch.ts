@@ -4,8 +4,8 @@ import { useDb } from '../../db'
 
 /**
  * Writes what an Author says about one Shot: its text, and the Description of the
- * still it carries. Both come through one door because both are one Shot's row,
- * and the Description is only ever written from beside the still it describes.
+ * image it carries. Both come through one door because both are one Shot's row,
+ * and the Description is only ever written from beside the image it describes.
  */
 export default defineEventHandler(async (event) => {
   const author = await requireAuthor(event)

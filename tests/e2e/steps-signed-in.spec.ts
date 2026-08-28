@@ -14,11 +14,11 @@ import {
   test,
 } from './author'
 
-/** The sentence the first Cue says, which is how the guidance is recognised. */
-const FIRST_CUE = /Every Story starts with a Scene/
+/** The sentence the first Step says, which is how the guidance is recognised. */
+const FIRST_STEP = /Every Story starts with a Scene/
 
 /** The sentence said next, once the Story has the Scene the first asked for. */
-const NEXT_CUE = /A Scene is written in the panel/
+const NEXT_STEP = /A Scene is written in the panel/
 
 // The one spec the guidance is left switched on for; every other one waves it
 // away, the way an Author who knows their way around the bench does.
@@ -33,7 +33,7 @@ test('the bench asks a new Story for its first Scene', async ({ page, author }) 
   const story = await seedStory(author, 'A Story')
   await page.goto(`/stories/${story.id}`)
 
-  await expect(bubble(page)).toContainText(FIRST_CUE)
+  await expect(bubble(page)).toContainText(FIRST_STEP)
 
   // The light sits on the field itself, and does not cover it.
   const field = page.getByLabel('Name of a new Scene')
@@ -55,10 +55,10 @@ test('the bench asks a new Story for its first Scene', async ({ page, author }) 
   // Met by the Author doing the thing, with nothing to confirm: the sentence is
   // the next one before the Scene has finished landing.
   await expect(page.getByRole('heading', { name: 'The arrival' })).toBeVisible()
-  await expect(bubble(page)).toContainText(NEXT_CUE)
+  await expect(bubble(page)).toContainText(NEXT_STEP)
 })
 
-test('the Cue is recomputed from the Story on every load', async ({ page, author }) => {
+test('the Step is recomputed from the Story on every load', async ({ page, author }) => {
   const story = await seedStory(author, 'A Story')
 
   await page.goto(`/stories/${story.id}`)
@@ -66,7 +66,7 @@ test('the Cue is recomputed from the Story on every load', async ({ page, author
 
   // Nothing was stored, so a reload with the Story still empty asks again.
   await page.reload()
-  await expect(bubble(page)).toContainText(FIRST_CUE)
+  await expect(bubble(page)).toContainText(FIRST_STEP)
 
   // A Scene written from somewhere else entirely is a step met: the Story is what
   // is asked, and the answer moves on without the page being told anything.
@@ -90,7 +90,7 @@ test('a Story that is past every step is guided not at all', async ({ page, auth
 
   // Nothing in the panel, and nothing asked for: the panel is opened for the sake
   // of what is written in it, and this Story is already written. This is what an
-  // Author finds when they open a Leader.
+  // Author finds when they open a Sample.
   await expect(page.getByRole('heading', { name: 'The arrival' })).toBeVisible()
   await expect(bubble(page)).toBeHidden()
   await expect(page.locator('.spotlight')).toBeHidden()
@@ -183,14 +183,14 @@ test('the bench walks an Author from a bare Story to a published one', async ({
 
   // Written. The guidance asks for the panel rather than opening it itself, and
   // nothing inside the Scene is pointed at until the Author has done so.
-  await expect(bubble(page)).toContainText(NEXT_CUE)
+  await expect(bubble(page)).toContainText(NEXT_STEP)
   const write = page.getByRole('button', { name: 'Write Scene The arrival' })
   await lights(page, write)
   await write.click()
 
   // Written. The sentence carries the whole gesture — a Shot is added and then
   // written — so it is said from the corner until there is a field to say it at.
-  await expect(bubble(page)).toContainText(/A Shot is a Still and its text/)
+  await expect(bubble(page)).toContainText(/A Shot is an Image and its text/)
   await expect(bubble(page)).toHaveClass(/adrift/)
   await page.getByRole('button', { name: 'Add Shot' }).click()
   const shot = page.getByRole('textbox', { name: 'Shot 1' })
@@ -232,7 +232,7 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await flags.blur()
 
   // And a Condition on the second Scene, which has no Shot in it yet: the
-  // sentence carries that whole gesture, because the Cue names the Conditions of
+  // sentence carries that whole gesture, because the Step names the Conditions of
   // the Shot in the panel and the panel holds whichever Scene the Author put
   // there.
   await expect(bubble(page)).toContainText(/A Condition makes the same Scene play differently/)
@@ -345,7 +345,7 @@ test('the light follows its target through a zoom and a push', async ({
   await request.patch(`/api/scenes/${read.scenes[1].id}`, { data: { x: 2400, y: 1400 } })
   await page.goto(`/stories/${story.id}`)
 
-  const strip = page.locator('[data-cue="draw-cut"]').first()
+  const strip = page.locator('[data-step="draw-cut"]').first()
   await expect(bubble(page)).toContainText(/A Cut is the way on/)
   await lights(page, strip)
 

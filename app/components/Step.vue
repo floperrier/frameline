@@ -3,7 +3,7 @@
  * The bench asking an Author for the next thing, and lighting the control it is
  * asking about.
  *
- * Which Cue is showing is a question asked of the Story — `app/utils/cues.ts` —
+ * Which Step is showing is a question asked of the Story — `app/utils/steps.ts` —
  * so this draws it and nothing else. Two elements: a spotlight sitting on the
  * target's own rectangle, and a bubble beneath it carrying the sentence. Neither
  * is a `<dialog>`, and nothing here is modal: the Author has to be able to type
@@ -15,11 +15,11 @@
  * `keptAt` mark is not one either.
  */
 const { story, writing } = defineProps<{
-  /** The Story on the bench, which is nearly the whole of what a Cue is computed from. */
+  /** The Story on the bench, which is nearly the whole of what a Step is computed from. */
   story?: StoryInEditor
   /**
    * Which Scene is in the panel at the edge of the bench, if one is. The rest of
-   * what a Cue asks about is in the Story; this is not, and a Cue may not point
+   * what a Step asks about is in the Story; this is not, and a Step may not point
    * into a panel nobody has opened.
    */
   writing?: string
@@ -42,22 +42,22 @@ const BUBBLE_WIDTH = 320
  */
 const dismissed = ref(true)
 
-const cue = computed(() =>
-  !dismissed.value && story ? cueShowing(story, writing) : undefined)
+const step = computed(() =>
+  !dismissed.value && story ? stepShowing(story, writing) : undefined)
 
 /** Where the target is on screen, or nothing when the target is not on screen at all. */
 const box = ref<DOMRect>()
 
 /**
- * What the Cue showing is pointing at, as a selector.
+ * What the Step showing is pointing at, as a selector.
  *
  * A target the editor draws once per card — the button that writes a Scene, the
  * strip a Cut is drawn from — is found on the first card of the graph, which is
  * the first Scene the Author wrote and where most of the path is walked.
- * Everything else a Cue points at is in the panel, which holds one Scene by
+ * Everything else a Step points at is in the panel, which holds one Scene by
  * construction, so nothing has to be scoped to a Scene by id.
  */
-const pointing = computed(() => cue.value && `[data-cue="${cue.value.target}"]`)
+const pointing = computed(() => step.value && `[data-step="${step.value.target}"]`)
 
 function dismiss() {
   localStorage.setItem(dismissalOf(story!.id), '1')
@@ -65,15 +65,15 @@ function dismiss() {
 }
 
 /**
- * The target's rectangle, read every frame for as long as a Cue is showing.
+ * The target's rectangle, read every frame for as long as a Step is showing.
  *
  * A frame at a time rather than on a list of the things that move it: the graph
  * scrolls, the panel opens and pushes it narrower, the window resizes, a Refusal
  * appears above the bench and pushes everything down, and a spotlight that lags
  * one of those is a defect an Author sees immediately. Nothing is written unless
  * the rectangle actually changed, so a bench nobody is touching costs a read and
- * no render, and the loop stops the moment the Cue is met — which is the point of
- * the Cue.
+ * no render, and the loop stops the moment the Step is met — which is the point of
+ * the Step.
  */
 function look() {
   const target = pointing.value ? document.querySelector(pointing.value) : null
@@ -86,7 +86,7 @@ function look() {
   const found = seen?.width && seen.height ? seen : undefined
   if (!alike(box.value, found)) box.value = found
 
-  looking = cue.value ? requestAnimationFrame(look) : 0
+  looking = step.value ? requestAnimationFrame(look) : 0
 }
 
 function alike(was: DOMRect | undefined, is: DOMRect | undefined) {
@@ -98,9 +98,9 @@ function alike(was: DOMRect | undefined, is: DOMRect | undefined) {
 
 let looking = 0
 
-// Started when a Cue appears and left to `look` to end, so the loop is only ever
+// Started when a Step appears and left to `look` to end, so the loop is only ever
 // running while there is something on screen following something else.
-watch(() => Boolean(cue.value), (showing) => {
+watch(() => Boolean(step.value), (showing) => {
   if (showing && !looking) looking = requestAnimationFrame(look)
 }, { flush: 'post' })
 
@@ -147,7 +147,7 @@ const wide = { inlineSize: `min(${BUBBLE_WIDTH}px, calc(100vw - 2 * var(--s4)))`
 </script>
 
 <template>
-  <template v-if="cue">
+  <template v-if="step">
     <div v-if="lit" class="spotlight" :style="lit" />
     <!-- Drawn whether or not there is anything to point at. The Author can close
          the panel or scroll the target off the bench at any moment, and a bubble
@@ -157,11 +157,11 @@ const wide = { inlineSize: `min(${BUBBLE_WIDTH}px, calc(100vw - 2 * var(--s4)))`
       class="bubble"
       :class="{ adrift: !said }"
       :style="{ ...wide, ...said }"
-      :aria-label="$t('cue.heading')"
+      :aria-label="$t('step.heading')"
     >
-      <p class="eyebrow">{{ $t('cue.heading') }}</p>
-      <p class="asked">{{ $t(`cue.${cue.name}`) }}</p>
-      <button type="button" @click="dismiss">{{ $t('cue.dismiss') }}</button>
+      <p class="eyebrow">{{ $t('step.heading') }}</p>
+      <p class="asked">{{ $t(`step.${step.name}`) }}</p>
+      <button type="button" @click="dismiss">{{ $t('step.dismiss') }}</button>
     </aside>
   </template>
 </template>

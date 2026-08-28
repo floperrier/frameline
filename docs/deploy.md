@@ -58,7 +58,7 @@ there:
 | `DATABASE_URL` (Production only) | direct connection string of the same branch, read by `pnpm db:migrate` during the build |
 | `NUXT_OAUTH_GITHUB_CLIENT_ID` / `_SECRET` | from the GitHub OAuth app |
 | `NUXT_OAUTH_GOOGLE_CLIENT_ID` / `_SECRET` | from the Google OAuth client |
-| `NUXT_PUBLIC_LANDING_STORY` | id of the published Story the landing page links a visitor to read — a Leader published from your own account. Unset, no such link is shown |
+| `NUXT_PUBLIC_LANDING_STORY` | id of the published Story the landing page links a visitor to read — a Sample published from your own account. Unset, no such link is shown |
 
 Both connection strings point at the same Neon branch and differ only in the
 endpoint: the pooler drops the session state a migration relies on, so the

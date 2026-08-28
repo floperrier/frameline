@@ -9,7 +9,7 @@ const heads = {
   png: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00],
   webp: [0x52, 0x49, 0x46, 0x46, 0x1A, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50],
   gif: [0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00],
-  // A RIFF container that is a sound rather than a still: the tag matches, the
+  // A RIFF container that is a sound rather than an image: the tag matches, the
   // form name four bytes on does not.
   wave: [0x52, 0x49, 0x46, 0x46, 0x1A, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45],
   svg: [...Buffer.from('<svg xmlns="http://www.w3.org/2000/svg">')],
@@ -19,7 +19,7 @@ const heads = {
 const bytes = (of: keyof typeof heads) => Uint8Array.from(heads[of])
 
 describe('what an image really is', () => {
-  it('reads the three still formats a Shot may carry', () => {
+  it('reads the three image formats a Shot may carry', () => {
     expect(imageTypeOf(bytes('jpeg'))).toBe('image/jpeg')
     expect(imageTypeOf(bytes('png'))).toBe('image/png')
     expect(imageTypeOf(bytes('webp'))).toBe('image/webp')
@@ -39,7 +39,7 @@ describe('what an image really is', () => {
 })
 
 /**
- * The Description a Shot's still carries, read at the request boundary. The
+ * The Description a Shot's image carries, read at the request boundary. The
  * reader is a server module, so what it reaches for is nitro's own: the body of
  * the request, the cap it measures against, and the error it refuses with.
  * Standing those three up is the whole of what it takes to read the reader
@@ -67,7 +67,7 @@ describe('the Description a request writes', () => {
       .resolves.toHaveLength(SHOT_DESCRIPTION_MAX_LENGTH)
   })
 
-  it('takes an empty one, which is a Still nobody has described', async () => {
+  it('takes an empty one, which is an Image nobody has described', async () => {
     await expect(asking({ description: '' })).resolves.toBe('')
   })
 

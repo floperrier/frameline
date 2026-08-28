@@ -1,13 +1,13 @@
 /**
  * Writes one of the works in this directory into a running Frameline and
- * publishes it: *Reel Change* by default, or a Leader in the Language named.
+ * publishes it: *Reel Change* by default, or a Sample in the Language named.
  *
  *   node --env-file=.env demonstration/write.ts --author me@example.com
- *   node --env-file=.env demonstration/write.ts --author me@example.com --leader fr
+ *   node --env-file=.env demonstration/write.ts --author me@example.com --sample fr
  *   node demonstration/write.ts --origin https://… --author me@example.com
  *
  * It goes through the HTTP API an Author's own browser goes through — a Story, a
- * Scene, a Shot, a still, a Cut, a Condition, a Publish, in that order — so the
+ * Scene, a Shot, an image, a Cut, a Condition, a Publish, in that order — so the
  * work cannot end up in a shape the editor could not have produced. The one thing
  * it does past the API is look the Author up by email, because signing in means
  * GitHub or Google and a script cannot hold a person's password: with the row in
@@ -15,8 +15,8 @@
  * exactly as the end-to-end suite does in `tests/e2e/author.ts`.
  *
  * Node 22.18 or newer runs it as it stands, because it strips the types itself.
- * ImageMagick develops *Reel Change*'s stills as the work is written; a Leader's
- * are the WebP files committed beside it, so a Leader needs none.
+ * ImageMagick develops *Reel Change*'s images as the work is written; a Sample's
+ * are the WebP files committed beside it, so a Sample needs none.
  *
  * Two things have to be true of the environment it runs against: `DATABASE_URL`
  * and `NUXT_SESSION_PASSWORD` are the ones that instance uses, and the Author has
@@ -30,7 +30,7 @@ import { neon } from '@neondatabase/serverless'
 import { sealSession, type H3Event } from 'h3'
 import { imageTypeOf } from '../shared/utils/scenes.ts'
 import type { Condition } from '../shared/utils/scenes.ts'
-import { LEADERS, LEADER_LANGUAGES, stillPath, type LeaderLanguage } from './leaders.ts'
+import { SAMPLES, SAMPLE_LANGUAGES, imagePath, type SampleLanguage } from './samples.ts'
 import { REEL_CHANGE } from './reel-change.ts'
 import { develop, type Shot } from './work.ts'
 
@@ -66,8 +66,8 @@ for (const scene of work.scenes) {
       text: shot.text,
       description: shot.description ?? '',
     })
-    const still = await stillOf(shot)
-    if (still) await attach(shotId, still)
+    const image = await imageOf(shot)
+    if (image) await attach(shotId, image)
     if (shot.when) {
       await api('PUT', `/api/shots/${shotId}/conditions`, { conditions: shot.when.map(identified) })
     }
@@ -96,31 +96,31 @@ await api('POST', `/api/stories/${story.id}/publish`)
 console.log(`\n${work.title} is readable at ${origin}/read/${story.id}`)
 
 /**
- * The work this run writes: a Leader in the Language asked for, or the
+ * The work this run writes: a Sample in the Language asked for, or the
  * demonstration where nothing is asked for.
  */
 function chosen() {
-  const language = argument('leader')
+  const language = argument('sample')
   if (language === undefined) return REEL_CHANGE
 
-  const leader = LEADERS[language as LeaderLanguage]
-  if (!leader) {
-    throw new Error(`No Leader is written in ${language}: --leader ${LEADER_LANGUAGES.join(' | ')}`)
+  const sample = SAMPLES[language as SampleLanguage]
+  if (!sample) {
+    throw new Error(`No Sample is written in ${language}: --sample ${SAMPLE_LANGUAGES.join(' | ')}`)
   }
 
-  return leader
+  return sample
 }
 
 /**
- * The bytes of a Shot's still: a Leader's, read from the WebP committed beside
+ * The bytes of a Shot's image: a Sample's, read from the WebP committed beside
  * it, or the demonstration's, developed here and now from its recipe. A Shot
  * that names neither is text alone and carries nothing.
  */
-async function stillOf(shot: Shot) {
-  if (!shot.still) return undefined
-  return typeof shot.still === 'string'
-    ? await readFile(stillPath(shot.still))
-    : await develop(shot.still)
+async function imageOf(shot: Shot) {
+  if (!shot.image) return undefined
+  return typeof shot.image === 'string'
+    ? await readFile(imagePath(shot.image))
+    : await develop(shot.image)
 }
 
 /** A Condition as the API takes it: a Scene named in the work, identified here. */
@@ -136,12 +136,12 @@ function sceneNamed(name: string) {
   return id
 }
 
-/** Attaches a still. The whole body is the file, as the editor's picker sends it. */
+/** Attaches an image. The whole body is the file, as the editor's picker sends it. */
 async function attach(shotId: string, image: Buffer) {
   const response = await fetch(`${origin}/api/shots/${shotId}/image`, {
     method: 'PUT',
-    // The type is read off the bytes the same way the server reads them, so a
-    // still developed as a WebP is not announced as a JPEG.
+    // The type is read off the bytes the same way the server reads them, so an
+    // image developed as a WebP is not announced as a JPEG.
     headers: { cookie, 'content-type': imageTypeOf(image) ?? 'application/octet-stream' },
     body: new Uint8Array(image),
   })

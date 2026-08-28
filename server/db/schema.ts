@@ -60,7 +60,7 @@ export const scenes = pgTable('scenes', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-// The bytes of a still image, which drizzle has no column for; the neon-http
+// The bytes of an image, which drizzle has no column for; the neon-http
 // driver hands a `bytea` back as a Buffer and takes one as a parameter, so
 // nothing is encoded on the way past.
 const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () => 'bytea' })
@@ -77,14 +77,14 @@ const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () =>
 // at once could still collide — add the deferrable constraint by hand the day a
 // Story has more than its one Author.
 //
-// `image` is the still the Shot shows, held in the Shot's own row and null for a
+// `image` is the image the Shot shows, held in the Shot's own row and null for a
 // Shot that is text alone. The bytes live here rather than in object storage
 // because an image is only as reachable as the Story it belongs to — see
 // `docs/adr/0005-a-shots-image-lives-in-its-row.md`.
 //
-// `description` is what that still shows, for a Reader who cannot see it. It
+// `description` is what that image shows, for a Reader who cannot see it. It
 // sits beside the bytes rather than in a table of its own because it is the one
-// thing said about the one still, and empty is a Still nobody has described —
+// thing said about the one image, and empty is an Image nobody has described —
 // which is what a Shot of text alone carries too.
 //
 // `conditions` are the flat tests the Shot plays under, all of which must hold;

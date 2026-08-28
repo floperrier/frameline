@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { neon } from '@neondatabase/serverless'
 import { test as base, type APIRequestContext, type Page } from '@playwright/test'
-import { DISMISSED } from '../../app/utils/cues'
+import { DISMISSED } from '../../app/utils/steps'
 import type { Condition, Cut, Flags, Scene, Shot } from '../../shared/utils/scenes'
 import { NODE_GAP, NODE_SPACING, NODE_WIDTH, NODES_PER_COLUMN } from '../../shared/utils/scenes'
 import { sealSession, type H3Event } from 'h3'
@@ -9,7 +9,7 @@ import { sealSession, type H3Event } from 'h3'
 const sql = neon(process.env.DATABASE_URL!)
 
 /**
- * One real PNG, a single pixel of it, for the specs that attach a still to a
+ * One real PNG, a single pixel of it, for the specs that attach an image to a
  * Shot. A file rather than a shape: the server reads the format out of the first
  * bytes, so only bytes a decoder would accept prove anything.
  */
@@ -140,7 +140,7 @@ export async function seedScenes(story: Story, names: string[]) {
 
 /**
  * Puts a Scene in the panel at the edge of the bench, the way the Author would. A
- * card carries nothing to type into — the Scene's name, the still of its first
+ * card carries nothing to type into — the Scene's name, the image of its first
  * Shot, its Shot count and where its ways on land — so a test that writes
  * anything about a Scene from the page opens its panel first.
  */

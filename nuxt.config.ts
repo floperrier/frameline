@@ -58,7 +58,7 @@ export default defineNuxtConfig({
     '/read/**': { headers: { 'cache-control': 'no-store' } },
     '/api/read/**': { headers: { 'cache-control': 'no-store' } },
   },
-  // The Leaders' stills, which planting reads as it writes a Leader into a new
+  // The Samples' images, which planting reads as it writes a Sample into a new
   // account. They are committed WebP files beside the work rather than developed
   // at planting time — see
   // `docs/adr/0018-a-leader-exists-once-per-language.md` — and the deployed
@@ -66,15 +66,15 @@ export default defineNuxtConfig({
   // being read off a path that does not survive the build.
   nitro: {
     serverAssets: [{
-      baseName: 'leaders',
-      dir: fileURLToPath(new URL('demonstration/stills', import.meta.url)),
+      baseName: 'samples',
+      dir: fileURLToPath(new URL('demonstration/images', import.meta.url)),
     }],
   },
   runtimeConfig: {
     databaseUrl: process.env.DATABASE_URL ?? '',
     // The published Story the landing page sends a visitor to read, named by
     // `NUXT_PUBLIC_LANDING_STORY` rather than written into the page: which
-    // Leader is published is a fact about the deployment, not about the code.
+    // Sample is published is a fact about the deployment, not about the code.
     // Unset, the link is not shown, so there is no dead link to reach.
     public: { landingStory: '' },
     oauth: {

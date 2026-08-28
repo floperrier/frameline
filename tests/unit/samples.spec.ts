@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
-  LEADERS,
-  LEADER_LANGUAGES,
-  LEADER_STILLS,
-  stillPath,
-  type LeaderLanguage,
-} from '../../demonstration/leaders.ts'
+  SAMPLES,
+  SAMPLE_LANGUAGES,
+  SAMPLE_IMAGES,
+  imagePath,
+  type SampleLanguage,
+} from '../../demonstration/samples.ts'
 import type { Work } from '../../demonstration/work.ts'
 import {
   CONDITIONS_MAX,
@@ -23,15 +23,15 @@ import type { Condition } from '../../shared/utils/scenes.ts'
 import { STORY_LANGUAGES, STORY_TITLE_MAX_LENGTH } from '../../shared/utils/stories.ts'
 
 /**
- * The Leaders as data. A Leader is written to be taken apart by an Author who
+ * The Samples as data. A Sample is written to be taken apart by an Author who
  * has never seen the product, so what is checked here is that it holds together
  * as a work — every Condition tests something a Scene actually sets, no Scene
  * ends a Reading by accident, a Reading has somewhere to start — and that the
  * two of them are the same lesson in two languages.
  *
- * Nothing here asks what a Leader says. The English one and the French one are
+ * Nothing here asks what a Sample says. The English one and the French one are
  * separate works and neither is a translation of the other, so the only thing
- * held against the other Leader is the shape.
+ * held against the other Sample is the shape.
  */
 
 /** The Conditions a work carries, wherever they are carried. */
@@ -48,7 +48,7 @@ function placeOf(work: Work, name: string) {
 }
 
 /**
- * A Condition as the two Leaders can be compared by: the Scene it counts, or the
+ * A Condition as the two Samples can be compared by: the Scene it counts, or the
  * Scene whose Flag it tests, each by its Place in the work rather than by its
  * name, and whether the test asks for a value or for the absence of one.
  */
@@ -64,9 +64,9 @@ function shapeOfCondition(work: Work, condition: Condition) {
 }
 
 /**
- * A whole Leader with every word taken out of it: how many Scenes, how many
- * Shots in each, which still each Shot shows, what each carries by way of
- * Conditions, and which Scene leads to which. Two Leaders that agree here are
+ * A whole Sample with every word taken out of it: how many Scenes, how many
+ * Shots in each, which image each Shot shows, what each carries by way of
+ * Conditions, and which Scene leads to which. Two Samples that agree here are
  * the same work in two languages.
  */
 function shapeOf(work: Work) {
@@ -77,7 +77,7 @@ function shapeOf(work: Work) {
       at: scene.at,
       sets: Object.keys(scene.sets ?? {}).length,
       shots: scene.shots.map(shot => ({
-        still: shot.still,
+        image: shot.image,
         described: Boolean(shot.description),
         when: (shot.when ?? []).map(condition => shapeOfCondition(work, condition)),
       })),
@@ -90,7 +90,7 @@ function shapeOf(work: Work) {
   }
 }
 
-/** Every line of prose a Leader carries, in no particular order. */
+/** Every line of prose a Sample carries, in no particular order. */
 function textOf(work: Work) {
   return [
     work.title,
@@ -125,32 +125,32 @@ function reachedWithout(work: Work, avoiding: string) {
   return reached
 }
 
-describe.each(LEADER_LANGUAGES)('the Leader written in %s', (language: LeaderLanguage) => {
-  const leader = LEADERS[language]
+describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLanguage) => {
+  const sample = SAMPLES[language]
 
   it('says what Language it is written in, and it is that one', () => {
-    expect(leader.language).toBe(language)
-    expect(STORY_LANGUAGES).toContain(leader.language)
+    expect(sample.language).toBe(language)
+    expect(STORY_LANGUAGES).toContain(sample.language)
   })
 
   it('names the Scene a Reading starts on', () => {
-    expect(leader.opening).toBeTruthy()
-    expect(leader.scenes.map(scene => scene.name)).toContain(leader.opening)
+    expect(sample.opening).toBeTruthy()
+    expect(sample.scenes.map(scene => scene.name)).toContain(sample.opening)
   })
 
   it('is three Scenes, each a run of written Shots', () => {
-    expect(leader.scenes).toHaveLength(3)
+    expect(sample.scenes).toHaveLength(3)
 
-    for (const scene of leader.scenes) {
+    for (const scene of sample.scenes) {
       expect(scene.shots.length).toBeGreaterThan(0)
-      // A Shot with neither text nor a still is one nobody has written yet.
-      for (const shot of scene.shots) expect(shot.text || shot.still).toBeTruthy()
+      // A Shot with neither text nor an image is one nobody has written yet.
+      for (const shot of scene.shots) expect(shot.text || shot.image).toBeTruthy()
     }
   })
 
   it('sets a Flag on entry to a Scene, and tests it on a Shot', () => {
-    const set = leader.scenes.flatMap(scene => Object.keys(scene.sets ?? {}))
-    const tested = leader.scenes
+    const set = sample.scenes.flatMap(scene => Object.keys(scene.sets ?? {}))
+    const tested = sample.scenes
       .flatMap(scene => scene.shots.flatMap(shot => shot.when ?? []))
       .filter(condition => 'flag' in condition)
 
@@ -159,19 +159,19 @@ describe.each(LEADER_LANGUAGES)('the Leader written in %s', (language: LeaderLan
   })
 
   it('counts visits somewhere, so a Condition needing no Flag is met', () => {
-    const counting = conditionsOf(leader).filter(condition => 'scene' in condition)
+    const counting = conditionsOf(sample).filter(condition => 'scene' in condition)
 
     expect(counting.length).toBeGreaterThan(0)
     for (const condition of counting) {
-      expect(leader.scenes.map(scene => scene.name)).toContain(condition.scene)
+      expect(sample.scenes.map(scene => scene.name)).toContain(condition.scene)
       expect(condition.times).toBeLessThanOrEqual(VISITS_MAX)
     }
   })
 
   it('names, in every Condition testing a Flag, a Flag some Scene sets', () => {
-    const set = new Set(leader.scenes.flatMap(scene => Object.keys(scene.sets ?? {})))
+    const set = new Set(sample.scenes.flatMap(scene => Object.keys(scene.sets ?? {})))
 
-    for (const condition of conditionsOf(leader)) {
+    for (const condition of conditionsOf(sample)) {
       if ('flag' in condition) expect(set).toContain(condition.flag)
     }
   })
@@ -181,23 +181,23 @@ describe.each(LEADER_LANGUAGES)('the Leader written in %s', (language: LeaderLan
     // Story, sees the Shot play, and never learns what the test was for. So for
     // each Flag a Shot tests, there has to be a way to the Scene it is in that
     // misses the Scene setting that Flag.
-    for (const scene of leader.scenes) {
+    for (const scene of sample.scenes) {
       for (const shot of scene.shots) {
         for (const condition of shot.when ?? []) {
           if (!('flag' in condition)) continue
 
-          const setter = leader.scenes.find(other => condition.flag in (other.sets ?? {}))!
-          expect(reachedWithout(leader, setter.name)).toContain(scene.name)
+          const setter = sample.scenes.find(other => condition.flag in (other.sets ?? {}))!
+          expect(reachedWithout(sample, setter.name)).toContain(scene.name)
         }
       }
     }
   })
 
   it('leaves no Scene whose only way on carries Conditions', () => {
-    for (const scene of leader.scenes) {
-      const leaving = leader.cuts.filter(cut => cut.from === scene.name)
+    for (const scene of sample.scenes) {
+      const leaving = sample.cuts.filter(cut => cut.from === scene.name)
 
-      // A Scene with no way on at all is an ending, which a Leader does not have;
+      // A Scene with no way on at all is an ending, which a Sample does not have;
       // a Scene whose ways on are all conditional is one an unmet Condition turns
       // into an ending nobody wrote.
       expect(leaving.length).toBeGreaterThan(0)
@@ -206,32 +206,32 @@ describe.each(LEADER_LANGUAGES)('the Leader written in %s', (language: LeaderLan
   })
 
   it('joins Scenes it has, and nothing else', () => {
-    const names = leader.scenes.map(scene => scene.name)
+    const names = sample.scenes.map(scene => scene.name)
 
-    for (const cut of leader.cuts) {
+    for (const cut of sample.cuts) {
       expect(names).toContain(cut.from)
       expect(names).toContain(cut.to)
     }
   })
 
-  it('shows a still the recipes hold, wherever a Shot shows one', () => {
-    const shown = leader.scenes.flatMap(scene => scene.shots).map(shot => shot.still)
+  it('shows an image the recipes hold, wherever a Shot shows one', () => {
+    const shown = sample.scenes.flatMap(scene => scene.shots).map(shot => shot.image)
 
     expect(shown.filter(Boolean).length).toBeGreaterThan(0)
-    for (const still of shown) {
-      if (still) expect(Object.keys(LEADER_STILLS)).toContain(still)
+    for (const image of shown) {
+      if (image) expect(Object.keys(SAMPLE_IMAGES)).toContain(image)
     }
   })
 
   it('carries nothing longer than the API it is written through will take', () => {
-    expect(leader.title.length).toBeLessThanOrEqual(STORY_TITLE_MAX_LENGTH)
+    expect(sample.title.length).toBeLessThanOrEqual(STORY_TITLE_MAX_LENGTH)
 
-    for (const cut of leader.cuts) {
+    for (const cut of sample.cuts) {
       expect(cut.text.length).toBeLessThanOrEqual(CUT_TEXT_MAX_LENGTH)
       expect(cut.when?.length ?? 0).toBeLessThanOrEqual(CONDITIONS_MAX)
     }
 
-    for (const scene of leader.scenes) {
+    for (const scene of sample.scenes) {
       expect(scene.name.length).toBeLessThanOrEqual(SCENE_NAME_MAX_LENGTH)
       expect(Object.keys(scene.sets ?? {}).length).toBeLessThanOrEqual(FLAGS_PER_SCENE)
 
@@ -244,25 +244,25 @@ describe.each(LEADER_LANGUAGES)('the Leader written in %s', (language: LeaderLan
   })
 })
 
-describe('the stills a Leader shows', () => {
-  it.each(Object.keys(LEADER_STILLS))('is committed as a WebP a Shot will carry: %s', (name) => {
-    const bytes = readFileSync(stillPath(name))
+describe('the images a Sample shows', () => {
+  it.each(Object.keys(SAMPLE_IMAGES))('is committed as a WebP a Shot will carry: %s', (name) => {
+    const bytes = readFileSync(imagePath(name))
 
     // Read from the file's own first bytes, the way the server reads an upload:
-    // a still committed as something else would be refused as it was attached.
+    // an image committed as something else would be refused as it was attached.
     expect(imageTypeOf(bytes)).toBe('image/webp')
     expect(bytes.length).toBeLessThanOrEqual(SHOT_IMAGE_MAX_BYTES)
   })
 })
 
-describe('the two Leaders', () => {
+describe('the two Samples', () => {
   it('are the same work in two languages', () => {
-    expect(shapeOf(LEADERS.en)).toEqual(shapeOf(LEADERS.fr))
+    expect(shapeOf(SAMPLES.en)).toEqual(shapeOf(SAMPLES.fr))
   })
 
   it('share not one line of what they say', () => {
-    const french = new Set(textOf(LEADERS.fr))
+    const french = new Set(textOf(SAMPLES.fr))
 
-    for (const line of textOf(LEADERS.en)) expect(french).not.toContain(line)
+    for (const line of textOf(SAMPLES.en)) expect(french).not.toContain(line)
   })
 })

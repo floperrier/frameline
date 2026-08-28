@@ -2,58 +2,58 @@
  * The guided path: what the bench asks of an Author writing their first Story,
  * one step at a time.
  *
- * A Cue is a predicate over the Story the bench already holds, never a listener
+ * A Step is a predicate over the Story the bench already holds, never a listener
  * on what the Author did. The one thing it reads besides the Story is which Scene
- * is in the panel at the edge of the bench, because no Cue may point into a panel
+ * is in the panel at the edge of the bench, because no Step may point into a panel
  * that is not open. The editor fetches the whole Story and reads it back after every
- * write, so a Cue asks a question of that data — this Story has at least one
+ * write, so a Step asks a question of that data — this Story has at least one
  * Scene — and is therefore idempotent, survives a reload, and cannot disagree
  * with the screen. Nothing stores progress, because the Story is the
  * progress: see `docs/adr/0020-progress-is-the-story.md`.
  *
- * The Cues are met in whatever order the Author arrives at them, and nothing
+ * The Steps are met in whatever order the Author arrives at them, and nothing
  * blocks or scolds. Because a bubble can only point at one thing, the one showing
  * is the first unmet — which makes the order of the list below a design decision
  * rather than an internal detail.
  *
- * Each Cue names the element it points at by the `data-cue` attribute that
+ * Each Step names the element it points at by the `data-step` attribute that
  * element carries in the editor's own template, rather than by a selector held
- * here that would rot silently when a class is renamed. `tests/unit/cues.spec.ts`
+ * here that would rot silently when a class is renamed. `tests/unit/steps.spec.ts`
  * holds the two sides against each other; see
  * `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md`.
  */
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
-export type Cue = {
+export type Step = {
   /**
-   * What the Cue is called, which is also the message key its sentence is
-   * written under in both languages: `cue.nameScene`.
+   * What the Step is called, which is also the message key its sentence is
+   * written under in both languages: `step.nameScene`.
    */
   name: string
   /**
-   * The `data-cue` attribute of the element in the editor this Cue points at.
-   * Two Cues may name the same one — the second Scene is asked for in the field
+   * The `data-step` attribute of the element in the editor this Step points at.
+   * Two Steps may name the same one — the second Scene is asked for in the field
    * the first was named in.
    */
   target: string
   /**
-   * Whether the bench already holds what this Cue asks for: the Story, and which
-   * Scene is in the panel. The panel is the one thing a Cue asks about that is not
+   * Whether the bench already holds what this Step asks for: the Story, and which
+   * Scene is in the panel. The panel is the one thing a Step asks about that is not
    * in the Story — it is how the Author is looking at their own work and is never
-   * written anywhere — and a Cue may not point into a panel nobody has opened, so
+   * written anywhere — and a Step may not point into a panel nobody has opened, so
    * writing a Scene is a step like the rest.
    */
   met: (story: StoryInEditor, writing?: string) => boolean
 }
 
-export const CUES: Cue[] = [
+export const STEPS: Step[] = [
   // The only thing a Story cannot be without, so it is the only thing asked for
   // before anything else exists to point at.
   { name: 'nameScene', target: 'new-scene-name', met: story => story.scenes.length > 0 },
   // Nothing inside a Scene can be pointed at until the Scene is in the panel, so
   // the Author puts one there before anything in it is asked for — and only for
   // the sake of what is written in it, so a Story whose Shots are already written
-  // is never asked to open the panel at all. A Leader, which arrives finished, is
+  // is never asked to open the panel at all. A Sample, which arrives finished, is
   // asked nothing.
   {
     name: 'writeScene',
@@ -61,7 +61,7 @@ export const CUES: Cue[] = [
     met: (story, writing) => Boolean(writing) || written(story),
   },
   // Written rather than merely added, and written is text: a Shot is asked for
-  // here as the beat it carries, so a still attached to an empty one has not met
+  // here as the beat it carries, so an image attached to an empty one has not met
   // this. The sentence carries the whole gesture, because a Scene the API writes
   // arrives with no Shot in it to point at.
   { name: 'writeShot', target: 'shot-text', met: written },
@@ -86,7 +86,7 @@ export const CUES: Cue[] = [
   // branching. Asked for on the second Scene, where a Flag the first sets is
   // already in State, and asked for broken on purpose — the sentence names a
   // value the Flag does not hold, so the Preview has something to explain. What
-  // puts it right is the next Cue.
+  // puts it right is the next Step.
   {
     name: 'putCondition',
     target: 'shot-condition',
@@ -100,14 +100,14 @@ export const CUES: Cue[] = [
   // to Publish, and both of them refuse a Story that has nowhere to start. Met
   // by every Story that never lost its opening, so the ordinary path never sees
   // it. The sentence carries the whole gesture the way the Condition's does: the
-  // mark is set in the panel, and this is the one Cue that can be arrived at with
+  // mark is set in the panel, and this is the one Step that can be arrived at with
   // no Scene in it, so it may not say "here".
   {
     name: 'openingScene',
     target: 'opening-scene',
     met: story => Boolean(story.openingSceneId),
   },
-  // What puts the broken Condition right, and the one Cue whose sentence asks for
+  // What puts the broken Condition right, and the one Step whose sentence asks for
   // something outside the bench: open the Preview, watch the Shot not play, read
   // what the interface says the test asked for against what the State holds, and
   // come back and correct it. The trip through the Preview is instructed and not
@@ -135,19 +135,19 @@ function written(story: StoryInEditor) {
  * testing a Flag that some Scene of this Story actually sets. A Condition naming
  * a Flag nothing sets is not the one that was asked for — it would test the
  * absence of a Flag, which is a thing an Author can mean but is not this lesson —
- * and neither is a visit count, which the Leader teaches instead.
+ * and neither is a visit count, which the Sample teaches instead.
  *
  * `holding` asks the same question of the value as well: not merely a Flag that
  * is set, but the value it is set to, which is the Condition the Author corrected
  * after the Preview explained why the Shot did not play.
  *
  * Any Scene setting it to that value counts, the same way any Scene setting a
- * Flag at all meets the Cue before this one. Asking whether the value is the one
+ * Flag at all meets the Step before this one. Asking whether the value is the one
  * the second Scene actually arrives holding would mean running the Reading engine
  * from the opening Scene — which is what the Preview is for, and far more than a
  * predicate over the Story on the bench. The cost of the lenient reading is a
  * Story whose fourth Scene sets the same Flag to the value its second tests: the
- * Cue reads as met while a Reader still never plays that Shot. The cost of the
+ * Step reads as met while a Reader still never plays that Shot. The cost of the
  * strict one is the whole engine in here, and an Author told they are wrong when
  * they are not.
  */
@@ -161,12 +161,12 @@ function conditionTaught(story: StoryInEditor, holding = false) {
 }
 
 /**
- * The Cue the bench is showing: the first one this Story has not met, and nothing
- * at all once every one of them has. A Story that arrives finished — a Leader, or
+ * The Step the bench is showing: the first one this Story has not met, and nothing
+ * at all once every one of them has. A Story that arrives finished — a Sample, or
  * the Author's fourth — therefore asks nothing.
  */
-export function cueShowing(story: StoryInEditor, writing?: string) {
-  return CUES.find(cue => !cue.met(story, writing))
+export function stepShowing(story: StoryInEditor, writing?: string) {
+  return STEPS.find(step => !step.met(story, writing))
 }
 
 /**
@@ -175,7 +175,7 @@ export function cueShowing(story: StoryInEditor, writing?: string) {
  * cannot know their ids beforehand, and a prefix taken by calling `dismissalOf`
  * with nothing would depend on this ending in a separator without saying so.
  */
-export const DISMISSED = 'frameline.cue-dismissed.'
+export const DISMISSED = 'frameline.step-dismissed.'
 
 /**
  * Where a browser remembers that this Story's guidance was dismissed. Kept per

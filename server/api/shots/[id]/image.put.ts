@@ -3,7 +3,7 @@ import { shots } from '../../../db/schema'
 import { useDb } from '../../../db'
 
 /**
- * Attaches a still to a Shot, replacing whatever it carried. Scoped by the
+ * Attaches an image to a Shot, replacing whatever it carried. Scoped by the
  * Author's own Scenes like every other write, so a Shot of someone else's Story
  * is not refused so much as absent.
  */

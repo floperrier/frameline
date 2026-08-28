@@ -79,7 +79,7 @@ const landingStory = useRuntimeConfig().public.landingStory
           <!-- A Shot: the gate, with an image in it and its text under. -->
           <div class="figure" aria-hidden="true">
             <span class="frame">
-              <span class="still"></span>
+              <span class="image"></span>
               <span class="bar"></span>
               <span class="bar short"></span>
             </span>
@@ -307,7 +307,7 @@ main {
   border-block-start: 1px dashed var(--edge);
 }
 
-/* The gate again, at the size of a figure: a Still, and the Shot's text under
+/* The gate again, at the size of a figure: an Image, and the Shot's text under
    it. */
 .figure .frame {
   display: grid;
@@ -316,7 +316,7 @@ main {
   inline-size: 7rem;
 }
 
-.still {
+.image {
   border-radius: var(--machined);
   background: color-mix(in oklab, var(--light) 18%, var(--steel));
   block-size: 1.5rem;

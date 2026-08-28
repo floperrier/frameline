@@ -213,7 +213,7 @@ test('a Shot’s three controls are marks on one line', async ({ page, request }
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The arrival')
 
-  // Each still says what it does and which Shot it does it to — the words moved
+  // Each image says what it does and which Shot it does it to — the words moved
   // to where assistive technology alone reads them, they did not go.
   const earlier = page.getByRole('button', { name: 'Move earlier Shot 2' })
   await expect(earlier).toBeVisible()

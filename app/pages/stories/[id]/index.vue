@@ -219,7 +219,7 @@ function addShot(scene: Scene) {
 }
 
 /**
- * Writes what the Author typed about one Shot — its text and its still's
+ * Writes what the Author typed about one Shot — its text and its image's
  * Description — in the one request, because they are one Shot and either field
  * may be the one that changed.
  */
@@ -411,22 +411,22 @@ function endShotDrag(scene: Scene) {
 }
 
 /**
- * When each Shot's still was last attached, kept by the Shot's id. A still is
+ * When each Shot's image was last attached, kept by the Shot's id. An image is
  * served at an address made of the Shot's own id, so replacing one leaves `src`
  * byte-identical and the browser goes on drawing the image it already has — the
  * very one the Author has just replaced. Asking for it under a different address
- * is what makes the new still the one on screen.
+ * is what makes the new image the one on screen.
  */
 const attachedAt = reactive<Record<string, number>>({})
 
-function stillOf(shot: Shot) {
+function imageOf(shot: Shot) {
   const at = attachedAt[shot.id]
 
   return at ? `${shot.image}?at=${at}` : shot.image!
 }
 
 /**
- * Attaches a still, sent as the whole request body. One function for both ways in:
+ * Attaches an image, sent as the whole request body. One function for both ways in:
  * a file picked and a file dropped are the same file handed to the same endpoint.
  */
 function attach(shot: Shot, file: File) {
@@ -437,7 +437,7 @@ function attach(shot: Shot, file: File) {
 }
 
 /**
- * Attaches the still the Author picked. The input is cleared afterwards so picking
+ * Attaches the image the Author picked. The input is cleared afterwards so picking
  * the same file twice is a change twice — an Author whose first upload was refused
  * would otherwise have to pick another file before they could retry the same one.
  */
@@ -464,7 +464,7 @@ const fileOver = ref<string>()
  * this puts the mark on and the copy cursor with it. The event stops at the
  * thumbnail so the page's own refusal does not take that cursor back off it.
  */
-function overStill(shot: Shot, event: DragEvent) {
+function overImage(shot: Shot, event: DragEvent) {
   if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
   fileOver.value = shot.id
 }
@@ -476,7 +476,7 @@ function overStill(shot: Shot, event: DragEvent) {
  * a thumbnail take the mark off its neighbour — a file crossing from one to the
  * next enters the second before it leaves the first.
  */
-function leaveStill(shot: Shot, event: DragEvent) {
+function leaveImage(shot: Shot, event: DragEvent) {
   const thumbnail = event.currentTarget as HTMLElement
   if (fileOver.value !== shot.id) return
 
@@ -491,13 +491,13 @@ function leaveStill(shot: Shot, event: DragEvent) {
  * still sent, because the endpoint is what says what an image is — and it says so
  * in the same phrase a picked file is refused in.
  */
-function dropStill(shot: Shot, event: DragEvent) {
+function dropImage(shot: Shot, event: DragEvent) {
   fileOver.value = undefined
   const dropped = [...event.dataTransfer?.files ?? []]
-  const still = dropped.find(file => SHOT_IMAGE_TYPES.includes(file.type)) ?? dropped[0]
-  if (!still) return
+  const image = dropped.find(file => SHOT_IMAGE_TYPES.includes(file.type)) ?? dropped[0]
+  if (!image) return
 
-  return attach(shot, still)
+  return attach(shot, image)
 }
 
 /**
@@ -761,7 +761,7 @@ function zoomOnKeys(event: KeyboardEvent) {
 }
 
 /**
- * How far a press may travel and still be a press. The bench does one thing on a
+ * How far a press may travel and image be a press. The bench does one thing on a
  * press — it closes the panel — and it now does another on a drag, so the two are
  * told apart by how far the hand went before it let go.
  *
@@ -1546,7 +1546,7 @@ function atAGlance(scene: Scene) {
         <p v-if="kept" class="kept-at">{{ $t('editor.keptAt', { time: kept }) }}</p>
         <NuxtLink
           class="preview trail"
-          data-cue="preview"
+          data-step="preview"
           :to="localePath(`/stories/${id}/preview`)"
         >
           {{ $t('editor.preview') }}
@@ -1554,10 +1554,10 @@ function atAGlance(scene: Scene) {
         <button v-if="story?.publishedAt" type="button" @click="unpublish">
           {{ $t('editor.unpublish') }}
         </button>
-        <!-- The guided path ends here, so `data-cue` is on this one and not on
-             the button that unpublishes: the Cue is met by the Story being
+        <!-- The guided path ends here, so `data-step` is on this one and not on
+             the button that unpublishes: the Step is met by the Story being
              published, and by then there is nothing left to point at. -->
-        <button v-else type="button" class="primary" data-cue="publish" @click="publish">
+        <button v-else type="button" class="primary" data-step="publish" @click="publish">
           {{ $t('editor.publish') }}
         </button>
       </div>
@@ -1569,14 +1569,14 @@ function atAGlance(scene: Scene) {
       <form class="naming" @submit.prevent="createScene">
         <label class="eyebrow" for="new-scene-name">{{ $t('editor.newSceneName') }}</label>
         <div class="row">
-          <!-- `data-cue` is how the guided path finds this field. The attribute
+          <!-- `data-step` is how the guided path finds this field. The attribute
                lives here rather than a selector living in the guidance, so that
                removing the field takes its target with it visibly — see
                `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md`. -->
           <input
             id="new-scene-name"
             v-model="newSceneName"
-            data-cue="new-scene-name"
+            data-step="new-scene-name"
             required
             :maxlength="SCENE_NAME_MAX_LENGTH"
           >
@@ -1799,7 +1799,7 @@ function atAGlance(scene: Scene) {
                      that follows would have to undo. -->
                 <div
                   class="strip"
-                  data-cue="draw-cut"
+                  data-step="draw-cut"
                   @pointerdown.self="startAiming(scene, $event)"
                   @pointermove="keepAiming"
                   @pointerup="endAiming"
@@ -1837,7 +1837,7 @@ function atAGlance(scene: Scene) {
                       :id="`write-${scene.id}`"
                       type="button"
                       class="write"
-                      data-cue="write-scene"
+                      data-step="write-scene"
                       :aria-expanded="sceneWritten?.id === scene.id"
                       @click="writeScene(scene.id)"
                     >
@@ -1849,10 +1849,10 @@ function atAGlance(scene: Scene) {
                   </div>
 
                   <div class="summary">
-                    <!-- The still of the first Shot, at the size a card can carry it:
+                    <!-- The image of the first Shot, at the size a card can carry it:
                          what an Author recognises a Scene by before they have read a
                          word of it. A Scene whose first Shot has none shows the
-                         outline of the frame it would be, the way a Shot with no still
+                         outline of the frame it would be, the way a Shot with no image
                          does in the panel. -->
                     <div class="frame">
                       <!-- `draggable="false"`, because a browser drags an image out of
@@ -1861,8 +1861,8 @@ function atAGlance(scene: Scene) {
                            stayed where it was. -->
                       <img
                         v-if="scene.shots[0]?.image"
-                        :src="stillOf(scene.shots[0])"
-                        :alt="$t('editor.stillOfShot', { place: 1 })"
+                        :src="imageOf(scene.shots[0])"
+                        :alt="$t('editor.imageOfShot', { place: 1 })"
                         draggable="false"
                       >
                     </div>
@@ -1932,10 +1932,10 @@ function atAGlance(scene: Scene) {
           </h2>
 
           <div class="standing">
-            <!-- `data-cue` is on the line rather than on the radio: the spotlight
+            <!-- `data-step` is on the line rather than on the radio: the spotlight
                  is a rectangle, and a radio's own is a dot beside the words that
                  say what it marks. -->
-            <p class="opening" data-cue="opening-scene">
+            <p class="opening" data-step="opening-scene">
               <input
                 :id="`opening-${sceneWritten.id}`"
                 type="radio"
@@ -1987,42 +1987,42 @@ function atAGlance(scene: Scene) {
                 <textarea
                   :id="`shot-${shot.id}`"
                   v-model="shot.text"
-                  data-cue="shot-text"
+                  data-step="shot-text"
                   rows="2"
                   :maxlength="SHOT_TEXT_MAX_LENGTH"
                   @change="writeShot(shot)"
                 />
 
-                <!-- The thumbnail is the picker: pressing it is how a still is
+                <!-- The thumbnail is the picker: pressing it is how an image is
                      attached and how it is replaced, and the input doing the work
                      is behind it, focusable and named as it was. A Shot carrying
-                     no still shows the outline of the thumbnail it would have, so
+                     no image shows the outline of the thumbnail it would have, so
                      one nobody has finished reads as unfinished. It is also where
                      a file is dropped, which is the same file the picker would
                      have handed over. -->
-                <div class="still">
+                <div class="image">
                   <label
                     :class="{ over: fileOver === shot.id }"
-                    @dragenter.prevent.stop="overStill(shot, $event)"
-                    @dragover.prevent.stop="overStill(shot, $event)"
-                    @dragleave="leaveStill(shot, $event)"
-                    @drop.prevent.stop="dropStill(shot, $event)"
+                    @dragenter.prevent.stop="overImage(shot, $event)"
+                    @dragover.prevent.stop="overImage(shot, $event)"
+                    @dragleave="leaveImage(shot, $event)"
+                    @drop.prevent.stop="dropImage(shot, $event)"
                   >
                     <img
                       v-if="shot.image"
-                      :src="stillOf(shot)"
-                      :alt="$t('editor.stillOfShot', { place: place + 1 })"
+                      :src="imageOf(shot)"
+                      :alt="$t('editor.imageOfShot', { place: place + 1 })"
                     >
                     <input
                       type="file"
                       class="visually-hidden"
                       :accept="SHOT_IMAGE_TYPES.join(',')"
-                      :aria-label="$t('editor.imageOfShot', { place: place + 1 })"
+                      :aria-label="$t('editor.pickImageOfShot', { place: place + 1 })"
                       @change="attachImage(shot, $event)"
                     >
                   </label>
 
-                  <!-- The Description beside the still it describes, in the width
+                  <!-- The Description beside the image it describes, in the width
                        the file chrome used to take: it is what the image shows,
                        and there is nothing to describe until one is attached. A
                        Shot of text alone is not asked for one. -->
@@ -2038,7 +2038,7 @@ function atAGlance(scene: Scene) {
                       v-model="shot.description"
                       type="text"
                       :maxlength="SHOT_DESCRIPTION_MAX_LENGTH"
-                      :placeholder="$t('editor.whatTheStillShows')"
+                      :placeholder="$t('editor.whatTheImageShows')"
                       @change="writeShot(shot)"
                     >
                   </p>
@@ -2050,10 +2050,10 @@ function atAGlance(scene: Scene) {
 
                      The guided path points at the whole list rather than at one
                      field of it, because what it asks for is a Condition and a
-                     Condition is the row it is added as: `data-cue` lands on the
+                     Condition is the row it is added as: `data-step` lands on the
                      component's own root, which is that list. -->
                 <Conditions
-                  data-cue="shot-condition"
+                  data-step="shot-condition"
                   :lead="$t('editor.playedWhen')"
                   :carrier="$t('editor.shotOfScene', {
                     place: place + 1,
@@ -2122,7 +2122,7 @@ function atAGlance(scene: Scene) {
             <textarea
               :id="`flags-${sceneWritten.id}`"
               class="data"
-              data-cue="scene-flags"
+              data-step="scene-flags"
               rows="2"
               :value="flagLines(sceneWritten.sets)"
               :placeholder="$t('editor.flagsPlaceholder', { separator: FLAG_SEPARATOR })"
@@ -2254,7 +2254,7 @@ function atAGlance(scene: Scene) {
     <Confirmation :asked="asked" @answer="answer" />
     <!-- The step the bench is asking for, if it is asking for one. Last, so it
          is drawn over the bench it is lighting a part of. -->
-    <Cue :story="story ?? undefined" :writing="sceneWritten?.id" />
+    <Step :story="story ?? undefined" :writing="sceneWritten?.id" />
   </main>
 </template>
 
@@ -2410,7 +2410,7 @@ header {
 
 /* The zoom controls: in the flow of the row above the bench, so nothing on the
    surface can come up underneath them and nothing they cover can be pressed.
-   Drawn in the machine's own materials, the way the confirmation and the Cue's
+   Drawn in the machine's own materials, the way the confirmation and the Step's
    bubble are, because this is the bench talking about how it is being looked at
    rather than part of the drawing. */
 .zooming {
@@ -2783,7 +2783,7 @@ article.opens .strip {
   background: var(--grease);
 }
 
-/* The card's face: the Scene's name and the button that writes it, the still of
+/* The card's face: the Scene's name and the button that writes it, the image of
    its first Shot with what the Scene is at a glance, and the mark that says a
    Reading opens here. Three rows in a fixed box, so what is on a card is what
    fits one. */
@@ -2810,7 +2810,7 @@ article.opens .strip {
 }
 
 /* A card is one line of name, whatever the Author called the Scene: a long name
-   is cut off rather than pushing the button off the card or the still off the
+   is cut off rather than pushing the button off the card or the image off the
    bottom of it. */
 .slate h2 {
   min-inline-size: 0;
@@ -2856,7 +2856,7 @@ article.opens .strip {
   cursor: pointer;
 }
 
-/* The still of the first Shot, and what the Scene is at a glance beside it. */
+/* The image of the first Shot, and what the Scene is at a glance beside it. */
 .summary {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -2864,8 +2864,8 @@ article.opens .strip {
   gap: var(--s2);
 }
 
-/* The frame the first Shot's still is shown in, drawn whether or not there is a
-   still to put in it: an empty one is the outline of the still nobody has
+/* The frame the first Shot's image is shown in, drawn whether or not there is an
+   image to put in it: an empty one is the outline of the image nobody has
    attached, which is how an unfinished Scene reads as unfinished. */
 .frame {
   inline-size: 5.5rem;
@@ -2886,7 +2886,7 @@ article.opens .strip {
 }
 
 /* What the card says: read at a glance, so it is a line of quiet type beside the
-   still and not a table of counts. Held to three lines, because every card is the
+   image and not a table of counts. Held to three lines, because every card is the
    size of every other one and a Scene with a long list of ways on would otherwise
    run out of the box. */
 .glance {
@@ -2988,22 +2988,22 @@ article.opens .strip {
   font-size: 0.875rem;
 }
 
-/* A still is a thumbnail here and nothing more: it says which image the Shot
+/* An image is a thumbnail here and nothing more: it says which image the Shot
    carries, and leaves the panel's height to the Flags and the Cuts. The
    Description sits beside it, in the width the browser's own file chrome used to
    take. */
-.still {
+.image {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: var(--s2);
 }
 
-/* The thumbnail itself is what is pressed to attach a still or to replace one, so
+/* The thumbnail itself is what is pressed to attach an image or to replace one, so
    the box is the label and the input is clipped away inside it. Drawn whether or
-   not there is a still to put in it: an empty one is the outline of the still the
+   not there is an image to put in it: an empty one is the outline of the image the
    Shot has not attached, which is how an unfinished Shot reads as unfinished. */
-.still > label {
+.image > label {
   position: relative;
   display: block;
   inline-size: 4.5rem;
@@ -3017,7 +3017,7 @@ article.opens .strip {
 /* The focus the input takes cannot be seen where the input is, so the ring is drawn
    round the box that is pressed instead. It is the one in `frameline.css`, restated
    here because `:has()` cannot reach back to a rule written for `:focus-visible`. */
-.still > label:has(:focus-visible) {
+.image > label:has(:focus-visible) {
   outline: 2px solid var(--light);
   outline-offset: 2px;
 }
@@ -3026,12 +3026,12 @@ article.opens .strip {
    being drawn both wear, because it is the same promise — this is what letting go
    would do. Drawn in the tokens rather than left to the browser, which marks a drop
    target in nothing this room owns. */
-.still > label.over {
+.image > label.over {
   border-color: var(--grease);
   background: color-mix(in oklab, var(--grease) 12%, var(--bench));
 }
 
-.still img {
+.image img {
   display: block;
   inline-size: 100%;
   block-size: 100%;
@@ -3039,7 +3039,7 @@ article.opens .strip {
   border-radius: inherit;
 }
 
-/* The Description beside the still it describes, the label above the field, so
+/* The Description beside the image it describes, the label above the field, so
    the two read as one thing said about the image next to them. */
 .described {
   display: grid;
@@ -3143,7 +3143,7 @@ article.opens .strip {
 
 /* The panel a Scene or a Cut is written in, docked at the trailing edge of the
    bench. Three hundred and eighty pixels is a node's own width and a little over:
-   wide enough for a Shot's text, its still and its Description on the lines they
+   wide enough for a Shot's text, its image and its Description on the lines they
    sit on inside a node today, and narrow enough to leave the graph most of the
    screen. It is as tall as the bench and scrolls inside itself, so a Scene of
    twenty Shots is read here rather than down the page. */

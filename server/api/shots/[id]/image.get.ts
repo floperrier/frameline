@@ -3,7 +3,7 @@ import { scenes, shots, stories } from '../../../db/schema'
 import { useDb } from '../../../db'
 
 /**
- * The bytes of one Shot's still. As reachable as the Story it belongs to and no
+ * The bytes of one Shot's image. As reachable as the Story it belongs to and no
  * more: its Author always, anyone once the Story is published, nobody otherwise.
  * The whole rule is one condition on the row that was read, so a Preview and a
  * Reading get their images through the same door the Story came through.
@@ -38,7 +38,7 @@ export default defineEventHandler(async (event) => {
     'content-type': imageTypeOf(carried.image) ?? 'application/octet-stream',
     // Never sniffed by the browser into something it could run.
     'x-content-type-options': 'nosniff',
-    // A public link can be taken away, so the still may not sit in a cache that
+    // A public link can be taken away, so the image may not sit in a cache that
     // outlives the Publish — the same reason `/read/**` is `no-store`.
     'cache-control': 'no-store',
   })

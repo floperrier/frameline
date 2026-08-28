@@ -91,7 +91,7 @@ function offered(cut: Cut) {
       <!-- Keyed on the Position, so arriving at a Shot draws the frame again:
            each beat is thrown onto the screen rather than swapped into it, and
            reading a Scene again throws its first frame again. -->
-      <!-- The frame holds nothing but the Author's own work — the still, what it
+      <!-- The frame holds nothing but the Author's own work — the image, what it
            shows, and the beat — so the whole of it is announced in the Story's
            Language whatever language the chrome around it is read in. Nothing
            translates a Story: see
@@ -104,12 +104,12 @@ function offered(cut: Cut) {
         :lang="story.language"
         tabindex="-1"
       >
-        <!-- The still and the text are one beat, so they arrive together and the
+        <!-- The image and the text are one beat, so they arrive together and the
              Reader moves past both at once.
 
-             `alt` is the still's Description and nothing else: the Shot's text is
+             `alt` is the image's Description and nothing else: the Shot's text is
              never used as one, because the text carries the beat and is read out
-             beside the image anyway. A Still nobody has described falls back to
+             beside the image anyway. An Image nobody has described falls back to
              empty, which is what keeps a screen reader from announcing a frame it
              has nothing to say about. -->
         <img v-if="held.image" :src="held.image" :alt="held.description">
@@ -174,7 +174,7 @@ function offered(cut: Cut) {
   padding-block-end: var(--s6);
 }
 
-/* The still and the text share the one gate, because they are one beat and not
+/* The image and the text share the one gate, because they are one beat and not
    an illustration with a caption under it. */
 .frame {
   overflow: clip;
@@ -186,7 +186,7 @@ function offered(cut: Cut) {
    Reader is the lit thing on screen. It is not arriving, so it is not thrown a
    second time — the Position has moved past the last Shot and the frame has not.
 
-   The still takes the push back and the prose only half of it: the last beat has
+   The image takes the push back and the prose only half of it: the last beat has
    to stay as readable as it was to whoever is reading it while they choose, and a
    dimmed serif is the one thing on this page that cannot afford to be. */
 .frame.pushed-back {
@@ -207,7 +207,7 @@ function offered(cut: Cut) {
   outline-offset: 4px;
 }
 
-/* The gate takes a still of any shape: a wide one fills the frame, and a tall
+/* The gate takes an image of any shape: a wide one fills the frame, and a tall
    one is held to a height a beat can be taken in without scrolling — the frame
    is what the Reader looks at, not something they travel down. */
 img {
@@ -217,7 +217,7 @@ img {
   max-block-size: min(60vh, 32rem);
   object-fit: contain;
   background: var(--room);
-  /* The still and the text below it are one surface, so the hairline between
+  /* The image and the text below it are one surface, so the hairline between
      them is the only thing that separates them. */
   border-block-end: 1px solid var(--edge);
 }
@@ -285,7 +285,7 @@ figcaption {
   font-size: 0.8125rem;
 }
 
-/* The tail leader either side of the ending, which is what the end of a reel
+/* The tail sample either side of the ending, which is what the end of a reel
    looks like. */
 .ended::before,
 .ended::after {

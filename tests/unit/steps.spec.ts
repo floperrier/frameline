@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { CUES, cueShowing } from '../../app/utils/cues.ts'
+import { STEPS, stepShowing } from '../../app/utils/steps.ts'
 import type { Condition, StoryInEditor } from '../../shared/utils/scenes.ts'
 import en from '../../i18n/locales/en.json'
 
 /**
  * The guided path, as a pure function of the Story on the bench. No database and
- * no browser: a Cue asks a question of the Story the editor already holds, so the
+ * no browser: a Step asks a question of the Story the editor already holds, so the
  * whole of the feature's logic answers to a literal.
  */
 
@@ -21,7 +21,7 @@ function onTheBench(scenes: [name: string, shot?: string][] = []): StoryInEditor
     language: 'en',
     openingSceneId: scenes[0]?.[0] ?? null,
     publishedAt: null,
-    // Only what a Cue reads is filled in; a Scene here is a name and an id, the
+    // Only what a Step reads is filled in; a Scene here is a name and an id, the
     // fact that it exists, and what is written in it.
     scenes: scenes.map(([name, shot], place) => ({
       id: name,
@@ -63,10 +63,10 @@ function playedWhen(story: StoryInEditor, scene: number, ...conditions: Conditio
  * panel — and of one with nothing in it, which is where the bench starts.
  */
 function asking(story: StoryInEditor, writing?: string) {
-  return cueShowing(story, writing)?.name
+  return stepShowing(story, writing)?.name
 }
 
-describe('the Cue the bench is showing', () => {
+describe('the Step the bench is showing', () => {
   it('asks for a Scene of a Story that has none', () => {
     expect(asking(onTheBench())).toBe('nameScene')
   })
@@ -173,7 +173,7 @@ describe('the Cue the bench is showing', () => {
    * been through by the time the second Scene plays. The strict reading is the
    * Reading engine run from the opening Scene, which is what the Preview is for
    * and far more than a predicate over the Story on the bench. Pinned here rather
-   * than left to be found, because it is the one case where the Cue is met and a
+   * than left to be found, because it is the one case where the Step is met and a
    * Reader still never plays that Shot.
    */
   it('takes the value from any Scene, downstream of the one testing it or not', () => {
@@ -209,7 +209,7 @@ describe('the Cue the bench is showing', () => {
   })
 
   /**
-   * A visit count is a Condition, and it is not this lesson: the Leader teaches
+   * A visit count is a Condition, and it is not this lesson: the Sample teaches
    * it, already working, and what is taught here is where State comes from.
    */
   it('does not take a visit count as the Condition it asked for', () => {
@@ -235,7 +235,7 @@ describe('the Cue the bench is showing', () => {
 
   /**
    * Nothing blocks and nothing is confirmed, so an Author who improvises past
-   * three steps meets three Cues and is asked for the fourth, whatever the panel
+   * three steps meets three Steps and is asked for the fourth, whatever the panel
    * is holding.
    */
   it('asks for what is still missing when the Author works out of order', () => {
@@ -246,7 +246,7 @@ describe('the Cue the bench is showing', () => {
 
   /**
    * The panel is opened for the sake of what is written in it, so a Story that
-   * arrives written — a Leader — is never asked to open it, and a Leader, which is
+   * arrives written — a Sample — is never asked to open it, and a Sample, which is
    * past every step, is asked nothing at all.
    */
   it('asks a Story whose Shots are already written to open no panel', () => {
@@ -256,11 +256,11 @@ describe('the Cue the bench is showing', () => {
   })
 })
 
-describe('every Cue', () => {
+describe('every Step', () => {
   it('carries a sentence in the message files', () => {
-    const said = en.cue as Record<string, string>
+    const said = en.step as Record<string, string>
 
-    expect(CUES.filter(cue => !said[cue.name]).map(cue => cue.name)).toEqual([])
+    expect(STEPS.filter(step => !said[step.name]).map(step => step.name)).toEqual([])
   })
 
   /**
@@ -273,10 +273,10 @@ describe('every Cue', () => {
    */
   it('points at an element the editor actually draws, exactly once', () => {
     const editor = readFileSync('app/pages/stories/[id]/index.vue', 'utf8')
-    const drawn = [...editor.matchAll(/data-cue="([^"]+)"/g)].map(([, target]) => target)
+    const drawn = [...editor.matchAll(/data-step="([^"]+)"/g)].map(([, target]) => target)
 
     // Held as sets on both sides: the editor draws each target once, and two
-    // Cues may ask for two things in the same place.
-    expect(drawn.sort()).toEqual([...new Set(CUES.map(cue => cue.target))].sort())
+    // Steps may ask for two things in the same place.
+    expect(drawn.sort()).toEqual([...new Set(STEPS.map(step => step.target))].sort())
   })
 })
