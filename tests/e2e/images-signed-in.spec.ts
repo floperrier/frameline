@@ -69,7 +69,7 @@ test('a Shot keeps the image attached last, and shows it', async ({ page, reques
   const shown = () => street.locator('img').getAttribute('src')
 
   const first = await shown()
-  await street.getByLabel('Image of Shot 1')
+  await street.getByLabel('Image of Shot 1', { exact: true })
     .setInputFiles({ name: 'other.png', mimeType: 'image/png', buffer: ONE_PIXEL })
   await expect.poll(shown).not.toBe(first)
 })
@@ -153,7 +153,7 @@ test('the Author picks a file in the editor, and a refused one says why', async 
 
   await writeScene(page, 'The street')
   const street = writing(page)
-  const picker = street.getByLabel('Image of Shot 1')
+  const picker = street.getByLabel('Image of Shot 1', { exact: true })
   await picker.setInputFiles({ name: 'image.png', mimeType: 'image/png', buffer: ONE_PIXEL })
   await expect(street.locator('img')).toBeVisible()
 
@@ -193,7 +193,7 @@ test('the thumbnail is the picker, and an empty one is the outline of an image',
 
   // And the input is still the named control it was, reached from the Shot's text
   // by the next Tab: hidden behind the thumbnail is not hidden from the keyboard.
-  const picker = street.getByLabel('Image of Shot 1')
+  const picker = street.getByLabel('Image of Shot 1', { exact: true })
   await street.getByRole('textbox', { name: 'Shot 1', exact: true }).focus()
   await page.keyboard.press('Tab')
   await expect(picker).toBeFocused()
@@ -380,10 +380,10 @@ test('the Author drops a file on a thumbnail, and the image is the one dropped',
   const opened = page.waitForEvent('filechooser')
   await thumbnail.click()
   await (await opened).setFiles({ name: 'picked.png', mimeType: 'image/png', buffer: ONE_PIXEL })
-  await expect(street.getByLabel('Image of Shot 1')).toBeAttached()
+  await expect(street.getByLabel('Image of Shot 1', { exact: true })).toBeAttached()
   await street.getByRole('textbox', { name: 'Shot 1', exact: true }).focus()
   await page.keyboard.press('Tab')
-  await expect(street.getByLabel('Image of Shot 1')).toBeFocused()
+  await expect(street.getByLabel('Image of Shot 1', { exact: true })).toBeFocused()
 })
 
 test('a drop of several files takes the first image, and a refused one says why', async ({ page, request }) => {
