@@ -49,8 +49,8 @@ export const stories = pgTable('stories', {
 // from on each entry. A table of its own would be the orthodox shape, but a
 // Scene's Flags are only ever read and written whole, with the Scene — never
 // queried across Stories, never joined to anything — so a row apiece would buy a
-// join and nothing else. What keeps the shape honest is the validation at the request
-// boundary, since Postgres will take any jsonb at all.
+// join and nothing else. What keeps the shape honest is the validation at the
+// request boundary, since Postgres will take any jsonb at all.
 export const scenes = pgTable('scenes', {
   id: uuid('id').primaryKey().defaultRandom(),
   storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
