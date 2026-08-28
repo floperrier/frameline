@@ -10,7 +10,7 @@ import {
 import type { Work } from '../../demonstration/work.ts'
 import {
   CONDITIONS_MAX,
-  CUT_TEXT_MAX_LENGTH,
+  EXIT_TEXT_MAX_LENGTH,
   FLAGS_PER_SCENE,
   SCENE_NAME_MAX_LENGTH,
   SHOT_DESCRIPTION_MAX_LENGTH,
@@ -37,7 +37,7 @@ import { STORY_LANGUAGES, STORY_TITLE_MAX_LENGTH } from '../../shared/utils/stor
 /** The Conditions a work carries, wherever they are carried. */
 function conditionsOf(work: Work) {
   return [
-    ...work.cuts.flatMap(cut => cut.when ?? []),
+    ...work.exits.flatMap(exit => exit.when ?? []),
     ...work.scenes.flatMap(scene => scene.shots.flatMap(shot => shot.when ?? [])),
   ]
 }
@@ -82,10 +82,10 @@ function shapeOf(work: Work) {
         when: (shot.when ?? []).map(condition => shapeOfCondition(work, condition)),
       })),
     })),
-    cuts: work.cuts.map(cut => ({
-      from: placeOf(work, cut.from),
-      to: placeOf(work, cut.to),
-      when: (cut.when ?? []).map(condition => shapeOfCondition(work, condition)),
+    exits: work.exits.map(exit => ({
+      from: placeOf(work, exit.from),
+      to: placeOf(work, exit.to),
+      when: (exit.when ?? []).map(condition => shapeOfCondition(work, condition)),
     })),
   }
 }
@@ -94,7 +94,7 @@ function shapeOf(work: Work) {
 function textOf(work: Work) {
   return [
     work.title,
-    ...work.cuts.map(cut => cut.text),
+    ...work.exits.map(exit => exit.text),
     ...work.scenes.flatMap(scene => [
       scene.name,
       ...scene.shots.flatMap(shot => [shot.text, shot.description ?? '']),
@@ -104,7 +104,7 @@ function textOf(work: Work) {
 
 /**
  * The Scenes a Reading can reach without ever entering one of them, taking only
- * the ways on that are offered to everybody. Under-counting on purpose: a Cut
+ * the ways on that are offered to everybody. Under-counting on purpose: an Exit
  * carrying Conditions might be offered too, and a route that needs none is the
  * one an Author is certain to find.
  */
@@ -117,9 +117,9 @@ function reachedWithout(work: Work, avoiding: string) {
     if (scene === avoiding || reached.has(scene)) continue
 
     reached.add(scene)
-    walking.push(...work.cuts
-      .filter(cut => cut.from === scene && !cut.when?.length)
-      .map(cut => cut.to))
+    walking.push(...work.exits
+      .filter(exit => exit.from === scene && !exit.when?.length)
+      .map(exit => exit.to))
   }
 
   return reached
@@ -195,22 +195,22 @@ describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLan
 
   it('leaves no Scene whose only way on carries Conditions', () => {
     for (const scene of sample.scenes) {
-      const leaving = sample.cuts.filter(cut => cut.from === scene.name)
+      const leaving = sample.exits.filter(exit => exit.from === scene.name)
 
       // A Scene with no way on at all is an ending, which a Sample does not have;
       // a Scene whose ways on are all conditional is one an unmet Condition turns
       // into an ending nobody wrote.
       expect(leaving.length).toBeGreaterThan(0)
-      expect(leaving.some(cut => !cut.when?.length)).toBe(true)
+      expect(leaving.some(exit => !exit.when?.length)).toBe(true)
     }
   })
 
   it('joins Scenes it has, and nothing else', () => {
     const names = sample.scenes.map(scene => scene.name)
 
-    for (const cut of sample.cuts) {
-      expect(names).toContain(cut.from)
-      expect(names).toContain(cut.to)
+    for (const exit of sample.exits) {
+      expect(names).toContain(exit.from)
+      expect(names).toContain(exit.to)
     }
   })
 
@@ -226,9 +226,9 @@ describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLan
   it('carries nothing longer than the API it is written through will take', () => {
     expect(sample.title.length).toBeLessThanOrEqual(STORY_TITLE_MAX_LENGTH)
 
-    for (const cut of sample.cuts) {
-      expect(cut.text.length).toBeLessThanOrEqual(CUT_TEXT_MAX_LENGTH)
-      expect(cut.when?.length ?? 0).toBeLessThanOrEqual(CONDITIONS_MAX)
+    for (const exit of sample.exits) {
+      expect(exit.text.length).toBeLessThanOrEqual(EXIT_TEXT_MAX_LENGTH)
+      expect(exit.when?.length ?? 0).toBeLessThanOrEqual(CONDITIONS_MAX)
     }
 
     for (const scene of sample.scenes) {

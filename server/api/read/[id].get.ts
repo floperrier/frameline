@@ -27,13 +27,13 @@ export default defineEventHandler(async (event) => {
 
   if (!story) throw notFound(event, 'Story')
 
-  const { scenes, cuts } = await readStoryGraph(id)
+  const { scenes, exits } = await readStoryGraph(id)
 
   // Where the Author put a Scene's node in the graph is none of a Reading's
   // business, so it does not leave the editor.
   return {
     ...story,
     scenes: scenes.map(({ id, name, sets, shots }) => ({ id, name, sets, shots })),
-    cuts,
+    exits,
   }
 })

@@ -4,7 +4,7 @@ import {
   writeScene,
   readShotConditions,
   readShots,
-  seedCut,
+  seedExit,
   seedFlags,
   seedPublication,
   seedScene,
@@ -79,7 +79,7 @@ test('a Story that is past every step is guided not at all', async ({ page, auth
   const story = await seedStory(author, 'A Story')
   const arrival = await seedScene(story, 'The arrival')
   const platform = await seedScene(story, 'The platform')
-  await seedCut(arrival.id, platform.id)
+  await seedExit(arrival.id, platform.id)
   await seedFlags(arrival.id, { courage: 'high' })
   // The Condition names the value the Flag holds, which is the step the Preview
   // teaches, and the Story is out at its link, which is the last one.
@@ -109,11 +109,11 @@ test('an Author who deleted the Scene their Story opened on is sent to the mark'
   const story = await seedStory(author, 'A Story')
   const [arrival, platform, bar] = await seedScenes(
     story, ['The arrival', 'The platform', 'The bar'])
-  await seedCut(platform!.id, bar!.id)
+  await seedExit(platform!.id, bar!.id)
 
   // The Flag and the Condition go on every Scene, so that the Story is past both
   // of those steps whichever Scene the deletion leaves second. What the deletion
-  // takes away is the opening Scene and nothing else: the Cut it leaves behind
+  // takes away is the opening Scene and nothing else: the Exit it leaves behind
   // joins the two Scenes that outlive it.
   for (const scene of [arrival, platform, bar]) {
     await seedFlags(scene!.id, { courage: 'high' })
@@ -165,7 +165,7 @@ test('an Author who knows what they are doing waves the guidance away', async ({
  * the steps come in, and a spec per step would never have crossed from one to the
  * next.
  *
- * A tall bench, because the second Scene is stacked under the first and the Cut
+ * A tall bench, because the second Scene is stacked under the first and the Exit
  * between them is drawn by hand across both cards.
  */
 test('the bench walks an Author from a bare Story to a published one', async ({
@@ -204,11 +204,11 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await page.getByLabel('Name of a new Scene').fill('The platform')
   await page.getByRole('button', { name: 'Create Scene' }).click()
 
-  // And the Cut, drawn from the strip the light is now on. The second Scene is
+  // And the Exit, drawn from the strip the light is now on. The second Scene is
   // laid out beside the first before the hand goes down: the API stacks a new
   // Scene under the last, the bubble pointing at the strip is drawn over the
   // bench just below it, and a hand cannot let go through the guidance.
-  await expect(bubble(page)).toContainText(/A Cut is the way on/)
+  await expect(bubble(page)).toContainText(/An Exit is the way on/)
   const read = await (await page.request.get(`/api/stories/${story.id}`)).json()
   const beside = read.scenes.find((scene: { name: string }) => scene.name === 'The platform')
   await page.request.patch(`/api/scenes/${beside.id}`, {
@@ -220,7 +220,7 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await lights(page, arrival.locator('.strip'))
   await drag(page, arrival.locator('.strip'), page.getByRole('article', { name: 'The platform' }))
 
-  await expect(page.getByRole('status')).toHaveText('Cut from The arrival to The platform drawn')
+  await expect(page.getByRole('status')).toHaveText('Exit from The arrival to The platform drawn')
 
   // A Flag on the first Scene, in the field the light moves to once the Scene is
   // back in the panel.
@@ -266,7 +266,7 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   // Taken to the second Scene, where the bench names the Shot the Reading left
   // out and both sides of the test it failed.
   await page.getByRole('button', { name: 'Next Shot' }).click()
-  await page.getByRole('button', { name: 'Cut to The platform' }).click()
+  await page.getByRole('button', { name: 'Exit to The platform' }).click()
   const bench = page.getByRole('region', { name: /On the bench/ })
   await expect(bench.getByText('needs courage to hold low, holds high')).toBeVisible()
 
@@ -312,7 +312,7 @@ async function lights(page: Page, target: Locator) {
     .toEqual(await target.boundingBox())
 }
 
-/** A Cut drawn by hand, from a node's strip onto the node it lands on. */
+/** An Exit drawn by hand, from a node's strip onto the node it lands on. */
 async function drag(page: Page, from: Locator, onto: Locator) {
   const strip = (await from.boundingBox())!
   const node = (await onto.boundingBox())!
@@ -326,7 +326,7 @@ async function drag(page: Page, from: Locator, onto: Locator) {
  * The light is on a rectangle read off the page a frame at a time, so a bench
  * drawn at three quarters of its size, or pushed across the screen under the
  * hand, is a target that has moved like any other. Proved on the step whose
- * target is on the surface itself — the strip a Cut is drawn from — because that
+ * target is on the surface itself — the strip an Exit is drawn from — because that
  * is the only kind of target the scale touches at all.
  */
 test('the light follows its target through a zoom and a push', async ({
@@ -345,8 +345,8 @@ test('the light follows its target through a zoom and a push', async ({
   await request.patch(`/api/scenes/${read.scenes[1].id}`, { data: { x: 2400, y: 1400 } })
   await page.goto(`/stories/${story.id}`)
 
-  const strip = page.locator('[data-step="draw-cut"]').first()
-  await expect(bubble(page)).toContainText(/A Cut is the way on/)
+  const strip = page.locator('[data-step="draw-exit"]').first()
+  await expect(bubble(page)).toContainText(/An Exit is the way on/)
   await lights(page, strip)
 
   // Asked for with no motion, so the step arrives rather than travels: what is

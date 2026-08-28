@@ -67,11 +67,11 @@ describe('the sequence of Places a request writes', () => {
   })
 
   it('names what is being renumbered in the refusal', async () => {
-    const asCuts = (body: unknown) => readPlaces({ body } as unknown as H3Event, 'Cut')
+    const asExits = (body: unknown) => readPlaces({ body } as unknown as H3Event, 'Exit')
 
     await expect(asking({ places: [] })).rejects.toThrow(
       'The Shots of a Scene are renumbered all at once, each one named exactly once.')
-    await expect(asCuts({ places: [] })).rejects.toThrow(
+    await expect(asExits({ places: [] })).rejects.toThrow(
       'The ways on leaving a Scene are renumbered all at once, each one named exactly once.')
   })
 })

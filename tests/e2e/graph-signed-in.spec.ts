@@ -16,20 +16,20 @@ import {
 import {
   ONE_PIXEL,
   writeScene,
-  readCuts,
+  readExits,
   readFlags,
   readSceneName,
   readScenePlacement,
-  seedCut,
+  seedExit,
   seedScene,
   seedScenes,
   seedStory,
   test,
 } from './author'
 
-/** Draws a Cut between the two Scenes of a graph, past the gesture that draws one. */
-async function drawCut(request: APIRequestContext, fromSceneId: string, toSceneId: string) {
-  const drawn = await request.post(`/api/scenes/${fromSceneId}/cuts`, { data: { toSceneId } })
+/** Draws an Exit between the two Scenes of a graph, past the gesture that draws one. */
+async function drawExit(request: APIRequestContext, fromSceneId: string, toSceneId: string) {
+  const drawn = await request.post(`/api/scenes/${fromSceneId}/exits`, { data: { toSceneId } })
   expect(drawn.status()).toBe(201)
   return await drawn.json()
 }
@@ -37,15 +37,15 @@ async function drawCut(request: APIRequestContext, fromSceneId: string, toSceneI
 const noId = '00000000-0000-4000-8000-000000000000'
 
 /**
- * Opens the panel a Cut is written in, from the row of the node's strip that
+ * Opens the panel an Exit is written in, from the row of the node's strip that
  * names it — the route an Author has without a pointer, and the one a test can
- * take to a Cut whose line is off the fold of the bench.
+ * take to an Exit whose line is off the fold of the bench.
  */
 async function openWayOn(page: Page, from: string, to: string) {
   await page.getByRole('button', { name: `${to} — way on from ${from}` }).click()
 }
 
-/** A Story with two Scenes, which is the smallest graph a Cut can join. */
+/** A Story with two Scenes, which is the smallest graph an Exit can join. */
 async function openGraph(request: APIRequestContext, names = ['The arrival', 'The platform']) {
   const story = await (await request.post('/api/stories', { data: { title: 'A Story' } })).json()
   const scenes = []
@@ -69,7 +69,7 @@ test('every Scene is a node of the graph, and the first one opens the Story', as
       { id: scenes[0]!.id, name: 'The arrival', x: expect.any(Number), y: expect.any(Number) },
       { id: scenes[1]!.id, name: 'The platform', x: expect.any(Number), y: expect.any(Number) },
     ],
-    cuts: [],
+    exits: [],
   })
 
   // Scenes are laid out apart from one another, so a new one is not hidden under
@@ -147,40 +147,40 @@ test('Scenes go on in columns, so that none is placed out of reach', async ({ re
   }
 })
 
-test('a Cut without text is refused rather than emptied', async ({ request }) => {
+test('an Exit without text is refused rather than emptied', async ({ request }) => {
   const { scenes } = await openGraph(request)
-  const drawn = await request.post(`/api/scenes/${scenes[0]!.id}/cuts`, {
+  const drawn = await request.post(`/api/scenes/${scenes[0]!.id}/exits`, {
     data: { toSceneId: scenes[1]!.id },
   })
-  const cut = await drawn.json()
-  await request.patch(`/api/cuts/${cut.id}`, { data: { text: 'Follow her out' } })
+  const exit = await drawn.json()
+  await request.patch(`/api/exits/${exit.id}`, { data: { text: 'Follow her out' } })
 
-  const response = await request.patch(`/api/cuts/${cut.id}`, { data: {} })
+  const response = await request.patch(`/api/exits/${exit.id}`, { data: {} })
 
   expect(response.status()).toBe(400)
-  await expect(readCuts(scenes[0]!.id)).resolves.toMatchObject([{ text: 'Follow her out' }])
+  await expect(readExits(scenes[0]!.id)).resolves.toMatchObject([{ text: 'Follow her out' }])
 })
 
-test('a Cut is drawn between two Scenes, written, and taken away', async ({ request }) => {
+test('an Exit is drawn between two Scenes, written, and taken away', async ({ request }) => {
   const { story, scenes } = await openGraph(request)
   const [from, to] = scenes as [{ id: string }, { id: string }]
 
-  const drawn = await request.post(`/api/scenes/${from.id}/cuts`, { data: { toSceneId: to.id } })
+  const drawn = await request.post(`/api/scenes/${from.id}/exits`, { data: { toSceneId: to.id } })
   expect(drawn.status()).toBe(201)
-  const cut = await drawn.json()
-  expect(cut).toMatchObject({ fromSceneId: from.id, toSceneId: to.id, text: '' })
+  const exit = await drawn.json()
+  expect(exit).toMatchObject({ fromSceneId: from.id, toSceneId: to.id, text: '' })
 
-  // The text is what the Reader will be offered, so it is written after the Cut
+  // The text is what the Reader will be offered, so it is written after the Exit
   // is drawn, as a Shot is.
-  const written = await request.patch(`/api/cuts/${cut.id}`, { data: { text: 'Follow her out' } })
+  const written = await request.patch(`/api/exits/${exit.id}`, { data: { text: 'Follow her out' } })
   expect(written.status()).toBe(200)
 
   await expect((await request.get(`/api/stories/${story.id}`)).json()).resolves.toMatchObject({
-    cuts: [{ id: cut.id, fromSceneId: from.id, toSceneId: to.id, text: 'Follow her out' }],
+    exits: [{ id: exit.id, fromSceneId: from.id, toSceneId: to.id, text: 'Follow her out' }],
   })
 
-  expect((await request.delete(`/api/cuts/${cut.id}`)).status()).toBe(200)
-  await expect(readCuts(from.id)).resolves.toEqual([])
+  expect((await request.delete(`/api/exits/${exit.id}`)).status()).toBe(200)
+  await expect(readExits(from.id)).resolves.toEqual([])
 })
 
 test('the ways on are offered in the order the Author put them in', async ({ request }) => {
@@ -189,25 +189,25 @@ test('the ways on are offered in the order the Author put them in', async ({ req
   const [from, ...elsewhere] = scenes as [{ id: string }, ...{ id: string }[]]
   const drawn = []
   for (const [place, to] of elsewhere.entries()) {
-    const cut = await drawCut(request, from.id, to.id)
-    // The Cut is drawn last among the ways on, which is where a new one belongs.
-    expect(cut.position).toBe(place)
-    await request.patch(`/api/cuts/${cut.id}`, { data: { text: `To ${place}` } })
-    drawn.push(cut)
+    const exit = await drawExit(request, from.id, to.id)
+    // The Exit is drawn last among the ways on, which is where a new one belongs.
+    expect(exit.position).toBe(place)
+    await request.patch(`/api/exits/${exit.id}`, { data: { text: `To ${place}` } })
+    drawn.push(exit)
   }
   const [first, second, third] = drawn as [{ id: string }, { id: string }, { id: string }]
 
-  const renumbered = await request.put(`/api/scenes/${from.id}/cuts/places`,
+  const renumbered = await request.put(`/api/scenes/${from.id}/exits/places`,
     { data: { places: [third.id, first.id, second.id] } })
 
   expect(renumbered.status()).toBe(200)
-  await expect(readCuts(from.id)).resolves.toMatchObject([
+  await expect(readExits(from.id)).resolves.toMatchObject([
     { text: 'To 2', position: 0 }, { text: 'To 0', position: 1 }, { text: 'To 1', position: 2 },
   ])
 
   // And the Story is read in that order, which is the order the Reader meets.
   await expect((await request.get(`/api/stories/${story.id}`)).json()).resolves.toMatchObject({
-    cuts: [
+    exits: [
       { text: 'To 2', position: 0 },
       { text: 'To 0', position: 1 },
       { text: 'To 1', position: 2 },
@@ -215,15 +215,15 @@ test('the ways on are offered in the order the Author put them in', async ({ req
   })
 })
 
-test('taking a Cut away leaves the ways on numbered without a gap', async ({ request }) => {
+test('taking an Exit away leaves the ways on numbered without a gap', async ({ request }) => {
   const { scenes } = await openGraph(request, ['The platform', 'The buffet', 'The tunnel'])
   const [from, ...elsewhere] = scenes as [{ id: string }, ...{ id: string }[]]
   const drawn = []
-  for (const to of elsewhere) drawn.push(await drawCut(request, from.id, to.id))
+  for (const to of elsewhere) drawn.push(await drawExit(request, from.id, to.id))
 
-  expect((await request.delete(`/api/cuts/${drawn[0]!.id}`)).status()).toBe(200)
+  expect((await request.delete(`/api/exits/${drawn[0]!.id}`)).status()).toBe(200)
 
-  await expect(readCuts(from.id)).resolves.toMatchObject([{ id: drawn[1]!.id, position: 0 }])
+  await expect(readExits(from.id)).resolves.toMatchObject([{ id: drawn[1]!.id, position: 0 }])
 })
 
 test('the ways on are renumbered across a Scene deleted out from under one',
@@ -233,35 +233,35 @@ test('the ways on are renumbered across a Scene deleted out from under one',
     const [from, buffet, tunnel, train] = scenes as { id: string }[] as
       [{ id: string }, { id: string }, { id: string }, { id: string }]
     const drawn = []
-    for (const to of [buffet, tunnel, train]) drawn.push(await drawCut(request, from.id, to.id))
+    for (const to of [buffet, tunnel, train]) drawn.push(await drawExit(request, from.id, to.id))
 
-    // Deleting the Scene in the middle takes the Cut arriving at it by cascade,
-    // which is the one way a Cut leaves without closing the gap behind it.
+    // Deleting the Scene in the middle takes the Exit arriving at it by cascade,
+    // which is the one way an Exit leaves without closing the gap behind it.
     expect((await request.delete(`/api/scenes/${tunnel.id}`)).status()).toBe(200)
-    await expect(readCuts(from.id)).resolves.toMatchObject([
+    await expect(readExits(from.id)).resolves.toMatchObject([
       { toSceneId: buffet.id, position: 0 }, { toSceneId: train.id, position: 2 },
     ])
 
     // Renumbering names the two that are left, and the hole closes behind them:
     // a sequence is written as the Places it counts out, not as a swap across
     // whatever numbering was there before.
-    expect((await request.put(`/api/scenes/${from.id}/cuts/places`,
+    expect((await request.put(`/api/scenes/${from.id}/exits/places`,
       { data: { places: [drawn[2]!.id, drawn[0]!.id] } })).status()).toBe(200)
-    await expect(readCuts(from.id)).resolves.toMatchObject([
+    await expect(readExits(from.id)).resolves.toMatchObject([
       { toSceneId: train.id, position: 0 }, { toSceneId: buffet.id, position: 1 },
     ])
   })
 
-test('a Cut only joins Scenes of the same Story', async ({ request }) => {
+test('an Exit only joins Scenes of the same Story', async ({ request }) => {
   const { scenes } = await openGraph(request)
   const elsewhere = await openGraph(request, ['Another Scene'])
 
-  const response = await request.post(`/api/scenes/${scenes[0]!.id}/cuts`, {
+  const response = await request.post(`/api/scenes/${scenes[0]!.id}/exits`, {
     data: { toSceneId: elsewhere.scenes[0]!.id },
   })
 
   expect(response.status()).toBe(404)
-  await expect(readCuts(scenes[0]!.id)).resolves.toEqual([])
+  await expect(readExits(scenes[0]!.id)).resolves.toEqual([])
 })
 
 test('the opening Scene can be changed', async ({ request }) => {
@@ -274,19 +274,19 @@ test('the opening Scene can be changed', async ({ request }) => {
     .resolves.toMatchObject({ openingSceneId: scenes[1]!.id })
 })
 
-test('deleting a Scene takes the Cuts touching it, and the opening with it', async ({ request }) => {
+test('deleting a Scene takes the Exits touching it, and the opening with it', async ({ request }) => {
   const { story, scenes } = await openGraph(request)
   const [opening, other] = scenes as [{ id: string }, { id: string }]
-  await request.post(`/api/scenes/${opening.id}/cuts`, { data: { toSceneId: other.id } })
-  await request.post(`/api/scenes/${other.id}/cuts`, { data: { toSceneId: opening.id } })
+  await request.post(`/api/scenes/${opening.id}/exits`, { data: { toSceneId: other.id } })
+  await request.post(`/api/scenes/${other.id}/exits`, { data: { toSceneId: opening.id } })
 
   expect((await request.delete(`/api/scenes/${opening.id}`)).status()).toBe(200)
 
-  // Both Cuts are gone — the one that left the Scene and the one that arrived —
+  // Both Exits are gone — the one that left the Scene and the one that arrived —
   // and the Story is left with no opening Scene for the Author to name again.
-  await expect(readCuts(other.id)).resolves.toEqual([])
+  await expect(readExits(other.id)).resolves.toEqual([])
   await expect((await request.get(`/api/stories/${story.id}`)).json())
-    .resolves.toMatchObject({ openingSceneId: null, cuts: [] })
+    .resolves.toMatchObject({ openingSceneId: null, exits: [] })
 })
 
 test('a graph that was never drawn reads as absent', async ({ request }) => {
@@ -295,13 +295,13 @@ test('a graph that was never drawn reads as absent', async ({ request }) => {
   const responses = await Promise.all([
     request.patch(`/api/scenes/${noId}`, { data: { x: 10, y: 10 } }),
     request.post(`/api/scenes/${noId}/opening`),
-    request.post(`/api/scenes/${noId}/cuts`, { data: { toSceneId: scenes[0]!.id } }),
-    request.post(`/api/scenes/${scenes[0]!.id}/cuts`, { data: { toSceneId: noId } }),
-    request.patch(`/api/cuts/${noId}`, { data: { text: 'Follow her' } }),
-    request.put(`/api/cuts/${noId}/conditions`, { data: {} }),
+    request.post(`/api/scenes/${noId}/exits`, { data: { toSceneId: scenes[0]!.id } }),
+    request.post(`/api/scenes/${scenes[0]!.id}/exits`, { data: { toSceneId: noId } }),
+    request.patch(`/api/exits/${noId}`, { data: { text: 'Follow her' } }),
+    request.put(`/api/exits/${noId}/conditions`, { data: {} }),
     request.put(`/api/scenes/${noId}/flags`, { data: { sets: {} } }),
-    request.put(`/api/scenes/${noId}/cuts/places`, { data: { places: [noId] } }),
-    request.delete(`/api/cuts/${noId}`),
+    request.put(`/api/scenes/${noId}/exits/places`, { data: { places: [noId] } }),
+    request.delete(`/api/exits/${noId}`),
   ])
 
   for (const response of responses) expect(response.status()).toBe(404)
@@ -311,20 +311,20 @@ test('the graph belongs to the Author who wrote the Story', async ({ request, ot
   const theirStory = await seedStory(otherAuthor, 'Their Story')
   const theirScene = await seedScene(theirStory, 'Their Scene')
   const theirOther = await seedScene(theirStory, 'Their other Scene')
-  const theirCut = await seedCut(theirScene.id, theirOther.id)
+  const theirExit = await seedExit(theirScene.id, theirOther.id)
 
   const responses = await Promise.all([
     request.patch(`/api/scenes/${theirScene.id}`, { data: { x: 999, y: 999 } }),
     request.post(`/api/scenes/${theirScene.id}/opening`),
-    request.post(`/api/scenes/${theirScene.id}/cuts`, { data: { toSceneId: theirOther.id } }),
-    request.patch(`/api/cuts/${theirCut.id}`, { data: { text: 'Mine now' } }),
-    request.put(`/api/cuts/${theirCut.id}/conditions`, {
+    request.post(`/api/scenes/${theirScene.id}/exits`, { data: { toSceneId: theirOther.id } }),
+    request.patch(`/api/exits/${theirExit.id}`, { data: { text: 'Mine now' } }),
+    request.put(`/api/exits/${theirExit.id}/conditions`, {
       data: { conditions: [{ flag: 'mine', is: 'now' }] },
     }),
     request.put(`/api/scenes/${theirScene.id}/flags`, { data: { sets: { mine: 'now' } } }),
-    request.put(`/api/scenes/${theirCut.fromSceneId}/cuts/places`,
-      { data: { places: [theirCut.id] } }),
-    request.delete(`/api/cuts/${theirCut.id}`),
+    request.put(`/api/scenes/${theirExit.fromSceneId}/exits/places`,
+      { data: { places: [theirExit.id] } }),
+    request.delete(`/api/exits/${theirExit.id}`),
   ])
 
   for (const response of responses) expect(response.status()).toBe(404)
@@ -332,7 +332,7 @@ test('the graph belongs to the Author who wrote the Story', async ({ request, ot
   // The 404s have to mean the graph was left alone, not merely that the answer
   // said nothing about a graph that was changed anyway.
   await expect(readScenePlacement(theirScene.id)).resolves.toMatchObject({ x: 0, y: 0 })
-  await expect(readCuts(theirScene.id)).resolves.toEqual([theirCut])
+  await expect(readExits(theirScene.id)).resolves.toEqual([theirExit])
   await expect(readFlags(theirScene.id)).resolves.toEqual({})
 })
 
@@ -382,30 +382,30 @@ test('an Author lays out the graph from the page alone', async ({ page, request 
   await writeScene(page, 'The arrival')
   await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
 
-  // A Cut to write the text of, drawn through the hidden button rather than by
+  // An Exit to write the text of, drawn through the hidden button rather than by
   // hand: the gesture has its own specs below, and the Scene this one lands on is
   // stacked below the bench's own fold where a pointer would have to scroll to it.
-  await page.getByRole('button', { name: 'Draw a Cut from The arrival' }).press('Enter')
-  await page.getByRole('button', { name: 'Cut from The arrival to The platform' }).press('Enter')
+  await page.getByRole('button', { name: 'Draw an Exit from The arrival' }).press('Enter')
+  await page.getByRole('button', { name: 'Exit from The arrival to The platform' }).press('Enter')
 
-  // The Scene keeps a bare strip of the ways on, and the Cut's own text is
+  // The Scene keeps a bare strip of the ways on, and the Exit's own text is
   // written in the panel a row of that strip hands over to.
-  await expect(page.getByRole('textbox', { name: 'Cut to The platform' })).toBeHidden()
+  await expect(page.getByRole('textbox', { name: 'Exit to The platform' })).toBeHidden()
   await openWayOn(page, 'The arrival', 'The platform')
 
-  const cutText = page.getByRole('textbox', { name: 'Cut to The platform' })
-  await expect(cutText).toBeVisible()
-  await cutText.fill('Follow her out')
-  await cutText.blur()
+  const exitText = page.getByRole('textbox', { name: 'Exit to The platform' })
+  await expect(exitText).toBeVisible()
+  await exitText.fill('Follow her out')
+  await exitText.blur()
 
-  // One panel, so writing the other Scene takes the Cut's place in it.
+  // One panel, so writing the other Scene takes the Exit's place in it.
   await writeScene(page, 'The platform')
   await page.getByRole('radio', { name: 'Opening Scene The platform' }).check()
 
   // Reloading before a write has landed would abort it, so what the page did is
-  // read back past it first — and that is also what proves the Cut persisted.
+  // read back past it first — and that is also what proves the Exit persisted.
   await expect(async () => {
-    await expect(readCuts(scenes[0]!.id))
+    await expect(readExits(scenes[0]!.id))
       .resolves.toMatchObject([{ toSceneId: scenes[1]!.id, text: 'Follow her out' }])
     await expect(readScenePlacement(scenes[1]!.id))
       .resolves.toMatchObject({ openingSceneId: scenes[1]!.id })
@@ -420,15 +420,15 @@ test('an Author lays out the graph from the page alone', async ({ page, request 
   await expect(page.getByRole('radio', { name: 'Opening Scene The platform' })).toBeChecked()
   await writeScene(page, 'The arrival')
   await openWayOn(page, 'The arrival', 'The platform')
-  await expect(page.getByRole('textbox', { name: 'Cut to The platform' }))
+  await expect(page.getByRole('textbox', { name: 'Exit to The platform' }))
     .toHaveValue('Follow her out')
   await expect(page.getByRole('article', { name: 'The arrival' }))
     .toHaveCSS('translate', '120px 80px')
 
   // Taken away from the panel it is written in, which goes with it.
-  await page.getByRole('button', { name: 'Delete Cut to The platform' }).click()
-  await expect(page.getByRole('textbox', { name: 'Cut to The platform' })).toBeHidden()
-  await expect(readCuts(scenes[0]!.id)).resolves.toEqual([])
+  await page.getByRole('button', { name: 'Delete Exit to The platform' }).click()
+  await expect(page.getByRole('textbox', { name: 'Exit to The platform' })).toBeHidden()
+  await expect(readExits(scenes[0]!.id)).resolves.toEqual([])
 })
 
 test('the panel pushes the graph aside, and covers it on a narrow screen', async ({
@@ -516,23 +516,23 @@ test('a card keeps its own shape, and drags from the image on it', async ({
   await expect.poll(() => readScenePlacement(scenes[0]!.id)).toMatchObject({ x: 120, y: 60 })
 })
 
-test('a Cut takes the Scene\u2019s place in the panel, and hands it back', async ({
+test('an Exit takes the Scene\u2019s place in the panel, and hands it back', async ({
   page,
   request,
 }) => {
   const { story, scenes } = await openGraph(request)
-  await drawCut(request, scenes[0]!.id, scenes[1]!.id)
+  await drawExit(request, scenes[0]!.id, scenes[1]!.id)
   await page.goto(`/stories/${story.id}`)
 
   await writeScene(page, 'The arrival')
   await openWayOn(page, 'The arrival', 'The platform')
 
-  // One panel: the Cut took the Scene's place in it rather than opening beside it.
-  await expect(page.getByRole('group', { name: 'Writing the Cut to The platform' }))
+  // One panel: the Exit took the Scene's place in it rather than opening beside it.
+  await expect(page.getByRole('group', { name: 'Writing the Exit to The platform' }))
     .toBeVisible()
   await expect(page.getByRole('group', { name: 'Writing The arrival' })).toHaveCount(0)
 
-  // And it is only as tall as what it is writing: a Cut is three controls and a
+  // And it is only as tall as what it is writing: an Exit is three controls and a
   // line of text, so a panel held at the bench's own height would be a column of
   // empty steel beside a graph the Author is trying to read.
   expect((await page.locator('.panel').boundingBox())!.height)
@@ -542,7 +542,7 @@ test('a Cut takes the Scene\u2019s place in the panel, and hands it back', async
   await page.getByRole('button', { name: 'Back to The arrival' }).click()
   await expect(page.getByRole('textbox', { name: 'Name of this Scene' }))
     .toHaveValue('The arrival')
-  await expect(page.getByRole('textbox', { name: 'Cut to The platform' })).toBeHidden()
+  await expect(page.getByRole('textbox', { name: 'Exit to The platform' })).toBeHidden()
 })
 
 test('two Scenes moved one after the other are both written', async ({ page, request }) => {
@@ -610,7 +610,7 @@ test('the graph of several dozen Scenes is read as cards', async ({ page, author
   const story = await seedStory(author, 'A long Story')
   const names = Array.from({ length: 40 }, (_, place) => `Scene ${place + 1}`)
   const scenes = await seedScenes(story, names)
-  await seedCut(scenes[0]!.id, scenes[1]!.id)
+  await seedExit(scenes[0]!.id, scenes[1]!.id)
 
   await page.goto(`/stories/${story.id}`)
 
@@ -642,7 +642,7 @@ test('a card names three of the ways on and counts the rest', async ({ page, aut
   const story = await seedStory(author, 'A branching Story')
   const scenes = await seedScenes(
     story, ['The junction', 'North', 'South', 'East', 'West'])
-  for (const landing of scenes.slice(1)) await seedCut(scenes[0]!.id, landing.id)
+  for (const landing of scenes.slice(1)) await seedExit(scenes[0]!.id, landing.id)
 
   await page.goto(`/stories/${story.id}`)
 
@@ -730,8 +730,8 @@ test('every card is one size, whatever the Scene in it holds', async ({ page, re
   const { story, scenes } = await openGraph(request, ['The arrival', 'The platform', 'The bar'])
   // Two ways on out of one Scene and none out of the others: what a card says is
   // not the same length for each, and its height has to be all the same.
-  await drawCut(request, scenes[1]!.id, scenes[0]!.id)
-  await drawCut(request, scenes[1]!.id, scenes[2]!.id)
+  await drawExit(request, scenes[1]!.id, scenes[0]!.id)
+  await drawExit(request, scenes[1]!.id, scenes[2]!.id)
   // A Shot apiece, because a Scene an Author has written in has one and a card
   // counts them.
   for (const scene of scenes) await request.post(`/api/scenes/${scene.id}/shots`)
@@ -754,13 +754,13 @@ test('every card is one size, whatever the Scene in it holds', async ({ page, re
   expect(await Promise.all(names.map(heightOf))).toEqual(sizes)
 })
 
-test('a Scene sets Flags on entry, and a Cut carries Conditions', async ({ request }) => {
+test('a Scene sets Flags on entry, and an Exit carries Conditions', async ({ request }) => {
   const { story, scenes } = await openGraph(request)
   const [from, to] = scenes as [{ id: string }, { id: string }]
 
-  // A Cut is drawn offered to everyone, as a Scene starts setting nothing.
-  const cut = await drawCut(request, from.id, to.id)
-  expect(cut.conditions).toEqual([])
+  // An Exit is drawn offered to everyone, as a Scene starts setting nothing.
+  const exit = await drawExit(request, from.id, to.id)
+  expect(exit.conditions).toEqual([])
 
   const flagged = await request.put(`/api/scenes/${from.id}/flags`, {
     data: { sets: { coat: 'on', 'the key': 'found' } },
@@ -773,31 +773,31 @@ test('a Scene sets Flags on entry, and a Cut carries Conditions', async ({ reque
     { scene: from.id, visits: 'at least', times: 2 },
     { flag: 'coat', is: 'on' },
   ]
-  const conditioned = await request.put(`/api/cuts/${cut.id}/conditions`, {
+  const conditioned = await request.put(`/api/exits/${exit.id}/conditions`, {
     data: { conditions: both },
   })
   expect(conditioned.status()).toBe(200)
 
   await expect((await request.get(`/api/stories/${story.id}`)).json()).resolves.toMatchObject({
     scenes: [{ id: from.id, sets: { coat: 'on', 'the key': 'found' } }, { id: to.id, sets: {} }],
-    cuts: [{ id: cut.id, conditions: both }],
+    exits: [{ id: exit.id, conditions: both }],
   })
 
-  // Sending no Conditions is how a Cut goes back to being offered to everyone,
+  // Sending no Conditions is how an Exit goes back to being offered to everyone,
   // and sending no Flags is how a Scene stops setting them.
-  await request.put(`/api/cuts/${cut.id}/conditions`, { data: {} })
+  await request.put(`/api/exits/${exit.id}/conditions`, { data: {} })
   await request.put(`/api/scenes/${from.id}/flags`, { data: { sets: {} } })
-  await expect(readCuts(from.id)).resolves.toMatchObject([{ conditions: [] }])
+  await expect(readExits(from.id)).resolves.toMatchObject([{ conditions: [] }])
   await expect(readFlags(from.id)).resolves.toEqual({})
 })
 
 test('half a Flag, and a Condition of no shape, are refused rather than stored', async ({ request }) => {
   const { scenes } = await openGraph(request)
   const [from, to] = scenes as [{ id: string }, { id: string }]
-  const cut = await drawCut(request, from.id, to.id)
+  const exit = await drawExit(request, from.id, to.id)
 
   await request.put(`/api/scenes/${from.id}/flags`, { data: { sets: { coat: 'on' } } })
-  await request.put(`/api/cuts/${cut.id}/conditions`, {
+  await request.put(`/api/exits/${exit.id}/conditions`, {
     data: { conditions: [{ flag: 'coat', is: 'on' }] },
   })
 
@@ -822,62 +822,62 @@ test('half a Flag, and a Condition of no shape, are refused rather than stored',
     // Neither of the two shapes, or one carrying more than its own test: a
     // Condition is flat, so a test nested in it is not a Condition — it belongs
     // in the list beside it, and there are only so many places there.
-    request.put(`/api/cuts/${cut.id}/conditions`, {
+    request.put(`/api/exits/${exit.id}/conditions`, {
       data: { conditions: [{ flag: '', is: 'on' }] },
     }),
-    request.put(`/api/cuts/${cut.id}/conditions`, { data: { conditions: [{ of: 'nothing' }] } }),
-    request.put(`/api/cuts/${cut.id}/conditions`, {
+    request.put(`/api/exits/${exit.id}/conditions`, { data: { conditions: [{ of: 'nothing' }] } }),
+    request.put(`/api/exits/${exit.id}/conditions`, {
       data: { conditions: [{ flag: 'coat', is: 'on', and: { flag: 'key', is: 'found' } }] },
     }),
-    request.put(`/api/cuts/${cut.id}/conditions`, {
+    request.put(`/api/exits/${exit.id}/conditions`, {
       data: { conditions: [{ scene: 'The arrival', visits: 'at least', times: 2 }] },
     }),
-    request.put(`/api/cuts/${cut.id}/conditions`, {
+    request.put(`/api/exits/${exit.id}/conditions`, {
       data: { conditions: [{ scene: from.id, visits: 'as often as', times: 2 }] },
     }),
-    request.put(`/api/cuts/${cut.id}/conditions`, {
+    request.put(`/api/exits/${exit.id}/conditions`, {
       data: { conditions: [{ scene: from.id, visits: 'at least', times: VISITS_MAX + 1 }] },
     }),
-    request.put(`/api/cuts/${cut.id}/conditions`, {
+    request.put(`/api/exits/${exit.id}/conditions`, {
       data: { conditions: [{ scene: from.id, visits: 'at least', times: 1.5 }] },
     }),
     // One bad member is a bad list, wherever in it it sits.
-    request.put(`/api/cuts/${cut.id}/conditions`, {
+    request.put(`/api/exits/${exit.id}/conditions`, {
       data: { conditions: [{ flag: 'coat', is: 'on' }, { of: 'nothing' }] },
     }),
     // A list is a list of Conditions, not a Condition.
-    request.put(`/api/cuts/${cut.id}/conditions`, {
+    request.put(`/api/exits/${exit.id}/conditions`, {
       data: { conditions: { flag: 'coat', is: 'on' } },
     }),
-    request.put(`/api/cuts/${cut.id}/conditions`, { data: { conditions: conditionsPastTheCap } }),
+    request.put(`/api/exits/${exit.id}/conditions`, { data: { conditions: conditionsPastTheCap } }),
   ])
 
   for (const response of refused) expect(response.status()).toBe(400)
 
   // The list at the cap is the one thing here that is not too long.
   const atTheCap = conditionsPastTheCap.slice(0, CONDITIONS_MAX)
-  const allowed = await request.put(`/api/cuts/${cut.id}/conditions`, {
+  const allowed = await request.put(`/api/exits/${exit.id}/conditions`, {
     data: { conditions: atTheCap },
   })
   expect(allowed.status()).toBe(200)
-  await request.put(`/api/cuts/${cut.id}/conditions`, {
+  await request.put(`/api/exits/${exit.id}/conditions`, {
     data: { conditions: [{ flag: 'coat', is: 'on' }] },
   })
 
   // Every refusal left what the Author had already written where it was.
   await expect(readFlags(from.id)).resolves.toEqual({ coat: 'on' })
-  await expect(readCuts(from.id))
+  await expect(readExits(from.id))
     .resolves.toMatchObject([{ conditions: [{ flag: 'coat', is: 'on' }] }])
 })
 
-test('a Condition counts only a Scene of the Cut’s own Story', async ({ request }) => {
+test('a Condition counts only a Scene of the Exit’s own Story', async ({ request }) => {
   const { scenes } = await openGraph(request)
   const [from, to] = scenes as [{ id: string }, { id: string }]
-  const cut = await drawCut(request, from.id, to.id)
+  const exit = await drawExit(request, from.id, to.id)
   const elsewhere = await openGraph(request, ['A Scene of another Story'])
 
   // Second in the list, so the refusal is of the list rather than of its head.
-  const refused = await request.put(`/api/cuts/${cut.id}/conditions`, {
+  const refused = await request.put(`/api/exits/${exit.id}/conditions`, {
     data: {
       conditions: [
         { scene: from.id, visits: 'at least', times: 2 },
@@ -889,22 +889,22 @@ test('a Condition counts only a Scene of the Cut’s own Story', async ({ reques
   // The Scene is looked up where the Condition is written, so a Scene outside
   // the Story names nothing and nothing is written.
   expect(refused.status()).toBe(404)
-  await expect(readCuts(from.id)).resolves.toMatchObject([{ conditions: [] }])
+  await expect(readExits(from.id)).resolves.toMatchObject([{ conditions: [] }])
 })
 
 test('an Author orders the ways on from the page alone', async ({ page, request }) => {
   const { story, scenes } = await openGraph(
     request, ['The platform', 'The buffet', 'The tunnel'])
   const [from, buffet, tunnel] = scenes as [{ id: string }, { id: string }, { id: string }]
-  await drawCut(request, from.id, buffet.id)
-  await drawCut(request, from.id, tunnel.id)
+  await drawExit(request, from.id, buffet.id)
+  await drawExit(request, from.id, tunnel.id)
 
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The platform')
 
-  await page.getByRole('button', { name: 'Move earlier the Cut to The tunnel' }).click()
+  await page.getByRole('button', { name: 'Move earlier the Exit to The tunnel' }).click()
   await expect(async () => {
-    await expect(readCuts(from.id)).resolves.toMatchObject([
+    await expect(readExits(from.id)).resolves.toMatchObject([
       { toSceneId: tunnel.id, position: 0 },
       { toSceneId: buffet.id, position: 1 },
     ])
@@ -914,15 +914,15 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
   // rather than asking.
   await page.reload()
   await writeScene(page, 'The platform')
-  await expect(page.getByRole('button', { name: 'Move earlier the Cut to The tunnel' }))
+  await expect(page.getByRole('button', { name: 'Move earlier the Exit to The tunnel' }))
     .toBeDisabled()
-  await expect(page.getByRole('button', { name: 'Move later the Cut to The buffet' }))
+  await expect(page.getByRole('button', { name: 'Move later the Exit to The buffet' }))
     .toBeDisabled()
 
   // And by hand: a row dragged onto another takes the Place that row stood at.
   await dragWayOn(page, 'The platform', 'The buffet', 'The tunnel')
   await expect(async () => {
-    await expect(readCuts(from.id)).resolves.toMatchObject([
+    await expect(readExits(from.id)).resolves.toMatchObject([
       { toSceneId: buffet.id, position: 0 },
       { toSceneId: tunnel.id, position: 1 },
     ])
@@ -934,7 +934,7 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
     .toHaveText(/1\s+The buffet/)
   await dragWayOn(page, 'The platform', 'The buffet', 'The tunnel')
   await expect(async () => {
-    await expect(readCuts(from.id)).resolves.toMatchObject([
+    await expect(readExits(from.id)).resolves.toMatchObject([
       { toSceneId: tunnel.id, position: 0 },
       { toSceneId: buffet.id, position: 1 },
     ])
@@ -942,7 +942,7 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
 
   // A drag that renumbered is not also a press, so it opened no panel: the
   // gesture said what it meant once.
-  await expect(page.getByRole('textbox', { name: 'Cut to The buffet' })).toBeHidden()
+  await expect(page.getByRole('textbox', { name: 'Exit to The buffet' })).toBeHidden()
 })
 
 /** Drags one row of a Scene's strip onto another, which is what renumbers by hand. */
@@ -961,8 +961,8 @@ async function dragWayOn(page: Page, from: string, dragged: string, onto: string
 
 /**
  * A graph laid out at named points. Where the nodes sit decides what a test can
- * aim at: a Cut between two nodes in a row draws a line of no height, which is
- * nothing a pointer can be told to press, and two Cuts leaving on the same
+ * aim at: an Exit between two nodes in a row draws a line of no height, which is
+ * nothing a pointer can be told to press, and two Exits leaving on the same
  * bearing draw one line's target over the other's.
  */
 async function layOut(request: APIRequestContext, at: Record<string, [number, number]>) {
@@ -976,34 +976,34 @@ async function layOut(request: APIRequestContext, at: Record<string, [number, nu
   return opened
 }
 
-test('a Cut is written in the panel its own line hands over to', async ({ page, request }) => {
+test('an Exit is written in the panel its own line hands over to', async ({ page, request }) => {
   const { story, scenes } = await layOut(request, {
     'The arrival': [0, 0],
     'The platform': [400, 220],
     'The bar': [100, 620],
   })
   const [from, platform, bar] = scenes as [{ id: string }, { id: string }, { id: string }]
-  const first = await drawCut(request, from.id, platform.id)
-  const second = await drawCut(request, from.id, bar.id)
+  const first = await drawExit(request, from.id, platform.id)
+  const second = await drawExit(request, from.id, bar.id)
 
   await page.goto(`/stories/${story.id}`)
 
-  const drawing = (cut: { id: string }) => page.locator(`[data-cut="${cut.id}"]`)
-  const lineOf = (cut: { id: string }) => drawing(cut).locator('line.aimed')
+  const drawing = (exit: { id: string }) => page.locator(`[data-exit="${exit.id}"]`)
+  const lineOf = (exit: { id: string }) => drawing(exit).locator('line.aimed')
   const panelOn = (scene: string) =>
-    page.getByRole('group', { name: `Writing the Cut to ${scene}` })
+    page.getByRole('group', { name: `Writing the Exit to ${scene}` })
 
   // Every way on is labelled on the bench with the Place it is offered at, on a
   // disc near the Scene it leaves.
   await expect(drawing(first).locator('text.place')).toHaveText('1')
   await expect(drawing(second).locator('text.place')).toHaveText('2')
 
-  // Pressing a line puts that Cut in the panel at the edge of the bench, and the
-  // Cut it holds is lit on the bench itself.
+  // Pressing a line puts that Exit in the panel at the edge of the bench, and the
+  // Exit it holds is lit on the bench itself.
   await lineOf(first).click()
   await expect(panelOn('The platform')).toBeVisible()
   await expect(drawing(first).locator('line.lit')).toHaveCount(1)
-  await expect(page.getByRole('textbox', { name: 'Cut to The platform' })).toBeFocused()
+  await expect(page.getByRole('textbox', { name: 'Exit to The platform' })).toBeFocused()
 
   // The panel is beside the graph rather than over it, so scrolling the bench
   // leaves it exactly where it was: what it is writing is not where it is drawn.
@@ -1030,38 +1030,38 @@ test('a Cut is written in the panel its own line hands over to', async ({ page, 
   await page.mouse.click(surface.x + surface.width / 2, surface.y + surface.height - 20)
   await expect(panelOn('The bar')).toBeHidden()
 
-  // What is written in the panel is written on the Cut: its text, and a Condition
+  // What is written in the panel is written on the Exit: its text, and a Condition
   // it is offered under.
   await lineOf(first).click()
-  const cutText = page.getByRole('textbox', { name: 'Cut to The platform' })
-  await cutText.fill('Follow her out')
-  await cutText.blur()
+  const exitText = page.getByRole('textbox', { name: 'Exit to The platform' })
+  await exitText.fill('Follow her out')
+  await exitText.blur()
 
-  await page.getByRole('button', { name: 'Add a Condition to the Cut to The platform' }).click()
-  const flag = page.getByLabel('Flag of Condition 1 of the Cut to The platform')
+  await page.getByRole('button', { name: 'Add a Condition to the Exit to The platform' }).click()
+  const flag = page.getByLabel('Flag of Condition 1 of the Exit to The platform')
   await flag.fill('coat')
   await flag.blur()
 
   await expect(async () => {
-    await expect(readCuts(from.id)).resolves.toMatchObject([
+    await expect(readExits(from.id)).resolves.toMatchObject([
       { id: first.id, text: 'Follow her out', conditions: [{ flag: 'coat', is: '' }] },
       { id: second.id },
     ])
   }).toPass()
 
-  // And taken away from the same panel, which goes with the Cut it was writing.
-  await page.getByRole('button', { name: 'Delete Cut to The platform' }).click()
+  // And taken away from the same panel, which goes with the Exit it was writing.
+  await page.getByRole('button', { name: 'Delete Exit to The platform' }).click()
   await expect(panelOn('The platform')).toBeHidden()
   await expect(async () => {
-    await expect(readCuts(from.id)).resolves.toMatchObject([{ id: second.id, position: 0 }])
+    await expect(readExits(from.id)).resolves.toMatchObject([{ id: second.id, position: 0 }])
   }).toPass()
 })
 
-test('the strip is the way to a Cut for a hand that is not on a pointer',
+test('the strip is the way to an Exit for a hand that is not on a pointer',
   async ({ page, request }) => {
     const { story, scenes } = await openGraph(request, ['The arrival', 'The platform'])
     const [from, to] = scenes as [{ id: string }, { id: string }]
-    await drawCut(request, from.id, to.id)
+    await drawExit(request, from.id, to.id)
 
     await page.goto(`/stories/${story.id}`)
 
@@ -1072,21 +1072,21 @@ test('the strip is the way to a Cut for a hand that is not on a pointer',
     await writeScene(page, 'The arrival')
 
     // The strip holds the Place, where the way on arrives, and the two controls —
-    // and no text and no Conditions: those are the Cut's own panel.
+    // and no text and no Conditions: those are the Exit's own panel.
     const row = page.getByRole('button', { name: 'The platform — way on from The arrival' })
     await expect(row).toHaveText(/1\s+The platform/)
-    await expect(page.getByRole('textbox', { name: 'Cut to The platform' })).toBeHidden()
-    await expect(page.getByRole('button', { name: 'Delete Cut to The platform' })).toBeHidden()
+    await expect(page.getByRole('textbox', { name: 'Exit to The platform' })).toBeHidden()
+    await expect(page.getByRole('button', { name: 'Delete Exit to The platform' })).toBeHidden()
 
-    // Reached from the keyboard, the row hands the panel over to the Cut and puts
+    // Reached from the keyboard, the row hands the panel over to the Exit and puts
     // the focus in its text.
     await row.press('Enter')
-    await expect(page.getByRole('textbox', { name: 'Cut to The platform' })).toBeFocused()
+    await expect(page.getByRole('textbox', { name: 'Exit to The platform' })).toBeFocused()
 
     // And Escape closes the panel, giving the focus back to the card of the Scene
-    // the Cut leaves — which is where the way in started.
+    // the Exit leaves — which is where the way in started.
     await page.keyboard.press('Escape')
-    await expect(page.getByRole('group', { name: 'Writing the Cut to The platform' }))
+    await expect(page.getByRole('group', { name: 'Writing the Exit to The platform' }))
       .toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Write Scene The arrival' })).toBeFocused()
   })
@@ -1100,7 +1100,7 @@ test('the strip is the way to a Cut for a hand that is not on a pointer',
 test('an Author sets a Flag and two Conditions from the page alone', async ({ page, request }) => {
   const { story, scenes } = await openGraph(request)
   const [from, to] = scenes as [{ id: string }, { id: string }]
-  await drawCut(request, from.id, to.id)
+  await drawExit(request, from.id, to.id)
 
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The arrival')
@@ -1110,31 +1110,31 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
   await flags.blur()
 
   await openWayOn(page, 'The arrival', 'The platform')
-  await page.getByRole('button', { name: 'Add a Condition to the Cut to The platform' }).click()
+  await page.getByRole('button', { name: 'Add a Condition to the Exit to The platform' }).click()
   // The name of the Flag and the value it holds are written one at a time,
   // because the Flag alone is half a Condition and is written as soon as it has
   // a name — and the value is then typed into the same field the Author was
   // left holding.
-  const flag = page.getByLabel('Flag of Condition 1 of the Cut to The platform')
+  const flag = page.getByLabel('Flag of Condition 1 of the Exit to The platform')
   await flag.fill('coat')
   await flag.blur()
-  const holds = page.getByLabel('holds for Condition 1 of the Cut to The platform')
+  const holds = page.getByLabel('holds for Condition 1 of the Exit to The platform')
   await holds.fill('on')
   await holds.blur()
 
-  // A second Condition on the same Cut, which is what one could not say.
-  await page.getByRole('button', { name: 'Add a Condition to the Cut to The platform' }).click()
-  // Exactly, because "Condition 2 of the Cut to The platform" is also the tail
+  // A second Condition on the same Exit, which is what one could not say.
+  await page.getByRole('button', { name: 'Add a Condition to the Exit to The platform' }).click()
+  // Exactly, because "Condition 2 of the Exit to The platform" is also the tail
   // of the labels on the fields of that Condition.
   await page
-    .getByLabel('Condition 2 of the Cut to The platform', { exact: true })
+    .getByLabel('Condition 2 of the Exit to The platform', { exact: true })
     .selectOption('visits')
 
   // Read back past the page, which is what proves all of it landed — and has to
   // happen before the reload, which would abort a write still in flight.
   await expect(async () => {
     await expect(readFlags(from.id)).resolves.toEqual({ coat: 'on' })
-    await expect(readCuts(from.id)).resolves.toMatchObject([{
+    await expect(readExits(from.id)).resolves.toMatchObject([{
       conditions: [
         { flag: 'coat', is: 'on' },
         { scene: from.id, visits: 'at least', times: 2 },
@@ -1147,20 +1147,20 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
   await writeScene(page, 'The arrival')
   await expect(page.getByLabel('Flags set on entering The arrival')).toHaveValue('coat = on')
   await openWayOn(page, 'The arrival', 'The platform')
-  await expect(page.getByLabel('Condition 1 of the Cut to The platform', { exact: true }))
+  await expect(page.getByLabel('Condition 1 of the Exit to The platform', { exact: true }))
     .toHaveValue('flag')
-  await expect(page.getByLabel('Flag of Condition 1 of the Cut to The platform'))
+  await expect(page.getByLabel('Flag of Condition 1 of the Exit to The platform'))
     .toHaveValue('coat')
-  await expect(page.getByLabel('Condition 2 of the Cut to The platform', { exact: true }))
+  await expect(page.getByLabel('Condition 2 of the Exit to The platform', { exact: true }))
     .toHaveValue('visits')
 
-  // And a Cut with every Condition taken off it is offered always again.
+  // And an Exit with every Condition taken off it is offered always again.
   for (const place of [2, 1]) {
     await page.getByRole('button',
-      { name: `Remove Condition ${place} of the Cut to The platform` }).click()
+      { name: `Remove Condition ${place} of the Exit to The platform` }).click()
   }
   await expect(async () => {
-    await expect(readCuts(from.id)).resolves.toMatchObject([{ conditions: [] }])
+    await expect(readExits(from.id)).resolves.toMatchObject([{ conditions: [] }])
   }).toPass()
 })
 
@@ -1246,7 +1246,7 @@ async function middleOfNode(page: Page, name: string) {
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
 }
 
-/** Puts the hand down on a Scene's strip, which is where a Cut is drawn from. */
+/** Puts the hand down on a Scene's strip, which is where an Exit is drawn from. */
 async function aimFrom(page: Page, name: string) {
   const strip = (await page.getByRole('article', { name }).locator('.strip').boundingBox())!
   await page.mouse.move(strip.x + strip.width / 2, strip.y + strip.height / 2)
@@ -1261,7 +1261,7 @@ async function moveOver(page: Page, name: string) {
 
 const drawnLine = (page: Page) => page.locator('svg line.drawn')
 
-test('a Cut is drawn by dragging from one Scene to another', async ({ page, request }) => {
+test('an Exit is drawn by dragging from one Scene to another', async ({ page, request }) => {
   const { story, scenes } = await openRow(request)
   await page.goto(`/stories/${story.id}`)
 
@@ -1276,7 +1276,7 @@ test('a Cut is drawn by dragging from one Scene to another', async ({ page, requ
   await aimFrom(page, 'The arrival')
   await moveOver(page, 'The platform')
 
-  // The Scene that can take the Cut is lit, the Scene the line left is quiet, and
+  // The Scene that can take the Exit is lit, the Scene the line left is quiet, and
   // the node it left keeps a ring so the source is legible from across the bench.
   await expect(platform).toHaveClass(/lit/)
   await expect(arrival).toHaveClass(/quiet/)
@@ -1285,7 +1285,7 @@ test('a Cut is drawn by dragging from one Scene to another', async ({ page, requ
   // The line follows the hand, in the grease pencil, dashed and marching, with the
   // arrowhead that says it will land where it is.
   const line = drawnLine(page)
-  await expect(line).toHaveAttribute('marker-end', 'url(#cut-head)')
+  await expect(line).toHaveAttribute('marker-end', 'url(#exit-head)')
   const drawn = await line.evaluate((held) => {
     const { stroke, strokeDasharray, animationName, animationDuration } = getComputedStyle(held)
     return { stroke, strokeDasharray, animationName, animationDuration }
@@ -1295,7 +1295,7 @@ test('a Cut is drawn by dragging from one Scene to another', async ({ page, requ
   // hashes the keyframes' name.
   expect(drawn.animationName).toMatch(/^marching/)
   expect(Number.parseFloat(drawn.animationDuration)).toBeGreaterThan(0)
-  // The grease pencil, which is the colour every finished Cut is drawn in.
+  // The grease pencil, which is the colour every finished Exit is drawn in.
   expect(drawn.stroke).toBe(
     await page.locator('svg line').first().evaluate(held => getComputedStyle(held).stroke))
 
@@ -1307,12 +1307,12 @@ test('a Cut is drawn by dragging from one Scene to another', async ({ page, requ
   expect(await line.evaluate(held => getComputedStyle(held).strokeDasharray)).not.toBe('none')
   await page.emulateMedia({ reducedMotion: null })
 
-  // Letting go over the Scene draws the Cut, the Story holds it, and the bench
+  // Letting go over the Scene draws the Exit, the Story holds it, and the bench
   // says so out loud — a gesture is not a field, so this one is announced.
   await page.mouse.up()
   await expect(page.getByRole('status'))
-    .toHaveText('Cut from The arrival to The platform drawn')
-  await expect.poll(() => readCuts(scenes[0]!.id)).toMatchObject([
+    .toHaveText('Exit from The arrival to The platform drawn')
+  await expect.poll(() => readExits(scenes[0]!.id)).toMatchObject([
     { fromSceneId: scenes[0]!.id, toSceneId: scenes[1]!.id, position: 0 },
   ])
 
@@ -1321,7 +1321,7 @@ test('a Cut is drawn by dragging from one Scene to another', async ({ page, requ
   await expect(platform).not.toHaveClass(/lit/)
 })
 
-test('letting go over the bare bench writes the Scene and cuts to it', async ({
+test('letting go over the bare bench writes the Scene and exits to it', async ({
   page,
   request,
 }) => {
@@ -1338,13 +1338,13 @@ test('letting go over the bare bench writes the Scene and cuts to it', async ({
   await page.mouse.move(drop.x, drop.y, { steps: 5 })
 
   // Over the bench the line keeps its arrowhead: there is nothing there to refuse
-  // the Cut, because the Scene it lands on is about to be written.
-  await expect(drawnLine(page)).toHaveAttribute('marker-end', 'url(#cut-head)')
+  // the Exit, because the Scene it lands on is about to be written.
+  await expect(drawnLine(page)).toHaveAttribute('marker-end', 'url(#exit-head)')
   await page.mouse.up()
 
-  // The Scene is written under a provisional name, and the bench says the Cut was
+  // The Scene is written under a provisional name, and the bench says the Exit was
   // drawn to it.
-  await expect(page.getByRole('status')).toHaveText('Cut from The arrival to A new Scene drawn')
+  await expect(page.getByRole('status')).toHaveText('Exit from The arrival to A new Scene drawn')
   const written = page.getByRole('article', { name: 'A new Scene' })
   await expect(written).toHaveCount(1)
 
@@ -1358,9 +1358,9 @@ test('letting go over the bare bench writes the Scene and cuts to it', async ({
   expect(placement.x % NODE_PITCH).toBe(0)
   expect(placement.y % NODE_PITCH).toBe(0)
 
-  // And the Cut that drew it is in the Story, leaving the Scene the gesture began
+  // And the Exit that drew it is in the Story, leaving the Scene the gesture began
   // on for the Scene it wrote.
-  await expect.poll(() => readCuts(scenes[0]!.id)).toMatchObject([
+  await expect.poll(() => readExits(scenes[0]!.id)).toMatchObject([
     { fromSceneId: scenes[0]!.id, toSceneId: scene.id, position: 0 },
   ])
 
@@ -1387,21 +1387,21 @@ test('letting go over the bare bench writes the Scene and cuts to it', async ({
   await page.mouse.up()
 
   expect((await (await request.get(`/api/stories/${story.id}`)).json()).scenes).toHaveLength(3)
-  await expect.poll(() => readCuts(scenes[0]!.id)).toHaveLength(1)
+  await expect.poll(() => readExits(scenes[0]!.id)).toHaveLength(1)
 })
 
-test('a Cut cannot be drawn on a Scene itself, or twice to the same Scene', async ({
+test('an Exit cannot be drawn on a Scene itself, or twice to the same Scene', async ({
   page,
   request,
 }) => {
   const { story, scenes } = await openRow(request, ['The arrival', 'The platform', 'The bar'])
-  await drawCut(request, scenes[0]!.id, scenes[1]!.id)
+  await drawExit(request, scenes[0]!.id, scenes[1]!.id)
   await page.goto(`/stories/${story.id}`)
 
   await aimFrom(page, 'The arrival')
 
   // The Scene it already reaches is quiet, and the one it does not is lit: what a
-  // Cut may land on is read off the bench rather than out of a list.
+  // Exit may land on is read off the bench rather than out of a list.
   await expect(page.getByRole('article', { name: 'The platform' })).toHaveClass(/quiet/)
   await expect(page.getByRole('article', { name: 'The bar' })).toHaveClass(/lit/)
 
@@ -1411,55 +1411,55 @@ test('a Cut cannot be drawn on a Scene itself, or twice to the same Scene', asyn
   await expect(drawnLine(page)).not.toHaveAttribute('marker-end')
   await page.mouse.up()
 
-  // A second Cut to the same Scene is not what the hand drew, so nothing was
-  // written: the one Cut seeded is still the only one leaving the Scene.
-  await expect.poll(() => readCuts(scenes[0]!.id)).toHaveLength(1)
+  // A second Exit to the same Scene is not what the hand drew, so nothing was
+  // written: the one Exit seeded is still the only one leaving the Scene.
+  await expect.poll(() => readExits(scenes[0]!.id)).toHaveLength(1)
 
-  // And a Cut on the Scene it left is the other slip the hand cannot make, even
+  // And an Exit on the Scene it left is the other slip the hand cannot make, even
   // though the server would take it.
   await aimFrom(page, 'The arrival')
   await moveOver(page, 'The arrival')
   await expect(drawnLine(page)).not.toHaveAttribute('marker-end')
   await page.mouse.up()
-  await expect.poll(() => readCuts(scenes[0]!.id)).toHaveLength(1)
+  await expect.poll(() => readExits(scenes[0]!.id)).toHaveLength(1)
 })
 
 test('a second way on to the same Scene is written by duplicating the first',
   async ({ page, request }) => {
     const { story, scenes } = await openGraph(request, ['The arrival', 'The platform'])
     const [from, to] = scenes as [{ id: string }, { id: string }]
-    const first = await drawCut(request, from.id, to.id)
+    const first = await drawExit(request, from.id, to.id)
 
     await page.goto(`/stories/${story.id}`)
     await writeScene(page, 'The arrival')
     await openWayOn(page, 'The arrival', 'The platform')
 
-    const duplicate = page.getByRole('button', { name: 'Duplicate Cut to The platform' })
+    const duplicate = page.getByRole('button', { name: 'Duplicate Exit to The platform' })
     /**
      * The row of the strip a way on is offered at, which is also how the bench says
      * a duplicate has landed on it. Waited for there rather than in the database,
      * because what follows a duplicate is typed into the panel: the read the
-     * duplicate asks for replaces every Cut in the Story, and a Condition added
+     * duplicate asks for replaces every Exit in the Story, and a Condition added
      * before it arrived would be taken off the screen by it — see
      * `docs/adr/0008-refetch-is-for-a-refusal.md`.
      *
      * The strip is the Scene's, and one panel holds one thing, so reading it means
-     * taking the way back the Cut's panel offers to the Scene it leaves.
+     * taking the way back the Exit's panel offers to the Scene it leaves.
      */
     const wayOnAt = (place: number) =>
       page.getByRole('button', { name: `${place} The platform — way on from The arrival` })
     const backToTheArrival = () =>
       page.getByRole('button', { name: 'Back to The arrival' }).click()
 
-    // Duplicated from the panel: a second Cut to the same Scene, last among the
-    // ways on leaving it. The bench says so out loud, because a Cut that arrives
+    // Duplicated from the panel: a second Exit to the same Scene, last among the
+    // ways on leaving it. The bench says so out loud, because an Exit that arrives
     // without a gesture arrives on a strip the Author may not be looking at.
     await duplicate.click()
     await expect(page.getByRole('status'))
-      .toHaveText('Another Cut from The arrival to The platform written')
+      .toHaveText('Another Exit from The arrival to The platform written')
     await backToTheArrival()
     await expect(wayOnAt(2)).toBeVisible()
-    await expect.poll(() => readCuts(from.id)).toMatchObject([
+    await expect.poll(() => readExits(from.id)).toMatchObject([
       { id: first.id, position: 0, conditions: [] },
       { toSceneId: to.id, position: 1, conditions: [] },
     ])
@@ -1467,35 +1467,35 @@ test('a second way on to the same Scene is written by duplicating the first',
     // A Condition on the first, because a Condition is what the pair is for: two
     // ways on to one Scene are offered under opposite tests.
     await wayOnAt(1).click()
-    await page.getByRole('button', { name: 'Add a Condition to the Cut to The platform' }).click()
-    const flag = page.getByLabel('Flag of Condition 1 of the Cut to The platform')
+    await page.getByRole('button', { name: 'Add a Condition to the Exit to The platform' }).click()
+    const flag = page.getByLabel('Flag of Condition 1 of the Exit to The platform')
     await flag.fill('coat')
     await flag.blur()
-    const holds = page.getByLabel('holds for Condition 1 of the Cut to The platform')
+    const holds = page.getByLabel('holds for Condition 1 of the Exit to The platform')
     await holds.fill('on')
     await holds.blur()
 
     // Duplicated again, the Conditions come with it — and the duplicate is last
-    // among the ways on, not beside the Cut it was copied from.
+    // among the ways on, not beside the Exit it was copied from.
     await duplicate.click()
     await backToTheArrival()
     await expect(wayOnAt(3)).toBeVisible()
-    await expect.poll(() => readCuts(from.id)).toMatchObject([
+    await expect.poll(() => readExits(from.id)).toMatchObject([
       { id: first.id, position: 0, conditions: [{ flag: 'coat', is: 'on' }] },
       { position: 1, conditions: [] },
       { toSceneId: to.id, position: 2, conditions: [{ flag: 'coat', is: 'on' }] },
     ])
-    const copied = (await readCuts(from.id))[2]!
+    const copied = (await readExits(from.id))[2]!
 
     // Its own panel opens from its own row of the strip — the rows are told apart
     // by the Place each is offered at — and what is written in it is written on the
     // copy alone.
     await wayOnAt(3).click()
-    const opposite = page.getByLabel('holds for Condition 1 of the Cut to The platform')
+    const opposite = page.getByLabel('holds for Condition 1 of the Exit to The platform')
     await opposite.fill('off')
     await opposite.blur()
 
-    await expect.poll(() => readCuts(from.id)).toMatchObject([
+    await expect.poll(() => readExits(from.id)).toMatchObject([
       { id: first.id, conditions: [{ flag: 'coat', is: 'on' }] },
       { conditions: [] },
       { id: copied.id, conditions: [{ flag: 'coat', is: 'off' }] },
@@ -1515,23 +1515,23 @@ test('Escape abandons a gesture, by pointer and by keyboard', async ({ page, req
 
   await expect(drawnLine(page)).toHaveCount(0)
   await expect(page.getByRole('article', { name: 'The platform' })).not.toHaveClass(/lit/)
-  await expect(page.getByRole('status')).toHaveText('No Cut was drawn')
+  await expect(page.getByRole('status')).toHaveText('No Exit was drawn')
 
   // Letting the hand up after Escape draws nothing either: the gesture it would
   // have landed is already gone.
   await page.mouse.up()
-  await expect.poll(() => readCuts(scenes[0]!.id)).toEqual([])
+  await expect.poll(() => readExits(scenes[0]!.id)).toEqual([])
 
   // The same for a gesture the keyboard began.
-  await page.getByRole('button', { name: 'Draw a Cut from The arrival' }).focus()
+  await page.getByRole('button', { name: 'Draw an Exit from The arrival' }).focus()
   await page.keyboard.press('Enter')
   await expect(page.getByRole('article', { name: 'The platform' })).toHaveClass(/lit/)
   await page.keyboard.press('Escape')
   await expect(page.getByRole('article', { name: 'The platform' })).not.toHaveClass(/lit/)
-  await expect.poll(() => readCuts(scenes[0]!.id)).toEqual([])
+  await expect.poll(() => readExits(scenes[0]!.id)).toEqual([])
 })
 
-test('the keyboard draws the same Cut, through a button hidden until it is focused', async ({
+test('the keyboard draws the same Exit, through a button hidden until it is focused', async ({
   page,
   request,
 }) => {
@@ -1540,7 +1540,7 @@ test('the keyboard draws the same Cut, through a button hidden until it is focus
 
   // The button is in the page for anything that reads it, and nothing an eye can
   // see until it takes focus — the pattern a skip link uses.
-  const aim = page.getByRole('button', { name: 'Draw a Cut from The arrival' })
+  const aim = page.getByRole('button', { name: 'Draw an Exit from The arrival' })
   const seen = async () => (await aim.boundingBox())!.width
   expect(await seen()).toBeLessThan(2)
   await aim.focus()
@@ -1550,33 +1550,33 @@ test('the keyboard draws the same Cut, through a button hidden until it is focus
   // gesture nobody can see beginning is one nobody can follow.
   await aim.press('Enter')
   await expect(page.getByRole('status'))
-    .toHaveText(/Drawing a Cut from The arrival/)
+    .toHaveText(/Drawing an Exit from The arrival/)
   await expect(page.getByRole('article', { name: 'The platform' })).toHaveClass(/lit/)
   await expect(page.getByRole('article', { name: 'The arrival' })).toHaveClass(/drawing/)
 
   // The Scene the line left offers the way out, and every Scene it may land on
-  // offers the landing, named as the Cut it would draw.
-  await expect(page.getByRole('button', { name: 'Abandon the Cut from The arrival' }))
+  // offers the landing, named as the Exit it would draw.
+  await expect(page.getByRole('button', { name: 'Abandon the Exit from The arrival' }))
     .toHaveCount(1)
   // Pressed rather than clicked, which is the whole point of it: the button is a
   // pixel of clipped nothing under the strip until focus reaches it.
-  await page.getByRole('button', { name: 'Cut from The arrival to The platform' }).press('Enter')
+  await page.getByRole('button', { name: 'Exit from The arrival to The platform' }).press('Enter')
 
   await expect(page.getByRole('status'))
-    .toHaveText('Cut from The arrival to The platform drawn')
-  await expect.poll(() => readCuts(scenes[0]!.id)).toMatchObject([
+    .toHaveText('Exit from The arrival to The platform drawn')
+  await expect.poll(() => readExits(scenes[0]!.id)).toMatchObject([
     { fromSceneId: scenes[0]!.id, toSceneId: scenes[1]!.id },
   ])
 
-  // The graph is read back with the Cut in it, which is what the next gesture is
+  // The graph is read back with the Exit in it, which is what the next gesture is
   // worked out from: the card now says where the Scene leads.
   await expect(page.getByRole('article', { name: 'The arrival' }))
     .toContainText('on to The platform')
 
-  // And with the Cut drawn, the Scene it reaches is one the keyboard cannot land
+  // And with the Exit drawn, the Scene it reaches is one the keyboard cannot land
   // on twice either: the button that would draw it again is offered disabled.
-  await page.getByRole('button', { name: 'Draw a Cut from The arrival' }).press('Enter')
-  await expect(page.getByRole('button', { name: 'Cut from The arrival to The platform' }))
+  await page.getByRole('button', { name: 'Draw an Exit from The arrival' }).press('Enter')
+  await expect(page.getByRole('button', { name: 'Exit from The arrival to The platform' }))
     .toBeDisabled()
 })
 
@@ -1707,7 +1707,7 @@ test('the bench pulls back to the whole Story, and comes closer under the pointe
 
 test('the bare bench is pushed about under the hand', async ({ page, request }) => {
   const { story, scenes } = await openWideGraph(request)
-  const cut = await drawCut(request, scenes[0]!.id, scenes[1]!.id)
+  const exit = await drawExit(request, scenes[0]!.id, scenes[1]!.id)
   await page.goto(`/stories/${story.id}`)
 
   const graph = page.locator('.graph')
@@ -1743,10 +1743,10 @@ test('the bare bench is pushed about under the hand', async ({ page, request }) 
   for (let step = 0; step < 3; step++) await pullBack.click()
   await expect(page.locator('.zooming .level')).toContainText('25%')
 
-  // A press on a Cut's line is that Cut's own gesture still: it opens the panel
+  // A press on an Exit's line is that Exit's own gesture still: it opens the panel
   // it has always opened rather than pushing the bench or closing anything.
-  await page.locator(`[data-cut="${cut.id}"] line.aimed`).click()
-  await expect(page.getByRole('group', { name: 'Writing the Cut to The platform' })).toBeVisible()
+  await page.locator(`[data-exit="${exit.id}"] line.aimed`).click()
+  await expect(page.getByRole('group', { name: 'Writing the Exit to The platform' })).toBeVisible()
 
   // And a Scene dragged on a bench pulled back travels as far as the hand does: a
   // hundred pixels at a quarter is four hundred pixels of graph. The panel is

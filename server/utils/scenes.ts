@@ -75,7 +75,7 @@ export async function readScenePlacement(event: H3Event) {
 
 /**
  * Reads where a Scene is being placed, where the request may be carrying no
- * placement at all: a Scene written by dropping a Cut on the bare bench says
+ * placement at all: a Scene written by dropping an Exit on the bare bench says
  * where it landed, and one written from the form at the top of the page leaves
  * the endpoint to choose a spot itself. A placement that is there is held to the
  * same bound as one on a Scene already written — a Story cannot be seeded with a

@@ -10,8 +10,8 @@ import {
 import { UUID_PATTERN } from '../../server/utils/ids'
 
 /**
- * The Conditions a Cut is offered under, or a Shot played under, read at the
- * request boundary. One reader serves both, so these read it as a Cut's and the
+ * The Conditions an Exit is offered under, or a Shot played under, read at the
+ * request boundary. One reader serves both, so these read it as an Exit's and the
  * last test alone checks that the refusal names whichever is being written.
  *
  * The reader is a server module, so what it reaches for is nitro's own: the body
@@ -35,7 +35,7 @@ vi.stubGlobal('UUID_PATTERN', UUID_PATTERN)
 
 const { readConditions } = await import('../../server/utils/conditions')
 
-const asking = (body: unknown) => readConditions({ body } as unknown as H3Event, 'Cut')
+const asking = (body: unknown) => readConditions({ body } as unknown as H3Event, 'Exit')
 
 /** A Scene named by a Condition counting visits, which the reader takes as a uuid. */
 const SCENE = '0f5c2f8e-3a1e-4a4f-9d2f-1c6d5b0a7e11'
@@ -57,7 +57,7 @@ describe('the Conditions a request writes', () => {
     ])
   })
 
-  it('reads no Conditions as a Cut offered to everyone, and a Shot every Reading sees', async () => {
+  it('reads no Conditions as an Exit offered to everyone, and a Shot every Reading sees', async () => {
     await expect(asking({ conditions: [] })).resolves.toEqual([])
     await expect(asking({ conditions: null })).resolves.toEqual([])
     await expect(asking({})).resolves.toEqual([])
@@ -112,6 +112,6 @@ describe('the Conditions a request writes', () => {
     await expect(asShot({ conditions: tests(CONDITIONS_MAX + 1) }))
       .rejects.toThrow(`A Shot cannot carry more than ${CONDITIONS_MAX} Conditions.`)
     await expect(asking({ conditions: tests(CONDITIONS_MAX + 1) }))
-      .rejects.toThrow(`A Cut cannot carry more than ${CONDITIONS_MAX} Conditions.`)
+      .rejects.toThrow(`An Exit cannot carry more than ${CONDITIONS_MAX} Conditions.`)
   })
 })

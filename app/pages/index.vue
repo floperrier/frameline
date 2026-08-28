@@ -27,16 +27,16 @@ const landingStory = useRuntimeConfig().public.landingStory
       <!-- The thesis, and the one thing worth showing before anyone signs in: a
            Story is a beat, and then what the Reader may take. It is a specimen and
            not a Reading, so nothing here is a control — a visitor cannot take a
-           Cut that leads nowhere. -->
+           Exit that leads nowhere. -->
       <figure class="specimen">
         <figcaption class="eyebrow">{{ $t('landing.specimen') }}</figcaption>
         <div class="frame">
           <p class="eyebrow">{{ $t('landing.specimenScene') }}</p>
           <p class="shot">{{ $t('landing.specimenShot') }}</p>
         </div>
-        <ul class="cuts">
-          <li class="splice">{{ $t('landing.specimenCutOne') }}</li>
-          <li class="splice">{{ $t('landing.specimenCutTwo') }}</li>
+        <ul class="exits">
+          <li class="splice">{{ $t('landing.specimenExitOne') }}</li>
+          <li class="splice">{{ $t('landing.specimenExitTwo') }}</li>
         </ul>
       </figure>
     </div>
@@ -52,7 +52,7 @@ const landingStory = useRuntimeConfig().public.landingStory
 
       <ol>
         <li>
-          <!-- A Story: Scenes, and the Cuts between them, seen at once. -->
+          <!-- A Story: Scenes, and the Exits between them, seen at once. -->
           <div class="figure story" aria-hidden="true">
             <span class="node"></span>
             <span class="node"></span>
@@ -89,14 +89,14 @@ const landingStory = useRuntimeConfig().public.landingStory
         </li>
 
         <li>
-          <!-- A Cut: the grease-pencil mark, and the Scene it leads on to. -->
-          <div class="figure cut" aria-hidden="true">
+          <!-- An Exit: the grease-pencil mark, and the Scene it leads on to. -->
+          <div class="figure exit" aria-hidden="true">
             <span class="node"></span>
             <span class="splice"></span>
             <span class="node"></span>
           </div>
-          <h3>{{ $t('landing.terms.cutTerm') }}</h3>
-          <p class="line">{{ $t('landing.terms.cutLine') }}</p>
+          <h3>{{ $t('landing.terms.exitTerm') }}</h3>
+          <p class="line">{{ $t('landing.terms.exitLine') }}</p>
         </li>
 
         <li>
@@ -213,15 +213,15 @@ main {
   padding: var(--s5) var(--s4);
 }
 
-/* Cuts are a splice list: a grease-pencil mark, then the line the Reader takes. */
-.cuts {
+/* Exits are a splice list: a grease-pencil mark, then the line the Reader takes. */
+.exits {
   display: grid;
   gap: 1px;
   background: var(--edge);
   border-block: 1px solid var(--edge);
 }
 
-.cuts li {
+.exits li {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: var(--s3);
@@ -269,7 +269,7 @@ main {
   block-size: 2.25rem;
 }
 
-/* The Cuts between them, drawn as the hairline they are on the graph. */
+/* The Exits between them, drawn as the hairline they are on the graph. */
 .story .node + .node {
   position: relative;
   margin-inline-start: var(--s4);
@@ -327,8 +327,8 @@ main {
 }
 
 /* The grease-pencil mark, borrowed from the splice list, standing on its own
-   between the two Scenes a Cut joins. */
-.cut .splice::before {
+   between the two Scenes an Exit joins. */
+.exit .splice::before {
   font-size: 1.25rem;
 }
 

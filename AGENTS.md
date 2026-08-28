@@ -75,7 +75,7 @@ a vendored skill is hashed in `skills-lock.json`.
 `pnpm test` runs the Vitest suite over the modules that are pure functions: the
 Reading engine, what a Shot's image is read to be, the Conditions a request is
 allowed to write, the sequence of Places it renumbers a Scene by, the Scenes a
-Cut may land on, the geometry of the lines the graph draws and where a point on
+Exit may land on, the geometry of the lines the graph draws and where a point on
 the screen lands on the surface they are drawn on, the two message
 files held against each other, the language a refusal is phrased in, the Steps the
 bench asks a Story for — whose targets are held against the editor's template
@@ -95,7 +95,7 @@ Migrations are generated from `server/db/schema.ts` with `pnpm db:generate`.
 
 `demonstration/` holds the two works this repository carries. *Reel Change* is
 the short film the product exists to carry: `reel-change.ts` is the work itself —
-its Scenes, Shots, Cuts and Conditions, and the recipe for each image. The
+its Scenes, Shots, Exits and Conditions, and the recipe for each image. The
 Samples are the three-Scene Story a new Author is given, one per Language, in
 `samples.ts`; their images are the WebP files in `images/`, developed once by
 `images.ts` and committed, because the runtime this deploys to has no ImageMagick

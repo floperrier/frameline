@@ -22,7 +22,7 @@ const { data: story } = await useAsyncData(
 /**
  * Where the Reading below has got to, and the only thing it tells this page. The
  * engine is a pure function of it, so reading it a second time here costs a walk
- * of the Cuts taken and buys a State nobody had to hand out.
+ * of the Exits taken and buys a State nobody had to hand out.
  */
 const at = ref<Position>(OPENING)
 const shown = computed(() => story.value && reading(story.value, at.value))
@@ -49,7 +49,7 @@ const visits = computed(() => Object.entries(shown.value?.state.visits ?? {}))
 
 /**
  * The ways out of the Scene the Reading stands in that it is not being offered —
- * the Cuts the engine filtered out, found by asking the engine's own predicate
+ * the Exits the engine filtered out, found by asking the engine's own predicate
  * rather than by testing the Conditions again here. Only where the Scene has
  * played out, because that is where the ways on are the question.
  */
@@ -57,8 +57,8 @@ const hidden = computed(() => {
   const now = shown.value
   if (!story.value || !now || now.shot) return []
 
-  return story.value.cuts.filter(
-    cut => cut.fromSceneId === now.sceneId && !holds(cut.conditions, now.state))
+  return story.value.exits.filter(
+    exit => exit.fromSceneId === now.sceneId && !holds(exit.conditions, now.state))
 })
 
 /**
@@ -78,7 +78,7 @@ const skipped = computed(() => {
     .filter(({ shot }) => !holds(shot.conditions, now.state))
 })
 
-/** Which of the tests a hidden Cut or a skipped Shot carries this State fails, and by what. */
+/** Which of the tests a hidden Exit or a skipped Shot carries this State fails, and by what. */
 function why(conditions: Condition[]) {
   return shown.value ? unmet(conditions, shown.value.state, sceneName, t) : []
 }
@@ -132,16 +132,16 @@ function why(conditions: Condition[]) {
         </p>
 
         <!-- Why a way on is missing, which is the question a Preview could not
-             answer before: the Cuts out of this Scene the State is hiding, struck
+             answer before: the Exits out of this Scene the State is hiding, struck
              through and each naming the tests it failed. Text and not controls —
-             a hidden Cut is not takeable here any more than it is for a Reader. -->
+             a hidden Exit is not takeable here any more than it is for a Reader. -->
         <div v-if="hidden.length" class="hidden">
           <p class="eyebrow">{{ $t('preview.waysOnHidden') }}</p>
           <ul>
-            <li v-for="cut in hidden" :key="cut.id">
-              <s class="splice" :lang="story?.language">{{ cutNamed(cut, sceneName, t) }}</s>
+            <li v-for="exit in hidden" :key="exit.id">
+              <s class="splice" :lang="story?.language">{{ exitNamed(exit, sceneName, t) }}</s>
               <ul class="why">
-                <li v-for="(test, at) in why(cut.conditions)" :key="at">{{ test }}</li>
+                <li v-for="(test, at) in why(exit.conditions)" :key="at">{{ test }}</li>
               </ul>
             </li>
           </ul>

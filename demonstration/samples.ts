@@ -52,7 +52,7 @@ function lines(x: number, y: number, width: number) {
   return all(panel(x, y, width, 16), panel(x, y + 40, Math.round(width * 0.6), 16))
 }
 
-/** The two ways on of `a-cut`, leaving one edge and landing on different Scenes. */
+/** The two ways on of `an-exit`, leaving one edge and landing on different Scenes. */
 const WAYS_ON = 'polygon 500,436 1060,206 1060,226 500,456 '
   + 'polygon 500,444 1060,674 1060,694 500,464'
 
@@ -84,7 +84,7 @@ export const SAMPLE_IMAGES: Record<string, Image> = {
     grain: 0.6,
   },
 
-  'a-cut': {
+  'an-exit': {
     ground: [BENCH, DARK],
     glow: [{ colour: GREASE, draw: WAYS_ON, blur: 40, opacity: 0.55 }],
     form: [
@@ -255,19 +255,19 @@ const ENGLISH: Work = {
     },
 
     {
-      name: 'What a Cut offers',
+      name: 'What an Exit offers',
       at: [520, 100],
-      sets: { cut: 'taken' },
+      sets: { exit: 'taken' },
       shots: [
         {
-          text: 'You took a Cut to get here. A Cut is a way on, offered at the end of a '
+          text: 'You took an Exit to get here. An Exit is a way on, offered at the end of a '
             + 'Scene, and a Story branches nowhere else.',
           description: 'One panel on the left, and two lines leaving its edge for two panels '
             + 'on the right.',
-          image: 'a-cut',
+          image: 'an-exit',
         },
         {
-          text: 'Entering this Scene set a Flag: cut = taken. A Scene sets its Flags on every '
+          text: 'Entering this Scene set a Flag: exit = taken. A Scene sets its Flags on every '
             + 'entry, and they stay in this Reading’s State until something sets them again.',
           description: 'A panel with a plate laid across it, a pale name beside a lit value.',
           image: 'a-flag',
@@ -280,8 +280,8 @@ const ENGLISH: Work = {
       at: [520, 700],
       shots: [
         {
-          text: 'A Condition is one flat test on State, carried by a Shot or by a Cut. Where '
-            + 'it does not hold, the Shot is not played and the Cut is not offered: nothing '
+          text: 'A Condition is one flat test on State, carried by a Shot or by an Exit. Where '
+            + 'it does not hold, the Shot is not played and the Exit is not offered: nothing '
             + 'is refused, it is simply not there. Nothing here is precious — change it, '
             + 'break it, delete it.',
           description: 'Two panels with a lit lozenge standing between them, the far one '
@@ -294,14 +294,14 @@ const ENGLISH: Work = {
           description: 'A run of two panels with a gap between them where a third would '
             + 'stand, drawn as an outline and nothing more.',
           image: 'a-gap',
-          when: [{ flag: 'cut', is: 'taken' }],
+          when: [{ flag: 'exit', is: 'taken' }],
         },
       ],
     },
   ],
 
-  cuts: [
-    { from: 'Where a Story starts', to: 'What a Cut offers', text: 'Take the Cut' },
+  exits: [
+    { from: 'Where a Story starts', to: 'What an Exit offers', text: 'Take the Exit' },
     {
       from: 'Where a Story starts',
       to: 'What a Condition tests',
@@ -311,11 +311,11 @@ const ENGLISH: Work = {
       text: 'Skip the second Scene',
     },
     {
-      from: 'What a Cut offers',
+      from: 'What an Exit offers',
       to: 'What a Condition tests',
       text: 'Go on to the Conditions',
     },
-    { from: 'What a Cut offers', to: 'Where a Story starts', text: 'Go back to the first Scene' },
+    { from: 'What an Exit offers', to: 'Where a Story starts', text: 'Go back to the first Scene' },
     {
       from: 'What a Condition tests',
       to: 'Where a Story starts',
@@ -363,19 +363,20 @@ const FRENCH: Work = {
     },
 
     {
-      name: 'Ce qu’offre une Coupe',
+      name: 'Ce qu’offre une Sortie',
       at: [520, 100],
-      sets: { coupe: 'prise' },
+      sets: { sortie: 'prise' },
       shots: [
         {
-          text: 'Vous avez pris une Coupe pour venir ici. Une Coupe est une issue, offerte à '
-            + 'la fin d’une Scène, et un Récit ne bifurque nulle part ailleurs.',
+          text: 'Vous avez pris une Sortie pour venir ici. Une Sortie est un passage vers une '
+            + 'autre Scène, offert à la fin de celle qu’on quitte, et un Récit ne bifurque '
+            + 'nulle part ailleurs.',
           description: 'Un panneau à gauche, et deux traits qui quittent son bord vers deux '
             + 'panneaux à droite.',
-          image: 'a-cut',
+          image: 'an-exit',
         },
         {
-          text: 'Entrer dans cette Scène a posé un Marqueur : coupe = prise. Une Scène pose '
+          text: 'Entrer dans cette Scène a posé un Marqueur : sortie = prise. Une Scène pose '
             + 'ses Marqueurs à chaque entrée, et ils restent dans l’État de cette Lecture '
             + 'jusqu’à ce que quelque chose les repose.',
           description: 'Un panneau traversé d’une plaque, un nom pâle à côté d’une valeur '
@@ -391,7 +392,7 @@ const FRENCH: Work = {
       shots: [
         {
           text: 'Une Condition est un test plat sur l’État, porté par un Plan ou par une '
-            + 'Coupe. Là où elle ne tient pas, le Plan n’est pas joué et la Coupe n’est pas '
+            + 'Sortie. Là où elle ne tient pas, le Plan n’est pas joué et la Sortie n’est pas '
             + 'offerte : rien n’est refusé, la chose n’est simplement pas là. Rien ici '
             + 'n’est précieux — modifiez, cassez, supprimez.',
           description: 'Deux panneaux séparés par un losange éclairé, le plus loin presque '
@@ -405,14 +406,14 @@ const FRENCH: Work = {
           description: 'Une suite de deux panneaux avec, entre eux, la place d’un troisième, '
             + 'tracée en contour et rien de plus.',
           image: 'a-gap',
-          when: [{ flag: 'coupe', is: 'prise' }],
+          when: [{ flag: 'sortie', is: 'prise' }],
         },
       ],
     },
   ],
 
-  cuts: [
-    { from: 'Là où un Récit commence', to: 'Ce qu’offre une Coupe', text: 'Prendre la Coupe' },
+  exits: [
+    { from: 'Là où un Récit commence', to: 'Ce qu’offre une Sortie', text: 'Prendre la Sortie' },
     {
       from: 'Là où un Récit commence',
       to: 'Ce que teste une Condition',
@@ -422,12 +423,12 @@ const FRENCH: Work = {
       text: 'Sauter la deuxième Scène',
     },
     {
-      from: 'Ce qu’offre une Coupe',
+      from: 'Ce qu’offre une Sortie',
       to: 'Ce que teste une Condition',
       text: 'Continuer vers les Conditions',
     },
     {
-      from: 'Ce qu’offre une Coupe',
+      from: 'Ce qu’offre une Sortie',
       to: 'Là où un Récit commence',
       text: 'Revenir à la première Scène',
     },
