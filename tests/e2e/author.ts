@@ -171,6 +171,29 @@ export async function readComments(storyId: string) {
     order by created_at` as { id: string, text: string }[]
 }
 
+/**
+ * Writes a List for an Author nobody is signed in as, so a spec has somebody
+ * else's shelf to fail to reach. The API deliberately offers no way to write one
+ * for another Author.
+ */
+export async function seedList(author: Author, title: string | null) {
+  const [list] = await sql`
+    insert into lists (author_id, title)
+    values (${author.id}, ${title})
+    returning id, title` as { id: string, title: string | null }[]
+
+  return list!
+}
+
+/** Reads what is in a List past the API, to see what gathering a Story really wrote. */
+export async function readListStories(listId: string) {
+  return await sql`
+    select stories.id, stories.title
+    from list_stories join stories on stories.id = list_stories.story_id
+    where list_stories.list_id = ${listId}
+    order by list_stories.added_at desc` as { id: string, title: string }[]
+}
+
 /** Writes a Scene, and a Shot in it, on behalf of an Author nobody is signed in as. */
 export async function seedScene(story: Story, name: string) {
   const [scene] = await sql`

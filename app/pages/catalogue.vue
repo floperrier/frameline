@@ -7,6 +7,7 @@
 // No middleware: a Reader has no account, and an Author browsing is a Reader
 // like any other until they open the bench.
 const localePath = useLocalePath()
+const { loggedIn } = useUserSession()
 const { data: catalogue } = await useFetch('/api/catalogue')
 </script>
 
@@ -19,13 +20,23 @@ const { data: catalogue } = await useFetch('/api/catalogue')
       <Locales />
     </header>
 
+    <!-- Gathering a Story is signed, so somebody with no account is offered no
+         control — and is told why here, once, rather than under every entry.
+         Nothing sends them anywhere: they came to find something to read. -->
+    <p v-if="!loggedIn" class="none">{{ $t('lists.signedOut') }}</p>
+    <p v-else class="yours">
+      <NuxtLink :to="localePath('/lists')">{{ $t('lists.yourLists') }}</NuxtLink>
+    </p>
+
     <p v-if="!catalogue?.length" class="none">{{ $t('catalogue.none') }}</p>
     <!-- One entry a Story, and the entry is the link: the Catalogue's whole job
          is to hand a Reader the public link they were never sent. It carries no
          count and no rating — nothing here is a score, and the order is the date
          alone. -->
     <ul v-else class="entries">
-      <Entry v-for="story in catalogue" :key="story.id" :story="story" />
+      <Entry v-for="story in catalogue" :key="story.id" :story="story">
+        <Gathering :story-id="story.id" :title="story.title" />
+      </Entry>
     </ul>
   </main>
 </template>

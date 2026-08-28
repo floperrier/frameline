@@ -1,4 +1,16 @@
-import { boolean, customType, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import {
+  boolean,
+  customType,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import type { Condition, Sets } from '../../shared/utils/scenes'
 
@@ -195,3 +207,49 @@ export const comments = pgTable('comments', {
   text: text('text').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// A List is Stories an Author has gathered under a title of their own, and
+// Favourites is the List every account has from the start: the same table, with
+// `title` null. One mechanism rather than two — to favourite a Story is to put
+// it in that List and nothing else, so there is no `favourite` column here or
+// anywhere else, and nothing that could disagree with what a List holds. See
+// `docs/adr/0028-favourites-is-a-list-without-a-title.md`.
+//
+// A null title is what makes Favourites untitled by construction: there is no
+// title for an Author to write and none for the interface to draw, so the name
+// it is shown under is the interface's own word. The unique index is what makes
+// it one per account, whatever wrote the row — and nothing backfills it, because
+// the row is written the first time an Author's Lists are read rather than by the
+// sign-in an existing account already had.
+//
+// That every List is private is a fact about the handlers rather than about the
+// schema: nothing here says who may read one, and every query that touches this
+// table is scoped by `author_id`. It cascades from the Author, so an account
+// deleted takes its Lists with it.
+export const lists = pgTable('lists', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  authorId: uuid('author_id').notNull().references(() => authors.id, { onDelete: 'cascade' }),
+  title: text('title'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, table => [
+  uniqueIndex('one_favourites_per_author').on(table.authorId).where(sql`title is null`),
+])
+
+// What is in a List: a row per Story gathered, keyed on the pair. Putting a
+// Story in a List twice therefore changes nothing — the second insert conflicts
+// with the first and does nothing, rather than writing a duplicate the page
+// would draw twice — and one Story sits in as many Lists as its Author gathers
+// it into, which is what a row per pair buys and a column on the Story could
+// not.
+//
+// Both ends cascade: a List deleted takes what was in it, and a Story deleted
+// leaves nobody holding a List that points at a Story which is gone.
+//
+// `added_at` is the whole of the ordering inside a List — most recently gathered
+// first, the way the Catalogue hands over the most recently published. Nothing
+// here is a count, a score or a rating: there is no column one could be kept in.
+export const listStories = pgTable('list_stories', {
+  listId: uuid('list_id').notNull().references(() => lists.id, { onDelete: 'cascade' }),
+  storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
+  addedAt: timestamp('added_at', { withTimezone: true }).notNull().defaultNow(),
+}, table => [primaryKey({ columns: [table.listId, table.storyId] })])

@@ -71,6 +71,22 @@
     "none": "{name} n’a rien au Catalogue.",
     "unnamed": "Un Auteur"
   },
+  "lists": {
+    "heading": "Listes",
+    "line": "Les Récits que vous avez rassemblés, à vous seul. Les Favoris sont la Liste que chaque compte possède ; les autres sont les Listes que vous écrivez vous-même.",
+    "favourites": "Favoris",
+    "newTitle": "Titre d’une nouvelle Liste",
+    "create": "Créer la Liste",
+    "title": "Titre",
+    "rename": "Renommer",
+    "empty": "Rien dans cette Liste pour l’instant. Rassemblez-y un Récit depuis le Catalogue, ou depuis la page où il se lit.",
+    "take": "Retirer",
+    "favourite": "Mettre en Favoris",
+    "gatherInto": "Rassembler dans une Liste",
+    "signedOut": "Les Favoris et les Listes sont tenus par compte : en rassembler un demande donc un compte. Lire n’en demande aucun, et rien ici ne vous fait quitter cette page.",
+    "yourLists": "Vos Listes",
+    "toCatalogue": "Trouver des Récits au Catalogue"
+  },
   "stories": {
     "heading": "Récits",
     "signOut": "Se déconnecter",
@@ -241,7 +257,8 @@
       "shot": "Ce Plan n'existe pas.",
       "exit": "Cette Sortie n'existe pas.",
       "author": "Cet Auteur n'existe pas.",
-      "comment": "Ce Commentaire n'existe pas."
+      "comment": "Ce Commentaire n'existe pas.",
+      "list": "Cette Liste n'existe pas."
     },
     "notAnId": {
       "story": "Cet identifiant n'est pas celui d'un Récit.",
@@ -249,7 +266,8 @@
       "shot": "Cet identifiant n'est pas celui d'un Plan.",
       "exit": "Cet identifiant n'est pas celui d'une Sortie.",
       "author": "Cet identifiant n'est pas celui d'un Auteur.",
-      "comment": "Cet identifiant n'est pas celui d'un Commentaire."
+      "comment": "Cet identifiant n'est pas celui d'un Commentaire.",
+      "list": "Cet identifiant n'est pas celui d'une Liste."
     },
     "places": {
       "shot": "Les Plans d'une Scène sont renumérotés tous à la fois, chacun nommé une seule fois.",
@@ -287,6 +305,10 @@
     "signedOut": "La connexion n'est plus ouverte, donc rien n'a été écrit.",
     "commentText": "Un Commentaire porte ce que vous avez à dire, il ne peut donc pas être vide.",
     "commentTextLong": "Un Commentaire ne peut pas dépasser {max} caractères.",
-    "nameBeforeCommenting": "Un Commentaire est signé du Nom de son Auteur : écrivez le vôtre sur la liste de vos propres Récits avant de commenter."
+    "nameBeforeCommenting": "Un Commentaire est signé du Nom de son Auteur : écrivez le vôtre sur la liste de vos propres Récits avant de commenter.",
+    "listTitle": "Une Liste rassemble des Récits sous un titre, il ne peut donc pas être vide.",
+    "listTitleLong": "Un titre ne peut pas dépasser {max} caractères.",
+    "favouritesTitle": "Les Favoris sont la Liste que chaque compte possède : ils n’ont pas de titre à écrire.",
+    "favouritesDelete": "Les Favoris sont la Liste que chaque compte possède : ils ne peuvent pas être supprimés."
   }
 }

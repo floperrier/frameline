@@ -71,6 +71,22 @@
     "none": "{name} has nothing in the Catalogue.",
     "unnamed": "An Author"
   },
+  "lists": {
+    "heading": "Lists",
+    "line": "The Stories you have gathered, yours alone. Favourites is the List every account has; the others are the Lists you write yourself.",
+    "favourites": "Favourites",
+    "newTitle": "Title of a new List",
+    "create": "Create List",
+    "title": "Title",
+    "rename": "Rename",
+    "empty": "Nothing in this List yet. Gather a Story into it from the Catalogue, or from the page it is read on.",
+    "take": "Take out",
+    "favourite": "Favourite",
+    "gatherInto": "Gather into a List",
+    "signedOut": "Favourites and Lists are kept per account, so gathering a Story needs one. Reading needs none, and nothing here takes you off this page.",
+    "yourLists": "Your Lists",
+    "toCatalogue": "Find Stories in the Catalogue"
+  },
   "stories": {
     "heading": "Stories",
     "signOut": "Sign out",
@@ -241,7 +257,8 @@
       "shot": "No such Shot.",
       "exit": "No such Exit.",
       "author": "No such Author.",
-      "comment": "No such Comment."
+      "comment": "No such Comment.",
+      "list": "No such List."
     },
     "notAnId": {
       "story": "That is not a Story id.",
@@ -249,7 +266,8 @@
       "shot": "That is not a Shot id.",
       "exit": "That is not an Exit id.",
       "author": "That is not an Author id.",
-      "comment": "That is not a Comment id."
+      "comment": "That is not a Comment id.",
+      "list": "That is not a List id."
     },
     "places": {
       "shot": "The Shots of a Scene are renumbered all at once, each one named exactly once.",
@@ -287,6 +305,10 @@
     "signedOut": "You are no longer signed in, so nothing was written.",
     "commentText": "A Comment carries what you have to say, so it cannot be empty.",
     "commentTextLong": "A Comment cannot be longer than {max} characters.",
-    "nameBeforeCommenting": "A Comment is signed with its Author's Name, so write yours on the list of your own Stories before commenting."
+    "nameBeforeCommenting": "A Comment is signed with its Author's Name, so write yours on the list of your own Stories before commenting.",
+    "listTitle": "A List gathers Stories under a title, so it cannot be empty.",
+    "listTitleLong": "A title cannot be longer than {max} characters.",
+    "favouritesTitle": "Favourites is the List every account has, so it has no title to write.",
+    "favouritesDelete": "Favourites is the List every account has, so it cannot be deleted."
   }
 }
