@@ -1164,6 +1164,42 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
   }).toPass()
 })
 
+test('an Author types the values a Flag is drawn from, on the Flag’s own line',
+  async ({ page, request }) => {
+    const { story, scenes } = await openGraph(request)
+    const [arrival] = scenes as [{ id: string }, { id: string }]
+
+    await page.goto(`/stories/${story.id}`)
+    await writeScene(page, 'The arrival')
+
+    const flags = page.getByLabel('Flags set on entering The arrival')
+    await flags.fill('weather = rain | sun | haze\ncoat = on')
+    await flags.blur()
+
+    // The list is one line of the field and a list in the Story: what the Author
+    // typed on one line is what the Scene draws from on every entry.
+    await expect(async () => {
+      await expect(readFlags(arrival.id))
+        .resolves.toEqual({ weather: ['rain', 'sun', 'haze'], coat: 'on' })
+    }).toPass()
+
+    // And it is shown back as the line it was typed on, spacing and all, which is
+    // what the round trip through the editor has to hold. Matched as a line
+    // rather than as the whole field, because jsonb keeps a Scene's Flags in an
+    // order of its own and which line comes first is not what is being read.
+    await page.reload()
+    await writeScene(page, 'The arrival')
+    await expect(flags).toHaveValue(/^weather = rain \| sun \| haze$/m)
+
+    // A list longer than a draw may be is refused with the cap named, and the
+    // Scene keeps the draw it had rather than being left setting nothing.
+    await flags.fill('weather = a | b | c | d | e | f | g')
+    await flags.blur()
+    await expect(page.getByRole('alert')).toContainText('6 values')
+    await expect(readFlags(arrival.id))
+      .resolves.toEqual({ weather: ['rain', 'sun', 'haze'], coat: 'on' })
+  })
+
 /**
  * Two typed changes to the same Flags, with the first one held back on its way out
  * for longer than the second takes altogether — which is what an Author on a slow

@@ -324,3 +324,62 @@ test('a Scene says something different on a return visit', async ({ page, reques
   await expect(frame.getByText('The same door, again.')).toBeVisible()
   await expect(bench.getByText('Shots this Reading is not played')).toBeHidden()
 })
+
+test('a Scene draws one of several values, and the Author draws it again',
+  async ({ page, request }) => {
+    const story = await writeStory(request)
+    const { scenes } = await (await request.get(`/api/stories/${story.id}`)).json()
+    const street = scenes[0]
+
+    // The street's weather is drawn from three values, and a third beat is
+    // written three times over, each variant playing under one of them.
+    await request.put(`/api/scenes/${street.id}/flags`, {
+      data: { sets: { weather: ['rain', 'sun', 'haze'] } },
+    })
+    for (const [value, text] of [
+      ['rain', 'Rain on the awning.'],
+      ['sun', 'Sun on the awning.'],
+      ['haze', 'Haze over the street.'],
+    ] as const) {
+      const shot = await (await request.post(`/api/scenes/${street.id}/shots`)).json()
+      await request.patch(`/api/shots/${shot.id}`, { data: { text, description: '' } })
+      await request.put(`/api/shots/${shot.id}/conditions`, {
+        data: { conditions: [{ flag: 'weather', is: value }] },
+      })
+    }
+
+    await page.goto(`/stories/${story.id}/preview`)
+    const bench = page.getByRole('region', { name: /On the bench/ })
+    const frame = page.locator('figure')
+
+    // The value drawn is on the bench beside the rest of the State, which is what
+    // tells a variant that was not drawn from one whose Condition is wrong.
+    await expect(bench.getByText(/weather = (rain|sun|haze)/)).toBeVisible()
+
+    // The Scene is three beats long, not five: the two variants that were not
+    // drawn are out of the run rather than gaps in it.
+    await expect(page.getByText('Shot 1 of 3')).toBeVisible()
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+
+    /** The weather the frame is showing, and the weather the bench says was drawn. */
+    const played = () => frame.locator('.shot').innerText()
+    const drawn = async () =>
+      ((await bench.getByText(/weather = /).innerText()).match(/rain|sun|haze/) ?? [])[0]
+
+    const first = await played()
+    expect(first).toMatch(/Rain on the awning\.|Sun on the awning\.|Haze over the street\./)
+    expect(first.toLowerCase()).toContain(await drawn())
+
+    // Drawing again keeps the Position — still the third beat of a three-beat
+    // Scene — and only the draw changes, until a variant the Author has not seen
+    // comes up. A press that draws the same value again is not a failure, so the
+    // button is pressed until it differs rather than once.
+    await expect.poll(async () => {
+      await bench.getByRole('button', { name: 'Draw again' }).click()
+      return await played()
+    }).not.toBe(first)
+
+    await expect(page.getByText('Shot 3 of 3')).toBeVisible()
+    expect((await played()).toLowerCase()).toContain(await drawn())
+  })

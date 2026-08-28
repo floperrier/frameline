@@ -154,10 +154,13 @@ function written(story: StoryInEditor) {
 function conditionTaught(story: StoryInEditor, holding = false) {
   const flagsSet = story.scenes.flatMap(scene => Object.entries(scene.sets))
 
+  // A Flag the Scene draws from several values counts where any one of them is
+  // the value tested, for the same lenient reading: which one a Reading is shown
+  // is the engine's answer and not a predicate's.
   return story.scenes[1]?.shots
     .flatMap(shot => shot.conditions)
-    .find(condition => 'flag' in condition && flagsSet.some(([flag, value]) =>
-      flag === condition.flag && (!holding || value === condition.is)))
+    .find(condition => 'flag' in condition && flagsSet.some(([flag, held]) =>
+      flag === condition.flag && (!holding || [held].flat().includes(condition.is))))
 }
 
 /**

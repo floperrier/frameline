@@ -23,8 +23,22 @@ const { t } = useI18n()
  */
 const emit = defineEmits<{ at: [Position] }>()
 
-const at = ref<Position>(OPENING)
+const at = ref<Position>(UNDRAWN)
 const shown = computed(() => reading(story, at.value))
+const shownAt = () => emit('at', at.value)
+
+/**
+ * The seed every draw a Scene makes comes out of, drawn once the Reading is in
+ * the browser and said out loud like every other move. Here rather than in the
+ * Position this starts at, because the server renders this page too and a seed
+ * drawn there and drawn again here would be two Stories either side of
+ * hydration. It is the one impure moment in a Reading — see
+ * `docs/adr/0024-the-seed-belongs-to-the-position.md`.
+ */
+onMounted(() => {
+  at.value = opening()
+  shownAt()
+})
 
 /**
  * Where the Reader is put after the Reading moves. Every beat replaces what was
@@ -42,10 +56,24 @@ const exits = useTemplateRef<HTMLElement>('exits')
 
 async function moveTo(to: Position) {
   at.value = to
-  emit('at', to)
+  shownAt()
   await nextTick()
   ;(shown.value.shot ? frame.value : exits.value?.querySelector('button'))?.focus()
 }
+
+/**
+ * The same Position under another draw, which is the one thing about a Reading
+ * something outside it may change: the Preview's reroll. Nothing moves, so
+ * nothing takes focus — the Author presses the button again and again, and what
+ * changes is the Story around it. Exposed rather than taken as a prop, because
+ * the Position lives here and a second place to hold it is a second Reading.
+ */
+function reroll() {
+  at.value = rerolled(at.value)
+  shownAt()
+}
+
+defineExpose({ reroll })
 
 const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, scene.name])))
 
@@ -155,7 +183,7 @@ function offered(exit: Exit) {
     <p v-if="shown.ended" class="ended trail" role="status">{{ $t('reading.ended') }}</p>
 
     <p class="again">
-      <button type="button" class="trail" @click="moveTo(OPENING)">
+      <button type="button" class="trail" @click="moveTo(opening())">
         {{ $t('reading.again') }}
       </button>
     </p>

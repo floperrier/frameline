@@ -1,4 +1,4 @@
-import type { Condition, Exit, Flags, Shot } from './scenes'
+import type { Condition, Exit, Flags, Sets, Shot } from './scenes'
 import type { Phrase } from './phrases'
 
 /**
@@ -8,7 +8,7 @@ import type { Phrase } from './phrases'
  */
 export type StoryToRead = {
   openingSceneId: string | null
-  scenes: { id: string, sets: Flags, shots: Shot[] }[]
+  scenes: { id: string, sets: Sets, shots: Shot[] }[]
   exits: Exit[]
 }
 
@@ -19,7 +19,7 @@ export type StoryToRead = {
  * that cannot go on is worse than one offered an Exit named after where it lands.
  */
 export type StoryToShow = Omit<StoryToRead, 'scenes'> & {
-  scenes: { id: string, name: string, sets: Flags, shots: Shot[] }[]
+  scenes: { id: string, name: string, sets: Sets, shots: Shot[] }[]
 }
 
 /**
@@ -29,8 +29,15 @@ export type StoryToShow = Omit<StoryToRead, 'scenes'> & {
  * computed from it, so a Reading is this much and nothing more. Two Readings of
  * the same Story that took the same Exits are the same Reading, which is what
  * makes the engine a pure function and the whole of it testable.
+ *
+ * The seed is what every draw a Scene makes comes out of. It is a part of the
+ * Position rather than a term of its own — see
+ * `docs/adr/0024-the-seed-belongs-to-the-position.md` — because a Reading is its
+ * Position and nothing else: a seed kept anywhere else would make `reading()`
+ * impure, and two Readings that took the same Exits under the same seed would
+ * stop being the same Reading.
  */
-export type Position = { taken: string[], shot: number }
+export type Position = { seed: number, taken: string[], shot: number }
 
 /**
  * Everything one Reading has accumulated: what each Flag holds, and how often
@@ -105,8 +112,69 @@ function entered(visits: number, say: Phrase) {
   return visits === 1 ? say('preview.enteredOnce') : say('preview.enteredTimes', { visits })
 }
 
-/** Every Reading starts here: the opening Scene, first Shot, nothing taken. */
-export const OPENING: Position = { taken: [], shot: 0 }
+/**
+ * Every Reading starts here: the opening Scene, first Shot, nothing taken, and a
+ * seed drawn for it. Drawing that seed is the one impure moment in the whole
+ * engine, and it happens here — called by whatever starts a Reading — rather than
+ * inside `reading()`, which stays a pure function of the Position it is handed.
+ * A seed may be passed in, which is what a test states and what a reroll
+ * replaces.
+ */
+export function opening(seed = Math.floor(Math.random() * 2 ** 32)): Position {
+  return { seed, taken: [], shot: 0 }
+}
+
+/**
+ * Where a Reading stands before a seed has been drawn for it: the opening
+ * Position under a seed of none. A screen renders on the server and then again in
+ * the browser hydrating it, and a seed drawn twice would be two different
+ * Stories either side of that — so the screens start here, and draw once the
+ * Reading is in the browser it will stay in.
+ */
+export const UNDRAWN: Position = opening(0)
+
+/**
+ * The same Position under a different draw: the Author's reroll. Nothing about
+ * where the Reading has got to changes, so the Exits taken and the Shot on screen
+ * are the ones they were — what changes is which value every draw comes out
+ * with, which is the whole of the control the Preview offers.
+ */
+export function rerolled(at: Position): Position {
+  return { ...at, seed: opening().seed }
+}
+
+/**
+ * Which of the values a Scene names for a Flag this Reading is shown. Hashed from
+ * the seed, the Scene, how many times this Reading has entered it, and the Flag's
+ * name — the four things that identify the draw — so each draw is independent of
+ * every other: a Shot added upstream, or one skipped by a Condition, leaves it
+ * where it was, and a Position replayed after an edit shows the Story it showed.
+ * A sequential generator threaded through the walk would shift every later draw
+ * instead; see `docs/adr/0024-the-seed-belongs-to-the-position.md`.
+ */
+function drawn(seed: number, sceneId: string, visits: number, flag: string, values: string[]) {
+  return values[hashed(`${seed}:${sceneId}:${visits}:${flag}`) % values.length]!
+}
+
+/**
+ * A number out of a string, spread evenly enough over its range that a list of
+ * six is reached at all six ends. FNV-1a over the bytes, then murmur's final
+ * mix, which is what carries the difference between two nearly equal keys — one
+ * entry to a Scene and the next — up into the bits a small remainder reads. A few
+ * lines written here rather than a dependency pulled in, on the grounds of
+ * `docs/adr/0010-the-graph-is-written-here-not-pulled-in.md`.
+ */
+function hashed(key: string) {
+  let hash = 0x811C9DC5
+  for (let at = 0; at < key.length; at++) {
+    hash = Math.imul(hash ^ key.charCodeAt(at), 0x01000193)
+  }
+
+  hash = Math.imul(hash ^ (hash >>> 16), 0x21F0AAAD)
+  hash = Math.imul(hash ^ (hash >>> 15), 0x735A2D97)
+
+  return (hash ^ (hash >>> 15)) >>> 0
+}
 
 /**
  * What the Reader is shown at one point in a Reading — a screenful, not the
@@ -143,13 +211,23 @@ export type Shown = {
  * The walk is as long as the Exits taken, never as long as the Story's cycles, so
  * a Story that comes back on itself is read round and round without the engine
  * ever looping forever.
+ *
+ * A Flag the Scene gives several values is drawn here, where a Scene already sets
+ * its Flags: the draw is made before anything is judged, so the State an Exit or
+ * a Shot is held against is the one the Reader arrived with. It is keyed on the
+ * count of entries, so a Scene read a second time draws again and a Story that
+ * loops is worth looping through.
  */
-function walk(story: StoryToRead, taken: string[]) {
+function walk(story: StoryToRead, { seed, taken }: Position) {
   const state: State = { flags: {}, visits: {} }
 
   function enter(id: string) {
-    state.visits[id] = (state.visits[id] ?? 0) + 1
-    Object.assign(state.flags, story.scenes.find(scene => scene.id === id)?.sets)
+    const visits = (state.visits[id] = (state.visits[id] ?? 0) + 1)
+    const sets = story.scenes.find(scene => scene.id === id)?.sets ?? {}
+
+    for (const [flag, held] of Object.entries(sets)) {
+      state.flags[flag] = Array.isArray(held) ? drawn(seed, id, visits, flag, held) : held
+    }
   }
 
   let sceneId = story.openingSceneId
@@ -168,7 +246,7 @@ function walk(story: StoryToRead, taken: string[]) {
 
 /** What this Story shows a Reading standing at this Position. */
 export function reading(story: StoryToRead, at: Position): Shown {
-  const { sceneId, state } = walk(story, at.taken)
+  const { sceneId, state } = walk(story, at)
   // The run this Reading plays, judged against the State it arrived with: a Shot
   // whose Conditions fail is left out of the run rather than played to nobody,
   // so the Position counts the beats the Reader actually saw and the one after
@@ -195,5 +273,5 @@ export function advance(at: Position): Position {
 
 /** The Reader takes one of the Exits on offer, and the Scene it arrives at starts over. */
 export function take(at: Position, exit: Exit): Position {
-  return { taken: [...at.taken, exit.id], shot: 0 }
+  return { ...at, taken: [...at.taken, exit.id], shot: 0 }
 }

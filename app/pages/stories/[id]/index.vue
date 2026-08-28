@@ -2123,9 +2123,12 @@ function atAGlance(scene: Scene) {
               :id="`flags-${sceneWritten.id}`"
               class="data"
               data-step="scene-flags"
-              rows="2"
+              rows="3"
               :value="flagLines(sceneWritten.sets)"
-              :placeholder="$t('editor.flagsPlaceholder', { separator: FLAG_SEPARATOR })"
+              :placeholder="$t('editor.flagsPlaceholder', {
+                separator: FLAG_SEPARATOR,
+                values: FLAG_VALUES_SEPARATOR,
+              })"
               @change="writeFlags(sceneWritten, ($event.target as HTMLTextAreaElement).value)"
             />
           </p>

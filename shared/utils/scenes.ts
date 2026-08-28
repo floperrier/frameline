@@ -93,6 +93,18 @@ export const FLAGS_PER_SCENE = 20
 export const VISITS_MAX = 100
 
 /**
+ * How many values one Flag may be given to draw from. Two at the least — a line
+ * with no separator is a plain value and stays one — and six at the most: a draw
+ * is a beat coming back differently, not a table an Author rolls on. Past half a
+ * dozen variants of one Shot, what is being described is not a variation on a
+ * beat but several beats, and the answer to that is Scenes, the same way it is
+ * for an Exit needing more Conditions than `CONDITIONS_MAX` allows. Measured per
+ * value rather than per line: each value is held to `FLAG_VALUE_MAX_LENGTH` on
+ * its own.
+ */
+export const FLAG_VALUES_MAX = 6
+
+/**
  * How far a Scene's node may sit from the graph's top left, in pixels. A bound
  * on both sides of the wire: the server refuses anything beyond it, and dragging
  * stops there, so a Scene cannot be dropped somewhere nobody can scroll to.
@@ -330,7 +342,7 @@ export type Scene = {
   name: string
   x: number
   y: number
-  sets: Flags
+  sets: Sets
   shots: Shot[]
 }
 export type Exit = {
@@ -343,33 +355,63 @@ export type Exit = {
 }
 
 /**
- * The Flags a Scene sets the moment a Reading enters it, as names to values.
- * Flat, because a Flag is a single named value: nothing here holds another map.
+ * The Flags one Reading holds, as names to values. Flat, because a Flag is a
+ * single named value: nothing here holds another map. What a Scene declares is
+ * `Sets` below, which may name several values for one Flag.
  */
 export type Flags = Record<string, string>
 
 /**
- * What separates a Flag's name from its value where an Author types them. Here
- * rather than in the editor, because the server refuses a name holding it — a
- * name that did could not be shown back as the line it was typed on — and one
- * module has to own the format both sides obey.
+ * The Flags a Scene declares, which is not quite the Flags a Reading holds: a
+ * name may be given several values, and one of them is drawn each time a Reading
+ * enters the Scene. What carries the list is the declaration on the Scene; the
+ * State holds the value drawn, so `Flags` above stays a single named value
+ * apiece and the glossary's Flag stays what it says it is.
+ */
+export type Sets = Record<string, string | string[]>
+
+/**
+ * What separates a Flag's name from its value where an Author types them, and
+ * what separates one value of a draw from the next. Here rather than in the
+ * editor, because the server refuses a name or a value holding either — one that
+ * did could not be shown back as the line it was typed on — and one module has to
+ * own the format both sides obey.
  */
 export const FLAG_SEPARATOR = '='
+export const FLAG_VALUES_SEPARATOR = '|'
 
-/** The Flags a Scene sets, as one `name = value` a line, for an Author to read. */
-export function flagLines(sets: Flags) {
-  return Object.entries(sets).map(pair => pair.join(` ${FLAG_SEPARATOR} `)).join('\n')
+/**
+ * The Flags a Scene sets, as one `name = value` a line, for an Author to read. A
+ * Flag with several values is one line too — `weather = rain | sun | haze` — so
+ * what a Scene sets stays a list read at a glance.
+ */
+export function flagLines(sets: Sets) {
+  return Object.entries(sets)
+    .map(([name, held]) => [name, valueLine(held)].join(` ${FLAG_SEPARATOR} `))
+    .join('\n')
+}
+
+function valueLine(held: string | string[]) {
+  return Array.isArray(held) ? held.join(` ${FLAG_VALUES_SEPARATOR} `) : held
 }
 
 /**
- * The Flags an Author typed. Split on the first separator alone, so a value may
- * hold one; a line missing it is a name with no value, which the server refuses,
- * and a name typed twice holds what the later line gave it.
+ * The Flags an Author typed. Split on the first name separator alone, so a value
+ * may hold one; a line missing it is a name with no value, which the server
+ * refuses, and a name typed twice holds what the later line gave it.
+ *
+ * What is left is then split on the values separator, and a line carrying one is
+ * a draw rather than a plain value. A line carrying none stays a string, so
+ * nothing already written becomes a list of one; a separator that leaves a value
+ * empty is refused by the rule that a Flag is given a value.
  */
-export function flagsTyped(typed: string): Flags {
+export function flagsTyped(typed: string): Sets {
   return Object.fromEntries(typed.split('\n').filter(line => line.trim()).map((line) => {
     const [name, ...held] = line.split(FLAG_SEPARATOR)
-    return [name!.trim(), held.join(FLAG_SEPARATOR).trim()]
+    const value = held.join(FLAG_SEPARATOR).trim()
+    const values = value.split(FLAG_VALUES_SEPARATOR).map(one => one.trim())
+
+    return [name!.trim(), values.length > 1 ? values : value]
   }))
 }
 

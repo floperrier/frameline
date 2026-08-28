@@ -1,6 +1,6 @@
 import { customType, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
-import type { Condition, Flags } from '../../shared/utils/scenes'
+import type { Condition, Sets } from '../../shared/utils/scenes'
 
 export const authors = pgTable('authors', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -45,18 +45,19 @@ export const stories = pgTable('stories', {
 // the reach of the graph.
 //
 // `sets` is the Flags the Scene sets on every entry, as one flat object of names
-// to values. A table of its own would be the orthodox shape, but a Scene's Flags
-// are only ever read and written whole, with the Scene — never queried across
-// Stories, never joined to anything — so a row apiece would buy a join and
-// nothing else. What keeps the shape honest is the validation at the request
-// boundary, since Postgres will take any jsonb at all.
+// to values — or, where the Author named several, to the list one value is drawn
+// from on each entry. A table of its own would be the orthodox shape, but a
+// Scene's Flags are only ever read and written whole, with the Scene — never
+// queried across Stories, never joined to anything — so a row apiece would buy a
+// join and nothing else. What keeps the shape honest is the validation at the
+// request boundary, since Postgres will take any jsonb at all.
 export const scenes = pgTable('scenes', {
   id: uuid('id').primaryKey().defaultRandom(),
   storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   x: integer('x').notNull().default(0),
   y: integer('y').notNull().default(0),
-  sets: jsonb('sets').$type<Flags>().notNull().default({}),
+  sets: jsonb('sets').$type<Sets>().notNull().default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
