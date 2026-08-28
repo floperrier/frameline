@@ -62,7 +62,7 @@ export type Shot = {
 
 /**
  * A work as a whole. A Scene is placed in the graph by hand, because where a
- * Scene sits is part of reading the Story at a glance; a Cut names the Scenes it
+ * Scene sits is part of reading the Story at a glance; an Exit names the Scenes it
  * joins rather than identifying them, and so does the Condition it is offered
  * under — `write.ts` puts the ids in once the Scenes exist.
  *
@@ -76,7 +76,7 @@ export type Work = {
   language?: StoryLanguage
   opening?: string
   scenes: { name: string, at: [number, number], sets?: Flags, shots: Shot[] }[]
-  cuts: { from: string, to: string, text: string, when?: Condition[] }[]
+  exits: { from: string, to: string, text: string, when?: Condition[] }[]
 }
 
 /**

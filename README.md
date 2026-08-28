@@ -2,7 +2,7 @@
 
 An editor for interactive narrative works that speaks the grammar of cinema
 rather than that of prose fiction or video games. Authors assemble Shots into
-Scenes and connect Scenes with Cuts; Readers play the result from a public link.
+Scenes and connect Scenes with Exits; Readers play the result from a public link.
 
 **[Try it →](https://frameline-three.vercel.app)**
 
@@ -11,10 +11,10 @@ Scenes and connect Scenes with Cuts; Readers play the result from a public link.
 A **Story** is made of **Scenes**. A Scene is a linear run of **Shots** — the
 atomic unit, an Image and text shown to the Reader in a single beat — and
 it is the only place a Story branches. At the end of a Scene, the Reader is
-offered **Cuts**: directed connections to other Scenes, named after the film
-edit that joins two shots.
+offered **Exits**: directed connections to other Scenes, each of them a way out
+the Reader takes.
 
-Both Shots and Cuts can carry **Conditions**, flat tests against the Reader's
+Both Shots and Exits can carry **Conditions**, flat tests against the Reader's
 **State**, so the same Scene plays differently for different Readers without
 ever becoming non-linear.
 

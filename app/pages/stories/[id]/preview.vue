@@ -22,9 +22,24 @@ const { data: story } = await useAsyncData(
 /**
  * Where the Reading below has got to, and the only thing it tells this page. The
  * engine is a pure function of it, so reading it a second time here costs a walk
- * of the Cuts taken and buys a State nobody had to hand out.
+ * of the Exits taken and buys a State nobody had to hand out.
  */
-const at = ref<Path>(OPENING)
+const at = ref<Path>(UNDRAWN)
+
+/**
+ * The reel above, which holds the Path and is the only thing that may move
+ * it. All this asks of it is another draw — a Path rerolled here would be a
+ * second Path, and the Reading would go on reading its own.
+ */
+const reel = useTemplateRef<{ reroll: () => void }>('reel')
+
+/**
+ * Whether any Scene of this Story draws a Flag, which is whether there is
+ * anything for another draw to change. A Story with none is read the same way
+ * whatever the seed, so the control is not offered rather than offered and inert.
+ */
+const draws = computed(() =>
+  story.value?.scenes.some(scene => Object.values(scene.sets).some(Array.isArray)))
 const shown = computed(() => story.value && reading(story.value, at.value))
 
 /** Scenes are read by name here as everywhere else an Author reads them. */
@@ -49,7 +64,7 @@ const visits = computed(() => Object.entries(shown.value?.state.visits ?? {}))
 
 /**
  * The ways out of the Scene the Reading stands in that it is not being offered —
- * the Cuts the engine filtered out, found by asking the engine's own predicate
+ * the Exits the engine filtered out, found by asking the engine's own predicate
  * rather than by testing the Conditions again here. Only where the Scene has
  * played out, because that is where the ways on are the question.
  */
@@ -57,8 +72,8 @@ const hidden = computed(() => {
   const now = shown.value
   if (!story.value || !now || now.shot) return []
 
-  return story.value.cuts.filter(
-    cut => cut.fromSceneId === now.sceneId && !holds(cut.conditions, now.state))
+  return story.value.exits.filter(
+    exit => exit.fromSceneId === now.sceneId && !holds(exit.conditions, now.state))
 })
 
 /**
@@ -78,7 +93,7 @@ const skipped = computed(() => {
     .filter(({ shot }) => !holds(shot.conditions, now.state))
 })
 
-/** Which of the tests a hidden Cut or a skipped Shot carries this State fails, and by what. */
+/** Which of the tests a hidden Exit or a skipped Shot carries this State fails, and by what. */
 function why(conditions: Condition[]) {
   return shown.value ? unmet(conditions, shown.value.state, sceneName, t) : []
 }
@@ -119,7 +134,7 @@ function why(conditions: Condition[]) {
          the room to itself, so the two are given a surface of this page's own
          rather than the room being taught to hold both. -->
     <div v-else-if="story" class="cutting">
-      <Reading :story="story" @at="at = $event" />
+      <Reading ref="reel" :story="story" @at="at = $event" />
 
       <!-- What is on the bench is the Author's own instrument and no part of the
            Story, so it sits under the projection and never in it. Named, because
@@ -131,17 +146,29 @@ function why(conditions: Condition[]) {
           {{ $t('preview.benchNote') }}
         </p>
 
+        <!-- The one control on the bench, and no part of the Story: the same
+             Reading at the same Path, read against another draw. It sits with
+             the State it changes rather than in the reel, because what an Author
+             is doing here is looking at their own variants and not reading. -->
+        <p v-if="draws" class="draw">
+          <button type="button" class="trail" @click="reel?.reroll()">
+            {{ $t('preview.reroll') }}
+          </button>
+          <span aria-hidden="true">·</span>
+          {{ $t('preview.rerollNote') }}
+        </p>
+
         <!-- Why a way on is missing, which is the question a Preview could not
-             answer before: the Cuts out of this Scene the State is hiding, struck
+             answer before: the Exits out of this Scene the State is hiding, struck
              through and each naming the tests it failed. Text and not controls —
-             a hidden Cut is not takeable here any more than it is for a Reader. -->
+             a hidden Exit is not takeable here any more than it is for a Reader. -->
         <div v-if="hidden.length" class="hidden">
           <p class="eyebrow">{{ $t('preview.waysOnHidden') }}</p>
           <ul>
-            <li v-for="cut in hidden" :key="cut.id">
-              <s class="splice" :lang="story?.language">{{ cutNamed(cut, sceneName, t) }}</s>
+            <li v-for="exit in hidden" :key="exit.id">
+              <s class="splice" :lang="story?.language">{{ exitNamed(exit, sceneName, t) }}</s>
               <ul class="why">
-                <li v-for="(test, at) in why(cut.conditions)" :key="at">{{ test }}</li>
+                <li v-for="(test, at) in why(exit.conditions)" :key="at">{{ test }}</li>
               </ul>
             </li>
           </ul>
@@ -276,6 +303,15 @@ h1 {
 
 .none {
   margin-block-start: var(--s2);
+  color: var(--muted);
+}
+
+/* The draw, offered the way the bench says everything else: the control first
+   and what it does beside it, in the machine's own small voice. */
+.draw {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
   color: var(--muted);
 }
 

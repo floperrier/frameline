@@ -31,17 +31,17 @@ function onTheBench(scenes: [name: string, shot?: string][] = []): StoryInEditor
       sets: {},
       shots: shot === undefined ? [] : [{ id: `${name}-1`, text: shot }],
     })) as StoryInEditor['scenes'],
-    cuts: [],
+    exits: [],
   }
 }
 
 /**
  * The Story the path has got to by the time State is what is being taught: two
- * Scenes, the first written, and a Cut joining them.
+ * Scenes, the first written, and an Exit joining them.
  */
 function joined() {
   const story = onTheBench([['The arrival', 'She steps off the train.'], ['The platform']])
-  story.cuts = [{ id: 'a-cut' }] as StoryInEditor['cuts']
+  story.exits = [{ id: 'a-exit' }] as StoryInEditor['exits']
 
   return story
 }
@@ -93,10 +93,10 @@ describe('the Step the bench is showing', () => {
     expect(asking(story, 'The arrival')).toBe('secondScene')
   })
 
-  it('asks for a Cut once there are two Scenes to join', () => {
+  it('asks for an Exit once there are two Scenes to join', () => {
     const story = onTheBench([['The arrival', 'The train pulls in.'], ['The platform']])
 
-    expect(asking(story, 'The arrival')).toBe('drawCut')
+    expect(asking(story, 'The arrival')).toBe('drawExit')
   })
 
   it('asks for a Flag once the two Scenes are joined', () => {
@@ -183,7 +183,7 @@ describe('the Step the bench is showing', () => {
       ['The bar'],
       ['The last train'],
     ])
-    story.cuts = [{ id: 'a-cut' }] as StoryInEditor['cuts']
+    story.exits = [{ id: 'a-exit' }] as StoryInEditor['exits']
     sets(story, 0, { courage: 'high' })
     sets(story, 3, { courage: 'low' })
     playedWhen(story, 1, { flag: 'courage', is: 'low' })
@@ -241,7 +241,7 @@ describe('the Step the bench is showing', () => {
   it('asks for what is still missing when the Author works out of order', () => {
     const story = onTheBench([['The arrival', 'The train pulls in.'], ['The platform']])
 
-    expect(asking(story)).toBe('drawCut')
+    expect(asking(story)).toBe('drawExit')
   })
 
   /**

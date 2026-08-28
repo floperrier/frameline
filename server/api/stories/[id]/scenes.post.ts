@@ -9,7 +9,7 @@ import { useDb } from '../../../db'
  * the first Scene an Author writes the one a Reading starts on, without their
  * having to say so.
  *
- * The Author may say where the Scene goes — a Cut dropped on the bare bench
+ * The Author may say where the Scene goes — an Exit dropped on the bare bench
  * writes the Scene it lands on at the point of the drop — and where they say
  * nothing the endpoint places it itself, at the next free spot. That spot is read
  * off how many Scenes the Story already has rather than off where they sit, so a

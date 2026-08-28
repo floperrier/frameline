@@ -2,7 +2,7 @@
 
 Frameline is an editor for interactive narrative works that speaks the grammar of
 cinema rather than that of prose fiction or video games. Authors assemble shots
-into scenes and connect scenes with cuts; readers play the result at a public
+into scenes and connect scenes with exits; readers play the result at a public
 link.
 
 ## Language
@@ -56,22 +56,24 @@ _Affiché_: Synopsis
 _Avoid_: description, blurb, summary, pitch, résumé, présentation
 
 **Place**:
-Where a Shot comes in its Scene's run, or a Cut in the ways on offered at the end
+Where a Shot comes in its Scene's run, or an Exit in the ways on offered at the end
 of the Scene it leaves — the Author's own numbering, counted from the first, with
 nothing missing.
 _Affiché_: Rang
 _Avoid_: index, order, rank, slot, sort key
 
-**Cut**:
+**Exit**:
 A directed connection from one Scene to another, offered to the Reader at the end
-of a Scene as something to take. Named after the film edit that joins two shots.
-_Affiché_: Coupe
-_Avoid_: choice, option, link, branch, edge, transition, raccord, montage
+of a Scene as something to take. It is the Reader's way out of the Scene, named
+for what they do with it rather than for anything the screen shows them.
+_Affiché_: Sortie
+_Avoid_: choice, option, link, branch, edge, transition, cut, coupe, raccord,
+montage
 
 **Graph**:
-A whole Story seen at once, as its Scenes and the Cuts between them. A Scene is
-drawn in it as a node and a Cut as an edge — words for the drawing, never for the
-Scene or the Cut itself. A node is drawn as a card, which is a word for that
+A whole Story seen at once, as its Scenes and the Exits between them. A Scene is
+drawn in it as a node and an Exit as an edge — words for the drawing, never for the
+Scene or the Exit itself. A node is drawn as a card, which is a word for that
 drawing on the same terms: the Scene it stands for is never a card, and what a
 Scene is written in is the panel at the edge of the bench — see
 `docs/adr/0021-a-scene-is-written-in-a-panel-at-the-edge-of-the-bench.md`.
@@ -88,7 +90,7 @@ _Affiché_: Scène d'ouverture
 _Avoid_: start, entry point, root, first scene, home
 
 **Condition**:
-A flat test on State, carried by a Cut or by a Shot: it decides whether the Cut is
+A flat test on State, carried by an Exit or by a Shot: it decides whether the Exit is
 offered to this Reader, or whether the Shot plays for them. Either may carry
 several, and is offered or played only where all of them hold; one carrying none
 always is.
@@ -122,7 +124,9 @@ _Avoid_: variables, memory, save, progress, context, session data
 
 **Flag**:
 A single named value in State, set by the Author and tested by Conditions. A
-Scene carries the Flags it sets, and sets them on every entry.
+Scene carries the Flags it sets, and sets them on every entry. A Scene may name
+several values for one Flag, and one of them is drawn on each entry — what holds
+a list is the Scene, never the State, where a Flag is the one value drawn.
 _Affiché_: Marqueur
 _Avoid_: variable, switch, toggle, key, drapeau
 
@@ -132,11 +136,12 @@ _Affiché_: Lecture
 _Avoid_: session, playthrough, run, visit
 
 **Path**:
-How far one Reading has got: the Cuts it has taken, in order, and how many Shots
-of the Scene it stands in are behind it. Everything else about a Reading — the
-Scene, the Shot on screen, the Cuts on offer, the State — is computed from it.
-Both the route taken and the taking of it, which is why it is not a point: where a
-Shot or a Cut comes in its own list is a Place.
+How far one Reading has got: the Exits it has taken, in order, how many Shots
+of the Scene it stands in are behind it, and the seed every draw a Scene makes
+comes out of. Everything else about a Reading — the Scene, the Shot on screen,
+the Exits on offer, the State — is computed from it. Both the route taken and the
+taking of it, which is why it is not a point: where a Shot or an Exit comes in its
+own list is a Place.
 _Affiché_: Parcours
 _Avoid_: position, cursor, pointer, progress, step, index
 

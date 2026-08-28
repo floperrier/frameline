@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import type { Condition, Flags } from '../../shared/utils/scenes'
+import type { Condition, Sets } from '../../shared/utils/scenes'
 import type { Path, State, StoryToRead } from '../../shared/utils/reading'
-import { OPENING, advance, reading, take, unmet } from '../../shared/utils/reading'
+import { advance, opening, reading, take, unmet } from '../../shared/utils/reading'
 import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
 import type { Phrase } from '../../shared/utils/phrases'
 
 /**
- * A Story built from the shots of each Scene and the Cuts between them, in the
+ * A Story built from the shots of each Scene and the Exits between them, in the
  * shape the engine reads. Ids are the names, so a failing assertion says which
- * Scene it was standing in rather than which uuid. A Cut carries Conditions only
+ * Scene it was standing in rather than which uuid. An Exit carries Conditions only
  * where the test states them, and a Scene sets Flags only where `sets` names
  * them, so a Story about anything else stays as short as it was.
  *
@@ -19,9 +19,9 @@ type Written = string | [text: string, conditions: Condition[]]
 
 function story(
   scenes: Record<string, Written[]>,
-  cuts: [from: string, text: string, to: string, conditions?: Condition[]][] = [],
+  exits: [from: string, text: string, to: string, conditions?: Condition[]][] = [],
   openingSceneId: string | null = Object.keys(scenes)[0] ?? null,
-  sets: Record<string, Flags> = {},
+  sets: Record<string, Sets> = {},
 ): StoryToRead {
   return {
     openingSceneId,
@@ -33,8 +33,8 @@ function story(
         return { id: `${id}-${position}`, text, position, image: null, description: '', conditions }
       }),
     })),
-    cuts: cuts.map(([fromSceneId, text, toSceneId, conditions], index) => ({
-      id: `cut-${index}`,
+    exits: exits.map(([fromSceneId, text, toSceneId, conditions], index) => ({
+      id: `exit-${index}`,
       fromSceneId,
       toSceneId,
       text,
@@ -44,10 +44,19 @@ function story(
   }
 }
 
-/** What the Reader is shown at a point in a Reading: the Shot's text, or the Cuts on offer. */
+/**
+ * Where a Reading starts, under a seed this suite states rather than one drawn
+ * for it: every test but the ones about the draw itself wants the same Reading
+ * twice, and a seed drawn behind them would be the one thing they could not
+ * state. The Path is the whole of a Reading, seed included, so stating it is
+ * stating the Reading.
+ */
+const OPENING = opening(1)
+
+/** What the Reader is shown at a point in a Reading: the Shot's text, or the Exits on offer. */
 function shown(read: StoryToRead, at: Path) {
-  const { shot, cuts, ended } = reading(read, at)
-  return { text: shot?.text, offered: cuts.map(cut => cut.text), ended }
+  const { shot, exits, ended } = reading(read, at)
+  return { text: shot?.text, offered: exits.map(exit => exit.text), ended }
 }
 
 /** The run of Shots this Reading plays, which is the Scene's own minus the skipped. */
@@ -70,7 +79,7 @@ describe('a Reading of one Scene', () => {
     })
   })
 
-  it('ends the path past the last Shot, with no Cut to take', () => {
+  it('ends the path past the last Shot, with no Exit to take', () => {
     expect(shown(alone, advance(advance(OPENING)))).toEqual({
       text: undefined,
       offered: [],
@@ -87,7 +96,7 @@ describe('a Reading of one Scene', () => {
   })
 })
 
-describe('a Reading that reaches a Cut', () => {
+describe('a Reading that reaches an Exit', () => {
   const branching = story(
     { Street: ['A door opens.'], Bar: ['Smoke.'], Alley: ['Rain.'] },
     [['Street', 'Follow her', 'Bar'], ['Street', 'Stay outside', 'Alley']],
@@ -95,7 +104,7 @@ describe('a Reading that reaches a Cut', () => {
 
   const endOfStreet = advance(OPENING)
 
-  it('offers the Cuts leaving the Scene, in the Author’s order, once the Shots run out', () => {
+  it('offers the Exits leaving the Scene, in the Author’s order, once the Shots run out', () => {
     expect(shown(branching, endOfStreet)).toEqual({
       text: undefined,
       offered: ['Follow her', 'Stay outside'],
@@ -107,13 +116,13 @@ describe('a Reading that reaches a Cut', () => {
     expect(shown(branching, OPENING).offered).toEqual([])
   })
 
-  it('moves to the Scene the taken Cut arrives at, from its first Shot', () => {
-    const taken = take(endOfStreet, reading(branching, endOfStreet).cuts[1]!)
+  it('moves to the Scene the taken Exit arrives at, from its first Shot', () => {
+    const taken = take(endOfStreet, reading(branching, endOfStreet).exits[1]!)
     expect(shown(branching, taken)).toEqual({ text: 'Rain.', offered: [], ended: false })
   })
 
-  it('ends the path in a Scene no Cut leaves', () => {
-    const taken = take(endOfStreet, reading(branching, endOfStreet).cuts[0]!)
+  it('ends the path in a Scene no Exit leaves', () => {
+    const taken = take(endOfStreet, reading(branching, endOfStreet).exits[0]!)
     expect(shown(branching, advance(taken))).toEqual({
       text: undefined,
       offered: [],
@@ -134,7 +143,7 @@ describe('a Reading that comes back somewhere', () => {
     for (let lap = 0; lap < times; lap++) {
       for (const _ of ['in', 'out']) {
         at = advance(at)
-        at = take(at, reading(loop, at).cuts[0]!)
+        at = take(at, reading(loop, at).exits[0]!)
       }
     }
     return at
@@ -155,14 +164,14 @@ describe('a Reading that comes back somewhere', () => {
   })
 })
 
-describe('a Reading given a Cut it was never offered', () => {
+describe('a Reading given an Exit it was never offered', () => {
   const branching = story(
     { Street: ['A door opens.'], Bar: ['Smoke.'] },
     [['Street', 'Go in', 'Bar'], ['Bar', 'Go out', 'Street']],
   )
 
   it('stays where it is rather than jumping to the far side of the Story', () => {
-    const elsewhere: Path = { taken: ['cut-1'], shot: 0 }
+    const elsewhere: Path = { taken: ['exit-1'], shot: 0 }
     expect(shown(branching, elsewhere)).toEqual({
       text: 'A door opens.',
       offered: [],
@@ -186,7 +195,7 @@ describe('a Scene that sets Flags on entry', () => {
   })
 
   it('keeps the Flags of the Scenes behind it, and lets a later Scene write over one', () => {
-    const inTheBar = take(endOfStreet, reading(setting, endOfStreet).cuts[0]!)
+    const inTheBar = take(endOfStreet, reading(setting, endOfStreet).exits[0]!)
     expect(reading(setting, inTheBar).state.flags).toEqual({ coat: 'off', drink: 'whisky' })
   })
 
@@ -195,12 +204,12 @@ describe('a Scene that sets Flags on entry', () => {
   })
 })
 
-describe('a Cut carrying Conditions', () => {
+describe('an Exit carrying Conditions', () => {
   /**
    * One Scene the Reading stands in and two ways out of it, the second one
    * conditional — so what is offered says whether the Conditions passed.
    */
-  function ways(conditions: Condition[], sets: Record<string, Flags> = {}) {
+  function ways(conditions: Condition[], sets: Record<string, Sets> = {}) {
     return story(
       { Street: ['A door opens.'], Bar: ['Smoke.'], Alley: ['Rain.'] },
       [['Street', 'Stay outside', 'Alley'], ['Street', 'Go in', 'Bar', conditions]],
@@ -254,7 +263,7 @@ describe('a Cut carrying Conditions', () => {
     expect(shown(ways([]), endOfStreet).offered).toEqual(['Stay outside', 'Go in'])
   })
 
-  it('ends the path where the only Cuts out are ones this Reading cannot take', () => {
+  it('ends the path where the only Exits out are ones this Reading cannot take', () => {
     const shut = story(
       { Street: ['A door opens.'], Bar: ['Smoke.'] },
       [['Street', 'Go in', 'Bar', [{ flag: 'key', is: 'found' }]]],
@@ -277,7 +286,7 @@ describe('a Cut carrying Conditions', () => {
     )
 
     const endOfStreet = advance(OPENING)
-    const inTheHall = take(endOfStreet, reading(carrying, endOfStreet).cuts[0]!)
+    const inTheHall = take(endOfStreet, reading(carrying, endOfStreet).exits[0]!)
     expect(shown(carrying, advance(inTheHall)).offered).toEqual(['Into the bar'])
   })
 
@@ -286,7 +295,7 @@ describe('a Cut carrying Conditions', () => {
       { Street: ['A door opens.'], Bar: ['Smoke.'] },
       [['Street', 'Go in', 'Bar', [{ flag: 'key', is: 'found' }]]],
     )
-    const forged: Path = { taken: ['cut-0'], shot: 0 }
+    const forged: Path = { taken: ['exit-0'], shot: 0 }
     expect(shown(shut, forged).text).toBe('A door opens.')
   })
 })
@@ -294,7 +303,7 @@ describe('a Cut carrying Conditions', () => {
 describe('a Scene read a second time', () => {
   /**
    * The Street twice, going somewhere else the second time round: the Shots of a
-   * Scene are the same on every visit, so what changes is which Cut is offered.
+   * Scene are the same on every visit, so what changes is which Exit is offered.
    */
   const returning = story(
     { Street: ['A door opens.'], Bar: ['Smoke.'], Alley: ['Rain.'] },
@@ -309,41 +318,41 @@ describe('a Scene read a second time', () => {
     const endOfStreet = advance(OPENING)
     expect(shown(returning, endOfStreet).offered).toEqual(['Go in'])
 
-    const inTheBar = take(endOfStreet, reading(returning, endOfStreet).cuts[0]!)
+    const inTheBar = take(endOfStreet, reading(returning, endOfStreet).exits[0]!)
     const endOfBar = advance(inTheBar)
-    const backOutside = take(endOfBar, reading(returning, endOfBar).cuts[0]!)
+    const backOutside = take(endOfBar, reading(returning, endOfBar).exits[0]!)
     const endOfStreetAgain = advance(backOutside)
 
     expect(shown(returning, endOfStreetAgain).offered).toEqual(['Give up'])
   })
 
-  it('lets the same Cut be taken once and no more, however the Path asks', () => {
+  it('lets the same Exit be taken once and no more, however the Path asks', () => {
     // The way in is offered on the first visit to the street and not on the
     // second, so a Reading that comes back and claims to take it again is a
     // Path no Reader could have reached: the walk stops where it stopped.
     const endOfStreet = advance(OPENING)
-    const inTheBar = take(endOfStreet, reading(returning, endOfStreet).cuts[0]!)
+    const inTheBar = take(endOfStreet, reading(returning, endOfStreet).exits[0]!)
     const endOfBar = advance(inTheBar)
-    const backOutside = take(endOfBar, reading(returning, endOfBar).cuts[0]!)
+    const backOutside = take(endOfBar, reading(returning, endOfBar).exits[0]!)
 
     expect(shown(returning, backOutside).text).toBe('A door opens.')
 
-    const twice: Path = { taken: [...backOutside.taken, 'cut-0'], shot: 0 }
+    const twice: Path = { taken: [...backOutside.taken, 'exit-0'], shot: 0 }
     expect(shown(returning, twice).text).toBe('A door opens.')
     expect(reading(returning, twice).state.visits).toEqual({ Street: 2, Bar: 1 })
   })
 
-  it('takes the Cut it is offered the second time round', () => {
+  it('takes the Exit it is offered the second time round', () => {
     let at = OPENING
     for (const _ of ['in', 'out', 'away']) {
       at = advance(at)
-      at = take(at, reading(returning, at).cuts[0]!)
+      at = take(at, reading(returning, at).exits[0]!)
     }
     expect(shown(returning, at).text).toBe('Rain.')
   })
 })
 
-describe('the tests a Cut is hidden by', () => {
+describe('the tests an Exit is hidden by', () => {
   /** The Scenes a Condition names, read back the way an Author reads them. */
   const named = (id: string) => ({ house: 'The House' }[id] ?? id)
 
@@ -357,7 +366,7 @@ describe('the tests a Cut is hidden by', () => {
 
   const state: State = { flags: { reel: 'spooled' }, visits: { house: 1 } }
 
-  it('says nothing of a Cut this Reading is offered', () => {
+  it('says nothing of an Exit this Reading is offered', () => {
     expect(unmet([{ flag: 'reel', is: 'spooled' }], state, named, says)).toEqual([])
     expect(unmet([], state, named, says)).toEqual([])
   })
@@ -425,7 +434,7 @@ describe('a Shot carrying Conditions', () => {
     for (let lap = 0; lap < times; lap++) {
       for (const _ of ['out', 'back']) {
         while (reading(booth, at).shot) at = advance(at)
-        at = take(at, reading(booth, at).cuts[0]!)
+        at = take(at, reading(booth, at).exits[0]!)
       }
     }
     return at
@@ -456,7 +465,7 @@ describe('a Shot carrying Conditions', () => {
     expect(run(plain, OPENING)).toEqual(['A door opens.', 'She steps out.'])
   })
 
-  it('reads a Flag a Scene behind it, the way a Cut does', () => {
+  it('reads a Flag a Scene behind it, the way an Exit does', () => {
     const wearing = story(
       {
         Street: ['A door opens.'],
@@ -467,11 +476,11 @@ describe('a Shot carrying Conditions', () => {
       { Street: { coat: 'on' } },
     )
 
-    const inTheBar = take(advance(OPENING), reading(wearing, advance(OPENING)).cuts[0]!)
+    const inTheBar = take(advance(OPENING), reading(wearing, advance(OPENING)).exits[0]!)
     expect(run(wearing, inTheBar)).toEqual(['Smoke.', 'You keep your coat on.'])
   })
 
-  it('ends the path in a Scene whose every Shot is skipped and which no Cut leaves', () => {
+  it('ends the path in a Scene whose every Shot is skipped and which no Exit leaves', () => {
     const shut = story({ Booth: [['Only for the second time.', [{ flag: 'key', is: 'found' }]]] })
     expect(run(shut, OPENING)).toEqual([])
     expect(shown(shut, OPENING)).toEqual({ text: undefined, offered: [], ended: true })
@@ -479,5 +488,142 @@ describe('a Shot carrying Conditions', () => {
 
   it('holds no run at all where the Reading stands in no Scene', () => {
     expect(run(story({}, [], null), OPENING)).toEqual([])
+  })
+})
+
+describe('a Scene drawing one of several values for a Flag', () => {
+  /**
+   * One Scene whose weather is drawn from three values, and three Shots each
+   * playing under one of them: what the Reader is shown is what was drawn, which
+   * is how these read the draw without reaching for the hash behind it.
+   */
+  const weather = story(
+    {
+      Street: [
+        ['Rain on the awning.', [{ flag: 'weather', is: 'rain' }]],
+        ['Sun on the awning.', [{ flag: 'weather', is: 'sun' }]],
+        ['Haze over the street.', [{ flag: 'weather', is: 'haze' }]],
+      ],
+    },
+    [],
+    'Street',
+    { Street: { weather: ['rain', 'sun', 'haze'] } },
+  )
+
+  /** The Paths a hundred Readings of one Story open at, each under its own seed. */
+  const seeds = Array.from({ length: 100 }, (_, seed) => opening(seed))
+
+  it('plays the one Shot the drawn value matches, and none of the others', () => {
+    for (const at of seeds.slice(0, 20)) {
+      expect(run(weather, at)).toHaveLength(1)
+      expect(shown(weather, at).text).toMatch(/Rain on the awning\.|Sun on the awning\.|Haze over/)
+    }
+  })
+
+  it('shows the same variant every time one Path is read', () => {
+    const at = opening(7)
+    expect(shown(weather, at)).toEqual(shown(weather, at))
+    // The Reader going back a beat and coming forward again is the same
+    // Path read a third time, and the run it plays does not move under them.
+    expect(run(weather, at)).toEqual(run(weather, advance(at)))
+  })
+
+  it('reaches every value in the list, across the seeds Readings are drawn under', () => {
+    expect(new Set(seeds.map(at => shown(weather, at).text)).size).toBe(3)
+  })
+
+  it('draws again on a second entry to the Scene, so a Story read round may differ', () => {
+    const looping = story(
+      {
+        Street: [
+          ['Rain on the awning.', [{ flag: 'weather', is: 'rain' }]],
+          ['Sun on the awning.', [{ flag: 'weather', is: 'sun' }]],
+        ],
+        Corner: ['She turns back.'],
+      },
+      [['Street', 'Walk on', 'Corner'], ['Corner', 'Back to the street', 'Street']],
+      'Street',
+      { Street: { weather: ['rain', 'sun'] } },
+    )
+
+    /** The Path two Exits on, standing in the Street for the second time. */
+    const roundAgain = (at: Path) => {
+      const onward = take(advance(at), reading(looping, advance(at)).exits[0]!)
+      return take(advance(onward), reading(looping, advance(onward)).exits[0]!)
+    }
+
+    const differed = seeds.filter(at =>
+      shown(looping, at).text !== shown(looping, roundAgain(at)).text)
+    expect(differed.length).toBeGreaterThan(0)
+  })
+
+  it('leaves a later Scene’s draw alone when an earlier Scene is edited', () => {
+    /** One Scene ahead of another, whose Shots are the Author's to change. */
+    const ahead = (street: Written[]) => story(
+      {
+        Street: street,
+        Bar: [
+          ['Whisky.', [{ flag: 'drink', is: 'whisky' }]],
+          ['Beer.', [{ flag: 'drink', is: 'beer' }]],
+        ],
+      },
+      [['Street', 'Go in', 'Bar']],
+      'Street',
+      { Bar: { drink: ['whisky', 'beer'] } },
+    )
+
+    const written = ahead(['A door opens.'])
+    // A Shot added to the Scene before it, and a Shot the same Scene skips: both
+    // shift what the walk passes through, and neither is part of the draw's key.
+    const added = ahead(['A door opens.', 'She steps out.'])
+    const skipped = ahead([
+      'A door opens.',
+      ['Only on the way back.', [{ flag: 'coat', is: 'on' }]],
+    ])
+
+    for (const at of seeds.slice(0, 20)) {
+      const inTheBar = (read: StoryToRead, from: Path) =>
+        take(from, reading(read, from).exits[0]!)
+      const drank = (read: StoryToRead, beats: number) => {
+        let from = at
+        for (let beat = 0; beat < beats; beat++) from = advance(from)
+        return reading(read, inTheBar(read, from)).state.flags.drink
+      }
+
+      expect(drank(added, 2)).toBe(drank(written, 1))
+      expect(drank(skipped, 1)).toBe(drank(written, 1))
+    }
+  })
+
+  it('decides an Exit in a later Scene, the way a Flag the Author set does', () => {
+    const tossing = story(
+      { Street: ['A coin comes down.'], Heads: ['Heads.'], Tails: ['Tails.'] },
+      [
+        ['Street', 'Heads', 'Heads', [{ flag: 'coin', is: 'heads' }]],
+        ['Street', 'Tails', 'Tails', [{ flag: 'coin', is: 'tails' }]],
+      ],
+      'Street',
+      { Street: { coin: ['heads', 'tails'] } },
+    )
+
+    for (const at of seeds.slice(0, 20)) {
+      const endOfStreet = advance(at)
+      const { state, exits } = reading(tossing, endOfStreet)
+      expect(exits.map(exit => exit.text))
+        .toEqual([state.flags.coin === 'heads' ? 'Heads' : 'Tails'])
+    }
+  })
+
+  it('leaves a Flag given one value behaving exactly as it did', () => {
+    const setting = story(
+      { Street: ['A door opens.'] },
+      [],
+      'Street',
+      { Street: { coat: 'on', weather: ['rain', 'sun'] } },
+    )
+
+    for (const at of seeds.slice(0, 20)) {
+      expect(reading(setting, at).state.flags.coat).toBe('on')
+    }
   })
 })

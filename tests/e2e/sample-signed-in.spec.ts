@@ -42,7 +42,7 @@ test('a new account arrives with a Sample in it', async ({ page, request, author
     .toEqual(SAMPLES.en.scenes.map(scene => scene.name))
   expect(story.openingSceneId).toBe(story.scenes[0].id)
   expect(story.publishedAt).not.toBeNull()
-  expect(story.cuts).toHaveLength(SAMPLES.en.cuts.length)
+  expect(story.exits).toHaveLength(SAMPLES.en.exits.length)
   expect(story.scenes[1].sets).toEqual(SAMPLES.en.scenes[1]!.sets)
   expect(story.scenes.flatMap((scene: { shots: { conditions: unknown[] }[] }) =>
     scene.shots.flatMap(shot => shot.conditions)).length).toBeGreaterThan(0)

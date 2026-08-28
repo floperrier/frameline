@@ -1,6 +1,6 @@
 /**
  * Reel Change — the short work Frameline exists to carry, written out as the
- * thing it is: Scenes of Shots, joined by Cuts, some of them offered only under
+ * thing it is: Scenes of Shots, joined by Exits, some of them offered only under
  * a Condition. `write.ts` puts it into a Frameline instance through the same API
  * the editor uses, so nothing here reaches the database by a route the Author
  * does not have.
@@ -316,9 +316,9 @@ export const REEL_CHANGE: Work = {
     },
   ],
 
-  /* The order the Cuts are written in is the order the Reader is offered them,
+  /* The order the Exits are written in is the order the Reader is offered them,
      so the ways on read down the page as they read down the screen. */
-  cuts: [
+  exits: [
     {
       from: 'The booth',
       to: 'The gate',

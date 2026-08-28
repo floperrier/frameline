@@ -11,7 +11,7 @@ export const SHOT_TEXT_MAX_LENGTH = 2000
 
 /**
  * The longest Description an Image may carry. A Description says what one frame
- * shows, in the sentence an editor would say it in, so it is capped near a Cut's
+ * shows, in the sentence an editor would say it in, so it is capped near an Exit's
  * line rather than near a Shot's text: prose about the image is the Shot's text,
  * which the Reader already has.
  */
@@ -65,15 +65,15 @@ export function shotImageUrl(shotId: string) {
 }
 
 /**
- * The longest text a Cut may carry. A Cut is one line the Reader is offered at
+ * The longest text an Exit may carry. An Exit is one line the Reader is offered at
  * the end of a Scene, so it is capped far below a Shot.
  */
-export const CUT_TEXT_MAX_LENGTH = 200
+export const EXIT_TEXT_MAX_LENGTH = 200
 
 /**
- * How many Conditions one Cut or one Shot may carry. Four tests is a way on — or
+ * How many Conditions one Exit or one Shot may carry. Four tests is a way on — or
  * a beat — with a history behind it; past that, what the Author is describing is
- * not a nuance on an exit but a place in the Story several threads reach, and the
+ * not a nuance on a cut but a place in the Story several threads reach, and the
  * answer is a Scene — see `docs/adr/0004-conditions-stay-flat.md`. One cap for
  * both, because what is being bounded is how long a list of flat tests may get
  * before it stops being one an Author can read.
@@ -93,6 +93,18 @@ export const FLAGS_PER_SCENE = 20
 export const VISITS_MAX = 100
 
 /**
+ * How many values one Flag may be given to draw from. Two at the least — a line
+ * with no separator is a plain value and stays one — and six at the most: a draw
+ * is a beat coming back differently, not a table an Author rolls on. Past half a
+ * dozen variants of one Shot, what is being described is not a variation on a
+ * beat but several beats, and the answer to that is Scenes, the same way it is
+ * for an Exit needing more Conditions than `CONDITIONS_MAX` allows. Measured per
+ * value rather than per line: each value is held to `FLAG_VALUE_MAX_LENGTH` on
+ * its own.
+ */
+export const FLAG_VALUES_MAX = 6
+
+/**
  * How far a Scene's node may sit from the graph's top left, in pixels. A bound
  * on both sides of the wire: the server refuses anything beyond it, and dragging
  * stops there, so a Scene cannot be dropped somewhere nobody can scroll to.
@@ -101,8 +113,8 @@ export const GRAPH_REACH = 10_000
 
 /**
  * The pitch the bench is pricked out at: how far one arrow key moves a node, how
- * wide the strip a Cut is drawn from is, and the grid a Scene written by dropping
- * a Cut on the bare bench snaps to. One number, so a Story laid out by hand and a
+ * wide the strip an Exit is drawn from is, and the grid a Scene written by dropping
+ * an Exit on the bare bench snaps to. One number, so a Story laid out by hand and a
  * Story written by dragging line up on the same lattice — see
  * `docs/adr/0015-a-cut-is-drawn-by-hand.md`.
  */
@@ -118,7 +130,7 @@ export const NODE_PITCH = 20
  * Scene at a glance — its name, the image of its first Shot, its Shot count and
  * where its ways on land — and a Scene is written in the panel at the edge of the
  * bench rather than inside the card. So the height is known rather than measured,
- * and the line that draws a Cut leaves a box the graph can work out for itself.
+ * and the line that draws an Exit leaves a box the graph can work out for itself.
  * The width is left at what a phone can show, because a node wider than the
  * screen is a graph nobody can lay out on one, and the strip down a node's
  * leading edge comes out of it rather than adding to it.
@@ -175,7 +187,7 @@ export const ZOOM_MAX = 1
  * Two things sit between the two: the bench scrolls, so the surface's own corner
  * is somewhere else on screen, and the surface is drawn at a scale, so a pixel of
  * it is not a pixel of the window. Every gesture that reads a pointer goes
- * through here — the drag that lays a Scene out, the Cut drawn by hand, the push
+ * through here — the drag that lays a Scene out, the Exit drawn by hand, the push
  * that pans the bench — because a Scene that lands where the hand is at one zoom
  * and a finger's width away at another is the defect a viewport arrives with.
  *
@@ -210,12 +222,12 @@ export function zoomedAbout(zoom: number, to: number, anchor: Point, scroll: Poi
 }
 
 /**
- * Where the line that draws a Cut meets the two nodes: on the edge of the box it
+ * Where the line that draws an Exit meets the two nodes: on the edge of the box it
  * leaves, and on the edge of the box it lands on. A line between two points fixed
  * inside the nodes crossed whatever sat between them and arrived under the node it
  * arrived at; a line between edges says which Scene leads to which at a glance.
  */
-export function cutLine(from: Point, to: Point) {
+export function exitLine(from: Point, to: Point) {
   const leaving = middleOf(from)
   const landing = middleOf(to)
   const towards = { x: landing.x - leaving.x, y: landing.y - leaving.y }
@@ -227,13 +239,13 @@ export function cutLine(from: Point, to: Point) {
 }
 
 /**
- * Where the line of a Cut being drawn runs: off the edge of the node it is left
+ * Where the line of an Exit being drawn runs: off the edge of the node it is left
  * from, and to the point the hand has reached. The far end is the point itself
- * rather than the edge of anything, because there is nothing there yet — a Cut
+ * rather than the edge of anything, because there is nothing there yet — an Exit
  * under the Author's hand lands wherever they are, and only the near end has a
  * box to leave.
  */
-export function cutLineTo(from: Point, at: Point) {
+export function exitLineTo(from: Point, at: Point) {
   const leaving = middleOf(from)
 
   return {
@@ -242,8 +254,8 @@ export function cutLineTo(from: Point, at: Point) {
   }
 }
 
-/** The two ends of the line that draws a Cut, as `cutLine` gives them. */
-export type CutLine = { from: Point, to: Point }
+/** The two ends of the line that draws an Exit, as `exitLine` gives them. */
+export type ExitLine = { from: Point, to: Point }
 
 /**
  * How far along its own line, measured from the node it leaves, the disc that
@@ -252,18 +264,18 @@ export type CutLine = { from: Point, to: Point }
  * under it, and it is still near enough that which end of the line it belongs to
  * is never in question.
  */
-export const CUT_DISC_ALONG = 26
+export const EXIT_DISC_ALONG = 26
 
 /**
- * Where that disc goes: on the line, near the Scene the Cut leaves, because what
+ * Where that disc goes: on the line, near the Scene the Exit leaves, because what
  * it labels is the order that Scene offers its ways on in. Never past the middle
  * of the line, so two nodes all but touching still carry their discs at the end
  * they belong to, and on the node's own edge where the line has no length at all.
  */
-export function discOfCut({ from, to }: CutLine): Point {
+export function discOfExit({ from, to }: ExitLine): Point {
   const length = Math.hypot(to.x - from.x, to.y - from.y)
   if (!length) return from
-  const along = Math.min(CUT_DISC_ALONG, length / 2)
+  const along = Math.min(EXIT_DISC_ALONG, length / 2)
 
   return {
     x: Math.round(from.x + (to.x - from.x) * along / length),
@@ -304,7 +316,7 @@ export const NODES_PER_COLUMN = 20
 
 /**
  * A Story as the Author edits it: Scenes in the order they were written, each a
- * run of Shots, a node in the graph and the Flags it sets, and the Cuts that
+ * run of Shots, a node in the graph and the Flags it sets, and the Exits that
  * join them, each in the Place it is offered at and with the Conditions it is
  * offered under. A Story with no Scenes has no opening Scene, and neither has
  * one whose opening Scene was deleted. `publishedAt` is null until the Story is
@@ -330,10 +342,10 @@ export type Scene = {
   name: string
   x: number
   y: number
-  sets: Flags
+  sets: Sets
   shots: Shot[]
 }
-export type Cut = {
+export type Exit = {
   id: string
   fromSceneId: string
   toSceneId: string
@@ -343,38 +355,68 @@ export type Cut = {
 }
 
 /**
- * The Flags a Scene sets the moment a Reading enters it, as names to values.
- * Flat, because a Flag is a single named value: nothing here holds another map.
+ * The Flags one Reading holds, as names to values. Flat, because a Flag is a
+ * single named value: nothing here holds another map. What a Scene declares is
+ * `Sets` below, which may name several values for one Flag.
  */
 export type Flags = Record<string, string>
 
 /**
- * What separates a Flag's name from its value where an Author types them. Here
- * rather than in the editor, because the server refuses a name holding it — a
- * name that did could not be shown back as the line it was typed on — and one
- * module has to own the format both sides obey.
+ * The Flags a Scene declares, which is not quite the Flags a Reading holds: a
+ * name may be given several values, and one of them is drawn each time a Reading
+ * enters the Scene. What carries the list is the declaration on the Scene; the
+ * State holds the value drawn, so `Flags` above stays a single named value
+ * apiece and the glossary's Flag stays what it says it is.
+ */
+export type Sets = Record<string, string | string[]>
+
+/**
+ * What separates a Flag's name from its value where an Author types them, and
+ * what separates one value of a draw from the next. Here rather than in the
+ * editor, because the server refuses a name or a value holding either — one that
+ * did could not be shown back as the line it was typed on — and one module has to
+ * own the format both sides obey.
  */
 export const FLAG_SEPARATOR = '='
+export const FLAG_VALUES_SEPARATOR = '|'
 
-/** The Flags a Scene sets, as one `name = value` a line, for an Author to read. */
-export function flagLines(sets: Flags) {
-  return Object.entries(sets).map(pair => pair.join(` ${FLAG_SEPARATOR} `)).join('\n')
+/**
+ * The Flags a Scene sets, as one `name = value` a line, for an Author to read. A
+ * Flag with several values is one line too — `weather = rain | sun | haze` — so
+ * what a Scene sets stays a list read at a glance.
+ */
+export function flagLines(sets: Sets) {
+  return Object.entries(sets)
+    .map(([name, held]) => [name, valueLine(held)].join(` ${FLAG_SEPARATOR} `))
+    .join('\n')
+}
+
+function valueLine(held: string | string[]) {
+  return Array.isArray(held) ? held.join(` ${FLAG_VALUES_SEPARATOR} `) : held
 }
 
 /**
- * The Flags an Author typed. Split on the first separator alone, so a value may
- * hold one; a line missing it is a name with no value, which the server refuses,
- * and a name typed twice holds what the later line gave it.
+ * The Flags an Author typed. Split on the first name separator alone, so a value
+ * may hold one; a line missing it is a name with no value, which the server
+ * refuses, and a name typed twice holds what the later line gave it.
+ *
+ * What is left is then split on the values separator, and a line carrying one is
+ * a draw rather than a plain value. A line carrying none stays a string, so
+ * nothing already written becomes a list of one; a separator that leaves a value
+ * empty is refused by the rule that a Flag is given a value.
  */
-export function flagsTyped(typed: string): Flags {
+export function flagsTyped(typed: string): Sets {
   return Object.fromEntries(typed.split('\n').filter(line => line.trim()).map((line) => {
     const [name, ...held] = line.split(FLAG_SEPARATOR)
-    return [name!.trim(), held.join(FLAG_SEPARATOR).trim()]
+    const value = held.join(FLAG_SEPARATOR).trim()
+    const values = value.split(FLAG_VALUES_SEPARATOR).map(one => one.trim())
+
+    return [name!.trim(), values.length > 1 ? values : value]
   }))
 }
 
 /**
- * A Scene read by name where something else names it — the far side of a Cut, the
+ * A Scene read by name where something else names it — the far side of an Exit, the
  * count a Condition asks for. A Condition still names a Scene deleted since it
  * was written, and saying so beats showing the Author the id it holds. One
  * function, because a Scene named one way in the ways on offered and another way
@@ -385,39 +427,39 @@ export function sceneNamed(names: Map<string, string>, sceneId: string, say: Phr
 }
 
 /**
- * How a Cut is named where it is read rather than edited. A Cut nobody has
- * phrased yet is named by where it lands: an unphrased Cut is half of what a
+ * How an Exit is named where it is read rather than edited. An Exit nobody has
+ * phrased yet is named by where it lands: an unphrased Exit is half of what a
  * Preview is for, and a Reading that cannot go on is the worse answer. Shared,
  * because a Preview names the ways on a Condition is hiding in the same breath
  * as the ones on offer, and the two must read alike.
  */
-export function cutNamed(cut: Cut, sceneName: (id: string) => string, say: Phrase) {
-  return cut.text || say('cut.to', { scene: sceneName(cut.toSceneId) })
+export function exitNamed(exit: Exit, sceneName: (id: string) => string, say: Phrase) {
+  return exit.text || say('exit.to', { scene: sceneName(exit.toSceneId) })
 }
 
 /**
- * The Scenes a Cut leaving one Scene may land on: every Scene in the Story bar
+ * The Scenes an Exit leaving one Scene may land on: every Scene in the Story bar
  * the one it leaves and the ones it already reaches. It is what lights up while
- * a Cut is being drawn, and it is fixed the moment the gesture begins — it
- * depends on the departing Scene and the Cuts already leaving it, and neither
+ * an Exit is being drawn, and it is fixed the moment the gesture begins — it
+ * depends on the departing Scene and the Exits already leaving it, and neither
  * changes under the Author's hand.
  *
- * The server allows both of the slips this withholds: a Scene that cuts to
- * itself is one a Reading re-enters, and two Cuts to one Scene under opposite
- * Conditions is what Conditions on a Cut are for. What the hand cannot do by
- * accident is still written on purpose, from the Cut's own panel — see
+ * The server allows both of the slips this withholds: a Scene that exits to
+ * itself is one a Reading re-enters, and two Exits to one Scene under opposite
+ * Conditions is what Conditions on an Exit are for. What the hand cannot do by
+ * accident is still written on purpose, from the Exit's own panel — see
  * `docs/adr/0015-a-cut-is-drawn-by-hand.md`.
  */
-export function scenesACutMayLandOn(scenes: Scene[], cuts: Cut[], fromSceneId: string) {
+export function scenesAExitMayLandOn(scenes: Scene[], exits: Exit[], fromSceneId: string) {
   const reached = new Set(
-    cuts.filter(cut => cut.fromSceneId === fromSceneId).map(cut => cut.toSceneId))
+    exits.filter(exit => exit.fromSceneId === fromSceneId).map(exit => exit.toSceneId))
 
   return new Set(
     scenes.map(scene => scene.id).filter(id => id !== fromSceneId && !reached.has(id)))
 }
 
 /**
- * A flat test on the State of one Reading, carried by a Cut or by a Shot: the Cut
+ * A flat test on the State of one Reading, carried by an Exit or by a Shot: the Exit
  * is offered, and the Shot played, only where every test it carries passes. Two
  * things can be tested and nothing else — what a Flag holds, or how often a Scene has been entered — with no
  * arithmetic and no nesting, so a Condition is one row of a form and one
@@ -436,5 +478,5 @@ export type StoryInEditor = {
   openingSceneId: string | null
   publishedAt: string | null
   scenes: Scene[]
-  cuts: Cut[]
+  exits: Exit[]
 }

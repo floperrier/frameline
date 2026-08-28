@@ -52,7 +52,7 @@ const box = ref<DOMRect>()
  * What the Step showing is pointing at, as a selector.
  *
  * A target the editor draws once per card — the button that writes a Scene, the
- * strip a Cut is drawn from — is found on the first card of the graph, which is
+ * strip an Exit is drawn from — is found on the first card of the graph, which is
  * the first Scene the Author wrote and where most of the path is walked.
  * Everything else a Step points at is in the panel, which holds one Scene by
  * construction, so nothing has to be scoped to a Scene by id.

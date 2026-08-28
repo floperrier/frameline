@@ -1,6 +1,6 @@
 import { customType, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
-import type { Condition, Flags } from '../../shared/utils/scenes'
+import type { Condition, Sets } from '../../shared/utils/scenes'
 
 export const authors = pgTable('authors', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -45,18 +45,19 @@ export const stories = pgTable('stories', {
 // the reach of the graph.
 //
 // `sets` is the Flags the Scene sets on every entry, as one flat object of names
-// to values. A table of its own would be the orthodox shape, but a Scene's Flags
-// are only ever read and written whole, with the Scene — never queried across
-// Stories, never joined to anything — so a row apiece would buy a join and
-// nothing else. What keeps the shape honest is the validation at the request
-// boundary, since Postgres will take any jsonb at all.
+// to values — or, where the Author named several, to the list one value is drawn
+// from on each entry. A table of its own would be the orthodox shape, but a
+// Scene's Flags are only ever read and written whole, with the Scene — never
+// queried across Stories, never joined to anything — so a row apiece would buy a
+// join and nothing else. What keeps the shape honest is the validation at the
+// request boundary, since Postgres will take any jsonb at all.
 export const scenes = pgTable('scenes', {
   id: uuid('id').primaryKey().defaultRandom(),
   storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   x: integer('x').notNull().default(0),
   y: integer('y').notNull().default(0),
-  sets: jsonb('sets').$type<Flags>().notNull().default({}),
+  sets: jsonb('sets').$type<Sets>().notNull().default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
@@ -90,7 +91,7 @@ const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () =>
 // `conditions` are the flat tests the Shot plays under, all of which must hold;
 // an empty list is a Shot every Reading sees. Held as jsonb, validated at the
 // request boundary and naming a Scene by an id no foreign key reaches, for the
-// same reasons a Cut's are — see the Cut below. A Shot skipped by one of these
+// same reasons an Exit's are — see the Exit below. A Shot skipped by one of these
 // is still a linear run and not a branch, so
 // `docs/adr/0001-branching-only-between-scenes.md` is untouched.
 //
@@ -111,14 +112,14 @@ export const shots = pgTable('shots', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-// A Cut is an edge of the Story graph: it leaves one Scene for another and
+// An Exit is an edge of the Story graph: it leaves one Scene for another and
 // carries the text the Reader is offered. Both ends cascade, so deleting a Scene
-// takes the Cuts that touch it with it. Two Cuts may join the same pair of
+// takes the Exits that touch it with it. Two Exits may join the same pair of
 // Scenes — they differ by their Conditions — so nothing here is unique.
 //
-// `conditions` are the flat tests the Cut is offered under, all of which must
-// hold; an empty list is a Cut always offered. Held as jsonb for the same reason
-// as a Scene's Flags: it is read and written whole with the Cut, and the shape is
+// `conditions` are the flat tests the Exit is offered under, all of which must
+// hold; an empty list is an Exit always offered. Held as jsonb for the same reason
+// as a Scene's Flags: it is read and written whole with the Exit, and the shape is
 // kept by the request boundary rather than by columns. A Condition naming a Scene
 // holds its id in the json, where no foreign key reaches — a Scene deleted out
 // from under it leaves a Condition counting visits to nowhere, which is a
@@ -126,19 +127,19 @@ export const shots = pgTable('shots', {
 //
 // `position` is the Scene's own numbering of the ways on leaving it: 0, 1, 2
 // with no gaps, the same Place a Shot has in its Scene's run. The Reader is
-// offered the Cuts in this order and the first of them takes focus, so it is a
+// offered the Exits in this order and the first of them takes focus, so it is a
 // decision about the Story rather than about the drawing — the graph's `x` and
 // `y` say nothing about it, see
 // `docs/adr/0007-the-order-of-the-ways-on-is-written-not-drawn.md`. Kept without
 // a unique constraint for the reason a Shot's numbering is.
 //
-// It defaults to 0, which nothing here needs — every Cut is drawn with the Place
+// It defaults to 0, which nothing here needs — every Exit is drawn with the Place
 // it takes. The default is for the code that ran before this column existed: the
 // schema moves before the deploy and a rollback moves the code back alone, so
 // for a while an insert naming no Place has to succeed rather than take drawing
-// a Cut down with it — see
+// an Exit down with it — see
 // `docs/adr/0002-the-schema-moves-with-the-deploy.md`.
-export const cuts = pgTable('cuts', {
+export const exits = pgTable('exits', {
   id: uuid('id').primaryKey().defaultRandom(),
   fromSceneId: uuid('from_scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
   toSceneId: uuid('to_scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),

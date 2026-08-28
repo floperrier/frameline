@@ -1,4 +1,4 @@
-import type { Condition, Cut, Flags, Shot } from './scenes'
+import type { Condition, Exit, Flags, Sets, Shot } from './scenes'
 import type { Phrase } from './phrases'
 
 /**
@@ -8,31 +8,36 @@ import type { Phrase } from './phrases'
  */
 export type StoryToRead = {
   openingSceneId: string | null
-  scenes: { id: string, sets: Flags, shots: Shot[] }[]
-  cuts: Cut[]
+  scenes: { id: string, sets: Sets, shots: Shot[] }[]
+  exits: Exit[]
 }
 
 /**
  * A Story as a screen shows it, whether the screen is an Author's Preview or a
  * Reader's Reading: the engine's Story, plus the name of each Scene. The name is
- * there for a Cut nobody has phrased yet, which has to stay takeable — a Reading
- * that cannot go on is worse than one offered a Cut named after where it lands.
+ * there for an Exit nobody has phrased yet, which has to stay takeable — a Reading
+ * that cannot go on is worse than one offered an Exit named after where it lands.
  */
 export type StoryToShow = Omit<StoryToRead, 'scenes'> & {
-  scenes: { id: string, name: string, sets: Flags, shots: Shot[] }[]
+  scenes: { id: string, name: string, sets: Sets, shots: Shot[] }[]
 }
 
 /**
- * The route one Reading has taken, and the taking of it: the Cuts it has taken,
- * in order, and how many Shots of the Scene it is standing in have been left
- * behind. It is a walk and not a point, which is why it is not a position and
- * why a Place — where a Shot comes in its Scene — is never one. Everything else —
+ * Where one Reading has got to: the Exits it has taken, in order, and how many
+ * Shots of the Scene it is standing in have been left behind. Everything else —
  * which Scene that is, what is on screen, what State has accumulated — is
  * computed from it, so a Reading is this much and nothing more. Two Readings of
- * the same Story that took the same Cuts are the same Reading, which is what
+ * the same Story that took the same Exits are the same Reading, which is what
  * makes the engine a pure function and the whole of it testable.
+ *
+ * The seed is what every draw a Scene makes comes out of. It is a part of the
+ * Path rather than a term of its own — see
+ * `docs/adr/0024-the-seed-belongs-to-the-position.md` — because a Reading is its
+ * Path and nothing else: a seed kept anywhere else would make `reading()`
+ * impure, and two Readings that took the same Exits under the same seed would
+ * stop being the same Reading.
  */
-export type Path = { taken: string[], shot: number }
+export type Path = { seed: number, taken: string[], shot: number }
 
 /**
  * Everything one Reading has accumulated: what each Flag holds, and how often
@@ -42,7 +47,7 @@ export type Path = { taken: string[], shot: number }
 export type State = { flags: Flags, visits: Record<string, number> }
 
 /**
- * Whether the Conditions a Cut or a Shot carries all pass against this State —
+ * Whether the Conditions an Exit or a Shot carries all pass against this State —
  * one carrying none being always offered, or always played. One comparison a
  * Condition, an `every` over them, and no recursion: a Condition is flat by
  * construction, so this is the whole of the language.
@@ -57,7 +62,7 @@ export function holds(conditions: Condition[], state: State) {
 }
 
 /**
- * Why a Cut is not on offer, or a Shot not played: one line for each test it
+ * Why an Exit is not on offer, or a Shot not played: one line for each test it
  * carries that this State fails, saying what the test asked for and what the
  * State actually holds. For
  * an Author's eyes alone — a Reader is never told what they are not being
@@ -65,7 +70,7 @@ export function holds(conditions: Condition[], state: State) {
  * the Condition holds.
  *
  * Every test is put back through `holds` one at a time rather than read a second
- * time here, so what this says failed and what the engine hid the Cut for cannot
+ * time here, so what this says failed and what the engine hid the Exit for cannot
  * come apart. The words come in from outside — see `Phrase` — so the engine
  * stays a pure function of its Story and knows nothing about a language.
  */
@@ -107,15 +112,76 @@ function entered(visits: number, say: Phrase) {
   return visits === 1 ? say('preview.enteredOnce') : say('preview.enteredTimes', { visits })
 }
 
-/** Every Reading starts here: the opening Scene, first Shot, nothing taken. */
-export const OPENING: Path = { taken: [], shot: 0 }
+/**
+ * Every Reading starts here: the opening Scene, first Shot, nothing taken, and a
+ * seed drawn for it. Drawing that seed is the one impure moment in the whole
+ * engine, and it happens here — called by whatever starts a Reading — rather than
+ * inside `reading()`, which stays a pure function of the Path it is handed.
+ * A seed may be passed in, which is what a test states and what a reroll
+ * replaces.
+ */
+export function opening(seed = Math.floor(Math.random() * 2 ** 32)): Path {
+  return { seed, taken: [], shot: 0 }
+}
+
+/**
+ * Where a Reading stands before a seed has been drawn for it: the opening
+ * Path under a seed of none. A screen renders on the server and then again in
+ * the browser hydrating it, and a seed drawn twice would be two different
+ * Stories either side of that — so the screens start here, and draw once the
+ * Reading is in the browser it will stay in.
+ */
+export const UNDRAWN: Path = opening(0)
+
+/**
+ * The same Path under a different draw: the Author's reroll. Nothing about
+ * where the Reading has got to changes, so the Exits taken and the Shot on screen
+ * are the ones they were — what changes is which value every draw comes out
+ * with, which is the whole of the control the Preview offers.
+ */
+export function rerolled(at: Path): Path {
+  return { ...at, seed: opening().seed }
+}
+
+/**
+ * Which of the values a Scene names for a Flag this Reading is shown. Hashed from
+ * the seed, the Scene, how many times this Reading has entered it, and the Flag's
+ * name — the four things that identify the draw — so each draw is independent of
+ * every other: a Shot added upstream, or one skipped by a Condition, leaves it
+ * where it was, and a Path replayed after an edit shows the Story it showed.
+ * A sequential generator threaded through the walk would shift every later draw
+ * instead; see `docs/adr/0024-the-seed-belongs-to-the-position.md`.
+ */
+function drawn(seed: number, sceneId: string, visits: number, flag: string, values: string[]) {
+  return values[hashed(`${seed}:${sceneId}:${visits}:${flag}`) % values.length]!
+}
+
+/**
+ * A number out of a string, spread evenly enough over its range that a list of
+ * six is reached at all six ends. FNV-1a over the bytes, then murmur's final
+ * mix, which is what carries the difference between two nearly equal keys — one
+ * entry to a Scene and the next — up into the bits a small remainder reads. A few
+ * lines written here rather than a dependency pulled in, on the grounds of
+ * `docs/adr/0010-the-graph-is-written-here-not-pulled-in.md`.
+ */
+function hashed(key: string) {
+  let hash = 0x811C9DC5
+  for (let at = 0; at < key.length; at++) {
+    hash = Math.imul(hash ^ key.charCodeAt(at), 0x01000193)
+  }
+
+  hash = Math.imul(hash ^ (hash >>> 16), 0x21F0AAAD)
+  hash = Math.imul(hash ^ (hash >>> 15), 0x735A2D97)
+
+  return (hash ^ (hash >>> 15)) >>> 0
+}
 
 /**
  * What the Reader is shown at one point in a Reading — a screenful, not the
  * Reading itself, which is the Path: the Shot on screen, or —
- * once the Shots of the Scene have run out — the Cuts on offer. Never both, so
+ * once the Shots of the Scene have run out — the Exits on offer. Never both, so
  * the Scene plays to its end before it asks anything. `ended` is the Path
- * reaching its end: no Shot left and no Cut out, which the Reader is owed as an
+ * reaching its end: no Shot left and no Exit out, which the Reader is owed as an
  * ending rather than a screen that has simply stopped answering.
  *
  * `run` is the Shots of that Scene this Reading plays — the Author's run minus
@@ -128,40 +194,50 @@ export type Shown = {
   sceneId: string | null
   run: Shot[]
   shot: Shot | undefined
-  cuts: Cut[]
+  exits: Exit[]
   ended: boolean
   state: State
 }
 
 /**
- * Walks the taken Cuts from the opening Scene, accumulating State on the way:
+ * Walks the taken Exits from the opening Scene, accumulating State on the way:
  * every arrival is counted and sets the Flags of the Scene it arrives at, so the
- * State a Cut is judged against is the one the Reader had when they were offered
- * it. A Cut that does not leave the Scene the Reading stands in, or whose
+ * State an Exit is judged against is the one the Reader had when they were offered
+ * it. An Exit that does not leave the Scene the Reading stands in, or whose
  * Conditions did not all hold there, is not one it could have been offered — a
  * stale link, or a hand-written one — and stops the walk where it is rather than
  * teleporting the Reader.
  *
- * The walk is as long as the Cuts taken, never as long as the Story's cycles, so
+ * The walk is as long as the Exits taken, never as long as the Story's cycles, so
  * a Story that comes back on itself is read round and round without the engine
  * ever looping forever.
+ *
+ * A Flag the Scene gives several values is drawn here, where a Scene already sets
+ * its Flags: the draw is made before anything is judged, so the State an Exit or
+ * a Shot is held against is the one the Reader arrived with. It is keyed on the
+ * count of entries, so a Scene read a second time draws again and a Story that
+ * loops is worth looping through.
  */
-function walk(story: StoryToRead, taken: string[]) {
+function walk(story: StoryToRead, { seed, taken }: Path) {
   const state: State = { flags: {}, visits: {} }
 
   function enter(id: string) {
-    state.visits[id] = (state.visits[id] ?? 0) + 1
-    Object.assign(state.flags, story.scenes.find(scene => scene.id === id)?.sets)
+    const visits = (state.visits[id] = (state.visits[id] ?? 0) + 1)
+    const sets = story.scenes.find(scene => scene.id === id)?.sets ?? {}
+
+    for (const [flag, held] of Object.entries(sets)) {
+      state.flags[flag] = Array.isArray(held) ? drawn(seed, id, visits, flag, held) : held
+    }
   }
 
   let sceneId = story.openingSceneId
   if (sceneId) enter(sceneId)
 
   for (const takenId of taken) {
-    const cut = story.cuts.find(cut =>
-      cut.id === takenId && cut.fromSceneId === sceneId && holds(cut.conditions, state))
-    if (!cut) break
-    sceneId = cut.toSceneId
+    const exit = story.exits.find(exit =>
+      exit.id === takenId && exit.fromSceneId === sceneId && holds(exit.conditions, state))
+    if (!exit) break
+    sceneId = exit.toSceneId
     enter(sceneId)
   }
 
@@ -170,7 +246,7 @@ function walk(story: StoryToRead, taken: string[]) {
 
 /** What this Story shows a Reading that has taken this Path. */
 export function reading(story: StoryToRead, at: Path): Shown {
-  const { sceneId, state } = walk(story, at.taken)
+  const { sceneId, state } = walk(story, at)
   // The run this Reading plays, judged against the State it arrived with: a Shot
   // whose Conditions fail is left out of the run rather than played to nobody,
   // so the Path counts the beats the Reader actually saw and the one after
@@ -179,15 +255,15 @@ export function reading(story: StoryToRead, at: Path): Shown {
   const run = story.scenes.find(scene => scene.id === sceneId)
     ?.shots.filter(shot => holds(shot.conditions, state)) ?? []
   const shot = run[at.shot]
-  // A Story with no opening Scene has no Cuts to offer either, so the empty
-  // Scene and the missing one both end the Path. A Cut one of whose Conditions
+  // A Story with no opening Scene has no Exits to offer either, so the empty
+  // Scene and the missing one both end the Path. An Exit one of whose Conditions
   // fails is not among them, which is what makes it invisible rather than
   // refused.
-  const cuts = shot
+  const exits = shot
     ? []
-    : story.cuts.filter(cut => cut.fromSceneId === sceneId && holds(cut.conditions, state))
+    : story.exits.filter(exit => exit.fromSceneId === sceneId && holds(exit.conditions, state))
 
-  return { sceneId, run, shot, cuts, ended: !shot && cuts.length === 0, state }
+  return { sceneId, run, shot, exits, ended: !shot && exits.length === 0, state }
 }
 
 /** The Reader asks for the next Shot of the Scene. */
@@ -195,7 +271,7 @@ export function advance(at: Path): Path {
   return { ...at, shot: at.shot + 1 }
 }
 
-/** The Reader takes one of the Cuts on offer, and the Scene it arrives at starts over. */
-export function take(at: Path, cut: Cut): Path {
-  return { taken: [...at.taken, cut.id], shot: 0 }
+/** The Reader takes one of the Exits on offer, and the Scene it arrives at starts over. */
+export function take(at: Path, exit: Exit): Path {
+  return { ...at, taken: [...at.taken, exit.id], shot: 0 }
 }

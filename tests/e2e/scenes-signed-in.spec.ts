@@ -2,7 +2,7 @@ import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 import { CONDITIONS_MAX, SCENE_NAME_MAX_LENGTH, VISITS_MAX } from '../../shared/utils/scenes'
 import {
-  writeScene, readCuts, readSceneName, readShotConditions, readShots, seedScene, seedStory, test,
+  writeScene, readExits, readSceneName, readShotConditions, readShots, seedScene, seedStory, test,
 } from './author'
 
 const noId = '00000000-0000-4000-8000-000000000000'
@@ -104,7 +104,7 @@ test('an Author renames a Scene in the panel', async ({ page, request }) => {
   await expect(page.getByRole('heading', { name: 'The arival' })).toBeVisible()
   await writeScene(page, 'The arival')
 
-  // Leaving the field is what writes it, as it is for a Shot and for a Cut.
+  // Leaving the field is what writes it, as it is for a Shot and for an Exit.
   const named = page.getByRole('textbox', { name: 'Name of this Scene' })
   await named.fill('The arrival')
   await named.blur()
@@ -566,7 +566,7 @@ test('an Author writes a Story from the page alone', async ({ page, request }) =
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('She steps off the train.')
   await expect(page.getByRole('textbox', { name: 'Shot 2' })).toBeHidden()
 
-  // Deleting a Scene takes Shots and Cuts with it, so it is asked about first —
+  // Deleting a Scene takes Shots and Exits with it, so it is asked about first —
   // on the bench's own surface, read like any other part of the interface.
   await page.getByRole('button', { name: 'Delete Scene The arrival' }).click()
   const asking = page.getByRole('dialog')
@@ -583,10 +583,10 @@ test('a Scene dismissed from the confirmation is left exactly as it was', async 
   await writeShots(request, scene.id, ['The projector ticks over.', 'Nobody is in it.'])
   const lobby = await (await request.post(
     `/api/stories/${story.id}/scenes`, { data: { name: 'The lobby' } })).json()
-  // A Cut at each end, because the schema cascades a delete from both of them and
+  // An Exit at each end, because the schema cascades a delete from both of them and
   // only the ways on were ever counted.
-  await request.post(`/api/scenes/${scene.id}/cuts`, { data: { toSceneId: lobby.id } })
-  await request.post(`/api/scenes/${lobby.id}/cuts`, { data: { toSceneId: scene.id } })
+  await request.post(`/api/scenes/${scene.id}/exits`, { data: { toSceneId: lobby.id } })
+  await request.post(`/api/scenes/${lobby.id}/exits`, { data: { toSceneId: scene.id } })
 
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The booth')
@@ -595,7 +595,7 @@ test('a Scene dismissed from the confirmation is left exactly as it was', async 
 
   const asking = page.getByRole('dialog')
   await expect(asking).toContainText(
-    '“The booth” goes, and with it 2 Shots, 1 Cut leaving it and 1 Cut arriving at it.')
+    '“The booth” goes, and with it 2 Shots, 1 Exit leaving it and 1 Exit arriving at it.')
 
   // What a stray Enter would land on is the answer that destroys nothing.
   await expect(asking.getByRole('button', { name: 'Leave it' })).toBeFocused()
@@ -604,11 +604,11 @@ test('a Scene dismissed from the confirmation is left exactly as it was', async 
   await expect(control).toBeFocused()
 
   // Dismissed means untouched, which the page cannot be asked about: the Scene,
-  // its Shots and the Cuts at both of its ends are read past the API.
+  // its Shots and the Exits at both of its ends are read past the API.
   await expect(readSceneName(scene.id)).resolves.toBe('The booth')
   await expect(readShots(scene.id)).resolves.toHaveLength(2)
-  await expect(readCuts(scene.id)).resolves.toHaveLength(1)
-  await expect(readCuts(lobby.id)).resolves.toHaveLength(1)
+  await expect(readExits(scene.id)).resolves.toHaveLength(1)
+  await expect(readExits(lobby.id)).resolves.toHaveLength(1)
 })
 
 test('a Shot carries the Conditions it plays under', async ({ request }) => {
@@ -678,7 +678,7 @@ test('an Author writes a Condition on a Shot, and it reads as one line', async (
   expect(await lines(1)).toBeLessThan(3)
 })
 
-test('a Shot’s Conditions are refused where a Cut’s would be', async ({
+test('a Shot’s Conditions are refused where an Exit’s would be', async ({
   request,
   otherAuthor,
 }) => {

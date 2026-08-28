@@ -1,14 +1,14 @@
 <script setup lang="ts">
 /**
- * The Conditions one Cut or one Shot carries, a row apiece and all of them
- * holding for the Cut to be offered or the Shot to play: flat, so a Condition is
+ * The Conditions one Exit or one Shot carries, a row apiece and all of them
+ * holding for the Exit to be offered or the Shot to play: flat, so a Condition is
  * read as one sentence and the list is read as the whole of them. One carrying
  * none is offered to everyone, or played to everyone.
  *
  * One component for both, because the language is one language: a row that read
- * differently on a Shot than on a Cut would be two Condition editors to keep
+ * differently on a Shot than on an Exit would be two Condition editors to keep
  * alike. What differs is only what the row is called — `carrier` is the phrase
- * every label ends in, so a Story of forty Cuts and two hundred Shots has no two
+ * every label ends in, so a Story of forty Exits and two hundred Shots has no two
  * labels alike — and where the Scene a fresh visit count starts on comes from.
  *
  * The sentence is written the way one is read: the connecting words between the
@@ -23,7 +23,7 @@
 const { carrier, conditions, scenes, counting } = defineProps<{
   /** The visible words the list opens on: "Offered when", "Played when". */
   lead: string
-  /** What carries the list, as a label ends it: "the Cut to The House", "Shot 3". */
+  /** What carries the list, as a label ends it: "the Exit to The House", "Shot 3". */
   carrier: string
   /** The list itself, edited in place. */
   conditions: Condition[]
@@ -31,7 +31,7 @@ const { carrier, conditions, scenes, counting } = defineProps<{
   scenes: Scene[]
   /** The Scene a freshly chosen visit count starts on. */
   counting: string
-  /** The id of the Cut or Shot carrying the list, which every field's own id is built from. */
+  /** The id of the Exit or Shot carrying the list, which every field's own id is built from. */
   id: string
 }>()
 
@@ -81,7 +81,7 @@ function choose(place: number, kind: ConditionKind) {
 
 /**
  * How one Condition is named where the row's own labels are too short to say it:
- * "Condition 2 of the Cut to The platform".
+ * "Condition 2 of the Exit to The platform".
  */
 function conditionCalled(place: number) {
   return t('conditions.called', { place: place + 1, carrier })
@@ -205,7 +205,7 @@ function conditionCalled(place: number) {
 </template>
 
 <style scoped>
-/* The Conditions of one Cut or one Shot, stacked, each read across its own row as
+/* The Conditions of one Exit or one Shot, stacked, each read across its own row as
    the sentence it is: "played when — Flag — coat — holds — on". The connecting
    words are plain text between the fields and the labels are read by assistive
    technology alone, because a visible label over every one of five controls is

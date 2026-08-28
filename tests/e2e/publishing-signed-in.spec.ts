@@ -28,7 +28,7 @@ async function readToTheEnd(page: Page) {
 
 /**
  * The whole product in one path: an Author signed in, a Story of two Scenes
- * joined by a Cut, a Publish, and someone with no account reading it to an
+ * joined by an Exit, a Publish, and someone with no account reading it to an
  * ending at the link — then the link taken away, and given back.
  */
 test('an Author publishes a Story and a Reader reads it at the public link', async ({ page, request, browser, baseURL }) => {

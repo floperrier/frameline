@@ -5,10 +5,10 @@ Read `CONTEXT.md` before touching anything — the glossary is binding.
 
 ## Agent skills
 
-Skills vendored from other repositories live in `.agents/skills/`, with
-`.claude/skills/` symlinked to them and `skills-lock.json` recording the source
-and content hash of each. Update them through the tool that wrote the lock file
-rather than editing the copies.
+Skills come from the plugins `.claude/settings.json` enables — the Neon ones
+from `neon-postgres@neon`, whose marketplace the same file declares so a clone
+can install it. Nothing is vendored into the repository, so there is no copy
+here to update.
 
 ### Issue tracker
 
@@ -66,16 +66,15 @@ type literal and the point a method chain breaks are all its own to decide.
 Turned loose on this repo it rewrites nineteen hundred lines that nobody asked
 it to. So the pre-commit hook runs it over `css`, `json` and `yaml` alone, where
 its opinion and ours are the same, and `.prettierrc` says what the rest of the
-code already does in case it is ever pointed at it. Generated and vendored files
-are ignored outright: the migration snapshots are the generator's to write, and
-a vendored skill is hashed in `skills-lock.json`.
+code already does in case it is ever pointed at it. Generated files are ignored
+outright: the migration snapshots are the generator's to write.
 
 ## Tests
 
 `pnpm test` runs the Vitest suite over the modules that are pure functions: the
 Reading engine, what a Shot's image is read to be, the Conditions a request is
 allowed to write, the sequence of Places it renumbers a Scene by, the Scenes a
-Cut may land on, the geometry of the lines the graph draws and where a point on
+Exit may land on, the geometry of the lines the graph draws and where a point on
 the screen lands on the surface they are drawn on, the two message
 files held against each other, the language a refusal is phrased in, the Steps the
 bench asks a Story for — whose targets are held against the editor's template
@@ -95,7 +94,7 @@ Migrations are generated from `server/db/schema.ts` with `pnpm db:generate`.
 
 `demonstration/` holds the two works this repository carries. *Reel Change* is
 the short film the product exists to carry: `reel-change.ts` is the work itself —
-its Scenes, Shots, Cuts and Conditions, and the recipe for each image. The
+its Scenes, Shots, Exits and Conditions, and the recipe for each image. The
 Samples are the three-Scene Story a new Author is given, one per Language, in
 `samples.ts`; their images are the WebP files in `images/`, developed once by
 `images.ts` and committed, because the runtime this deploys to has no ImageMagick

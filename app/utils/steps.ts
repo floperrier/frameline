@@ -66,12 +66,12 @@ export const STEPS: Step[] = [
   // arrives with no Shot in it to point at.
   { name: 'writeShot', target: 'shot-text', met: written },
   // The thesis of the product, in the order it can be shown in: a second Scene
-  // first, because a Cut needs somewhere to land.
+  // first, because an Exit needs somewhere to land.
   { name: 'secondScene', target: 'new-scene-name', met: story => story.scenes.length > 1 },
-  // Any Cut at all, rather than one from the first Scene to the second: the
+  // Any Exit at all, rather than one from the first Scene to the second: the
   // sentence asks for the one the Story needs, and an Author who drew it the
   // other way round has joined two Scenes and is not told they did it wrong.
-  { name: 'drawCut', target: 'draw-cut', met: story => story.cuts.length > 0 },
+  { name: 'drawExit', target: 'draw-exit', met: story => story.exits.length > 0 },
   // Where State comes from, asked for on the first Scene because that is where a
   // Reading starts and so the one place a Flag is certain to have been set by the
   // time the second Scene plays. Any Flag on any Scene meets it, though: an
@@ -154,10 +154,13 @@ function written(story: StoryInEditor) {
 function conditionTaught(story: StoryInEditor, holding = false) {
   const flagsSet = story.scenes.flatMap(scene => Object.entries(scene.sets))
 
+  // A Flag the Scene draws from several values counts where any one of them is
+  // the value tested, for the same lenient reading: which one a Reading is shown
+  // is the engine's answer and not a predicate's.
   return story.scenes[1]?.shots
     .flatMap(shot => shot.conditions)
-    .find(condition => 'flag' in condition && flagsSet.some(([flag, value]) =>
-      flag === condition.flag && (!holding || value === condition.is)))
+    .find(condition => 'flag' in condition && flagsSet.some(([flag, held]) =>
+      flag === condition.flag && (!holding || [held].flat().includes(condition.is))))
 }
 
 /**

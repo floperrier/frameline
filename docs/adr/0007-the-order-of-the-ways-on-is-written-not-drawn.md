@@ -46,3 +46,10 @@ not: renumbering needs the siblings side by side, so the node keeps a bare strip
 of the ways on — a Place, the name it arrives at, and the two controls that
 renumber them — which is also the route an Author reaches a Cut by when they are
 not holding a pointer.
+
+## Since
+
+A Cut is now an Exit, shown as _Sortie_ — see
+`docs/adr/0022-the-metaphor-stops-at-the-edge-of-the-work.md` and the glossary in
+`CONTEXT.md`. What was decided here is untouched by the renaming: read Cut as
+Exit throughout.

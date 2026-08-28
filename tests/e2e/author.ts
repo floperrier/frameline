@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { neon } from '@neondatabase/serverless'
 import { test as base, type APIRequestContext, type Page } from '@playwright/test'
 import { DISMISSED } from '../../app/utils/steps'
-import type { Condition, Cut, Flags, Scene, Shot } from '../../shared/utils/scenes'
+import type { Condition, Exit, Scene, Sets, Shot } from '../../shared/utils/scenes'
 import { NODE_GAP, NODE_SPACING, NODE_WIDTH, NODES_PER_COLUMN } from '../../shared/utils/scenes'
 import { sealSession, type H3Event } from 'h3'
 
@@ -148,25 +148,25 @@ export async function writeScene(page: Page, name: string) {
   await page.getByRole('button', { name: `Write Scene ${name}` }).click()
 }
 
-/** Draws a Cut on behalf of an Author nobody is signed in as. */
-export async function seedCut(fromSceneId: string, toSceneId: string, text = 'Their Cut') {
+/** Draws an Exit on behalf of an Author nobody is signed in as. */
+export async function seedExit(fromSceneId: string, toSceneId: string, text = 'Their Exit') {
   const drawn = await sql`
-    insert into cuts (from_scene_id, to_scene_id, text, position)
+    insert into exits (from_scene_id, to_scene_id, text, position)
     values (${fromSceneId}, ${toSceneId}, ${text},
-      coalesce((select max(position) + 1 from cuts where from_scene_id = ${fromSceneId}), 0))
+      coalesce((select max(position) + 1 from exits where from_scene_id = ${fromSceneId}), 0))
     returning
       id, from_scene_id as "fromSceneId", to_scene_id as "toSceneId", text, position, conditions`
 
-  return (drawn as Cut[])[0]!
+  return (drawn as Exit[])[0]!
 }
 
-/** Reads the Cuts leaving a Scene past the API, in the Places the Scene numbers them at. */
-export async function readCuts(fromSceneId: string) {
+/** Reads the Exits leaving a Scene past the API, in the Places the Scene numbers them at. */
+export async function readExits(fromSceneId: string) {
   return await sql`
     select
       id, from_scene_id as "fromSceneId", to_scene_id as "toSceneId", text, position, conditions
-    from cuts where from_scene_id = ${fromSceneId}
-    order by position` as Cut[]
+    from exits where from_scene_id = ${fromSceneId}
+    order by position` as Exit[]
 }
 
 /**
@@ -186,7 +186,7 @@ export async function seedPublication(story: Story) {
 }
 
 /** Sets the Flags a Scene carries, past the API, on behalf of an Author. */
-export async function seedFlags(sceneId: string, sets: Flags) {
+export async function seedFlags(sceneId: string, sets: Sets) {
   await sql`update scenes set sets = ${JSON.stringify(sets)}::jsonb where id = ${sceneId}`
 }
 
@@ -199,7 +199,7 @@ export async function seedShotConditions(shotId: string, conditions: Condition[]
 /** Reads the Flags a Scene sets on entry, past the API. */
 export async function readFlags(sceneId: string) {
   const [scene] = await sql`
-    select sets from scenes where id = ${sceneId}` as { sets: Flags }[]
+    select sets from scenes where id = ${sceneId}` as { sets: Sets }[]
 
   return scene!.sets
 }
@@ -259,7 +259,7 @@ async function sealAuthorSession(author: Author) {
 }
 
 /**
- * A Story of two Scenes joined by a Cut, written through the API the way the
+ * A Story of two Scenes joined by an Exit, written through the API the way the
  * Author's own hands would write it — so a Preview and a Reading both have real
  * Shots to play. Shared by the two specs that need a readable Story, because a
  * Reader must meet exactly what a Preview showed.
@@ -284,10 +284,10 @@ export async function writeStory(request: APIRequestContext, language = 'en') {
     scenes.push(scene)
   }
 
-  const cut = await (await request.post(`/api/scenes/${scenes[0]!.id}/cuts`, {
+  const exit = await (await request.post(`/api/scenes/${scenes[0]!.id}/exits`, {
     data: { toSceneId: scenes[1]!.id },
   })).json()
-  await request.patch(`/api/cuts/${cut.id}`, { data: { text: 'Follow her out' } })
+  await request.patch(`/api/exits/${exit.id}`, { data: { text: 'Follow her out' } })
 
   return story as { id: string, title: string, language: string }
 }
