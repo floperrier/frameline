@@ -9,7 +9,5 @@ node_modules
 # formatting them is churn the generator undoes.
 server/db/migrations
 
-# Vendored from other repositories, with their content hashed in
-# `skills-lock.json` — reformatting one is how the lock stops matching.
-.agents
-.claude
+# Worktree checkouts, not sources of this repository.
+.claude/worktrees
