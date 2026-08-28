@@ -100,7 +100,8 @@ Samples are the three-Scene Story a new Author is given, one per Language, in
 `images.ts` and committed, because the runtime this deploys to has no ImageMagick
 on it — see `docs/adr/0018-a-leader-exists-once-per-language.md`. `work.ts` is
 what both are written as, and `write.ts` writes either into a running instance
-through the same API the editor uses, then publishes it.
+through the same API the editor uses, then publishes it — and lists the
+demonstration in the Catalogue, so a fresh install is never an empty one.
 
 ```sh
 node --env-file=.env demonstration/write.ts --author you@example.com

@@ -1,0 +1,1 @@
+ALTER TABLE "stories" ADD COLUMN "listed" boolean DEFAULT false NOT NULL;

@@ -93,6 +93,12 @@ for (const exit of work.exits) {
 
 await api('POST', `/api/stories/${story.id}/publish`)
 
+// The demonstration is listed as well as published, so a fresh install has a
+// Catalogue with something in it — an empty one reads as broken rather than as
+// new. A Sample written from here is a copy for whoever ran the script, and is
+// left unlisted like the one planted in every new account.
+if (work === REEL_CHANGE) await api('POST', `/api/stories/${story.id}/listed`)
+
 console.log(`\n${work.title} is readable at ${origin}/read/${story.id}`)
 
 /**

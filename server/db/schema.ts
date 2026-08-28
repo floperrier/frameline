@@ -1,4 +1,4 @@
-import { customType, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { boolean, customType, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import type { Condition, Sets } from '../../shared/utils/scenes'
 
@@ -28,6 +28,14 @@ export const authors = pgTable('authors', {
 // says when as well as whether, at no more cost. Nothing else changes on a
 // Publish — the link is the Story's own id, so it is the same link every time
 // the Story is published again.
+//
+// `listed` is whether the Author has put the published Story in the Catalogue,
+// which is a second act beside publishing rather than part of it — see
+// `docs/adr/0023-being-published-and-being-found-are-two-acts.md`. A flag beside
+// `published_at` rather than one column naming three states, because
+// `published_at` already says which side of publishing the Story is on. It
+// defaults to false and nothing backfills it: nobody agreed to appear in a
+// catalogue that did not exist when they published.
 export const stories = pgTable('stories', {
   id: uuid('id').primaryKey().defaultRandom(),
   authorId: uuid('author_id').notNull().references(() => authors.id, { onDelete: 'cascade' }),
@@ -36,6 +44,7 @@ export const stories = pgTable('stories', {
   openingSceneId: uuid('opening_scene_id')
     .references((): AnyPgColumn => scenes.id, { onDelete: 'set null' }),
   publishedAt: timestamp('published_at', { withTimezone: true }),
+  listed: boolean('listed').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 

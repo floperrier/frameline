@@ -51,7 +51,13 @@
       "conditionTerm": "Condition",
       "conditionLine": "Un test qui décide si un Plan se joue ou si une Sortie est offerte : la même Scène se lit autrement, sans jamais se ramifier."
     },
-    "reading": "Lire un Récit publié sur le moteur qu’un Lecteur fait tourner"
+    "reading": "Lire un Récit publié sur le moteur qu’un Lecteur fait tourner",
+    "catalogue": "Lire ce que d’autres Auteurs ont répertorié"
+  },
+  "catalogue": {
+    "heading": "Catalogue",
+    "line": "Les Récits que leurs Auteurs ont répertoriés ici, du plus récemment publié au plus ancien. N’importe qui peut les lire, avec ou sans compte.",
+    "none": "Aucun Récit n’est encore répertorié. Le premier qu’un Auteur répertorie paraîtra ici."
   },
   "stories": {
     "heading": "Récits",
@@ -71,6 +77,8 @@
     "readableAt": "N'importe qui peut lire ce Récit à",
     "keptAt": "Enregistré à {time}",
     "preview": "Aperçu de ce Récit",
+    "list": "Répertorier ce Récit au Catalogue",
+    "unlist": "Retirer ce Récit du Catalogue",
     "unpublish": "Dépublier ce Récit",
     "publish": "Publier ce Récit",
     "newSceneName": "Nom d'une nouvelle Scène",
@@ -246,6 +254,7 @@
     "imageMissing": "Une image est un fichier à envoyer.",
     "imageHeavy": "Une image ne peut pas peser plus de {mb} Mo.",
     "imageType": "Un Plan porte une image JPEG, PNG ou WebP, et rien d'autre.",
+    "listPublished": "Un Récit est publié avant d’être répertorié, car une entrée du Catalogue mène à son lien public.",
     "openingScene": "Un Récit a besoin d'une Scène d'ouverture avant d'être publié. Écrivez une Scène sur le Graphe et marquez-la comme celle par laquelle commencer.",
     "signedOut": "La connexion n'est plus ouverte, donc rien n'a été écrit."
   }

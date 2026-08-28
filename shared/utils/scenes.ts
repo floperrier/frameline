@@ -477,6 +477,8 @@ export type StoryInEditor = {
   language: string
   openingSceneId: string | null
   publishedAt: string | null
+  /** Whether the Author has put the published Story in the Catalogue. */
+  listed: boolean
   scenes: Scene[]
   exits: Exit[]
 }
