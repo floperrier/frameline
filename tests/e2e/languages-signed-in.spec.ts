@@ -125,7 +125,7 @@ test('a Story is announced in its own Language while the chrome stays the Reader
   await reader.goto(`${baseURL}/read/${story.id}`)
 
   // The work says what it is written in, on its title and on the frame holding
-  // the beat — the still, what it shows, and the text are all the Author's.
+  // the beat — the image, what it shows, and the text are all the Author's.
   await expect(reader.getByRole('heading', { name: story.title })).toHaveAttribute('lang', 'fr')
   await expect(reader.locator('figure')).toHaveAttribute('lang', 'fr')
 

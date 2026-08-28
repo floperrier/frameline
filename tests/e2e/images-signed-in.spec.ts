@@ -28,14 +28,14 @@ async function reread(request: APIRequestContext, storyId: string) {
   return read.scenes[0]!.shots
 }
 
-test('an Author attaches a still to a Shot, and it is served where the Shot says', async ({ request }) => {
+test('an Author attaches an image to a Shot, and it is served where the Shot says', async ({ request }) => {
   const { story, shots } = await openShots(request)
 
   const attached = await request.put(`/api/shots/${shots[0]!.id}/image`, { data: ONE_PIXEL })
   expect(attached.status()).toBe(200)
   expect(await attached.json()).toMatchObject({ image: `/api/shots/${shots[0]!.id}/image` })
 
-  // The Story carries the address of the still, never its bytes — and a Shot the
+  // The Story carries the address of the image, never its bytes — and a Shot the
   // Author left as text alone carries nothing at all.
   const after = await reread(request, story.id)
   expect(after[0]!.image).toBe(`/api/shots/${shots[0]!.id}/image`)
@@ -49,7 +49,7 @@ test('an Author attaches a still to a Shot, and it is served where the Shot says
   expect(Buffer.compare(await served.body(), ONE_PIXEL)).toBe(0)
 })
 
-test('a Shot keeps the still attached last, and shows it', async ({ page, request }) => {
+test('a Shot keeps the image attached last, and shows it', async ({ page, request }) => {
   const { story, shots } = await openShots(request)
   // A WebP, so what is served proves which of the two uploads the Shot kept.
   const webp = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WEBPnothing')])
@@ -60,8 +60,8 @@ test('a Shot keeps the still attached last, and shows it', async ({ page, reques
   const served = await request.get(`/api/shots/${shots[0]!.id}/image`)
   expect(served.headers()['content-type']).toBe('image/webp')
 
-  // Replacing a still in the editor has to reach the screen and not only the
-  // database: the address of a still is the Shot's own, so the second upload
+  // Replacing an image in the editor has to reach the screen and not only the
+  // database: the address of an image is the Shot's own, so the second upload
   // would otherwise leave the browser drawing the image it already had.
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The street')
@@ -69,12 +69,12 @@ test('a Shot keeps the still attached last, and shows it', async ({ page, reques
   const shown = () => street.locator('img').getAttribute('src')
 
   const first = await shown()
-  await street.getByLabel('Image of Shot 1')
+  await street.getByLabel('Image of Shot 1', { exact: true })
     .setInputFiles({ name: 'other.png', mimeType: 'image/png', buffer: ONE_PIXEL })
   await expect.poll(shown).not.toBe(first)
 })
 
-test('a card shows the still of the Scene\u2019s first Shot', async ({ page, request }) => {
+test('a card shows the image of the Scene\u2019s first Shot', async ({ page, request }) => {
   const { story, shots } = await openShots(request)
   await request.put(`/api/shots/${shots[0]!.id}/image`, { data: ONE_PIXEL })
 
@@ -83,11 +83,11 @@ test('a card shows the still of the Scene\u2019s first Shot', async ({ page, req
   // What an Author recognises a Scene by before they have read a word of it, read
   // off the card with nothing opened.
   await expect(page.getByRole('article', { name: 'The street' })
-    .getByRole('img', { name: 'The still of Shot 1' }))
+    .getByRole('img', { name: 'The image of Shot 1' }))
     .toHaveAttribute('src', `/api/shots/${shots[0]!.id}/image`)
 
   // The other Scene's first Shot carries none, so its card is the outline of the
-  // still nobody has attached — the same way an unfinished Shot reads in the panel.
+  // image nobody has attached — the same way an unfinished Shot reads in the panel.
   await expect(page.getByRole('article', { name: 'The bar' }).locator('img')).toHaveCount(0)
 })
 
@@ -115,19 +115,19 @@ test('an upload of the wrong kind, or too heavy, is refused by its reason', asyn
   expect(nothing.status()).toBe(400)
   expect((await nothing.json()).message).toContain('An image is a file to upload.')
 
-  // Every refusal left the Shot as it was: text alone, and no still to serve.
+  // Every refusal left the Shot as it was: text alone, and no image to serve.
   expect((await reread(request, story.id))[0]!.image).toBeNull()
   expect((await request.get(`/api/shots/${shots[0]!.id}/image`)).status()).toBe(404)
 })
 
-test('a Shot of someone else’s Story has no still to attach one to', async ({ request, otherAuthor }) => {
+test('a Shot of someone else’s Story has no image to attach one to', async ({ request, otherAuthor }) => {
   const theirs = await seedScene(await seedStory(otherAuthor, 'Their Story'), 'Their Scene')
 
   const attached = await request.put(`/api/shots/${theirs.shots[0]!.id}/image`, { data: ONE_PIXEL })
   expect(attached.status()).toBe(404)
 })
 
-test('a still is as reachable as the Story it belongs to', async ({ baseURL, playwright, request }) => {
+test('an image is as reachable as the Story it belongs to', async ({ baseURL, playwright, request }) => {
   const { story, shots } = await openShots(request)
   await request.put(`/api/shots/${shots[0]!.id}/image`, { data: ONE_PIXEL })
 
@@ -153,30 +153,30 @@ test('the Author picks a file in the editor, and a refused one says why', async 
 
   await writeScene(page, 'The street')
   const street = writing(page)
-  const picker = street.getByLabel('Image of Shot 1')
-  await picker.setInputFiles({ name: 'still.png', mimeType: 'image/png', buffer: ONE_PIXEL })
+  const picker = street.getByLabel('Image of Shot 1', { exact: true })
+  await picker.setInputFiles({ name: 'image.png', mimeType: 'image/png', buffer: ONE_PIXEL })
   await expect(street.locator('img')).toBeVisible()
 
-  // A file that is not one of the three says so, and the still already attached
+  // A file that is not one of the three says so, and the image already attached
   // is still the one the Shot carries.
   await picker.setInputFiles({
     name: 'notes.txt',
     mimeType: 'image/png',
-    buffer: Buffer.from('Not a still at all'),
+    buffer: Buffer.from('Not an image at all'),
   })
   await expect(page.getByRole('alert')).toContainText('a JPEG, a PNG or a WebP image')
   await expect(street.locator('img')).toBeVisible()
 })
 
-test('the thumbnail is the picker, and an empty one is the outline of a still', async ({ page, request }) => {
+test('the thumbnail is the picker, and an empty one is the outline of an image', async ({ page, request }) => {
   const { story, shots } = await openShots(request)
   await page.goto(`/stories/${story.id}`)
 
   await writeScene(page, 'The street')
   const street = writing(page)
-  const thumbnail = street.locator('.still > label').first()
+  const thumbnail = street.locator('.image > label').first()
 
-  // The Shot carries no still yet and is drawn as the box one would fill, at the
+  // The Shot carries no image yet and is drawn as the box one would fill, at the
   // size a thumbnail is: an unfinished Shot is legible as one.
   expect(await thumbnail.boundingBox()).toMatchObject({ width: 72, height: 48 })
   await expect(thumbnail.locator('img')).toBeHidden()
@@ -185,7 +185,7 @@ test('the thumbnail is the picker, and an empty one is the outline of a still', 
   // chrome is behind it rather than beside it, so it is the picker that opens.
   const opened = page.waitForEvent('filechooser')
   await thumbnail.click()
-  await (await opened).setFiles({ name: 'still.png', mimeType: 'image/png', buffer: ONE_PIXEL })
+  await (await opened).setFiles({ name: 'image.png', mimeType: 'image/png', buffer: ONE_PIXEL })
 
   await expect(thumbnail.locator('img')).toBeVisible()
   await expect.poll(async () => (await reread(request, story.id))[0]!.image)
@@ -193,7 +193,7 @@ test('the thumbnail is the picker, and an empty one is the outline of a still', 
 
   // And the input is still the named control it was, reached from the Shot's text
   // by the next Tab: hidden behind the thumbnail is not hidden from the keyboard.
-  const picker = street.getByLabel('Image of Shot 1')
+  const picker = street.getByLabel('Image of Shot 1', { exact: true })
   await street.getByRole('textbox', { name: 'Shot 1', exact: true }).focus()
   await page.keyboard.press('Tab')
   await expect(picker).toBeFocused()
@@ -206,9 +206,9 @@ test('the thumbnail is the picker, and an empty one is the outline of a still', 
   expect(behind.x).toBeGreaterThanOrEqual(thumb.x)
   expect(behind.x + behind.width).toBeLessThanOrEqual(thumb.x + thumb.width)
 
-  // The Description sits beside the still it describes, and keeps its own label
+  // The Description sits beside the image it describes, and keeps its own label
   // rather than borrowing the thumbnail's box.
-  const described = (await street.getByLabel('Description of the still of Shot 1')
+  const described = (await street.getByLabel('Description of the image of Shot 1')
     .boundingBox())!
   expect(described.x).toBeGreaterThan(thumb.x + thumb.width)
   expect(described.y).toBeLessThan(thumb.y + thumb.height)
@@ -221,25 +221,25 @@ test('the thumbnail is the picker, and an empty one is the outline of a still', 
   expect(eyebrow.height).toBeLessThan(thumb.height)
 })
 
-test('the still and the text of a Shot are one beat on screen', async ({ browser, page, request }) => {
+test('the image and the text of a Shot are one beat on screen', async ({ browser, page, request }) => {
   const { story, shots } = await openShots(request)
   await request.put(`/api/shots/${shots[0]!.id}/image`, { data: ONE_PIXEL })
 
   await page.goto(`/stories/${story.id}/preview`)
 
-  // Both at once: the Shot the Reading opens on shows its still beside its text.
-  const still = page.locator(`img[src="/api/shots/${shots[0]!.id}/image"]`)
-  await expect(still).toBeVisible()
+  // Both at once: the Shot the Reading opens on shows its image beside its text.
+  const image = page.locator(`img[src="/api/shots/${shots[0]!.id}/image"]`)
+  await expect(image).toBeVisible()
   await expect(page.getByText('A door opens.')).toBeVisible()
 
-  // The next Shot has no still, and reads perfectly well without one.
+  // The next Shot has no image, and reads perfectly well without one.
   await page.getByRole('button', { name: 'Next Shot' }).click()
   await expect(page.getByText('She steps out.')).toBeVisible()
-  await expect(still).toBeHidden()
+  await expect(image).toBeHidden()
 
   // And the Reader meets at the public link exactly what the Preview showed —
   // the same component on the same engine, so it could hardly be otherwise, but
-  // the still is fetched over a door with no session behind it.
+  // the image is fetched over a door with no session behind it.
   await request.post(`/api/stories/${story.id}/publish`)
   const reader = await (await browser.newContext({ extraHTTPHeaders: {} })).newPage()
   await reader.goto(`/read/${story.id}`)
@@ -247,7 +247,7 @@ test('the still and the text of a Shot are one beat on screen', async ({ browser
   await expect(reader.getByText('A door opens.')).toBeVisible()
 })
 
-test('a still says what it shows, and the Reader is given it', async ({ browser, page, request }) => {
+test('an image says what it shows, and the Reader is given it', async ({ browser, page, request }) => {
   const { story, shots } = await openShots(request)
   const shot = shots[0]!
   const description = 'A door onto a wet street, opening from the inside.'
@@ -260,13 +260,13 @@ test('a still says what it shows, and the Reader is given it', async ({ browser,
   expect(await written.json()).toMatchObject({ description })
   expect((await reread(request, story.id))[0]!.description).toBe(description)
 
-  // The Author meets it in the editor beside the picker that attached the still.
+  // The Author meets it in the editor beside the picker that attached the image.
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The street')
   const street = writing(page)
-  await expect(street.getByLabel('Description of the still of Shot 1')).toHaveValue(description)
+  await expect(street.getByLabel('Description of the image of Shot 1')).toHaveValue(description)
 
-  // Replacing the still leaves the Description standing: the bytes changed, and
+  // Replacing the image leaves the Description standing: the bytes changed, and
   // what the Author said about the frame is not the bytes.
   await request.put(`/api/shots/${shot.id}/image`, { data: ONE_PIXEL })
   expect((await reread(request, story.id))[0]!.description).toBe(description)
@@ -285,20 +285,20 @@ test('a Description is the Author’s to write, to change and to take away', asy
   const shot = shots[0]!
   await request.put(`/api/shots/${shot.id}/image`, { data: ONE_PIXEL })
 
-  // A Shot with no still has nothing to describe, so nothing is asked of the
+  // A Shot with no image has nothing to describe, so nothing is asked of the
   // Author there.
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The street')
   const street = writing(page)
-  await expect(street.getByLabel('Description of the still of Shot 2')).toBeHidden()
+  await expect(street.getByLabel('Description of the image of Shot 2')).toBeHidden()
 
-  const field = street.getByLabel('Description of the still of Shot 1')
+  const field = street.getByLabel('Description of the image of Shot 1')
   await field.fill('A door, opening.')
   await field.blur()
   await expect.poll(async () => (await reread(request, story.id))[0]!.description)
     .toBe('A door, opening.')
 
-  // Taken away again: a Still may have none, and an empty Description is the
+  // Taken away again: an Image may have none, and an empty Description is the
   // Author saying so rather than a request going wrong.
   await field.fill('')
   await field.blur()
@@ -322,7 +322,7 @@ test('a Description is the Author’s to write, to change and to take away', asy
     data: { text: shot.text, description: 'w'.repeat(SHOT_DESCRIPTION_MAX_LENGTH + 1) },
   })
   expect(tooLong.status()).toBe(400)
-  expect((await tooLong.json()).message).toContain('A Description says what a still shows')
+  expect((await tooLong.json()).message).toContain('A Description says what an image shows')
   expect((await reread(request, story.id))[0]!.description).toBe('A door, opening.')
 })
 
@@ -344,13 +344,13 @@ function droppedFiles(page: Page, files: { name: string, type: string, bytes: Bu
   }, files.map(file => ({ ...file, base64: file.bytes.toString('base64') })))
 }
 
-test('the Author drops a file on a thumbnail, and the still is the one dropped', async ({ page, request }) => {
+test('the Author drops a file on a thumbnail, and the image is the one dropped', async ({ page, request }) => {
   const { story, shots } = await openShots(request)
   await page.goto(`/stories/${story.id}`)
 
   await writeScene(page, 'The street')
   const street = writing(page)
-  const thumbnail = street.locator('.still > label').first()
+  const thumbnail = street.locator('.image > label').first()
 
   // While the file is over it the thumbnail says it will take the drop, in the
   // grease pencil the other gestures on the bench are marked in.
@@ -365,7 +365,7 @@ test('the Author drops a file on a thumbnail, and the still is the one dropped',
   await expect.poll(async () => (await reread(request, story.id))[0]!.image)
     .toBe(`/api/shots/${shots[0]!.id}/image`)
 
-  // A second drop replaces the still, and the new one is what is on screen: the
+  // A second drop replaces the image, and the new one is what is on screen: the
   // address is the Shot's own, so it is asked for under a time the browser has
   // nothing drawn for.
   const shown = () => thumbnail.locator('img').getAttribute('src')
@@ -376,14 +376,14 @@ test('the Author drops a file on a thumbnail, and the still is the one dropped',
   expect(await shown()).toContain('?at=')
 
   // The thumbnail is the picker it was: pressing it opens the file chrome, and
-  // the input behind it is still focusable and still named.
+  // the input behind it is still focusable and image named.
   const opened = page.waitForEvent('filechooser')
   await thumbnail.click()
   await (await opened).setFiles({ name: 'picked.png', mimeType: 'image/png', buffer: ONE_PIXEL })
-  await expect(street.getByLabel('Image of Shot 1')).toBeAttached()
+  await expect(street.getByLabel('Image of Shot 1', { exact: true })).toBeAttached()
   await street.getByRole('textbox', { name: 'Shot 1', exact: true }).focus()
   await page.keyboard.press('Tab')
-  await expect(street.getByLabel('Image of Shot 1')).toBeFocused()
+  await expect(street.getByLabel('Image of Shot 1', { exact: true })).toBeFocused()
 })
 
 test('a drop of several files takes the first image, and a refused one says why', async ({ page, request }) => {
@@ -392,13 +392,13 @@ test('a drop of several files takes the first image, and a refused one says why'
 
   await writeScene(page, 'The street')
   const street = writing(page)
-  const thumbnail = street.locator('.still > label').first()
+  const thumbnail = street.locator('.image > label').first()
 
   // Notes and two images: the first image is attached, and nothing is said about
   // the rest of what the hand was holding.
   const several = await droppedFiles(page, [
-    { name: 'notes.txt', type: 'text/plain', bytes: Buffer.from('Not a still at all') },
-    { name: 'still.png', type: 'image/png', bytes: ONE_PIXEL },
+    { name: 'notes.txt', type: 'text/plain', bytes: Buffer.from('Not an image at all') },
+    { name: 'image.png', type: 'image/png', bytes: ONE_PIXEL },
     { name: 'spare.png', type: 'image/png', bytes: ONE_PIXEL },
   ])
   await thumbnail.dispatchEvent('drop', { dataTransfer: several })
@@ -410,9 +410,9 @@ test('a drop of several files takes the first image, and a refused one says why'
   await expect(page.getByRole('alert')).toBeHidden()
 
   // A file the endpoint refuses is refused in the Author's own words — the phrase
-  // a picked file of the same kind gets — and the still already attached stands.
+  // a picked file of the same kind gets — and the image already attached stands.
   const refused = await droppedFiles(page, [
-    { name: 'notes.txt', type: 'text/plain', bytes: Buffer.from('Not a still at all') },
+    { name: 'notes.txt', type: 'text/plain', bytes: Buffer.from('Not an image at all') },
   ])
   await thumbnail.dispatchEvent('drop', { dataTransfer: refused })
   await expect(page.getByRole('alert')).toContainText('a JPEG, a PNG or a WebP image')

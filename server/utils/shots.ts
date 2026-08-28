@@ -25,9 +25,9 @@ export async function readShotText(event: H3Event) {
 }
 
 /**
- * Reads the Description of a Shot's still: what the frame shows, for a Reader who
+ * Reads the Description of a Shot's image: what the frame shows, for a Reader who
  * cannot see it. The same rule as the Shot's text, for the same reason — empty is
- * a Still nobody has described yet, which a Still is entitled to be, and missing
+ * an Image nobody has described yet, which an Image is entitled to be, and missing
  * altogether is a request that would erase the Description by saying nothing
  * about it.
  */
@@ -46,7 +46,7 @@ export async function readShotDescription(event: H3Event) {
 }
 
 /**
- * Reads the still being attached to a Shot: the whole request body is the file,
+ * Reads the image being attached to a Shot: the whole request body is the file,
  * because one file is the whole of the request and a multipart form would only
  * wrap it in a boundary for us to unwrap.
  *

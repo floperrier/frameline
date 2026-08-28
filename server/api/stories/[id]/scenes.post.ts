@@ -17,7 +17,7 @@ import { useDb } from '../../../db'
  * graph's reach.
  *
  * The Scene arrives with no Shot in it, and deliberately: a Shot with neither
- * text nor Still is one the Author has not written yet, so a Scene that carried
+ * text nor Image is one the Author has not written yet, so a Scene that carried
  * one would arrive holding something unwritten for its card to count and for a
  * Delete to ask about. Add Shot is the one way a Shot is written, and no
  * sentence in the product may promise otherwise — see #113.

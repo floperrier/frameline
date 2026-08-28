@@ -1,26 +1,26 @@
 /**
- * The Leaders — the short Story an Author is given, written to be taken apart
+ * The Samples — the short Story an Author is given, written to be taken apart
  * rather than read. Three Scenes, named plainly, so the graph reads like a
  * diagram of the product; and the whole language already working, so an Author
  * meets a Flag set on entry, a Condition on a Shot testing it, and a Condition
  * counting visits before being asked to write any of them.
  *
- * There is one Leader per Language and nothing translates between them, which is
- * why they sit here beside *Reel Change* rather than in `i18n/locales`: a Leader
+ * There is one Sample per Language and nothing translates between them, which is
+ * why they sit here beside *Reel Change* rather than in `i18n/locales`: a Sample
  * is a work, not chrome — see
  * `docs/adr/0018-a-leader-exists-once-per-language.md`. The two agree in
  * structure and share nothing else: their Scene names, their texts and even the
  * names of their Flags are each language's own.
  *
- * The stills are the one thing they do share, because a diagram of the product
- * carries no words. They are the WebP files in `stills/`, developed once by
- * `stills.ts` from the recipes below, because a Shot may only carry a JPEG, a PNG
+ * The images are the one thing they do share, because a diagram of the product
+ * carries no words. They are the WebP files in `images/`, developed once by
+ * `images.ts` from the recipes below, because a Shot may only carry a JPEG, a PNG
  * or a WebP and the runtime the product deploys to has no ImageMagick on it.
  */
 
-import type { Still, Work } from './work.ts'
+import type { Image, Work } from './work.ts'
 
-/* The bench's own tokens, from `app/assets/css/frameline.css`: a Leader's stills
+/* The bench's own tokens, from `app/assets/css/frameline.css`: a Sample's images
    are diagrams of the product, so they are lit like the room the product is
    read in. */
 const BENCH = '#141917'
@@ -57,11 +57,11 @@ const WAYS_ON = 'polygon 500,436 1060,206 1060,226 500,456 '
   + 'polygon 500,444 1060,674 1060,694 500,464'
 
 /**
- * The stills a Leader shows, one per name a Shot may ask for. Five diagrams and
+ * The images a Sample shows, one per name a Shot may ask for. Five diagrams and
  * no photographs: a run of Shots, the ways on at the end of a Scene, a Flag on
  * its Scene, a test standing in front of a beat, and what one Reading holds.
  */
-export const LEADER_STILLS: Record<string, Still> = {
+export const SAMPLE_IMAGES: Record<string, Image> = {
   'a-scene': {
     ground: [BENCH, DARK],
     glow: [{ colour: LIGHT, draw: panel(140, 330, 380, 240), blur: 70, opacity: 0.4 }],
@@ -215,7 +215,7 @@ export const LEADER_STILLS: Record<string, Still> = {
 }
 
 /**
- * The English Leader. Its Scenes sit where they read as a diagram: the opening
+ * The English Sample. Its Scenes sit where they read as a diagram: the opening
  * Scene on the left, and the two it leads to stacked to the right of it.
  */
 const ENGLISH: Work = {
@@ -229,15 +229,15 @@ const ENGLISH: Work = {
       at: [60, 380],
       shots: [
         {
-          text: 'This is a Shot: one Still and its text, shown to you as a single beat. '
+          text: 'This is a Shot: one Image and its text, shown to you as a single beat. '
             + 'The Scene you are in is a run of them, and it runs in the same order for '
             + 'every Reader.',
           description: 'Three panels in a row on a dark bench, the first of them lit: a Scene '
             + 'as the run of Shots it is.',
-          still: 'a-scene',
+          image: 'a-scene',
         },
         {
-          text: 'This Shot has no Still. A Shot may be text alone, or a Still alone — what '
+          text: 'This Shot has no Image. A Shot may be text alone, or an Image alone — what '
             + 'it may not be is neither.',
         },
         {
@@ -246,7 +246,7 @@ const ENGLISH: Work = {
             + 'was set to tell it.',
           description: 'Plates stacked on the left and two rows of dots on the right: the '
             + 'Flags one Reading holds, and the times it has entered a Scene.',
-          still: 'a-state',
+          image: 'a-state',
           // A Condition needing no Flag at all, and the one an Author can watch
           // arrive: the Scene it counts is the Scene the Shot is in.
           when: [{ scene: 'Where a Story starts', visits: 'at least', times: 2 }],
@@ -264,13 +264,13 @@ const ENGLISH: Work = {
             + 'Scene, and a Story branches nowhere else.',
           description: 'One panel on the left, and two lines leaving its edge for two panels '
             + 'on the right.',
-          still: 'a-cut',
+          image: 'a-cut',
         },
         {
           text: 'Entering this Scene set a Flag: cut = taken. A Scene sets its Flags on every '
             + 'entry, and they stay in this Reading’s State until something sets them again.',
           description: 'A panel with a plate laid across it, a pale name beside a lit value.',
-          still: 'a-flag',
+          image: 'a-flag',
         },
       ],
     },
@@ -286,14 +286,14 @@ const ENGLISH: Work = {
             + 'break it, delete it.',
           description: 'Two panels with a lit lozenge standing between them, the far one '
             + 'dimmed almost out of the frame.',
-          still: 'a-condition',
+          image: 'a-condition',
         },
         {
           text: 'This beat is playing because you came through the second Scene and it set '
             + 'that Flag. Arrive here another way and this Shot is not in the run at all.',
           description: 'A run of two panels with a gap between them where a third would '
             + 'stand, drawn as an outline and nothing more.',
-          still: 'a-gap',
+          image: 'a-gap',
           when: [{ flag: 'cut', is: 'taken' }],
         },
       ],
@@ -324,7 +324,7 @@ const ENGLISH: Work = {
   ],
 }
 
-/** The French Leader. The same three Scenes; not a line of the English one. */
+/** The French Sample. The same three Scenes; not a line of the English one. */
 const FRENCH: Work = {
   title: 'Un Récit en trois Scènes',
   language: 'fr',
@@ -336,17 +336,17 @@ const FRENCH: Work = {
       at: [60, 380],
       shots: [
         {
-          text: 'Ceci est un Plan : un Photogramme et son texte, montrés comme un seul '
+          text: 'Ceci est un Plan : une Image et son texte, montrés comme un seul '
             + 'temps. '
             + 'La Scène où vous êtes en est une suite, et elle se déroule dans le même ordre '
             + 'pour chaque Lecteur.',
           description: 'Trois panneaux alignés sur un établi sombre, le premier éclairé : une '
             + 'Scène comme la suite de Plans qu’elle est.',
-          still: 'a-scene',
+          image: 'a-scene',
         },
         {
-          text: 'Ce Plan n’a pas de Photogramme. Un Plan peut n’être que du texte, ou qu’un '
-            + 'Photogramme seul — ce qu’il ne peut pas être, c’est ni l’un ni l’autre.',
+          text: 'Ce Plan n’a pas d’Image. Un Plan peut n’être que du texte, ou qu’une '
+            + 'Image seule — ce qu’il ne peut pas être, c’est ni l’un ni l’autre.',
         },
         {
           text: 'Vous êtes déjà venu ici, et c’est la seule raison pour laquelle ce temps se '
@@ -354,7 +354,7 @@ const FRENCH: Work = {
             + 'et aucun Marqueur ne le lui a dit.',
           description: 'Des plaques empilées à gauche et deux rangées de points à droite : '
             + 'les Marqueurs qu’une Lecture porte, et le nombre d’entrées dans une Scène.',
-          still: 'a-state',
+          image: 'a-state',
           // Une Condition qui n’a besoin d’aucun Marqueur, et celle qu’un Auteur
           // peut voir arriver : la Scène qu’elle compte est celle du Plan.
           when: [{ scene: 'Là où un Récit commence', visits: 'at least', times: 2 }],
@@ -372,7 +372,7 @@ const FRENCH: Work = {
             + 'la fin d’une Scène, et un Récit ne bifurque nulle part ailleurs.',
           description: 'Un panneau à gauche, et deux traits qui quittent son bord vers deux '
             + 'panneaux à droite.',
-          still: 'a-cut',
+          image: 'a-cut',
         },
         {
           text: 'Entrer dans cette Scène a posé un Marqueur : coupe = prise. Une Scène pose '
@@ -380,7 +380,7 @@ const FRENCH: Work = {
             + 'jusqu’à ce que quelque chose les repose.',
           description: 'Un panneau traversé d’une plaque, un nom pâle à côté d’une valeur '
             + 'éclairée.',
-          still: 'a-flag',
+          image: 'a-flag',
         },
       ],
     },
@@ -396,7 +396,7 @@ const FRENCH: Work = {
             + 'n’est précieux — modifiez, cassez, supprimez.',
           description: 'Deux panneaux séparés par un losange éclairé, le plus loin presque '
             + 'sorti du cadre tant il est éteint.',
-          still: 'a-condition',
+          image: 'a-condition',
         },
         {
           text: 'Ce temps se joue parce que votre Lecture a traversé la deuxième Scène, '
@@ -404,7 +404,7 @@ const FRENCH: Work = {
             + 'suite du tout.',
           description: 'Une suite de deux panneaux avec, entre eux, la place d’un troisième, '
             + 'tracée en contour et rien de plus.',
-          still: 'a-gap',
+          image: 'a-gap',
           when: [{ flag: 'coupe', is: 'prise' }],
         },
       ],
@@ -439,19 +439,19 @@ const FRENCH: Work = {
   ],
 }
 
-/** The Leaders, by the Language each is written in. */
-export const LEADERS = { en: ENGLISH, fr: FRENCH }
+/** The Samples, by the Language each is written in. */
+export const SAMPLES = { en: ENGLISH, fr: FRENCH }
 
-export type LeaderLanguage = keyof typeof LEADERS
+export type SampleLanguage = keyof typeof SAMPLES
 
-export const LEADER_LANGUAGES = Object.keys(LEADERS) as LeaderLanguage[]
+export const SAMPLE_LANGUAGES = Object.keys(SAMPLES) as SampleLanguage[]
 
 /**
- * Where a Leader's still is committed. The bytes rather than the recipe, because
- * a Still may only be a JPEG, a PNG or a WebP read from its own first bytes, and
+ * Where a Sample's image is committed. The bytes rather than the recipe, because
+ * an Image may only be a JPEG, a PNG or a WebP read from its own first bytes, and
  * the runtime this deploys to has no ImageMagick to develop one on: they are
- * developed once by `stills.ts` and checked in.
+ * developed once by `images.ts` and checked in.
  */
-export function stillPath(name: string) {
-  return new URL(`stills/${name}.webp`, import.meta.url)
+export function imagePath(name: string) {
+  return new URL(`images/${name}.webp`, import.meta.url)
 }

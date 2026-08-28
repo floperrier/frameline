@@ -1,44 +1,44 @@
 import { eq } from 'drizzle-orm'
-import { LEADERS, type LeaderLanguage } from '../../demonstration/leaders'
+import { SAMPLES, type SampleLanguage } from '../../demonstration/samples'
 import { cuts, scenes, shots, stories } from '../db/schema'
 import { useDb } from '../db'
 import type { Condition } from '../../shared/utils/scenes'
 
 /**
- * Plants a Leader in an Author's account: the short Story they are given at the
+ * Plants a Sample in an Author's account: the short Story they are given at the
  * moment the account is created, in the Language their Locale asked for. After
  * this it is an ordinary Story of theirs — see
  * `docs/adr/0018-a-leader-exists-once-per-language.md` — so nothing here marks
  * it and nothing puts it back once it is deleted.
  *
- * A Locale no Leader is written in plants nothing, which is the empty `Stories`
- * page every Author saw before Leaders existed.
+ * A Locale no Sample is written in plants nothing, which is the empty `Stories`
+ * page every Author saw before Samples existed.
  *
- * It is published as it is planted, because a Leader arrives finished: an
+ * It is published as it is planted, because a Sample arrives finished: an
  * unpublished one would be a Story the bench has guidance for, and the guided
  * path is for the Story an Author writes rather than the one they were given.
  *
  * The five statements below are not a transaction — the neon-http driver has
  * none — so a Story that only half arrived is deleted rather than left in the
  * Author's Stories, and planting never refuses the sign-in that asked for it: an
- * Author with no Leader has an account, and an Author with no account has
+ * Author with no Sample has an account, and an Author with no account has
  * nothing.
  */
-export async function plantLeader(
+export async function plantSample(
   authorId: string,
   language: string,
-  bench: Bench = { db: useDb(), still: leaderStill },
+  bench: Bench = { db: useDb(), image: sampleImage },
 ) {
-  const leader = LEADERS[language as LeaderLanguage]
-  if (!leader) return
+  const sample = SAMPLES[language as SampleLanguage]
+  if (!sample) return
 
-  const { db, still } = bench
+  const { db, image } = bench
   let planted: string | undefined
 
   try {
     const [story] = await db
       .insert(stories)
-      .values({ authorId, title: leader.title, language: leader.language })
+      .values({ authorId, title: sample.title, language: sample.language })
       .returning({ id: stories.id })
 
     planted = story!.id
@@ -48,7 +48,7 @@ export async function plantLeader(
     // otherwise share an instant and come back in the order of their ids.
     const written = await db
       .insert(scenes)
-      .values(leader.scenes.map((scene, order) => ({
+      .values(sample.scenes.map((scene, order) => ({
         storyId: planted!,
         name: scene.name,
         x: scene.at[0],
@@ -68,16 +68,16 @@ export async function plantLeader(
     const identified = (condition: Condition) =>
       'scene' in condition ? { ...condition, scene: idOf(condition.scene) } : condition
 
-    await db.insert(shots).values(await Promise.all(leader.scenes.flatMap(scene =>
+    await db.insert(shots).values(await Promise.all(sample.scenes.flatMap(scene =>
       scene.shots.map(async (shot, position) => ({
         sceneId: idOf(scene.name),
         text: shot.text,
         position,
         description: shot.description ?? '',
         conditions: (shot.when ?? []).map(identified),
-        // A Leader's stills are the WebP files committed beside the work, never
+        // A Sample's images are the WebP files committed beside the work, never
         // developed here: the runtime this deploys to has no ImageMagick on it.
-        image: typeof shot.still === 'string' ? await still(shot.still) : null,
+        image: typeof shot.image === 'string' ? await image(shot.image) : null,
       })))))
 
     // The Place a Cut takes among the ways on leaving its Scene is the order the
@@ -85,7 +85,7 @@ export async function plantLeader(
     // order they are written here, counted per Scene.
     const places = new Map<string, number>()
 
-    await db.insert(cuts).values(leader.cuts.map((cut) => {
+    await db.insert(cuts).values(sample.cuts.map((cut) => {
       const place = places.get(cut.from) ?? 0
       places.set(cut.from, place + 1)
 
@@ -101,35 +101,35 @@ export async function plantLeader(
     await db
       .update(stories)
       .set({
-        openingSceneId: idOf(leader.opening ?? leader.scenes[0]!.name),
+        openingSceneId: idOf(sample.opening ?? sample.scenes[0]!.name),
         publishedAt: new Date(),
       })
       .where(eq(stories.id, planted))
   }
   catch (failure) {
-    console.error('Planting a Leader failed:', failure)
+    console.error('Planting a Sample failed:', failure)
     if (planted) await db.delete(stories).where(eq(stories.id, planted)).catch(() => {})
   }
 }
 
 /**
- * What planting needs of the world around it: the database, and the bytes of a
- * still. Both are had from nitro in production and both are handed in by the
+ * What planting needs of the world around it: the database, and the bytes of an
+ * image. Both are had from nitro in production and both are handed in by the
  * end-to-end spec, which runs outside nitro and so has neither auto-import.
  */
 type Bench = {
   db: ReturnType<typeof useDb>
-  still: (name: string) => Promise<Buffer>
+  image: (name: string) => Promise<Buffer>
 }
 
 /**
- * The bytes of one committed still. They ride into the build as a server asset,
+ * The bytes of one committed image. They ride into the build as a server asset,
  * declared in `nuxt.config.ts`, because the deployed bundle is not the
- * repository and `demonstration/stills/` is not a path that survives it.
+ * repository and `demonstration/images/` is not a path that survives it.
  */
-async function leaderStill(name: string) {
-  const bytes = await useStorage('assets:leaders').getItemRaw<Uint8Array>(`${name}.webp`)
-  if (!bytes) throw new Error(`No still called ${name} was committed`)
+async function sampleImage(name: string) {
+  const bytes = await useStorage('assets:samples').getItemRaw<Uint8Array>(`${name}.webp`)
+  if (!bytes) throw new Error(`No image called ${name} was committed`)
 
   return Buffer.from(bytes)
 }

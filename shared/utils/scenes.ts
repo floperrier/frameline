@@ -10,7 +10,7 @@ export const SCENE_NAME_MAX_LENGTH = 200
 export const SHOT_TEXT_MAX_LENGTH = 2000
 
 /**
- * The longest Description a Still may carry. A Description says what one frame
+ * The longest Description an Image may carry. A Description says what one frame
  * shows, in the sentence an editor would say it in, so it is capped near a Cut's
  * line rather than near a Shot's text: prose about the image is the Shot's text,
  * which the Reader already has.
@@ -18,12 +18,12 @@ export const SHOT_TEXT_MAX_LENGTH = 2000
 export const SHOT_DESCRIPTION_MAX_LENGTH = 250
 
 /**
- * The still formats a Shot may carry, each named by the bytes a file of it starts
+ * The image formats a Shot may carry, each named by the bytes a file of it starts
  * with: an offset, and the bytes that must sit at it. Which formats there are and
  * how each is recognised is one statement rather than two, so a format added here
  * cannot be a format the picker offers and the server refuses.
  *
- * An animated GIF is left out on purpose: a Shot is one still image and its text,
+ * An animated GIF is left out on purpose: a Shot is one image and its text,
  * so a moving one would be a beat that plays itself.
  */
 const SHOT_IMAGE_SIGNATURES: Record<string, [number, number[]][]> = {
@@ -37,7 +37,7 @@ const SHOT_IMAGE_SIGNATURES: Record<string, [number, number[]][]> = {
 export const SHOT_IMAGE_TYPES = Object.keys(SHOT_IMAGE_SIGNATURES)
 
 /**
- * The most one still may weigh. Two megabytes is a photograph at screen size and
+ * The most one image may weigh. Two megabytes is a photograph at screen size and
  * not a master: enough for what a Shot shows, and small enough that the bytes can
  * sit in the Shot's own row.
  */
@@ -56,9 +56,9 @@ export function imageTypeOf(bytes: Uint8Array) {
 }
 
 /**
- * Where a Shot's still is served. The bytes never travel with the Story — a Story
+ * Where a Shot's image is served. The bytes never travel with the Story — a Story
  * of fifty Shots would be fifty images in one response — so what the Story
- * carries is this address, and null for a Shot that has no still.
+ * carries is this address, and null for a Shot that has no image.
  */
 export function shotImageUrl(shotId: string) {
   return `/api/shots/${shotId}/image`
@@ -115,7 +115,7 @@ export const NODE_PITCH = 20
  * not land on top of the one above it.
  *
  * Every node is exactly this tall: a card is what an Author needs to recognise a
- * Scene at a glance — its name, the still of its first Shot, its Shot count and
+ * Scene at a glance — its name, the image of its first Shot, its Shot count and
  * where its ways on land — and a Scene is written in the panel at the edge of the
  * bench rather than inside the card. So the height is known rather than measured,
  * and the line that draws a Cut leaves a box the graph can work out for itself.
@@ -311,8 +311,8 @@ export const NODES_PER_COLUMN = 20
  * published, and null again once it is unpublished; it arrives as a string
  * because that is what JSON makes of a timestamp.
  *
- * A Shot's `image` is where its still is served, not the still itself, and null
- * for a Shot that is text alone. Its `description` is what that still shows, for
+ * A Shot's `image` is where its image is served, not the image itself, and null
+ * for a Shot that is text alone. Its `description` is what that image shows, for
  * a Reader who cannot see it, and empty where the Author has written none. Its
  * `conditions` are the tests it plays under, an empty list being a Shot every
  * Reading sees.

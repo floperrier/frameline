@@ -482,7 +482,7 @@ test('the panel is closed by Escape, and focus comes back to the card', async ({
   await expect(write).toBeFocused()
 })
 
-test('a card keeps its own shape, and drags from the still on it', async ({
+test('a card keeps its own shape, and drags from the image on it', async ({
   page,
   request,
 }) => {
@@ -503,11 +503,11 @@ test('a card keeps its own shape, and drags from the still on it', async ({
   await expect(card).toHaveClass(/writing/)
   expect(await face.boundingBox()).toEqual(shut)
 
-  // And the still is part of the handle. A browser drags an image out of a page by
+  // And the image is part of the handle. A browser drags an image out of a page by
   // itself, and that native drag took the gesture and left the Scene where it was.
   await page.getByRole('button', { name: 'Close this panel' }).click()
-  const still = (await card.locator('.frame img').boundingBox())!
-  const held = { x: still.x + still.width / 2, y: still.y + still.height / 2 }
+  const image = (await card.locator('.frame img').boundingBox())!
+  const held = { x: image.x + image.width / 2, y: image.y + image.height / 2 }
   await page.mouse.move(held.x, held.y)
   await page.mouse.down()
   await page.mouse.move(held.x + 120, held.y + 60, { steps: 8 })

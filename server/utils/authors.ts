@@ -13,7 +13,7 @@ import { useDb } from '../db'
  * Two statements rather than the one upsert this used to be, because an account
  * being created is a fact this has to know rather than infer: the insert does
  * nothing where the email is already an Author's, so a row coming back means the
- * account is new and the Leader is planted in it. Nothing else in the product
+ * account is new and the Sample is planted in it. Nothing else in the product
  * can tell a first sign-in from the hundredth.
  */
 export async function signInAuthor(
@@ -42,11 +42,11 @@ export async function signInAuthor(
       .where(eq(authors.email, identity.email))
       .returning()
 
-  // A Leader in the Language the Locale of this very request asks for, planted
+  // A Sample in the Language the Locale of this very request asks for, planted
   // before the session is sealed so the account's first `Stories` page has it.
-  // It never refuses: see `plantLeader`.
+  // It never refuses: see `plantSample`.
   if (created) {
-    await plantLeader(created.id, localeOf(
+    await plantSample(created.id, localeOf(
       getRequestHeader(event, 'accept-language'),
       getCookie(event, LOCALE_COOKIE),
     ))

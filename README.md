@@ -9,7 +9,7 @@ Scenes and connect Scenes with Cuts; Readers play the result from a public link.
 ## How a Story is built
 
 A **Story** is made of **Scenes**. A Scene is a linear run of **Shots** — the
-atomic unit, a Still image and text shown to the Reader in a single beat — and
+atomic unit, an Image and text shown to the Reader in a single beat — and
 it is the only place a Story branches. At the end of a Scene, the Reader is
 offered **Cuts**: directed connections to other Scenes, named after the film
 edit that joins two shots.
