@@ -23,18 +23,20 @@ export type StoryToShow = Omit<StoryToRead, 'scenes'> & {
 }
 
 /**
- * Where one Reading has got to: the Cuts it has taken, in order, and how many
- * Shots of the Scene it is standing in have been left behind. Everything else —
+ * The route one Reading has taken, and the taking of it: the Cuts it has taken,
+ * in order, and how many Shots of the Scene it is standing in have been left
+ * behind. It is a walk and not a point, which is why it is not a position and
+ * why a Place — where a Shot comes in its Scene — is never one. Everything else —
  * which Scene that is, what is on screen, what State has accumulated — is
  * computed from it, so a Reading is this much and nothing more. Two Readings of
  * the same Story that took the same Cuts are the same Reading, which is what
  * makes the engine a pure function and the whole of it testable.
  */
-export type Position = { taken: string[], shot: number }
+export type Path = { taken: string[], shot: number }
 
 /**
  * Everything one Reading has accumulated: what each Flag holds, and how often
- * each Scene has been entered. Computed from the Position on every read and kept
+ * each Scene has been entered. Computed from the Path on every read and kept
  * nowhere, so no two Readings can reach the same State.
  */
 export type State = { flags: Flags, visits: Record<string, number> }
@@ -106,18 +108,18 @@ function entered(visits: number, say: Phrase) {
 }
 
 /** Every Reading starts here: the opening Scene, first Shot, nothing taken. */
-export const OPENING: Position = { taken: [], shot: 0 }
+export const OPENING: Path = { taken: [], shot: 0 }
 
 /**
  * What the Reader is shown at one point in a Reading — a screenful, not the
- * Reading itself, which is the Position: the Shot on screen, or —
+ * Reading itself, which is the Path: the Shot on screen, or —
  * once the Shots of the Scene have run out — the Cuts on offer. Never both, so
- * the Scene plays to its end before it asks anything. `ended` is the path
+ * the Scene plays to its end before it asks anything. `ended` is the Path
  * reaching its end: no Shot left and no Cut out, which the Reader is owed as an
  * ending rather than a screen that has simply stopped answering.
  *
  * `run` is the Shots of that Scene this Reading plays — the Author's run minus
- * the ones a Condition skips — which is what the Position counts and what the
+ * the ones a Condition skips — which is what the Path counts and what the
  * screen numbers the beat against. It is here rather than read off the Scene
  * because the Scene alone cannot say it: the same Scene is a different run to a
  * Reading that has been there before.
@@ -166,19 +168,19 @@ function walk(story: StoryToRead, taken: string[]) {
   return { sceneId, state }
 }
 
-/** What this Story shows a Reading standing at this Position. */
-export function reading(story: StoryToRead, at: Position): Shown {
+/** What this Story shows a Reading that has taken this Path. */
+export function reading(story: StoryToRead, at: Path): Shown {
   const { sceneId, state } = walk(story, at.taken)
   // The run this Reading plays, judged against the State it arrived with: a Shot
   // whose Conditions fail is left out of the run rather than played to nobody,
-  // so the Position counts the beats the Reader actually saw and the one after
+  // so the Path counts the beats the Reader actually saw and the one after
   // the skipped Shot is the next one on screen. Judged once for the whole Scene,
   // because nothing inside a Scene changes State — only entering one does.
   const run = story.scenes.find(scene => scene.id === sceneId)
     ?.shots.filter(shot => holds(shot.conditions, state)) ?? []
   const shot = run[at.shot]
   // A Story with no opening Scene has no Cuts to offer either, so the empty
-  // Scene and the missing one both end the path. A Cut one of whose Conditions
+  // Scene and the missing one both end the Path. A Cut one of whose Conditions
   // fails is not among them, which is what makes it invisible rather than
   // refused.
   const cuts = shot
@@ -189,11 +191,11 @@ export function reading(story: StoryToRead, at: Position): Shown {
 }
 
 /** The Reader asks for the next Shot of the Scene. */
-export function advance(at: Position): Position {
+export function advance(at: Path): Path {
   return { ...at, shot: at.shot + 1 }
 }
 
 /** The Reader takes one of the Cuts on offer, and the Scene it arrives at starts over. */
-export function take(at: Position, cut: Cut): Position {
+export function take(at: Path, cut: Cut): Path {
   return { taken: [...at.taken, cut.id], shot: 0 }
 }

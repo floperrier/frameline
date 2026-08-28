@@ -5,7 +5,7 @@
  * meets can go untested by a Preview, and nothing an Author previews can behave
  * differently once it is published.
  *
- * The Position lives here and nowhere else. It never leaves the browser, so
+ * The Path lives here and nowhere else. It never leaves the browser, so
  * every Reading starts with empty State and two Readers of one Story cannot
  * share what they have accumulated — there is no place for them to share it.
  * Leaving the page starts the Story over for the same reason.
@@ -17,13 +17,13 @@ const { t } = useI18n()
 /**
  * Where the Reading has got to, said out loud on every move. The whole of what
  * this component offers whoever draws it, and the reason a Preview can put the
- * State on a bench beside it without this knowing who is watching: the Position
+ * State on a bench beside it without this knowing who is watching: the Path
  * is all a Preview needs, because everything else is a pure function of it.
  * A Reader's Reading is the same component with nobody listening.
  */
-const emit = defineEmits<{ at: [Position] }>()
+const emit = defineEmits<{ at: [Path] }>()
 
-const at = ref<Position>(OPENING)
+const at = ref<Path>(OPENING)
 const shown = computed(() => reading(story, at.value))
 
 /**
@@ -40,7 +40,7 @@ const shown = computed(() => reading(story, at.value))
 const frame = useTemplateRef<HTMLElement>('frame')
 const cuts = useTemplateRef<HTMLElement>('cuts')
 
-async function moveTo(to: Position) {
+async function moveTo(to: Path) {
   at.value = to
   emit('at', to)
   await nextTick()
@@ -62,7 +62,7 @@ const run = computed(() => shown.value.run)
 
 /**
  * Which Shot of the run the frame holds, numbered from one for the Reader as the
- * editor numbers them for the Author. Once the Scene has played out the Position
+ * editor numbers them for the Author. Once the Scene has played out the Path
  * has walked past the last Shot and the frame is still holding it, so the count
  * stops at the length of the run: every tick lit, and the run said to be over.
  */
@@ -88,7 +88,7 @@ function offered(cut: Cut) {
     <!-- One Shot at a time, and the Cuts only once the Scene has played out —
          behind the frame it played out on, which is held rather than taken away. -->
     <template v-if="held">
-      <!-- Keyed on the Position, so arriving at a Shot draws the frame again:
+      <!-- Keyed on the Path, so arriving at a Shot draws the frame again:
            each beat is thrown onto the screen rather than swapped into it, and
            reading a Scene again throws its first frame again. -->
       <!-- The frame holds nothing but the Author's own work — the image, what it
@@ -184,7 +184,7 @@ function offered(cut: Cut) {
 /* The Scene has played out and the frame it ended on is held behind the ways on:
    the same beat, pushed back into the room so that what is being asked of the
    Reader is the lit thing on screen. It is not arriving, so it is not thrown a
-   second time — the Position has moved past the last Shot and the frame has not.
+   second time — the Path has moved past the last Shot and the frame has not.
 
    The image takes the push back and the prose only half of it: the last beat has
    to stay as readable as it was to whoever is reading it while they choose, and a

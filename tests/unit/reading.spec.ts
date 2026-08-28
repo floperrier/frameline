@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Condition, Flags } from '../../shared/utils/scenes'
-import type { Position, State, StoryToRead } from '../../shared/utils/reading'
+import type { Path, State, StoryToRead } from '../../shared/utils/reading'
 import { OPENING, advance, reading, take, unmet } from '../../shared/utils/reading'
 import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
 import type { Phrase } from '../../shared/utils/phrases'
@@ -45,13 +45,13 @@ function story(
 }
 
 /** What the Reader is shown at a point in a Reading: the Shot's text, or the Cuts on offer. */
-function shown(read: StoryToRead, at: Position) {
+function shown(read: StoryToRead, at: Path) {
   const { shot, cuts, ended } = reading(read, at)
   return { text: shot?.text, offered: cuts.map(cut => cut.text), ended }
 }
 
 /** The run of Shots this Reading plays, which is the Scene's own minus the skipped. */
-function run(read: StoryToRead, at: Position) {
+function run(read: StoryToRead, at: Path) {
   return reading(read, at).run.map(shot => shot.text)
 }
 
@@ -162,7 +162,7 @@ describe('a Reading given a Cut it was never offered', () => {
   )
 
   it('stays where it is rather than jumping to the far side of the Story', () => {
-    const elsewhere: Position = { taken: ['cut-1'], shot: 0 }
+    const elsewhere: Path = { taken: ['cut-1'], shot: 0 }
     expect(shown(branching, elsewhere)).toEqual({
       text: 'A door opens.',
       offered: [],
@@ -286,7 +286,7 @@ describe('a Cut carrying Conditions', () => {
       { Street: ['A door opens.'], Bar: ['Smoke.'] },
       [['Street', 'Go in', 'Bar', [{ flag: 'key', is: 'found' }]]],
     )
-    const forged: Position = { taken: ['cut-0'], shot: 0 }
+    const forged: Path = { taken: ['cut-0'], shot: 0 }
     expect(shown(shut, forged).text).toBe('A door opens.')
   })
 })
@@ -317,10 +317,10 @@ describe('a Scene read a second time', () => {
     expect(shown(returning, endOfStreetAgain).offered).toEqual(['Give up'])
   })
 
-  it('lets the same Cut be taken once and no more, however the Position asks', () => {
+  it('lets the same Cut be taken once and no more, however the Path asks', () => {
     // The way in is offered on the first visit to the street and not on the
     // second, so a Reading that comes back and claims to take it again is a
-    // Position no Reader could have reached: the walk stops where it stopped.
+    // Path no Reader could have reached: the walk stops where it stopped.
     const endOfStreet = advance(OPENING)
     const inTheBar = take(endOfStreet, reading(returning, endOfStreet).cuts[0]!)
     const endOfBar = advance(inTheBar)
@@ -328,7 +328,7 @@ describe('a Scene read a second time', () => {
 
     expect(shown(returning, backOutside).text).toBe('A door opens.')
 
-    const twice: Position = { taken: [...backOutside.taken, 'cut-0'], shot: 0 }
+    const twice: Path = { taken: [...backOutside.taken, 'cut-0'], shot: 0 }
     expect(shown(returning, twice).text).toBe('A door opens.')
     expect(reading(returning, twice).state.visits).toEqual({ Street: 2, Bar: 1 })
   })

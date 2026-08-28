@@ -6,7 +6,7 @@
 // What a Reader never gets is the bench under it — the State the Reading has
 // accumulated, and the ways on its Conditions are hiding. None of that is drawn
 // by the Reading itself: the Reading says where it has got to, and everything
-// here is worked out again from that Position, so a Reader's Reading carries no
+// here is worked out again from that Path, so a Reader's Reading carries no
 // inspection code to be kept switched off.
 definePageMeta({ middleware: 'authenticated' })
 
@@ -24,7 +24,7 @@ const { data: story } = await useAsyncData(
  * engine is a pure function of it, so reading it a second time here costs a walk
  * of the Cuts taken and buys a State nobody had to hand out.
  */
-const at = ref<Position>(OPENING)
+const at = ref<Path>(OPENING)
 const shown = computed(() => story.value && reading(story.value, at.value))
 
 /** Scenes are read by name here as everywhere else an Author reads them. */
