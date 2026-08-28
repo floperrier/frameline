@@ -5,10 +5,10 @@ Read `CONTEXT.md` before touching anything — the glossary is binding.
 
 ## Agent skills
 
-Skills vendored from other repositories live in `.agents/skills/`, with
-`.claude/skills/` symlinked to them and `skills-lock.json` recording the source
-and content hash of each. Update them through the tool that wrote the lock file
-rather than editing the copies.
+Skills come from the plugins `.claude/settings.json` enables — the Neon ones
+from `neon-postgres@neon`, whose marketplace the same file declares so a clone
+can install it. Nothing is vendored into the repository, so there is no copy
+here to update.
 
 ### Issue tracker
 
@@ -66,9 +66,8 @@ type literal and the point a method chain breaks are all its own to decide.
 Turned loose on this repo it rewrites nineteen hundred lines that nobody asked
 it to. So the pre-commit hook runs it over `css`, `json` and `yaml` alone, where
 its opinion and ours are the same, and `.prettierrc` says what the rest of the
-code already does in case it is ever pointed at it. Generated and vendored files
-are ignored outright: the migration snapshots are the generator's to write, and
-a vendored skill is hashed in `skills-lock.json`.
+code already does in case it is ever pointed at it. Generated files are ignored
+outright: the migration snapshots are the generator's to write.
 
 ## Tests
 
