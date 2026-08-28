@@ -3,15 +3,15 @@ import type { H3Event } from 'h3'
 
 /** The refusal each carrier of a list is given, one message apiece. */
 const TOO_MANY = {
-  Cut: 'refusals.tooManyConditions.cut',
+  Exit: 'refusals.tooManyConditions.exit',
   Shot: 'refusals.tooManyConditions.shot',
 } as const
 
 /**
- * Reads the Conditions a Cut is offered under, or a Shot played under: an absent
- * or empty list is a Cut offered to everyone, and a Shot every Reading sees. One
+ * Reads the Conditions an Exit is offered under, or a Shot played under: an absent
+ * or empty list is an Exit offered to everyone, and a Shot every Reading sees. One
  * reader for both, because the two carry the same language and a Condition
- * refused on a Cut has to be refused on a Shot for the same reason.
+ * refused on an Exit has to be refused on a Shot for the same reason.
  *
  * A trust boundary that matters more than most: what is written here lands in a
  * jsonb column, which would take any shape at all, and the engine then reads it
@@ -21,7 +21,7 @@ const TOO_MANY = {
  */
 export async function readConditions(
   event: H3Event,
-  carrier: 'Cut' | 'Shot',
+  carrier: 'Exit' | 'Shot',
 ): Promise<Condition[]> {
   const body = await readBody<{ conditions?: unknown }>(event)
   const conditions = body?.conditions
@@ -85,7 +85,7 @@ function badCondition(event: H3Event) {
 
 /**
  * The guard both Conditions endpoints write their list behind: every Scene a
- * visit count names has to be a Scene of the Story the Cut or the Shot belongs
+ * visit count names has to be a Scene of the Story the Exit or the Shot belongs
  * to. A Condition naming anything else matches nothing here, so nothing is
  * written, whichever Place it holds in the list — and a Condition can never be
  * made to count a Scene of another Story, or of another Author's.

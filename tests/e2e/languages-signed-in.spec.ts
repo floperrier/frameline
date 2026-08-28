@@ -30,7 +30,7 @@ async function everythingShown(page: Page) {
 
 /** What a key looks like when it reaches a screen instead of the words it names. */
 const A_RAW_KEY = new RegExp(
-  '\\b(common|conditions|cut|editor|error|landing|languages'
+  '\\b(common|conditions|editor|error|exit|landing|languages'
   + '|locale|preview|reading|refusals|scene|stories)\\.[a-z][\\w.]*', 'i')
 
 test.describe('an interface read in French', () => {

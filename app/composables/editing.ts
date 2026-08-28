@@ -3,7 +3,7 @@
  *
  * Two ways in, because the page has two kinds of write and they want opposite
  * things from a refetch. A click that alters the shape of the Story — a Shot
- * added, a Scene's Shots renumbered, a Cut drawn — learns its result from the
+ * added, a Scene's Shots renumbered, an Exit drawn — learns its result from the
  * server and nowhere else, so it reads the Story back afterwards. What the
  * Author typed is already on screen in the field they typed it into, and reading
  * the Story back would replace that field along with everything else: the next
@@ -132,7 +132,7 @@ export function useEditing(reload: () => Promise<unknown>) {
 
   /**
    * The typed write the next one waits for. Every endpoint a typed write reaches
-   * takes the whole list rather than a change to it — the Conditions a Cut
+   * takes the whole list rather than a change to it — the Conditions an Exit
    * carries, the Flags a Scene sets — so two of them in flight at once are not
    * merged by the server: the one that arrives last wins, whichever was typed
    * last. One of these rather than one per field, because the two writes that

@@ -4,7 +4,7 @@ import { useDb } from '../../db'
 
 /**
  * The whole Story as the Author edits it: its Scenes, each a run of Shots in
- * order and a node of the graph, and the Cuts that join them.
+ * order and a node of the graph, and the Exits that join them.
  */
 export default defineEventHandler(async (event) => {
   const author = await requireAuthor(event)

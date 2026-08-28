@@ -1,6 +1,6 @@
 import { eq, sql } from 'drizzle-orm'
 import type { H3Event } from 'h3'
-import { cuts, scenes, shots } from '../db/schema'
+import { exits, scenes, shots } from '../db/schema'
 import { useDb } from '../db'
 
 /**
@@ -46,7 +46,7 @@ export async function readStoryLanguage(event: H3Event): Promise<StoryLanguage> 
 
 /**
  * The Scenes of a Story, each a run of Shots in order and a node of the graph,
- * and the Cuts that join them. Shared because an Author's Story and a Reader's
+ * and the Exits that join them. Shared because an Author's Story and a Reader's
  * are the same graph read by two different doors — a Preview and a Reading play
  * the same Story, so they cannot be assembled by two queries that could drift.
  */
@@ -102,24 +102,24 @@ export async function readStoryGraph(storyId: string) {
     }
   }
 
-  // The Cuts of the Story come on their own: joined to the Scenes above they
-  // would multiply every Shot by every Cut leaving its Scene. They arrive in the
+  // The Exits of the Story come on their own: joined to the Scenes above they
+  // would multiply every Shot by every Exit leaving its Scene. They arrive in the
   // Place their Scene numbers them at, which is the order the Reader is offered
   // them in — the drawing has no say in it, see
   // `docs/adr/0007-the-order-of-the-ways-on-is-written-not-drawn.md`.
-  const cutsOfStory = await useDb()
+  const exitsOfStory = await useDb()
     .select({
-      id: cuts.id,
-      fromSceneId: cuts.fromSceneId,
-      toSceneId: cuts.toSceneId,
-      text: cuts.text,
-      position: cuts.position,
-      conditions: cuts.conditions,
+      id: exits.id,
+      fromSceneId: exits.fromSceneId,
+      toSceneId: exits.toSceneId,
+      text: exits.text,
+      position: exits.position,
+      conditions: exits.conditions,
     })
-    .from(cuts)
-    .innerJoin(scenes, eq(cuts.fromSceneId, scenes.id))
+    .from(exits)
+    .innerJoin(scenes, eq(exits.fromSceneId, scenes.id))
     .where(eq(scenes.storyId, storyId))
-    .orderBy(scenes.createdAt, scenes.id, cuts.position)
+    .orderBy(scenes.createdAt, scenes.id, exits.position)
 
-  return { scenes: scenesOfStory, cuts: cutsOfStory }
+  return { scenes: scenesOfStory, exits: exitsOfStory }
 }

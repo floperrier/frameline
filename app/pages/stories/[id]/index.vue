@@ -135,27 +135,27 @@ const spreadSize = computed(() => ({
 
 /**
  * The ways on leaving one Scene, in the Places it numbers them at. Taken by id
- * rather than by the Scene, because the disc drawn on a Cut's line asks this too
- * and it has only the id the Cut carries: one answer, so the number in the node
+ * rather than by the Scene, because the disc drawn on an Exit's line asks this too
+ * and it has only the id the Exit carries: one answer, so the number in the node
  * and the number on the bench cannot say two different things.
  */
-function cutsFrom(sceneId: string) {
-  return story.value?.cuts.filter(cut => cut.fromSceneId === sceneId) ?? []
+function exitsFrom(sceneId: string) {
+  return story.value?.exits.filter(exit => exit.fromSceneId === sceneId) ?? []
 }
 
 /**
- * The ways in arriving at one Scene — the counterpart of `cutsFrom`, and drawn
+ * The ways in arriving at one Scene — the counterpart of `exitsFrom`, and drawn
  * from the same list, because the schema cascades a delete from both ends of a
- * Cut and only one end was ever counted. In no Place: a Cut is numbered among
+ * Exit and only one end was ever counted. In no Place: an Exit is numbered among
  * the ways on leaving the Scene it departs, and the Scene it arrives at has no
  * say in that order.
  */
-function cutsInto(sceneId: string) {
-  return story.value?.cuts.filter(cut => cut.toSceneId === sceneId) ?? []
+function exitsInto(sceneId: string) {
+  return story.value?.exits.filter(exit => exit.toSceneId === sceneId) ?? []
 }
 
 /**
- * What the bench has just done, said once and gone: a Scene created, a Cut
+ * What the bench has just done, said once and gone: a Scene created, an Exit
  * drawn, a gesture begun or abandoned. One live region for the page rather than
  * one per thing announced, because two of them in the same corner would talk
  * over each other and be read out of order.
@@ -180,12 +180,12 @@ function countedShots(many: number) {
   return t(many === 1 ? 'editor.oneShot' : 'editor.manyShots', { count: many })
 }
 
-function countedCuts(many: number) {
-  return t(many === 1 ? 'editor.oneCut' : 'editor.manyCuts', { count: many })
+function countedExits(many: number) {
+  return t(many === 1 ? 'editor.oneExit' : 'editor.manyExits', { count: many })
 }
 
 /**
- * A Scene goes with its Shots and with the Cuts at both of its ends, and the
+ * A Scene goes with its Shots and with the Exits at both of its ends, and the
  * Author named none of them, so it is asked about and all three are counted
  * separately — the ways in were destroyed uncounted before. See
  * `docs/adr/0017-a-confirmation-is-drawn-on-the-bench.md`.
@@ -194,8 +194,8 @@ async function deleteScene(scene: Scene) {
   const named = {
     name: scene.name,
     shots: countedShots(scene.shots.length),
-    waysOn: countedCuts(cutsFrom(scene.id).length),
-    waysIn: countedCuts(cutsInto(scene.id).length),
+    waysOn: countedExits(exitsFrom(scene.id).length),
+    waysIn: countedExits(exitsInto(scene.id).length),
   }
   const asking = t('editor.confirmDeleteScene', named)
   if (!await ask(asking, t('editor.deleteScene'))) return
@@ -234,7 +234,7 @@ function writeShot(shot: Shot) {
  * Writes a whole sequence of Places, which is the only way one is written: the
  * ids of everything the Scene numbers, in the order they are now in.
  */
-function renumber(scene: Scene, what: 'shots' | 'cuts', places: string[]) {
+function renumber(scene: Scene, what: 'shots' | 'exits', places: string[]) {
   return change(
     () => send(`/api/scenes/${scene.id}/${what}/places`, { method: 'PUT', body: { places } }),
   )
@@ -556,7 +556,7 @@ function pointOnSurface(at: { clientX: number, clientY: number }) {
  * can be over the panel — and a node that went on following it would be dropped
  * where the Author cannot see it and never aimed it. Held at the edge, the card
  * stops at the edge of the bench, which is where they can see it stop. The line
- * of a Cut being drawn reaches the same edge and no further, for the same reason:
+ * of an Exit being drawn reaches the same edge and no further, for the same reason:
  * it can only land on something that is on the bench.
  */
 function pointOnBench(at: { clientX: number, clientY: number }) {
@@ -787,9 +787,9 @@ const PAN_SLACK = 4
 let pushing: { pointerId: number, from: Point, scroll: Point } | undefined
 
 /**
- * A press on the bare bench. Anywhere that is not a card is the bench — a Cut's
+ * A press on the bare bench. Anywhere that is not a card is the bench — an Exit's
  * line stops its own press from reaching here, so pressing one line while another
- * Cut is in the panel writes the second rather than closing on both, and a press
+ * Exit is in the panel writes the second rather than closing on both, and a press
  * on a card is that card's own drag.
  *
  * The pointer is captured so the push survives the hand leaving the graph, which
@@ -850,9 +850,9 @@ function letGoOfBench() {
 }
 
 /**
- * The Cut being drawn by hand, held while the gesture is live and nothing
+ * The Exit being drawn by hand, held while the gesture is live and nothing
  * otherwise. `landsOn` is worked out once, when the gesture begins: it depends
- * on the departing Scene and the Cuts already leaving it, and neither changes
+ * on the departing Scene and the Exits already leaving it, and neither changes
  * under the Author's hand — see `docs/adr/0015-a-cut-is-drawn-by-hand.md`. `at`
  * is where the hand has reached on the surface, and `over` the Scene it is over,
  * neither of which the keyboard route has until a pointer moves.
@@ -877,12 +877,12 @@ const drawnLine = computed(() => {
   const aimed = aiming.value
   if (!aimed?.at || !sceneById(aimed.fromSceneId)) return
 
-  return cutLineTo(pointOf(aimed.fromSceneId), aimed.at)
+  return exitLineTo(pointOf(aimed.fromSceneId), aimed.at)
 })
 
 /**
  * Whether the line would land where it is. The arrowhead is what says "this will
- * land", so over a Scene that cannot take the Cut it is taken off — said before
+ * land", so over a Scene that cannot take the Exit it is taken off — said before
  * the Author lets go rather than after. Over the bare bench the head stays: there
  * is nothing there to refuse it.
  */
@@ -896,7 +896,7 @@ const landing = computed(
 function aimFrom(scene: Scene) {
   aiming.value = {
     fromSceneId: scene.id,
-    landsOn: scenesACutMayLandOn(story.value?.scenes ?? [], story.value?.cuts ?? [], scene.id),
+    landsOn: scenesAExitMayLandOn(story.value?.scenes ?? [], story.value?.exits ?? [], scene.id),
   }
   announce(t('editor.aimingFrom', { name: scene.name }))
 }
@@ -941,7 +941,7 @@ function sceneUnder(event: PointerEvent) {
 }
 
 /**
- * Draws the Cut where the gesture landed, or lets it go where it landed on a
+ * Draws the Exit where the gesture landed, or lets it go where it landed on a
  * Scene it may not land on — one it already reaches, or the one it left. Landing
  * on the bare bench writes the Scene that was not there; landing off the bench, or
  * on nothing at all, which is the keyboard route abandoned, leaves the Story
@@ -960,16 +960,16 @@ function landOn(sceneId: string | undefined, onBench = false) {
   }
 
   return change(async () => {
-    await send(`/api/scenes/${aimed.fromSceneId}/cuts`, {
+    await send(`/api/scenes/${aimed.fromSceneId}/exits`, {
       method: 'POST',
       body: { toSceneId: sceneId },
     })
-    announce(t('editor.cutDrawn', said))
+    announce(t('editor.exitDrawn', said))
   })
 }
 
 /**
- * Writes the Scene a gesture landed on the bare bench, and the Cut to it. The
+ * Writes the Scene a gesture landed on the bare bench, and the Exit to it. The
  * Scene goes where the hand let go, snapped to the bench's own pitch, and it
  * arrives under a provisional name with the panel open on that name in a field:
  * a name typed in the middle of a gesture could never be corrected, so the
@@ -977,8 +977,8 @@ function landOn(sceneId: string | undefined, onBench = false) {
  * `docs/adr/0015-a-cut-is-drawn-by-hand.md`.
  *
  * The two writes are one change, so the bench reads the Story back once and finds
- * the Scene and the Cut in it together. They are not one transaction, and nothing
- * here pretends otherwise: a Cut refused after the Scene was written leaves the
+ * the Scene and the Exit in it together. They are not one transaction, and nothing
+ * here pretends otherwise: an Exit refused after the Scene was written leaves the
  * Scene on the bench under its provisional name, which the Author can name or
  * delete — the same place a Scene written from the form at the top of the page
  * would have left them.
@@ -993,14 +993,14 @@ async function writeSceneAt(fromSceneId: string, at: Point) {
       method: 'POST',
       body: { name, ...snappedWithinReach(at) },
     }) as Scene
-    await send(`/api/scenes/${fromSceneId}/cuts`, {
+    await send(`/api/scenes/${fromSceneId}/exits`, {
       method: 'POST',
       body: { toSceneId: written.id },
     })
 
     writtenId = written.id
     writing.value = { scene: written.id }
-    announce(t('editor.cutDrawn', said))
+    announce(t('editor.exitDrawn', said))
   })
 
   // After the read the change asks for and the render it causes, which is what
@@ -1015,14 +1015,14 @@ async function writeSceneAt(fromSceneId: string, at: Point) {
 function abandonAiming() {
   if (!aiming.value) return
   aiming.value = undefined
-  announce(t('editor.cutAbandoned'))
+  announce(t('editor.exitAbandoned'))
 }
 
 /**
  * The keyboard's way through the same aiming, on the one button each node hides
  * until it is focused. What it does is what the node is to the gesture: nothing
  * live, so begin from here; the Scene the line left, so let it go; a Scene the
- * Cut may land on, so land it there.
+ * Exit may land on, so land it there.
  */
 function aimOrLand(scene: Scene) {
   if (!aiming.value) return aimFrom(scene)
@@ -1031,7 +1031,7 @@ function aimOrLand(scene: Scene) {
 }
 
 /**
- * Whether the Cut being drawn may land on a node, which is the one question the
+ * Whether the Exit being drawn may land on a node, which is the one question the
  * bench asks of every Scene while a gesture is live: it lights the node, quiets
  * the rest, and settles what the hidden button offers.
  */
@@ -1041,17 +1041,17 @@ function mayLandOn(scene: Scene) {
 
 function aimingName(scene: Scene) {
   const aimed = aiming.value
-  if (!aimed) return t('editor.drawCutFrom', { name: scene.name })
+  if (!aimed) return t('editor.drawExitFrom', { name: scene.name })
 
   const from = sceneNamed(sceneNames.value, aimed.fromSceneId, t)
 
   return aimed.fromSceneId === scene.id
-    ? t('editor.abandonCutFrom', { name: from })
-    : t('editor.cutFromTo', { from, to: scene.name })
+    ? t('editor.abandonExitFrom', { name: from })
+    : t('editor.exitFromTo', { from, to: scene.name })
 }
 
 /**
- * Escape lets go of whatever the bench is holding: the Cut being drawn, whichever
+ * Escape lets go of whatever the bench is holding: the Exit being drawn, whichever
  * way in began it, and the panel at the edge of the bench. Listened for on the
  * document because a gesture by pointer has focus nowhere in particular — the
  * hand is on a strip that is not a control — so there is no element to hang it
@@ -1077,63 +1077,63 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', zoomOnKeys)
 })
 
-function moveCut(scene: Scene, cut: Cut, step: -1 | 1) {
-  return renumber(scene, 'cuts', movedBy(cutsFrom(scene.id).map(held => held.id), cut.id, step))
+function moveExit(scene: Scene, exit: Exit, step: -1 | 1) {
+  return renumber(scene, 'exits', movedBy(exitsFrom(scene.id).map(held => held.id), exit.id, step))
 }
 
-function writeCut(cut: Cut) {
-  return write(() => send(`/api/cuts/${cut.id}`, { method: 'PATCH', body: { text: cut.text } }))
+function writeExit(exit: Exit) {
+  return write(() => send(`/api/exits/${exit.id}`, { method: 'PATCH', body: { text: exit.text } }))
 }
 
 /**
  * What the panel at the trailing edge of the bench is writing: one Scene, or one
- * Cut, and never both. One panel, so one answer to "what am I writing" — a
+ * Exit, and never both. One panel, so one answer to "what am I writing" — a
  * second would be a second answer, and on a bench where lines cross the two
  * would sit over each other.
  *
  * Held by id, like every other thing the bench holds across a read: a refetch
- * replaces every Scene and every Cut in the Story, and the panel would otherwise
+ * replaces every Scene and every Exit in the Story, and the panel would otherwise
  * be writing into an object nothing draws.
  *
  * What is in the panel is the Author's view of their own graph, so it is written
  * nowhere and lasts as long as the page.
  */
-const writing = ref<{ scene: string } | { cut: string }>()
+const writing = ref<{ scene: string } | { exit: string }>()
 
-/** The Scene the panel is writing, or nothing when it is writing a Cut. */
+/** The Scene the panel is writing, or nothing when it is writing an Exit. */
 const sceneWritten = computed(() => {
   const held = writing.value
   return held && 'scene' in held ? sceneById(held.scene) : undefined
 })
 
 /**
- * The Cut the panel is writing, and the two Scenes it joins by name. Nothing at
- * all when a Scene is what is being written, or when the Cut has since gone.
+ * The Exit the panel is writing, and the two Scenes it joins by name. Nothing at
+ * all when a Scene is what is being written, or when the Exit has since gone.
  */
-const cutWritten = computed(() => {
+const exitWritten = computed(() => {
   const held = writing.value
-  const cut = held && 'cut' in held ? cutById(held.cut) : undefined
-  if (!cut) return
+  const exit = held && 'exit' in held ? exitById(held.exit) : undefined
+  if (!exit) return
 
   return {
-    cut,
-    from: sceneNamed(sceneNames.value, cut.fromSceneId, t),
-    to: sceneNamed(sceneNames.value, cut.toSceneId, t),
+    exit,
+    from: sceneNamed(sceneNames.value, exit.fromSceneId, t),
+    to: sceneNamed(sceneNames.value, exit.toSceneId, t),
   }
 })
 
-function cutById(cutId: string) {
-  return story.value?.cuts.find(cut => cut.id === cutId)
+function exitById(exitId: string) {
+  return story.value?.exits.find(exit => exit.id === exitId)
 }
 
 const sceneName = useTemplateRef<HTMLInputElement>('sceneName')
-const cutText = useTemplateRef<HTMLInputElement>('cutText')
+const exitText = useTemplateRef<HTMLInputElement>('exitText')
 
 /**
  * Puts one Scene in the panel, taking out whatever was there, and takes it out
  * again if it was already the one being written. Focus goes into the name as the
  * panel appears, which is the first field of the Scene and the same promise the
- * Cut's panel makes: a panel nobody can type in is not one the keyboard has
+ * Exit's panel makes: a panel nobody can type in is not one the keyboard has
  * reached.
  */
 async function writeScene(sceneId: string) {
@@ -1144,60 +1144,60 @@ async function writeScene(sceneId: string) {
 }
 
 /**
- * Puts one Cut in the panel, and takes it out again if it was the one being
+ * Puts one Exit in the panel, and takes it out again if it was the one being
  * written. Focus goes into the text: pressed by hand that is where the Author was
  * going anyway, and reached from the strip of ways on it is the whole point of
  * the route.
  */
-async function openCut(cutId: string) {
+async function openExit(exitId: string) {
   const held = writing.value
-  if (held && 'cut' in held && held.cut === cutId) return closePanel()
-  writing.value = { cut: cutId }
+  if (held && 'exit' in held && held.exit === exitId) return closePanel()
+  writing.value = { exit: exitId }
   await nextTick()
-  cutText.value?.focus()
+  exitText.value?.focus()
 }
 
 /**
  * Closes the panel and puts focus back on the write button of the card it
- * belongs to — the Scene being written, or the Scene a Cut leaves — so the
+ * belongs to — the Scene being written, or the Scene an Exit leaves — so the
  * keyboard comes back out onto the bench rather than at the top of the page. A
  * panel closed with the pointer on the bare bench is closed by hand and leaves
  * focus alone: see `releaseBench`.
  *
  * The card's button rather than the control the panel was opened from, which for
- * a Cut is a row of the ways on: one panel holds one thing, so opening a Cut took
+ * an Exit is a row of the ways on: one panel holds one thing, so opening an Exit took
  * the Scene out of the panel and that row is no longer in the page to hand focus
- * back to. The card is the one anchor both routes share, and the Cut's panel
+ * back to. The card is the one anchor both routes share, and the Exit's panel
  * offers the way back to the Scene's for a hand that wants the row again.
  */
 function closePanel() {
   const held = writing.value
   if (!held) return
 
-  const sceneId = 'scene' in held ? held.scene : cutById(held.cut)?.fromSceneId
+  const sceneId = 'scene' in held ? held.scene : exitById(held.exit)?.fromSceneId
   writing.value = undefined
   if (sceneId) document.getElementById(`write-${sceneId}`)?.focus()
 }
 
 /**
  * The way on being dragged within a Scene's strip, and the row the hand is over.
- * Held by Cut id and not by the Cut, the same trap the other two gestures avoid.
+ * Held by Exit id and not by the Exit, the same trap the other two gestures avoid.
  */
-const draggedWay = ref<{ cutId: string, over?: string }>()
+const draggedWay = ref<{ exitId: string, over?: string }>()
 
 /**
  * Whether the drag that has just ended renumbered anything. A row is pressed to
- * open a Cut and dragged to move it, so the click that follows a drag that moved
+ * open an Exit and dragged to move it, so the click that follows a drag that moved
  * one has to be let go of: opening a panel on top of a renumbering is a second
  * answer to a gesture that already said what it meant.
  */
 let renumberedByDrag = false
 
-function startWayDrag(cut: Cut, event: PointerEvent) {
+function startWayDrag(exit: Exit, event: PointerEvent) {
   // Capturing the pointer sends the rest of the gesture to the row itself, so the
   // hand can leave it for the row it is aiming at.
   ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
-  draggedWay.value = { cutId: cut.id }
+  draggedWay.value = { exitId: exit.id }
   renumberedByDrag = false
 }
 
@@ -1208,16 +1208,16 @@ function keepWayDrag(event: PointerEvent) {
 function endWayDrag(scene: Scene) {
   const dragged = draggedWay.value
   draggedWay.value = undefined
-  if (!dragged?.over || dragged.over === dragged.cutId) return
+  if (!dragged?.over || dragged.over === dragged.exitId) return
 
-  const places = movedInto(cutsFrom(scene.id).map(held => held.id), dragged.cutId, dragged.over)
+  const places = movedInto(exitsFrom(scene.id).map(held => held.id), dragged.exitId, dragged.over)
   if (!places) return
 
   // Let go of over a stranger's row nothing was renumbered, so the press that
-  // follows is the press it started as and the Cut's own panel opens.
+  // follows is the press it started as and the Exit's own panel opens.
   renumberedByDrag = true
 
-  return renumber(scene, 'cuts', places)
+  return renumber(scene, 'exits', places)
 }
 
 /**
@@ -1263,10 +1263,10 @@ function movedInto(ids: string[], id: string, onto: string) {
  * What a press on a row of the strip does. A drag that renumbered ends in a click
  * too, and that one opens nothing.
  */
-function pressWay(cut: Cut) {
+function pressWay(exit: Exit) {
   const dragged = renumberedByDrag
   renumberedByDrag = false
-  if (!dragged) return openCut(cut.id)
+  if (!dragged) return openExit(exit.id)
 }
 
 /**
@@ -1289,11 +1289,11 @@ function writeFlags(scene: Scene, typed: string) {
 }
 
 /**
- * Writes the whole list a Cut or a Shot carries, because that is what the
- * endpoint takes. `carrierId` is the Cut's or the Shot's, never the Story's,
+ * Writes the whole list an Exit or a Shot carries, because that is what the
+ * endpoint takes. `carrierId` is the Exit's or the Shot's, never the Story's,
  * which is what `id` means everywhere else here.
  */
-function writeConditions(where: 'cuts' | 'shots', carrierId: string, carried: Condition[]) {
+function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: Condition[]) {
   return write(() => send(`/api/${where}/${carrierId}/conditions`, {
     method: 'PUT',
     body: { conditions: wholeConditions(carried) },
@@ -1308,7 +1308,7 @@ function writeConditions(where: 'cuts' | 'shots', carrierId: string, carried: Co
  *
  * One function, because every route that sends a list sends it from a panel the
  * Author may be halfway through: the row they are still naming would otherwise
- * take the whole list down with it, and a Cut duplicated at that moment would
+ * take the whole list down with it, and an Exit duplicated at that moment would
  * arrive carrying nothing.
  */
 function wholeConditions(carried: Condition[]) {
@@ -1316,54 +1316,54 @@ function wholeConditions(carried: Condition[]) {
 }
 
 /**
- * Writes a second Cut to the same Scene, carrying the Conditions of the first.
- * The gesture that draws a Cut will not land on a Scene the departing one already
+ * Writes a second Exit to the same Scene, carrying the Conditions of the first.
+ * The gesture that draws an Exit will not land on a Scene the departing one already
  * reaches, which is what keeps a slip of the hand from making an accidental
- * duplicate — but two Cuts to one Scene under opposite Conditions is what
- * Conditions on a Cut are for, so it is written on purpose from here: an Author
- * duplicates a Cut at the moment they mean to write its opposite Condition. See
+ * duplicate — but two Exits to one Scene under opposite Conditions is what
+ * Conditions on an Exit are for, so it is written on purpose from here: an Author
+ * duplicates an Exit at the moment they mean to write its opposite Condition. See
  * `docs/adr/0015-a-cut-is-drawn-by-hand.md`.
  *
  * The Conditions are copied and the text is not. The pair exists to be offered
  * under opposite tests, so the second is phrased from scratch, and the Condition
  * that makes it the opposite is the Author's next edit — in the duplicate's own
- * panel, which is theirs to open from the strip. This one stays on the Cut it was
+ * panel, which is theirs to open from the strip. This one stays on the Exit it was
  * duplicated from.
  *
  * The two writes are one change, and are not one transaction: Conditions refused
- * after the Cut was written leave a bare duplicate in the strip, which the Author
+ * after the Exit was written leave a bare duplicate in the strip, which the Author
  * can go on writing or take away.
  */
-function duplicateCut(cut: Cut) {
+function duplicateExit(exit: Exit) {
   const said = {
-    from: sceneNamed(sceneNames.value, cut.fromSceneId, t),
-    to: sceneNamed(sceneNames.value, cut.toSceneId, t),
+    from: sceneNamed(sceneNames.value, exit.fromSceneId, t),
+    to: sceneNamed(sceneNames.value, exit.toSceneId, t),
   }
-  const conditions = wholeConditions(cut.conditions)
+  const conditions = wholeConditions(exit.conditions)
 
   return change(async () => {
-    const written = await send(`/api/scenes/${cut.fromSceneId}/cuts`, {
+    const written = await send(`/api/scenes/${exit.fromSceneId}/exits`, {
       method: 'POST',
-      body: { toSceneId: cut.toSceneId },
-    }) as Cut
+      body: { toSceneId: exit.toSceneId },
+    }) as Exit
 
     if (conditions.length) {
-      await send(`/api/cuts/${written.id}/conditions`, { method: 'PUT', body: { conditions } })
+      await send(`/api/exits/${written.id}/conditions`, { method: 'PUT', body: { conditions } })
     }
 
-    announce(t('editor.cutDuplicated', said))
+    announce(t('editor.exitDuplicated', said))
   })
 }
 
 /**
- * Takes a Cut away, from the panel it is written in. Nothing closes the panel
- * here: the read that follows is what takes the Cut out of the Story, and the
- * panel is drawn from the Cut it holds — so a delete that landed leaves nothing
- * to draw, and a refused one leaves the Author looking at the Cut they still
+ * Takes an Exit away, from the panel it is written in. Nothing closes the panel
+ * here: the read that follows is what takes the Exit out of the Story, and the
+ * panel is drawn from the Exit it holds — so a delete that landed leaves nothing
+ * to draw, and a refused one leaves the Author looking at the Exit they still
  * have.
  */
-function deleteCut(cut: Cut) {
-  return change(() => send(`/api/cuts/${cut.id}`, { method: 'DELETE' }))
+function deleteExit(exit: Exit) {
+  return change(() => send(`/api/exits/${exit.id}`, { method: 'DELETE' }))
 }
 
 /**
@@ -1398,7 +1398,7 @@ function sceneById(id: string) {
 /**
  * Begins the drag that lays a Scene out. A card is dragged from anywhere on it —
  * there is nothing on it to type into, so the whole box is the handle — bar the
- * controls it carries and the strip down its leading edge, which is where a Cut
+ * controls it carries and the strip down its leading edge, which is where an Exit
  * is drawn from. One test for every control rather than a list of the two or
  * three there are today: a button on a card is pressed, never dragged, and a
  * button added tomorrow is out of the gesture without anyone remembering to say
@@ -1456,28 +1456,28 @@ function nudge(scene: Scene, event: KeyboardEvent) {
 }
 
 /**
- * Every Cut as the line that draws it. Every card is `NODE_WIDTH` by
+ * Every Exit as the line that draws it. Every card is `NODE_WIDTH` by
  * `NODE_HEIGHT`, so the box a line leaves and the box it lands on are known from
  * the Story alone: the lines are right in the very first frame, on the server as
  * in the browser, and nothing is measured after a render.
  */
-const cutLines = computed(() => story.value?.cuts.map((cut) => {
-  const line = cutLine(pointOf(cut.fromSceneId), pointOf(cut.toSceneId))
+const exitLines = computed(() => story.value?.exits.map((exit) => {
+  const line = exitLine(pointOf(exit.fromSceneId), pointOf(exit.toSceneId))
 
   // The Place, counted from one for the Author as a Shot's is and read off the
   // same list the strip in the node reads, and the point near the departing
   // Scene where the disc saying it sits.
   return {
-    id: cut.id,
+    id: exit.id,
     ...line,
-    place: cutsFrom(cut.fromSceneId).indexOf(cut) + 1,
-    disc: discOfCut(line),
+    place: exitsFrom(exit.fromSceneId).indexOf(exit) + 1,
+    disc: discOfExit(line),
   }
 }) ?? [])
 
 /**
  * Where a Scene's card sits, which with the two constants is the whole of its
- * box. A Cut naming a Scene the bench has not got — read back a moment before
+ * box. An Exit naming a Scene the bench has not got — read back a moment before
  * the Scene it joins — is drawn from the graph's own corner rather than from
  * nowhere.
  */
@@ -1503,7 +1503,7 @@ const WAYS_ON_NAMED = 3
  */
 function atAGlance(scene: Scene) {
   const shots = countedShots(scene.shots.length)
-  const landing = cutsFrom(scene.id).map(cut => sceneNamed(sceneNames.value, cut.toSceneId, t))
+  const landing = exitsFrom(scene.id).map(exit => sceneNamed(sceneNames.value, exit.toSceneId, t))
   const named = landing.slice(0, WAYS_ON_NAMED).join(', ')
   const rest = landing.length - WAYS_ON_NAMED
 
@@ -1667,7 +1667,7 @@ function atAGlance(scene: Scene) {
     <p v-if="announced" class="toast" role="status">{{ announced }}</p>
 
     <p v-if="!story?.scenes.length" class="none">{{ $t('editor.noScenes') }}</p>
-    <!-- The bench: the graph, and the panel a Scene or a Cut is written in docked
+    <!-- The bench: the graph, and the panel a Scene or an Exit is written in docked
          at its trailing edge. The panel pushes the graph rather than covering it,
          so nothing the Author is working on ends up hidden underneath it. -->
     <div v-else class="bench">
@@ -1697,24 +1697,24 @@ function atAGlance(scene: Scene) {
               :class="{ eased }"
               :style="{ ...surfaceSize, '--pitch': `${NODE_PITCH}px`, scale: zoom }"
             >
-              <!-- The drawing is a pointer's way to a Cut and a second place the one
+              <!-- The drawing is a pointer's way to an Exit and a second place the one
                    being written is shown; the account of where a Scene leads that
                    anything reads out is the card and the panel — see
                    `docs/adr/0010-the-graph-is-written-here-not-pulled-in.md`. So the
                    lines are hidden from what reads the page rather than being the
-                   keyboard's route to a Cut. -->
+                   keyboard's route to an Exit. -->
               <svg aria-hidden="true" :style="surfaceSize">
                 <defs>
                   <marker
-                    id="cut-head" viewBox="0 0 8 8" refX="7" refY="4"
+                    id="exit-head" viewBox="0 0 8 8" refX="7" refY="4"
                     markerWidth="8" markerHeight="8" orient="auto-start-reverse"
                   >
                     <path d="M 0 0 L 8 4 L 0 8 z" />
                   </marker>
                 </defs>
-                <g v-for="line in cutLines" :key="line.id" :data-cut="line.id">
+                <g v-for="line in exitLines" :key="line.id" :data-exit="line.id">
                   <!-- The wide invisible stroke behind the line, which is what the
-                       hand actually aims at: a Cut is written by pressing its line,
+                       hand actually aims at: an Exit is written by pressing its line,
                        and a line and a half of pixels is nobody's idea of a target.
                        The press stops here, so it does not reach the bench that would
                        close the panel it just opened — and its default is refused,
@@ -1726,15 +1726,15 @@ function atAGlance(scene: Scene) {
                     :y1="line.from.y"
                     :x2="line.to.x"
                     :y2="line.to.y"
-                    @pointerdown.stop.prevent="openCut(line.id)"
+                    @pointerdown.stop.prevent="openExit(line.id)"
                   />
                   <line
-                    :class="{ lit: cutWritten?.cut.id === line.id }"
+                    :class="{ lit: exitWritten?.exit.id === line.id }"
                     :x1="line.from.x"
                     :y1="line.from.y"
                     :x2="line.to.x"
                     :y2="line.to.y"
-                    marker-end="url(#cut-head)"
+                    marker-end="url(#exit-head)"
                   />
                   <!-- The Place the way on is offered at, on a disc near the Scene it
                        leaves. It reports the order; nothing reads the order back out
@@ -1747,8 +1747,8 @@ function atAGlance(scene: Scene) {
                   <text class="place" :x="line.disc.x" :y="line.disc.y">{{ line.place }}</text>
                 </g>
 
-                <!-- The Cut under the Author's hand: the same grease pencil as the
-                     Cuts it is dragged across, told apart from them by its dashes
+                <!-- The Exit under the Author's hand: the same grease pencil as the
+                     Exits it is dragged across, told apart from them by its dashes
                      marching, and losing its arrowhead where it cannot land. -->
                 <line
                   v-if="drawnLine"
@@ -1757,7 +1757,7 @@ function atAGlance(scene: Scene) {
                   :y1="drawnLine.from.y"
                   :x2="drawnLine.to.x"
                   :y2="drawnLine.to.y"
-                  :marker-end="landing ? 'url(#cut-head)' : undefined"
+                  :marker-end="landing ? 'url(#exit-head)' : undefined"
                 />
               </svg>
 
@@ -1789,7 +1789,7 @@ function atAGlance(scene: Scene) {
                 @pointerup="endDrag"
                 @keydown="nudge(scene, $event)"
               >
-                <!-- The strip down the card's leading edge, and where a Cut is drawn
+                <!-- The strip down the card's leading edge, and where an Exit is drawn
                      from. It runs the card's full height, the gesture is immediate
                      under a finger with no long press, and it carries the mark that
                      says which Scene a Reading opens on.
@@ -1799,7 +1799,7 @@ function atAGlance(scene: Scene) {
                      that follows would have to undo. -->
                 <div
                   class="strip"
-                  data-step="draw-cut"
+                  data-step="draw-exit"
                   @pointerdown.self="startAiming(scene, $event)"
                   @pointermove="keepAiming"
                   @pointerup="endAiming"
@@ -1810,9 +1810,9 @@ function atAGlance(scene: Scene) {
                        stays the only visible way in while assistive technology still
                        finds a real button with a real name. It says which Scene it
                        draws from, and once a gesture is live it says instead what
-                       pressing it would do to that one — land the Cut, or let it go. A
-                       Scene the Cut cannot land on offers it disabled, which is how
-                       the hand is kept out of a Cut on itself and a second Cut to the
+                       pressing it would do to that one — land the Exit, or let it go. A
+                       Scene the Exit cannot land on offers it disabled, which is how
+                       the hand is kept out of an Exit on itself and a second Exit to the
                        same Scene. -->
                   <button
                     type="button"
@@ -1884,17 +1884,17 @@ function atAGlance(scene: Scene) {
         </div>
       </div>
 
-      <!-- Where a Scene and a Cut are written: one panel at the trailing edge of
+      <!-- Where a Scene and an Exit are written: one panel at the trailing edge of
            the bench, holding one or the other and never both. -->
       <!-- A group rather than a landmark: what holds it together is that it is
            one thing being written, and it is named by which thing that is. -->
       <div
-        v-if="sceneWritten || cutWritten"
+        v-if="sceneWritten || exitWritten"
         class="panel"
         role="group"
         :aria-label="sceneWritten
           ? $t('editor.writingScene', { name: sceneWritten.name })
-          : $t('editor.writingCutTo', { scene: cutWritten!.to })"
+          : $t('editor.writingExitTo', { scene: exitWritten!.to })"
       >
         <!-- The panel is closed explicitly. Drawn at every width rather than only
              below the breakpoint: on a narrow screen it is the whole of the way
@@ -1907,7 +1907,7 @@ function atAGlance(scene: Scene) {
 
         <template v-if="sceneWritten">
           <!-- The name is the heading and the heading is written in: a bare field,
-               the same idiom as a Shot's text and a Cut's, with no mode to enter
+               the same idiom as a Shot's text and an Exit's, with no mode to enter
                first.
 
                The label sits outside the heading rather than in it: a heading is
@@ -2131,10 +2131,10 @@ function atAGlance(scene: Scene) {
           </p>
 
           <!-- The ways on, bare: each one's Place, the name it arrives at, and the
-               two controls that renumber it. A Cut's text and its Conditions are
+               two controls that renumber it. An Exit's text and its Conditions are
                written in the panel a way on hands over to, and what stays here is
-               what an Author cannot read a Cut without — where the Scene leads,
-               and in what order — which is also the route to a Cut for a hand that
+               what an Author cannot read an Exit without — where the Scene leads,
+               and in what order — which is also the route to an Exit for a hand that
                is not on a pointer. -->
           <div class="ways">
             <p :id="`ways-${sceneWritten.id}`" class="eyebrow">
@@ -2144,36 +2144,36 @@ function atAGlance(scene: Scene) {
               </span>
             </p>
 
-            <p v-if="!cutsFrom(sceneWritten.id).length" class="none">
+            <p v-if="!exitsFrom(sceneWritten.id).length" class="none">
               {{ $t('editor.noWayOnYet') }}
             </p>
             <ol v-else :aria-labelledby="`ways-${sceneWritten.id}`">
               <li
-                v-for="(cut, place) in cutsFrom(sceneWritten.id)"
-                :key="cut.id"
-                :data-way="cut.id"
+                v-for="(exit, place) in exitsFrom(sceneWritten.id)"
+                :key="exit.id"
+                :data-way="exit.id"
                 :class="{
-                  dragged: draggedWay?.cutId === cut.id,
-                  under: draggedWay?.over === cut.id && draggedWay.cutId !== cut.id,
+                  dragged: draggedWay?.exitId === exit.id,
+                  under: draggedWay?.over === exit.id && draggedWay.exitId !== exit.id,
                 }"
               >
-                <!-- The row is pressed to write the Cut and dragged to renumber
+                <!-- The row is pressed to write the Exit and dragged to renumber
                      it: one control, because the strip holds three things and a
                      fourth grip for the drag would be a way on read as a toolbar.
                      Its Place is the number it is offered at, so a row says which
-                     Cut it is before it is opened. -->
+                     Exit it is before it is opened. -->
                 <button
-                  :id="`way-${cut.id}`"
+                  :id="`way-${exit.id}`"
                   type="button"
                   class="way"
-                  @pointerdown="startWayDrag(cut, $event)"
+                  @pointerdown="startWayDrag(exit, $event)"
                   @pointermove="keepWayDrag"
                   @pointerup="endWayDrag(sceneWritten)"
                   @pointercancel="draggedWay = undefined"
-                  @click="pressWay(cut)"
+                  @click="pressWay(exit)"
                 >
                   <span class="numbered">{{ place + 1 }}</span>
-                  {{ sceneNames.get(cut.toSceneId) }}
+                  {{ sceneNames.get(exit.toSceneId) }}
                   <span class="visually-hidden">
                     {{ $t('editor.wayOnFrom', { name: sceneWritten.name }) }}
                   </span>
@@ -2182,21 +2182,21 @@ function atAGlance(scene: Scene) {
                 <button
                   type="button"
                   :disabled="place === 0"
-                  @click="moveCut(sceneWritten, cut, -1)"
+                  @click="moveExit(sceneWritten, exit, -1)"
                 >
                   {{ $t('common.moveEarlier') }}
                   <span class="visually-hidden">
-                    {{ $t('editor.theCutTo', { scene: sceneNames.get(cut.toSceneId) }) }}
+                    {{ $t('editor.theExitTo', { scene: sceneNames.get(exit.toSceneId) }) }}
                   </span>
                 </button>
                 <button
                   type="button"
-                  :disabled="place === cutsFrom(sceneWritten.id).length - 1"
-                  @click="moveCut(sceneWritten, cut, 1)"
+                  :disabled="place === exitsFrom(sceneWritten.id).length - 1"
+                  @click="moveExit(sceneWritten, exit, 1)"
                 >
                   {{ $t('common.moveLater') }}
                   <span class="visually-hidden">
-                    {{ $t('editor.theCutTo', { scene: sceneNames.get(cut.toSceneId) }) }}
+                    {{ $t('editor.theExitTo', { scene: sceneNames.get(exit.toSceneId) }) }}
                   </span>
                 </button>
               </li>
@@ -2204,48 +2204,48 @@ function atAGlance(scene: Scene) {
           </div>
         </template>
 
-        <template v-else-if="cutWritten">
-          <!-- The Cut names the Scene it leaves, and the name is the way back: a
-               Cut is written in the same panel the Scene was, so the panel that
+        <template v-else-if="exitWritten">
+          <!-- The Exit names the Scene it leaves, and the name is the way back: a
+               Exit is written in the same panel the Scene was, so the panel that
                took the Scene's place hands it back. -->
           <button
             type="button"
             class="back trail"
-            @click="writeScene(cutWritten.cut.fromSceneId)"
+            @click="writeScene(exitWritten.exit.fromSceneId)"
           >
-            {{ $t('editor.backToScene', { name: cutWritten.from }) }}
+            {{ $t('editor.backToScene', { name: exitWritten.from }) }}
           </button>
 
-          <label class="eyebrow" :for="`cut-${cutWritten.cut.id}`">
-            {{ $t('cut.to', { scene: cutWritten.to }) }}
+          <label class="eyebrow" :for="`exit-${exitWritten.exit.id}`">
+            {{ $t('exit.to', { scene: exitWritten.to }) }}
           </label>
           <input
-            :id="`cut-${cutWritten.cut.id}`"
-            ref="cutText"
-            v-model="cutWritten.cut.text"
-            :maxlength="CUT_TEXT_MAX_LENGTH"
-            @change="writeCut(cutWritten.cut)"
+            :id="`exit-${exitWritten.exit.id}`"
+            ref="exitText"
+            v-model="exitWritten.exit.text"
+            :maxlength="EXIT_TEXT_MAX_LENGTH"
+            @change="writeExit(exitWritten.exit)"
           >
 
           <Conditions
             :lead="$t('editor.offeredWhen')"
-            :carrier="$t('editor.theCutTo', { scene: cutWritten.to })"
-            :conditions="cutWritten.cut.conditions"
+            :carrier="$t('editor.theExitTo', { scene: exitWritten.to })"
+            :conditions="exitWritten.exit.conditions"
             :scenes="story.scenes"
-            :counting="cutWritten.cut.fromSceneId"
-            :id="cutWritten.cut.id"
-            @write="writeConditions('cuts', cutWritten.cut.id, cutWritten.cut.conditions)"
+            :counting="exitWritten.exit.fromSceneId"
+            :id="exitWritten.exit.id"
+            @write="writeConditions('exits', exitWritten.exit.id, exitWritten.exit.conditions)"
           />
 
           <!-- The deliberate route to a second way on to the same Scene, which the
                aiming gesture withholds so that the hand cannot draw one by
                accident. -->
-          <button type="button" @click="duplicateCut(cutWritten.cut)">
-            {{ $t('editor.duplicateCutTo', { scene: cutWritten.to }) }}
+          <button type="button" @click="duplicateExit(exitWritten.exit)">
+            {{ $t('editor.duplicateExitTo', { scene: exitWritten.to }) }}
           </button>
 
-          <button type="button" class="danger" @click="deleteCut(cutWritten.cut)">
-            {{ $t('editor.deleteCutTo', { scene: cutWritten.to }) }}
+          <button type="button" class="danger" @click="deleteExit(exitWritten.exit)">
+            {{ $t('editor.deleteExitTo', { scene: exitWritten.to }) }}
           </button>
         </template>
       </div>
@@ -2600,13 +2600,13 @@ svg {
   position: absolute;
   inset: 0;
   /* The drawing takes no presses. The one exception is the wide stroke behind each
-     Cut, which asks for them back below: a line paints over that stroke, and a
+     Exit, which asks for them back below: a line paints over that stroke, and a
      disc paints over both, so leaving the whole of it live would have the hand
      landing on whichever of the three was drawn last. */
   pointer-events: none;
 }
 
-/* A Cut is a mark the Author made, so it is drawn in the grease pencil rather
+/* An Exit is a mark the Author made, so it is drawn in the grease pencil rather
    than in the interface's own colour. */
 svg line {
   stroke: color-mix(in oklab, var(--grease) 70%, transparent);
@@ -2629,12 +2629,12 @@ svg line.aimed {
   cursor: pointer;
 }
 
-/* The Cut being written, lit: the panel says which Cut it is holding, and this is
+/* The Exit being written, lit: the panel says which Exit it is holding, and this is
    the same thing said on the bench, where the Author is looking. */
 svg line.lit {
   stroke: var(--grease);
-  /* Twice the weight of a finished Cut, which is the whole of the difference: the
-     Cut being written is the same mark, drawn heavier. */
+  /* Twice the weight of a finished Exit, which is the whole of the difference: the
+     Exit being written is the same mark, drawn heavier. */
   stroke-width: 3;
 }
 
@@ -2654,8 +2654,8 @@ svg text.place {
   dominant-baseline: central;
 }
 
-/* The Cut under the Author's hand. It is the Author's mark, so it is the grease
-   pencil like every finished Cut — and since it is dragged across a bench full of
+/* The Exit under the Author's hand. It is the Author's mark, so it is the grease
+   pencil like every finished Exit — and since it is dragged across a bench full of
    them in that same colour, what tells it apart is that its dashes march. That
    makes it the first animation in the product, and the stylesheet's own
    reduced-motion block is what stops it: asked for stillness, the line is still
@@ -2675,7 +2675,7 @@ svg line.drawn {
 
 /* A card is two columns of a fixed box: the strip down its leading edge, and the
    Scene at a glance beside it. Every card is the same size, which is what lets a
-   Cut's line be drawn against a geometry nobody has to measure. The width is the
+   Exit's line be drawn against a geometry nobody has to measure. The width is the
    one a phone can show, and the strip comes out of it rather than adding to it.
 
    The whole card is the handle that lays the graph out, so it takes the drag
@@ -2713,10 +2713,10 @@ article.writing {
   border-color: var(--light);
 }
 
-/* While a Cut is being drawn, the Scenes that can take it are lit and every
+/* While an Exit is being drawn, the Scenes that can take it are lit and every
    other one goes quiet — the Scene the line left, and any it already reaches — so
    what the hand may land on is read off the bench rather than out of a list. Two
-   static classes and nothing recomputed as the pointer moves: what a Cut may land
+   static classes and nothing recomputed as the pointer moves: what an Exit may land
    on is fixed the moment the gesture begins. */
 article.lit {
   border-color: var(--grease);
@@ -2742,7 +2742,7 @@ article.drawing {
   position: relative;
   border-inline-end: 1px solid var(--edge);
   background: color-mix(in oklab, var(--bench) 60%, transparent);
-  /* The hand draws a Cut from here, and a finger draws one without waiting. */
+  /* The hand draws an Exit from here, and a finger draws one without waiting. */
   cursor: crosshair;
 }
 
@@ -2989,7 +2989,7 @@ article.opens .strip {
 }
 
 /* An image is a thumbnail here and nothing more: it says which image the Shot
-   carries, and leaves the panel's height to the Flags and the Cuts. The
+   carries, and leaves the panel's height to the Flags and the Exits. The
    Description sits beside it, in the width the browser's own file chrome used to
    take. */
 .image {
@@ -3022,7 +3022,7 @@ article.opens .strip {
   outline-offset: 2px;
 }
 
-/* While a file is over the thumbnail: the grease pencil a dragged Shot and a Cut
+/* While a file is over the thumbnail: the grease pencil a dragged Shot and an Exit
    being drawn both wear, because it is the same promise — this is what letting go
    would do. Drawn in the tokens rather than left to the browser, which marks a drop
    target in nothing this room owns. */
@@ -3091,7 +3091,7 @@ article.opens .strip {
 
 /* One way on, read as the line it is rather than as a button: where it arrives,
    and the Place it is offered at in the gutter. The whole row is the target,
-   because it is pressed to write the Cut and dragged to renumber it. */
+   because it is pressed to write the Exit and dragged to renumber it. */
 .way {
   /* Narrow enough that the name and the two controls are one line of a node this
      width, and free to grow into what they leave: a long Scene name wraps inside
@@ -3141,7 +3141,7 @@ article.opens .strip {
   font-size: 0.6875rem;
 }
 
-/* The panel a Scene or a Cut is written in, docked at the trailing edge of the
+/* The panel a Scene or an Exit is written in, docked at the trailing edge of the
    bench. Three hundred and eighty pixels is a node's own width and a little over:
    wide enough for a Shot's text, its image and its Description on the lines they
    sit on inside a node today, and narrow enough to leave the graph most of the
@@ -3155,7 +3155,7 @@ article.opens .strip {
   justify-items: start;
   inline-size: 380px;
   /* As tall as what is being written and no taller, up to the height of the
-     bench, past which it scrolls inside itself. A Cut is three controls and a
+     bench, past which it scrolls inside itself. An Exit is three controls and a
      line of text, so a panel held at the bench's full height would be mostly
      empty steel; a Scene of twenty Shots is read here rather than down the page. */
   max-block-size: var(--bench-height);

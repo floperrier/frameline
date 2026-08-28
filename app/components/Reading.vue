@@ -32,19 +32,19 @@ const shown = computed(() => reading(story, at.value))
  * falls back to the document and reading a Story by keyboard means tabbing in
  * from the top of the page at every Shot. The frame takes focus when a Shot
  * arrives, so what is announced is the beat itself rather than the button that
- * asks for the next one, and the first Cut takes it when the Scene has played
+ * asks for the next one, and the first Exit takes it when the Scene has played
  * out — the Reader lands on what they are being offered. The frame left standing
  * at the end of a Scene is passed over: it is still on screen, but it is not
  * what has just arrived.
  */
 const frame = useTemplateRef<HTMLElement>('frame')
-const cuts = useTemplateRef<HTMLElement>('cuts')
+const exits = useTemplateRef<HTMLElement>('exits')
 
 async function moveTo(to: Position) {
   at.value = to
   emit('at', to)
   await nextTick()
-  ;(shown.value.shot ? frame.value : cuts.value?.querySelector('button'))?.focus()
+  ;(shown.value.shot ? frame.value : exits.value?.querySelector('button'))?.focus()
 }
 
 const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, scene.name])))
@@ -77,15 +77,15 @@ const place = computed(() => Math.min(at.value.shot + 1, run.value.length))
  */
 const held = computed(() => shown.value.shot ?? run.value.at(-1))
 
-/** A Cut nobody has phrased yet is offered by where it arrives. */
-function offered(cut: Cut) {
-  return cutNamed(cut, id => sceneNamed(sceneNames.value, id, t), t)
+/** An Exit nobody has phrased yet is offered by where it arrives. */
+function offered(exit: Exit) {
+  return exitNamed(exit, id => sceneNamed(sceneNames.value, id, t), t)
 }
 </script>
 
 <template>
   <div class="reading">
-    <!-- One Shot at a time, and the Cuts only once the Scene has played out —
+    <!-- One Shot at a time, and the Exits only once the Scene has played out —
          behind the frame it played out on, which is held rather than taken away. -->
     <template v-if="held">
       <!-- Keyed on the Position, so arriving at a Shot draws the frame again:
@@ -142,12 +142,12 @@ function offered(cut: Cut) {
 
     <!-- The ways on go under the frame rather than over it, and carry no eyebrow
          of their own: the edge above has already named the Scene they leave. -->
-    <ul v-if="shown.cuts.length" ref="cuts" class="cuts">
-      <li v-for="cut in shown.cuts" :key="cut.id">
-        <!-- What the Author wrote on the Cut, so it carries the Story's Language
+    <ul v-if="shown.exits.length" ref="exits" class="exits">
+      <li v-for="exit in shown.exits" :key="exit.id">
+        <!-- What the Author wrote on the Exit, so it carries the Story's Language
              like the beat above it does. -->
-        <button type="button" class="splice" :lang="story.language" @click="moveTo(take(at, cut))">
-          {{ offered(cut) }}
+        <button type="button" class="splice" :lang="story.language" @click="moveTo(take(at, exit))">
+          {{ offered(exit) }}
         </button>
       </li>
     </ul>
@@ -254,15 +254,15 @@ figcaption {
   padding-inline: var(--s4);
 }
 
-/* The Cuts on offer, as a splice list: a grease-pencil mark and the line the
+/* The Exits on offer, as a splice list: a grease-pencil mark and the line the
    Reader takes, each across the whole column so the choice is read and not
    hunted for. */
-.cuts {
+.exits {
   display: grid;
   gap: var(--s2);
 }
 
-.cuts button {
+.exits button {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: var(--s3);
@@ -274,7 +274,7 @@ figcaption {
   text-align: start;
 }
 
-.cuts button:hover {
+.exits button:hover {
   background: var(--steel-lit);
 }
 

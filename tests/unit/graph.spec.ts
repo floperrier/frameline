@@ -1,16 +1,16 @@
 import { describe, expect, test } from 'vitest'
-import type { Cut, Scene } from '../../shared/utils/scenes'
+import type { Exit, Scene } from '../../shared/utils/scenes'
 import {
-  CUT_DISC_ALONG,
-  cutLine,
-  cutLineTo,
-  discOfCut,
+  EXIT_DISC_ALONG,
+  exitLine,
+  exitLineTo,
+  discOfExit,
   GRAPH_REACH,
   NODE_HEIGHT,
   NODE_PITCH,
   NODE_WIDTH,
   onTheSurface,
-  scenesACutMayLandOn,
+  scenesAExitMayLandOn,
   snappedWithinReach,
   withinReach,
   ZOOM_MAX,
@@ -18,10 +18,10 @@ import {
   zoomedAbout,
 } from '../../shared/utils/scenes'
 
-describe('the line that draws a Cut', () => {
+describe('the line that draws an Exit', () => {
   test('leaves the side of the node it leaves, and lands on the side it lands on', () => {
     const middle = NODE_HEIGHT / 2
-    const line = cutLine({ x: 0, y: 0 }, { x: 360, y: 0 })
+    const line = exitLine({ x: 0, y: 0 }, { x: 360, y: 0 })
 
     expect(line).toEqual({ from: { x: NODE_WIDTH, y: middle }, to: { x: 360, y: middle } })
   })
@@ -32,34 +32,34 @@ describe('the line that draws a Cut', () => {
     const foot = { x: NODE_WIDTH / 2, y: NODE_HEIGHT }
     const head = { x: NODE_WIDTH / 2, y: 300 }
 
-    expect(cutLine(above, below)).toEqual({ from: foot, to: head })
-    expect(cutLine(below, above)).toEqual({ from: head, to: foot })
+    expect(exitLine(above, below)).toEqual({ from: foot, to: head })
+    expect(exitLine(below, above)).toEqual({ from: head, to: foot })
   })
 
   /**
    * Every card is one size, so a box is where the Author put it and nothing else:
-   * the same Cut rising into two Scenes meets the foot of each exactly
+   * the same Exit rising into two Scenes meets the foot of each exactly
    * `NODE_HEIGHT` below the point it was placed at, with nothing measured off a
    * page to say so.
    */
   test('reads every node as the one size a card is', () => {
     const rising = { x: 0, y: 800 }
 
-    expect(cutLine(rising, { x: 0, y: 0 }).to.y).toBe(NODE_HEIGHT)
-    expect(cutLine(rising, { x: 0, y: 200 }).to.y).toBe(200 + NODE_HEIGHT)
+    expect(exitLine(rising, { x: 0, y: 0 }).to.y).toBe(NODE_HEIGHT)
+    expect(exitLine(rising, { x: 0, y: 200 }).to.y).toBe(200 + NODE_HEIGHT)
   })
 
   test('is no line at all between two nodes dropped on the same spot', () => {
-    const line = cutLine({ x: 40, y: 60 }, { x: 40, y: 60 })
+    const line = exitLine({ x: 40, y: 60 }, { x: 40, y: 60 })
 
     expect(line.from).toEqual(line.to)
   })
 })
 
-describe('the line of a Cut being drawn', () => {
+describe('the line of an Exit being drawn', () => {
   test('leaves the edge of the node it is drawn from, and ends at the hand', () => {
     const at = { x: 600, y: NODE_HEIGHT / 2 }
-    const line = cutLineTo({ x: 0, y: 0 }, at)
+    const line = exitLineTo({ x: 0, y: 0 }, at)
 
     expect(line).toEqual({ from: { x: NODE_WIDTH, y: NODE_HEIGHT / 2 }, to: at })
   })
@@ -67,57 +67,57 @@ describe('the line of a Cut being drawn', () => {
   test('ends at the hand exactly, even where the hand is inside the node it left', () => {
     const inside = { x: 40, y: 40 }
 
-    expect(cutLineTo({ x: 0, y: 0 }, inside).to).toBe(inside)
+    expect(exitLineTo({ x: 0, y: 0 }, inside).to).toBe(inside)
   })
 })
 
 describe('the disc that says a way on\u2019s Place', () => {
-  test('puts the Place\u2019s disc on the line, near the Scene the Cut leaves', () => {
-    const disc = discOfCut({ from: { x: 100, y: 50 }, to: { x: 500, y: 50 } })
+  test('puts the Place\u2019s disc on the line, near the Scene the Exit leaves', () => {
+    const disc = discOfExit({ from: { x: 100, y: 50 }, to: { x: 500, y: 50 } })
 
-    expect(disc).toEqual({ x: 100 + CUT_DISC_ALONG, y: 50 })
+    expect(disc).toEqual({ x: 100 + EXIT_DISC_ALONG, y: 50 })
   })
 
   test('keeps the disc at the end it belongs to on a line shorter than its own reach', () => {
     const short = { from: { x: 0, y: 0 }, to: { x: 20, y: 0 } }
 
-    expect(discOfCut(short)).toEqual({ x: 10, y: 0 })
+    expect(discOfExit(short)).toEqual({ x: 10, y: 0 })
   })
 
   test('leaves the disc on the edge of a node when there is no line to read', () => {
     const nowhere = { x: 40, y: 60 }
 
-    expect(discOfCut({ from: nowhere, to: nowhere })).toEqual(nowhere)
+    expect(discOfExit({ from: nowhere, to: nowhere })).toEqual(nowhere)
   })
 })
 
-describe('the Scenes a Cut may land on', () => {
+describe('the Scenes an Exit may land on', () => {
   const scene = (id: string) => ({ id }) as Scene
-  const cut = (fromSceneId: string, toSceneId: string) => ({ fromSceneId, toSceneId }) as Cut
+  const exit = (fromSceneId: string, toSceneId: string) => ({ fromSceneId, toSceneId }) as Exit
   const scenes = ['arrival', 'platform', 'bar'].map(scene)
 
   test('is every other Scene in the Story, where nothing has been drawn yet', () => {
-    expect(scenesACutMayLandOn(scenes, [], 'arrival')).toEqual(new Set(['platform', 'bar']))
+    expect(scenesAExitMayLandOn(scenes, [], 'arrival')).toEqual(new Set(['platform', 'bar']))
   })
 
-  test('never holds the Scene the Cut leaves, so the hand cannot slip into a Cut on itself', () => {
-    expect(scenesACutMayLandOn(scenes, [], 'bar').has('bar')).toBe(false)
+  test('never holds the Scene the Exit leaves, so the hand cannot slip into an Exit on itself', () => {
+    expect(scenesAExitMayLandOn(scenes, [], 'bar').has('bar')).toBe(false)
   })
 
   test('drops a Scene the departing Scene already reaches', () => {
-    const drawn = [cut('arrival', 'platform')]
+    const drawn = [exit('arrival', 'platform')]
 
-    expect(scenesACutMayLandOn(scenes, drawn, 'arrival')).toEqual(new Set(['bar']))
+    expect(scenesAExitMayLandOn(scenes, drawn, 'arrival')).toEqual(new Set(['bar']))
   })
 
-  test('counts only the Cuts leaving this Scene, not the ones arriving at it', () => {
-    const drawn = [cut('platform', 'bar'), cut('bar', 'arrival')]
+  test('counts only the Exits leaving this Scene, not the ones arriving at it', () => {
+    const drawn = [exit('platform', 'bar'), exit('bar', 'arrival')]
 
-    expect(scenesACutMayLandOn(scenes, drawn, 'arrival')).toEqual(new Set(['platform', 'bar']))
+    expect(scenesAExitMayLandOn(scenes, drawn, 'arrival')).toEqual(new Set(['platform', 'bar']))
   })
 
-  test('is empty in a Story of one Scene, which has nowhere to cut to', () => {
-    expect(scenesACutMayLandOn([scene('arrival')], [], 'arrival')).toEqual(new Set())
+  test('is empty in a Story of one Scene, which has nowhere to exit to', () => {
+    expect(scenesAExitMayLandOn([scene('arrival')], [], 'arrival')).toEqual(new Set())
   })
 })
 
@@ -159,7 +159,7 @@ describe('where a point on the screen lands on the surface', () => {
   })
 
   /**
-   * The hand outside the surface is a real position and not a refusal: a Cut is
+   * The hand outside the surface is a real position and not a refusal: an Exit is
    * drawn from a node with the pointer up above the graph's own corner, and the
    * point it is aimed at is held within reach where it is written, not here.
    */

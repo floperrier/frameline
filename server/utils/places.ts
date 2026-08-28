@@ -10,7 +10,7 @@ import { useDb } from '../db'
  */
 const NUMBERED = {
   Shot: { refusal: 'refusals.places.shot', table: sql.raw('shots'), within: sql.raw('scene_id') },
-  Cut: { refusal: 'refusals.places.cut', table: sql.raw('cuts'), within: sql.raw('from_scene_id') },
+  Exit: { refusal: 'refusals.places.exit', table: sql.raw('exits'), within: sql.raw('from_scene_id') },
 } as const
 
 /**
@@ -23,7 +23,7 @@ const NUMBERED = {
  * statement that writes it, where the ids the Scene really holds are in reach at
  * the moment they are written rather than a round trip earlier.
  */
-export async function readPlaces(event: H3Event, what: 'Shot' | 'Cut') {
+export async function readPlaces(event: H3Event, what: 'Shot' | 'Exit') {
   const body = await readBody<{ places?: unknown }>(event)
   const places = body?.places
 
@@ -44,7 +44,7 @@ export async function readPlaces(event: H3Event, what: 'Shot' | 'Cut') {
   return ids
 }
 
-function badPlaces(event: H3Event, what: 'Shot' | 'Cut') {
+function badPlaces(event: H3Event, what: 'Shot' | 'Exit') {
   return createError({ statusCode: 400, message: saying(event)(NUMBERED[what].refusal) })
 }
 
@@ -64,7 +64,7 @@ function badPlaces(event: H3Event, what: 'Shot' | 'Cut') {
  */
 export async function writePlaces(
   event: H3Event,
-  what: 'Shot' | 'Cut',
+  what: 'Shot' | 'Exit',
   sceneId: string,
   authorId: string,
   places: string[],

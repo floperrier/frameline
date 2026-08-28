@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { SAMPLES, type SampleLanguage } from '../../demonstration/samples'
-import { cuts, scenes, shots, stories } from '../db/schema'
+import { exits, scenes, shots, stories } from '../db/schema'
 import { useDb } from '../db'
 import type { Condition } from '../../shared/utils/scenes'
 
@@ -80,21 +80,21 @@ export async function plantSample(
         image: typeof shot.image === 'string' ? await image(shot.image) : null,
       })))))
 
-    // The Place a Cut takes among the ways on leaving its Scene is the order the
+    // The Place an Exit takes among the ways on leaving its Scene is the order the
     // Reader is offered them in, and so a decision of the work's: it is the
     // order they are written here, counted per Scene.
     const places = new Map<string, number>()
 
-    await db.insert(cuts).values(sample.cuts.map((cut) => {
-      const place = places.get(cut.from) ?? 0
-      places.set(cut.from, place + 1)
+    await db.insert(exits).values(sample.exits.map((exit) => {
+      const place = places.get(exit.from) ?? 0
+      places.set(exit.from, place + 1)
 
       return {
-        fromSceneId: idOf(cut.from),
-        toSceneId: idOf(cut.to),
-        text: cut.text,
+        fromSceneId: idOf(exit.from),
+        toSceneId: idOf(exit.to),
+        text: exit.text,
         position: place,
-        conditions: (cut.when ?? []).map(identified),
+        conditions: (exit.when ?? []).map(identified),
       }
     }))
 

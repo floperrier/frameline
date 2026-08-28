@@ -2,7 +2,7 @@ import type { H3Event } from 'h3'
 
 export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-type Kind = 'Story' | 'Scene' | 'Shot' | 'Cut'
+type Kind = 'Story' | 'Scene' | 'Shot' | 'Exit'
 
 /**
  * Which message each of the four things is refused with. A key apiece rather
@@ -15,18 +15,18 @@ const NOT_AN_ID: Record<Kind, string> = {
   Story: 'refusals.notAnId.story',
   Scene: 'refusals.notAnId.scene',
   Shot: 'refusals.notAnId.shot',
-  Cut: 'refusals.notAnId.cut',
+  Exit: 'refusals.notAnId.exit',
 }
 
 const NO_SUCH: Record<Kind, string> = {
   Story: 'refusals.noSuch.story',
   Scene: 'refusals.noSuch.scene',
   Shot: 'refusals.noSuch.shot',
-  Cut: 'refusals.noSuch.cut',
+  Exit: 'refusals.noSuch.exit',
 }
 
 /**
- * Reads the id of a Story, a Scene, a Shot or a Cut from the path. Rejecting a
+ * Reads the id of a Story, a Scene, a Shot or an Exit from the path. Rejecting a
  * malformed id here keeps Postgres from failing the uuid cast, which would read
  * as a server fault rather than a bad request.
  */

@@ -29,11 +29,11 @@ test('a visitor reads what a Story is made of, and finds the doors again at the 
   const firstTerm = page.getByRole('heading', { name: 'Story', exact: true })
   await expect(firstTerm).not.toBeInViewport()
 
-  for (const term of ['Story', 'Scene', 'Shot', 'Cut', 'Condition']) {
+  for (const term of ['Story', 'Scene', 'Shot', 'Exit', 'Condition']) {
     await expect(page.getByRole('heading', { name: term, exact: true })).toBeVisible()
   }
 
-  // The specimen is still a specimen: a Cut in it is text on the page and not
+  // The specimen is still a specimen: an Exit in it is text on the page and not
   // anything a visitor can take.
   await expect(page.getByText('Cross to the bar')).toBeVisible()
   await expect(page.getByRole('link', { name: 'Cross to the bar' })).toHaveCount(0)

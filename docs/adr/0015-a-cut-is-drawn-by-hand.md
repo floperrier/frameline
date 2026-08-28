@@ -132,3 +132,11 @@ nothing to aim at. So the gesture is a gesture for a bench near its own size, an
 a pulled-back bench keeps both of the routes that never needed the strip — the
 hidden button on each node, which is the keyboard's way through the same aiming,
 and coming closer, which is now one press away.
+
+## Since
+
+A Cut is now an Exit, shown as _Sortie_ — see
+`docs/adr/0022-the-metaphor-stops-at-the-edge-of-the-work.md` and the glossary in
+`CONTEXT.md`. What was decided here is untouched by the renaming: read Cut as
+Exit throughout, including in the title and in the file name, which stay as they
+were written.

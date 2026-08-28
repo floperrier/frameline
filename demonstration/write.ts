@@ -7,7 +7,7 @@
  *   node demonstration/write.ts --origin https://… --author me@example.com
  *
  * It goes through the HTTP API an Author's own browser goes through — a Story, a
- * Scene, a Shot, an image, a Cut, a Condition, a Publish, in that order — so the
+ * Scene, a Shot, an image, an Exit, a Condition, a Publish, in that order — so the
  * work cannot end up in a shape the editor could not have produced. The one thing
  * it does past the API is look the Author up by email, because signing in means
  * GitHub or Google and a script cannot hold a person's password: with the row in
@@ -48,7 +48,7 @@ const story = await api('POST', '/api/stories', {
   language: work.language,
 }) as { id: string }
 
-// Scenes first, so a Cut has both its ends to join by the time it is drawn.
+// Scenes first, so an Exit has both its ends to join by the time it is drawn.
 const written = new Map<string, string>()
 
 for (const scene of work.scenes) {
@@ -80,14 +80,14 @@ for (const scene of work.scenes) {
 // somewhere other than where it starts needs nothing special here.
 if (work.opening) await api('POST', `/api/scenes/${sceneNamed(work.opening)}/opening`)
 
-for (const cut of work.cuts) {
-  const { id } = await api('POST', `/api/scenes/${sceneNamed(cut.from)}/cuts`, {
-    toSceneId: sceneNamed(cut.to),
+for (const exit of work.exits) {
+  const { id } = await api('POST', `/api/scenes/${sceneNamed(exit.from)}/exits`, {
+    toSceneId: sceneNamed(exit.to),
   }) as { id: string }
 
-  await api('PATCH', `/api/cuts/${id}`, { text: cut.text })
-  if (cut.when) {
-    await api('PUT', `/api/cuts/${id}/conditions`, { conditions: cut.when.map(identified) })
+  await api('PATCH', `/api/exits/${id}`, { text: exit.text })
+  if (exit.when) {
+    await api('PUT', `/api/exits/${id}/conditions`, { conditions: exit.when.map(identified) })
   }
 }
 

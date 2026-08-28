@@ -6,10 +6,10 @@ test('every graph endpoint rejects a request carrying no Author', async ({ reque
   const responses = await Promise.all([
     request.patch(`/api/scenes/${anyId}`, { data: { x: 10, y: 10 } }),
     request.post(`/api/scenes/${anyId}/opening`),
-    request.post(`/api/scenes/${anyId}/cuts`, { data: { toSceneId: anyId } }),
-    request.patch(`/api/cuts/${anyId}`, { data: { text: 'Follow her' } }),
-    request.put(`/api/scenes/${anyId}/cuts/places`, { data: { places: [anyId] } }),
-    request.delete(`/api/cuts/${anyId}`),
+    request.post(`/api/scenes/${anyId}/exits`, { data: { toSceneId: anyId } }),
+    request.patch(`/api/exits/${anyId}`, { data: { text: 'Follow her' } }),
+    request.put(`/api/scenes/${anyId}/exits/places`, { data: { places: [anyId] } }),
+    request.delete(`/api/exits/${anyId}`),
   ])
 
   for (const response of responses) expect(response.status()).toBe(401)
