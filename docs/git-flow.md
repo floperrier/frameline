@@ -16,8 +16,6 @@ give the same commits a second place to sit.
    `.github/pull_request_template.md`, with `Closes #` already carrying the
    number the branch is named after. `gh pr create --fill` would take the
    commit messages instead and never see the template.
-4. Merge once the checks are green:
-   `gh pr merge --squash --delete-branch`. Vercel deploys `main` to production.
 
 ## Why a pull request when nobody reviews it
 
