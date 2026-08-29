@@ -139,7 +139,6 @@
     "addShot": "Add Shot",
     "toScene": "to {name}",
     "flagsSet": "Flags set on entering",
-    "flagsPlaceholder": "courage {separator} high\nweather {separator} rain {values} sun",
     "fromScene": "from {name}",
     "offeredWhen": "Offered when",
     "waysOn": "Ways on",
@@ -185,6 +184,18 @@
     "add": "Add a Condition",
     "toCarrier": "to {carrier}",
     "called": "Condition {place} of {carrier}"
+  },
+  "flags": {
+    "called": "Flag {place} set on entering {scene}",
+    "none": "— none",
+    "name": "Name of {flag}",
+    "holds": "holds",
+    "value": "Value {place} of {flag}",
+    "or": "or",
+    "add": "Add a Flag",
+    "remove": "Remove {flag}",
+    "addValue": "Add a value to {flag}",
+    "removeValue": "Remove value {place} of {flag}"
   },
   "step": {
     "heading": "Next",
@@ -285,7 +296,7 @@
     "sceneNameLong": "A name cannot be longer than {max} characters.",
     "scenePlacement": "A Scene sits between 0 and {reach} pixels from the graph's corner.",
     "tooManyFlags": "A Scene cannot set more than {max} Flags.",
-    "badFlag": "A Flag is a name and a value, written “courage {separator} high”.",
+    "badFlag": "A Flag is a name and a value, and neither of them may be left empty.",
     "tooManyFlagValues": "A Flag cannot be drawn from more than {max} values.",
     "flagValueSeparator": "A Flag's value cannot hold “{separator}”, which is what separates one value of a draw from the next.",
     "storyTitle": "A Story needs a title.",

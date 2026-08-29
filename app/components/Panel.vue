@@ -480,19 +480,15 @@ function pressWay(exit: Exit) {
 }
 
 /**
- * The Flags a Scene sets on entry, written as the Author typed them.
- *
- * ponytail: typed as text rather than edited a row apiece — one text field
- * instead of a whole repeatable form with a request per Flag. Give each Flag its
- * own row the day Authors trip over the separator.
+ * The Flags a Scene sets on entry, as the rows the Author wrote them in amount
+ * to. What the rows leave out is what the server would refuse — a Flag with no
+ * name, or none given a value yet — so the panel sends what is whole and the row
+ * being written stays on screen.
  */
-function writeFlags(scene: Scene, typed: string) {
-  const sets = flagsTyped(typed)
-  // Onto the fetched Scene as well as into the request, because the field is
-  // drawn from what the Scene carries rather than bound to it: left alone, it
-  // would go on showing the Flags the Author has just replaced. Writing them
-  // here is also what keeps `courage=high` snapping to `courage = high`, which
-  // used to be the refetch's doing.
+function writeFlags(scene: Scene, sets: Sets) {
+  // Onto the fetched Scene as well as into the request, because the guided path
+  // reads the Flags a Scene sets off the Story the page holds: left alone, the
+  // Step that asks for one would go on asking after it was written.
   scene.sets = sets
 
   return write(() => send(`/api/scenes/${scene.id}/flags`, { method: 'PUT', body: { sets } }))
@@ -814,24 +810,17 @@ function deleteExit(exit: Exit) {
         </span>
       </button>
 
-      <p class="sets">
-        <label class="eyebrow" :for="`flags-${sceneWritten.id}`">
-          {{ $t('editor.flagsSet') }}
-          <span class="visually-hidden">{{ sceneWritten.name }}</span>
-        </label>
-        <textarea
-          :id="`flags-${sceneWritten.id}`"
-          class="data"
-          data-step="scene-flags"
-          rows="3"
-          :value="flagLines(sceneWritten.sets)"
-          :placeholder="$t('editor.flagsPlaceholder', {
-            separator: FLAG_SEPARATOR,
-            values: FLAG_VALUES_SEPARATOR,
-          })"
-          @change="writeFlags(sceneWritten, ($event.target as HTMLTextAreaElement).value)"
-        />
-      </p>
+      <!-- The Flags the Scene sets, as rows: the guided path points at the whole
+           list rather than at one field of it, the way it points at a Shot's
+           Conditions, because what it asks for is a Flag and a Flag is the row
+           it is added as. -->
+      <Flags
+        data-step="scene-flags"
+        :sets="sceneWritten.sets"
+        :scene="sceneWritten.name"
+        :id="sceneWritten.id"
+        @write="writeFlags(sceneWritten, $event)"
+      />
 
       <!-- The ways on, bare: each one's Place, the name it arrives at, and the
            two controls that renumber it. An Exit's text and its Conditions are
@@ -988,13 +977,6 @@ function deleteExit(exit: Exit) {
   gap: var(--s2);
 }
 
-/* Data the Author types rather than prose: the Flags a Scene sets. A Condition's
-   own fields wear it inside the component that draws them. */
-.data {
-  font-family: var(--data);
-  font-size: 0.8125rem;
-}
-
 /* The run of Shots, each numbered in the gutter and separated from the next by a
    hairline — a Scene read the way a length of film is. Not to be read as the
    node's own strip, which is the column beside all of this. */
@@ -1132,11 +1114,6 @@ function deleteExit(exit: Exit) {
   padding: var(--s1) var(--s2);
   font-size: 0.8125rem;
   line-height: 1.2;
-}
-
-.sets {
-  display: grid;
-  gap: var(--s2);
 }
 
 /* The bare strip of the ways on leaving this Scene: a row apiece, and nothing

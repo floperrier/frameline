@@ -139,7 +139,6 @@
     "addShot": "Ajouter un Plan",
     "toScene": "à {name}",
     "flagsSet": "Marqueurs posés à l'entrée dans",
-    "flagsPlaceholder": "courage {separator} élevé\nmétéo {separator} pluie {values} soleil",
     "fromScene": "depuis {name}",
     "offeredWhen": "Offerte quand",
     "waysOn": "Issues",
@@ -185,6 +184,18 @@
     "add": "Ajouter une Condition",
     "toCarrier": "à {carrier}",
     "called": "Condition {place} de {carrier}"
+  },
+  "flags": {
+    "called": "Marqueur {place} posé à l'entrée dans {scene}",
+    "none": "— aucun",
+    "name": "Nom du {flag}",
+    "holds": "vaut",
+    "value": "Valeur {place} du {flag}",
+    "or": "ou",
+    "add": "Ajouter un Marqueur",
+    "remove": "Retirer le {flag}",
+    "addValue": "Ajouter une valeur au {flag}",
+    "removeValue": "Retirer la valeur {place} du {flag}"
   },
   "step": {
     "heading": "Ensuite",
@@ -285,7 +296,7 @@
     "sceneNameLong": "Un nom ne peut pas dépasser {max} caractères.",
     "scenePlacement": "Une Scène se place entre 0 et {reach} pixels du coin du Graphe.",
     "tooManyFlags": "Une Scène ne peut pas poser plus de {max} Marqueurs.",
-    "badFlag": "Un Marqueur est un nom et une valeur, écrits « courage {separator} élevé ».",
+    "badFlag": "Un Marqueur est un nom et une valeur, dont aucun ne peut rester vide.",
     "tooManyFlagValues": "Un Marqueur ne peut pas être tiré parmi plus de {max} valeurs.",
     "flagValueSeparator": "La valeur d'un Marqueur ne peut pas contenir « {separator} », qui sépare les valeurs d'un tirage.",
     "storyTitle": "Un Récit a besoin d'un titre.",

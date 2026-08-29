@@ -20,7 +20,7 @@
  * The list is edited in place, on the Story the page fetched, and written whole
  * on every change: what the endpoint takes is the list, not a row of it.
  */
-const { carrier, conditions, scenes, counting } = defineProps<{
+const { carrier, conditions, scenes, counting, id } = defineProps<{
   /** The visible words the list opens on: "Offered when", "Played when". */
   lead: string
   /** What carries the list, as a label ends it: "the Exit to The House", "Shot 3". */
@@ -53,10 +53,28 @@ const sceneNames = computed(() => new Map(scenes.map(scene => [scene.id, scene.n
  * Adds a Condition. It starts as a Flag with no name, which is half a Condition
  * and which the server is right to refuse, so nothing is written until the name
  * is typed — or until the Author turns the row into a visit count, which is
- * whole the moment it is chosen.
+ * whole the moment it is chosen. The cap is held here rather than by the control
+ * alone, because the key that adds a row does not know the control is gone.
  */
 function add() {
+  if (conditions.length >= CONDITIONS_MAX) return
+
   conditions.push({ flag: '', is: '' })
+  // The hand goes into the row that was just made, at the field the Author was
+  // going to type in anyway: a fresh row is a Flag, which is the common kind, and
+  // a row added and then hunted for is two gestures.
+  nextTick(() => document.getElementById(`flag-${id}-${conditions.length - 1}`)?.focus())
+}
+
+/**
+ * A Condition added from the keyboard, from inside the one being written, so
+ * several in a row are one gesture repeated. What is typed is written first,
+ * because the key that adds the row is prevented from doing what it otherwise
+ * would and nothing else would commit the field.
+ */
+function addTyping() {
+  emit('write')
+  add()
 }
 
 function remove(place: number) {
@@ -96,7 +114,12 @@ function conditionCalled(place: number) {
       <template v-if="!conditions.length">{{ $t('conditions.always') }}</template>
     </p>
 
-    <div v-for="(condition, place) in conditions" :key="place" class="when">
+    <div
+      v-for="(condition, place) in conditions"
+      :key="place"
+      class="when"
+      @keydown.enter.prevent="addTyping"
+    >
       <span class="numbered" aria-hidden="true">{{ place + 1 }}</span>
       <label class="visually-hidden" :for="`when-${id}-${place}`">
         {{ conditionCalled(place) }}
