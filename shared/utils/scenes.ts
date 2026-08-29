@@ -416,6 +416,30 @@ export function flagsTyped(typed: string): Sets {
 }
 
 /**
+ * The ways on leaving one Scene, in the Places it numbers them at. Taken by id
+ * rather than by the Scene, because the disc drawn on an Exit's line asks this
+ * too and it has only the id the Exit carries — and because the graph and the
+ * panel both ask it: one answer, so the number in the node and the number on the
+ * bench cannot say two different things.
+ */
+export function exitsFrom(exits: Exit[], sceneId: string) {
+  return exits.filter(exit => exit.fromSceneId === sceneId)
+}
+
+/**
+ * `1 Shot` and `2 Shots`: a card counts them, and a Delete asks about them. One
+ * phrase a count rather than a suffix on a noun, because a plural is not a letter
+ * added in every language the interface is read in.
+ */
+export function countedShots(many: number, say: Phrase) {
+  return say(many === 1 ? 'editor.oneShot' : 'editor.manyShots', { count: many })
+}
+
+export function countedExits(many: number, say: Phrase) {
+  return say(many === 1 ? 'editor.oneExit' : 'editor.manyExits', { count: many })
+}
+
+/**
  * A Scene read by name where something else names it — the far side of an Exit, the
  * count a Condition asks for. A Condition still names a Scene deleted since it
  * was written, and saying so beats showing the Author the id it holds. One
