@@ -722,7 +722,7 @@ test('the graph of several dozen Scenes is read as cards', async ({ page, author
   // Forty cards and nothing to type into among them, which is what makes forty
   // Scenes readable rather than merely present: a card says what is in the Scene
   // and where it leads, and every one of them is the same box.
-  await expect(page.getByLabel('Flags set on entering Scene 40')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Add a Flag to Scene 40' })).toHaveCount(0)
   await expect(page.getByRole('article', { name: 'Scene 1', exact: true }))
     .toContainText('1 Shot, on to Scene 2')
   await expect(last).toContainText('1 Shot, no way on')
@@ -732,7 +732,7 @@ test('the graph of several dozen Scenes is read as cards', async ({ page, author
   // one Scene asked for: the graph goes on being forty cards of one size, drawn in
   // the rail beside it.
   await writeScene(page, 'Scene 40')
-  await expect(page.getByLabel('Flags set on entering Scene 40')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Add a Flag to Scene 40' })).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveCount(1)
   await expect(page.getByRole('article')).toHaveCount(40)
   const railed = (await last.boundingBox())!.height
@@ -1215,9 +1215,17 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The arrival')
 
-  const flags = page.getByLabel('Flags set on entering The arrival')
-  await flags.fill('coat = on')
-  await flags.blur()
+  // A Flag is a row of two fields, a name and the value it holds, and neither of
+  // them carries punctuation: the row is added with a control, and the hand is
+  // put in its name field by the press that made it.
+  await page.getByRole('button', { name: 'Add a Flag to The arrival' }).click()
+  const flag = page.getByLabel('Name of Flag 1 set on entering The arrival')
+  await expect(flag).toBeFocused()
+  await flag.fill('coat')
+  await flag.blur()
+  const holds = page.getByLabel('Value 1 of Flag 1 set on entering The arrival')
+  await holds.fill('on')
+  await holds.blur()
 
   await openWayOn(page, 'The arrival', 'The platform')
   await page.getByRole('button', { name: 'Add a Condition to the Exit to The platform' }).click()
@@ -1225,15 +1233,18 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
   // because the Flag alone is half a Condition and is written as soon as it has
   // a name — and the value is then typed into the same field the Author was
   // left holding.
-  const flag = page.getByLabel('Flag of Condition 1 of the Exit to The platform')
-  await flag.fill('coat')
-  await flag.blur()
-  const holds = page.getByLabel('holds for Condition 1 of the Exit to The platform')
-  await holds.fill('on')
-  await holds.blur()
-
-  // A second Condition on the same Exit, which is what one could not say.
-  await page.getByRole('button', { name: 'Add a Condition to the Exit to The platform' }).click()
+  const tested = page.getByLabel('Flag of Condition 1 of the Exit to The platform')
+  await expect(tested).toBeFocused()
+  await tested.fill('coat')
+  await tested.blur()
+  const is = page.getByLabel('holds for Condition 1 of the Exit to The platform')
+  await is.fill('on')
+  // A second Condition, added from the keyboard while the first is being
+  // written, which is what makes several in a row one gesture repeated: what was
+  // typed is written on the way, and the hand lands in the new row.
+  await is.press('Enter')
+  await expect(page.getByLabel('Flag of Condition 2 of the Exit to The platform'))
+    .toBeFocused()
   // Exactly, because "Condition 2 of the Exit to The platform" is also the tail
   // of the labels on the fields of that Condition.
   await page
@@ -1255,7 +1266,10 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
   // What the page shows has to be what was written, not what the page remembers.
   await page.reload()
   await writeScene(page, 'The arrival')
-  await expect(page.getByLabel('Flags set on entering The arrival')).toHaveValue('coat = on')
+  await expect(page.getByLabel('Name of Flag 1 set on entering The arrival'))
+    .toHaveValue('coat')
+  await expect(page.getByLabel('Value 1 of Flag 1 set on entering The arrival'))
+    .toHaveValue('on')
   await openWayOn(page, 'The arrival', 'The platform')
   await expect(page.getByLabel('Condition 1 of the Exit to The platform', { exact: true }))
     .toHaveValue('flag')
@@ -1274,7 +1288,20 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
   }).toPass()
 })
 
-test('an Author types the values a Flag is drawn from, on the Flag’s own line',
+/**
+ * Which row of the Flags a named one is written on, since jsonb keeps a Scene's
+ * Flags in an order of its own and the rows are numbered as they are drawn.
+ */
+async function rowOfFlag(page: Page, name: string) {
+  const names = await page.getByLabel(/^Name of Flag/).all()
+  for (const [at, field] of names.entries()) {
+    if (await field.inputValue() === name) return at + 1
+  }
+
+  throw new Error(`No Flag named ${name} is written on the bench`)
+}
+
+test('an Author writes the values a Flag is drawn from, a field apiece',
   async ({ page, request }) => {
     const { story, scenes } = await openGraph(request)
     const [arrival] = scenes as [{ id: string }, { id: string }]
@@ -1282,32 +1309,51 @@ test('an Author types the values a Flag is drawn from, on the Flag’s own line'
     await page.goto(`/stories/${story.id}`)
     await writeScene(page, 'The arrival')
 
-    const flags = page.getByLabel('Flags set on entering The arrival')
-    await flags.fill('weather = rain | sun | haze\ncoat = on')
-    await flags.blur()
+    const called = (place: number) => `Flag ${place} set on entering The arrival`
+    await page.getByRole('button', { name: 'Add a Flag to The arrival' }).click()
+    await page.getByLabel(`Name of ${called(1)}`).fill('weather')
+    await page.getByLabel(`Value 1 of ${called(1)}`).fill('rain')
 
-    // The list is one line of the field and a list in the Story: what the Author
-    // typed on one line is what the Scene draws from on every entry.
+    // A second value, and a third: the Flag gains a field rather than a
+    // punctuation mark, and each press leaves the hand in the field it made.
+    for (const [place, value] of [[2, 'sun'], [3, 'haze']] as const) {
+      await page.getByRole('button', { name: `Add a value to ${called(1)}` }).click()
+      await expect(page.getByLabel(`Value ${place} of ${called(1)}`)).toBeFocused()
+      await page.getByLabel(`Value ${place} of ${called(1)}`).fill(value)
+    }
+
+    await page.getByRole('button', { name: 'Add a Flag to The arrival' }).click()
+    await page.getByLabel(`Name of ${called(2)}`).fill('coat')
+    await page.getByLabel(`Value 1 of ${called(2)}`).fill('on')
+    await page.getByLabel(`Value 1 of ${called(2)}`).blur()
+
+    // Three fields on one row and a list in the Story: what the Author wrote as
+    // a row of values is what the Scene draws from on every entry.
     await expect(async () => {
       await expect(readFlags(arrival.id))
         .resolves.toEqual({ weather: ['rain', 'sun', 'haze'], coat: 'on' })
     }).toPass()
 
-    // And it is shown back as the line it was typed on, spacing and all, which is
-    // what the round trip through the editor has to hold. Matched as a line
-    // rather than as the whole field, because jsonb keeps a Scene's Flags in an
-    // order of its own and which line comes first is not what is being read.
+    // And it is shown back as the row it was written in. Which row a Flag is
+    // drawn on is not what is being read: jsonb keeps a Scene's Flags in an
+    // order of its own, so the row is found by the name written in it.
+    // Nothing is pressed to get the Scene back: it is in the address, so the
+    // reload comes back to it already being written — see
+    // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`.
     await page.reload()
-    await writeScene(page, 'The arrival')
-    await expect(flags).toHaveValue(/^weather = rain \| sun \| haze$/m)
+    await expect(page.getByLabel(/^Name of Flag/).first()).toBeVisible()
+    const weather = called(await rowOfFlag(page, 'weather'))
 
-    // A list longer than a draw may be is refused with the cap named, and the
-    // Scene keeps the draw it had rather than being left setting nothing.
-    await flags.fill('weather = a | b | c | d | e | f | g')
-    await flags.blur()
-    await expect(page.getByRole('alert')).toContainText('6 values')
-    await expect(readFlags(arrival.id))
-      .resolves.toEqual({ weather: ['rain', 'sun', 'haze'], coat: 'on' })
+    for (const [place, value] of [[1, 'rain'], [2, 'sun'], [3, 'haze']] as const) {
+      await expect(page.getByLabel(`Value ${place} of ${weather}`)).toHaveValue(value)
+    }
+
+    // A value taken off leaves the rest of the draw where it was.
+    await page.getByRole('button', { name: `Remove value 2 of ${weather}` }).click()
+    await expect(async () => {
+      await expect(readFlags(arrival.id))
+        .resolves.toEqual({ weather: ['rain', 'haze'], coat: 'on' })
+    }).toPass()
   })
 
 /**
@@ -1335,38 +1381,54 @@ test('the second of two typed changes is the one the Story keeps', async ({ page
       await new Promise(resolve => setTimeout(resolve, 2000))
     }
     const response = await route.fetch()
-    landed.push(sets.coat!)
+    landed.push(sets.coat ?? '')
     await route.fulfill({ response })
   })
 
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The arrival')
 
+  const called = 'Flag 1 set on entering The arrival'
+  await page.getByRole('button', { name: 'Add a Flag to The arrival' }).click()
+  await page.getByLabel(`Name of ${called}`).fill('coat')
+  const value = page.getByLabel(`Value 1 of ${called}`)
+  await value.fill('on')
+  await value.blur()
+  // Waited for, so that what follows is two changes racing each other and not
+  // three: the row is whole from here on, and only its value moves.
+  await expect(async () => {
+    await expect(readFlags(arrival.id)).resolves.toEqual({ coat: 'on' })
+  }).toPass()
+
   // Typed straight through, the way an Author changing their mind types, and with
   // nothing waited for in between: the second value is typed while the first is
   // still on the wire.
-  const flags = page.getByLabel('Flags set on entering The arrival')
   holding = 1
-  await flags.fill('coat = on')
-  await flags.blur()
-  await flags.fill('coat = off')
-  await flags.blur()
+  await value.fill('off')
+  await value.blur()
+  await value.fill('worn')
+  await value.blur()
 
   // Longer than the hold, so what is being read is the order and not the wait.
-  await expect.poll(() => landed, { timeout: 15_000 }).toEqual(['on', 'off'])
-  await expect(readFlags(arrival.id)).resolves.toEqual({ coat: 'off' })
-
-  // A Flag with a name and no value is refused, and the refusal reads the Story
-  // back — without taking down the write typed behind it, which lands after it
-  // and in its turn.
-  holding = 1
-  await flags.fill('coat')
-  await flags.blur()
-  await flags.fill('coat = worn')
-  await flags.blur()
-
-  await expect.poll(() => landed).toEqual(['on', 'off', '', 'worn'])
+  await expect.poll(() => landed, { timeout: 15_000 }).toEqual(['', 'on', 'off', 'worn'])
   await expect(readFlags(arrival.id)).resolves.toEqual({ coat: 'worn' })
+
+  // A value still carrying the punctuation the interface no longer asks for is
+  // refused by the server, which goes on holding every limit it held — and the
+  // refusal reads the Story back without taking down the write typed behind it,
+  // which lands after it and in its turn.
+  holding = 1
+  await value.fill('rain | sun')
+  await value.blur()
+  await value.fill('dry')
+  await value.blur()
+
+  // The refusal itself is not read here: the write typed behind it clears the
+  // last one on its way out, which is the whole point — a Story that ends
+  // holding the corrected value is a refusal that took nothing down with it.
+  await expect.poll(() => landed, { timeout: 15_000 })
+    .toEqual(['', 'on', 'off', 'worn', 'rain | sun', 'dry'])
+  await expect(readFlags(arrival.id)).resolves.toEqual({ coat: 'dry' })
 })
 
 /**

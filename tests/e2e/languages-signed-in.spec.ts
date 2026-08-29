@@ -58,7 +58,8 @@ test.describe('an interface read in French', () => {
     // a Plan and a Flag is a Marqueur, as `CONTEXT.md` says they are shown.
     await page.getByRole('button', { name: 'Écrire Scène The street' }).click()
     await expect(page.getByRole('button', { name: 'Ajouter un Plan' })).toBeVisible()
-    await expect(page.getByLabel('Marqueurs posés à l\'entrée dans The street')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Ajouter un Marqueur à The street' }))
+      .toBeVisible()
     expect(await everythingShown(page)).not.toMatch(A_RAW_KEY)
 
     // What the bench says about its own writing is in the Locale twice over: the

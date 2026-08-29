@@ -371,47 +371,48 @@ export type Flags = Record<string, string>
 export type Sets = Record<string, string | string[]>
 
 /**
- * What separates a Flag's name from its value where an Author types them, and
- * what separates one value of a draw from the next. Here rather than in the
- * editor, because the server refuses a name or a value holding either — one that
- * did could not be shown back as the line it was typed on — and one module has to
- * own the format both sides obey.
+ * What separates a Flag's name from its value where the server reads them, and
+ * what separates one value of a draw from the next. No Author types either of
+ * them any more — the Flags a Scene sets are written as rows, a name and its
+ * values apiece — but the server goes on refusing a name or a value holding one,
+ * so that what a Scene stores can never be mistaken for two things where a pair
+ * is written out flat.
  */
 export const FLAG_SEPARATOR = '='
 export const FLAG_VALUES_SEPARATOR = '|'
 
 /**
- * The Flags a Scene sets, as one `name = value` a line, for an Author to read. A
- * Flag with several values is one line too — `weather = rain | sun | haze` — so
- * what a Scene sets stays a list read at a glance.
+ * One Flag as it is written: a name, and the values one of which is drawn on
+ * each entry. A row rather than an entry of the map, because a row is written
+ * before it is whole — a name with no value yet, a value being retyped — and the
+ * map holds only the Flags a Scene actually sets.
  */
-export function flagLines(sets: Sets) {
-  return Object.entries(sets)
-    .map(([name, held]) => [name, valueLine(held)].join(` ${FLAG_SEPARATOR} `))
-    .join('\n')
-}
+export type FlagRow = { name: string, values: string[] }
 
-function valueLine(held: string | string[]) {
-  return Array.isArray(held) ? held.join(` ${FLAG_VALUES_SEPARATOR} `) : held
+/** The Flags a Scene sets, as the rows an Author reads them in. */
+export function flagRows(sets: Sets): FlagRow[] {
+  return Object.entries(sets).map(([name, held]) => ({
+    name,
+    values: Array.isArray(held) ? [...held] : [held],
+  }))
 }
 
 /**
- * The Flags an Author typed. Split on the first name separator alone, so a value
- * may hold one; a line missing it is a name with no value, which the server
- * refuses, and a name typed twice holds what the later line gave it.
+ * The Flags the rows amount to, with the half-written ones left out: a row with
+ * no name, or none of whose values has been typed, is half a Flag, which the
+ * server is right to refuse — and dropping it beats holding back the rest, the
+ * way a half-written Condition is dropped from the list it is in.
  *
- * What is left is then split on the values separator, and a line carrying one is
- * a draw rather than a plain value. A line carrying none stays a string, so
- * nothing already written becomes a list of one; a separator that leaves a value
- * empty is refused by the rule that a Flag is given a value.
+ * A row left with one value is a plain value and not a list of one, which is what
+ * keeps a Scene naming a single value stored as it always was. A name typed twice
+ * holds what the later row gave it.
  */
-export function flagsTyped(typed: string): Sets {
-  return Object.fromEntries(typed.split('\n').filter(line => line.trim()).map((line) => {
-    const [name, ...held] = line.split(FLAG_SEPARATOR)
-    const value = held.join(FLAG_SEPARATOR).trim()
-    const values = value.split(FLAG_VALUES_SEPARATOR).map(one => one.trim())
+export function flagsSet(rows: FlagRow[]): Sets {
+  return Object.fromEntries(rows.flatMap(({ name, values }) => {
+    const held = values.map(value => value.trim()).filter(Boolean)
+    const flag = name.trim()
 
-    return [name!.trim(), values.length > 1 ? values : value]
+    return flag && held.length ? [[flag, held.length > 1 ? held : held[0]!] as const] : []
   }))
 }
 

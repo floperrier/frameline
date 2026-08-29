@@ -229,14 +229,17 @@ test('the bench walks an Author from a bare Story to a published one', async ({
 
   await expect(page.getByRole('status')).toHaveText('Exit from The arrival to The platform drawn')
 
-  // A Flag on the first Scene, in the field the light moves to once the Scene is
-  // back in the panel.
+  // A Flag on the first Scene, in the list the light moves to once the Scene is
+  // back in the panel. The light is on the whole list rather than on a field of
+  // it, because a Flag is the row it is added as.
   await expect(bubble(page)).toContainText(/State is what one Reading carries/)
   await writeScene(page, 'The arrival')
-  const flags = page.getByLabel('Flags set on entering The arrival')
-  await lights(page, flags)
-  await flags.fill('courage = high')
-  await flags.blur()
+  await lights(page, page.locator('.panel .flags'))
+  await page.getByRole('button', { name: 'Add a Flag to The arrival' }).click()
+  await page.getByLabel('Name of Flag 1 set on entering The arrival').fill('courage')
+  const value = page.getByLabel('Value 1 of Flag 1 set on entering The arrival')
+  await value.fill('high')
+  await value.blur()
 
   // And a Condition on the second Scene, which has no Shot in it yet: the
   // sentence carries that whole gesture, because the Step names the Conditions of

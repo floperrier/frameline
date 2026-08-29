@@ -163,9 +163,12 @@ function drawnFrom(event: H3Event, values: unknown[]) {
   return values.map(value => oneValue(event, value))
 }
 
+/**
+ * The refusal every half-written Flag comes back as. It names no punctuation:
+ * nothing an Author types carries any, since the Flags a Scene sets are written
+ * as rows — and the separators the two checks above still hold are the format
+ * this server reads and writes, not one anybody is asked to type.
+ */
 function badFlags(event: H3Event) {
-  return createError({
-    statusCode: 400,
-    message: saying(event)('refusals.badFlag', { separator: FLAG_SEPARATOR }),
-  })
+  return createError({ statusCode: 400, message: saying(event)('refusals.badFlag') })
 }
