@@ -3,10 +3,26 @@ definePageMeta({ middleware: 'authenticated' })
 
 const { t } = useI18n()
 const localePath = useLocalePath()
-const { user: author, clear } = useUserSession()
+const { user: author, clear, fetch: refreshAuthor } = useUserSession()
 const { data: stories, refresh } = await useFetch('/api/stories')
 const { problem, change, write } = useEditing(refresh)
 const { asked, ask, answer } = useConfirming()
+
+// The Name the Author appears under wherever somebody else meets them. It is
+// shown here rather than their email, which appears on no screen in the product,
+// and it is rewritten here because this is the one page that is theirs rather
+// than a Story's. Empty until they list a Story, which is where it is asked for.
+const name = ref(author.value?.name ?? '')
+
+/**
+ * Writes the Name. The session carries it, so it is read back once the server
+ * has resealed it and every place it appears — the Catalogue, their Profile,
+ * this header — is showing what was last written.
+ */
+async function renameSelf() {
+  await write(() => send('/api/author', { method: 'PATCH', body: { name: name.value } }))
+  await refreshAuthor()
+}
 
 const newTitle = ref('')
 // English is preselected, so the common case costs the Author no interaction.
@@ -46,7 +62,11 @@ async function signOut() {
     <header>
       <NuxtLink class="wordmark trail" :to="localePath('/')">Frameline</NuxtLink>
       <h1>{{ $t('stories.heading') }}</h1>
-      <p class="who">{{ author?.email }}</p>
+      <form class="who" @submit.prevent="renameSelf">
+        <label class="eyebrow" for="author-name">{{ $t('author.name') }}</label>
+        <input id="author-name" v-model="name" required :maxlength="AUTHOR_NAME_MAX_LENGTH">
+        <button type="submit">{{ $t('author.save') }}</button>
+      </form>
       <div class="session">
         <Locales />
         <button type="button" @click="signOut">{{ $t('stories.signOut') }}</button>
@@ -144,11 +164,20 @@ h1 {
   text-transform: uppercase;
 }
 
+/* Who the Author is on their own page: the one field about themselves rather
+   than about a Story, laid out like the rename beside a title so the two read as
+   the same gesture. */
 .who {
   grid-column: 1;
-  color: var(--muted);
-  font-family: var(--data);
-  font-size: 0.75rem;
+  display: grid;
+  grid-template-columns: minmax(8rem, 16rem) auto;
+  align-items: stretch;
+  gap: var(--s1) var(--s2);
+  max-inline-size: 24rem;
+}
+
+.who label {
+  grid-column: 1 / -1;
 }
 
 .session {

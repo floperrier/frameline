@@ -6,31 +6,8 @@
 //
 // No middleware: a Reader has no account, and an Author browsing is a Reader
 // like any other until they open the bench.
-const { locale, t, te } = useI18n()
 const localePath = useLocalePath()
 const { data: catalogue } = await useFetch('/api/catalogue')
-
-/**
- * The day a Story was published, written the way a date is written in the
- * Locale: the entry around the Story is the interface talking, so it is in the
- * language of whoever is reading rather than the Language of the work.
- *
- * Read in UTC rather than in the reader's own zone, so the server and the
- * browser agree on which day it was. A Story published at midnight would
- * otherwise be dated one day on the page delivered and another the moment it is
- * hydrated.
- */
-const published = computed(() => new Intl.DateTimeFormat(
-  locale.value, { dateStyle: 'long', timeZone: 'UTC' }))
-
-/**
- * The Language a Story is written in, named. The column holds any BCP-47 code
- * while the interface has a name for the few the form offers, so a Story written
- * in something else is shown the code it carries rather than a blank.
- */
-function languageNamed(code: string) {
-  return te(`languages.${code}`) ? t(`languages.${code}`) : code
-}
 </script>
 
 <template>
@@ -48,17 +25,7 @@ function languageNamed(code: string) {
          count and no rating — nothing here is a score, and the order is the date
          alone. -->
     <ul v-else class="entries">
-      <li v-for="story in catalogue" :key="story.id">
-        <NuxtLink class="open" :to="`/read/${story.id}`" :lang="story.language">
-          {{ story.title }}
-        </NuxtLink>
-        <p class="facts">
-          <span class="eyebrow">{{ languageNamed(story.language) }}</span>
-          <time v-if="story.publishedAt" class="eyebrow" :datetime="story.publishedAt">
-            {{ published.format(new Date(story.publishedAt)) }}
-          </time>
-        </p>
-      </li>
+      <Entry v-for="story in catalogue" :key="story.id" :story="story" />
     </ul>
   </main>
 </template>
@@ -125,42 +92,5 @@ h1 {
 .entries {
   display: grid;
   border-block-start: 1px solid var(--edge);
-}
-
-.entries li {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: baseline;
-  gap: var(--s2) var(--s4);
-  padding-block: var(--s4);
-  border-block-end: 1px solid var(--edge);
-}
-
-.open {
-  font-family: var(--display);
-  font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
-  font-weight: 600;
-  line-height: 1.1;
-  color: var(--paper);
-  text-decoration: none;
-}
-
-.open:hover {
-  color: var(--light);
-}
-
-/* What is said about a Story before it is opened: the Language it is written in
-   and the day it was published, stencilled rather than written out, because they
-   are labels on the reel and not part of the work. */
-.facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s1) var(--s3);
-}
-
-@media (max-width: 44rem) {
-  .entries li {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 </style>

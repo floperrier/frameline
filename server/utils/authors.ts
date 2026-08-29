@@ -19,7 +19,12 @@ import { useDb } from '../db'
 export async function signInAuthor(
   event: H3Event,
   provider: string,
-  identity: { email?: string | null, name?: string | null, email_verified?: boolean },
+  identity: {
+    email?: string | null
+    name?: string | null
+    avatar?: string | null
+    email_verified?: boolean
+  },
 ) {
   if (!identity.email || identity.email_verified === false) {
     return failSignIn(event, provider, 'no email the provider vouches for')
@@ -27,7 +32,11 @@ export async function signInAuthor(
 
   const [created] = await useDb()
     .insert(authors)
-    .values({ email: identity.email, name: identity.name ?? null })
+    .values({
+      email: identity.email,
+      name: identity.name ?? null,
+      avatar: identity.avatar ?? null,
+    })
     .onConflictDoNothing({ target: authors.email })
     .returning()
 
@@ -37,8 +46,14 @@ export async function signInAuthor(
       .update(authors)
       // The name the provider hands back, and the one already held where it
       // hands back none: an Author who signed in with the other provider keeps
-      // the name they arrived with.
-      .set({ name: sql`coalesce(${identity.name ?? null}::text, ${authors.name})` })
+      // the name they arrived with, and so does one who has rewritten their own
+      // — a Name is the Author's from the moment they touch it, and a later sign
+      // in is not the provider taking it back. The avatar is the provider's
+      // alone, so the fresher URL wins wherever there is one.
+      .set({
+        name: sql`coalesce(${authors.name}, ${identity.name ?? null}::text)`,
+        avatar: sql`coalesce(${identity.avatar ?? null}::text, ${authors.avatar})`,
+      })
       .where(eq(authors.email, identity.email))
       .returning()
 
@@ -88,4 +103,42 @@ export async function requireAuthor(event: H3Event) {
   }
 
   return user
+}
+
+/**
+ * Reads a Name from the request body. A trust boundary like a Story's title: the
+ * Name reaches the Catalogue and every Profile, so its length is capped here
+ * rather than left to Postgres. Blank is a refusal rather than an erasure —
+ * nothing appears under a Name nobody wrote, so unwriting one would only take an
+ * Author out of the Catalogue by the back door.
+ */
+export async function readAuthorName(event: H3Event) {
+  const body = await readBody<{ name?: unknown }>(event)
+  const name = typeof body?.name === 'string' ? body.name.trim() : ''
+
+  if (!name) {
+    throw createError({ statusCode: 400, message: saying(event)('refusals.authorName') })
+  }
+  if (name.length > AUTHOR_NAME_MAX_LENGTH) {
+    throw createError({
+      statusCode: 400,
+      message: saying(event)('refusals.authorNameLong', { max: AUTHOR_NAME_MAX_LENGTH }),
+    })
+  }
+
+  return name
+}
+
+/**
+ * The Name held for an Author, read from the database rather than from the
+ * session: an Author who has just written theirs is carrying a session sealed
+ * before they did, and listing a Story is exactly the moment that happens.
+ */
+export async function nameOf(authorId: string) {
+  const [author] = await useDb()
+    .select({ name: authors.name })
+    .from(authors)
+    .where(eq(authors.id, authorId))
+
+  return author?.name ?? null
 }

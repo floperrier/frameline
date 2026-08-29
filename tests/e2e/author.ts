@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { neon } from '@neondatabase/serverless'
-import { test as base, type APIRequestContext, type Page } from '@playwright/test'
+import { test as base, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test'
 import { DISMISSED } from '../../app/utils/steps'
 import type { Condition, Exit, Scene, Sets, Shot } from '../../shared/utils/scenes'
 import { NODE_GAP, NODE_SPACING, NODE_WIDTH, NODES_PER_COLUMN } from '../../shared/utils/scenes'
@@ -83,6 +83,50 @@ async function withFreshAuthor(use: (author: Author) => Promise<void>) {
 
   // Stories cascade from their Author, so one delete clears the whole test.
   await sql`delete from authors where id = ${author!.id}`
+}
+
+/**
+ * Takes an Author's Name away, which is the state an account is in when the
+ * provider handed none back. The fixture Author arrives with one, because that
+ * is the ordinary case and every other spec would otherwise be asked for a Name
+ * the first time it lists something.
+ *
+ * The Author it hands back is the one to sign in again as: the session is sealed
+ * with the Name it was sealed at, so a browser signed in before this still
+ * carries the Name the database no longer holds.
+ */
+export async function forgetName(author: Author): Promise<Author> {
+  await sql`update authors set name = null where id = ${author.id}`
+
+  return { ...author, name: null }
+}
+
+/**
+ * Seals the session again for an Author a spec has changed underneath the
+ * browser, which is what signing in afresh would do.
+ */
+export async function signInAgain(context: BrowserContext, author: Author, baseURL?: string) {
+  await context.clearCookies({ name: 'nuxt-session' })
+  await context.addCookies([
+    { name: 'nuxt-session', value: await sealAuthorSession(author), url: baseURL! },
+  ])
+}
+
+/** Puts the picture a provider handed back on an Author, the way signing in does. */
+export async function seedAvatar(author: Author, avatar: string) {
+  await sql`update authors set avatar = ${avatar} where id = ${author.id}`
+}
+
+/** Reads what an Author is called past the API, to see what a rename really wrote. */
+export async function readAuthorName(id: string) {
+  const [author] = await sql`select name from authors where id = ${id}` as { name: string | null }[]
+
+  return author!.name
+}
+
+/** Lists a Story past the API, on behalf of an Author nobody is signed in as. */
+export async function seedListed(story: Story) {
+  await sql`update stories set listed = true where id = ${story.id}`
 }
 
 /**
