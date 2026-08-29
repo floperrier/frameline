@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const failed = computed(() => Boolean(useRoute().query.error))
+const localePath = useLocalePath()
 
 // Which published Story the Reading link points at is a fact about the
 // deployment, so it is configuration — see `nuxt.config.ts`. Unset, the link is
@@ -115,10 +116,17 @@ const landingStory = useRuntimeConfig().public.landingStory
     </section>
 
     <!-- The foot: what a Reading actually feels like, on the real engine and at
-         a public link, and then the doors again. -->
+         a public link, the way to everything other Authors have listed, and then
+         the doors again. -->
     <footer>
       <NuxtLink v-if="landingStory" class="trail" :to="`/read/${landingStory}`">
         {{ $t('landing.reading') }}
+      </NuxtLink>
+      <!-- The Catalogue is its own page, so the landing page points at it rather
+           than showing it: this page argues for the product, and that one hands
+           over other people's work. -->
+      <NuxtLink class="trail" :to="localePath('/catalogue')">
+        {{ $t('landing.catalogue') }}
       </NuxtLink>
       <Doors />
     </footer>

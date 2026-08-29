@@ -51,7 +51,13 @@
       "conditionTerm": "Condition",
       "conditionLine": "A test that decides whether a Shot plays or an Exit is offered, so the same Scene reads differently without ever branching."
     },
-    "reading": "Read a published Story on the engine a Reader runs"
+    "reading": "Read a published Story on the engine a Reader runs",
+    "catalogue": "Read what other Authors have listed"
+  },
+  "catalogue": {
+    "heading": "Catalogue",
+    "line": "Stories their Authors have listed here, most recently published first. Anyone can read them, with or without an account.",
+    "none": "No Stories are listed yet. The first one an Author lists appears here."
   },
   "stories": {
     "heading": "Stories",
@@ -71,6 +77,8 @@
     "readableAt": "Anyone can read this Story at",
     "keptAt": "Kept at {time}",
     "preview": "Preview this Story",
+    "list": "List this Story in the Catalogue",
+    "unlist": "Take this Story out of the Catalogue",
     "unpublish": "Unpublish this Story",
     "publish": "Publish this Story",
     "newSceneName": "Name of a new Scene",
@@ -246,6 +254,7 @@
     "imageMissing": "An image is a file to upload.",
     "imageHeavy": "An image cannot weigh more than {mb} MB.",
     "imageType": "A Shot carries a JPEG, a PNG or a WebP image, and nothing else.",
+    "listPublished": "A Story is published before it is listed, because an entry in the Catalogue leads to its public link.",
     "openingScene": "A Story needs an opening Scene before it can be published. Write a Scene on the graph and mark it as the one to start on.",
     "signedOut": "You are no longer signed in, so nothing was written."
   }

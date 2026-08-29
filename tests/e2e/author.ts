@@ -98,6 +98,15 @@ export async function seedStory(author: Author, title: string) {
   return story!
 }
 
+/**
+ * Publishes a Story past the API, on behalf of an Author nobody is signed in as.
+ * It is also the shape a Story published before the Catalogue existed has: a row
+ * with `published_at` set and nobody ever having said anything about listing it.
+ */
+export async function seedPublished(story: Story) {
+  await sql`update stories set published_at = now() where id = ${story.id}`
+}
+
 /** Writes a Scene, and a Shot in it, on behalf of an Author nobody is signed in as. */
 export async function seedScene(story: Story, name: string) {
   const [scene] = await sql`

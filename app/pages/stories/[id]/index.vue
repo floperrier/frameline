@@ -43,6 +43,21 @@ function unpublish() {
   return change(() => send(`/api/stories/${id}/publish`, { method: 'DELETE' }))
 }
 
+/**
+ * Putting the Story in the Catalogue, and taking it back out. A second act after
+ * a Publish rather than part of one — see
+ * `docs/adr/0023-being-published-and-being-found-are-two-acts.md` — so a Story
+ * can go on being sent to three friends without going on show to everybody.
+ * Unlisting leaves it published, and every link already sent goes on working.
+ */
+function list() {
+  return change(() => send(`/api/stories/${id}/listed`, { method: 'POST' }))
+}
+
+function unlist() {
+  return change(() => send(`/api/stories/${id}/listed`, { method: 'DELETE' }))
+}
+
 const newSceneName = ref('')
 
 const sceneNames = computed(
@@ -1534,8 +1549,9 @@ function atAGlance(scene: Scene) {
              is never drawn on the Reader's page — see
              `docs/adr/0012-the-public-link-carries-no-locale.md`. -->
         <Locales />
-        <!-- Published or not is the whole of it: one button either way, and the link
-             shown in full so it can be copied out of the page. -->
+        <!-- The link, shown in full so it can be copied out of the page. It is
+             what publishing hands over, and it goes on working whether or not
+             the Story is in the Catalogue. -->
         <p v-if="story?.publishedAt" class="live">
           <span class="eyebrow">{{ $t('editor.readableAt') }}</span>
           <a class="link" :href="publicLink">{{ publicLink }}</a>
@@ -1551,6 +1567,15 @@ function atAGlance(scene: Scene) {
         >
           {{ $t('editor.preview') }}
         </NuxtLink>
+        <!-- Listing is offered only once the Story is published, because the
+             Catalogue leads to the public link and an entry pointing at a link
+             that answers with a not-found is worse than no entry. -->
+        <button v-if="story?.listed" type="button" @click="unlist">
+          {{ $t('editor.unlist') }}
+        </button>
+        <button v-else-if="story?.publishedAt" type="button" @click="list">
+          {{ $t('editor.list') }}
+        </button>
         <button v-if="story?.publishedAt" type="button" @click="unpublish">
           {{ $t('editor.unpublish') }}
         </button>

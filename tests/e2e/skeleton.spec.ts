@@ -46,6 +46,12 @@ test('a visitor reads what a Story is made of, and finds the doors again at the 
   // convince anyone of it.
   await expect(page.getByRole('link', { name: 'Sign in with GitHub' })).toHaveCount(2)
   await expect(page.getByRole('link', { name: 'Sign in with Google' })).toHaveCount(2)
+
+  // The Catalogue is its own page, and this is how somebody with no account
+  // reaches it: the landing page points at it rather than showing it.
+  await page.getByRole('link', { name: 'Read what other Authors have listed' }).click()
+  await expect(page).toHaveURL('/catalogue')
+  await expect(page.getByRole('heading', { name: 'Catalogue' })).toBeVisible()
 })
 
 test('Stories are not reachable without a signed-in Author', async ({ page }) => {
