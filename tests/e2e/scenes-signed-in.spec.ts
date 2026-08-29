@@ -201,8 +201,10 @@ test('an Author renumbers the Shots of a Scene from the controls', async ({ page
     ])
   }).toPass()
 
+  // The Scene being written is in the address since
+  // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`, so the reload
+  // comes back to it and there is nothing to open again.
   await page.reload()
-  await writeScene(page, 'The arrival')
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('Second')
 })
 
@@ -257,8 +259,10 @@ test.describe('dragging a Shot', () => {
       ])
     }).toPass()
 
+    // The Scene being written is in the address since
+    // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`, so the reload
+    // comes back to it and there is nothing to open again.
     await page.reload()
-    await writeScene(page, 'The arrival')
     await expect(page.getByRole('textbox', { name: 'Shot 3' })).toHaveValue('First')
 
     // A finger says nothing here: it scrolls the panel, and the two controls are
@@ -558,8 +562,10 @@ test('an Author writes a Story from the page alone', async ({ page, request }) =
   await expect(page.getByRole('textbox', { name: 'Shot 2' })).toHaveValue('She steps off the train.')
 
   // What the page shows has to be what was written, not what the page remembers.
+  // The Scene being written is in the address since
+  // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`, so the reload
+  // comes back to it and there is nothing to open again.
   await page.reload()
-  await writeScene(page, 'The arrival')
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('The platform is empty.')
 
   await page.getByRole('button', { name: 'Delete Shot 1' }).click()
@@ -745,8 +751,10 @@ test('an Author puts a Condition on a Shot from the page alone', async ({ page, 
   }).toPass()
 
   // What the page shows has to be what was written, not what the page remembers.
+  // The Scene being written is in the address since
+  // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`, so the reload
+  // comes back to it and there is nothing to open again.
   await page.reload()
-  await writeScene(page, 'The booth')
   await expect(page.getByLabel('Condition 1 of Shot 1 of The booth', { exact: true }))
     .toHaveValue('visits')
   await expect(page.getByLabel('times for Condition 1 of Shot 1 of The booth')).toHaveValue('2')

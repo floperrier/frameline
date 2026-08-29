@@ -164,7 +164,11 @@ test('the Author picks a file in the editor, and a refused one says why', async 
     mimeType: 'image/png',
     buffer: Buffer.from('Not an image at all'),
   })
-  await expect(page.getByRole('alert')).toContainText('a JPEG, a PNG or a WebP image')
+  // Against the Scene it concerns rather than above the whole bench: one Scene is
+  // written at a time and the surface it is written on is where the server has to
+  // complain about a Shot — see
+  // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`.
+  await expect(street.getByRole('alert')).toContainText('a JPEG, a PNG or a WebP image')
   await expect(street.locator('img')).toBeVisible()
 })
 

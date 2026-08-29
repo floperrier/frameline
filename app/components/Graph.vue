@@ -10,6 +10,11 @@
  * holds and asks the page to change it, so that one panel answers to one page:
  * see `docs/adr/0011-the-scene-editor-is-the-scenes-own-node.md`, whose single
  * surface this is half of.
+ *
+ * While a Scene is being written the graph is folded into a rail: the same
+ * drawing at the scale that fits it, kept for what an Author recognises their own
+ * Story by, and pressed rather than laid out. See
+ * `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`.
  */
 const { id, story, sceneWritten, exitWritten, asking, change, announce, imageOf } = defineProps<{
   /**
@@ -115,6 +120,26 @@ const graphSize = computed(() => {
   }
 })
 
+/**
+ * How wide the rail is, in pixels of the screen. The number is here rather than
+ * in the stylesheet because the scale below is arithmetic on it: a Story spread
+ * over ten thousand pixels is folded further than a small one, and both are drawn
+ * whole.
+ */
+const RAIL_WIDTH = 160
+
+/** Whether the graph is folded, which is the same fact as a Scene being written. */
+const folded = computed(() => !!sceneWritten)
+
+const railZoom = computed(() => Math.min(1, RAIL_WIDTH / graphSize.value.width))
+
+/**
+ * The scale the surface is actually drawn at: how far back the Author is
+ * standing, or — folded — as far back as the rail's width asks. The Author's own
+ * scale is left alone while the rail is drawn, so unfolding gives it back.
+ */
+const drawnAt = computed(() => (folded.value ? railZoom.value : zoom.value))
+
 /** The surface itself, and the drawing on it: the size above, in pixels of CSS. */
 const surfaceSize = computed(() => ({
   width: `${graphSize.value.width}px`,
@@ -129,8 +154,8 @@ const surfaceSize = computed(() => ({
  * short of half its Scenes.
  */
 const spreadSize = computed(() => ({
-  width: `${graphSize.value.width * zoom.value}px`,
-  height: `${graphSize.value.height * zoom.value}px`,
+  width: `${graphSize.value.width * drawnAt.value}px`,
+  height: `${graphSize.value.height * drawnAt.value}px`,
 }))
 
 function createScene() {
@@ -160,7 +185,7 @@ const graph = useTemplateRef<HTMLElement>('graph')
  */
 function pointOnSurface(at: { clientX: number, clientY: number }) {
   return onTheSurface(
-    { x: at.clientX, y: at.clientY }, surface.value!.getBoundingClientRect(), zoom.value)
+    { x: at.clientX, y: at.clientY }, surface.value!.getBoundingClientRect(), drawnAt.value)
 }
 
 /**
@@ -197,6 +222,49 @@ function middleOfBench() {
     clientY: box.top + box.height / 2,
   })
 }
+
+/**
+ * Where the bench is scrolled to, kept as the Author scrolls it rather than read
+ * when it folds. A box narrowed to a rail has its own scroll clamped to what fits
+ * the rail, and the surface a Scene is written on is in the page before this
+ * component hears that it folded: asked then, the browser answers with the
+ * clamped number and the Author is given back somewhere they never were.
+ *
+ * The scale needs no keeping of its own — the rail draws at its own and leaves
+ * `zoom` where the Author left it — and both are given back on unfolding, because
+ * a fold that forgets is a fresh search rather than a fold. See
+ * `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`.
+ */
+let leftAt = { x: 0, y: 0 }
+
+function rememberScroll() {
+  const scroller = graph.value
+  if (folded.value || !scroller) return
+
+  leftAt = { x: scroller.scrollLeft, y: scroller.scrollTop }
+}
+
+watch(folded, (folding) => {
+  // The fold is a state the bench is in rather than a step of the zoom, so the
+  // scale arrives instead of travelling: a scale in transit is a scroll extent in
+  // transit — the surface is drawn through a transform and what a box scrolls
+  // across is what is drawn in it — and the place the Author left would be given
+  // back clamped to a rail the graph is halfway out of.
+  eased.value = false
+  if (folding) return
+
+  return nextTick(() => {
+    const scroller = graph.value
+    if (!scroller) return
+
+    // Measured before it is scrolled, which is what settles the layout the render
+    // has just changed: a scroll written against the rail's own extent is clamped
+    // to it, and the Author is given back the corner of the bench instead of the
+    // place they left.
+    void scroller.scrollWidth
+    scroller.scrollTo(leftAt.x, leftAt.y)
+  })
+})
 
 /**
  * Pulls the bench back or brings it closer, holding one point of the surface
@@ -299,6 +367,9 @@ const ZOOM_WHEEL_LINE = 16
 function zoomByWheel(event: WheelEvent) {
   if (!event.ctrlKey && !event.metaKey) return
   event.preventDefault()
+  // The rail is drawn at the width's own scale, so there is nothing here to pull
+  // back from — and the default is still refused, or the page would zoom instead.
+  if (folded.value) return
 
   const pixels = event.deltaMode === WheelEvent.DOM_DELTA_LINE
     ? event.deltaY * ZOOM_WHEEL_LINE
@@ -326,6 +397,7 @@ let pinched: { zoom: number, anchor: Point } | undefined
 
 function startPinch(event: Event) {
   event.preventDefault()
+  if (folded.value) return
   const at = event as Pinch
   pinched = { zoom: zoom.value, anchor: pointOnSurface(at) }
 }
@@ -366,7 +438,7 @@ const ZOOMS: Record<string, -1 | 1> = {
 const FITS = ['0', 'Digit0', 'Numpad0']
 
 function zoomOnKeys(event: KeyboardEvent) {
-  if (!(event.metaKey || event.ctrlKey) || !graph.value) return
+  if (!(event.metaKey || event.ctrlKey) || !graph.value || folded.value) return
 
   const zooming = ZOOMS[event.key] ?? ZOOMS[event.code]
   const fitting = FITS.includes(event.key) || FITS.includes(event.code)
@@ -518,6 +590,7 @@ function aimFrom(scene: Scene) {
 }
 
 function startAiming(scene: Scene, event: PointerEvent) {
+  if (folded.value) return
   // Capturing the pointer sends the rest of the gesture to the strip itself, so
   // the line goes on following a hand that has left the node it started on.
   ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
@@ -737,6 +810,11 @@ function sceneById(id: string) {
  */
 function startDrag(scene: Scene, event: PointerEvent) {
   if ((event.target as Element).closest('button, .strip')) return
+  // A card in the rail is pressed rather than dragged: nothing is moved and
+  // nothing renumbered there, and the press writes the Scene it lands on. The
+  // controls the card carries are left out above, so the one on it that writes
+  // this very Scene does not undo this by toggling it shut again.
+  if (folded.value) return emit('writeScene', scene.id)
 
   // Capturing the pointer sends the rest of the gesture to the card itself, so
   // dragging survives the pointer leaving the Scene it is dragging.
@@ -779,7 +857,9 @@ const NUDGES: Record<string, [number, number]> = {
 
 function nudge(scene: Scene, event: KeyboardEvent) {
   const nudged = NUDGES[event.key]
-  if (!nudged) return
+  // Folded, the four keys are left to the rail, which scrolls: a Scene is not
+  // laid out at a tenth of its size.
+  if (!nudged || folded.value) return
   event.preventDefault()
   scene.x = withinReach(scene.x + nudged[0] * NODE_PITCH)
   scene.y = withinReach(scene.y + nudged[1] * NODE_PITCH)
@@ -878,7 +958,7 @@ function atAGlance(scene: Scene) {
          taller than most windows, so the foot of it is below the fold. Here it
          is always on screen, it is the same size at every scale, and it covers
          nothing. -->
-    <div v-if="story?.scenes.length" class="zooming">
+    <div v-if="story?.scenes.length && !folded" class="zooming">
       <div class="dial">
         <button
           type="button"
@@ -951,14 +1031,17 @@ function atAGlance(scene: Scene) {
   <slot />
 
   <p v-if="!story?.scenes.length" class="none">{{ $t('editor.noScenes') }}</p>
-  <!-- The bench: the graph, and the panel a Scene or an Exit is written in docked
-       at its trailing edge. The panel pushes the graph rather than covering it,
-       so nothing the Author is working on ends up hidden underneath it. -->
-  <div v-else class="bench">
+  <!-- The bench, in whichever of its two states it is in. The graph is the whole
+       of it while nothing is being written, and the panel an Exit is written in is
+       docked at its trailing edge; a Scene being written folds the graph into a
+       rail and takes the width that frees. Either way the writing pushes the
+       drawing rather than covering it, so nothing the Author is working on ends
+       up hidden underneath. -->
+  <div v-else class="bench" :class="{ folded }">
     <!-- The window onto the graph: the box that scrolls, and the zoom controls
          docked in its corner. They are outside the surface, so they keep their
          own size whatever the bench is being looked at through. -->
-    <div class="viewport">
+    <div class="viewport" :style="folded ? { inlineSize: `${RAIL_WIDTH}px` } : undefined">
       <div
         ref="graph"
         class="graph"
@@ -966,6 +1049,7 @@ function atAGlance(scene: Scene) {
         @pointermove="panBench"
         @pointerup="releaseBench"
         @pointercancel="letGoOfBench"
+        @scroll="rememberScroll"
         @wheel="zoomByWheel"
         @gesturestart="startPinch"
         @gesturechange="pinch"
@@ -979,7 +1063,7 @@ function atAGlance(scene: Scene) {
             ref="surface"
             class="surface"
             :class="{ eased }"
-            :style="{ ...surfaceSize, '--pitch': `${NODE_PITCH}px`, scale: zoom }"
+            :style="{ ...surfaceSize, '--pitch': `${NODE_PITCH}px`, scale: drawnAt }"
           >
             <!-- The drawing is a pointer's way to an Exit and a second place the one
                  being written is shown; the account of where a Scene leads that
@@ -1101,7 +1185,8 @@ function atAGlance(scene: Scene) {
                 <button
                   type="button"
                   class="aim"
-                  :disabled="!!aiming && !mayLandOn(scene) && aiming.fromSceneId !== scene.id"
+                  :disabled="folded
+                    || (!!aiming && !mayLandOn(scene) && aiming.fromSceneId !== scene.id)"
                   @click="aimOrLand(scene)"
                 >
                   {{ aimingName(scene) }}
@@ -1732,6 +1817,33 @@ article.opens .strip {
 .opening-mark {
   align-self: end;
   color: var(--grease);
+}
+
+/* The graph folded into a rail: the same drawing, at the scale that fits it, so
+   the layout an Author arranged by hand is still how they recognise their own
+   Story at a tenth of the size. The rail takes the width the inline style names —
+   the scale is arithmetic on that number, so it is written once, in the script —
+   and the writing surface takes the rest. */
+.bench.folded .viewport {
+  flex: none;
+}
+
+/* Nothing on the rail is pushed about or dragged: it is pressed, and a card in it
+   says so. */
+.bench.folded .graph {
+  cursor: default;
+}
+
+.bench.folded article {
+  cursor: pointer;
+}
+
+/* The room a bench has around the work on it is the unfolded graph's. The rail is
+   drawn at the scale that fits the Story in it exactly, and half a frame more
+   would be a scrollbar down a strip a hundred and sixty pixels wide. */
+.bench.folded .spread {
+  min-inline-size: 100%;
+  min-block-size: 100%;
 }
 
 /* On a phone the graph is worked on a screen narrower than a node, so it is

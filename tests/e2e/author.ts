@@ -235,12 +235,20 @@ export async function seedScenes(story: Story, names: string[]) {
 }
 
 /**
- * Puts a Scene in the panel at the edge of the bench, the way the Author would. A
+ * Puts a Scene on the surface it is written on, the way the Author would. A
  * card carries nothing to type into — the Scene's name, the image of its first
  * Shot, its Shot count and where its ways on land — so a test that writes
  * anything about a Scene from the page opens its panel first.
  */
 export async function writeScene(page: Page, name: string) {
+  // Folded into a rail, the card itself is what is pressed: the button on it is
+  // drawn at the rail's own scale and is no target for a hand — see
+  // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`. Either way the
+  // press is a toggle, so a Scene pressed twice is closed.
+  if (await page.locator('.bench.folded').count()) {
+    return await page.getByRole('article', { name }).click()
+  }
+
   await page.getByRole('button', { name: `Write Scene ${name}` }).click()
 }
 
