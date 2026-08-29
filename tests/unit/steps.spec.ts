@@ -256,6 +256,14 @@ describe('the Step the bench is showing', () => {
   })
 })
 
+/** The files the bench is drawn from, which is where a Step's target has to be. */
+const EDITOR = [
+  'app/pages/stories/[id]/index.vue',
+  'app/components/StoryHeader.vue',
+  'app/components/Graph.vue',
+  'app/components/Panel.vue',
+]
+
 describe('every Step', () => {
   it('carries a sentence in the message files', () => {
     const said = en.step as Record<string, string>
@@ -272,7 +280,10 @@ describe('every Step', () => {
    * nothing. See `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md`.
    */
   it('points at an element the editor actually draws, exactly once', () => {
-    const editor = readFileSync('app/pages/stories/[id]/index.vue', 'utf8')
+    // Every file the bench is drawn from, because the editor is the page and the
+    // three pieces it is laid out from: a target that moved from one of them to
+    // another has moved within the same editor.
+    const editor = EDITOR.map(file => readFileSync(file, 'utf8')).join('\n')
     const drawn = [...editor.matchAll(/data-step="([^"]+)"/g)].map(([, target]) => target)
 
     // Held as sets on both sides: the editor draws each target once, and two
