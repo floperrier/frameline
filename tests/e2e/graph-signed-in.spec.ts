@@ -676,9 +676,17 @@ test('the bench says when a write was kept, and a move says nothing', async ({ p
   // The field the writing left flashes. The animation is what the test waits for
   // rather than the class that starts it, because the class is taken off again
   // the moment it ends and would be gone before an assertion could see it.
-  const flashed = page.evaluate(() => new Promise<string>(resolve =>
-    document.addEventListener(
-      'animationstart', event => resolve((event.target as HTMLElement).id), { once: true })))
+  //
+  // The mark's own animation and no other: the reading beside the Scene throws
+  // its frame as it arrives, so the first animation anywhere on the bench is not
+  // the one this is about. What is asserted is still which field was lit, which is
+  // the whole of the claim.
+  const flashed = page.evaluate(() => new Promise<string>((resolve) => {
+    document.addEventListener('animationstart', (event) => {
+      const field = event.target as HTMLElement
+      if (field.classList.contains('kept')) resolve(field.id)
+    })
+  }))
   await text.blur()
   await expect(flashed).resolves.toBe(await text.getAttribute('id'))
 
@@ -1012,7 +1020,13 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The platform')
 
-  await page.getByRole('button', { name: 'Move earlier the Exit to The tunnel' }).click()
+  // In the strip beside the Scene, which is not the only place a way on is
+  // renumbered any more: the reading offers the same pair of controls on the
+  // choice buttons as they are read — see
+  // `docs/adr/0030-a-story-is-read-where-it-is-written.md`.
+  const ways = page.locator('.panel .ways')
+
+  await ways.getByRole('button', { name: 'Move earlier the Exit to The tunnel' }).click()
   await expect(async () => {
     await expect(readExits(from.id)).resolves.toMatchObject([
       { toSceneId: tunnel.id, position: 0 },
@@ -1024,9 +1038,9 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
   // rather than asking. The reload comes back to the Scene being written, which the
   // address carries, so nothing is opened again here.
   await page.reload()
-  await expect(page.getByRole('button', { name: 'Move earlier the Exit to The tunnel' }))
+  await expect(ways.getByRole('button', { name: 'Move earlier the Exit to The tunnel' }))
     .toBeDisabled()
-  await expect(page.getByRole('button', { name: 'Move later the Exit to The buffet' }))
+  await expect(ways.getByRole('button', { name: 'Move later the Exit to The buffet' }))
     .toBeDisabled()
 
   // And by hand: a row dragged onto another takes the Place that row stood at.

@@ -262,6 +262,7 @@ const EDITOR = [
   'app/components/StoryHeader.vue',
   'app/components/Graph.vue',
   'app/components/Panel.vue',
+  'app/components/Preview.vue',
 ]
 
 describe('every Step', () => {
