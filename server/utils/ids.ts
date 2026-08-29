@@ -2,7 +2,7 @@ import type { H3Event } from 'h3'
 
 export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-type Kind = 'Story' | 'Scene' | 'Shot' | 'Exit' | 'Author' | 'Comment'
+type Kind = 'Story' | 'Scene' | 'Shot' | 'Exit' | 'Author' | 'Comment' | 'List'
 
 /**
  * Which message each of the things named by an id is refused with. A key apiece rather
@@ -18,6 +18,7 @@ const NOT_AN_ID: Record<Kind, string> = {
   Exit: 'refusals.notAnId.exit',
   Author: 'refusals.notAnId.author',
   Comment: 'refusals.notAnId.comment',
+  List: 'refusals.notAnId.list',
 }
 
 const NO_SUCH: Record<Kind, string> = {
@@ -27,16 +28,21 @@ const NO_SUCH: Record<Kind, string> = {
   Exit: 'refusals.noSuch.exit',
   Author: 'refusals.noSuch.author',
   Comment: 'refusals.noSuch.comment',
+  List: 'refusals.noSuch.list',
 }
 
 /**
- * Reads the id of a Story, a Scene, a Shot, an Exit, an Author or a Comment from
- * the path.
+ * Reads the id of a Story, a Scene, a Shot, an Exit, an Author, a Comment or a
+ * List from the path.
  * Rejecting a malformed id here keeps Postgres from failing the uuid cast, which
  * would read as a server fault rather than a bad request.
+ *
+ * `param` is which segment carries it, for the one route that names two things
+ * at once — a Story going into a List — where `id` is the List and the Story is
+ * somewhere else in the path.
  */
-export function readId(event: H3Event, kind: Kind) {
-  const id = getRouterParam(event, 'id')
+export function readId(event: H3Event, kind: Kind, param = 'id') {
+  const id = getRouterParam(event, param)
 
   if (!id || !UUID_PATTERN.test(id)) {
     throw createError({

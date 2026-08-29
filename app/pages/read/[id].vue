@@ -10,6 +10,7 @@
 definePageMeta({ i18n: false })
 
 const id = useRoute().params.id as string
+const { loggedIn } = useUserSession()
 const { data: story, error } = await useAsyncData(
   `read-${id}`,
   () => send(`/api/read/${id}`) as Promise<StoryToShow & { title: string, language: string }>,
@@ -31,6 +32,14 @@ if (error.value) throw createError({ ...error.value, fatal: true })
       <!-- The Story's own title, announced in the Story's Language while the
            line above it stays in the Reader's. -->
       <h1 :lang="story?.language">{{ story?.title }}</h1>
+
+      <!-- Put away from the page it is read on, which is where a Reader decides
+           they want it again. An Author with no account for it is told so once,
+           in the same place, and is left on the Story. -->
+      <div v-if="story" class="away">
+        <Gathering v-if="loggedIn" :story-id="id" :title="story.title" />
+        <p v-else class="signed-out">{{ $t('lists.signedOut') }}</p>
+      </div>
     </header>
 
     <Reading v-if="story" :story="story" />
@@ -45,5 +54,17 @@ if (error.value) throw createError({ ...error.value, fatal: true })
 <style scoped>
 h1 {
   font-size: clamp(2rem, 1.4rem + 2.4vw, 3rem);
+}
+
+/* Under the title card, off the line the title sits on: what is offered about
+   the Story is not part of the Story. */
+.away {
+  margin-block-start: var(--s2);
+}
+
+.signed-out {
+  color: var(--muted);
+  font-size: 0.875rem;
+  max-inline-size: 60ch;
 }
 </style>

@@ -68,6 +68,7 @@ async function signOut() {
         <button type="submit">{{ $t('author.save') }}</button>
       </form>
       <div class="session">
+        <NuxtLink class="mine" :to="localePath('/lists')">{{ $t('lists.yourLists') }}</NuxtLink>
         <Locales />
         <button type="button" @click="signOut">{{ $t('stories.signOut') }}</button>
       </div>
@@ -162,6 +163,12 @@ header {
 
 h1 {
   text-transform: uppercase;
+}
+
+/* The way to the other thing on this page's own side of the product: the
+   Stories an Author has gathered rather than written. */
+.mine {
+  font-size: 0.875rem;
 }
 
 /* Who the Author is on their own page: the one field about themselves rather
