@@ -219,6 +219,15 @@
   "read": {
     "eyebrow": "A Frameline Story"
   },
+  "comments": {
+    "heading": "Comments",
+    "none": "Nothing has been said about this Story yet.",
+    "write": "What you have to say about this Story",
+    "note": "A Comment is about the Story whole. Say nothing of one Scene or one Shot: whoever reads it has not read the Story yet.",
+    "send": "Add your Comment",
+    "signedOut": "Comments are signed with their Author's Name, so writing one needs an account. Reading them needs none, and this Story stays where it is.",
+    "delete": "Delete the Comment by {name}"
+  },
   "error": {
     "refused": "That did not work. Please try again.",
     "wentWrong": "Something went wrong.",
@@ -231,14 +240,16 @@
       "scene": "No such Scene.",
       "shot": "No such Shot.",
       "exit": "No such Exit.",
-      "author": "No such Author."
+      "author": "No such Author.",
+      "comment": "No such Comment."
     },
     "notAnId": {
       "story": "That is not a Story id.",
       "scene": "That is not a Scene id.",
       "shot": "That is not a Shot id.",
       "exit": "That is not an Exit id.",
-      "author": "That is not an Author id."
+      "author": "That is not an Author id.",
+      "comment": "That is not a Comment id."
     },
     "places": {
       "shot": "The Shots of a Scene are renumbered all at once, each one named exactly once.",
@@ -273,6 +284,9 @@
     "nameBeforeListing": "A Story is listed under its Author's Name, so write yours before listing it.",
     "listPublished": "A Story is published before it is listed, because an entry in the Catalogue leads to its public link.",
     "openingScene": "A Story needs an opening Scene before it can be published. Write a Scene on the graph and mark it as the one to start on.",
-    "signedOut": "You are no longer signed in, so nothing was written."
+    "signedOut": "You are no longer signed in, so nothing was written.",
+    "commentText": "A Comment carries what you have to say, so it cannot be empty.",
+    "commentTextLong": "A Comment cannot be longer than {max} characters.",
+    "nameBeforeCommenting": "A Comment is signed with its Author's Name, so write yours on the list of your own Stories before commenting."
   }
 }

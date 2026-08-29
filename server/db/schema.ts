@@ -173,3 +173,25 @@ export const exits = pgTable('exits', {
   position: integer('position').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// A Comment is what one Author writes to another about a published Story. It
+// names the Story and never a Scene or a Shot: there is no `scene_id` here and
+// no `shot_id`, so the thing the glossary refuses cannot be written by a handler
+// that forgets — see
+// `docs/adr/0027-a-comment-is-said-of-the-whole-story.md`.
+//
+// Both ends cascade. A Story deleted takes what was said under it, because a
+// Comment about a Story nobody can read is a sentence about nothing; an account
+// deleted takes what its Author said, because every Comment is signed and an
+// unsigned one is the one thing a Comment is not.
+//
+// `created_at` is the whole of the ordering: Comments are read oldest first, the
+// way a conversation is read. Nothing here is a score, a rating or a count —
+// there is no column one could be kept in.
+export const comments = pgTable('comments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
+  authorId: uuid('author_id').notNull().references(() => authors.id, { onDelete: 'cascade' }),
+  text: text('text').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})

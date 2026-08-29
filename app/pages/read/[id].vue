@@ -34,6 +34,11 @@ if (error.value) throw createError({ ...error.value, fatal: true })
     </header>
 
     <Reading v-if="story" :story="story" />
+
+    <!-- What has been said about the Story, under the Story: whoever came to
+         read it meets the work before anybody's answer to it. Read with or
+         without an account, like the Reading above it. -->
+    <Comments v-if="story" :story-id="id" />
   </main>
 </template>
 

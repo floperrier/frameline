@@ -219,6 +219,15 @@
   "read": {
     "eyebrow": "Un Récit Frameline"
   },
+  "comments": {
+    "heading": "Commentaires",
+    "none": "Rien n’a encore été dit de ce Récit.",
+    "write": "Ce que vous avez à dire de ce Récit",
+    "note": "Un Commentaire porte sur le Récit entier. Ne dites rien d’une Scène ni d’un Plan : qui vous lit n’a pas encore lu le Récit.",
+    "send": "Ajouter votre Commentaire",
+    "signedOut": "Les Commentaires sont signés du Nom de leur Auteur : en écrire un demande un compte. Les lire n’en demande aucun, et ce Récit reste où il est.",
+    "delete": "Supprimer le Commentaire de {name}"
+  },
   "error": {
     "refused": "Cela n'a pas fonctionné. Réessayez.",
     "wentWrong": "Quelque chose s'est mal passé.",
@@ -231,14 +240,16 @@
       "scene": "Cette Scène n'existe pas.",
       "shot": "Ce Plan n'existe pas.",
       "exit": "Cette Sortie n'existe pas.",
-      "author": "Cet Auteur n'existe pas."
+      "author": "Cet Auteur n'existe pas.",
+      "comment": "Ce Commentaire n'existe pas."
     },
     "notAnId": {
       "story": "Cet identifiant n'est pas celui d'un Récit.",
       "scene": "Cet identifiant n'est pas celui d'une Scène.",
       "shot": "Cet identifiant n'est pas celui d'un Plan.",
       "exit": "Cet identifiant n'est pas celui d'une Sortie.",
-      "author": "Cet identifiant n'est pas celui d'un Auteur."
+      "author": "Cet identifiant n'est pas celui d'un Auteur.",
+      "comment": "Cet identifiant n'est pas celui d'un Commentaire."
     },
     "places": {
       "shot": "Les Plans d'une Scène sont renumérotés tous à la fois, chacun nommé une seule fois.",
@@ -273,6 +284,9 @@
     "nameBeforeListing": "Un Récit est répertorié sous le Nom de son Auteur : écrivez le vôtre avant de le répertorier.",
     "listPublished": "Un Récit est publié avant d’être répertorié, car une entrée du Catalogue mène à son lien public.",
     "openingScene": "Un Récit a besoin d'une Scène d'ouverture avant d'être publié. Écrivez une Scène sur le Graphe et marquez-la comme celle par laquelle commencer.",
-    "signedOut": "La connexion n'est plus ouverte, donc rien n'a été écrit."
+    "signedOut": "La connexion n'est plus ouverte, donc rien n'a été écrit.",
+    "commentText": "Un Commentaire porte ce que vous avez à dire, il ne peut donc pas être vide.",
+    "commentTextLong": "Un Commentaire ne peut pas dépasser {max} caractères.",
+    "nameBeforeCommenting": "Un Commentaire est signé du Nom de son Auteur : écrivez le vôtre sur la liste de vos propres Récits avant de commenter."
   }
 }

@@ -151,6 +151,26 @@ export async function seedPublished(story: Story) {
   await sql`update stories set published_at = now() where id = ${story.id}`
 }
 
+/**
+ * Writes a Comment under a Story on behalf of an Author nobody is signed in as —
+ * a second Author answering, which the API deliberately offers no way to fake.
+ */
+export async function seedComment(story: Story, author: Author, text: string) {
+  const [comment] = await sql`
+    insert into comments (story_id, author_id, text)
+    values (${story.id}, ${author.id}, ${text})
+    returning id, text` as { id: string, text: string }[]
+
+  return comment!
+}
+
+/** Reads what stands under a Story past the API, oldest first, to see what a delete left. */
+export async function readComments(storyId: string) {
+  return await sql`
+    select id, text from comments where story_id = ${storyId}
+    order by created_at` as { id: string, text: string }[]
+}
+
 /** Writes a Scene, and a Shot in it, on behalf of an Author nobody is signed in as. */
 export async function seedScene(story: Story, name: string) {
   const [scene] = await sql`

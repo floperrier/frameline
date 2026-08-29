@@ -4,18 +4,21 @@ import { expect } from '@playwright/test'
 import { test, seedPublished, seedStory, writeStory } from './author'
 
 /**
- * The Catalogue as anyone browsing meets it: their own context, so no session
- * and no cookie of ours. Every assertion below about what is on show is made
- * through this rather than through the Author's own browser, because the whole
- * claim is that the page is answered to somebody with no account.
+ * The Catalogue as anyone browsing meets it. Every assertion below about what is
+ * on show is made through this rather than through the Author's own browser,
+ * because the whole claim is that the page is answered to somebody with no
+ * account.
  *
- * A context opened here takes none of the suite's own settings, so the address
+ * A context opened here takes none of the suite's `use` options, so the address
  * it is pointed at and the language it announces are given by hand — the page is
  * read in the Locale the browser asks for, and the assertions are written in
- * English.
+ * English. It does inherit `extraHTTPHeaders`, though, which is where the fixture
+ * puts the Author's sealed session, so those are emptied: without that this is
+ * the Author's own browser with a fresh cookie jar rather than a stranger's.
  */
 async function catalogueFor(browser: Browser, baseURL?: string) {
-  const page = await (await browser.newContext({ baseURL, locale: 'en-US' })).newPage()
+  const context = await browser.newContext({ baseURL, locale: 'en-US', extraHTTPHeaders: {} })
+  const page = await context.newPage()
   await page.goto('/catalogue')
   return page
 }

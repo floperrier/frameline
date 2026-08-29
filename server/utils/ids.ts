@@ -2,10 +2,10 @@ import type { H3Event } from 'h3'
 
 export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-type Kind = 'Story' | 'Scene' | 'Shot' | 'Exit' | 'Author'
+type Kind = 'Story' | 'Scene' | 'Shot' | 'Exit' | 'Author' | 'Comment'
 
 /**
- * Which message each of the four things is refused with. A key apiece rather
+ * Which message each of the things named by an id is refused with. A key apiece rather
  * than a noun written into one sentence, because French makes the article and
  * the agreement depend on which noun it is — and a map rather than a key built
  * out of the noun at runtime, so a Kind nobody wrote a message for is a type
@@ -17,6 +17,7 @@ const NOT_AN_ID: Record<Kind, string> = {
   Shot: 'refusals.notAnId.shot',
   Exit: 'refusals.notAnId.exit',
   Author: 'refusals.notAnId.author',
+  Comment: 'refusals.notAnId.comment',
 }
 
 const NO_SUCH: Record<Kind, string> = {
@@ -25,10 +26,12 @@ const NO_SUCH: Record<Kind, string> = {
   Shot: 'refusals.noSuch.shot',
   Exit: 'refusals.noSuch.exit',
   Author: 'refusals.noSuch.author',
+  Comment: 'refusals.noSuch.comment',
 }
 
 /**
- * Reads the id of a Story, a Scene, a Shot, an Exit or an Author from the path.
+ * Reads the id of a Story, a Scene, a Shot, an Exit, an Author or a Comment from
+ * the path.
  * Rejecting a malformed id here keeps Postgres from failing the uuid cast, which
  * would read as a server fault rather than a bad request.
  */
