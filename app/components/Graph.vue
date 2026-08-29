@@ -1254,6 +1254,12 @@ function atAGlance(scene: Scene) {
     </div>
 
     <slot name="panel" />
+
+    <!-- The third column of the bench while a Scene is being written: the Story
+         read as a Reader gets it. The page settles what is in it, like the panel
+         beside it — see
+         `docs/adr/0030-a-story-is-read-where-it-is-written.md`. -->
+    <slot name="reading" />
   </div>
 </template>
 

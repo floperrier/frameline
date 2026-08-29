@@ -104,7 +104,6 @@
     "allStories": "Tous les Récits",
     "readableAt": "N'importe qui peut lire ce Récit à",
     "keptAt": "Enregistré à {time}",
-    "preview": "Aperçu de ce Récit",
     "list": "Répertorier ce Récit au Catalogue",
     "unlist": "Retirer ce Récit du Catalogue",
     "unpublish": "Dépublier ce Récit",
@@ -208,14 +207,12 @@
     "setFlag": "L’État est ce qu’une Lecture emporte avec elle. Posez un Marqueur sur cette Scène — « courage = élevé » — et il est posé pour tout Lecteur qui y entre.",
     "openingScene": "Une Lecture doit commencer quelque part, et rien n’indique où commence ce Récit. Écrivez une Scène et marquez-la comme celle par laquelle il s’ouvre — n’importe laquelle fera l’affaire, et vous pourrez en désigner une autre quand vous voudrez.",
     "putCondition": "Une Condition fait jouer la même Scène différemment selon le Lecteur, sans bifurquer. Écrivez la deuxième Scène, ajoutez-y un Plan, et faites-le jouer quand ce Marqueur vaut autre chose — « faible » fera l’affaire. Rien ne le joue encore, et c’est tout l’intérêt.",
-    "previewCondition": "Rien ne joue ce Plan, et l’Aperçu dit pourquoi : il lit le Récit sur le moteur d’une Lecture, et montre pour chaque Plan qu’il a écarté ce que son test demandait, en face de ce que l’État contient vraiment. Ouvrez-le, lisez cela, puis revenez corriger la valeur.",
+    "previewCondition": "Rien ne joue ce Plan, et l’Aperçu à côté de la Scène dit pourquoi : il lit le Récit sur le moteur d’une Lecture, et montre pour chaque Plan qu’il a écarté ce que son test demandait, en face de ce que l’État contient vraiment. Lisez cela, puis corrigez la valeur.",
     "publish": "Voilà un Récit qui fonctionne. Publiez-le : n’importe qui peut alors le lire à son propre lien — celui que cette page affiche ensuite, à donner à qui vous l’avez écrit."
   },
   "preview": {
-    "back": "Retour au Récit",
     "nobodyElse": "Personne d'autre ne peut voir ceci",
-    "heading": "Aperçu de {title}",
-    "noOpeningScene": "Ce Récit n'a pas de Scène d'ouverture, il n'y a donc rien à lire pour l'instant. Revenez au Récit et marquez la Scène par laquelle il commence.",
+    "noOpeningScene": "Ce Récit n'a pas de Scène d'ouverture, il n'y a donc rien à lire pour l'instant. Marquez la Scène par laquelle il commence.",
     "bench": "Sur la table de montage",
     "benchNote": "invisible à la lecture",
     "waysOnHidden": "Issues que cette Lecture ne se voit pas offrir",
@@ -235,7 +232,9 @@
     "manyVisits": "{times} entrées",
     "neverEntered": "jamais entrée",
     "enteredOnce": "entrée une fois",
-    "enteredTimes": "entrée {visits} fois"
+    "enteredTimes": "entrée {visits} fois",
+    "reading": "Aperçu",
+    "notReached": "Rien ne mène encore à {scene}, aucune Lecture n’y arrive donc. L’aperçu ci-dessous reste où il est parvenu."
   },
   "reading": {
     "shotOf": "Plan {place} sur {of}",

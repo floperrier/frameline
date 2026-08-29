@@ -96,8 +96,9 @@ export const STEPS: Step[] = [
   // their Story starts, which is why the radio is drawn on every node — and the
   // one way to arrive there is to delete the Scene the Story opened on. Asked
   // for here because this is where the path stops being about writing and starts
-  // being about reading: the two steps left send the Author to the Preview and
-  // to Publish, and both of them refuse a Story that has nowhere to start. Met
+  // being about reading: the two steps left send the Author to the Preview beside
+  // the Scene and to Publish, and both of them refuse a Story that has nowhere to
+  // start. Met
   // by every Story that never lost its opening, so the ordinary path never sees
   // it. The sentence carries the whole gesture the way the Condition's does: the
   // mark is set in the panel, and this is the one Step that can be arrived at with
@@ -107,14 +108,15 @@ export const STEPS: Step[] = [
     target: 'opening-scene',
     met: story => Boolean(story.openingSceneId),
   },
-  // What puts the broken Condition right, and the one Step whose sentence asks for
-  // something outside the bench: open the Preview, watch the Shot not play, read
-  // what the interface says the test asked for against what the State holds, and
-  // come back and correct it. The trip through the Preview is instructed and not
-  // tracked — whether the Author opened it is not a property of the Story and
-  // nothing here stores anything — so the predicate is only the end of the
-  // gesture, and an Author who fixed the value without ever previewing is not
-  // stuck.
+  // What puts the broken Condition right, and the one Step that asks for nothing
+  // to be written: the Preview is the pane beside the Scene — see
+  // `docs/adr/0030-a-story-is-read-where-it-is-written.md` — so it is already on
+  // screen, and what is asked for is that the Author read it. It says the Shot
+  // was skipped and what the test asked for against what the State holds; the
+  // correction goes back into the Condition. Reading is not tracked — whether the
+  // Author looked is not a property of the Story and nothing here stores anything
+  // — so the predicate is only the end of the gesture, and an Author who fixed
+  // the value without reading a word is not stuck.
   {
     name: 'previewCondition',
     target: 'preview',

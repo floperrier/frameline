@@ -262,32 +262,25 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await holds.fill('low')
   await holds.blur()
 
-  // The Preview, which is where the Condition stops being an idea about State
-  // and becomes a Shot that does not play. The Condition is read back out of the
-  // Story before the page is left: the write goes when the field is left, and a
-  // Preview that opened first would be explaining a Story that had not been
-  // written yet.
+  // The Preview, which is where the Condition stops being an idea about State and
+  // becomes a Shot that does not play — and which is already on screen, beside
+  // the Scene being written, so the Step points at it rather than sending the
+  // Author anywhere. The Condition is read back out of the Story first: the write
+  // goes when the field is left, and a light that arrived before it would be over
+  // a reading of a Story that had not been written yet.
   await expect.poll(() => readShotConditions(beside.id))
     .toEqual([[{ flag: 'courage', is: 'low' }]])
   await expect(bubble(page)).toContainText(/Nothing plays that Shot/)
-  await lights(page, page.getByRole('link', { name: 'Preview this Story' }))
-  await page.getByRole('link', { name: 'Preview this Story' }).click()
+  const preview = page.getByRole('region', { name: /^Preview/ })
+  await lights(page, preview)
 
-  // Taken to the second Scene, where the bench names the Shot the Reading left
-  // out and both sides of the test it failed.
-  await page.getByRole('button', { name: 'Next Shot' }).click()
-  await page.getByRole('button', { name: 'Exit to The platform' }).click()
+  // The reading is replayed to the Scene being written, and its bench names the
+  // Shot the Reading left out and both sides of the test it failed.
   const bench = page.getByRole('region', { name: /On the bench/ })
   await expect(bench.getByText('needs courage to hold low, holds high')).toBeVisible()
 
-  // Back to the bench and corrected, which is all the step ever asked of the
-  // Story: nowhere is it written that the Preview was opened. The panel is closed
-  // again, because what is in it is how the Author is looking at the work and does
-  // not survive leaving the page.
-  await page.getByRole('link', { name: 'Back to the Story' }).click()
-  await lights(page, page.getByRole('link', { name: 'Preview this Story' }))
-  await expect(page.locator('.panel')).toHaveCount(0)
-  await writeScene(page, 'The platform')
+  // Corrected where it was written, which is all the Step ever asked of the
+  // Story: nowhere is it written that the Preview was read.
   await holds.fill('high')
   await holds.blur()
 

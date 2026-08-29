@@ -125,13 +125,6 @@ function unlist() {
            whole Story. Not a live region: it appears every time a field is left,
            and announcing that would talk over the next thing typed. -->
       <p v-if="kept" class="kept-at">{{ $t('editor.keptAt', { time: kept }) }}</p>
-      <NuxtLink
-        class="preview trail"
-        data-step="preview"
-        :to="localePath(`/stories/${id}/preview`)"
-      >
-        {{ $t('editor.preview') }}
-      </NuxtLink>
       <!-- Listing is offered only once the Story is published, because the
            Catalogue leads to the public link and an entry pointing at a link
            that answers with a not-found is worse than no entry. -->

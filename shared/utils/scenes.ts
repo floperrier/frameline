@@ -428,6 +428,24 @@ export function exitsFrom(exits: Exit[], sceneId: string) {
 }
 
 /**
+ * The sequence with one id moved a Place, which is what the two controls that
+ * renumber a thing send. Each is disabled at the end it cannot move past, so the
+ * Place swapped with is always one of the sequence's own.
+ *
+ * Shared because the ways on are renumbered from two screens now — the strip
+ * beside the Scene and the choice buttons in the reading — and an order that
+ * moved one way in one and another way in the other would be two products.
+ */
+export function movedBy(ids: string[], id: string, step: -1 | 1) {
+  const from = ids.indexOf(id)
+  const moved = [...ids]
+  moved[from] = ids[from + step]!
+  moved[from + step] = id
+
+  return moved
+}
+
+/**
  * `1 Shot` and `2 Shots`: a card counts them, and a Delete asks about them. One
  * phrase a count rather than a suffix on a noun, because a plural is not a letter
  * added in every language the interface is read in.

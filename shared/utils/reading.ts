@@ -275,3 +275,56 @@ export function advance(at: Path): Path {
 export function take(at: Path, exit: Exit): Path {
   return { ...at, taken: [...at.taken, exit.id], shot: 0 }
 }
+
+/**
+ * A Path that arrives at one Scene, so that a Reading can be stopped on the Scene
+ * an Author is writing. Searched for rather than stated, because a Scene has no
+ * Path of its own: which Exits a Reader takes to reach it depends on the State
+ * they accumulated on the way, and a Scene played with no State behind it is a
+ * Scene that exists for nobody — see
+ * `docs/adr/0030-a-story-is-read-where-it-is-written.md`.
+ *
+ * The search starts from where the Reading already stands, so an Author who is
+ * three Scenes in keeps what those three Scenes set; nothing at all comes back
+ * when the Scene cannot be reached from there, and the caller asks again from the
+ * opening. A Scene nothing leads to is reached from neither, which is a fact
+ * about the Story the pane says out loud.
+ *
+ * It is the engine walking its own Story: every step is `reading` for the State,
+ * `holds` for whether an Exit was on offer, and `take` for the Path that results —
+ * so what this can reach and what a Reader can reach cannot come apart. The
+ * breadth-first order makes the answer the shortest way there, which is the one an
+ * Author reads the fewest Scenes to arrive at.
+ *
+ * A Scene is passed once for each set of Flags it has been arrived holding,
+ * rather than once outright: a Story that loops back to set a Flag and returns is
+ * a Story whose second arrival opens ways on the first did not.
+ */
+export function pathTo(story: StoryToRead, from: Path, sceneId: string): Path | undefined {
+  const seen = new Set<string>()
+  // ponytail: each step walks the whole Path again, so the search is quadratic in
+  // the Exits it takes. A Story an Author is writing is small; measure it the day
+  // one is not.
+  let edge = [from]
+
+  while (edge.length) {
+    const next: Path[] = []
+
+    for (const at of edge) {
+      const { sceneId: standing, state } = reading(story, at)
+      if (standing === sceneId) return at
+      if (!standing) continue
+
+      const arrivedAs = `${standing}:${JSON.stringify(state.flags)}`
+      if (seen.has(arrivedAs)) continue
+      seen.add(arrivedAs)
+
+      for (const exit of story.exits) {
+        if (exit.fromSceneId !== standing || !holds(exit.conditions, state)) continue
+        next.push(take(at, exit))
+      }
+    }
+
+    edge = next
+  }
+}

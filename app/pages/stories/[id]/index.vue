@@ -295,6 +295,20 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
           @attached="attachedAt[$event] = Date.now()"
         />
       </template>
+
+      <template #reading>
+        <!-- The Story read beside the Scene being written, on the engine a Reader
+             runs. There is one notion of where the Author is and it is the Path,
+             so a way on pressed in the reading moves the writing with it — see
+             `docs/adr/0030-a-story-is-read-where-it-is-written.md`. -->
+        <Preview
+          v-if="story && sceneWritten"
+          :story="story"
+          :scene-written="sceneWritten.id"
+          :change="change"
+          @moved="addressScene"
+        />
+      </template>
     </Graph>
 
     <Confirmation :asked="asked" @answer="answer" />

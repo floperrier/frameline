@@ -125,20 +125,6 @@ function renumber(scene: Scene, what: 'shots' | 'exits', places: string[]) {
   )
 }
 
-/**
- * The sequence with one id moved a Place, which is what the two controls that
- * move a thing earlier or later send. Each is disabled at the end it cannot move
- * past, so the Place swapped with is always one of the sequence's own.
- */
-function movedBy(ids: string[], id: string, step: -1 | 1) {
-  const from = ids.indexOf(id)
-  const moved = [...ids]
-  moved[from] = ids[from + step]!
-  moved[from + step] = id
-
-  return moved
-}
-
 function moveShot(scene: Scene, shot: Shot, step: -1 | 1) {
   return renumber(scene, 'shots', movedBy(scene.shots.map(held => held.id), shot.id, step))
 }

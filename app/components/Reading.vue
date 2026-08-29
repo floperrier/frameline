@@ -73,7 +73,19 @@ function reroll() {
   shownAt()
 }
 
-defineExpose({ reroll })
+/**
+ * The Reading put at a Path worked out somewhere else: the pane an Author writes
+ * beside routes the reading to the Scene they are on, and a Path held in two
+ * places would be two Readings. Nothing takes focus, because nobody pressed
+ * anything in here — the Author pressed a card in the rail, and the keyboard
+ * belongs where they left it.
+ */
+function goTo(to: Path) {
+  at.value = to
+  shownAt()
+}
+
+defineExpose({ reroll, goTo })
 
 const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, scene.name])))
 
@@ -177,6 +189,13 @@ function offered(exit: Exit) {
         <button type="button" class="splice" :lang="story.language" @click="moveTo(take(at, exit))">
           {{ offered(exit) }}
         </button>
+
+        <!-- Whatever an Author is given beside the way on they are being offered:
+             the pair of controls that renumber it, which is where the order of
+             the ways on is set — see
+             `docs/adr/0030-a-story-is-read-where-it-is-written.md`. Empty for a
+             Reader, who is offered the choice and nothing about how it is made. -->
+        <slot name="ordering" :exit="exit" />
       </li>
     </ul>
 
@@ -290,11 +309,20 @@ figcaption {
   gap: var(--s2);
 }
 
-.exits button {
+/* The line the Reader takes, and whatever is offered beside it: nothing at all
+   for a Reader, so the choice is the whole width it was. */
+.exits li {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.exits .splice {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: var(--s3);
-  inline-size: 100%;
+  flex: 1;
+  min-inline-size: 0;
   padding: var(--s3) var(--s4);
   background: color-mix(in oklab, var(--steel) 70%, transparent);
   font-family: var(--ui);
@@ -302,7 +330,7 @@ figcaption {
   text-align: start;
 }
 
-.exits button:hover {
+.exits .splice:hover {
   background: var(--steel-lit);
 }
 
