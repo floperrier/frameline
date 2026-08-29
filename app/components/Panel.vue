@@ -1,8 +1,10 @@
 <script setup lang="ts">
 /**
- * Where a Scene and an Exit are written: one panel docked at the trailing edge
- * of the bench, holding one or the other and never both — see
- * `docs/adr/0021-a-scene-is-written-in-a-panel-at-the-edge-of-the-bench.md`.
+ * Where a Scene and an Exit are written: one surface, holding one or the other
+ * and never both. A Scene takes the width of the bench, with the graph folded
+ * into a rail beside it — see
+ * `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`; an Exit is still a
+ * panel docked at the trailing edge of a graph that is whole.
  *
  * Which of the two it holds is the page's to say, because the graph asks for it
  * from the other side of the bench: the panel is handed the Scene or the Exit and
@@ -30,6 +32,13 @@ const {
   announce: (said: string) => void
   /** Where a Shot's image is asked for, under the time it was last attached. */
   imageOf: (shot: Shot) => string
+  /**
+   * Why the last change was refused, while a Scene is what is being written: the
+   * server complaining about a Shot has one Scene on screen to complain against,
+   * which is what the width bought. The page shows the same refusal above the
+   * bench when there is no Scene here to show it against.
+   */
+  problem?: Problem
 }>()
 
 /**
@@ -576,6 +585,7 @@ function deleteExit(exit: Exit) {
        one thing being written, and it is named by which thing that is. -->
   <div
     class="panel"
+    :class="{ full: !!sceneWritten }"
     role="group"
     :aria-label="sceneWritten
       ? $t('editor.writingScene', { name: sceneWritten.name })
@@ -591,6 +601,12 @@ function deleteExit(exit: Exit) {
     </button>
 
     <template v-if="sceneWritten">
+      <!-- Why the last change was refused, against the Scene it concerns: with
+           one Scene on the surface the server has somewhere precise to complain,
+           which is what `0011` gave up when it said a refusal about a Shot is
+           shown against the whole Story. -->
+      <Refusal :problem="problem" />
+
       <!-- The name is the heading and the heading is written in: a bare field,
            the same idiom as a Shot's text and an Exit's, with no mode to enter
            first.
@@ -1233,6 +1249,18 @@ function deleteExit(exit: Exit) {
 .none {
   color: var(--muted);
   max-inline-size: 46ch;
+}
+
+/* A Scene is written at the width the folded graph leaves, which is the bench's
+   own less the rail: writing is the state the bench is in rather than a strip at
+   the edge of it. An Exit keeps the docked width above — it is three controls and
+   a line of text, and #168 is where it stops taking the Scene's place at all. */
+.panel.full {
+  flex: 1;
+  inline-size: auto;
+  min-inline-size: 0;
+  block-size: var(--bench-height);
+  max-block-size: none;
 }
 
 /* Everything in the panel is one column of it, whatever the grid would rather do

@@ -51,8 +51,11 @@ test('a write with the door shut is refused in words, offers the door, and keeps
   await expect(door).toHaveAttribute('href', '/')
   await expect(door).not.toBeFocused()
 
-  // Nothing navigated, and what was typed is still on screen and image writable.
-  await expect(page).toHaveURL(`/stories/${story.id}`)
+  // Nothing navigated — the Scene being written is in the address since
+  // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`, and it is the
+  // one that was being written before the door shut — and what was typed is
+  // still on screen and still writable.
+  await expect(page).toHaveURL(`/stories/${story.id}?scene=${scene.id}`)
   await expect(shot).toHaveValue('Typed after the door shut.')
   await expect(shot).toBeEditable()
 

@@ -2,7 +2,9 @@
 definePageMeta({ middleware: 'authenticated' })
 
 const { t } = useI18n()
-const id = useRoute().params.id as string
+const route = useRoute()
+const router = useRouter()
+const id = route.params.id as string
 // `useFetch` would forward the session cookie itself, but it cannot be given a
 // URL that is not a literal (see `send`), so the cookie is passed on by hand —
 // without it the render on the server reaches the API as nobody.
@@ -64,35 +66,45 @@ function refuseDrop(event: DragEvent) {
 }
 
 /**
- * What the panel at the trailing edge of the bench is writing: one Scene, or one
- * Exit, and never both. One panel, so one answer to "what am I writing" — a
- * second would be a second answer, and on a bench where lines cross the two
- * would sit over each other.
+ * The Scene being written, which the address carries: `?scene=` on the Story's
+ * own page. `0011` and `0021` both recorded that nothing below a Story was
+ * deep-linkable and
+ * `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md` reverses it for the
+ * Scene alone — a Shot has no address — so an Author can send themselves a link
+ * to the Scene they were writing and the browser's own back closes the writing.
+ *
+ * A query on this page rather than a page of its own, because the two are one
+ * room: one fetch of the Story, one holder every control writes through, one
+ * refusal, and a graph that has not forgotten where it was scrolled to.
+ *
+ * An address naming a Scene the Story no longer holds finds nothing here and
+ * opens the Story with nothing written, which is what a stale link deserves: the
+ * Author deleted that Scene themselves and a not-found would be the bench
+ * reporting it back to them as an error.
+ */
+const sceneWritten = computed(
+  () => story.value?.scenes.find(scene => scene.id === route.query.scene))
+
+/**
+ * The Exit being written, which has no address: only the Scene is deep-linkable,
+ * and what is in the panel otherwise is the Author's view of their own graph, so
+ * it is written nowhere and lasts as long as the page.
  *
  * Held by id, like every other thing the bench holds across a read: a refetch
- * replaces every Scene and every Exit in the Story, and the panel would otherwise
- * be writing into an object nothing draws.
+ * replaces every Exit in the Story, and the panel would otherwise be writing into
+ * an object nothing draws.
  *
- * What is in the panel is the Author's view of their own graph, so it is written
- * nowhere and lasts as long as the page.
+ * One or the other and never both — one panel, so one answer to "what am I
+ * writing" — which is why each of the two ways in takes the other out.
  */
-const writing = ref<{ scene: string } | { exit: string }>()
-
-/** The Scene the panel is writing, or nothing when it is writing an Exit. */
-const sceneWritten = computed(() => {
-  const held = writing.value
-  if (!held || !('scene' in held)) return
-
-  return story.value?.scenes.find(scene => scene.id === held.scene)
-})
+const exitWriting = ref<string>()
 
 /**
  * The Exit the panel is writing, and the two Scenes it joins by name. Nothing at
  * all when a Scene is what is being written, or when the Exit has since gone.
  */
 const exitWritten = computed(() => {
-  const held = writing.value
-  const exit = held && 'exit' in held ? exitById(held.exit) : undefined
+  const exit = exitWriting.value ? exitById(exitWriting.value) : undefined
   if (!exit) return
 
   return {
@@ -101,6 +113,48 @@ const exitWritten = computed(() => {
     to: sceneNamed(sceneNames.value, exit.toSceneId, t),
   }
 })
+
+/**
+ * Whether the writing already stands on the history as an entry of its own. The
+ * first Scene written pushes one, so the browser's back closes the writing and
+ * returns to the graph; every Scene written after it — pressed in the rail, or
+ * handed over by a way on — replaces that entry rather than adding another, or a
+ * back would walk the Author card by card through everything they had opened and
+ * never reach the graph.
+ *
+ * Cleared whenever the Scene leaves the address, by whichever route: the control
+ * that closes the writing, or the browser's own back.
+ */
+let pushed = false
+
+watch(() => route.query.scene, (scene) => {
+  if (!scene) pushed = false
+})
+
+function addressScene(sceneId: string) {
+  const to = { query: { ...route.query, scene: sceneId } }
+  // One entry for the writing, not one per Scene written: the rail changes which
+  // Scene is on the surface, and a back that walked the Author through every card
+  // they had pressed would never reach the graph.
+  if (pushed) return router.replace(to)
+
+  pushed = true
+  return router.push(to)
+}
+
+/**
+ * Takes the Scene out of the address, which is what closes the writing. A replace
+ * rather than a step back: the page has to be able to wait for it — the focus
+ * that follows goes to a button on a card the graph only draws once it is
+ * unfolded — and `router.back` is a request to the browser and not a promise.
+ */
+function stopAddressing() {
+  if (!route.query.scene) return
+
+  const { scene: _closed, ...query } = route.query
+
+  return router.replace({ query })
+}
 
 function exitById(exitId: string) {
   return story.value?.exits.find(exit => exit.id === exitId)
@@ -115,7 +169,8 @@ function exitById(exitId: string) {
  */
 async function writeScene(sceneId: string) {
   if (sceneWritten.value?.id === sceneId) return closePanel()
-  writing.value = { scene: sceneId }
+  exitWriting.value = undefined
+  await addressScene(sceneId)
   await nextTick()
   document.getElementById(`scene-name-${sceneId}`)?.focus()
 }
@@ -127,9 +182,9 @@ async function writeScene(sceneId: string) {
  * the route.
  */
 async function openExit(exitId: string) {
-  const held = writing.value
-  if (held && 'exit' in held && held.exit === exitId) return closePanel()
-  writing.value = { exit: exitId }
+  if (exitWriting.value === exitId) return closePanel()
+  await stopAddressing()
+  exitWriting.value = exitId
   await nextTick()
   document.getElementById(`exit-${exitId}`)?.focus()
 }
@@ -147,13 +202,29 @@ async function openExit(exitId: string) {
  * back to. The card is the one anchor both routes share, and the Exit's panel
  * offers the way back to the Scene's for a hand that wants the row again.
  */
-function closePanel() {
-  const held = writing.value
-  if (!held) return
+async function closePanel() {
+  const sceneId = sceneWritten.value?.id
+    ?? (exitWriting.value && exitById(exitWriting.value)?.fromSceneId)
+  if (!sceneId && !exitWriting.value) return
 
-  const sceneId = 'scene' in held ? held.scene : exitById(held.exit)?.fromSceneId
-  writing.value = undefined
-  if (sceneId) document.getElementById(`write-${sceneId}`)?.focus()
+  exitWriting.value = undefined
+  await stopAddressing()
+  // After the graph is whole again, so the button focus goes to is the one on an
+  // unfolded card rather than on a rail that is on its way out.
+  await nextTick()
+  // Without moving the bench, which the graph has just put back where the Author
+  // left it: a focus that scrolls its own element into view would undo the fold's
+  // one promise, and the card focus lands on is the one they were writing.
+  if (sceneId) document.getElementById(`write-${sceneId}`)?.focus({ preventScroll: true })
+}
+
+/**
+ * The panel let go of rather than closed: a press on the bare bench, which says
+ * nothing about where the keyboard should be and leaves focus alone.
+ */
+function letGo() {
+  exitWriting.value = undefined
+  return stopAddressing()
 }
 
 /**
@@ -180,10 +251,12 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
   <main @dragover="refuseDrop" @drop="refuseDrop">
     <StoryHeader :id="id" :story="story ?? undefined" :kept-at="keptAt" :change="change" />
 
-    <!-- The graph and the row of controls above it, with the panel docked at the
-         bench's trailing edge: the two halves of the one surface an Author works
-         on — see `docs/adr/0011-the-scene-editor-is-the-scenes-own-node.md`. What
-         is in the panel is settled here, because both halves ask for it. -->
+    <!-- The graph and the row of controls above it, with what is being written
+         beside it: the two halves of the one surface an Author works on — see
+         `docs/adr/0011-the-scene-editor-is-the-scenes-own-node.md`, and
+         `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md` for the fold a
+         Scene puts the graph into. What is being written is settled here, because
+         both halves ask for it. -->
     <Graph
       :id="id"
       :story="story ?? undefined"
@@ -195,11 +268,13 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
       :image-of="imageOf"
       @write-scene="writeScene"
       @open-exit="openExit"
-      @let-go="writing = undefined"
+      @let-go="letGo"
     >
       <!-- What the bench says about itself, between the row of controls and the
-           graph: why the last change was refused, and what has just been done. -->
-      <Refusal :problem="problem" />
+           graph: why the last change was refused, and what has just been done.
+           A refusal while a Scene is being written is shown against that Scene
+           instead, on the surface it is written on. -->
+      <Refusal v-if="!sceneWritten" :problem="problem" />
       <p v-if="announced" class="toast" role="status">{{ announced }}</p>
 
       <template #panel>
@@ -213,6 +288,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
           :ask="ask"
           :announce="announce"
           :image-of="imageOf"
+          :problem="problem"
           @write-scene="writeScene"
           @open-exit="openExit"
           @close="closePanel"

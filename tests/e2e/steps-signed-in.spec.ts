@@ -215,6 +215,13 @@ test('the bench walks an Author from a bare Story to a published one', async ({
     data: { x: NODE_WIDTH + NODE_GAP, y: 0 },
   })
   await page.reload()
+  // The Scene is in the address since
+  // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`, so the reload
+  // comes back to it with the graph folded into the rail. An Exit is drawn on the
+  // graph and not on the rail, so the writing is closed first — which is what an
+  // Author does to get back to the bench.
+  await page.getByRole('button', { name: 'Close this panel' }).click()
+  await expect(page.locator('.panel')).toHaveCount(0)
 
   const arrival = page.getByRole('article', { name: 'The arrival' })
   await lights(page, arrival.locator('.strip'))
