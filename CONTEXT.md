@@ -162,9 +162,13 @@ _Affiché_: Lecteur
 _Avoid_: user, player, viewer, visitor, audience
 
 **Preview**:
-An Author reading their own Story before it is published, on the same engine a
-Reader runs. Not a mode of the editor and not a Publish: nothing about the Story
-changes, and nobody else can reach it.
+An Author reading their own Story on the same engine a Reader runs — a pane
+inside the editor, beside the Scene being written, which replays the Path the
+Author is on with the State it has accumulated and stops on that Scene. Not a
+Publish: nobody else can reach it. It is the one screen where the order the ways
+on are offered in is set, on the choice buttons as they are read, so a Preview is
+no longer without consequence for the Story — see
+`docs/adr/0030-a-story-is-read-where-it-is-written.md`.
 _Affiché_: Aperçu
 _Avoid_: test, play mode, simulate, dry run, rehearse
 
