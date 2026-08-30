@@ -109,8 +109,11 @@ test('an Author writes a List, gathers Stories into it, and takes it away', asyn
   }
 
   // The same Story sits in Favourites at the same time: one Story, several
-  // Lists, and nothing about the one says anything about the other.
+  // Lists, and nothing about the one says anything about the other. Pressed is
+  // read back off the shelves, so waiting for it is what keeps the navigation
+  // below from cancelling the write that is still in flight.
   await favouriting(page, first.title).click()
+  await expect(favouriting(page, first.title)).toHaveAttribute('aria-pressed', 'true')
 
   await page.goto('/lists')
   const shelf = page.locator('section').filter({ hasText: 'To read on the train' })

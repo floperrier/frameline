@@ -1,0 +1,1 @@
+ALTER TABLE "stories" ADD COLUMN "synopsis" text DEFAULT '' NOT NULL;

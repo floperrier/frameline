@@ -28,6 +28,7 @@ export default defineEventHandler(async () => {
       id: stories.id,
       title: stories.title,
       language: stories.language,
+      synopsis: stories.synopsis,
       publishedAt: stories.publishedAt,
       authorId: authors.id,
       authorName: authors.name,

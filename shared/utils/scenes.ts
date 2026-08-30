@@ -518,6 +518,8 @@ export type StoryInEditor = {
   title: string
   /** The Language the work is written in, which is never the Author's Locale. */
   language: string
+  /** The few lines presenting the Story, empty where nobody has written any. */
+  synopsis: string
   openingSceneId: string | null
   publishedAt: string | null
   /** Whether the Author has put the published Story in the Catalogue. */

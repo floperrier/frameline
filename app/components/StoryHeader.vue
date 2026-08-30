@@ -1,11 +1,18 @@
 <script setup lang="ts">
 /**
- * The bench's own header: where the Author came from, what they are working on,
- * and the two things that can be done to the Story as a whole — publishing it,
- * and putting it in the Catalogue. Everything here acts on the Story rather than
- * on anything in it, which is what makes it a piece of its own.
+ * The bench's own header, in two halves. On one side what the Story **is**: the
+ * way back, its title — written here, so an Author never leaves the Story to
+ * rename it — the Language it is written in, and the state of the last write. On
+ * the other, one place for where it can be **read**: the Synopsis, the public
+ * link, Publish and List, which are four faces of the one subject rather than
+ * four controls that appear and disappear under one another.
+ *
+ * The interface's Locale is not here. It is a property of the person reading and
+ * not of the Story — see
+ * `docs/adr/0013-the-interfaces-locale-is-not-the-storys-language.md` — so it is
+ * changed where the rest of what is theirs is, on the list of their own Stories.
  */
-const { id, story, keptAt, change } = defineProps<{
+const { id, story, keptAt, change, write } = defineProps<{
   /**
    * The Story's own id, which every act here is sent against. It comes from the
    * route rather than from the Story, because the Publish is offered while a
@@ -18,10 +25,17 @@ const { id, story, keptAt, change } = defineProps<{
   keptAt?: Date
   /** The one holder every write on this page goes through. */
   change: Change
+  /**
+   * The typed write, for the two fields here that are typed in: the title and
+   * the Synopsis. A click that alters the Story goes through `change` and reads
+   * it back; what was typed is already on the screen it was typed on.
+   */
+  write: Write
 }>()
 
 const { locale } = useI18n()
 const localePath = useLocalePath()
+const { languageNamed } = useEntries()
 const { user: author, fetch: refreshAuthor } = useUserSession()
 
 // Whether the listing is standing there asking for a Name, and what has been
@@ -44,6 +58,27 @@ const kept = computed(() => keptAt && new Intl.DateTimeFormat(
  * not invalidated what they sent anyone.
  */
 const publicLink = `${useRequestURL().origin}/read/${id}`
+
+/**
+ * The title and the Synopsis, each written on its own: the body names the one
+ * field that was typed in, so leaving the title alone cannot carry a Synopsis
+ * half-typed along with it. Both are typed writes — what is on screen is what
+ * the Author typed, and the mark it leaves is `keptAt` and the flash in the
+ * field, never an announcement.
+ */
+function rename() {
+  return write(() => send(`/api/stories/${id}`, {
+    method: 'PATCH',
+    body: { title: story?.title },
+  }))
+}
+
+function present() {
+  return write(() => send(`/api/stories/${id}`, {
+    method: 'PATCH',
+    body: { synopsis: story?.synopsis },
+  }))
+}
 
 function publish() {
   return change(() => send(`/api/stories/${id}/publish`, { method: 'POST' }))
@@ -98,22 +133,61 @@ function unlist() {
 </script>
 
 <template>
-  <!-- The bench's own header: where the Author came from, what they are working
-       on, and the two things that can be done to the Story as a whole. It stays
-       on screen, because the graph below it scrolls a long way. -->
+  <!-- The bench's own header, in two halves: what the Story is, and where it can
+       be read. It stays on screen, because the graph below it scrolls a long
+       way. -->
   <header>
     <div class="titling">
       <NuxtLink class="back trail" :to="localePath('/stories')">
         {{ $t('editor.allStories') }}
       </NuxtLink>
-      <h1>{{ story?.title }}</h1>
+      <!-- The title is the heading and the heading is written in, the same idiom
+           as a Scene's name in the panel: a bare field with no mode to enter
+           first. The label sits outside the heading rather than in it, or it
+           would be read out ahead of the title the Author is correcting. -->
+      <label class="visually-hidden" for="story-title">{{ $t('editor.storyTitle') }}</label>
+      <h1 class="named">
+        <input
+          v-if="story"
+          id="story-title"
+          v-model="story.title"
+          :maxlength="STORY_TITLE_MAX_LENGTH"
+          @change="rename"
+        >
+      </h1>
+      <!-- The Language the work is written in, shown and not offered: nothing
+           translates a Story, so there is no later moment at which it changes —
+           it is declared when the Story is named. One sentence rather than a
+           label and a word beside it, because it is a label on the reel and
+           reads as one line. -->
+      <p v-if="story" class="eyebrow">
+        {{ $t('editor.writtenIn', { language: languageNamed(story.language) }) }}
+      </p>
+      <!-- What a write leaves behind. Not a live region: it appears every time a
+           field is left, and announcing that would talk over the next thing
+           typed. -->
+      <p v-if="kept" class="kept-at">{{ $t('editor.keptAt', { time: kept }) }}</p>
     </div>
 
-    <div class="release">
-      <!-- The one place an Author changes the language of their own tool. It
-           is never drawn on the Reader's page — see
-           `docs/adr/0012-the-public-link-carries-no-locale.md`. -->
-      <Locales />
+    <section class="release" aria-labelledby="release">
+      <h2 id="release" class="eyebrow">{{ $t('editor.whereItIsRead') }}</h2>
+
+      <!-- The few lines the Story is presented by wherever somebody meets it
+           before opening it. Written here, beside the acts that put the Story
+           where it can be met, because it is the same subject: what a stranger
+           is handed. -->
+      <p class="synopsis">
+        <label class="eyebrow" for="story-synopsis">{{ $t('editor.synopsis') }}</label>
+        <textarea
+          v-if="story"
+          id="story-synopsis"
+          v-model="story.synopsis"
+          rows="2"
+          :maxlength="STORY_SYNOPSIS_MAX_LENGTH"
+          @change="present"
+        />
+      </p>
+
       <!-- The link, shown in full so it can be copied out of the page. It is
            what publishing hands over, and it goes on working whether or not
            the Story is in the Catalogue. -->
@@ -121,19 +195,28 @@ function unlist() {
         <span class="eyebrow">{{ $t('editor.readableAt') }}</span>
         <a class="link" :href="publicLink">{{ publicLink }}</a>
       </p>
-      <!-- What a write leaves behind, beside the two controls that act on the
-           whole Story. Not a live region: it appears every time a field is left,
-           and announcing that would talk over the next thing typed. -->
-      <p v-if="kept" class="kept-at">{{ $t('editor.keptAt', { time: kept }) }}</p>
-      <!-- Listing is offered only once the Story is published, because the
-           Catalogue leads to the public link and an entry pointing at a link
-           that answers with a not-found is worse than no entry. -->
-      <button v-if="story?.listed" type="button" @click="unlist">
-        {{ $t('editor.unlist') }}
-      </button>
-      <button v-else-if="story?.publishedAt" type="button" @click="list">
-        {{ $t('editor.list') }}
-      </button>
+
+      <div class="acts">
+        <!-- Listing is offered only once the Story is published, because the
+             Catalogue leads to the public link and an entry pointing at a link
+             that answers with a not-found is worse than no entry. -->
+        <button v-if="story?.listed" type="button" @click="unlist">
+          {{ $t('editor.unlist') }}
+        </button>
+        <button v-else-if="story?.publishedAt" type="button" @click="list">
+          {{ $t('editor.list') }}
+        </button>
+        <button v-if="story?.publishedAt" type="button" @click="unpublish">
+          {{ $t('editor.unpublish') }}
+        </button>
+        <!-- The guided path ends here, so `data-step` is on this one and not on
+             the button that unpublishes: the Step is met by the Story being
+             published, and by then there is nothing left to point at. -->
+        <button v-else type="button" class="primary" data-step="publish" @click="publish">
+          {{ $t('editor.publish') }}
+        </button>
+      </div>
+
       <!-- The Name asked for in the listing itself, and only where there is
            none: an Author who has one lists in a single click and is asked
            nothing. -->
@@ -151,16 +234,7 @@ function unlist() {
           <button type="submit" class="primary">{{ $t('author.list') }}</button>
         </div>
       </form>
-      <button v-if="story?.publishedAt" type="button" @click="unpublish">
-        {{ $t('editor.unpublish') }}
-      </button>
-      <!-- The guided path ends here, so `data-step` is on this one and not on
-           the button that unpublishes: the Step is met by the Story being
-           published, and by then there is nothing left to point at. -->
-      <button v-else type="button" class="primary" data-step="publish" @click="publish">
-        {{ $t('editor.publish') }}
-      </button>
-    </div>
+    </section>
   </header>
 </template>
 
@@ -171,7 +245,7 @@ header {
   z-index: 2;
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
+  align-items: start;
   justify-content: space-between;
   gap: var(--s3) var(--s4);
   padding-block: var(--s3);
@@ -183,24 +257,55 @@ header {
 .titling {
   display: grid;
   gap: var(--s1);
+  flex: 1 1 20rem;
+  max-inline-size: 34rem;
 }
 
-/* A Story's title is the Author's own words, so nothing here recases them. */
+/* A Story's title is the Author's own words, so nothing here recases them. The
+   field is the heading and wears the heading's face, the way a Scene's name does
+   in the panel: the frame it draws is held off the pointer rather than restated
+   here, so the two fields cannot drift apart. */
+.named {
+  min-inline-size: 0;
+}
 
+.named input {
+  padding: 0 var(--s1);
+  background: none;
+}
+
+.named input:not(:hover) {
+  border-color: transparent;
+  border-block-end-color: var(--edge);
+}
+
+/* Where the Story can be read: the Synopsis, the link and the two acts, in one
+   column so that they read as one subject rather than as a row of controls. */
 .release {
+  display: grid;
+  gap: var(--s2);
+  flex: 1 1 24rem;
+  max-inline-size: 34rem;
+}
+
+.release .synopsis {
+  display: grid;
+  gap: var(--s1);
+}
+
+/* The two acts on the Story as a whole, side by side: they are the one decision
+   read twice — whether anybody but the Author can reach this work. */
+.acts {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s3);
+  gap: var(--s2);
 }
 
-/* The Name asked for in the listing: a whole row of the release panel, because
+/* The Name asked for in the listing: a row of its own under the acts, because
    it is a sentence and a field rather than another control beside the buttons. */
 .signing {
   display: grid;
   gap: var(--s1);
-  flex: 1 1 100%;
-  max-inline-size: 34rem;
 }
 
 .signing .asked {

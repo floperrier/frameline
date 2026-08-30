@@ -102,6 +102,10 @@
   },
   "editor": {
     "allStories": "All Stories",
+    "storyTitle": "Title of this Story",
+    "writtenIn": "Written in {language}",
+    "whereItIsRead": "Where it can be read",
+    "synopsis": "Synopsis",
     "readableAt": "Anyone can read this Story at",
     "keptAt": "Kept at {time}",
     "list": "List this Story in the Catalogue",
@@ -303,6 +307,7 @@
     "storyTitle": "A Story needs a title.",
     "storyTitleLong": "A title cannot be longer than {max} characters.",
     "storyLanguage": "A Story is written in one language.",
+    "storySynopsisLong": "A Synopsis cannot be longer than {max} characters.",
     "shotText": "A Shot holds text.",
     "shotTextLong": "A Shot cannot hold more than {max} characters.",
     "description": "A Description says what an image shows, in at most {max} characters.",

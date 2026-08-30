@@ -249,7 +249,13 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
 
 <template>
   <main @dragover="refuseDrop" @drop="refuseDrop">
-    <StoryHeader :id="id" :story="story ?? undefined" :kept-at="keptAt" :change="change" />
+    <StoryHeader
+      :id="id"
+      :story="story ?? undefined"
+      :kept-at="keptAt"
+      :change="change"
+      :write="write"
+    />
 
     <!-- The graph and the row of controls above it, with what is being written
          beside it: the two halves of the one surface an Author works on — see
