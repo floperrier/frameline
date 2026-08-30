@@ -3,13 +3,17 @@
  * one step at a time.
  *
  * A Step is a predicate over the Story the bench already holds, never a listener
- * on what the Author did. The one thing it reads besides the Story is which Scene
- * is in the panel at the edge of the bench, because no Step may point into a panel
- * that is not open. The editor fetches the whole Story and reads it back after every
- * write, so a Step asks a question of that data — this Story has at least one
- * Scene — and is therefore idempotent, survives a reload, and cannot disagree
- * with the screen. Nothing stores progress, because the Story is the
- * progress: see `docs/adr/0020-progress-is-the-story.md`.
+ * on what the Author did, and the Story is the whole of what it reads. The editor
+ * fetches the whole Story and reads it back after every write, so a Step asks a
+ * question of that data — this Story has at least one Scene — and is therefore
+ * idempotent, survives a reload, and cannot disagree with the screen. Nothing
+ * stores progress, because the Story is the progress: see
+ * `docs/adr/0020-progress-is-the-story.md`.
+ *
+ * A Step whose target is in the writing surface is asked for whether or not that
+ * surface is open, because every gesture that makes a Scene opens it: the bubble
+ * carries the sentence adrift until the Author is looking at the thing it names,
+ * and no Step is spent asking them to look.
  *
  * The Steps are met in whatever order the Author arrives at them, and nothing
  * blocks or scolds. Because a bubble can only point at one thing, the one showing
@@ -30,20 +34,10 @@ export type Step = {
    * written under in both languages: `step.nameScene`.
    */
   name: string
-  /**
-   * The `data-step` attribute of the element in the editor this Step points at.
-   * Two Steps may name the same one — the second Scene is asked for in the field
-   * the first was named in.
-   */
+  /** The `data-step` attribute of the element in the editor this Step points at. */
   target: string
-  /**
-   * Whether the bench already holds what this Step asks for: the Story, and which
-   * Scene is in the panel. The panel is the one thing a Step asks about that is not
-   * in the Story — it is how the Author is looking at their own work and is never
-   * written anywhere — and a Step may not point into a panel nobody has opened, so
-   * writing a Scene is a step like the rest.
-   */
-  met: (story: StoryInEditor, writing?: string) => boolean
+  /** Whether the Story on the bench already holds what this Step asks for. */
+  met: (story: StoryInEditor) => boolean
 }
 
 export const STEPS: Step[] = [
@@ -52,16 +46,6 @@ export const STEPS: Step[] = [
   // that makes a Scene out of nothing, since every Scene after the first is made
   // by drawing an Exit onto bare bench and there is no card to draw from yet.
   { name: 'nameScene', target: 'first-scene', met: story => story.scenes.length > 0 },
-  // Nothing inside a Scene can be pointed at until the Scene is in the panel, so
-  // the Author puts one there before anything in it is asked for — and only for
-  // the sake of what is written in it, so a Story whose Shots are already written
-  // is never asked to open the panel at all. A Sample, which arrives finished, is
-  // asked nothing.
-  {
-    name: 'writeScene',
-    target: 'write-scene',
-    met: (story, writing) => Boolean(writing) || written(story),
-  },
   // Written rather than merely added, and written is text: a Shot is asked for
   // here as the beat it carries, so an image attached to an empty one has not met
   // this. The sentence carries the whole gesture, because a Scene the API writes
@@ -175,8 +159,8 @@ function conditionTaught(story: StoryInEditor, holding = false) {
  * at all once every one of them has. A Story that arrives finished — a Sample, or
  * the Author's fourth — therefore asks nothing.
  */
-export function stepShowing(story: StoryInEditor, writing?: string) {
-  return STEPS.find(step => !step.met(story, writing))
+export function stepShowing(story: StoryInEditor) {
+  return STEPS.find(step => !step.met(story))
 }
 
 /**

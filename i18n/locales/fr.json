@@ -213,7 +213,6 @@
     "heading": "Ensuite",
     "dismiss": "Je me débrouille",
     "nameScene": "Un Récit commence toujours par une Scène. Écrivez la première ici : elle arrive sur la table de montage et s’ouvre pour l’écriture, son nom sélectionné — « L’arrivée » est donc la première chose que vous tapez.",
-    "writeScene": "Une Scène s’écrit dans le panneau au bord du Graphe. Appuyez sur Écrire sur celle-ci : ce qui s’y ouvre est la suite de Plans que le Lecteur parcourt.",
     "writeShot": "Un Plan, c’est une Image et son texte, tout ce que le Lecteur voit d’un coup. Ajoutez-en un, et écrivez la première chose qu’il lit.",
     "drawExit": "Une Sortie mène d’une Scène à la suivante, et un Récit bifurque entre les Scènes, jamais à l’intérieur d’une seule. Tirez depuis le bord de cette Scène jusqu’à la table de montage nue, puis lâchez : une deuxième Scène naît là où vous l’avez posée, déjà reliée et prête à être nommée.",
     "setFlag": "L’État est ce qu’une Lecture emporte avec elle. Posez un Marqueur sur cette Scène — « courage = élevé » — et il est posé pour tout Lecteur qui y entre.",

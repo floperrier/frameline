@@ -14,15 +14,9 @@
  * talk over the field the Author is typing in — the same reason the bench's
  * `keptAt` mark is not one either.
  */
-const { story, writing } = defineProps<{
-  /** The Story on the bench, which is nearly the whole of what a Step is computed from. */
+const { story } = defineProps<{
+  /** The Story on the bench, which is the whole of what a Step is computed from. */
   story?: StoryInEditor
-  /**
-   * Which Scene is in the panel at the edge of the bench, if one is. The rest of
-   * what a Step asks about is in the Story; this is not, and a Step may not point
-   * into a panel nobody has opened.
-   */
-  writing?: string
 }>()
 
 /**
@@ -42,8 +36,7 @@ const BUBBLE_WIDTH = 320
  */
 const dismissed = ref(true)
 
-const step = computed(() =>
-  !dismissed.value && story ? stepShowing(story, writing) : undefined)
+const step = computed(() => !dismissed.value && story ? stepShowing(story) : undefined)
 
 /** Where the target is on screen, or nothing when the target is not on screen at all. */
 const box = ref<DOMRect>()
@@ -51,9 +44,9 @@ const box = ref<DOMRect>()
 /**
  * What the Step showing is pointing at, as a selector.
  *
- * A target the editor draws once per card — the button that writes a Scene, the
- * strip an Exit is drawn from — is found on the first card of the graph, which is
- * the first Scene the Author wrote and where most of the path is walked.
+ * A target the editor draws once per card — the strip an Exit is drawn from — is
+ * found on the first card of the graph, which is the first Scene the Author wrote
+ * and where most of the path is walked.
  * Everything else a Step points at is in the panel, which holds one Scene by
  * construction, so nothing has to be scoped to a Scene by id.
  */
