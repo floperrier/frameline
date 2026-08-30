@@ -6,17 +6,19 @@
  * about, the scale pulled back. See
  * `docs/adr/0010-the-graph-is-written-here-not-pulled-in.md`.
  *
- * What is being written is not decided here. The card says which Scene the panel
- * holds and asks the page to change it, so that one panel answers to one page:
- * see `docs/adr/0011-the-scene-editor-is-the-scenes-own-node.md`, whose single
- * surface this is half of.
+ * Which Scene is being written is not decided here. The card says which Scene the
+ * writing surface should hold and asks the page to change it, so that one surface
+ * answers to one page: see
+ * `docs/adr/0011-the-scene-editor-is-the-scenes-own-node.md`, whose single surface
+ * this is half of. An Exit is decided here, because it is written here — on its
+ * own line, where it can be seen leading somewhere.
  *
  * While a Scene is being written the graph is folded into a rail: the same
  * drawing at the scale that fits it, kept for what an Author recognises their own
  * Story by, and pressed rather than laid out. See
  * `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`.
  */
-const { id, story, sceneWritten, exitWritten, asking, change, announce, imageOf } = defineProps<{
+const { id, story, sceneWritten, asking, change, write, announce, imageOf } = defineProps<{
   /**
    * The Story's own id, which a Scene is created against. It comes from the route
    * rather than from the Story, because the form that names one stands there
@@ -25,14 +27,14 @@ const { id, story, sceneWritten, exitWritten, asking, change, announce, imageOf 
   id: string
   /** The Story the bench is on, or nothing where the read was refused. */
   story?: StoryInEditor
-  /** The Scene the panel is writing, which its card is lit for. */
+  /** The Scene the writing surface is on, which its card is lit for. */
   sceneWritten?: string
-  /** The Exit the panel is writing, whose line is lit for it. */
-  exitWritten?: string
   /** Whether a confirmation is up, which Escape belongs to rather than to the aiming. */
   asking: boolean
   /** The one holder every write on this page goes through. */
   change: Change
+  /** The same holder, for what the Author typed rather than what they clicked. */
+  write: Write
   /** What the bench has just done, said once and gone. */
   announce: (said: string) => void
   /** Where a Shot's image is asked for, under the time it was last attached. */
@@ -40,11 +42,12 @@ const { id, story, sceneWritten, exitWritten, asking, change, announce, imageOf 
 }>()
 
 /**
- * What the graph asks of the panel: which Scene or Exit it should hold, and the
- * one press that takes what is in it out again. The panel is the page's, so the
- * graph says what happened and the page decides what is written.
+ * What the graph asks of the page: which Scene the writing surface should hold,
+ * and the one press that takes what is in it out again. The Scene is the page's,
+ * so the graph says what happened and the page decides what is written. An Exit
+ * is not in there at all — it is written on its own line, here.
  */
-const emit = defineEmits<{ writeScene: [string], openExit: [string], letGo: [] }>()
+const emit = defineEmits<{ writeScene: [string], letGo: [] }>()
 
 const { t, locale } = useI18n()
 
@@ -251,7 +254,13 @@ watch(folded, (folding) => {
   // across is what is drawn in it — and the place the Author left would be given
   // back clamped to a rail the graph is halfway out of.
   eased.value = false
-  if (folding) return
+  if (folding) {
+    // Nothing is written on a rail: an Exit's field has no room at a tenth of the
+    // size, and one left open would come back with the graph rather than with the
+    // Author's hand.
+    exitWriting.value = undefined
+    return
+  }
 
   return nextTick(() => {
     const scroller = graph.value
@@ -518,10 +527,11 @@ function panBench(event: PointerEvent) {
 }
 
 /**
- * The hand let go. A press that stayed put closes the panel, which is what a
- * press on the bare bench has always done; one that pushed the bench somewhere
- * closes nothing, because moving the view is not saying anything about what is
- * being written.
+ * The hand let go. A press that stayed put lets go of what is being written —
+ * the Exit on its line here, and the Scene in the page's own surface — which is
+ * what a press on the bare bench has always done; one that pushed the bench
+ * somewhere lets go of nothing, because moving the view is not saying anything
+ * about what is being written.
  */
 function releaseBench(event: PointerEvent) {
   const pushed = pushing
@@ -529,7 +539,12 @@ function releaseBench(event: PointerEvent) {
   if (!pushed || event.pointerId !== pushed.pointerId) return
 
   const travelled = Math.hypot(event.clientX - pushed.from.x, event.clientY - pushed.from.y)
-  if (travelled < PAN_SLACK) emit('letGo')
+  if (travelled >= PAN_SLACK) return
+
+  // Focus is left where the hand is: a press on the bare bench says nothing about
+  // where the keyboard should be.
+  exitWriting.value = undefined
+  emit('letGo')
 }
 
 /** A push the browser took over — a finger scrolling the bench — moves nothing. */
@@ -633,11 +648,10 @@ function startLeading(exitId: string, event: PointerEvent) {
 }
 
 /**
- * The panel's way into the same gesture, handed to it through the slot it is
- * rendered in: an Exit is written there, and leading it elsewhere is one more
- * thing done to the Exit in front of the Author. From here the hidden button on
- * each card is what lands it, so a hand that never touches a pointer reaches the
- * same end as one that drags the endpoint.
+ * The way into the same gesture from the line an Exit is written on: leading it
+ * elsewhere is one more thing done to the Exit in front of the Author. From here
+ * the hidden button on each card is what lands it, so a hand that never touches a
+ * pointer reaches the same end as one that drags the endpoint.
  */
 function leadElsewhere(exit: Exit) {
   const from = sceneById(exit.fromSceneId)
@@ -810,24 +824,22 @@ function aimingName(scene: Scene) {
 }
 
 /**
- * Escape lets go of whatever the bench is holding: the Exit being drawn, whichever
- * way in began it, and the panel at the edge of the bench. Listened for on the
-
-/**
- * Escape lets go of the Exit being drawn, whichever way in began it. Listened for
- * on the document because a gesture by pointer has focus nowhere in particular —
- * the hand is on a strip that is not a control — so there is no element to hang
- * it on. The page listens for the same key to close the panel, and the graph is
- * mounted first, so the two happen in the order they always have.
+ * Escape lets go of what the bench is holding: the Exit being drawn, whichever
+ * way in began it, and the Exit being written on its line. Listened for on the
+ * document because a gesture by pointer has focus nowhere in particular — the
+ * hand is on a rim that is not a control — so there is no element to hang it on.
+ * The page listens for the same key to close the Scene being written, and the
+ * graph is mounted first, so the two happen in the order they always have.
  */
 function letGoOnEscape(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
   // Not while a confirmation is up. `<dialog>` answers Escape itself, and the
-  // control the question was asked from is in the panel: letting go out from
+  // control the question was asked from is on the bench: letting go out from
   // under that answer would take the focus it hands back with it.
   if (asking) return
 
   abandonAiming()
+  stopWritingExit(true)
 }
 
 onMounted(() => {
@@ -948,11 +960,114 @@ const exitLines = computed(() => story?.exits.map((exit) => {
   // Scene where the disc saying it sits.
   return {
     id: exit.id,
+    exit,
     ...line,
     place: exitsFrom(story?.exits ?? [], exit.fromSceneId).indexOf(exit) + 1,
     disc: discOfExit(line),
+    arrival: sceneNamed(sceneNames.value, exit.toSceneId, t),
+    // Halfway along the line, which is where the Exit is written: the disc has
+    // the end nearest the Scene it leaves, and the far end is under the arrowhead
+    // and the card it points at.
+    middle: { x: (line.from.x + line.to.x) / 2, y: (line.from.y + line.to.y) / 2 },
   }
 }) ?? [])
+
+/**
+ * The Exit being written, which is written on its own line rather than in the
+ * surface a Scene is written on: an Exit's text is what a Reader reads on a
+ * button, so it is written where it can be seen leading somewhere. What it
+ * carries besides — its Conditions — is written beside the Scene it leaves,
+ * among the ways on, because they test the Flags that Scene sets and the two are
+ * read together: the side by side
+ * `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md` was written for.
+ *
+ * Held by id like every other thing the bench holds across a read, and nowhere in
+ * the address: only a Scene is deep-linkable, and this is the Author's view of
+ * their own graph.
+ */
+const exitWriting = ref<string>()
+
+/**
+ * Puts the writing on one Exit's line, and takes focus into the text with it —
+ * pressed by hand or reached by the hidden button on the line, that field is
+ * where the Author was going. Nothing is written on a rail: the graph folded is a
+ * Scene's neighbourhood at a tenth of the size, with no room for a field.
+ */
+async function writeExitOn(exitId: string) {
+  if (folded.value) return
+  exitWriting.value = exitId
+  await nextTick()
+  document.getElementById(`exit-${exitId}`)?.focus()
+}
+
+/**
+ * Takes the writing off the line, putting focus back on the hidden button that
+ * opened it, so the keyboard comes back out onto the bench where it was rather
+ * than at the top of the page. The bench pressed by hand closes it without
+ * moving focus, the way a press on the bare bench has always left it alone.
+ */
+async function stopWritingExit(returning = false) {
+  const written = exitWriting.value
+  exitWriting.value = undefined
+  if (!written || !returning) return
+
+  await nextTick()
+  document.getElementById(`write-exit-${written}`)?.focus()
+}
+
+function writeExitText(exit: Exit) {
+  return write(() => send(`/api/exits/${exit.id}`, { method: 'PATCH', body: { text: exit.text } }))
+}
+
+/**
+ * Writes a second Exit to the same Scene, carrying the Conditions of the first.
+ * The gesture that draws an Exit will not land on a Scene the departing one
+ * already reaches, which is what keeps a slip of the hand from making an
+ * accidental duplicate — but two Exits to one Scene under opposite Conditions is
+ * what Conditions on an Exit are for, so it is written on purpose from here: an
+ * Author duplicates an Exit at the moment they mean to write its opposite
+ * Condition. See `docs/adr/0015-a-cut-is-drawn-by-hand.md`.
+ *
+ * The Conditions are copied and the text is not. The pair exists to be offered
+ * under opposite tests, so the second is phrased from scratch, and the Condition
+ * that makes it the opposite is the Author's next edit — beside the Scene the two
+ * leave, where an Exit's Conditions are written.
+ *
+ * The two writes are one change, and are not one transaction: Conditions refused
+ * after the Exit was written leave a bare duplicate on the bench, which the
+ * Author can go on writing or take away.
+ */
+function duplicateExit(exit: Exit) {
+  const said = {
+    from: sceneNamed(sceneNames.value, exit.fromSceneId, t),
+    to: sceneNamed(sceneNames.value, exit.toSceneId, t),
+  }
+  const conditions = wholeConditions(exit.conditions)
+
+  return change(async () => {
+    const written = await send(`/api/scenes/${exit.fromSceneId}/exits`, {
+      method: 'POST',
+      body: { toSceneId: exit.toSceneId },
+    }) as Exit
+
+    if (conditions.length) {
+      await send(`/api/exits/${written.id}/conditions`, { method: 'PUT', body: { conditions } })
+    }
+
+    announce(t('editor.exitDuplicated', said))
+  })
+}
+
+/**
+ * Takes an Exit away, from the line it is written on. Nothing closes the writing
+ * here: the read that follows is what takes the Exit out of the Story, and the
+ * line is drawn from the Exit it belongs to — so a delete that landed leaves
+ * nothing to draw, and a refused one leaves the Author looking at the Exit they
+ * still have.
+ */
+function deleteExit(exit: Exit) {
+  return change(() => send(`/api/exits/${exit.id}`, { method: 'DELETE' }))
+}
 
 /**
  * Where a Scene's card sits, which with the two constants is the whole of its
@@ -1158,19 +1273,19 @@ function atAGlance(scene: Scene) {
                      hand actually aims at: an Exit is written by pressing its line,
                      and a line and a half of pixels is nobody's idea of a target.
                      The press stops here, so it does not reach the bench that would
-                     close the panel it just opened — and its default is refused,
-                     because a press on a line focuses nothing and would take the
-                     focus off the field the panel has just put it in. -->
+                     close the writing it just opened — and its default is refused,
+                     because a press on a line focuses nothing, and the field the
+                     press opens is what takes the focus instead. -->
                 <line
                   class="aimed"
                   :x1="line.from.x"
                   :y1="line.from.y"
                   :x2="line.to.x"
                   :y2="line.to.y"
-                  @pointerdown.stop.prevent="$emit('openExit', line.id)"
+                  @pointerdown.stop.prevent="writeExitOn(line.id)"
                 />
                 <line
-                  :class="{ lit: exitWritten === line.id }"
+                  :class="{ lit: exitWriting === line.id }"
                   :x1="line.from.x"
                   :y1="line.from.y"
                   :x2="line.to.x"
@@ -1353,17 +1468,96 @@ function atAGlance(scene: Scene) {
                 @pointercancel="abandonAiming"
               ></div>
             </article>
+
+            <!-- Where an Exit is written: on its own line, halfway along it, so
+                 the text a Reader will read on a button is written with the Scene
+                 it leads to named beside it and the drawing under it saying where
+                 that is. It is the last thing on the surface, so it is drawn over
+                 the cards its line runs between, and the keyboard reaches it after
+                 them — a way on is read after the Scene it leaves.
+
+                 What an Exit carries besides its text is not here. Its Conditions
+                 are written beside the Scene it leaves, in the ways on, where they
+                 can be read against the Flags that Scene sets; its Place is
+                 written there too and reported on the disc at the other end of
+                 this line. -->
+            <template v-if="!folded">
+              <div
+                v-for="line in exitLines"
+                :key="line.id"
+                class="on-line"
+                :style="{ translate: `${line.middle.x}px ${line.middle.y}px` }"
+              >
+                <!-- The keyboard's way onto the line, hidden until it is focused —
+                     the same pattern as the button that draws an Exit, and the same
+                     reason: the line is pressed with a pointer, and a hand that has
+                     none still needs a real button with a real name. -->
+                <button
+                  v-if="exitWriting !== line.id"
+                  :id="`write-exit-${line.id}`"
+                  type="button"
+                  class="tucked"
+                  @click="writeExitOn(line.id)"
+                >
+                  {{ $t('editor.writeExitTo', { scene: line.arrival }) }}
+                </button>
+
+                <!-- A group rather than a landmark: what holds it together is that
+                     it is one Exit being written, and it is named by the Scene that
+                     Exit leads to.
+
+                     A press in here is not a press on the bench: the bench closes
+                     what is being written when it is pressed, and this box is what
+                     is being written. -->
+                <div
+                  v-else
+                  class="written-exit"
+                  role="group"
+                  :aria-label="$t('editor.writingExitTo', { scene: line.arrival })"
+                  @pointerdown.stop
+                >
+                  <label class="eyebrow" :for="`exit-${line.id}`">
+                    {{ $t('exit.to', { scene: line.arrival }) }}
+                  </label>
+                  <input
+                    :id="`exit-${line.id}`"
+                    v-model="line.exit.text"
+                    :maxlength="EXIT_TEXT_MAX_LENGTH"
+                    @change="writeExitText(line.exit)"
+                  >
+
+                  <!-- The way on leads somewhere else, without losing the text and
+                       the Conditions it carries: pressing this enters the very
+                       gesture the endpoint of the line enters, and the hidden
+                       button on each card is what lands it. So a hand that never
+                       touches a pointer corrects a way on the same way, and the
+                       Exit is not deleted and drawn again to do it. -->
+                  <button type="button" @click="leadElsewhere(line.exit)">
+                    {{ $t('editor.leadExitElsewhere') }}
+                  </button>
+
+                  <!-- The deliberate route to a second way on to the same Scene,
+                       which the aiming gesture withholds so that the hand cannot
+                       draw one by accident. -->
+                  <button type="button" @click="duplicateExit(line.exit)">
+                    {{ $t('editor.duplicateExitTo', { scene: line.arrival }) }}
+                  </button>
+
+                  <button type="button" class="danger" @click="deleteExit(line.exit)">
+                    {{ $t('editor.deleteExitTo', { scene: line.arrival }) }}
+                  </button>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- The panel is handed the way into the aiming, because leading an Exit
-         elsewhere is done to the Exit the panel is writing and the gesture lives
-         out here. A slot prop rather than a state passed down and an event passed
-         back: what the panel wants is to begin the gesture, and that is a
-         function. -->
-    <slot name="panel" :lead="leadElsewhere" />
+    <!-- The surface a Scene is written on, beside the graph folded into a rail.
+         What is on it is the page's to settle, because both halves of the bench
+         ask for it. -->
+    <slot name="panel" />
 
     <!-- The third column of the bench while a Scene is being written: the Story
          read as a Reader gets it. The page settles what is in it, like the panel
@@ -1680,8 +1874,8 @@ svg line.aimed {
   cursor: pointer;
 }
 
-/* The Exit being written, lit: the panel says which Exit it is holding, and this is
-   the same thing said on the bench, where the Author is looking. */
+/* The Exit being written, lit: the field on the line says which Exit it is, and
+   the line under it is the same thing said in the drawing. */
 svg line.lit {
   stroke: var(--grease);
   /* Twice the weight of a finished Exit, which is the whole of the difference: the
@@ -1749,6 +1943,50 @@ svg line.drawn {
   to {
     stroke-dashoffset: -10;
   }
+}
+
+/* Where an Exit is written, on the line that draws it: a box hung from the point
+   halfway along it and centred on that point, so the writing sits on the way on
+   rather than beside it. It carries nothing while the Exit is not being written
+   but the hidden button that opens it, which is a pixel of nothing. */
+.on-line {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  /* The point this hangs from is on the line it is about, and that line is what
+     the hand presses to open it: a pixel of hidden button sitting on the target
+     would take the press meant for the drawing. What is really there asks the
+     presses back. */
+  pointer-events: none;
+}
+
+.on-line .tucked:focus,
+.written-exit {
+  pointer-events: auto;
+}
+
+/* Revealed, the button stands above the point rather than on it: shown where the
+   line is pressed, it would be in the way of the very press it is the way round
+   for a hand that has no pointer. */
+.on-line .tucked:focus {
+  transform: translate(-50%, calc(-100% - var(--s2)));
+}
+
+.written-exit {
+  display: grid;
+  gap: var(--s2);
+  /* Hung from the midpoint by its own middle: the point is the line's, and the
+     box is drawn around it rather than off one of its corners. */
+  transform: translate(-50%, -50%);
+  inline-size: 17rem;
+  padding: var(--s3);
+  border: 1px solid var(--light);
+  border-radius: var(--machined);
+  background: var(--steel);
+  box-shadow: var(--lifted);
+  /* The cards take a drag and the bench takes a push; what is typed in here is
+     neither, so the gestures under it are held off. */
+  cursor: auto;
 }
 
 /* A card is two columns of a fixed box: the strip down its leading edge, and the
@@ -1857,8 +2095,12 @@ article.drawing {
 
 /* The keyboard's way in, hidden until it is focused — the pattern a skip link
    uses. Off the top of the strip it belongs to rather than out of the page, so
-   focus lands on the node it draws from. */
-.aim {
+   focus lands on the node it draws from. The button that opens an Exit for
+   writing is the same idiom on the same bench, so it is the same rules: a
+   gesture is the visible way in, and a real button with a real name is what
+   anything not holding a pointer finds. */
+.aim,
+.tucked {
   position: absolute;
   inset-block-start: 0;
   inset-inline-start: 0;
@@ -1874,7 +2116,8 @@ article.drawing {
   white-space: nowrap;
 }
 
-.aim:focus {
+.aim:focus,
+.tucked:focus {
   z-index: 3;
   inline-size: max-content;
   block-size: auto;

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'authenticated' })
 
-const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const id = route.params.id as string
@@ -19,10 +18,6 @@ const { data: story, refresh } = await useAsyncData(
 )
 const { problem, keptAt, change, write } = useEditing(refresh)
 const { asked, ask, answer } = useConfirming()
-
-const sceneNames = computed(
-  () => new Map(story.value?.scenes.map(scene => [scene.id, scene.name])),
-)
 
 /**
  * What the bench has just done, said once and gone: a Scene created, an Exit
@@ -86,35 +81,6 @@ const sceneWritten = computed(
   () => story.value?.scenes.find(scene => scene.id === route.query.scene))
 
 /**
- * The Exit being written, which has no address: only the Scene is deep-linkable,
- * and what is in the panel otherwise is the Author's view of their own graph, so
- * it is written nowhere and lasts as long as the page.
- *
- * Held by id, like every other thing the bench holds across a read: a refetch
- * replaces every Exit in the Story, and the panel would otherwise be writing into
- * an object nothing draws.
- *
- * One or the other and never both — one panel, so one answer to "what am I
- * writing" — which is why each of the two ways in takes the other out.
- */
-const exitWriting = ref<string>()
-
-/**
- * The Exit the panel is writing, and the two Scenes it joins by name. Nothing at
- * all when a Scene is what is being written, or when the Exit has since gone.
- */
-const exitWritten = computed(() => {
-  const exit = exitWriting.value ? exitById(exitWriting.value) : undefined
-  if (!exit) return
-
-  return {
-    exit,
-    from: sceneNamed(sceneNames.value, exit.fromSceneId, t),
-    to: sceneNamed(sceneNames.value, exit.toSceneId, t),
-  }
-})
-
-/**
  * Whether the writing already stands on the history as an entry of its own. The
  * first Scene written pushes one, so the browser's back closes the writing and
  * returns to the graph; every Scene written after it — pressed in the rail, or
@@ -156,58 +122,29 @@ function stopAddressing() {
   return router.replace({ query })
 }
 
-function exitById(exitId: string) {
-  return story.value?.exits.find(exit => exit.id === exitId)
-}
-
 /**
- * Puts one Scene in the panel, taking out whatever was there, and takes it out
- * again if it was already the one being written. Focus goes into the name as the
- * panel appears, which is the first field of the Scene and the same promise the
- * Exit's panel makes: a panel nobody can type in is not one the keyboard has
- * reached.
+ * Puts one Scene on the writing surface, taking out whatever was there, and takes
+ * it out again if it was already the one being written. Focus goes into the name
+ * as the surface appears, which is the first field of the Scene: a surface nobody
+ * can type in is not one the keyboard has reached.
  */
 async function writeScene(sceneId: string) {
   if (sceneWritten.value?.id === sceneId) return closePanel()
-  exitWriting.value = undefined
   await addressScene(sceneId)
   await nextTick()
   document.getElementById(`scene-name-${sceneId}`)?.focus()
 }
 
 /**
- * Puts one Exit in the panel, and takes it out again if it was the one being
- * written. Focus goes into the text: pressed by hand that is where the Author was
- * going anyway, and reached from the strip of ways on it is the whole point of
- * the route.
- */
-async function openExit(exitId: string) {
-  if (exitWriting.value === exitId) return closePanel()
-  await stopAddressing()
-  exitWriting.value = exitId
-  await nextTick()
-  document.getElementById(`exit-${exitId}`)?.focus()
-}
-
-/**
- * Closes the panel and puts focus back on the write button of the card it
- * belongs to — the Scene being written, or the Scene an Exit leaves — so the
- * keyboard comes back out onto the bench rather than at the top of the page. A
- * panel closed with the pointer on the bare bench is closed by hand and leaves
- * focus alone: see `releaseBench`.
- *
- * The card's button rather than the control the panel was opened from, which for
- * an Exit is a row of the ways on: one panel holds one thing, so opening an Exit took
- * the Scene out of the panel and that row is no longer in the page to hand focus
- * back to. The card is the one anchor both routes share, and the Exit's panel
- * offers the way back to the Scene's for a hand that wants the row again.
+ * Closes the writing and puts focus back on the write button of the card the
+ * Scene belongs to, so the keyboard comes back out onto the bench rather than at
+ * the top of the page. A press with the pointer on the bare bench closes it by
+ * hand and leaves focus alone: see `releaseBench`.
  */
 async function closePanel() {
   const sceneId = sceneWritten.value?.id
-    ?? (exitWriting.value && exitById(exitWriting.value)?.fromSceneId)
-  if (!sceneId && !exitWriting.value) return
+  if (!sceneId) return
 
-  exitWriting.value = undefined
   await stopAddressing()
   // After the graph is whole again, so the button focus goes to is the one on an
   // unfolded card rather than on a rail that is on its way out.
@@ -215,15 +152,14 @@ async function closePanel() {
   // Without moving the bench, which the graph has just put back where the Author
   // left it: a focus that scrolls its own element into view would undo the fold's
   // one promise, and the card focus lands on is the one they were writing.
-  if (sceneId) document.getElementById(`write-${sceneId}`)?.focus({ preventScroll: true })
+  document.getElementById(`write-${sceneId}`)?.focus({ preventScroll: true })
 }
 
 /**
- * The panel let go of rather than closed: a press on the bare bench, which says
+ * The writing let go of rather than closed: a press on the bare bench, which says
  * nothing about where the keyboard should be and leaves focus alone.
  */
 function letGo() {
-  exitWriting.value = undefined
   return stopAddressing()
 }
 
@@ -267,13 +203,12 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
       :id="id"
       :story="story ?? undefined"
       :scene-written="sceneWritten?.id"
-      :exit-written="exitWritten?.exit.id"
       :asking="!!asked"
       :change="change"
+      :write="write"
       :announce="announce"
       :image-of="imageOf"
       @write-scene="writeScene"
-      @open-exit="openExit"
       @let-go="letGo"
     >
       <!-- What the bench says about itself, between the row of controls and the
@@ -283,25 +218,19 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
       <Refusal v-if="!sceneWritten" :problem="problem" />
       <p v-if="announced" class="toast" role="status">{{ announced }}</p>
 
-      <!-- `lead` is the graph's own way into the aiming, handed over so the panel
-           can begin it on the Exit it is writing. -->
-      <template #panel="{ lead }">
+      <template #panel>
         <Panel
-          v-if="story && (sceneWritten || exitWritten)"
+          v-if="story && sceneWritten"
           :story="story"
           :scene-written="sceneWritten"
-          :exit-written="exitWritten"
           :change="change"
           :write="write"
           :ask="ask"
           :announce="announce"
           :image-of="imageOf"
           :problem="problem"
-          @write-scene="writeScene"
-          @open-exit="openExit"
           @close="closePanel"
           @attached="attachedAt[$event] = Date.now()"
-          @lead="lead"
         />
       </template>
 

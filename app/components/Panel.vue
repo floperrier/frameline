@@ -1,27 +1,26 @@
 <script setup lang="ts">
 /**
- * Where a Scene and an Exit are written: one surface, holding one or the other
- * and never both. A Scene takes the width of the bench, with the graph folded
- * into a rail beside it — see
- * `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`; an Exit is still a
- * panel docked at the trailing edge of a graph that is whole.
+ * Where a Scene is written: the surface that takes the width of the bench, with
+ * the graph folded into a rail beside it — see
+ * `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`. Nothing else is
+ * ever on it. An Exit's text is written on its own line on the graph, and what
+ * of an Exit is written here is what is read against the Scene: its Conditions,
+ * which test the Flags this Scene sets, and the Place it is offered at.
  *
- * Which of the two it holds is the page's to say, because the graph asks for it
- * from the other side of the bench: the panel is handed the Scene or the Exit and
- * says when it should be handed something else.
+ * Which Scene it holds is the page's to say, because the graph asks for it from
+ * the other side of the bench: the surface is handed the Scene and says when it
+ * should be handed nothing.
  *
  * Everything typed here is written into the Story the page fetched, in place, and
  * sent through the one holder the page keeps.
  */
 const {
-  story, sceneWritten, exitWritten, change, write, ask, announce, imageOf,
+  story, sceneWritten, change, write, ask, announce, imageOf,
 } = defineProps<{
   /** The Story being written, which a Condition reads its neighbours out of. */
   story: StoryInEditor
-  /** The Scene the panel is writing, or nothing when it is writing an Exit. */
+  /** The Scene being written. */
   sceneWritten?: Scene
-  /** The Exit the panel is writing, and the two Scenes it joins by name. */
-  exitWritten?: { exit: Exit, from: string, to: string }
   /** The one holder every write on this page goes through. */
   change: Change
   /** The same holder, for what the Author typed rather than what they clicked. */
@@ -42,19 +41,11 @@ const {
 }>()
 
 /**
- * What the panel asks of the page: the Scene or the Exit it should hold instead,
- * and the press that takes what is in it out. `attached` is the moment an image
- * landed, which the page holds because the card on the graph draws that image
- * too.
+ * What the surface asks of the page: the press that takes the Scene out of it.
+ * `attached` is the moment an image landed, which the page holds because the card
+ * on the graph draws that image too.
  */
-const emit = defineEmits<{
-  writeScene: [string]
-  openExit: [string]
-  close: []
-  attached: [string]
-  /** Lead this Exit to another Scene — the aiming is the graph's, so it is asked for. */
-  lead: [Exit]
-}>()
+const emit = defineEmits<{ close: [], attached: [string] }>()
 
 const { t } = useI18n()
 
@@ -399,30 +390,17 @@ function moveExit(scene: Scene, exit: Exit, step: -1 | 1) {
   return renumber(scene, 'exits', movedBy(ways, exit.id, step))
 }
 
-function writeExit(exit: Exit) {
-  return write(() => send(`/api/exits/${exit.id}`, { method: 'PATCH', body: { text: exit.text } }))
-}
-
 /**
  * The way on being dragged within a Scene's strip, and the row the hand is over.
  * Held by Exit id and not by the Exit, the same trap the other two gestures avoid.
  */
 const draggedWay = ref<{ exitId: string, over?: string }>()
 
-/**
- * Whether the drag that has just ended renumbered anything. A row is pressed to
- * open an Exit and dragged to move it, so the click that follows a drag that moved
- * one has to be let go of: opening a panel on top of a renumbering is a second
- * answer to a gesture that already said what it meant.
- */
-let renumberedByDrag = false
-
 function startWayDrag(exit: Exit, event: PointerEvent) {
   // Capturing the pointer sends the rest of the gesture to the row itself, so the
   // hand can leave it for the row it is aiming at.
   ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
   draggedWay.value = { exitId: exit.id }
-  renumberedByDrag = false
 }
 
 function keepWayDrag(event: PointerEvent) {
@@ -437,10 +415,6 @@ function endWayDrag(scene: Scene) {
   const ways = exitsFrom(story.exits, scene.id).map(held => held.id)
   const places = movedInto(ways, dragged.exitId, dragged.over)
   if (!places) return
-
-  // Let go of over a stranger's row nothing was renumbered, so the press that
-  // follows is the press it started as and the Exit's own panel opens.
-  renumberedByDrag = true
 
   return renumber(scene, 'exits', places)
 }
@@ -485,16 +459,6 @@ function movedInto(ids: string[], id: string, onto: string) {
 }
 
 /**
- * What a press on a row of the strip does. A drag that renumbered ends in a click
- * too, and that one opens nothing.
- */
-function pressWay(exit: Exit) {
-  const dragged = renumberedByDrag
-  renumberedByDrag = false
-  if (!dragged) return emit('openExit', exit.id)
-}
-
-/**
  * The Flags a Scene sets on entry, as the rows the Author wrote them in amount
  * to. What the rows leave out is what the server would refuse — a Flag with no
  * name, or none given a value yet — so the panel sends what is whole and the row
@@ -521,490 +485,394 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   }))
 }
 
-/**
- * A list of Conditions with the half-written rows left out. A row whose Flag has
- * no name is half a Condition, which the server is right to refuse, and dropping
- * it beats holding back the rest — a Condition taken off has to reach the Story
- * whatever else the Author is in the middle of typing.
- *
- * One function, because every route that sends a list sends it from a panel the
- * Author may be halfway through: the row they are still naming would otherwise
- * take the whole list down with it, and an Exit duplicated at that moment would
- * arrive carrying nothing.
- */
-function wholeConditions(carried: Condition[]) {
-  return carried.filter(condition => !('flag' in condition) || condition.flag.trim())
-}
-
-/**
- * Writes a second Exit to the same Scene, carrying the Conditions of the first.
- * The gesture that draws an Exit will not land on a Scene the departing one already
- * reaches, which is what keeps a slip of the hand from making an accidental
- * duplicate — but two Exits to one Scene under opposite Conditions is what
- * Conditions on an Exit are for, so it is written on purpose from here: an Author
- * duplicates an Exit at the moment they mean to write its opposite Condition. See
- * `docs/adr/0015-a-cut-is-drawn-by-hand.md`.
- *
- * The Conditions are copied and the text is not. The pair exists to be offered
- * under opposite tests, so the second is phrased from scratch, and the Condition
- * that makes it the opposite is the Author's next edit — in the duplicate's own
- * panel, which is theirs to open from the strip. This one stays on the Exit it was
- * duplicated from.
- *
- * The two writes are one change, and are not one transaction: Conditions refused
- * after the Exit was written leave a bare duplicate in the strip, which the Author
- * can go on writing or take away.
- */
-function duplicateExit(exit: Exit) {
-  const said = {
-    from: sceneNamed(sceneNames.value, exit.fromSceneId, t),
-    to: sceneNamed(sceneNames.value, exit.toSceneId, t),
-  }
-  const conditions = wholeConditions(exit.conditions)
-
-  return change(async () => {
-    const written = await send(`/api/scenes/${exit.fromSceneId}/exits`, {
-      method: 'POST',
-      body: { toSceneId: exit.toSceneId },
-    }) as Exit
-
-    if (conditions.length) {
-      await send(`/api/exits/${written.id}/conditions`, { method: 'PUT', body: { conditions } })
-    }
-
-    announce(t('editor.exitDuplicated', said))
-  })
-}
-
-/**
- * Takes an Exit away, from the panel it is written in. Nothing closes the panel
- * here: the read that follows is what takes the Exit out of the Story, and the
- * panel is drawn from the Exit it holds — so a delete that landed leaves nothing
- * to draw, and a refused one leaves the Author looking at the Exit they still
- * have.
- */
-function deleteExit(exit: Exit) {
-  return change(() => send(`/api/exits/${exit.id}`, { method: 'DELETE' }))
-}
 
 </script>
 
 <template>
-  <!-- Where a Scene and an Exit are written: one panel at the trailing edge of
-       the bench, holding one or the other and never both. -->
-  <!-- A group rather than a landmark: what holds it together is that it is
-       one thing being written, and it is named by which thing that is. -->
+  <!-- Where a Scene is written: the surface beside the graph folded into a rail.
+       A group rather than a landmark — what holds it together is that it is one
+       Scene being written, and it is named by that Scene. -->
   <div
+    v-if="sceneWritten"
     class="panel"
-    :class="{ full: !!sceneWritten }"
     role="group"
-    :aria-label="sceneWritten
-      ? $t('editor.writingScene', { name: sceneWritten.name })
-      : $t('editor.writingExitTo', { scene: exitWritten!.to })"
+    :aria-label="$t('editor.writingScene', { name: sceneWritten.name })"
   >
-    <!-- The panel is closed explicitly. Drawn at every width rather than only
+    <!-- The writing is closed explicitly. Drawn at every width rather than only
          below the breakpoint: on a narrow screen it is the whole of the way
-         out, because the panel covers the bench there and there is no bare
+         out, because the surface covers the bench there and there is no bare
          bench left to press, and a control that came and went with the width
          would be one an Author had to learn twice. -->
     <button type="button" class="close" @click="$emit('close')">
       {{ $t('editor.closePanel') }}
     </button>
 
-    <template v-if="sceneWritten">
-      <!-- Why the last change was refused, against the Scene it concerns: with
-           one Scene on the surface the server has somewhere precise to complain,
-           which is what `0011` gave up when it said a refusal about a Shot is
-           shown against the whole Story. -->
-      <Refusal :problem="problem" />
+    <!-- Why the last change was refused, against the Scene it concerns: with
+         one Scene on the surface the server has somewhere precise to complain,
+         which is what `0011` gave up when it said a refusal about a Shot is
+         shown against the whole Story. -->
+    <Refusal :problem="problem" />
 
-      <!-- The name is the heading and the heading is written in: a bare field,
-           the same idiom as a Shot's text and an Exit's, with no mode to enter
-           first.
+    <!-- The name is the heading and the heading is written in: a bare field,
+         the same idiom as a Shot's text and an Exit's, with no mode to enter
+         first.
 
-           The label sits outside the heading rather than in it: a heading is
-           named by what it holds, and a label inside would be read out ahead
-           of the name the Author is correcting. Outside, the heading is the
-           field's value and nothing else. It is also the one control here that
-           does not carry the Scene's name after it — this field's own value is
-           that name, and a label carrying it would rename the field under the
-           Author as they typed. Which Scene the panel is on is what the panel
-           itself is named. -->
-      <label class="visually-hidden" :for="`scene-name-${sceneWritten.id}`">
-        {{ $t('editor.sceneName') }}
-      </label>
-      <h2 class="named">
+         The label sits outside the heading rather than in it: a heading is
+         named by what it holds, and a label inside would be read out ahead
+         of the name the Author is correcting. Outside, the heading is the
+         field's value and nothing else. It is also the one control here that
+         does not carry the Scene's name after it — this field's own value is
+         that name, and a label carrying it would rename the field under the
+         Author as they typed. Which Scene the panel is on is what the panel
+         itself is named. -->
+    <label class="visually-hidden" :for="`scene-name-${sceneWritten.id}`">
+      {{ $t('editor.sceneName') }}
+    </label>
+    <h2 class="named">
+      <input
+        :id="`scene-name-${sceneWritten.id}`"
+        v-model="sceneWritten.name"
+        :maxlength="SCENE_NAME_MAX_LENGTH"
+        @change="renameScene(sceneWritten)"
+      >
+    </h2>
+
+    <div class="standing">
+      <!-- `data-step` is on the line rather than on the radio: the spotlight
+           is a rectangle, and a radio's own is a dot beside the words that
+           say what it marks. -->
+      <p class="opening" data-step="opening-scene">
         <input
-          :id="`scene-name-${sceneWritten.id}`"
-          v-model="sceneWritten.name"
-          :maxlength="SCENE_NAME_MAX_LENGTH"
-          @change="renameScene(sceneWritten)"
+          :id="`opening-${sceneWritten.id}`"
+          type="radio"
+          name="opening-scene"
+          :checked="story.openingSceneId === sceneWritten.id"
+          @change="openOn(sceneWritten)"
         >
-      </h2>
-
-      <div class="standing">
-        <!-- `data-step` is on the line rather than on the radio: the spotlight
-             is a rectangle, and a radio's own is a dot beside the words that
-             say what it marks. -->
-        <p class="opening" data-step="opening-scene">
-          <input
-            :id="`opening-${sceneWritten.id}`"
-            type="radio"
-            name="opening-scene"
-            :checked="story.openingSceneId === sceneWritten.id"
-            @change="openOn(sceneWritten)"
-          >
-          <label class="eyebrow" :for="`opening-${sceneWritten.id}`">
-            {{ $t('editor.openingScene') }}
-            <span class="visually-hidden">{{ sceneWritten.name }}</span>
-          </label>
-        </p>
-
-        <button type="button" class="danger" @click="deleteScene(sceneWritten)">
-          {{ $t('editor.deleteScene') }}
+        <label class="eyebrow" :for="`opening-${sceneWritten.id}`">
+          {{ $t('editor.openingScene') }}
           <span class="visually-hidden">{{ sceneWritten.name }}</span>
-        </button>
-      </div>
+        </label>
+      </p>
 
-      <!-- The three things a Scene holds, each behind its own tab and each tab
-           carrying its count: a Scene at full width was one flat run an Author
-           scrolled past all of to reach any of, and the count is what a folded
-           thing owes — the ways on say there are ways on before anything is
-           pressed. Every tab stays in the tab order rather than one of them
-           holding it: three controls in a row are reached by the key that
-           reaches every other control on this surface, and nothing has to be
-           learned about arrows to get to the Flags. -->
-      <div class="holds" role="tablist" :aria-label="$t('editor.whatTheSceneHolds')">
-        <button
-          v-for="held in HOLDS"
-          :id="`tab-${held}-${sceneWritten.id}`"
-          :key="held"
-          type="button"
-          role="tab"
-          :class="{ open: holding === held }"
-          :aria-selected="holding === held"
-          :aria-controls="`held-${held}-${sceneWritten.id}`"
-          @click="holding = held"
+      <button type="button" class="danger" @click="deleteScene(sceneWritten)">
+        {{ $t('editor.deleteScene') }}
+        <span class="visually-hidden">{{ sceneWritten.name }}</span>
+      </button>
+    </div>
+
+    <!-- The three things a Scene holds, each behind its own tab and each tab
+         carrying its count: a Scene at full width was one flat run an Author
+         scrolled past all of to reach any of, and the count is what a folded
+         thing owes — the ways on say there are ways on before anything is
+         pressed. Every tab stays in the tab order rather than one of them
+         holding it: three controls in a row are reached by the key that
+         reaches every other control on this surface, and nothing has to be
+         learned about arrows to get to the Flags. -->
+    <div class="holds" role="tablist" :aria-label="$t('editor.whatTheSceneHolds')">
+      <button
+        v-for="held in HOLDS"
+        :id="`tab-${held}-${sceneWritten.id}`"
+        :key="held"
+        type="button"
+        role="tab"
+        :class="{ open: holding === held }"
+        :aria-selected="holding === held"
+        :aria-controls="`held-${held}-${sceneWritten.id}`"
+        @click="holding = held"
+      >
+        {{ $t(`editor.${held}Held`) }}
+        <span class="numbered">{{ counted![held] }}</span>
+      </button>
+    </div>
+
+    <div
+      v-show="holding === 'shots'"
+      :id="`held-shots-${sceneWritten.id}`"
+      class="held"
+      role="tabpanel"
+      :aria-labelledby="`tab-shots-${sceneWritten.id}`"
+    >
+      <!-- The Shots as the run they are: numbered from one for the Author,
+           though the Scene counts from zero, and each one's number sits in
+           the gutter where the edge code would be. -->
+      <ol class="shots">
+        <li
+          v-for="(shot, place) in sceneWritten.shots"
+          :key="shot.id"
+          :data-shot="shot.id"
+          :class="{
+            dragged: draggedShot?.shotId === shot.id,
+            under: draggedShot?.over === shot.id && draggedShot.shotId !== shot.id,
+          }"
         >
-          {{ $t(`editor.${held}Held`) }}
-          <span class="numbered">{{ counted![held] }}</span>
-        </button>
-      </div>
-
-      <div
-        v-show="holding === 'shots'"
-        :id="`held-shots-${sceneWritten.id}`"
-        class="held"
-        role="tabpanel"
-        :aria-labelledby="`tab-shots-${sceneWritten.id}`"
-      >
-        <!-- The Shots as the run they are: numbered from one for the Author,
-             though the Scene counts from zero, and each one's number sits in
-             the gutter where the edge code would be. -->
-        <ol class="shots">
-          <li
-            v-for="(shot, place) in sceneWritten.shots"
-            :key="shot.id"
-            :data-shot="shot.id"
-            :class="{
-              dragged: draggedShot?.shotId === shot.id,
-              under: draggedShot?.over === shot.id && draggedShot.shotId !== shot.id,
-            }"
+          <!-- The number alone in the gutter, where a frame's edge code would
+               be, and the word it is a number of kept for anyone listening. It
+               is also the handle the Shot is dragged by: the gutter holds
+               nothing else, and the number is what the Author refers to the
+               Shot as, so there is no second grip to explain. -->
+          <label
+            class="shot-number"
+            :for="`shot-${shot.id}`"
+            @pointerdown="startShotDrag(shot, $event)"
+            @pointermove="keepShotDrag"
+            @pointerup="endShotDrag(sceneWritten)"
+            @pointercancel="cancelShotDrag"
           >
-            <!-- The number alone in the gutter, where a frame's edge code would
-                 be, and the word it is a number of kept for anyone listening. It
-                 is also the handle the Shot is dragged by: the gutter holds
-                 nothing else, and the number is what the Author refers to the
-                 Shot as, so there is no second grip to explain. -->
-            <label
-              class="shot-number"
-              :for="`shot-${shot.id}`"
-              @pointerdown="startShotDrag(shot, $event)"
-              @pointermove="keepShotDrag"
-              @pointerup="endShotDrag(sceneWritten)"
-              @pointercancel="cancelShotDrag"
-            >
-              <span class="visually-hidden">{{ $t('editor.shot') }} </span>{{ place + 1 }}
-            </label>
-            <div class="written">
-              <textarea
-                :id="`shot-${shot.id}`"
-                v-model="shot.text"
-                data-step="shot-text"
-                rows="2"
-                :maxlength="SHOT_TEXT_MAX_LENGTH"
-                @change="writeShot(shot)"
-              />
+            <span class="visually-hidden">{{ $t('editor.shot') }} </span>{{ place + 1 }}
+          </label>
+          <div class="written">
+            <textarea
+              :id="`shot-${shot.id}`"
+              v-model="shot.text"
+              data-step="shot-text"
+              rows="2"
+              :maxlength="SHOT_TEXT_MAX_LENGTH"
+              @change="writeShot(shot)"
+            />
 
-              <!-- The thumbnail is the picker: pressing it is how an image is
-                   attached and how it is replaced, and the input doing the work
-                   is behind it, focusable and named as it was. A Shot carrying
-                   no image shows the outline of the thumbnail it would have, so
-                   one nobody has finished reads as unfinished. It is also where
-                   a file is dropped, which is the same file the picker would
-                   have handed over. -->
-              <div class="image">
-                <label
-                  :class="{ over: fileOver === shot.id }"
-                  @dragenter.prevent.stop="overImage(shot, $event)"
-                  @dragover.prevent.stop="overImage(shot, $event)"
-                  @dragleave="leaveImage(shot, $event)"
-                  @drop.prevent.stop="dropImage(shot, $event)"
+            <!-- The thumbnail is the picker: pressing it is how an image is
+                 attached and how it is replaced, and the input doing the work
+                 is behind it, focusable and named as it was. A Shot carrying
+                 no image shows the outline of the thumbnail it would have, so
+                 one nobody has finished reads as unfinished. It is also where
+                 a file is dropped, which is the same file the picker would
+                 have handed over. -->
+            <div class="image">
+              <label
+                :class="{ over: fileOver === shot.id }"
+                @dragenter.prevent.stop="overImage(shot, $event)"
+                @dragover.prevent.stop="overImage(shot, $event)"
+                @dragleave="leaveImage(shot, $event)"
+                @drop.prevent.stop="dropImage(shot, $event)"
+              >
+                <img
+                  v-if="shot.image"
+                  :src="imageOf(shot)"
+                  :alt="$t('editor.imageOfShot', { place: place + 1 })"
                 >
-                  <img
-                    v-if="shot.image"
-                    :src="imageOf(shot)"
-                    :alt="$t('editor.imageOfShot', { place: place + 1 })"
-                  >
-                  <input
-                    type="file"
-                    class="visually-hidden"
-                    :accept="SHOT_IMAGE_TYPES.join(',')"
-                    :aria-label="$t('editor.pickImageOfShot', { place: place + 1 })"
-                    @change="attachImage(shot, $event)"
-                  >
+                <input
+                  type="file"
+                  class="visually-hidden"
+                  :accept="SHOT_IMAGE_TYPES.join(',')"
+                  :aria-label="$t('editor.pickImageOfShot', { place: place + 1 })"
+                  @change="attachImage(shot, $event)"
+                >
+              </label>
+
+              <!-- The Description beside the image it describes, in the width
+                   the file chrome used to take: it is what the image shows,
+                   and there is nothing to describe until one is attached. A
+                   Shot of text alone is not asked for one. -->
+              <p v-if="shot.image" class="described">
+                <label class="eyebrow" :for="`description-${shot.id}`">
+                  {{ $t('editor.description') }}
+                  <span class="visually-hidden">
+                    {{ $t('editor.descriptionOfShot', { place: place + 1 }) }}
+                  </span>
                 </label>
-
-                <!-- The Description beside the image it describes, in the width
-                     the file chrome used to take: it is what the image shows,
-                     and there is nothing to describe until one is attached. A
-                     Shot of text alone is not asked for one. -->
-                <p v-if="shot.image" class="described">
-                  <label class="eyebrow" :for="`description-${shot.id}`">
-                    {{ $t('editor.description') }}
-                    <span class="visually-hidden">
-                      {{ $t('editor.descriptionOfShot', { place: place + 1 }) }}
-                    </span>
-                  </label>
-                  <input
-                    :id="`description-${shot.id}`"
-                    v-model="shot.description"
-                    type="text"
-                    :maxlength="SHOT_DESCRIPTION_MAX_LENGTH"
-                    :placeholder="$t('editor.whatTheImageShows')"
-                    @change="writeShot(shot)"
-                  >
-                </p>
-              </div>
-
-              <!-- The Conditions the Shot plays under, so a Scene can say
-                   something different on a return visit without the Author
-                   drawing a second Scene to hold the changed line.
-
-                   The guided path points at the whole list rather than at one
-                   field of it, because what it asks for is a Condition and a
-                   Condition is the row it is added as: `data-step` lands on the
-                   component's own root, which is that list. -->
-              <Conditions
-                data-step="shot-condition"
-                :lead="$t('editor.playedWhen')"
-                :carrier="$t('editor.shotOfScene', {
-                  place: place + 1,
-                  scene: sceneWritten.name,
-                })"
-                :conditions="shot.conditions"
-                :scenes="story.scenes"
-                :counting="sceneWritten.id"
-                :id="shot.id"
-                @write="writeConditions('shots', shot.id, shot.conditions)"
-              />
-
-              <!-- The three controls, as the marks they do rather than the
-                   sentences that name them: in the width the panel gives a Shot
-                   the three sentences fill the strip to its end and wrap out of
-                   it in the longer of the two languages. What each one says is
-                   not lost, it moves to where the Shot's other names are read,
-                   by assistive technology alone. -->
-              <div class="row marks">
-                <button
-                  type="button"
-                  :disabled="place === 0"
-                  @click="moveShot(sceneWritten, shot, -1)"
+                <input
+                  :id="`description-${shot.id}`"
+                  v-model="shot.description"
+                  type="text"
+                  :maxlength="SHOT_DESCRIPTION_MAX_LENGTH"
+                  :placeholder="$t('editor.whatTheImageShows')"
+                  @change="writeShot(shot)"
                 >
-                  <span aria-hidden="true">↑</span>
-                  <span class="visually-hidden">
-                    {{ $t('common.moveEarlier') }}
-                    {{ $t('editor.shotNumber', { place: place + 1 }) }}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  :disabled="place === sceneWritten.shots.length - 1"
-                  @click="moveShot(sceneWritten, shot, 1)"
-                >
-                  <span aria-hidden="true">↓</span>
-                  <span class="visually-hidden">
-                    {{ $t('common.moveLater') }}
-                    {{ $t('editor.shotNumber', { place: place + 1 }) }}
-                  </span>
-                </button>
-                <button type="button" class="danger" @click="deleteShot(shot)">
-                  <span aria-hidden="true">×</span>
-                  <span class="visually-hidden">
-                    {{ $t('common.delete') }}
-                    {{ $t('editor.shotNumber', { place: place + 1 }) }}
-                  </span>
-                </button>
-              </div>
+              </p>
             </div>
-          </li>
-        </ol>
 
-        <button type="button" @click="addShot(sceneWritten)">
-          {{ $t('editor.addShot') }}
-          <span class="visually-hidden">
-            {{ $t('editor.toScene', { name: sceneWritten.name }) }}
-          </span>
-        </button>
-      </div>
+            <!-- The Conditions the Shot plays under, so a Scene can say
+                 something different on a return visit without the Author
+                 drawing a second Scene to hold the changed line.
 
-      <!-- The Flags the Scene sets, as rows: the guided path points at the whole
-           list rather than at one field of it, the way it points at a Shot's
-           Conditions, because what it asks for is a Flag and a Flag is the row
-           it is added as. -->
-      <div
-        v-show="holding === 'flags'"
-        :id="`held-flags-${sceneWritten.id}`"
-        class="held"
-        role="tabpanel"
-        :aria-labelledby="`tab-flags-${sceneWritten.id}`"
-      >
-        <Flags
-          data-step="scene-flags"
-          :sets="sceneWritten.sets"
-          :scene="sceneWritten.name"
-          :id="sceneWritten.id"
-          @write="writeFlags(sceneWritten, $event)"
-        />
-      </div>
+                 The guided path points at the whole list rather than at one
+                 field of it, because what it asks for is a Condition and a
+                 Condition is the row it is added as: `data-step` lands on the
+                 component's own root, which is that list. -->
+            <Conditions
+              data-step="shot-condition"
+              :lead="$t('editor.playedWhen')"
+              :carrier="$t('editor.shotOfScene', {
+                place: place + 1,
+                scene: sceneWritten.name,
+              })"
+              :conditions="shot.conditions"
+              :scenes="story.scenes"
+              :counting="sceneWritten.id"
+              :id="shot.id"
+              @write="writeConditions('shots', shot.id, shot.conditions)"
+            />
 
-      <!-- The ways on, bare: each one's Place, the name it arrives at, and the
-           two controls that renumber it. An Exit's text and its Conditions are
-           written in the panel a way on hands over to, and what stays here is
-           what an Author cannot read an Exit without — where the Scene leads,
-           and in what order — which is also the route to an Exit for a hand that
-           is not on a pointer. -->
-      <div
-        v-show="holding === 'ways'"
-        :id="`held-ways-${sceneWritten.id}`"
-        class="ways"
-        role="tabpanel"
-        :aria-labelledby="`tab-ways-${sceneWritten.id}`"
-      >
-        <!-- No heading of its own: the tab above says what this is, and its count
-             says how much of it there is. -->
-        <p v-if="!exitsFrom(story.exits, sceneWritten.id).length" class="none">
-          {{ $t('editor.noWayOnYet') }}
-        </p>
-        <ol v-else :aria-labelledby="`tab-ways-${sceneWritten.id}`">
-          <li
-            v-for="(exit, place) in exitsFrom(story.exits, sceneWritten.id)"
-            :key="exit.id"
-            :data-way="exit.id"
-            :class="{
-              dragged: draggedWay?.exitId === exit.id,
-              under: draggedWay?.over === exit.id && draggedWay.exitId !== exit.id,
-            }"
-          >
-            <!-- The row is pressed to write the Exit and dragged to renumber
-                 it: one control, because the strip holds three things and a
-                 fourth grip for the drag would be a way on read as a toolbar.
-                 Its Place is the number it is offered at, so a row says which
-                 Exit it is before it is opened. -->
-            <button
-              :id="`way-${exit.id}`"
-              type="button"
-              class="way"
-              @pointerdown="startWayDrag(exit, $event)"
-              @pointermove="keepWayDrag"
-              @pointerup="endWayDrag(sceneWritten)"
-              @pointercancel="draggedWay = undefined"
-              @click="pressWay(exit)"
-            >
-              <span class="numbered">{{ place + 1 }}</span>
+            <!-- The three controls, as the marks they do rather than the
+                 sentences that name them: in the width the panel gives a Shot
+                 the three sentences fill the strip to its end and wrap out of
+                 it in the longer of the two languages. What each one says is
+                 not lost, it moves to where the Shot's other names are read,
+                 by assistive technology alone. -->
+            <div class="row marks">
+              <button
+                type="button"
+                :disabled="place === 0"
+                @click="moveShot(sceneWritten, shot, -1)"
+              >
+                <span aria-hidden="true">↑</span>
+                <span class="visually-hidden">
+                  {{ $t('common.moveEarlier') }}
+                  {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                </span>
+              </button>
+              <button
+                type="button"
+                :disabled="place === sceneWritten.shots.length - 1"
+                @click="moveShot(sceneWritten, shot, 1)"
+              >
+                <span aria-hidden="true">↓</span>
+                <span class="visually-hidden">
+                  {{ $t('common.moveLater') }}
+                  {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                </span>
+              </button>
+              <button type="button" class="danger" @click="deleteShot(shot)">
+                <span aria-hidden="true">×</span>
+                <span class="visually-hidden">
+                  {{ $t('common.delete') }}
+                  {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                </span>
+              </button>
+            </div>
+          </div>
+        </li>
+      </ol>
+
+      <button type="button" @click="addShot(sceneWritten)">
+        {{ $t('editor.addShot') }}
+        <span class="visually-hidden">
+          {{ $t('editor.toScene', { name: sceneWritten.name }) }}
+        </span>
+      </button>
+    </div>
+
+    <!-- The Flags the Scene sets, as rows: the guided path points at the whole
+         list rather than at one field of it, the way it points at a Shot's
+         Conditions, because what it asks for is a Flag and a Flag is the row
+         it is added as. -->
+    <div
+      v-show="holding === 'flags'"
+      :id="`held-flags-${sceneWritten.id}`"
+      class="held"
+      role="tabpanel"
+      :aria-labelledby="`tab-flags-${sceneWritten.id}`"
+    >
+      <Flags
+        data-step="scene-flags"
+        :sets="sceneWritten.sets"
+        :scene="sceneWritten.name"
+        :id="sceneWritten.id"
+        @write="writeFlags(sceneWritten, $event)"
+      />
+    </div>
+
+    <!-- The ways on: each one's Place, the name it arrives at, the two controls
+         that renumber it, and the Conditions it is offered under. The Conditions
+         are here rather than on the Exit's own line because they test the Flags
+         this very Scene sets, and the two are read together or not at all, which
+         is the side by side
+         `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md` was written
+         for. The Exit's text is written on the graph, where it can be seen
+         leading somewhere. -->
+    <div
+      v-show="holding === 'ways'"
+      :id="`held-ways-${sceneWritten.id}`"
+      class="ways"
+      role="tabpanel"
+      :aria-labelledby="`tab-ways-${sceneWritten.id}`"
+    >
+      <!-- No heading of its own: the tab above says what this is, and its count
+           says how much of it there is. -->
+      <p v-if="!exitsFrom(story.exits, sceneWritten.id).length" class="none">
+        {{ $t('editor.noWayOnYet') }}
+      </p>
+      <ol v-else :aria-labelledby="`tab-ways-${sceneWritten.id}`">
+        <li
+          v-for="(exit, place) in exitsFrom(story.exits, sceneWritten.id)"
+          :key="exit.id"
+          :data-way="exit.id"
+          :class="{
+            dragged: draggedWay?.exitId === exit.id,
+            under: draggedWay?.over === exit.id && draggedWay.exitId !== exit.id,
+          }"
+        >
+          <!-- The Place alone in the gutter, where a Shot's number sits, and the
+               handle the way on is dragged by: the row now holds a list of
+               Conditions, so a drag anywhere on it would be a drag begun in the
+               middle of a field. The two controls beside it are the same
+               renumbering for a hand that wants no drag at all. -->
+          <span
+            class="numbered"
+            @pointerdown="startWayDrag(exit, $event)"
+            @pointermove="keepWayDrag"
+            @pointerup="endWayDrag(sceneWritten)"
+            @pointercancel="draggedWay = undefined"
+          >{{ place + 1 }}</span>
+
+          <div class="written">
+            <p class="arrival">
               {{ sceneNames.get(exit.toSceneId) }}
               <span class="visually-hidden">
                 {{ $t('editor.wayOnFrom', { name: sceneWritten.name }) }}
               </span>
-            </button>
+            </p>
 
-            <button
-              type="button"
-              :disabled="place === 0"
-              @click="moveExit(sceneWritten, exit, -1)"
-            >
-              {{ $t('common.moveEarlier') }}
-              <span class="visually-hidden">
-                {{ $t('editor.theExitTo', { scene: sceneNames.get(exit.toSceneId) }) }}
-              </span>
-            </button>
-            <button
-              type="button"
-              :disabled="place === exitsFrom(story.exits, sceneWritten.id).length - 1"
-              @click="moveExit(sceneWritten, exit, 1)"
-            >
-              {{ $t('common.moveLater') }}
-              <span class="visually-hidden">
-                {{ $t('editor.theExitTo', { scene: sceneNames.get(exit.toSceneId) }) }}
-              </span>
-            </button>
-          </li>
-        </ol>
-      </div>
-    </template>
+            <!-- Named by the Place as well as by where it arrives: a Scene may
+                 offer two ways on to the same Scene under opposite Conditions,
+                 and the Place is what tells the two rows apart — on the bench it
+                 is the disc on the line. -->
+            <Conditions
+              :lead="$t('editor.offeredWhen')"
+              :carrier="$t('editor.theWayOnTo', {
+                place: place + 1,
+                scene: sceneNames.get(exit.toSceneId),
+              })"
+              :conditions="exit.conditions"
+              :scenes="story.scenes"
+              :counting="sceneWritten.id"
+              :id="exit.id"
+              @write="writeConditions('exits', exit.id, exit.conditions)"
+            />
 
-    <template v-else-if="exitWritten">
-      <!-- The Exit names the Scene it leaves, and the name is the way back: a
-           Exit is written in the same panel the Scene was, so the panel that
-           took the Scene's place hands it back. -->
-      <button
-        type="button"
-        class="back trail"
-        @click="$emit('writeScene', exitWritten.exit.fromSceneId)"
-      >
-        {{ $t('editor.backToScene', { name: exitWritten.from }) }}
-      </button>
-
-      <label class="eyebrow" :for="`exit-${exitWritten.exit.id}`">
-        {{ $t('exit.to', { scene: exitWritten.to }) }}
-      </label>
-      <input
-        :id="`exit-${exitWritten.exit.id}`"
-        v-model="exitWritten.exit.text"
-        :maxlength="EXIT_TEXT_MAX_LENGTH"
-        @change="writeExit(exitWritten.exit)"
-      >
-
-      <Conditions
-        :lead="$t('editor.offeredWhen')"
-        :carrier="$t('editor.theExitTo', { scene: exitWritten.to })"
-        :conditions="exitWritten.exit.conditions"
-        :scenes="story.scenes"
-        :counting="exitWritten.exit.fromSceneId"
-        :id="exitWritten.exit.id"
-        @write="writeConditions('exits', exitWritten.exit.id, exitWritten.exit.conditions)"
-      />
-
-      <!-- The way on leads somewhere else, without losing the text and the
-           Conditions above: pressing this enters the very gesture the endpoint of
-           the line enters, and the hidden button on each card is what lands it. So
-           a hand that never touches a pointer corrects a way on the same way, and
-           the Exit is not deleted and drawn again to do it. -->
-      <button type="button" @click="emit('lead', exitWritten.exit)">
-        {{ $t('editor.leadExitElsewhere') }}
-      </button>
-
-      <!-- The deliberate route to a second way on to the same Scene, which the
-           aiming gesture withholds so that the hand cannot draw one by
-           accident. -->
-      <button type="button" @click="duplicateExit(exitWritten.exit)">
-        {{ $t('editor.duplicateExitTo', { scene: exitWritten.to }) }}
-      </button>
-
-      <button type="button" class="danger" @click="deleteExit(exitWritten.exit)">
-        {{ $t('editor.deleteExitTo', { scene: exitWritten.to }) }}
-      </button>
-    </template>
+            <div class="row">
+              <button
+                type="button"
+                :disabled="place === 0"
+                @click="moveExit(sceneWritten, exit, -1)"
+              >
+                {{ $t('common.moveEarlier') }}
+                <span class="visually-hidden">
+                  {{ $t('editor.theWayOnTo', {
+                    place: place + 1,
+                    scene: sceneNames.get(exit.toSceneId),
+                  }) }}
+                </span>
+              </button>
+              <button
+                type="button"
+                :disabled="place === exitsFrom(story.exits, sceneWritten.id).length - 1"
+                @click="moveExit(sceneWritten, exit, 1)"
+              >
+                {{ $t('common.moveLater') }}
+                <span class="visually-hidden">
+                  {{ $t('editor.theWayOnTo', {
+                    place: place + 1,
+                    scene: sceneNames.get(exit.toSceneId),
+                  }) }}
+                </span>
+              </button>
+            </div>
+          </div>
+        </li>
+      </ol>
+    </div>
   </div>
 </template>
 
@@ -1240,83 +1108,79 @@ function deleteExit(exit: Exit) {
   gap: var(--s1);
 }
 
+/* A way on is laid out as a Shot is: its number in the gutter, and what is
+   written about it beside — where it arrives, the Conditions it is offered
+   under, and the two controls that renumber it. */
 .ways li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s1);
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr);
+  gap: var(--s2);
+  padding-block-end: var(--s3);
+  border-block-end: 1px dashed color-mix(in oklab, var(--edge) 70%, transparent);
 }
 
-/* One way on, read as the line it is rather than as a button: where it arrives,
-   and the Place it is offered at in the gutter. The whole row is the target,
-   because it is pressed to write the Exit and dragged to renumber it. */
-.way {
-  /* Narrow enough that the name and the two controls are one line of a node this
-     width, and free to grow into what they leave: a long Scene name wraps inside
-     the row rather than pushing a control onto a line of its own. */
-  flex: 1 1 4rem;
-  min-inline-size: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  padding: var(--s1) var(--s2);
+.ways li:last-child {
+  border-block-end: none;
+  padding-block-end: 0;
+}
+
+/* Where the way on arrives, read as the line it is: the Scene's name, at the
+   weight the Shots' own text is read at. */
+.arrival {
   font-size: 0.8125rem;
-  font-weight: 400;
-  text-align: start;
-  cursor: grab;
-  /* Dragged rather than scrolled under a finger, the same as the two gestures the
-     bench already carries. */
-  touch-action: none;
 }
 
 /* The Place, in the grease pencil the disc on the line wears, so the number in
-   the node and the number on the bench read as the one number. */
+   the strip and the number on the bench read as the one number. It is also what
+   the row is dragged by, and it refuses to be selected for the reason a Shot's
+   number does: a mouse held down on text drags a selection and the page scrolls
+   after it. */
 .numbered {
-  flex: none;
   min-inline-size: 1.25rem;
   color: var(--grease);
   font-family: var(--data);
   font-variant-numeric: tabular-nums;
   text-align: end;
+  user-select: none;
+  cursor: grab;
+  /* Dragged rather than scrolled under a finger, the same as the gestures the
+     bench carries. The two controls are the route for a hand that wants no drag
+     at all. */
+  touch-action: none;
 }
 
 /* The row in the hand, and the row whose Place it would take: the gesture says
    what it is about to do before the Author lets go, the same way the line being
-   drawn does. */
-.ways li.dragged .way {
+   drawn does, and the same way a Shot being dragged does. */
+.ways li.dragged {
   opacity: 0.5;
 }
 
-.ways li.under .way {
-  border-color: var(--grease);
+.ways li.under {
+  background: color-mix(in oklab, var(--grease) 12%, transparent);
 }
 
 /* The two controls that renumber, held to the size the ones under a Shot are:
    they are the keyboard's way to do what the drag does. */
-.ways li button:not(.way) {
+.ways li .row button {
   flex: none;
   padding: var(--s1) var(--s2);
   font-size: 0.6875rem;
 }
 
-/* The panel a Scene or an Exit is written in, docked at the trailing edge of the
-   bench. Three hundred and eighty pixels is a node's own width and a little over:
-   wide enough for a Shot's text, its image and its Description on the lines they
-   sit on inside a node today, and narrow enough to leave the graph most of the
-   screen. It is as tall as the bench and scrolls inside itself, so a Scene of
-   twenty Shots is read here rather than down the page. */
+/* A Scene is written at the width the folded graph leaves, which is the bench's
+   own less the rail: writing is the state the bench is in rather than a strip at
+   the edge of it. */
 .panel {
-  flex: none;
+  flex: 1;
   display: grid;
   gap: var(--s2);
   align-content: start;
   justify-items: start;
-  inline-size: 380px;
-  /* As tall as what is being written and no taller, up to the height of the
-     bench, past which it scrolls inside itself. An Exit is three controls and a
-     line of text, so a panel held at the bench's full height would be mostly
-     empty steel; a Scene of twenty Shots is read here rather than down the page. */
-  max-block-size: var(--bench-height);
+  min-inline-size: 0;
+  /* The height of the bench, past which a Scene of twenty Shots scrolls inside
+     itself rather than down the page. */
+  block-size: var(--bench-height);
   overflow: auto;
   padding: var(--s3);
   border: 1px solid var(--edge);
@@ -1339,26 +1203,13 @@ function deleteExit(exit: Exit) {
   max-inline-size: 46ch;
 }
 
-/* A Scene is written at the width the folded graph leaves, which is the bench's
-   own less the rail: writing is the state the bench is in rather than a strip at
-   the edge of it. An Exit keeps the docked width above — it is three controls and
-   a line of text, and #168 is where it stops taking the Scene's place at all. */
-.panel.full {
-  flex: 1;
-  inline-size: auto;
-  min-inline-size: 0;
-  block-size: var(--bench-height);
-  max-block-size: none;
-}
-
 /* Everything in the panel is one column of it, whatever the grid would rather do
    with a lone button. */
 .panel > * {
   justify-self: stretch;
 }
 
-.close,
-.back {
+.close {
   justify-self: start;
 }
 
@@ -1370,7 +1221,6 @@ function deleteExit(exit: Exit) {
     position: fixed;
     inset: 0;
     z-index: 3;
-    inline-size: auto;
     block-size: auto;
     /* The page's own margin, because at this width the panel *is* the page. */
     padding: var(--s4);
