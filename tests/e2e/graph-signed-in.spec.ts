@@ -357,11 +357,12 @@ test('an Author lays out the graph from the page alone', async ({ page, request 
     expect(node).toMatchObject({ x: 20, y: 20 })
   }).toPass()
 
-  // And the pointer drags it from anywhere on the card, which is how an Author
-  // actually lays out a graph: the point taken here is the foot of the card,
-  // which carries no control at all.
+  // And the pointer drags it from anywhere on the card's body, which is how an
+  // Author actually lays out a graph: the point taken here is low on the card and
+  // inside its rim, so it carries no control and is not an edge an Exit is drawn
+  // from.
   const box = (await node.boundingBox())!
-  const held = { x: box.x + box.width / 2, y: box.y + box.height - 8 }
+  const held = { x: box.x + box.width / 2, y: box.y + box.height - NODE_PITCH - 8 }
   await page.mouse.move(held.x, held.y)
   await page.mouse.down()
   await page.mouse.move(held.x + 100, held.y + 60, { steps: 5 })
@@ -1821,6 +1822,184 @@ test('the keyboard draws the same Exit, through a button hidden until it is focu
     .toBeDisabled()
 })
 
+/** Puts the hand down on one of the three edges the strip is not, a pitch in. */
+async function aimFromEdge(page: Page, name: string, edge: 'top' | 'trailing' | 'bottom') {
+  const box = (await page.getByRole('article', { name }).boundingBox())!
+  const at = {
+    top: { x: box.x + box.width / 2, y: box.y + NODE_PITCH / 2 },
+    trailing: { x: box.x + box.width - NODE_PITCH / 2, y: box.y + box.height / 2 },
+    bottom: { x: box.x + box.width / 2, y: box.y + box.height - NODE_PITCH / 2 },
+  }[edge]
+
+  await page.mouse.move(at.x, at.y)
+  await page.mouse.down()
+}
+
+test('an Exit is drawn from any edge of a card, and the body still lays the graph out',
+  async ({ page, request }) => {
+    const { story, scenes } = await openRow(request, ['The arrival', 'The platform', 'The bar'])
+    await page.goto(`/stories/${story.id}`)
+    const [arrival, platform, bar] = scenes as [{ id: string }, { id: string }, { id: string }]
+
+    // The trailing edge, which is the one an Exit heading right leaves by and the
+    // one the old strip was never on.
+    await aimFromEdge(page, 'The arrival', 'trailing')
+    await moveOver(page, 'The platform')
+    await expect(drawnLine(page)).toHaveCount(1)
+    await page.mouse.up()
+    await expect(toast(page)).toHaveText('Exit from The arrival to The platform drawn')
+
+    // The bottom edge draws the same Exit as the top one and as the strip: which
+    // edge the hand found is not a distinction the bench makes.
+    await aimFromEdge(page, 'The arrival', 'bottom')
+    await moveOver(page, 'The bar')
+    await page.mouse.up()
+    await expect(toast(page)).toHaveText('Exit from The arrival to The bar drawn')
+    await expect.poll(() => readExits(arrival.id)).toMatchObject([
+      { toSceneId: platform.id, position: 0 },
+      { toSceneId: bar.id, position: 1 },
+    ])
+
+    // And the card's body is still the handle: gaining a way to draw did not cost
+    // the way to arrange. Dragged from the middle, where no edge reaches, the Scene
+    // moves and nothing is drawn.
+    const middle = await middleOfNode(page, 'The platform')
+    await page.mouse.move(middle.x, middle.y)
+    await page.mouse.down()
+    await page.mouse.move(middle.x + 100, middle.y + 60, { steps: 5 })
+    await expect(drawnLine(page)).toHaveCount(0)
+    await page.mouse.up()
+
+    await expect.poll(() => readScenePlacement(platform.id))
+      .toMatchObject({ x: NODE_WIDTH + NODE_GAP + 100, y: 60 })
+    await expect.poll(() => readExits(arrival.id)).toHaveLength(2)
+  })
+
+/**
+ * Where an Exit's endpoint can be taken hold of, in the page's own coordinates: a
+ * little back along its own line from the point it arrives at, because the cards
+ * are drawn over the lines and the half of the endpoint that lies under the card
+ * it points at belongs to that card.
+ */
+async function endpointOf(page: Page, exitId: string) {
+  return await page.locator(`g[data-exit="${exitId}"]`).evaluate((held) => {
+    const line = held.querySelector('line')!
+    const from = { x: line.x1.baseVal.value, y: line.y1.baseVal.value }
+    const to = { x: line.x2.baseVal.value, y: line.y2.baseVal.value }
+    const length = Math.hypot(to.x - from.x, to.y - from.y)
+    const along = 8 / length
+    const at = new DOMPoint(
+      to.x + (from.x - to.x) * along,
+      to.y + (from.y - to.y) * along,
+    ).matrixTransform(held.getScreenCTM()!)
+
+    return { x: at.x, y: at.y }
+  })
+}
+
+/** Takes hold of an Exit's endpoint, which is what leads it somewhere else. */
+async function takeEndpoint(page: Page, exitId: string) {
+  const at = await endpointOf(page, exitId)
+  await page.mouse.move(at.x, at.y)
+  await page.mouse.down()
+}
+
+test('an Exit is led to another Scene by dragging its endpoint, and keeps what it carries',
+  async ({ page, request }) => {
+    const { story, scenes } = await openRow(request, ['The arrival', 'The platform', 'The bar'])
+    const [arrival, platform, bar] = scenes as [{ id: string }, { id: string }, { id: string }]
+    const exit = await drawExit(request, arrival.id, platform.id)
+
+    // The text and the Conditions an Author would lose by deleting the Exit and
+    // drawing it again, which is the whole reason for leading it instead.
+    expect((await request.patch(`/api/exits/${exit.id}`, {
+      data: { text: 'Follow the porter' },
+    })).status()).toBe(200)
+    expect((await request.put(`/api/exits/${exit.id}/conditions`, {
+      data: { conditions: [{ flag: 'coat', is: 'on' }] },
+    })).status()).toBe(200)
+
+    await page.goto(`/stories/${story.id}`)
+    await takeEndpoint(page, exit.id)
+    await expect(toast(page)).toHaveText(/Leading the Exit from The arrival to The platform/)
+
+    // The Exit's own line goes off the bench while the hand carries it, so what is
+    // drawn is the one line under the hand.
+    await expect(page.locator(`g[data-exit="${exit.id}"] line`).first()).toBeHidden()
+
+    // It cannot be led onto the Scene it leaves, nor onto the Scene it already
+    // reaches — which is itself, so letting go where it already leads changes
+    // nothing rather than writing a second way on there.
+    await moveOver(page, 'The arrival')
+    await expect(drawnLine(page)).not.toHaveAttribute('marker-end')
+    await moveOver(page, 'The platform')
+    await expect(drawnLine(page)).not.toHaveAttribute('marker-end')
+
+    // Onto a Scene it may reach, the arrowhead comes back and the card is lit.
+    await moveOver(page, 'The bar')
+    await expect(page.getByRole('article', { name: 'The bar' })).toHaveClass(/lit/)
+    await expect(drawnLine(page)).toHaveAttribute('marker-end', 'url(#exit-head)')
+    await page.mouse.up()
+
+    // The same Exit, arriving somewhere else: its id, its text, its Conditions and
+    // its Place are all as they were.
+    await expect(toast(page)).toHaveText('Exit from The arrival now leads to The bar')
+    await expect.poll(() => readExits(arrival.id)).toMatchObject([{
+      id: exit.id,
+      fromSceneId: arrival.id,
+      toSceneId: bar.id,
+      text: 'Follow the porter',
+      position: 0,
+      conditions: [{ flag: 'coat', is: 'on' }],
+    }])
+
+    // And an endpoint let go of in empty space leaves the Exit exactly as it was:
+    // no Scene is written under it, and nothing is deleted without being asked.
+    // Taken hold of again once the bench has read the Story back, because the
+    // endpoint to take hold of is the one at the Scene the Exit now leads to.
+    await expect(page.getByRole('article', { name: 'The arrival' })).toContainText('on to The bar')
+    const surface = (await page.locator('.surface').boundingBox())!
+    await takeEndpoint(page, exit.id)
+    await page.mouse.move(surface.x + 40, surface.y + NODE_HEIGHT + 120, { steps: 5 })
+    await page.mouse.up()
+
+    await expect(toast(page)).toHaveText('The Exit was left where it led')
+    await expect.poll(() => readExits(arrival.id)).toMatchObject([
+      { id: exit.id, toSceneId: bar.id, position: 0, conditions: [{ flag: 'coat', is: 'on' }] },
+    ])
+    expect((await (await request.get(`/api/stories/${story.id}`)).json()).scenes).toHaveLength(3)
+  })
+
+test('the keyboard leads an Exit the same way, from the panel it is written in',
+  async ({ page, request }) => {
+    const { story, scenes } = await openRow(request, ['The arrival', 'The platform', 'The bar'])
+    const [arrival, , bar] = scenes as [{ id: string }, { id: string }, { id: string }]
+    const exit = await drawExit(request, arrival.id, scenes[1]!.id)
+
+    await page.goto(`/stories/${story.id}`)
+    await writeScene(page, 'The arrival')
+    await openWayOn(page, 'The arrival', 'The platform')
+
+    // The panel the Exit is written in is where a hand without a pointer begins the
+    // gesture the endpoint begins.
+    await page.getByRole('button', { name: 'Lead this Exit to another Scene' }).click()
+    await expect(toast(page)).toHaveText(/Leading the Exit from The arrival to The platform/)
+    await expect(page.getByRole('article', { name: 'The bar' })).toHaveClass(/lit/)
+
+    // Every Scene it may be led to offers the landing on the same hidden button the
+    // drawing lands on, named as what pressing it would do; the Scene it leaves
+    // offers the way out.
+    await expect(page.getByRole('button', { name: 'Leave the Exit from The arrival where it leads' }))
+      .toHaveCount(1)
+    await page.getByRole('button', { name: 'Lead the Exit from The arrival to The bar' })
+      .press('Enter')
+
+    await expect(toast(page)).toHaveText('Exit from The arrival now leads to The bar')
+    await expect.poll(() => readExits(arrival.id)).toMatchObject([
+      { id: exit.id, toSceneId: bar.id, position: 0 },
+    ])
+  })
+
 /**
  * A Story laid out far enough apart that the bench has somewhere to go: a graph
  * smaller than the window scrolls nowhere, zooms about nothing in particular and
@@ -2002,8 +2181,11 @@ test('the bare bench is pushed about under the hand', async ({ page, request }) 
   const node = page.getByRole('article', { name: 'The arrival' })
   await node.scrollIntoViewIfNeeded()
   await expect.poll(() => framed(page, 'The arrival')).toBe(true)
+  // Held in the middle of the card, which is inside its rim at any scale: the band
+  // an Exit is drawn from is a pitch of surface, so on a bench pulled back to a
+  // quarter it is five pixels of screen and the foot of the card is inside it.
   const card = (await node.boundingBox())!
-  const held = { x: card.x + card.width / 2, y: card.y + card.height - 4 }
+  const held = { x: card.x + card.width / 2, y: card.y + card.height / 2 }
   await page.mouse.move(held.x, held.y)
   await page.mouse.down()
   await page.mouse.move(held.x + 100, held.y + 60, { steps: 5 })
@@ -2129,9 +2311,10 @@ test('the bench takes the width it is given and never more', async ({ page, requ
   const node = page.getByRole('article', { name: 'The arrival' })
   await node.scrollIntoViewIfNeeded()
   const card = (await node.boundingBox())!
-  await page.mouse.move(card.x + card.width / 2, card.y + card.height - 8)
+  const held = card.y + card.height / 2
+  await page.mouse.move(card.x + card.width / 2, held)
   await page.mouse.down()
-  await page.mouse.move(1275, card.y + card.height - 8, { steps: 8 })
+  await page.mouse.move(1275, held, { steps: 8 })
   await page.mouse.up()
 
   await expect.poll(() => readScenePlacement(scenes[0]!.id).then(node => node.x))

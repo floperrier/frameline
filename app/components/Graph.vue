@@ -552,6 +552,13 @@ function letGoOfBench() {
 const aiming = ref<{
   fromSceneId: string
   landsOn: Set<string>
+  /**
+   * The Exit being led somewhere else, where the gesture took hold of one that is
+   * already drawn, and nothing where it is drawing a new one. Which of the two is
+   * happening is the only thing that differs between them: the same line follows
+   * the hand, the same Scenes are lit, and the same key lets go.
+   */
+  led?: string
   at?: Point
   over?: string
 }>()
@@ -578,23 +585,63 @@ const landing = computed(
   () => !aiming.value?.over || aiming.value.landsOn.has(aiming.value.over))
 
 /**
- * Begins the aiming, from either way in. The pointer and the hidden button enter
- * this one state rather than two that have to be kept in agreement.
+ * Begins the aiming, from any of the ways in. The pointer on an edge, the pointer
+ * on an Exit's endpoint, the hidden button and the panel all enter this one state
+ * rather than four that have to be kept in agreement.
+ *
+ * An Exit being led elsewhere is aimed from the Scene it leaves, which is why the
+ * Scenes it may land on are the same set as for one being drawn: the Scene it
+ * leaves is out, and so is every Scene that Scene already reaches — including the
+ * one this very Exit reaches, so letting go where it already leads leaves it
+ * alone.
  */
-function aimFrom(scene: Scene) {
+function aimFrom(scene: Scene, led?: Exit) {
   aiming.value = {
     fromSceneId: scene.id,
     landsOn: scenesAExitMayLandOn(story?.scenes ?? [], story?.exits ?? [], scene.id),
+    led: led?.id,
   }
-  announce(t('editor.aimingFrom', { name: scene.name }))
+  announce(led
+    ? t('editor.leadingExit', {
+        from: scene.name,
+        to: sceneNamed(sceneNames.value, led.toSceneId, t),
+      })
+    : t('editor.aimingFrom', { name: scene.name }))
 }
 
 function startAiming(scene: Scene, event: PointerEvent) {
   if (folded.value) return
-  // Capturing the pointer sends the rest of the gesture to the strip itself, so
+  // Capturing the pointer sends the rest of the gesture to the rim itself, so
   // the line goes on following a hand that has left the node it started on.
   ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
   aimFrom(scene)
+}
+
+/**
+ * The hand taking hold of an Exit's endpoint. Where it began is what tells this
+ * gesture from the one that draws a new Exit — an endpoint rather than an edge —
+ * and from there the two are the same gesture with the same ends.
+ */
+function startLeading(exitId: string, event: PointerEvent) {
+  if (folded.value) return
+  const led = story?.exits.find(exit => exit.id === exitId)
+  const from = led && sceneById(led.fromSceneId)
+  if (!led || !from) return
+
+  ;(event.currentTarget as SVGElement).setPointerCapture(event.pointerId)
+  aimFrom(from, led)
+}
+
+/**
+ * The panel's way into the same gesture, handed to it through the slot it is
+ * rendered in: an Exit is written there, and leading it elsewhere is one more
+ * thing done to the Exit in front of the Author. From here the hidden button on
+ * each card is what lands it, so a hand that never touches a pointer reaches the
+ * same end as one that drags the endpoint.
+ */
+function leadElsewhere(exit: Exit) {
+  const from = sceneById(exit.fromSceneId)
+  if (from) aimFrom(from, exit)
 }
 
 function keepAiming(event: PointerEvent) {
@@ -630,18 +677,35 @@ function sceneUnder(event: PointerEvent) {
 }
 
 /**
- * Draws the Exit where the gesture landed, or lets it go where it landed on a
- * Scene it may not land on — one it already reaches, or the one it left. Landing
- * on the bare bench writes the Scene that was not there; landing off the bench, or
- * on nothing at all, which is the keyboard route abandoned, leaves the Story
- * exactly as it was.
+ * Draws the Exit where the gesture landed — or leads the one it took hold of
+ * there, keeping its text, its Conditions and its Place, because only where it
+ * arrives is written. Letting go on a Scene it may not land on, one it already
+ * reaches or the one it left, does nothing.
+ *
+ * Landing on the bare bench writes the Scene that was not there, but only for an
+ * Exit being drawn: an endpoint let go of in empty space leaves its Exit exactly
+ * as it was, rather than dragging a Scene into the Story behind it or, as
+ * Arcweave would have it, destroying the Exit unasked — `0017` says a
+ * confirmation is drawn on the bench. Landing off the bench, or on nothing at
+ * all, which is the keyboard route abandoned, leaves the Story as it was either
+ * way.
  */
 function landOn(sceneId: string | undefined, onBench = false) {
   const aimed = aiming.value
   aiming.value = undefined
   if (!aimed) return
-  if (!sceneId) return onBench && aimed.at ? writeSceneAt(aimed.fromSceneId, aimed.at) : undefined
-  if (!aimed.landsOn.has(sceneId)) return
+  const led = aimed.led
+
+  if (!sceneId || !aimed.landsOn.has(sceneId)) {
+    // An endpoint let go of anywhere but on a Scene the Exit may reach leaves the
+    // Exit exactly as it was, and says so: a drag that ends in silence reads as a
+    // drag that went wrong.
+    if (led) return announce(t('editor.exitNotLed'))
+
+    return !sceneId && onBench && aimed.at
+      ? writeSceneAt(aimed.fromSceneId, aimed.at)
+      : undefined
+  }
 
   const said = {
     from: sceneNamed(sceneNames.value, aimed.fromSceneId, t),
@@ -649,11 +713,13 @@ function landOn(sceneId: string | undefined, onBench = false) {
   }
 
   return change(async () => {
-    await send(`/api/scenes/${aimed.fromSceneId}/exits`, {
-      method: 'POST',
-      body: { toSceneId: sceneId },
-    })
-    announce(t('editor.exitDrawn', said))
+    await (led
+      ? send(`/api/exits/${led}/scene`, { method: 'PUT', body: { toSceneId: sceneId } })
+      : send(`/api/scenes/${aimed.fromSceneId}/exits`, {
+          method: 'POST',
+          body: { toSceneId: sceneId },
+        }))
+    announce(t(led ? 'editor.exitLedTo' : 'editor.exitDrawn', said))
   })
 }
 
@@ -703,9 +769,10 @@ async function writeSceneAt(fromSceneId: string, at: Point) {
 }
 
 function abandonAiming() {
-  if (!aiming.value) return
+  const aimed = aiming.value
+  if (!aimed) return
   aiming.value = undefined
-  announce(t('editor.exitAbandoned'))
+  announce(t(aimed.led ? 'editor.exitNotLed' : 'editor.exitAbandoned'))
 }
 
 /**
@@ -735,9 +802,11 @@ function aimingName(scene: Scene) {
 
   const from = sceneNamed(sceneNames.value, aimed.fromSceneId, t)
 
-  return aimed.fromSceneId === scene.id
-    ? t('editor.abandonExitFrom', { name: from })
-    : t('editor.exitFromTo', { from, to: scene.name })
+  if (aimed.fromSceneId === scene.id) {
+    return t(aimed.led ? 'editor.leaveExitFrom' : 'editor.abandonExitFrom', { name: from })
+  }
+
+  return t(aimed.led ? 'editor.leadExitTo' : 'editor.exitFromTo', { from, to: scene.name })
 }
 
 /**
@@ -802,14 +871,13 @@ function sceneById(id: string) {
 /**
  * Begins the drag that lays a Scene out. A card is dragged from anywhere on it —
  * there is nothing on it to type into, so the whole box is the handle — bar the
- * controls it carries and the strip down its leading edge, which is where an Exit
- * is drawn from. One test for every control rather than a list of the two or
- * three there are today: a button on a card is pressed, never dragged, and a
- * button added tomorrow is out of the gesture without anyone remembering to say
- * so.
+ * controls it carries and the rim round its edge, which is where an Exit is drawn
+ * from. One test for every control rather than a list of the two or three there
+ * are today: a button on a card is pressed, never dragged, and a button added
+ * tomorrow is out of the gesture without anyone remembering to say so.
  */
 function startDrag(scene: Scene, event: PointerEvent) {
-  if ((event.target as Element).closest('button, .strip')) return
+  if ((event.target as Element).closest('button, .rim')) return
   // A card in the rail is pressed rather than dragged: nothing is moved and
   // nothing renumbered there, and the press writes the Scene it lands on. The
   // controls the card carries are left out above, so the one on it that writes
@@ -1080,7 +1148,12 @@ function atAGlance(scene: Scene) {
                   <path d="M 0 0 L 8 4 L 0 8 z" />
                 </marker>
               </defs>
-              <g v-for="line in exitLines" :key="line.id" :data-exit="line.id">
+              <g
+                v-for="line in exitLines"
+                :key="line.id"
+                :data-exit="line.id"
+                :class="{ leading: aiming?.led === line.id }"
+              >
                 <!-- The wide invisible stroke behind the line, which is what the
                      hand actually aims at: an Exit is written by pressing its line,
                      and a line and a half of pixels is nobody's idea of a target.
@@ -1113,6 +1186,28 @@ function atAGlance(scene: Scene) {
                      ninety-nine ways on is not a Scene. -->
                 <circle class="disc" :cx="line.disc.x" :cy="line.disc.y" r="9" />
                 <text class="place" :x="line.disc.x" :y="line.disc.y">{{ line.place }}</text>
+
+                <!-- The endpoint, where the Exit arrives: taken hold of and dropped
+                     on another card, it leads the Exit there and keeps everything
+                     the Exit carries. The cards are drawn over the lines, so what is
+                     really under the hand is the half of this that lies outside the
+                     card the arrowhead points at — which is the half an Author aims
+                     for anyway.
+
+                     The press stops here and its default is refused, for the two
+                     reasons the line beside it does: it must not reach the bench
+                     that would close the panel, and it must not take the focus off
+                     whatever the panel has just put it in. -->
+                <circle
+                  class="endpoint"
+                  :cx="line.to.x"
+                  :cy="line.to.y"
+                  r="11"
+                  @pointerdown.stop.prevent="startLeading(line.id, $event)"
+                  @pointermove="keepAiming"
+                  @pointerup="endAiming"
+                  @pointercancel="abandonAiming"
+                />
               </g>
 
               <!-- The Exit under the Author's hand: the same grease pencil as the
@@ -1157,22 +1252,12 @@ function atAGlance(scene: Scene) {
               @pointerup="endDrag"
               @keydown="nudge(scene, $event)"
             >
-              <!-- The strip down the card's leading edge, and where an Exit is drawn
-                   from. It runs the card's full height, the gesture is immediate
-                   under a finger with no long press, and it carries the mark that
-                   says which Scene a Reading opens on.
-
-                   `.self`, because the button it holds is pressed and not dragged: a
-                   pointer going down on it would otherwise begin a gesture the click
-                   that follows would have to undo. -->
-              <div
-                class="strip"
-                data-step="draw-exit"
-                @pointerdown.self="startAiming(scene, $event)"
-                @pointermove="keepAiming"
-                @pointerup="endAiming"
-                @pointercancel="abandonAiming"
-              >
+              <!-- The strip down the card's leading edge: the column that carries
+                   the mark saying which Scene a Reading opens on, and the keyboard's
+                   way into the aiming. The gesture itself is the rim's now, and the
+                   rim covers the strip, so what an Author has always drawn an Exit
+                   from goes on drawing one. -->
+              <div class="strip" data-step="draw-exit">
                 <!-- The keyboard's way into the same aiming: a button hidden until
                      it takes focus, the pattern a skip link uses, so the gesture
                      stays the only visible way in while assistive technology still
@@ -1247,13 +1332,38 @@ function atAGlance(scene: Scene) {
                   {{ $t('editor.openingScene') }}
                 </p>
               </div>
+
+              <!-- The rim: a band of the bench's own pitch round all four edges of
+                   the card, and where an Exit is drawn from. Any edge rather than
+                   one, so the gesture is found by reaching for the outside of the
+                   card instead of for a particular side of it — the card's body is
+                   still the handle that lays the graph out, and the two are told
+                   apart by where the hand goes down rather than by a modifier.
+
+                   Laid over the card with its middle cut out, so one declaration
+                   settles both where the crosshair is shown and where the gesture
+                   begins: the browser hit-tests what `clip-path` leaves and no
+                   more. Last, so it covers the strip; the two controls a card
+                   carries come back over it by their own z-index. -->
+              <div
+                class="rim"
+                @pointerdown="startAiming(scene, $event)"
+                @pointermove="keepAiming"
+                @pointerup="endAiming"
+                @pointercancel="abandonAiming"
+              ></div>
             </article>
           </div>
         </div>
       </div>
     </div>
 
-    <slot name="panel" />
+    <!-- The panel is handed the way into the aiming, because leading an Exit
+         elsewhere is done to the Exit the panel is writing and the gesture lives
+         out here. A slot prop rather than a state passed down and an event passed
+         back: what the panel wants is to begin the gesture, and that is a
+         function. -->
+    <slot name="panel" :lead="leadElsewhere" />
 
     <!-- The third column of the bench while a Scene is being written: the Story
          read as a Reader gets it. The page settles what is in it, like the panel
@@ -1595,6 +1705,33 @@ svg text.place {
   dominant-baseline: central;
 }
 
+/* The endpoint of a finished Exit: nothing to look at until the hand is on it,
+   and then the grease pencil, so a way on stays a line rather than a line with a
+   fitting on the end of it. What can be taken hold of is the half of this that
+   lies outside the card, the cards being drawn over the lines. */
+svg circle.endpoint {
+  fill: transparent;
+  /* Asked back from the drawing, which takes no presses. `fill` and not the
+     default, which wants paint that can be seen: what settles where a hit lands
+     is the circle, not whether anything was drawn in it. */
+  pointer-events: fill;
+  cursor: grab;
+}
+
+svg circle.endpoint:hover {
+  fill: color-mix(in oklab, var(--grease) 35%, transparent);
+}
+
+/* The Exit being led somewhere else is taken off the bench while the hand carries
+   it: what is on screen is the one line under the hand, not that line and the
+   Exit's old one both. The endpoint itself stays, because it is what the pointer
+   is captured on. */
+svg g.leading line,
+svg g.leading circle.disc,
+svg g.leading text.place {
+  visibility: hidden;
+}
+
 /* The Exit under the Author's hand. It is the Author's mark, so it is the grease
    pencil like every finished Exit — and since it is dragged across a bench full of
    them in that same colour, what tells it apart is that its dashes march. That
@@ -1626,6 +1763,10 @@ article {
   position: absolute;
   display: grid;
   grid-template-columns: var(--pitch) minmax(0, 1fr);
+  /* A stacking context of its own, so the order the rim, the card's controls and
+     the hidden button are drawn in is settled inside one card and says nothing
+     about which card is in front of which. */
+  isolation: isolate;
   /* Nothing on a card scrolls: what does not fit is clipped by the box, which has
      machined corners of its own. */
   overflow: hidden;
@@ -1683,8 +1824,35 @@ article.drawing {
   position: relative;
   border-inline-end: 1px solid var(--edge);
   background: color-mix(in oklab, var(--bench) 60%, transparent);
-  /* The hand draws an Exit from here, and a finger draws one without waiting. */
+}
+
+/* The rim: the band an Exit is drawn from, one pitch wide round all four edges,
+   laid over the card with its middle cut out. `clip-path` is hit-tested as well
+   as painted, so the crosshair is shown exactly where the gesture begins and the
+   card's body underneath is left to the drag that lays the graph out — no
+   arithmetic to keep in step with a stylesheet, and no second box to keep the
+   size of.
+
+   A finger draws from here without waiting: `touch-action` is already `none` on
+   the card this sits on. */
+.rim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
   cursor: crosshair;
+  clip-path: polygon(
+    evenodd,
+    0 0,
+    100% 0,
+    100% 100%,
+    0 100%,
+    0 0,
+    var(--pitch) var(--pitch),
+    calc(100% - var(--pitch)) var(--pitch),
+    calc(100% - var(--pitch)) calc(100% - var(--pitch)),
+    var(--pitch) calc(100% - var(--pitch)),
+    var(--pitch) var(--pitch)
+  );
 }
 
 /* The keyboard's way in, hidden until it is focused — the pattern a skip link
@@ -1707,7 +1875,7 @@ article.drawing {
 }
 
 .aim:focus {
-  z-index: 2;
+  z-index: 3;
   inline-size: max-content;
   block-size: auto;
   overflow: visible;
@@ -1765,7 +1933,13 @@ article.opens .strip {
    find on a phone rather than the size of its ten-pixel label, and a pointer
    rather than the card's own move cursor, because this is pressed and not
    dragged. */
+/* Over the rim, which reaches a pitch into the card and would otherwise take the
+   top of this button for the gesture that draws an Exit: a control on a card is
+   pressed, and the rim is what is left of the card once its controls have had
+   what they need. */
 .write {
+  position: relative;
+  z-index: 2;
   flex: none;
   min-block-size: 2.25rem;
   padding: var(--s1) var(--s3);

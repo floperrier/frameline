@@ -52,6 +52,8 @@ const emit = defineEmits<{
   openExit: [string]
   close: []
   attached: [string]
+  /** Lead this Exit to another Scene — the aiming is the graph's, so it is asked for. */
+  lead: [Exit]
 }>()
 
 const { t } = useI18n()
@@ -982,6 +984,15 @@ function deleteExit(exit: Exit) {
         :id="exitWritten.exit.id"
         @write="writeConditions('exits', exitWritten.exit.id, exitWritten.exit.conditions)"
       />
+
+      <!-- The way on leads somewhere else, without losing the text and the
+           Conditions above: pressing this enters the very gesture the endpoint of
+           the line enters, and the hidden button on each card is what lands it. So
+           a hand that never touches a pointer corrects a way on the same way, and
+           the Exit is not deleted and drawn again to do it. -->
+      <button type="button" @click="emit('lead', exitWritten.exit)">
+        {{ $t('editor.leadExitElsewhere') }}
+      </button>
 
       <!-- The deliberate route to a second way on to the same Scene, which the
            aiming gesture withholds so that the hand cannot draw one by

@@ -283,7 +283,9 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
       <Refusal v-if="!sceneWritten" :problem="problem" />
       <p v-if="announced" class="toast" role="status">{{ announced }}</p>
 
-      <template #panel>
+      <!-- `lead` is the graph's own way into the aiming, handed over so the panel
+           can begin it on the Exit it is writing. -->
+      <template #panel="{ lead }">
         <Panel
           v-if="story && (sceneWritten || exitWritten)"
           :story="story"
@@ -299,6 +301,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
           @open-exit="openExit"
           @close="closePanel"
           @attached="attachedAt[$event] = Date.now()"
+          @lead="lead"
         />
       </template>
 
