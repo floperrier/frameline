@@ -252,7 +252,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
     <Confirmation :asked="asked" @answer="answer" />
     <!-- The step the bench is asking for, if it is asking for one. Last, so it
          is drawn over the bench it is lighting a part of. -->
-    <Step :story="story ?? undefined" :writing="sceneWritten?.id" />
+    <Step :story="story ?? undefined" />
   </main>
 </template>
 

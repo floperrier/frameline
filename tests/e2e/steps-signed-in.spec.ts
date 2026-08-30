@@ -21,8 +21,8 @@ const FIRST_STEP = /Every Story starts with a Scene/
 
 /**
  * The sentence said next, once the Story has the Scene the first asked for. The
- * gesture that makes a Scene opens it for writing as well, so the Step asking for
- * the panel is met by the same movement and what is asked for next is a Shot.
+ * gesture that makes a Scene opens it for writing as well, so nothing is asked
+ * about the writing surface and what is asked for next is a Shot.
  */
 const NEXT_STEP = /A Shot is an Image and its text/
 
@@ -185,8 +185,8 @@ test('the bench walks an Author from a bare Story to a published one', async ({
 
   // Made, and the light is on the one control that makes a Scene out of nothing.
   // It opens the panel on the Scene it wrote, with the provisional name selected,
-  // so the Author names it there and the Step asking for the panel is met by the
-  // same movement.
+  // so the Author names it there and is asked for what goes in it rather than for
+  // the surface they are already looking at.
   await lights(page, page.getByRole('button', { name: 'Write the first Scene' }))
   await page.getByRole('button', { name: 'Write the first Scene' }).click()
   const named = page.getByLabel('Name of this Scene')

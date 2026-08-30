@@ -59,11 +59,11 @@ function playedWhen(story: StoryInEditor, scene: number, ...conditions: Conditio
 }
 
 /**
- * What the bench is asking for, of a Story with the Scene it is given in the
- * panel — and of one with nothing in it, which is where the bench starts.
+ * What the bench is asking for of this Story — and of one with nothing in it,
+ * which is where the bench starts.
  */
-function asking(story: StoryInEditor, writing?: string) {
-  return stepShowing(story, writing)?.name
+function asking(story: StoryInEditor) {
+  return stepShowing(story)?.name
 }
 
 describe('the Step the bench is showing', () => {
@@ -71,20 +71,19 @@ describe('the Step the bench is showing', () => {
     expect(asking(onTheBench())).toBe('nameScene')
   })
 
-  it('asks for the Scene to be written once there is one on the bench', () => {
-    expect(asking(onTheBench([['The arrival']]))).toBe('writeScene')
-  })
-
-  it('asks for a Shot to be written once a Scene is in the panel', () => {
-    const story = onTheBench([['The arrival']])
-
-    expect(asking(story, 'The arrival')).toBe('writeShot')
+  /**
+   * The gesture that makes a Scene opens it for writing as well, so a Story with
+   * a Scene in it is a Story whose writing surface the Author has already been
+   * shown: what is asked for next is what goes in it.
+   */
+  it('asks for a Shot once there is a Scene on the bench', () => {
+    expect(asking(onTheBench([['The arrival']]))).toBe('writeShot')
   })
 
   it('reads a Shot of blank space as one nobody has written', () => {
     const story = onTheBench([['The arrival', '   ']])
 
-    expect(asking(story, 'The arrival')).toBe('writeShot')
+    expect(asking(story)).toBe('writeShot')
   })
 
   /**
@@ -95,24 +94,24 @@ describe('the Step the bench is showing', () => {
   it('asks for an Exit once the first Shot is written', () => {
     const story = onTheBench([['The arrival', 'The train pulls in.']])
 
-    expect(asking(story, 'The arrival')).toBe('drawExit')
+    expect(asking(story)).toBe('drawExit')
   })
 
   it('asks for an Exit once there are two Scenes to join', () => {
     const story = onTheBench([['The arrival', 'The train pulls in.'], ['The platform']])
 
-    expect(asking(story, 'The arrival')).toBe('drawExit')
+    expect(asking(story)).toBe('drawExit')
   })
 
   it('asks for a Flag once the two Scenes are joined', () => {
-    expect(asking(joined(), 'The arrival')).toBe('setFlag')
+    expect(asking(joined())).toBe('setFlag')
   })
 
   it('asks for a Condition once a Flag is set', () => {
     const story = joined()
     sets(story, 0, { courage: 'high' })
 
-    expect(asking(story, 'The arrival')).toBe('putCondition')
+    expect(asking(story)).toBe('putCondition')
   })
 
   /**
@@ -239,25 +238,16 @@ describe('the Step the bench is showing', () => {
   })
 
   /**
-   * Nothing blocks and nothing is confirmed, so an Author who improvises past
-   * three steps meets three Steps and is asked for the fourth, whatever the panel
-   * is holding.
+   * Nothing blocks and nothing is confirmed, so an Author who joined two Scenes
+   * before writing a word in either is asked for the word: the Steps ahead of the
+   * one they jumped are met, and the one they left behind is the one they are
+   * asked for.
    */
   it('asks for what is still missing when the Author works out of order', () => {
-    const story = onTheBench([['The arrival', 'The train pulls in.'], ['The platform']])
+    const story = onTheBench([['The arrival'], ['The platform']])
+    story.exits = [{ id: 'a-exit' }] as StoryInEditor['exits']
 
-    expect(asking(story)).toBe('drawExit')
-  })
-
-  /**
-   * The panel is opened for the sake of what is written in it, so a Story that
-   * arrives written — a Sample — is never asked to open it, and a Sample, which is
-   * past every step, is asked nothing at all.
-   */
-  it('asks a Story whose Shots are already written to open no panel', () => {
-    const story = onTheBench([['The arrival', 'The train pulls in.']])
-
-    expect(asking(story)).toBe('drawExit')
+    expect(asking(story)).toBe('writeShot')
   })
 })
 

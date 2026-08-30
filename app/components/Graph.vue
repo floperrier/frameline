@@ -1441,7 +1441,6 @@ function atAGlance(scene: Scene) {
                     :id="`write-${scene.id}`"
                     type="button"
                     class="write"
-                    data-step="write-scene"
                     :aria-expanded="sceneWritten === scene.id"
                     @click="$emit('writeScene', scene.id)"
                   >
