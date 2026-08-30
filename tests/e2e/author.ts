@@ -252,6 +252,25 @@ export async function writeScene(page: Page, name: string) {
   await page.getByRole('button', { name: `Write Scene ${name}` }).click()
 }
 
+/**
+ * Opens one of the three tabs the writing surface folds a Scene into — the Shots,
+ * the Flags, the ways on. The Shots are open when a Scene arrives, so a test
+ * reaching for anything else presses the tab first, which is what an Author does.
+ * Matched on the label alone because a tab also carries its count.
+ */
+export async function openTab(page: Page, tab: string) {
+  await page.getByRole('tab', { name: new RegExp(`^${tab}\\b`) }).click()
+}
+
+/**
+ * What the bench has just said out loud. Reached by its own mark rather than by
+ * the `status` role alone: the reading beside a Scene being written is a live
+ * region too, so a bare role on this page can mean either of them.
+ */
+export function toast(page: Page) {
+  return page.locator('.toast')
+}
+
 /** Draws an Exit on behalf of an Author nobody is signed in as. */
 export async function seedExit(fromSceneId: string, toSceneId: string, text = 'Their Exit') {
   const drawn = await sql`

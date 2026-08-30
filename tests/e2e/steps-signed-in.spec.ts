@@ -6,12 +6,14 @@ import {
   readShots,
   seedExit,
   seedFlags,
+  openTab,
   seedPublication,
   seedScene,
   seedScenes,
   seedShotConditions,
   seedStory,
   test,
+  toast,
 } from './author'
 
 /** The sentence the first Step says, which is how the guidance is recognised. */
@@ -227,13 +229,18 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await lights(page, arrival.locator('.strip'))
   await drag(page, arrival.locator('.strip'), page.getByRole('article', { name: 'The platform' }))
 
-  await expect(page.getByRole('status')).toHaveText('Exit from The arrival to The platform drawn')
+  await expect(toast(page)).toHaveText('Exit from The arrival to The platform drawn')
 
   // A Flag on the first Scene, in the list the light moves to once the Scene is
   // back in the panel. The light is on the whole list rather than on a field of
   // it, because a Flag is the row it is added as.
   await expect(bubble(page)).toContainText(/State is what one Reading carries/)
   await writeScene(page, 'The arrival')
+  // The Flags stand behind a tab, so the Author presses it before the light has a
+  // rectangle to sit on. The path itself gained no Step naming the tab — the
+  // sentence is the same one either way, and until the tab is pressed the bubble
+  // carries it adrift rather than pointing at nothing.
+  await openTab(page, 'Flags')
   await lights(page, page.locator('.panel .flags'))
   await page.getByRole('button', { name: 'Add a Flag to The arrival' }).click()
   await page.getByLabel('Name of Flag 1 set on entering The arrival').fill('courage')

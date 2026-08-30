@@ -2,7 +2,8 @@ import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 import { CONDITIONS_MAX, SCENE_NAME_MAX_LENGTH, VISITS_MAX } from '../../shared/utils/scenes'
 import {
-  writeScene, readExits, readSceneName, readShotConditions, readShots, seedScene, seedStory, test,
+  writeScene, openTab, readExits, readSceneName, readShotConditions, readShots, seedFlags,
+  seedExit, seedScene, seedStory, test,
 } from './author'
 
 const noId = '00000000-0000-4000-8000-000000000000'
@@ -536,6 +537,56 @@ test('the Story page shows a Scene and the Shots in it', async ({ page, request 
   await page.getByRole('button', { name: 'Add Shot' }).click()
   await expect(page.getByRole('textbox', { name: 'Shot 2' })).toBeVisible()
 })
+
+test('what a Scene holds stands behind three tabs, each carrying its count',
+  async ({ page, request }) => {
+    const { story, scene } = await openScene(request, 'The arrival')
+    await writeShots(request, scene.id, ['She steps off the train.', 'The doors close.'])
+    await seedFlags(scene.id, { coat: 'on' })
+    const platform = await seedScene(story, 'The platform')
+    await seedExit(scene.id, platform.id)
+    // Laid beside the first rather than on top of it: a seeded Scene is stacked
+    // where the last one is, and a card under another is a card no hand reaches.
+    await request.patch(`/api/scenes/${platform.id}`, { data: { x: 600, y: 0 } })
+
+    await page.goto(`/stories/${story.id}`)
+    await writeScene(page, 'The arrival')
+
+    // Each tab says how much is behind it, which is what a fold owes: an Author
+    // knows there is a way on to look at before pressing anything.
+    await expect(page.getByRole('tab')).toHaveText([/Shots\s*2/, /Flags\s*1/, /Ways on\s*1/])
+
+    // The Shots are open when the Scene arrives, and they are the only thing that
+    // is: writing Shots is what a Scene is opened for, and the common act costs
+    // no press.
+    await expect(page.getByRole('tab', { name: /^Shots/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('textbox', { name: 'Shot 1' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Add a Flag to The arrival' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'The platform — way on from The arrival' }))
+      .toHaveCount(0)
+
+    // And each of the other two does behind its tab exactly what it did before
+    // there was one.
+    await openTab(page, 'Flags')
+    await expect(page.getByLabel('Name of Flag 1 set on entering The arrival')).toHaveValue('coat')
+    await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveCount(0)
+
+    await openTab(page, 'Ways on')
+    await expect(page.getByRole('button', { name: 'The platform — way on from The arrival' }))
+      .toHaveText(/1\s+The platform/)
+
+    // The count follows the Story rather than the page it was drawn on: a Shot
+    // added while another tab is open is counted the moment it lands.
+    await openTab(page, 'Shots')
+    await page.getByRole('button', { name: 'Add Shot' }).click()
+    await expect(page.getByRole('tab', { name: /^Shots/ })).toHaveText(/Shots\s*3/)
+
+    // Another Scene opens on its own Shots: the tab left open on one Scene is not
+    // a thing an Author asked to be true of the next.
+    await openTab(page, 'Ways on')
+    await writeScene(page, 'The platform')
+    await expect(page.getByRole('tab', { name: /^Shots/ })).toHaveAttribute('aria-selected', 'true')
+  })
 
 test('an Author writes a Story from the page alone', async ({ page, request }) => {
   const story = await (await request.post('/api/stories', { data: { title: 'A Story' } })).json()

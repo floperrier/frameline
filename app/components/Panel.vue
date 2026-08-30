@@ -59,6 +59,33 @@ const { t } = useI18n()
 const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, scene.name])))
 
 /**
+ * The three things a Scene holds, as the tabs they stand behind: what a Scene is
+ * at full width is a long flat run, and an Author scrolled past all of it to
+ * reach any of it. Each tab carries its count, so what is behind one says how
+ * much is behind it before it is pressed, which is the whole of what the fold
+ * has to give back. The decision and the cost it was taken at are in
+ * `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`.
+ */
+const HOLDS = ['shots', 'flags', 'ways'] as const
+
+/**
+ * Which of the three is open. The Shots, always, when a Scene arrives: writing
+ * Shots is what a Scene is opened for, and the common act may not cost a press.
+ * Reset per Scene rather than kept across them — the tab an Author left open on
+ * one Scene is not a thing they asked to be true of the next.
+ */
+const holding = ref<typeof HOLDS[number]>('shots')
+
+watch(() => sceneWritten?.id, () => holding.value = 'shots')
+
+/** How many of each the Scene holds, which is what its tab says. */
+const counted = computed(() => sceneWritten && {
+  shots: sceneWritten.shots.length,
+  flags: Object.keys(sceneWritten.sets).length,
+  ways: exitsFrom(story.exits, sceneWritten.id).length,
+})
+
+/**
  * The ways in arriving at one Scene — the counterpart of `exitsFrom`, and drawn
  * from the same list, because the schema cascades a delete from both ends of a
  * Exit and only one end was ever counted. In no Place: an Exit is numbered among
@@ -637,176 +664,217 @@ function deleteExit(exit: Exit) {
         </button>
       </div>
 
-      <!-- The Shots as the run they are: numbered from one for the Author,
-           though the Scene counts from zero, and each one's number sits in
-           the gutter where the edge code would be. -->
-      <ol class="shots">
-        <li
-          v-for="(shot, place) in sceneWritten.shots"
-          :key="shot.id"
-          :data-shot="shot.id"
-          :class="{
-            dragged: draggedShot?.shotId === shot.id,
-            under: draggedShot?.over === shot.id && draggedShot.shotId !== shot.id,
-          }"
+      <!-- The three things a Scene holds, each behind its own tab and each tab
+           carrying its count: a Scene at full width was one flat run an Author
+           scrolled past all of to reach any of, and the count is what a folded
+           thing owes — the ways on say there are ways on before anything is
+           pressed. Every tab stays in the tab order rather than one of them
+           holding it: three controls in a row are reached by the key that
+           reaches every other control on this surface, and nothing has to be
+           learned about arrows to get to the Flags. -->
+      <div class="holds" role="tablist" :aria-label="$t('editor.whatTheSceneHolds')">
+        <button
+          v-for="held in HOLDS"
+          :id="`tab-${held}-${sceneWritten.id}`"
+          :key="held"
+          type="button"
+          role="tab"
+          :class="{ open: holding === held }"
+          :aria-selected="holding === held"
+          :aria-controls="`held-${held}-${sceneWritten.id}`"
+          @click="holding = held"
         >
-          <!-- The number alone in the gutter, where a frame's edge code would
-               be, and the word it is a number of kept for anyone listening. It
-               is also the handle the Shot is dragged by: the gutter holds
-               nothing else, and the number is what the Author refers to the
-               Shot as, so there is no second grip to explain. -->
-          <label
-            class="shot-number"
-            :for="`shot-${shot.id}`"
-            @pointerdown="startShotDrag(shot, $event)"
-            @pointermove="keepShotDrag"
-            @pointerup="endShotDrag(sceneWritten)"
-            @pointercancel="cancelShotDrag"
+          {{ $t(`editor.${held}Held`) }}
+          <span class="numbered">{{ counted![held] }}</span>
+        </button>
+      </div>
+
+      <div
+        v-show="holding === 'shots'"
+        :id="`held-shots-${sceneWritten.id}`"
+        class="held"
+        role="tabpanel"
+        :aria-labelledby="`tab-shots-${sceneWritten.id}`"
+      >
+        <!-- The Shots as the run they are: numbered from one for the Author,
+             though the Scene counts from zero, and each one's number sits in
+             the gutter where the edge code would be. -->
+        <ol class="shots">
+          <li
+            v-for="(shot, place) in sceneWritten.shots"
+            :key="shot.id"
+            :data-shot="shot.id"
+            :class="{
+              dragged: draggedShot?.shotId === shot.id,
+              under: draggedShot?.over === shot.id && draggedShot.shotId !== shot.id,
+            }"
           >
-            <span class="visually-hidden">{{ $t('editor.shot') }} </span>{{ place + 1 }}
-          </label>
-          <div class="written">
-            <textarea
-              :id="`shot-${shot.id}`"
-              v-model="shot.text"
-              data-step="shot-text"
-              rows="2"
-              :maxlength="SHOT_TEXT_MAX_LENGTH"
-              @change="writeShot(shot)"
-            />
+            <!-- The number alone in the gutter, where a frame's edge code would
+                 be, and the word it is a number of kept for anyone listening. It
+                 is also the handle the Shot is dragged by: the gutter holds
+                 nothing else, and the number is what the Author refers to the
+                 Shot as, so there is no second grip to explain. -->
+            <label
+              class="shot-number"
+              :for="`shot-${shot.id}`"
+              @pointerdown="startShotDrag(shot, $event)"
+              @pointermove="keepShotDrag"
+              @pointerup="endShotDrag(sceneWritten)"
+              @pointercancel="cancelShotDrag"
+            >
+              <span class="visually-hidden">{{ $t('editor.shot') }} </span>{{ place + 1 }}
+            </label>
+            <div class="written">
+              <textarea
+                :id="`shot-${shot.id}`"
+                v-model="shot.text"
+                data-step="shot-text"
+                rows="2"
+                :maxlength="SHOT_TEXT_MAX_LENGTH"
+                @change="writeShot(shot)"
+              />
 
-            <!-- The thumbnail is the picker: pressing it is how an image is
-                 attached and how it is replaced, and the input doing the work
-                 is behind it, focusable and named as it was. A Shot carrying
-                 no image shows the outline of the thumbnail it would have, so
-                 one nobody has finished reads as unfinished. It is also where
-                 a file is dropped, which is the same file the picker would
-                 have handed over. -->
-            <div class="image">
-              <label
-                :class="{ over: fileOver === shot.id }"
-                @dragenter.prevent.stop="overImage(shot, $event)"
-                @dragover.prevent.stop="overImage(shot, $event)"
-                @dragleave="leaveImage(shot, $event)"
-                @drop.prevent.stop="dropImage(shot, $event)"
-              >
-                <img
-                  v-if="shot.image"
-                  :src="imageOf(shot)"
-                  :alt="$t('editor.imageOfShot', { place: place + 1 })"
+              <!-- The thumbnail is the picker: pressing it is how an image is
+                   attached and how it is replaced, and the input doing the work
+                   is behind it, focusable and named as it was. A Shot carrying
+                   no image shows the outline of the thumbnail it would have, so
+                   one nobody has finished reads as unfinished. It is also where
+                   a file is dropped, which is the same file the picker would
+                   have handed over. -->
+              <div class="image">
+                <label
+                  :class="{ over: fileOver === shot.id }"
+                  @dragenter.prevent.stop="overImage(shot, $event)"
+                  @dragover.prevent.stop="overImage(shot, $event)"
+                  @dragleave="leaveImage(shot, $event)"
+                  @drop.prevent.stop="dropImage(shot, $event)"
                 >
-                <input
-                  type="file"
-                  class="visually-hidden"
-                  :accept="SHOT_IMAGE_TYPES.join(',')"
-                  :aria-label="$t('editor.pickImageOfShot', { place: place + 1 })"
-                  @change="attachImage(shot, $event)"
-                >
-              </label>
-
-              <!-- The Description beside the image it describes, in the width
-                   the file chrome used to take: it is what the image shows,
-                   and there is nothing to describe until one is attached. A
-                   Shot of text alone is not asked for one. -->
-              <p v-if="shot.image" class="described">
-                <label class="eyebrow" :for="`description-${shot.id}`">
-                  {{ $t('editor.description') }}
-                  <span class="visually-hidden">
-                    {{ $t('editor.descriptionOfShot', { place: place + 1 }) }}
-                  </span>
+                  <img
+                    v-if="shot.image"
+                    :src="imageOf(shot)"
+                    :alt="$t('editor.imageOfShot', { place: place + 1 })"
+                  >
+                  <input
+                    type="file"
+                    class="visually-hidden"
+                    :accept="SHOT_IMAGE_TYPES.join(',')"
+                    :aria-label="$t('editor.pickImageOfShot', { place: place + 1 })"
+                    @change="attachImage(shot, $event)"
+                  >
                 </label>
-                <input
-                  :id="`description-${shot.id}`"
-                  v-model="shot.description"
-                  type="text"
-                  :maxlength="SHOT_DESCRIPTION_MAX_LENGTH"
-                  :placeholder="$t('editor.whatTheImageShows')"
-                  @change="writeShot(shot)"
+
+                <!-- The Description beside the image it describes, in the width
+                     the file chrome used to take: it is what the image shows,
+                     and there is nothing to describe until one is attached. A
+                     Shot of text alone is not asked for one. -->
+                <p v-if="shot.image" class="described">
+                  <label class="eyebrow" :for="`description-${shot.id}`">
+                    {{ $t('editor.description') }}
+                    <span class="visually-hidden">
+                      {{ $t('editor.descriptionOfShot', { place: place + 1 }) }}
+                    </span>
+                  </label>
+                  <input
+                    :id="`description-${shot.id}`"
+                    v-model="shot.description"
+                    type="text"
+                    :maxlength="SHOT_DESCRIPTION_MAX_LENGTH"
+                    :placeholder="$t('editor.whatTheImageShows')"
+                    @change="writeShot(shot)"
+                  >
+                </p>
+              </div>
+
+              <!-- The Conditions the Shot plays under, so a Scene can say
+                   something different on a return visit without the Author
+                   drawing a second Scene to hold the changed line.
+
+                   The guided path points at the whole list rather than at one
+                   field of it, because what it asks for is a Condition and a
+                   Condition is the row it is added as: `data-step` lands on the
+                   component's own root, which is that list. -->
+              <Conditions
+                data-step="shot-condition"
+                :lead="$t('editor.playedWhen')"
+                :carrier="$t('editor.shotOfScene', {
+                  place: place + 1,
+                  scene: sceneWritten.name,
+                })"
+                :conditions="shot.conditions"
+                :scenes="story.scenes"
+                :counting="sceneWritten.id"
+                :id="shot.id"
+                @write="writeConditions('shots', shot.id, shot.conditions)"
+              />
+
+              <!-- The three controls, as the marks they do rather than the
+                   sentences that name them: in the width the panel gives a Shot
+                   the three sentences fill the strip to its end and wrap out of
+                   it in the longer of the two languages. What each one says is
+                   not lost, it moves to where the Shot's other names are read,
+                   by assistive technology alone. -->
+              <div class="row marks">
+                <button
+                  type="button"
+                  :disabled="place === 0"
+                  @click="moveShot(sceneWritten, shot, -1)"
                 >
-              </p>
+                  <span aria-hidden="true">↑</span>
+                  <span class="visually-hidden">
+                    {{ $t('common.moveEarlier') }}
+                    {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  :disabled="place === sceneWritten.shots.length - 1"
+                  @click="moveShot(sceneWritten, shot, 1)"
+                >
+                  <span aria-hidden="true">↓</span>
+                  <span class="visually-hidden">
+                    {{ $t('common.moveLater') }}
+                    {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                  </span>
+                </button>
+                <button type="button" class="danger" @click="deleteShot(shot)">
+                  <span aria-hidden="true">×</span>
+                  <span class="visually-hidden">
+                    {{ $t('common.delete') }}
+                    {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                  </span>
+                </button>
+              </div>
             </div>
+          </li>
+        </ol>
 
-            <!-- The Conditions the Shot plays under, so a Scene can say
-                 something different on a return visit without the Author
-                 drawing a second Scene to hold the changed line.
-
-                 The guided path points at the whole list rather than at one
-                 field of it, because what it asks for is a Condition and a
-                 Condition is the row it is added as: `data-step` lands on the
-                 component's own root, which is that list. -->
-            <Conditions
-              data-step="shot-condition"
-              :lead="$t('editor.playedWhen')"
-              :carrier="$t('editor.shotOfScene', {
-                place: place + 1,
-                scene: sceneWritten.name,
-              })"
-              :conditions="shot.conditions"
-              :scenes="story.scenes"
-              :counting="sceneWritten.id"
-              :id="shot.id"
-              @write="writeConditions('shots', shot.id, shot.conditions)"
-            />
-
-            <!-- The three controls, as the marks they do rather than the
-                 sentences that name them: in the width the panel gives a Shot
-                 the three sentences fill the strip to its end and wrap out of
-                 it in the longer of the two languages. What each one says is
-                 not lost, it moves to where the Shot's other names are read,
-                 by assistive technology alone. -->
-            <div class="row marks">
-              <button
-                type="button"
-                :disabled="place === 0"
-                @click="moveShot(sceneWritten, shot, -1)"
-              >
-                <span aria-hidden="true">↑</span>
-                <span class="visually-hidden">
-                  {{ $t('common.moveEarlier') }}
-                  {{ $t('editor.shotNumber', { place: place + 1 }) }}
-                </span>
-              </button>
-              <button
-                type="button"
-                :disabled="place === sceneWritten.shots.length - 1"
-                @click="moveShot(sceneWritten, shot, 1)"
-              >
-                <span aria-hidden="true">↓</span>
-                <span class="visually-hidden">
-                  {{ $t('common.moveLater') }}
-                  {{ $t('editor.shotNumber', { place: place + 1 }) }}
-                </span>
-              </button>
-              <button type="button" class="danger" @click="deleteShot(shot)">
-                <span aria-hidden="true">×</span>
-                <span class="visually-hidden">
-                  {{ $t('common.delete') }}
-                  {{ $t('editor.shotNumber', { place: place + 1 }) }}
-                </span>
-              </button>
-            </div>
-          </div>
-        </li>
-      </ol>
-
-      <button type="button" @click="addShot(sceneWritten)">
-        {{ $t('editor.addShot') }}
-        <span class="visually-hidden">
-          {{ $t('editor.toScene', { name: sceneWritten.name }) }}
-        </span>
-      </button>
+        <button type="button" @click="addShot(sceneWritten)">
+          {{ $t('editor.addShot') }}
+          <span class="visually-hidden">
+            {{ $t('editor.toScene', { name: sceneWritten.name }) }}
+          </span>
+        </button>
+      </div>
 
       <!-- The Flags the Scene sets, as rows: the guided path points at the whole
            list rather than at one field of it, the way it points at a Shot's
            Conditions, because what it asks for is a Flag and a Flag is the row
            it is added as. -->
-      <Flags
-        data-step="scene-flags"
-        :sets="sceneWritten.sets"
-        :scene="sceneWritten.name"
-        :id="sceneWritten.id"
-        @write="writeFlags(sceneWritten, $event)"
-      />
+      <div
+        v-show="holding === 'flags'"
+        :id="`held-flags-${sceneWritten.id}`"
+        class="held"
+        role="tabpanel"
+        :aria-labelledby="`tab-flags-${sceneWritten.id}`"
+      >
+        <Flags
+          data-step="scene-flags"
+          :sets="sceneWritten.sets"
+          :scene="sceneWritten.name"
+          :id="sceneWritten.id"
+          @write="writeFlags(sceneWritten, $event)"
+        />
+      </div>
 
       <!-- The ways on, bare: each one's Place, the name it arrives at, and the
            two controls that renumber it. An Exit's text and its Conditions are
@@ -814,18 +882,19 @@ function deleteExit(exit: Exit) {
            what an Author cannot read an Exit without — where the Scene leads,
            and in what order — which is also the route to an Exit for a hand that
            is not on a pointer. -->
-      <div class="ways">
-        <p :id="`ways-${sceneWritten.id}`" class="eyebrow">
-          {{ $t('editor.waysOn') }}
-          <span class="visually-hidden">
-            {{ $t('editor.fromScene', { name: sceneWritten.name }) }}
-          </span>
-        </p>
-
+      <div
+        v-show="holding === 'ways'"
+        :id="`held-ways-${sceneWritten.id}`"
+        class="ways"
+        role="tabpanel"
+        :aria-labelledby="`tab-ways-${sceneWritten.id}`"
+      >
+        <!-- No heading of its own: the tab above says what this is, and its count
+             says how much of it there is. -->
         <p v-if="!exitsFrom(story.exits, sceneWritten.id).length" class="none">
           {{ $t('editor.noWayOnYet') }}
         </p>
-        <ol v-else :aria-labelledby="`ways-${sceneWritten.id}`">
+        <ol v-else :aria-labelledby="`tab-ways-${sceneWritten.id}`">
           <li
             v-for="(exit, place) in exitsFrom(story.exits, sceneWritten.id)"
             :key="exit.id"
@@ -960,6 +1029,51 @@ function deleteExit(exit: Exit) {
 .opening {
   display: flex;
   align-items: center;
+  gap: var(--s2);
+}
+
+/* The three things a Scene holds, as tabs across the top of what holds them: a
+   strip of the panel's own steel, on the rule that separates the tabs from what
+   is behind them. Drawn as the row of buttons it is rather than as a folder
+   metaphor — the bench has one material and this is a control on it. */
+.holds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+  border-block-end: 1px solid var(--edge);
+}
+
+/* A tab is a button that has given up three of its sides: the rule below it is
+   the tablist's, and the open one is the one that breaks it. */
+.holds button {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  border-color: transparent;
+  border-radius: var(--machined) var(--machined) 0 0;
+  background: none;
+  color: var(--muted);
+  margin-block-end: -1px;
+}
+
+.holds button:hover:not(:disabled) {
+  background: var(--steel-lit);
+  color: inherit;
+}
+
+/* The tab that is open, marked by the rule it interrupts rather than by weight
+   alone: colour is not the only thing saying which of the three is showing. */
+.holds button[aria-selected='true'] {
+  border-color: var(--edge);
+  border-block-end-color: var(--steel);
+  background: var(--steel);
+  color: inherit;
+}
+
+/* What is behind a tab, laid out as the column the panel would have laid it out
+   as: the fold changes what is on screen and not how any of it reads. */
+.held {
+  display: grid;
   gap: var(--s2);
 }
 
