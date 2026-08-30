@@ -428,6 +428,22 @@ export function exitsFrom(exits: Exit[], sceneId: string) {
 }
 
 /**
+ * A list of Conditions with the half-written rows left out. A row whose Flag has
+ * no name is half a Condition, which the server is right to refuse, and dropping
+ * it beats holding back the rest — a Condition taken off has to reach the Story
+ * whatever else the Author is in the middle of typing.
+ *
+ * One function, because every route that sends a list sends it from a surface the
+ * Author may be halfway through: the row they are still naming would otherwise
+ * take the whole list down with it, and an Exit duplicated at that moment — from
+ * its own line, away from the Conditions written beside the Scene — would arrive
+ * carrying nothing.
+ */
+export function wholeConditions(carried: Condition[]) {
+  return carried.filter(condition => !('flag' in condition) || condition.flag.trim())
+}
+
+/**
  * The sequence with one id moved a Place, which is what the two controls that
  * renumber a thing send. Each is disabled at the end it cannot move past, so the
  * Place swapped with is always one of the sequence's own.

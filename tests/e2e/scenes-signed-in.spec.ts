@@ -562,8 +562,8 @@ test('what a Scene holds stands behind three tabs, each carrying its count',
     await expect(page.getByRole('tab', { name: /^Shots/ })).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByRole('textbox', { name: 'Shot 1' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Add a Flag to The arrival' })).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'The platform — way on from The arrival' }))
-      .toHaveCount(0)
+    await expect(page.getByRole('button',
+      { name: 'Add a Condition to the way on 1 to The platform' })).toHaveCount(0)
 
     // And each of the other two does behind its tab exactly what it did before
     // there was one.
@@ -572,8 +572,9 @@ test('what a Scene holds stands behind three tabs, each carrying its count',
     await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveCount(0)
 
     await openTab(page, 'Ways on')
-    await expect(page.getByRole('button', { name: 'The platform — way on from The arrival' }))
-      .toHaveText(/1\s+The platform/)
+    await expect(page.locator('.panel .ways > ol > li > .numbered')).toHaveText('1')
+    await expect(page.locator('.panel .ways .arrival'))
+      .toHaveText('The platform — way on from The arrival')
 
     // The count follows the Story rather than the page it was drawn on: a Shot
     // added while another tab is open is counted the moment it lands.
