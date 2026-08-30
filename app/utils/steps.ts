@@ -48,8 +48,10 @@ export type Step = {
 
 export const STEPS: Step[] = [
   // The only thing a Story cannot be without, so it is the only thing asked for
-  // before anything else exists to point at.
-  { name: 'nameScene', target: 'new-scene-name', met: story => story.scenes.length > 0 },
+  // before anything else exists to point at — and the one control on the bench
+  // that makes a Scene out of nothing, since every Scene after the first is made
+  // by drawing an Exit onto bare bench and there is no card to draw from yet.
+  { name: 'nameScene', target: 'first-scene', met: story => story.scenes.length > 0 },
   // Nothing inside a Scene can be pointed at until the Scene is in the panel, so
   // the Author puts one there before anything in it is asked for — and only for
   // the sake of what is written in it, so a Story whose Shots are already written
@@ -65,9 +67,12 @@ export const STEPS: Step[] = [
   // this. The sentence carries the whole gesture, because a Scene the API writes
   // arrives with no Shot in it to point at.
   { name: 'writeShot', target: 'shot-text', met: written },
-  // The thesis of the product, in the order it can be shown in: a second Scene
-  // first, because an Exit needs somewhere to land.
-  { name: 'secondScene', target: 'new-scene-name', met: story => story.scenes.length > 1 },
+  // The thesis of the product, and one Step rather than two: the gesture that
+  // draws an Exit onto bare bench makes the second Scene and the Exit joining it
+  // in one movement, so a Step asking for the Scene first would be met by the
+  // same gesture as the one after it and could never be shown alone. The Author
+  // is asked for the second Scene and the way on together, in the sentence.
+  //
   // Any Exit at all, rather than one from the first Scene to the second: the
   // sentence asks for the one the Story needs, and an Author who drew it the
   // other way round has joined two Scenes and is not told they did it wrong.

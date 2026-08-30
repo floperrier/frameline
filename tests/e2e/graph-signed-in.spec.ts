@@ -1643,15 +1643,101 @@ test('letting go over the bare bench writes the Scene and exits to it', async ({
   await expect(page.getByRole('article', { name: 'The buffet' })).toHaveCount(1)
 
   // And a hand that leaves the bench altogether has drawn nothing: pointer capture
-  // keeps the line following it over the form at the top of the page, but a Scene
-  // is written where the Author aimed on the bench or nowhere at all.
+  // keeps the line following it over the row of controls above the graph, but a
+  // Scene is written where the Author aimed on the bench or nowhere at all. The
+  // writing the gesture opened is closed first, because an Exit is drawn on the
+  // graph and not on the rail a written Scene folds it into.
+  await page.getByRole('button', { name: 'Close this panel' }).click()
+  await expect(page.locator('.panel')).toHaveCount(0)
+
   await aimFrom(page, 'The arrival')
-  const form = (await page.getByLabel('Name of a new Scene').boundingBox())!
-  await page.mouse.move(form.x + form.width / 2, form.y + form.height / 2, { steps: 5 })
+  const above = (await page.locator('.zooming .dial').boundingBox())!
+  await page.mouse.move(above.x + above.width / 2, above.y + above.height / 2, { steps: 5 })
   await page.mouse.up()
 
   expect((await (await request.get(`/api/stories/${story.id}`)).json()).scenes).toHaveLength(3)
   await expect.poll(() => readExits(scenes[0]!.id)).toHaveLength(1)
+})
+
+test('the keyboard lands an Exit on a Scene that is not there yet', async ({ page, request }) => {
+  const { story, scenes } = await openRow(request)
+  await page.goto(`/stories/${story.id}`)
+
+  // The gesture begins where it always does, on the button the card hides until
+  // it is focused.
+  await page.getByRole('button', { name: 'Draw an Exit from The arrival' }).press('Enter')
+
+  // And the landing that has no card to aim at is offered beside it, on the same
+  // card: the hand that began the gesture is already on the button that ends it.
+  const born = page.getByRole('button', { name: 'Exit from The arrival to a new Scene' })
+  await expect(born).toHaveCount(1)
+  await born.press('Enter')
+
+  await expect(toast(page)).toHaveText('Exit from The arrival to A new Scene drawn')
+  const read = await (await request.get(`/api/stories/${story.id}`)).json()
+  const written = read.scenes.find((held: { name: string }) => held.name === 'A new Scene')
+  await expect.poll(() => readExits(scenes[0]!.id)).toMatchObject([
+    { fromSceneId: scenes[0]!.id, toSceneId: written.id, position: 0 },
+  ])
+
+  // No hand named a point, so the Scene is placed where the endpoint places every
+  // Scene nobody placed: the next free spot, under the last one written.
+  expect(await readScenePlacement(written.id)).toMatchObject({ x: 0, y: NODE_SPACING * 2 })
+
+  // And it arrives named the way the pointer's landing does: open for writing,
+  // with the provisional name selected.
+  const naming = page.getByLabel('Name of this Scene')
+  await expect(naming).toBeFocused()
+  await expect(naming).toHaveValue('A new Scene')
+  await page.keyboard.type('The buffet')
+  await page.keyboard.press('Tab')
+  await expect.poll(() => readSceneName(written.id)).toBe('The buffet')
+
+  // The other end of the same gesture is not offered while an Exit is being led
+  // elsewhere: an endpoint let go of in empty space leaves the Exit where it led,
+  // and it may not make a Scene either.
+  await page.getByRole('button', { name: 'Close this panel' }).click()
+  await page.getByRole('button', { name: 'Write the Exit to The buffet' }).press('Enter')
+  await page.getByRole('button', { name: 'Lead this Exit to another Scene' }).press('Enter')
+  await expect(page.getByRole('button', { name: 'Exit from The arrival to a new Scene' }))
+    .toHaveCount(0)
+})
+
+/**
+ * The Scene and the Exit to it are two writes and not one transaction, which is
+ * the accepted cost of building the gesture out of the two endpoints that already
+ * exist. What the Author is owed is that the refusal is visible and the half that
+ * landed is theirs to keep or throw away.
+ */
+test('an Exit refused after the Scene was written leaves the Scene on the bench', async ({
+  page,
+  request,
+}) => {
+  const { story, scenes } = await openRow(request)
+  await page.route(`**/api/scenes/${scenes[0]!.id}/exits`, route => route.fulfill({
+    status: 422,
+    contentType: 'application/json',
+    body: JSON.stringify({ message: 'The Exit was refused' }),
+  }))
+  await page.goto(`/stories/${story.id}`)
+
+  await page.getByRole('button', { name: 'Draw an Exit from The arrival' }).press('Enter')
+  await page.getByRole('button', { name: 'Exit from The arrival to a new Scene' }).press('Enter')
+
+  // The bench says why, rather than leaving the Author to notice that nothing
+  // joined the two Scenes.
+  await expect(page.getByText('The Exit was refused')).toBeVisible()
+
+  // The Scene stands on the bench under its provisional name, unjoined, and the
+  // Author can see it and take it away.
+  const written = page.getByRole('article', { name: 'A new Scene' })
+  await expect(written).toHaveCount(1)
+  await expect.poll(() => readExits(scenes[0]!.id)).toHaveLength(0)
+
+  await writeScene(page, 'A new Scene')
+  await page.getByRole('button', { name: 'Delete Scene A new Scene' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete Scene', exact: true }).click()
+  await expect(written).toHaveCount(0)
 })
 
 test('an Exit cannot be drawn on a Scene itself, or twice to the same Scene', async ({
