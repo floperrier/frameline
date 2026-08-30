@@ -87,10 +87,15 @@ describe('the Step the bench is showing', () => {
     expect(asking(story, 'The arrival')).toBe('writeShot')
   })
 
-  it('asks for a second Scene once the first Shot is written', () => {
+  /**
+   * The second Scene and the Exit to it are one gesture and so one Step: an
+   * Author with one written Scene is asked to draw a way on out of it, and the
+   * Scene it lands on is made by the same movement.
+   */
+  it('asks for an Exit once the first Shot is written', () => {
     const story = onTheBench([['The arrival', 'The train pulls in.']])
 
-    expect(asking(story, 'The arrival')).toBe('secondScene')
+    expect(asking(story, 'The arrival')).toBe('drawExit')
   })
 
   it('asks for an Exit once there are two Scenes to join', () => {
@@ -252,7 +257,7 @@ describe('the Step the bench is showing', () => {
   it('asks a Story whose Shots are already written to open no panel', () => {
     const story = onTheBench([['The arrival', 'The train pulls in.']])
 
-    expect(asking(story)).toBe('secondScene')
+    expect(asking(story)).toBe('drawExit')
   })
 })
 

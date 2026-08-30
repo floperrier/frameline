@@ -19,8 +19,12 @@ import {
 /** The sentence the first Step says, which is how the guidance is recognised. */
 const FIRST_STEP = /Every Story starts with a Scene/
 
-/** The sentence said next, once the Story has the Scene the first asked for. */
-const NEXT_STEP = /A Scene is written in the panel/
+/**
+ * The sentence said next, once the Story has the Scene the first asked for. The
+ * gesture that makes a Scene opens it for writing as well, so the Step asking for
+ * the panel is met by the same movement and what is asked for next is a Shot.
+ */
+const NEXT_STEP = /A Shot is an Image and its text/
 
 // The one spec the guidance is left switched on for; every other one waves it
 // away, the way an Author who knows their way around the bench does.
@@ -37,8 +41,8 @@ test('the bench asks a new Story for its first Scene', async ({ page, author }) 
 
   await expect(bubble(page)).toContainText(FIRST_STEP)
 
-  // The light sits on the field itself, and does not cover it.
-  const field = page.getByLabel('Name of a new Scene')
+  // The light sits on the control itself, and does not cover it.
+  const field = page.getByRole('button', { name: 'Write the first Scene' })
   expect(await page.locator('.spotlight').boundingBox()).toEqual(await field.boundingBox())
 
   // And follows it. The bench moves under the light for all sorts of reasons —
@@ -49,14 +53,15 @@ test('the bench asks a new Story for its first Scene', async ({ page, author }) 
     .poll(() => page.locator('.spotlight').boundingBox())
     .toEqual(await field.boundingBox())
 
-  // The very field being pointed at is still typed into, which is why none of
+  // The very control being pointed at is still pressed, which is why none of
   // this is modal.
-  await field.fill('The arrival')
-  await page.getByRole('button', { name: 'Create Scene' }).click()
+  await field.click()
 
   // Met by the Author doing the thing, with nothing to confirm: the sentence is
-  // the next one before the Scene has finished landing.
-  await expect(page.getByRole('heading', { name: 'The arrival' })).toBeVisible()
+  // the next one before the Scene has finished landing. It arrives under a
+  // provisional name, which the panel the same gesture opened is where the Author
+  // corrects.
+  await expect(page.getByRole('article', { name: 'A new Scene' })).toHaveCount(1)
   await expect(bubble(page)).toContainText(NEXT_STEP)
 })
 
@@ -178,21 +183,21 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await page.setViewportSize({ width: 1280, height: 1100 })
   await page.goto(`/stories/${story.id}`)
 
-  // Named, and the light is on the field it is named in.
-  await lights(page, page.getByLabel('Name of a new Scene'))
-  await page.getByLabel('Name of a new Scene').fill('The arrival')
-  await page.getByRole('button', { name: 'Create Scene' }).click()
-
-  // Written. The guidance asks for the panel rather than opening it itself, and
-  // nothing inside the Scene is pointed at until the Author has done so.
-  await expect(bubble(page)).toContainText(NEXT_STEP)
-  const write = page.getByRole('button', { name: 'Write Scene The arrival' })
-  await lights(page, write)
-  await write.click()
+  // Made, and the light is on the one control that makes a Scene out of nothing.
+  // It opens the panel on the Scene it wrote, with the provisional name selected,
+  // so the Author names it there and the Step asking for the panel is met by the
+  // same movement.
+  await lights(page, page.getByRole('button', { name: 'Write the first Scene' }))
+  await page.getByRole('button', { name: 'Write the first Scene' }).click()
+  const named = page.getByLabel('Name of this Scene')
+  await expect(named).toBeFocused()
+  await page.keyboard.type('The arrival')
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('article', { name: 'The arrival' })).toHaveCount(1)
 
   // Written. The sentence carries the whole gesture — a Shot is added and then
   // written — so it is said from the corner until there is a field to say it at.
-  await expect(bubble(page)).toContainText(/A Shot is an Image and its text/)
+  await expect(bubble(page)).toContainText(NEXT_STEP)
   await expect(bubble(page)).toHaveClass(/adrift/)
   await page.getByRole('button', { name: 'Add Shot' }).click()
   const shot = page.getByRole('textbox', { name: 'Shot 1' })
@@ -200,36 +205,36 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await shot.fill('She steps off the train.')
   await shot.blur()
 
-  // A second Scene, asked for in the field the first was named in.
+  // The second Scene and the Exit to it, which are one gesture and so one Step:
+  // dragged from the edge of the first Scene onto the bare bench, where the light
+  // is. An Exit is drawn on the graph and not on the rail, so the writing is
+  // closed first — which is what an Author does to get back to the bench.
   await expect(bubble(page)).toContainText(/branches between Scenes/)
-  await lights(page, page.getByLabel('Name of a new Scene'))
-  await page.getByLabel('Name of a new Scene').fill('The platform')
-  await page.getByRole('button', { name: 'Create Scene' }).click()
-
-  // And the Exit, drawn from the strip the light is now on. The second Scene is
-  // laid out beside the first before the hand goes down: the API stacks a new
-  // Scene under the last, the bubble pointing at the strip is drawn over the
-  // bench just below it, and a hand cannot let go through the guidance.
-  await expect(bubble(page)).toContainText(/An Exit is the way on/)
-  const read = await (await page.request.get(`/api/stories/${story.id}`)).json()
-  const beside = read.scenes.find((scene: { name: string }) => scene.name === 'The platform')
-  await page.request.patch(`/api/scenes/${beside.id}`, {
-    data: { x: NODE_WIDTH + NODE_GAP, y: 0 },
-  })
-  await page.reload()
-  // The Scene is in the address since
-  // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`, so the reload
-  // comes back to it with the graph folded into the rail. An Exit is drawn on the
-  // graph and not on the rail, so the writing is closed first — which is what an
-  // Author does to get back to the bench.
   await page.getByRole('button', { name: 'Close this panel' }).click()
   await expect(page.locator('.panel')).toHaveCount(0)
 
   const arrival = page.getByRole('article', { name: 'The arrival' })
   await lights(page, arrival.locator('.strip'))
-  await drag(page, arrival.locator('.strip'), page.getByRole('article', { name: 'The platform' }))
 
-  await expect(toast(page)).toHaveText('Exit from The arrival to The platform drawn')
+  // Beside the card rather than under it: the bubble pointing at the strip is
+  // drawn over the bench just below the card, and a hand cannot let go through
+  // the guidance.
+  const card = (await arrival.boundingBox())!
+  await dragOnto(page, arrival.locator('.strip'), {
+    x: card.x + NODE_WIDTH + NODE_GAP,
+    y: card.y + card.height / 2,
+  })
+
+  await expect(toast(page)).toHaveText('Exit from The arrival to A new Scene drawn')
+
+  // Born where it was dropped, already joined, and named in the panel the same
+  // gesture opened.
+  await expect(page.getByLabel('Name of this Scene')).toBeFocused()
+  await page.keyboard.type('The platform')
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('article', { name: 'The platform' })).toHaveCount(1)
+  const read = await (await page.request.get(`/api/stories/${story.id}`)).json()
+  const beside = read.scenes.find((scene: { name: string }) => scene.name === 'The platform')
 
   // A Flag on the first Scene, in the list the light moves to once the Scene is
   // back in the panel. The light is on the whole list rather than on a field of
@@ -322,13 +327,16 @@ async function lights(page: Page, target: Locator) {
     .toEqual(await target.boundingBox())
 }
 
-/** An Exit drawn by hand, from a node's strip onto the node it lands on. */
-async function drag(page: Page, from: Locator, onto: Locator) {
+/**
+ * An Exit drawn by hand, from a node's edge onto the point it lands on. A point
+ * rather than a node, because the landing this path walks an Author through is the
+ * bare bench, where there is no node to aim at until the gesture writes one.
+ */
+async function dragOnto(page: Page, from: Locator, onto: { x: number, y: number }) {
   const strip = (await from.boundingBox())!
-  const node = (await onto.boundingBox())!
   await page.mouse.move(strip.x + strip.width / 2, strip.y + strip.height / 2)
   await page.mouse.down()
-  await page.mouse.move(node.x + node.width / 2, node.y + node.height / 2, { steps: 5 })
+  await page.mouse.move(onto.x, onto.y, { steps: 5 })
   await page.mouse.up()
 }
 

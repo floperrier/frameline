@@ -51,8 +51,6 @@ const emit = defineEmits<{ writeScene: [string], letGo: [] }>()
 
 const { t, locale } = useI18n()
 
-const newSceneName = ref('')
-
 const sceneNames = computed(
   () => new Map(story?.scenes.map(scene => [scene.id, scene.name])),
 )
@@ -160,15 +158,6 @@ const spreadSize = computed(() => ({
   width: `${graphSize.value.width * drawnAt.value}px`,
   height: `${graphSize.value.height * drawnAt.value}px`,
 }))
-
-function createScene() {
-  const name = newSceneName.value
-  return change(async () => {
-    await send(`/api/stories/${id}/scenes`, { method: 'POST', body: { name } })
-    newSceneName.value = ''
-    announce(t('editor.sceneCreated', { name }))
-  })
-}
 
 /**
  * The surface the nodes are laid out on, which is what a pointer's position has
@@ -717,7 +706,7 @@ function landOn(sceneId: string | undefined, onBench = false) {
     if (led) return announce(t('editor.exitNotLed'))
 
     return !sceneId && onBench && aimed.at
-      ? writeSceneAt(aimed.fromSceneId, aimed.at)
+      ? makeScene({ joining: aimed.fromSceneId, placed: aimed.at })
       : undefined
   }
 
@@ -738,38 +727,51 @@ function landOn(sceneId: string | undefined, onBench = false) {
 }
 
 /**
- * Writes the Scene a gesture landed on the bare bench, and the Exit to it. The
- * Scene goes where the hand let go, snapped to the bench's own pitch, and it
- * arrives under a provisional name with the panel open on that name in a field:
- * a name typed in the middle of a gesture could never be corrected, so the
- * gesture leaves the Author in the field that corrects it — see
+ * Makes a Scene, which every gesture that makes one comes through: it arrives
+ * under a provisional name with the panel open on that name in a field, selected,
+ * so the Author names it where they write it. Named for making rather than for
+ * writing, because `writeScene` is what this component asks of the page — which
+ * Scene the writing surface should hold — and the two would be one word for two
+ * things. A name asked for before the Scene exists
+ * is a name typed with nothing to hang it on, and one typed in the middle of a
+ * gesture could never be corrected — so no gesture asks for it and every one of
+ * them leaves the Author in the field that corrects it. See
  * `docs/adr/0015-a-cut-is-drawn-by-hand.md`.
+ *
+ * `joining` is the Scene the Exit leaves, and nothing for the first Scene of a
+ * Story, which comes from nowhere. `placed` is where the hand let go, snapped to
+ * the bench's own pitch, and nothing where no hand named a point — the first
+ * Scene, or one the keyboard landed an Exit on — in which case the endpoint puts
+ * it at the next free spot rather than this component inventing one.
  *
  * The two writes are one change, so the bench reads the Story back once and finds
  * the Scene and the Exit in it together. They are not one transaction, and nothing
  * here pretends otherwise: an Exit refused after the Scene was written leaves the
- * Scene on the bench under its provisional name, which the Author can name or
- * delete — the same place a Scene written from the form at the top of the page
- * would have left them.
+ * Scene on the bench under its provisional name, and the refusal beside the graph
+ * says so — the Author can name that Scene or delete it.
  */
-async function writeSceneAt(fromSceneId: string, at: Point) {
+async function makeScene({ joining, placed }: { joining?: string, placed?: Point } = {}) {
   const name = t('editor.provisionalSceneName')
-  const said = { from: sceneNamed(sceneNames.value, fromSceneId, t), to: name }
   let writtenId: string | undefined
 
   await change(async () => {
     const written = await send(`/api/stories/${id}/scenes`, {
       method: 'POST',
-      body: { name, ...snappedWithinReach(at) },
+      body: { name, ...(placed ? snappedWithinReach(placed) : {}) },
     }) as Scene
-    await send(`/api/scenes/${fromSceneId}/exits`, {
-      method: 'POST',
-      body: { toSceneId: written.id },
-    })
+
+    if (joining) {
+      await send(`/api/scenes/${joining}/exits`, {
+        method: 'POST',
+        body: { toSceneId: written.id },
+      })
+    }
 
     writtenId = written.id
     emit('writeScene', written.id)
-    announce(t('editor.exitDrawn', said))
+    announce(joining
+      ? t('editor.exitDrawn', { from: sceneNamed(sceneNames.value, joining, t), to: name })
+      : t('editor.sceneCreated', { name }))
   })
 
   // After the read the change asks for and the render it causes, which is what
@@ -799,6 +801,25 @@ function aimOrLand(scene: Scene) {
   if (!aiming.value) return aimFrom(scene)
   if (aiming.value.fromSceneId === scene.id) return abandonAiming()
   return landOn(scene.id)
+}
+
+/**
+ * The other end of that gesture: the Exit landed on a Scene that is not there
+ * yet, which the pointer does by letting go on bare bench. Offered beside the
+ * button the aiming began at, on the card the line leaves, so the hand that
+ * started the gesture finishes it without leaving the node.
+ *
+ * Only while an Exit is being drawn. An Exit being led elsewhere is left where it
+ * leads by everything but a landing on a card — a slip of the hand may not make a
+ * Scene any more than it may destroy an Exit — so the button is not there to be
+ * pressed in the first place.
+ */
+function landOnNewScene() {
+  const aimed = aiming.value
+  aiming.value = undefined
+  if (!aimed || aimed.led) return
+
+  return makeScene({ joining: aimed.fromSceneId })
 }
 
 /**
@@ -1112,27 +1133,10 @@ function atAGlance(scene: Scene) {
 </script>
 
 <template>
-  <!-- The row above the bench: where a Scene is named, and how far back the
-       Author is standing to look at the ones they have. -->
+  <!-- The row above the bench: how far back the Author is standing to look at
+       the Scenes they have. Nothing here makes one — a Scene is made on the
+       bench, where it goes. -->
   <div class="tools">
-    <form class="naming" @submit.prevent="createScene">
-      <label class="eyebrow" for="new-scene-name">{{ $t('editor.newSceneName') }}</label>
-      <div class="row">
-        <!-- `data-step` is how the guided path finds this field. The attribute
-             lives here rather than a selector living in the guidance, so that
-             removing the field takes its target with it visibly — see
-             `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md`. -->
-        <input
-          id="new-scene-name"
-          v-model="newSceneName"
-          data-step="new-scene-name"
-          required
-          :maxlength="SCENE_NAME_MAX_LENGTH"
-        >
-        <button type="submit">{{ $t('editor.createScene') }}</button>
-      </div>
-    </form>
-
     <!-- How far back the Author is standing, and the ways of changing it. Above
          the bench and in the flow of the page rather than floating in a corner
          of it: a control laid over the surface is a control something on the
@@ -1213,7 +1217,23 @@ function atAGlance(scene: Scene) {
   </div>
   <slot />
 
-  <p v-if="!story?.scenes.length" class="none">{{ $t('editor.noScenes') }}</p>
+  <!-- A Story with nothing on its bench yet. Every Scene after this one is made
+       by drawing an Exit onto bare bench, which needs a Scene to be drawn from,
+       so the first one has a control of its own — and it is gone the moment there
+       is a card to draw from, which is what keeps this from being a second way to
+       make a Scene. It writes exactly what the gesture writes: a Scene under a
+       provisional name, open for writing with that name selected.
+
+       `data-step` is how the guided path finds it. The attribute lives here
+       rather than a selector living in the guidance, so that moving the control
+       takes its target with it visibly — see
+       `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md`. -->
+  <div v-if="!story?.scenes.length" class="empty">
+    <p class="none">{{ $t('editor.noScenes') }}</p>
+    <button type="button" data-step="first-scene" @click="makeScene()">
+      {{ $t('editor.writeFirstScene') }}
+    </button>
+  </div>
   <!-- The bench, in whichever of its two states it is in. The graph is the whole
        of it while nothing is being written, and the panel an Exit is written in is
        docked at its trailing edge; a Scene being written folds the graph into a
@@ -1390,6 +1410,21 @@ function atAGlance(scene: Scene) {
                   @click="aimOrLand(scene)"
                 >
                   {{ aimingName(scene) }}
+                </button>
+
+                <!-- The landing that has no card to aim at: the Scene this Exit
+                     leads to made where the pointer would have let go on bare
+                     bench. It is on the card the line leaves, next in the tab
+                     order after the button that began the aiming, so the hand
+                     that started the gesture is already on the one that ends
+                     it. -->
+                <button
+                  v-if="aiming && !aiming.led && aiming.fromSceneId === scene.id"
+                  type="button"
+                  class="aim"
+                  @click="landOnNewScene()"
+                >
+                  {{ $t('editor.exitToNewScene', { from: scene.name }) }}
                 </button>
               </div>
 
@@ -1568,37 +1603,23 @@ function atAGlance(scene: Scene) {
 </template>
 
 <style scoped>
-/* The row above the bench: the naming form takes the width it needs, the zoom
-   controls sit at the trailing edge over the graph they act on, and on a narrow
-   screen the two wrap rather than squeezing each other. */
+/* The row above the bench: the zoom controls sit at the trailing edge over the
+   graph they act on, which is the only thing in it. */
 .tools {
   display: flex;
   flex-wrap: wrap;
   align-items: end;
-  justify-content: space-between;
+  justify-content: end;
   gap: var(--s2) var(--s4);
 }
 
-.naming {
+/* The bench of a Story that has none: the sentence saying so, and the one control
+   that makes the first Scene. Aligned to the start rather than centred in the
+   room, because this is where the bench begins and not a poster. */
+.empty {
   display: grid;
-  gap: var(--s2);
-  flex: 1;
-  min-inline-size: 18rem;
-  max-inline-size: 34rem;
-}
-
-.row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s2);
-}
-
-.naming .row input {
-  flex: 1 1 14rem;
-}
-
-.naming .row button {
-  flex: none;
+  justify-items: start;
+  gap: var(--s3);
 }
 
 .none {

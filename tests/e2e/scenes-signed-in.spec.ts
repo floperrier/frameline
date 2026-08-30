@@ -593,11 +593,18 @@ test('an Author writes a Story from the page alone', async ({ page, request }) =
   const story = await (await request.post('/api/stories', { data: { title: 'A Story' } })).json()
   await page.goto(`/stories/${story.id}`)
 
-  await page.getByLabel('Name of a new Scene').fill('The arrival')
-  await page.getByRole('button', { name: 'Create Scene' }).click()
-  await expect(page.getByRole('heading', { name: 'The arrival' })).toBeVisible()
-  await expect(page.getByText('“The arrival” created')).toBeVisible()
-  await writeScene(page, 'The arrival')
+  // The one control that makes a Scene out of nothing. It lands under a
+  // provisional name with the panel open on that name, selected, so naming it is
+  // the first thing typed rather than a step before it existed.
+  await page.getByRole('button', { name: 'Write the first Scene' }).click()
+  await expect(page.getByText('“A new Scene” created')).toBeVisible()
+  const named = page.getByRole('textbox', { name: 'Name of this Scene' })
+  await expect(named).toBeFocused()
+  await named.fill('The arrival')
+  await named.blur()
+  // The card, rather than the heading on it: the panel the gesture opened is
+  // named by the Scene too, so a heading alone is two things on this page.
+  await expect(page.getByRole('article', { name: 'The arrival' })).toHaveCount(1)
 
   // Blurring the Shot is what writes it, so each is left before the next is added.
   for (const [place, line] of ['She steps off the train.', 'The platform is empty.'].entries()) {
