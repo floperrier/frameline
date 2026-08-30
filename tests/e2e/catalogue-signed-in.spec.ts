@@ -91,6 +91,54 @@ test('an Author lists a published Story and anyone finds it in the Catalogue', a
   expect((await request.get(`/api/read/${story.id}`)).status()).toBe(200)
 })
 
+/**
+ * The Synopsis: written on the bench beside the acts that put the Story where
+ * somebody can meet it, and carried by the Story onto the shelf it is met on.
+ */
+test('an Author writes a Synopsis and whoever browses the Catalogue reads it', async ({
+  page,
+  request,
+  browser,
+  baseURL,
+}) => {
+  const title = unlikelyTitle()
+  const story = await writeStory(request)
+  await request.patch(`/api/stories/${story.id}`, { data: { title } })
+  await request.post(`/api/stories/${story.id}/publish`)
+  await request.post(`/api/stories/${story.id}/listed`)
+
+  // Listed with no Synopsis, the entry is the entry it has always been: nothing
+  // is invented out of the Story's own text to fill the gap.
+  const bare = entryFor(await catalogueFor(browser, baseURL), title)
+  await expect(bare).toBeVisible()
+  await expect(bare).not.toContainText('A door opens.')
+
+  await page.goto(`/stories/${story.id}`)
+  const synopsis = page.getByRole('textbox', { name: 'Synopsis' })
+  await synopsis.fill('A woman leaves a door open behind her, and the street takes her.')
+  await synopsis.blur()
+  // A typed write, so what says it landed is the mark on the bench.
+  await expect(page.getByText(/^Kept at /)).toBeVisible()
+
+  const entry = entryFor(await catalogueFor(browser, baseURL), title)
+  await expect(entry).toContainText(
+    'A woman leaves a door open behind her, and the street takes her.')
+
+  // The few lines are the Author's to withdraw, and a Story with none is
+  // presented the way it was before anybody wrote any.
+  await synopsis.fill('')
+  // Waited for by the request rather than by the mark: the bench already says
+  // when the last write was kept, and it says the same thing after this one.
+  await Promise.all([
+    page.waitForResponse(response =>
+      response.url().endsWith(`/api/stories/${story.id}`)
+      && response.request().method() === 'PATCH'),
+    synopsis.blur(),
+  ])
+  await expect(entryFor(await catalogueFor(browser, baseURL), title))
+    .not.toContainText('A woman leaves a door open behind her')
+})
+
 /** Unpublishing takes the Story out of the Catalogue in the same act. */
 test('unpublishing a listed Story unlists it', async ({ page, request, browser, baseURL }) => {
   const title = unlikelyTitle()

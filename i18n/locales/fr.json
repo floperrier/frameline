@@ -102,6 +102,10 @@
   },
   "editor": {
     "allStories": "Tous les Récits",
+    "storyTitle": "Titre de ce Récit",
+    "writtenIn": "Écrit en {language}",
+    "whereItIsRead": "Où il peut être lu",
+    "synopsis": "Synopsis",
     "readableAt": "N'importe qui peut lire ce Récit à",
     "keptAt": "Enregistré à {time}",
     "list": "Répertorier ce Récit au Catalogue",
@@ -303,6 +307,7 @@
     "storyTitle": "Un Récit a besoin d'un titre.",
     "storyTitleLong": "Un titre ne peut pas dépasser {max} caractères.",
     "storyLanguage": "Un Récit est écrit dans une seule langue.",
+    "storySynopsisLong": "Un Synopsis ne peut pas dépasser {max} caractères.",
     "shotText": "Un Plan porte un texte.",
     "shotTextLong": "Un Plan ne peut pas porter plus de {max} caractères.",
     "description": "Une Description dit ce que montre une image, en {max} caractères au plus.",

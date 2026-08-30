@@ -51,6 +51,18 @@ export const authors = pgTable('authors', {
 // which are English, and is also what the schema owes a rollback — see
 // `docs/adr/0002-the-schema-moves-with-the-deploy.md`.
 //
+// `synopsis` is the few lines an Author writes presenting the Story to whoever
+// is deciding whether to read it, carried with the Story wherever it is
+// presented. Empty is a Story nobody has written one for, and the empty string
+// rather than null because there is nothing a null would say here that an empty
+// Synopsis does not — every reader of this column draws it where there is
+// something to draw and nothing where there is not.
+//
+// The default is what backfills every row written before the column existed, and
+// what an insert naming no Synopsis goes on succeeding by while a rollback has
+// the old code running against the new schema — see
+// `docs/adr/0002-the-schema-moves-with-the-deploy.md`.
+//
 // `published_at` is what makes the Story readable at its public link, and null
 // is what keeps it the Author's alone. A timestamp rather than a flag because it
 // says when as well as whether, at no more cost. Nothing else changes on a
@@ -69,6 +81,7 @@ export const stories = pgTable('stories', {
   authorId: uuid('author_id').notNull().references(() => authors.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   language: text('language').notNull().default('en'),
+  synopsis: text('synopsis').notNull().default(''),
   openingSceneId: uuid('opening_scene_id')
     .references((): AnyPgColumn => scenes.id, { onDelete: 'set null' }),
   publishedAt: timestamp('published_at', { withTimezone: true }),

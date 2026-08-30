@@ -867,8 +867,11 @@ test('every card is one size, whatever the Scene in it holds', async ({ page, re
   await writeScene(page, 'The arrival')
   await page.getByRole('button', { name: 'Add Shot to The arrival' }).click()
   await expect(page.getByRole('textbox', { name: 'Shot 2' })).toBeVisible()
+  // To the pixel, because the rail draws the cards through a scale that is
+  // whatever fits the Story in the room the header leaves: a card an eight-
+  // thousandth of a pixel taller than its neighbour is one size on any screen.
   const railed = await Promise.all(names.map(heightOf))
-  expect(new Set(railed).size).toBe(1)
+  expect(new Set(railed.map(Math.round)).size).toBe(1)
   expect(railed[0]).toBeLessThan(sizes[0]!)
 
   await page.keyboard.press('Escape')
@@ -1971,6 +1974,10 @@ test('the bare bench is pushed about under the hand', async ({ page, request }) 
   // graph, since the rail is that same bench drawn small.
   await writeScene(page, 'The arrival')
   await expect(panel).toBeVisible()
+  // Brought into view before it is aimed at: the bench is taller than the screen
+  // on the viewport this runs at, and a coordinate below the fold is a click on
+  // nothing.
+  await graph.scrollIntoViewIfNeeded()
   const rail = (await graph.boundingBox())!
   await page.mouse.click(rail.x + rail.width / 2, rail.y + rail.height - 20)
   await expect(panel).toBeHidden()
