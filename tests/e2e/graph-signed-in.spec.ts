@@ -15,7 +15,6 @@ import {
 } from '../../shared/utils/scenes'
 import {
   ONE_PIXEL,
-  openTab,
   writeScene,
   readExits,
   readFlags,
@@ -625,7 +624,6 @@ test('an Exit is written where it is, and never takes the Scene\u2019s place', a
   // carry the Conditions each one is offered under — beside the Flags that Scene
   // sets, which is what they test.
   await writeScene(page, 'The arrival')
-  await openTab(page, 'Ways on')
   await page.getByRole('button', { name: 'Add a Condition to the way on 1 to The platform' }).click()
   await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
   const flag = page.getByLabel('Flag of Condition 1 of the way on 1 to The platform')
@@ -757,7 +755,6 @@ test('the graph of several dozen Scenes is read as cards', async ({ page, author
   // one Scene asked for: the graph goes on being forty cards of one size, drawn in
   // the rail beside it.
   await writeScene(page, 'Scene 40')
-  await expect(page.getByRole('tab', { name: /^Flags/ })).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveCount(1)
   await expect(page.getByRole('article')).toHaveCount(40)
   const railed = (await last.boundingBox())!.height
@@ -1046,7 +1043,6 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
   // `docs/adr/0030-a-story-is-read-where-it-is-written.md`.
   const ways = page.locator('.panel .ways')
 
-  await openTab(page, 'Ways on')
   await ways.getByRole('button', { name: 'Move earlier the way on 2 to The tunnel' }).click()
   await expect(async () => {
     await expect(readExits(from.id)).resolves.toMatchObject([
@@ -1059,7 +1055,6 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
   // rather than asking. The reload comes back to the Scene being written, which the
   // address carries, so nothing is opened again here.
   await page.reload()
-  await openTab(page, 'Ways on')
   await expect(ways.getByRole('button', { name: 'Move earlier the way on 1 to The tunnel' }))
     .toBeDisabled()
   await expect(ways.getByRole('button', { name: 'Move later the way on 2 to The buffet' }))
@@ -1261,7 +1256,6 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
 
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The arrival')
-  await openTab(page, 'Flags')
 
   // A Flag is a row of two fields, a name and the value it holds, and neither of
   // them carries punctuation: the row is added with a control, and the hand is
@@ -1277,7 +1271,6 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
 
   // The Conditions of a way on are written beside the Scene, one tab away from
   // the Flags they are tested against.
-  await openTab(page, 'Ways on')
   await page.getByRole('button', { name: 'Add a Condition to the way on 1 to The platform' }).click()
   // The name of the Flag and the value it holds are written one at a time,
   // because the Flag alone is half a Condition and is written as soon as it has
@@ -1321,7 +1314,6 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
     .toHaveValue('coat')
   await expect(page.getByLabel('Value 1 of Flag 1 set on entering The arrival'))
     .toHaveValue('on')
-  await openTab(page, 'Ways on')
   await expect(page.getByLabel('Condition 1 of the way on 1 to The platform', { exact: true }))
     .toHaveValue('flag')
   await expect(page.getByLabel('Flag of Condition 1 of the way on 1 to The platform'))
@@ -1359,7 +1351,6 @@ test('an Author writes the values a Flag is drawn from, a field apiece',
 
     await page.goto(`/stories/${story.id}`)
     await writeScene(page, 'The arrival')
-    await openTab(page, 'Flags')
 
     const called = (place: number) => `Flag ${place} set on entering The arrival`
     await page.getByRole('button', { name: 'Add a Flag to The arrival' }).click()
@@ -1395,7 +1386,6 @@ test('an Author writes the values a Flag is drawn from, a field apiece',
     // the Shots, which is the tab a Scene always arrives on, so the Flags are
     // asked for again.
     await page.reload()
-    await openTab(page, 'Flags')
     await expect(page.getByLabel(/^Name of Flag/).first()).toBeVisible()
     const weather = called(await rowOfFlag(page, 'weather'))
 
@@ -1442,7 +1432,6 @@ test('the second of two typed changes is the one the Story keeps', async ({ page
 
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The arrival')
-  await openTab(page, 'Flags')
 
   const called = 'Flag 1 set on entering The arrival'
   await page.getByRole('button', { name: 'Add a Flag to The arrival' }).click()
@@ -1805,7 +1794,6 @@ test('a second way on to the same Scene is written by duplicating the first',
     const wayOnAt = (place: number) => page.locator('.panel .ways > ol > li').nth(place - 1)
 
     await writeScene(page, 'The arrival')
-    await openTab(page, 'Ways on')
     await expect(wayOnAt(2).locator('> .numbered')).toHaveText('2')
 
     // A Condition on the first, because a Condition is what the pair is for: two
@@ -1834,7 +1822,6 @@ test('a second way on to the same Scene is written by duplicating the first',
 
     // What is written against the third row is written on the copy alone.
     await writeScene(page, 'The arrival')
-    await openTab(page, 'Ways on')
     await expect(wayOnAt(3).locator('> .numbered')).toHaveText('3')
     const opposite = page.getByLabel('holds for Condition 1 of the way on 3 to The platform')
     await opposite.fill('off')

@@ -102,11 +102,11 @@ function flagCalled(place: number) {
 
 <template>
   <div class="flags">
-    <p class="eyebrow">
-      {{ $t('editor.flagsSet') }}
-      <span class="visually-hidden">{{ scene }}</span>
-      <template v-if="!rows.length">{{ $t('flags.none') }}</template>
-    </p>
+    <!-- Only where there are none. What the list is, and which Scene sets it, is
+         said by the heading of the section it stands in — see `Panel.vue`, where
+         the three parts of a Scene each carry their own — and saying it twice
+         over was what taking the tabs out left behind. -->
+    <p v-if="!rows.length" class="eyebrow none">{{ $t('flags.none') }}</p>
 
     <div v-for="(row, place) in rows" :key="place" class="sets" @keydown.enter.prevent="addTyping">
       <span class="numbered" aria-hidden="true">{{ place + 1 }}</span>
@@ -171,7 +171,7 @@ function flagCalled(place: number) {
       </button>
     </div>
 
-    <button v-if="rows.length < FLAGS_PER_SCENE" type="button" @click="add">
+    <button v-if="rows.length < FLAGS_PER_SCENE" type="button" class="add" @click="add">
       {{ $t('flags.add') }}
       <span class="visually-hidden">{{ $t('editor.toScene', { name: scene }) }}</span>
     </button>
@@ -185,6 +185,13 @@ function flagCalled(place: number) {
    technology alone, which is what the Conditions of an Exit already do a few
    rows further down — the two lists are one language and are not going to look
    like two. */
+/* The control that adds a Flag is as wide as its words and no wider, like every
+   other control on this surface: a button across the whole width reads as the
+   subject of the section it sits under. */
+.flags .add {
+  justify-self: start;
+}
+
 .flags {
   display: grid;
   gap: var(--s1);

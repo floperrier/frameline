@@ -189,6 +189,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
       :id="id"
       :story="story ?? undefined"
       :kept-at="keptAt"
+      :writing="!!sceneWritten"
       :change="change"
       :write="write"
     />

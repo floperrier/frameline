@@ -82,16 +82,20 @@ refusal about a Shot is shown against the Story.
 **The width has to be paid for.** A Scene at full width is a flat run of Shots,
 Flags and ways on that is wide but no shorter, so what a Scene holds is sorted
 into tabs, each carrying its count. The accepted cost is that the Flags and the
-ways on stand behind a tab a first-time Author may not press. That cost is
-measured rather than assumed: the guided path is the instrument, and if it has to
-grow a Step that says "press the ways on tab", the tabs have failed and unfolding
-one Shot at a time is the fallback — both shapes were built at full width and
-compared on `prototype/scene-editing-shots`, and this record is what the
-comparison settled.
+ways on stand behind a tab a first-time Author may not press.
 
-**A narrow screen shows one of the three at a time**, with the same fold as a
-wide one. The interface is learned once. The narrow screen is made coherent, not
-made comfortable: authoring on a phone is not what this is for.
+_The tabs are gone; the rest of this record stands._ The cost above was to be
+measured, and what measured it was not the guided path but the height of a beat:
+a Shot cost the better part of two hundred and fifty pixels, and the run was long
+because of that rather than because a Scene holds much. A beat laid out as a row
+— see `docs/adr/0033-a-scene-is-written-as-one-document.md` — puts a Scene of
+three beats, its Flags and its ways on on one screen together, so there is
+nothing left to fold and the tabs' one cost is not paid at all.
+
+**A narrow screen** takes the same document, in the same order, with the same
+fold of the bench as a wide one. The interface is learned once. The narrow screen
+is made coherent, not made comfortable: authoring on a phone is not what this is
+for.
 
 **The guided path moves again.** Its Steps are anchored in the template rather
 than in selectors held beside it — see

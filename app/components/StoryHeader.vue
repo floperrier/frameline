@@ -12,7 +12,7 @@
  * `docs/adr/0013-the-interfaces-locale-is-not-the-storys-language.md` — so it is
  * changed where the rest of what is theirs is, on the list of their own Stories.
  */
-const { id, story, keptAt, change, write } = defineProps<{
+const { id, story, keptAt, writing, change, write } = defineProps<{
   /**
    * The Story's own id, which every act here is sent against. It comes from the
    * route rather than from the Story, because the Publish is offered while a
@@ -23,6 +23,16 @@ const { id, story, keptAt, change, write } = defineProps<{
   story?: StoryInEditor
   /** When a typed change last reached the Story, which the bench reports here. */
   keptAt?: Date
+  /**
+   * Whether a Scene is on the writing surface, which is what the header folds
+   * for. Writing a Scene is a state of the whole bench — see
+   * `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md` — and the graph
+   * already folds into a rail for it; the header owes the same. What the Story
+   * is stays, because that is what the Author is inside, and so do the acts that
+   * publish it and the link a Publish hands out. The Synopsis folds away: it is
+   * the one thing here nobody writes while they are writing a Scene.
+   */
+  writing?: boolean
   /** The one holder every write on this page goes through. */
   change: Change
   /**
@@ -136,7 +146,7 @@ function unlist() {
   <!-- The bench's own header, in two halves: what the Story is, and where it can
        be read. It stays on screen, because the graph below it scrolls a long
        way. -->
-  <header>
+  <header :class="{ writing }">
     <div class="titling">
       <NuxtLink class="back trail" :to="localePath('/stories')">
         {{ $t('editor.allStories') }}
@@ -169,14 +179,14 @@ function unlist() {
       <p v-if="kept" class="kept-at">{{ $t('editor.keptAt', { time: kept }) }}</p>
     </div>
 
-    <section class="release" aria-labelledby="release">
+    <section class="release" :class="{ folded: writing }" aria-labelledby="release">
       <h2 id="release" class="eyebrow">{{ $t('editor.whereItIsRead') }}</h2>
 
       <!-- The few lines the Story is presented by wherever somebody meets it
            before opening it. Written here, beside the acts that put the Story
            where it can be met, because it is the same subject: what a stranger
            is handed. -->
-      <p class="synopsis">
+      <p v-if="!writing" class="synopsis">
         <label class="eyebrow" for="story-synopsis">{{ $t('editor.synopsis') }}</label>
         <textarea
           v-if="story"
@@ -286,6 +296,26 @@ header {
   gap: var(--s2);
   flex: 1 1 24rem;
   max-inline-size: 34rem;
+}
+
+/* Writing a Scene is a state of the bench and the header takes it too, the way
+   the graph beside it folds into a rail: the title comes down to a label on a
+   reel and the Synopsis folds away, because the three columns below are what the
+   screen is for. Nothing leaves the tab order and nothing changes shape. */
+header.writing {
+  padding-block: var(--s2);
+}
+
+header.writing .named input {
+  font-size: 1.75rem;
+}
+
+.release.folded {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: end;
+  gap: var(--s2) var(--s3);
 }
 
 .release .synopsis {

@@ -6,7 +6,6 @@ import {
   readShots,
   seedExit,
   seedFlags,
-  openTab,
   seedPublication,
   seedScene,
   seedScenes,
@@ -245,7 +244,6 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   // rectangle to sit on. The path itself gained no Step naming the tab — the
   // sentence is the same one either way, and until the tab is pressed the bubble
   // carries it adrift rather than pointing at nothing.
-  await openTab(page, 'Flags')
   await lights(page, page.locator('.panel .flags'))
   await page.getByRole('button', { name: 'Add a Flag to The arrival' }).click()
   await page.getByLabel('Name of Flag 1 set on entering The arrival').fill('courage')
