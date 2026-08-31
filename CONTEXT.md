@@ -77,8 +77,10 @@ Scene or the Exit itself. A node is drawn as a card, which is a word for that
 drawing on the same terms: the Scene it stands for is never a card, and where a
 Scene is written is the surface the bench folds open for it, with the Graph beside
 it as a rail — see
-`docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`. An Exit is written on
-its own line there, and its Conditions beside the Scene it leaves.
+`docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`. Nothing is written in
+the drawing: an Exit is written in the document of the Scene it leaves, and a
+press on its line opens that Scene — see
+`docs/adr/0034-a-story-is-written-without-the-canvas.md`.
 _Affiché_: Graphe
 _Avoid_: map, tree, flowchart, board, canvas
 

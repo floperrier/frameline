@@ -232,6 +232,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
           :problem="problem"
           @close="closePanel"
           @attached="attachedAt[$event] = Date.now()"
+          @open="writeScene"
         />
       </template>
 

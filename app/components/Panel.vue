@@ -45,7 +45,7 @@ const {
  * `attached` is the moment an image landed, which the page holds because the card
  * on the graph draws that image too.
  */
-const emit = defineEmits<{ close: [], attached: [string] }>()
+const emit = defineEmits<{ close: [], attached: [string], open: [string] }>()
 
 const { t } = useI18n()
 
@@ -494,6 +494,167 @@ function openOn(scene: Scene) {
   return change(() => send(`/api/scenes/${scene.id}/opening`, { method: 'POST' }))
 }
 
+/**
+ * The Scenes a way on out of this Scene may be led to: the Story's own, less the
+ * Scene it leaves and less every Scene it already reaches. Asked of the same
+ * function the graph's aiming asks, so the gesture and the field cannot disagree
+ * about where an Exit may land.
+ *
+ * `led` is the Scene a way on already arrives at, which belongs in its own field
+ * although a new way on may not land there: a select whose current value is not
+ * among its options is a control that has lost its own state.
+ */
+function mayLandOn(scene: Scene, led?: string) {
+  const landing = scenesAExitMayLandOn(story.scenes, story.exits, scene.id)
+
+  return story.scenes.filter(other => landing.has(other.id) || other.id === led)
+}
+
+/**
+ * Where a way on leads, changed in the field that says where it leads. The Exit
+ * keeps its text, its Conditions and its Place — only the arrival is written —
+ * which is the endpoint the graph's endpoint-drag reaches, from a control instead
+ * of from a hand. Until now an Exit could only be led elsewhere on the canvas,
+ * so a Story written without one could not be corrected at all: see
+ * `docs/adr/0034-a-story-is-written-without-the-canvas.md`.
+ */
+function leadExit(exit: Exit, toSceneId: string) {
+  if (!toSceneId || toSceneId === exit.toSceneId) return
+
+  return change(() => send(`/api/exits/${exit.id}/scene`, {
+    method: 'PUT',
+    body: { toSceneId },
+  }))
+}
+
+/**
+ * Writes a second way on to the same Scene, carrying the Conditions of the first.
+ * The field that adds one will not offer a Scene this Scene already reaches, which
+ * is what keeps a slip from making an accidental duplicate — but two ways on to
+ * one Scene under opposite Conditions is what Conditions on an Exit are for, so
+ * it is written on purpose from here: an Author duplicates a way on at the moment
+ * they mean to write its opposite Condition.
+ *
+ * The Conditions are copied and the text is not. The pair exists to be offered
+ * under opposite tests, so the second is phrased from scratch, and the Condition
+ * that makes it the opposite is the Author's next edit — on the row it lands on.
+ *
+ * The two writes are one change, and are not one transaction: Conditions refused
+ * after the Exit was written leave a bare duplicate on the surface, which the
+ * Author can go on writing or take away.
+ */
+function duplicateExit(scene: Scene, exit: Exit) {
+  const conditions = wholeConditions(exit.conditions)
+
+  return change(async () => {
+    const written = await send(`/api/scenes/${scene.id}/exits`, {
+      method: 'POST',
+      body: { toSceneId: exit.toSceneId },
+    }) as Exit
+
+    if (conditions.length) {
+      await send(`/api/exits/${written.id}/conditions`, { method: 'PUT', body: { conditions } })
+    }
+
+    announce(t('editor.exitDuplicated', {
+      from: scene.name,
+      to: sceneNamed(sceneNames.value, exit.toSceneId, t),
+    }))
+  })
+}
+
+/**
+ * Takes a way on away, from the row it is written on. No confirmation, for the
+ * reason the same act on the canvas has none: it is a control pressed on purpose
+ * and named for what it takes, which is not the slip of the hand
+ * `docs/adr/0017-a-confirmation-is-drawn-on-the-bench.md` is about.
+ */
+function deleteExit(exit: Exit) {
+  return change(() => send(`/api/exits/${exit.id}`, { method: 'DELETE' }))
+}
+
+/**
+ * What the field at the foot of the ways on is set to, which is nothing for as
+ * long as nobody has chosen: it is a control that acts and then forgets, like the
+ * field above the bench that goes to a Scene by name, so it never stands there
+ * holding the last thing it did.
+ */
+const adding = ref('')
+
+/**
+ * What the field is set to for the one option that is not a Scene. A word rather
+ * than the empty string, which is what the field reads when nothing has been
+ * chosen: the two must not be the same answer.
+ */
+const NEW_SCENE = 'new'
+
+/**
+ * A way on written from the Scene's own document: chosen from the Scenes it may
+ * land on, or to a Scene that does not exist yet — which is the counterpart of
+ * dropping an Exit on the bare bench, for an Author who never opens the canvas.
+ */
+async function addExit(scene: Scene, chosen: string) {
+  adding.value = ''
+  if (!chosen) return
+  if (chosen === NEW_SCENE) return openSceneFrom(scene)
+
+  return change(() => send(`/api/scenes/${scene.id}/exits`, {
+    method: 'POST',
+    body: { toSceneId: chosen },
+  }))
+}
+
+/**
+ * The Scene at the far end of a way on that had none: written under a provisional
+ * name, placed beside the Scene it leaves, joined to it, and handed to the page
+ * so that the Author is left in the field that names it. The same two writes in
+ * the same order as the gesture on the canvas — see
+ * `docs/adr/0031-a-scene-is-born-from-an-exit-dropped-on-the-bench.md`, whose
+ * seam this shares: they are one change and not one transaction.
+ */
+async function openSceneFrom(scene: Scene) {
+  const name = t('editor.provisionalSceneName')
+  let writtenId: string | undefined
+
+  await change(async () => {
+    const written = await send(`/api/stories/${story.id}/scenes`, {
+      method: 'POST',
+      body: { name, ...placedBeside(story.scenes, scene) },
+    }) as Scene
+
+    await send(`/api/scenes/${scene.id}/exits`, {
+      method: 'POST',
+      body: { toSceneId: written.id },
+    })
+
+    writtenId = written.id
+    // Asked for inside the change, so the page has put the Scene in the address
+    // and on the surface by the time the read the change asks for comes back:
+    // this is the order the same gesture on the canvas is written in.
+    emit('open', written.id)
+    announce(t('editor.exitDrawn', { from: scene.name, to: name }))
+  })
+
+  // After the read and the render it causes, which is what puts the field in the
+  // page at all. Selected rather than left with a caret in it: the name is
+  // provisional, so the first thing typed replaces it.
+  if (!writtenId) return
+  await nextTick()
+  const named = document.getElementById(`scene-name-${writtenId}`) as HTMLInputElement | null
+  named?.focus()
+  named?.select()
+}
+
+/**
+ * The words a Reader reads on the button that takes this way on. A typed write,
+ * like a Shot's text and the Scene's own name: what is on screen is what the
+ * Author typed, and the mark it leaves is the time on the bench and the flash in
+ * the field.
+ */
+function writeExitText(exit: Exit) {
+  return write(() => send(`/api/exits/${exit.id}`, { method: 'PATCH', body: { text: exit.text } }))
+}
+
 function moveExit(scene: Scene, exit: Exit, step: -1 | 1) {
   const ways = exitsFrom(story.exits, scene.id).map(held => held.id)
 
@@ -916,61 +1077,151 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
           >{{ place + 1 }}</span>
 
           <div class="written">
+            <!-- Where the way on leads, in the field that says so: a way on is
+                 corrected here rather than only by dragging its endpoint across
+                 the canvas, so a Story can be written and put right without ever
+                 opening one. -->
             <p class="arrival">
-              {{ sceneNames.get(exit.toSceneId) }}
-              <span class="visually-hidden">
-                {{ $t('editor.wayOnFrom', { name: sceneWritten.name }) }}
-              </span>
+              <label class="visually-hidden" :for="`leads-${exit.id}`">
+                {{ $t('editor.wayOnLeadsTo', { place: place + 1, name: sceneWritten.name }) }}
+              </label>
+              <select
+                :id="`leads-${exit.id}`"
+                :value="exit.toSceneId"
+                @change="leadExit(exit, ($event.target as HTMLSelectElement).value)"
+              >
+                <option
+                  v-for="landing in mayLandOn(sceneWritten, exit.toSceneId)"
+                  :key="landing.id"
+                  :value="landing.id"
+                >
+                  {{ landing.name }}
+                </option>
+              </select>
+            </p>
+
+            <!-- The words the Reader reads on the button. Written here, with
+                 where the way on leads beside it and the Conditions it is
+                 offered under below, because those are the three things an Exit
+                 is — and a way on written on the canvas was a way on an Author
+                 who never opens one could not phrase at all. See
+                 `docs/adr/0034-a-story-is-written-without-the-canvas.md`. -->
+            <p class="said">
+              <!-- The label is read by assistive technology alone: the field
+                   stands beside the name of the Scene it leads to, and the
+                   placeholder says what is written in it, so a label over it
+                   would be the third thing on the row saying where the way on
+                   goes. -->
+              <label class="visually-hidden" :for="`exit-${exit.id}`">
+                {{ $t('exit.to', { scene: sceneNames.get(exit.toSceneId) }) }}
+              </label>
+              <input
+                :id="`exit-${exit.id}`"
+                v-model="exit.text"
+                :maxlength="EXIT_TEXT_MAX_LENGTH"
+                :placeholder="$t('editor.whatTheReaderPresses')"
+                @change="writeExitText(exit)"
+              >
             </p>
 
             <!-- Named by the Place as well as by where it arrives: a Scene may
                  offer two ways on to the same Scene under opposite Conditions,
                  and the Place is what tells the two rows apart — on the bench it
                  is the disc on the line. -->
-            <Conditions
-              :lead="$t('editor.offeredWhen')"
-              :carrier="$t('editor.theWayOnTo', {
-                place: place + 1,
-                scene: sceneNames.get(exit.toSceneId),
-              })"
-              :conditions="exit.conditions"
-              :scenes="story.scenes"
-              :counting="sceneWritten.id"
-              :id="exit.id"
-              @write="writeConditions('exits', exit.id, exit.conditions)"
-            />
+            <!-- What the way on is offered under, and what is done to the way
+                 on, on one line — as they are on a beat, and for the same
+                 reason: a way on carrying no Conditions is the ordinary way on,
+                 and two rows of controls under two fields made a way on as tall
+                 as a Scene. -->
+            <div class="beneath">
+              <Conditions
+                :lead="$t('editor.offeredWhen')"
+                :carrier="$t('editor.theWayOnTo', {
+                  place: place + 1,
+                  scene: sceneNames.get(exit.toSceneId),
+                })"
+                :conditions="exit.conditions"
+                :scenes="story.scenes"
+                :counting="sceneWritten.id"
+                :id="exit.id"
+                @write="writeConditions('exits', exit.id, exit.conditions)"
+              />
 
-            <div class="row">
-              <button
-                type="button"
-                :disabled="place === 0"
-                @click="moveExit(sceneWritten, exit, -1)"
-              >
-                {{ $t('common.moveEarlier') }}
-                <span class="visually-hidden">
-                  {{ $t('editor.theWayOnTo', {
-                    place: place + 1,
-                    scene: sceneNames.get(exit.toSceneId),
-                  }) }}
-                </span>
-              </button>
-              <button
-                type="button"
-                :disabled="place === exitsFrom(story.exits, sceneWritten.id).length - 1"
-                @click="moveExit(sceneWritten, exit, 1)"
-              >
-                {{ $t('common.moveLater') }}
-                <span class="visually-hidden">
-                  {{ $t('editor.theWayOnTo', {
-                    place: place + 1,
-                    scene: sceneNames.get(exit.toSceneId),
-                  }) }}
-                </span>
-              </button>
+              <div class="row marks">
+                <button
+                  type="button"
+                  :disabled="place === 0"
+                  @click="moveExit(sceneWritten, exit, -1)"
+                >
+                  {{ $t('common.moveEarlier') }}
+                  <span class="visually-hidden">
+                    {{ $t('editor.theWayOnTo', {
+                      place: place + 1,
+                      scene: sceneNames.get(exit.toSceneId),
+                    }) }}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  :disabled="place === exitsFrom(story.exits, sceneWritten.id).length - 1"
+                  @click="moveExit(sceneWritten, exit, 1)"
+                >
+                  {{ $t('common.moveLater') }}
+                  <span class="visually-hidden">
+                    {{ $t('editor.theWayOnTo', {
+                      place: place + 1,
+                      scene: sceneNames.get(exit.toSceneId),
+                    }) }}
+                  </span>
+                </button>
+                <button type="button" @click="duplicateExit(sceneWritten, exit)">
+                  <span aria-hidden="true">⧉</span>
+                  <span class="visually-hidden">
+                    {{ $t('editor.duplicateExitTo', {
+                      scene: sceneNames.get(exit.toSceneId),
+                    }) }}
+                  </span>
+                </button>
+                <button type="button" class="danger" @click="deleteExit(exit)">
+                  <span aria-hidden="true">×</span>
+                  <span class="visually-hidden">
+                    {{ $t('common.delete') }}
+                    {{ $t('editor.theWayOnTo', {
+                      place: place + 1,
+                      scene: sceneNames.get(exit.toSceneId),
+                    }) }}
+                  </span>
+                </button>
+  </div>
             </div>
           </div>
         </li>
       </ol>
+
+      <!-- A way on written from here: to a Scene the Story already holds, or to
+           one that does not exist yet, which is the counterpart of dropping an
+           Exit on the bare bench for an Author who never opens the canvas. A
+           field that acts and forgets rather than one that holds an answer. -->
+      <p class="adding">
+        <label class="eyebrow" :for="`add-way-${sceneWritten.id}`">
+          {{ $t('editor.addWayOn') }}
+        </label>
+        <select
+          :id="`add-way-${sceneWritten.id}`"
+          :value="adding"
+          @change="addExit(sceneWritten, ($event.target as HTMLSelectElement).value)"
+        >
+          <option value="" disabled>{{ $t('editor.chooseWhereItLeads') }}</option>
+          <option
+            v-for="landing in mayLandOn(sceneWritten)"
+            :key="landing.id"
+            :value="landing.id"
+          >
+            {{ landing.name }}
+          </option>
+          <option :value="NEW_SCENE">{{ $t('editor.toANewScene') }}</option>
+        </select>
+      </p>
     </section>
   </div>
 </template>
@@ -1298,6 +1549,59 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   border-radius: var(--machined);
   background: var(--steel);
   box-shadow: var(--lifted);
+}
+
+/* A way on reads across two columns of its row: where it leads, and what the
+   Reader presses to take it. The Conditions and the marks take the whole width
+   under them, as they do on a beat. */
+.ways .written {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+}
+
+.ways .written > .beneath {
+  grid-column: 1 / -1;
+}
+
+/* Where a way on leads, worn as the heading of its own row rather than as a
+   field in a form: it is the name of a Scene, which is what an Author reads a way
+   on by, and the rule under it is all that says it can be changed. */
+.arrival select {
+  padding: 0 var(--s1);
+  border-color: transparent;
+  border-block-end-color: var(--edge);
+  background: none;
+  font-size: 0.9375rem;
+}
+
+.arrival select:hover,
+.arrival select:focus-visible {
+  border-color: var(--edge);
+}
+
+/* The way on written from here, at the foot of the ways on: a label and a field,
+   as narrow as the words in it — it is one control and not a section. */
+.adding {
+  display: grid;
+  justify-items: start;
+  gap: var(--s1);
+}
+
+.adding select {
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  padding: var(--s1) var(--s2);
+  font-size: 0.875rem;
+}
+
+/* What a Reader reads on the button, in the width the row gives it: it is the
+   Author's own words and the longest thing on the row. */
+.said {
+  display: grid;
+  gap: var(--s1);
+}
+
+.said input {
+  font-size: 0.875rem;
 }
 
 /* A row of controls, as the bench draws one everywhere it draws one. */

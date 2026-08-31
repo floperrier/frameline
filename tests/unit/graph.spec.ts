@@ -9,7 +9,10 @@ import {
   NODE_HEIGHT,
   NODE_PITCH,
   NODE_WIDTH,
+  NODE_GAP,
+  NODE_SPACING,
   onTheSurface,
+  placedBeside,
   scenesAExitMayLandOn,
   snappedWithinReach,
   withinReach,
@@ -196,5 +199,50 @@ describe('the zoom, and the scroll that holds a point still under it', () => {
 
     expect(zoom).toBe(ZOOM_MIN)
     expect(scroll).toEqual({ x: 200 + 400 * (ZOOM_MIN - 0.5), y: 200 + 400 * (ZOOM_MIN - 0.5) })
+  })
+})
+
+describe('where a Scene born from an Exit lands', () => {
+  /** Only where a Scene sits is read here, so that is all a Scene is given. */
+  const at = (...placed: [number, number][]) => placed.map(([x, y]) => ({ x, y }))
+
+  test('goes one column on from the Scene it leaves, at its own height', () => {
+    expect(placedBeside(at([100, 200]), { x: 100, y: 200 }))
+      .toEqual({ x: 100 + NODE_WIDTH + NODE_GAP, y: 200 })
+  })
+
+  test('drops a node further down for every spot already taken', () => {
+    const beside = NODE_WIDTH + NODE_GAP
+
+    expect(placedBeside(at([0, 0], [beside, 0], [beside, NODE_SPACING]), { x: 0, y: 0 }))
+      .toEqual({ x: beside, y: NODE_SPACING * 2 })
+  })
+
+  test('passes over every spot a Scene overlaps, not only the one it sits on', () => {
+    const beside = NODE_WIDTH + NODE_GAP
+
+    // A card dragged off the lattice covers part of two spots, and neither of
+    // them is free: a Scene dropped on the second would sit across it.
+    expect(placedBeside(at([beside, NODE_HEIGHT - 1]), { x: 0, y: 0 }))
+      .toEqual({ x: beside, y: NODE_SPACING * 2 })
+  })
+
+  test('takes a spot a Scene clears by a pixel', () => {
+    const beside = NODE_WIDTH + NODE_GAP
+
+    expect(placedBeside(at([beside, NODE_HEIGHT]), { x: 0, y: 0 })).toEqual({ x: beside, y: 0 })
+  })
+
+  test('goes under the Scene it leaves where the bench has no column left', () => {
+    const leaving = { x: GRAPH_REACH - NODE_WIDTH, y: 0 }
+
+    expect(placedBeside(at([leaving.x, 0]), leaving)).toEqual({ x: leaving.x, y: NODE_SPACING })
+  })
+
+  test('never lands outside the graph reach', () => {
+    const { x, y } = placedBeside([], { x: GRAPH_REACH, y: GRAPH_REACH })
+
+    expect(x).toBeLessThanOrEqual(GRAPH_REACH)
+    expect(y).toBeLessThanOrEqual(GRAPH_REACH)
   })
 })
