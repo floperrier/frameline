@@ -2,7 +2,7 @@ import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 import { CONDITIONS_MAX, SCENE_NAME_MAX_LENGTH, VISITS_MAX } from '../../shared/utils/scenes'
 import {
-  writeScene, openTab, readExits, readSceneName, readShotConditions, readShots, seedFlags,
+  writeScene, readExits, readSceneName, readShotConditions, readShots, seedFlags,
   seedExit, seedScene, seedStory, test,
 } from './author'
 
@@ -538,7 +538,7 @@ test('the Story page shows a Scene and the Shots in it', async ({ page, request 
   await expect(page.getByRole('textbox', { name: 'Shot 2' })).toBeVisible()
 })
 
-test('what a Scene holds stands behind three tabs, each carrying its count',
+test('everything a Scene holds is on the surface at once, each part counted',
   async ({ page, request }) => {
     const { story, scene } = await openScene(request, 'The arrival')
     await writeShots(request, scene.id, ['She steps off the train.', 'The doors close.'])
@@ -552,42 +552,83 @@ test('what a Scene holds stands behind three tabs, each carrying its count',
     await page.goto(`/stories/${story.id}`)
     await writeScene(page, 'The arrival')
 
-    // Each tab says how much is behind it, which is what a fold owes: an Author
-    // knows there is a way on to look at before pressing anything.
-    await expect(page.getByRole('tab')).toHaveText([/Shots\s*2/, /Flags\s*1/, /Ways on\s*1/])
+    // The three parts of the document, in the order a Reader meets them, each
+    // headed and counted where it starts: the Flags set on entry, the run of
+    // beats, the ways on.
+    await expect(page.locator('.panel .held > h3'))
+      .toHaveText([/Flags\s*1/, /Shots\s*2/, /Ways on\s*1/])
 
-    // The Shots are open when the Scene arrives, and they are the only thing that
-    // is: writing Shots is what a Scene is opened for, and the common act costs
-    // no press.
-    await expect(page.getByRole('tab', { name: /^Shots/ })).toHaveAttribute('aria-selected', 'true')
+    // And all three are on the surface together, which is what taking the tabs
+    // out bought: a Condition and the Flags that satisfy it are read at once.
     await expect(page.getByRole('textbox', { name: 'Shot 1' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Add a Flag to The arrival' })).toHaveCount(0)
-    await expect(page.getByRole('button',
-      { name: 'Add a Condition to the way on 1 to The platform' })).toHaveCount(0)
-
-    // And each of the other two does behind its tab exactly what it did before
-    // there was one.
-    await openTab(page, 'Flags')
     await expect(page.getByLabel('Name of Flag 1 set on entering The arrival')).toHaveValue('coat')
-    await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveCount(0)
-
-    await openTab(page, 'Ways on')
     await expect(page.locator('.panel .ways > ol > li > .numbered')).toHaveText('1')
-    await expect(page.locator('.panel .ways .arrival'))
-      .toHaveText('The platform — way on from The arrival')
+    await expect(page.getByLabel('Where the way on 1 out of The arrival leads'))
+      .toHaveValue(platform.id)
 
-    // The count follows the Story rather than the page it was drawn on: a Shot
-    // added while another tab is open is counted the moment it lands.
-    await openTab(page, 'Shots')
+    // The count follows the Story rather than the page it was drawn on.
     await page.getByRole('button', { name: 'Add Shot' }).click()
-    await expect(page.getByRole('tab', { name: /^Shots/ })).toHaveText(/Shots\s*3/)
-
-    // Another Scene opens on its own Shots: the tab left open on one Scene is not
-    // a thing an Author asked to be true of the next.
-    await openTab(page, 'Ways on')
-    await writeScene(page, 'The platform')
-    await expect(page.getByRole('tab', { name: /^Shots/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.locator('.panel .held > h3').nth(1)).toHaveText(/Shots\s*3/)
   })
+
+test('a Scene is typed as one document, beat after beat', async ({ page, request }) => {
+  const { story, scene } = await openScene(request, 'The arrival')
+  await writeShots(request, scene.id, ['She steps off the train.'])
+
+  await page.goto(`/stories/${story.id}`)
+  await writeScene(page, 'The arrival')
+
+  // Enter at the end of a beat writes it and opens the next, with the caret
+  // already in it: an Author writing forwards never leaves the keyboard.
+  const first = page.getByRole('textbox', { name: 'Shot 1' })
+  await first.click()
+  await page.keyboard.press('End')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('textbox', { name: 'Shot 2' })).toBeFocused()
+  await page.keyboard.type('The doors close.')
+  await page.keyboard.press('Enter')
+  // The caret lands in the new beat once the Story has been read back and drawn,
+  // so the test waits for it the way an Author's eye does.
+  await expect(page.getByRole('textbox', { name: 'Shot 3' })).toBeFocused()
+  await page.keyboard.type('The platform empties.')
+  await page.getByRole('textbox', { name: 'Shot 3' }).blur()
+
+  await expect.poll(() => readShots(scene.id)).toMatchObject([
+    { text: 'She steps off the train.', position: 0 },
+    { text: 'The doors close.', position: 1 },
+    { text: 'The platform empties.', position: 2 },
+  ])
+
+  // In the middle of the run the beat is written where the caret was and not at
+  // the foot of the Scene.
+  await first.click()
+  await page.keyboard.press('End')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('textbox', { name: 'Shot 2' })).toBeFocused()
+  await page.keyboard.type('She looks back.')
+  await page.getByRole('textbox', { name: 'Shot 2' }).blur()
+
+  await expect.poll(() => readShots(scene.id)).toMatchObject([
+    { text: 'She steps off the train.' },
+    { text: 'She looks back.' },
+    { text: 'The doors close.' },
+    { text: 'The platform empties.' },
+  ])
+
+  // Backspace at the head of an empty beat takes it away and puts the caret at
+  // the end of the one before, the way it joins two paragraphs anywhere else.
+  const second = page.getByRole('textbox', { name: 'Shot 2' })
+  await second.fill('')
+  await second.press('Backspace')
+  await expect(page.getByRole('textbox', { name: 'Shot 1' })).toBeFocused()
+  await expect.poll(() => readShots(scene.id)).toHaveLength(3)
+
+  // Shift held, it writes the second line of one beat rather than a second beat.
+  await page.keyboard.press('Shift+Enter')
+  await expect.poll(() => page.getByRole('textbox', { name: 'Shot 1' }).inputValue())
+    .toBe('She steps off the train.\n')
+  await expect(page.getByRole('textbox', { name: 'Shot 4' })).toHaveCount(0)
+})
 
 test('an Author writes a Story from the page alone', async ({ page, request }) => {
   const story = await (await request.post('/api/stories', { data: { title: 'A Story' } })).json()

@@ -189,6 +189,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
       :id="id"
       :story="story ?? undefined"
       :kept-at="keptAt"
+      :writing="!!sceneWritten"
       :change="change"
       :write="write"
     />
@@ -231,6 +232,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
           :problem="problem"
           @close="closePanel"
           @attached="attachedAt[$event] = Date.now()"
+          @open="writeScene"
         />
       </template>
 

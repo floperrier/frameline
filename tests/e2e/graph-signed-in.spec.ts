@@ -15,7 +15,6 @@ import {
 } from '../../shared/utils/scenes'
 import {
   ONE_PIXEL,
-  openTab,
   writeScene,
   readExits,
   readFlags,
@@ -39,12 +38,16 @@ async function drawExit(request: APIRequestContext, fromSceneId: string, toScene
 const noId = '00000000-0000-4000-8000-000000000000'
 
 /**
- * Opens an Exit for writing on its own line, from the button hidden on that line
- * until it is focused — the route an Author has without a pointer, and the one a
- * test can take to an Exit whose line is off the fold of the bench.
+ * Opens the Scene an Exit leaves and hands back the field its text is written in.
+ * An Exit is written in that Scene's own document — beside where it leads and the
+ * Conditions it is offered under, see
+ * `docs/adr/0034-a-story-is-written-without-the-canvas.md` — so reaching one means
+ * opening the Scene it leaves.
  */
-async function writeExit(page: Page, to: string) {
-  await page.getByRole('button', { name: `Write the Exit to ${to}` }).first().press('Enter')
+async function writeExit(page: Page, from: string, to: string) {
+  await writeScene(page, from)
+
+  return page.getByRole('textbox', { name: `Exit to ${to}` })
 }
 
 /** A Story with two Scenes, which is the smallest graph an Exit can join. */
@@ -388,18 +391,15 @@ test('an Author lays out the graph from the page alone', async ({ page, request 
   await page.getByRole('button', { name: 'Draw an Exit from The arrival' }).press('Enter')
   await page.getByRole('button', { name: 'Exit from The arrival to The platform' }).press('Enter')
 
-  // The Exit's own text is written on its line, which is on the graph: so it is
-  // written here, before a Scene folds the graph into a rail.
-  await writeExit(page, 'The platform')
-  const exitText = page.getByRole('textbox', { name: 'Exit to The platform' })
+  // The Exit's own text is one field of the Scene it leaves, so writing it means
+  // opening that Scene's document.
+  const exitText = await writeExit(page, 'The arrival', 'The platform')
   await expect(exitText).toBeVisible()
   await exitText.fill('Follow her out')
   await exitText.blur()
 
   // Everything written about a Scene is on the surface the bench folds open for
-  // it, so from here that surface is opened — with the Exit let go of first,
-  // because what is written on a line lies over the bench it is drawn on.
-  await page.keyboard.press('Escape')
+  // it, and the Scene this Exit lands on is the next one opened.
   await writeScene(page, 'The platform')
   await expect(page.getByRole('group', { name: 'Writing The platform' })).toBeVisible()
   await page.getByRole('radio', { name: 'Opening Scene The platform' }).check()
@@ -418,17 +418,16 @@ test('an Author lays out the graph from the page alone', async ({ page, request 
   // carries it — see the spec of its own below — so nothing is opened again here.
   await page.reload()
   await expect(page.getByRole('radio', { name: 'Opening Scene The platform' })).toBeChecked()
-  // The address carries the Scene, so the graph comes back folded: the writing
-  // is closed to have a whole graph to write the Exit on again.
-  await page.keyboard.press('Escape')
-  await writeExit(page, 'The platform')
-  await expect(page.getByRole('textbox', { name: 'Exit to The platform' }))
+  // The address carries the Scene the reload came back to, so the Scene the Exit
+  // leaves is opened again to read the Exit back.
+  await expect(await writeExit(page, 'The arrival', 'The platform'))
     .toHaveValue('Follow her out')
   await expect(page.getByRole('article', { name: 'The arrival' }))
     .toHaveCSS('translate', '120px 80px')
 
-  // Taken away from the line it is written on, which goes with it.
-  await page.getByRole('button', { name: 'Delete Exit to The platform' }).click()
+  // Taken away from the row it is written on, and the line the graph drew for it
+  // goes with it.
+  await page.getByRole('button', { name: 'Delete the way on 1 to The platform' }).click()
   await expect(page.getByRole('textbox', { name: 'Exit to The platform' })).toHaveCount(0)
   await expect(readExits(scenes[0]!.id)).resolves.toEqual([])
 })
@@ -625,7 +624,6 @@ test('an Exit is written where it is, and never takes the Scene\u2019s place', a
   // carry the Conditions each one is offered under — beside the Flags that Scene
   // sets, which is what they test.
   await writeScene(page, 'The arrival')
-  await openTab(page, 'Ways on')
   await page.getByRole('button', { name: 'Add a Condition to the way on 1 to The platform' }).click()
   await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
   const flag = page.getByLabel('Flag of Condition 1 of the way on 1 to The platform')
@@ -639,22 +637,24 @@ test('an Exit is written where it is, and never takes the Scene\u2019s place', a
   await expect(page.getByRole('textbox', { name: 'Name of this Scene' }))
     .toHaveValue('The arrival')
   await expect(page.getByRole('button', { name: 'Back to The arrival' })).toHaveCount(0)
-  await expect(page.getByRole('group', { name: 'Writing the Exit to The platform' }))
-    .toHaveCount(0)
 
   await expect(async () => {
     await expect(readExits(scenes[0]!.id))
       .resolves.toMatchObject([{ conditions: [{ flag: 'coat', is: '' }] }])
   }).toPass()
 
-  // And the Exit's own text is written on its line, on a graph that is whole:
-  // what a Reader reads on a button is written where it can be seen leading
-  // somewhere.
-  await page.keyboard.press('Escape')
-  await writeExit(page, 'The platform')
-  await expect(page.getByRole('group', { name: 'Writing the Exit to The platform' }))
-    .toBeVisible()
-  await expect(page.getByRole('group', { name: 'Writing The arrival' })).toHaveCount(0)
+  // And the three things a way on is are on that same row, without leaving the
+  // Scene for any of them: where it leads, what the Reader presses to take it,
+  // and the Conditions it is offered under.
+  await expect(page.getByLabel('Where the way on 1 out of The arrival leads'))
+    .toHaveValue(scenes[1]!.id)
+  const said = page.getByRole('textbox', { name: 'Exit to The platform' })
+  await said.fill('Follow her out')
+  await said.blur()
+  await expect(async () => {
+    await expect(readExits(scenes[0]!.id)).resolves.toMatchObject([{ text: 'Follow her out' }])
+  }).toPass()
+  await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
 })
 
 test('two Scenes moved one after the other are both written', async ({ page, request }) => {
@@ -757,7 +757,6 @@ test('the graph of several dozen Scenes is read as cards', async ({ page, author
   // one Scene asked for: the graph goes on being forty cards of one size, drawn in
   // the rail beside it.
   await writeScene(page, 'Scene 40')
-  await expect(page.getByRole('tab', { name: /^Flags/ })).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveCount(1)
   await expect(page.getByRole('article')).toHaveCount(40)
   const railed = (await last.boundingBox())!.height
@@ -1046,7 +1045,6 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
   // `docs/adr/0030-a-story-is-read-where-it-is-written.md`.
   const ways = page.locator('.panel .ways')
 
-  await openTab(page, 'Ways on')
   await ways.getByRole('button', { name: 'Move earlier the way on 2 to The tunnel' }).click()
   await expect(async () => {
     await expect(readExits(from.id)).resolves.toMatchObject([
@@ -1059,7 +1057,6 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
   // rather than asking. The reload comes back to the Scene being written, which the
   // address carries, so nothing is opened again here.
   await page.reload()
-  await openTab(page, 'Ways on')
   await expect(ways.getByRole('button', { name: 'Move earlier the way on 1 to The tunnel' }))
     .toBeDisabled()
   await expect(ways.getByRole('button', { name: 'Move later the way on 2 to The buffet' }))
@@ -1076,8 +1073,7 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
 
   // And back the other way, which is the same arithmetic reversed: a row dropped
   // on one later than itself passes it rather than swapping with it.
-  await expect(ways.locator('> ol > li').filter({ hasText: 'The buffet' }).locator('> .numbered'))
-    .toHaveText('1')
+  await expect(wayOn(page, 'The buffet').locator('> .numbered')).toHaveText('1')
   await dragWayOn(page, 'The buffet', 'The tunnel')
   await expect(async () => {
     await expect(readExits(from.id)).resolves.toMatchObject([
@@ -1092,14 +1088,31 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
 })
 
 /**
+ * One row of a Scene's ways on, found by the field its own text is written in.
+ * Not by the text in the row: the field that says where a way on leads lists
+ * every Scene it could be led to, so every row carries every name.
+ */
+function wayOn(page: Page, to: string) {
+  return page.locator('.panel .ways > ol > li')
+    .filter({ has: page.getByRole('textbox', { name: `Exit to ${to}` }) })
+}
+
+/**
  * Drags one row of a Scene's ways on onto another, which is what renumbers by
  * hand. The row is taken by its Place, in the gutter where a Shot's number sits:
- * the rest of the row is a list of Conditions to type in.
+ * the rest of the row is fields to type in.
  */
 async function dragWayOn(page: Page, dragged: string, onto: string) {
-  const ways = page.locator('.panel .ways')
-  const row = async (to: string) => (await ways.locator('> ol > li')
-    .filter({ hasText: to }).locator('> .numbered').boundingBox())!
+  const row = async (to: string) => {
+    const number = wayOn(page, to).locator('> .numbered')
+    // The panel scrolls inside itself, so a row below its fold is a row no
+    // pointer can be told to press: both ends of the drag are brought into view
+    // before either is measured, which is what an Author's own scroll does.
+    await number.scrollIntoViewIfNeeded()
+
+    return (await number.boundingBox())!
+  }
+  await row(onto)
   const held = await row(dragged)
   const target = await row(onto)
 
@@ -1127,7 +1140,10 @@ async function layOut(request: APIRequestContext, at: Record<string, [number, nu
   return opened
 }
 
-test('an Exit is written on its own line', async ({ page, request }) => {
+test('an Exit\u2019s line says its Place and leads to where the Exit is written', async ({
+  page,
+  request,
+}) => {
   const { story, scenes } = await layOut(request, {
     'The arrival': [0, 0],
     'The platform': [400, 220],
@@ -1141,52 +1157,31 @@ test('an Exit is written on its own line', async ({ page, request }) => {
 
   const drawing = (exit: { id: string }) => page.locator(`[data-exit="${exit.id}"]`)
   const lineOf = (exit: { id: string }) => drawing(exit).locator('line.aimed')
-  const writtenOn = (scene: string) =>
-    page.getByRole('group', { name: `Writing the Exit to ${scene}` })
 
   // Every way on is labelled on the bench with the Place it is offered at, on a
-  // disc near the Scene it leaves.
+  // disc near the Scene it leaves. It reports the order and nothing reads the
+  // order back out of the drawing \u2014 see
+  // `docs/adr/0007-the-order-of-the-ways-on-is-written-not-drawn.md`.
   await expect(drawing(first).locator('text.place')).toHaveText('1')
   await expect(drawing(second).locator('text.place')).toHaveText('2')
 
-  // Pressing a line opens that Exit on the line itself, and the line is lit for
-  // as long as it is being written.
-  await lineOf(first).click()
-  await expect(writtenOn('The platform')).toBeVisible()
-  await expect(drawing(first).locator('line.lit')).toHaveCount(1)
-  await expect(page.getByRole('textbox', { name: 'Exit to The platform' })).toBeFocused()
-
-  // It is written where it is drawn, so it travels with the bench: what is being
-  // written and the way on it is about are the one thing on the screen.
-  const bench = page.locator('.graph')
-  const before = (await writtenOn('The platform').boundingBox())!
-  await bench.evaluate(scrolled => scrolled.scrollTop = 60)
-  await expect.poll(() => bench.evaluate(scrolled => scrolled.scrollTop)).toBe(60)
-  expect((await writtenOn('The platform').boundingBox())!.y).toBeCloseTo(before.y - 60, 0)
-  await bench.evaluate(scrolled => scrolled.scrollTop = 0)
-
-  // One Exit at a time: opening another closes the first.
+  // What the drawing does not carry is any of the writing. An Exit is written in
+  // the document of the Scene it leaves \u2014 see
+  // `docs/adr/0034-a-story-is-written-without-the-canvas.md` \u2014 so pressing a
+  // line opens that Scene, which is a way to the writing rather than a place to
+  // write.
+  await expect(page.getByRole('textbox', { name: 'Exit to The platform' })).toHaveCount(0)
   await lineOf(second).click()
-  await expect(writtenOn('The bar')).toBeVisible()
-  await expect(writtenOn('The platform')).toHaveCount(0)
-  await expect(drawing(first).locator('line.lit')).toHaveCount(0)
+  await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
 
-  // Escape closes it, and so does a press on the bare bench.
-  await page.keyboard.press('Escape')
-  await expect(writtenOn('The bar')).toHaveCount(0)
+  // Both ways on out of that Scene are on the surface at once, each on its own
+  // row: the line pressed says which Scene to open and nothing narrower.
+  const said = page.getByRole('textbox', { name: 'Exit to The platform' })
+  await expect(said).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Exit to The bar' })).toBeVisible()
 
-  await lineOf(second).click()
-  await expect(writtenOn('The bar')).toBeVisible()
-  const surface = (await bench.boundingBox())!
-  await page.mouse.click(surface.x + surface.width / 2, surface.y + surface.height - 20)
-  await expect(writtenOn('The bar')).toHaveCount(0)
-
-  // What is written on the line is the Exit's text, and it is written on the Exit.
-  await lineOf(first).click()
-  const exitText = page.getByRole('textbox', { name: 'Exit to The platform' })
-  await exitText.fill('Follow her out')
-  await exitText.blur()
-
+  await said.fill('Follow her out')
+  await said.blur()
   await expect(async () => {
     await expect(readExits(from.id)).resolves.toMatchObject([
       { id: first.id, text: 'Follow her out' },
@@ -1194,9 +1189,11 @@ test('an Exit is written on its own line', async ({ page, request }) => {
     ])
   }).toPass()
 
-  // And taken away from the same line, which goes with the Exit it was drawing.
-  await page.getByRole('button', { name: 'Delete Exit to The platform' }).click()
-  await expect(writtenOn('The platform')).toHaveCount(0)
+  // And taken away from the row it is written on, which takes the line the graph
+  // drew for it with it.
+  await page.getByRole('button', { name: 'Delete the way on 1 to The platform' }).click()
+  await expect(page.getByRole('textbox', { name: 'Exit to The platform' })).toHaveCount(0)
+  await expect(drawing(first)).toHaveCount(0)
   await expect(async () => {
     await expect(readExits(from.id)).resolves.toMatchObject([{ id: second.id, position: 0 }])
   }).toPass()
@@ -1210,22 +1207,23 @@ test('an Exit is reached, written and taken away without a pointer',
 
     await page.goto(`/stories/${story.id}`)
 
-    // The card says where the Scene leads, and the line is where the Exit is
-    // written: a line is pressed with a pointer, so the button that opens it is
-    // hidden on the line until it is focused, the way the one that draws an Exit
-    // from a card is.
+    // The card says where the Scene leads, and the Scene's own document is where
+    // the way on is written: reached by the button on the card that opens it, the
+    // way every other thing about a Scene is.
     const node = page.getByRole('article', { name: 'The arrival' })
     await expect(node).toContainText('on to The platform')
     await expect(page.getByRole('textbox', { name: 'Exit to The platform' })).toHaveCount(0)
 
-    const opening = page.getByRole('button', { name: 'Write the Exit to The platform' })
-    await opening.focus()
-    expect((await opening.boundingBox())!.width).toBeGreaterThan(1)
-    await opening.press('Enter')
+    await page.getByRole('button', { name: 'Write Scene The arrival' }).press('Enter')
 
-    // Opened, it puts the focus in the Exit's text and offers what is done to an
-    // Exit: leading it elsewhere, duplicating it, and taking it away.
+    // Where it leads, what the Reader presses, and the Conditions it is offered
+    // under: three fields of one row, each reached by the key that reaches every
+    // other field on the surface.
+    const leads = page.getByLabel('Where the way on 1 out of The arrival leads')
+    await expect(leads).toHaveValue(to.id)
+
     const exitText = page.getByRole('textbox', { name: 'Exit to The platform' })
+    await exitText.focus()
     await expect(exitText).toBeFocused()
     await exitText.fill('Follow her out')
     await exitText.blur()
@@ -1233,19 +1231,15 @@ test('an Exit is reached, written and taken away without a pointer',
       await expect(readExits(from.id)).resolves.toMatchObject([{ text: 'Follow her out' }])
     }).toPass()
 
-    // Escape closes it, giving the focus back to the button that opened it —
-    // which is where the way in started.
-    await page.keyboard.press('Escape')
-    await expect(page.getByRole('group', { name: 'Writing the Exit to The platform' }))
-      .toHaveCount(0)
-    await expect(opening).toBeFocused()
-
-    // And it is taken away from there too.
-    await opening.press('Enter')
-    await page.getByRole('button', { name: 'Delete Exit to The platform' }).press('Enter')
+    // And taken away from the same row, by the mark at the end of it.
+    await page.getByRole('button', { name: 'Delete the way on 1 to The platform' }).press('Enter')
     await expect(async () => {
       await expect(readExits(from.id)).resolves.toEqual([])
     }).toPass()
+
+    // The Scene never left: nothing about a way on takes the surface away from
+    // the Scene it belongs to.
+    await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
   })
 
 /**
@@ -1261,7 +1255,6 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
 
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The arrival')
-  await openTab(page, 'Flags')
 
   // A Flag is a row of two fields, a name and the value it holds, and neither of
   // them carries punctuation: the row is added with a control, and the hand is
@@ -1277,7 +1270,6 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
 
   // The Conditions of a way on are written beside the Scene, one tab away from
   // the Flags they are tested against.
-  await openTab(page, 'Ways on')
   await page.getByRole('button', { name: 'Add a Condition to the way on 1 to The platform' }).click()
   // The name of the Flag and the value it holds are written one at a time,
   // because the Flag alone is half a Condition and is written as soon as it has
@@ -1321,7 +1313,6 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
     .toHaveValue('coat')
   await expect(page.getByLabel('Value 1 of Flag 1 set on entering The arrival'))
     .toHaveValue('on')
-  await openTab(page, 'Ways on')
   await expect(page.getByLabel('Condition 1 of the way on 1 to The platform', { exact: true }))
     .toHaveValue('flag')
   await expect(page.getByLabel('Flag of Condition 1 of the way on 1 to The platform'))
@@ -1359,7 +1350,6 @@ test('an Author writes the values a Flag is drawn from, a field apiece',
 
     await page.goto(`/stories/${story.id}`)
     await writeScene(page, 'The arrival')
-    await openTab(page, 'Flags')
 
     const called = (place: number) => `Flag ${place} set on entering The arrival`
     await page.getByRole('button', { name: 'Add a Flag to The arrival' }).click()
@@ -1395,7 +1385,6 @@ test('an Author writes the values a Flag is drawn from, a field apiece',
     // the Shots, which is the tab a Scene always arrives on, so the Flags are
     // asked for again.
     await page.reload()
-    await openTab(page, 'Flags')
     await expect(page.getByLabel(/^Name of Flag/).first()).toBeVisible()
     const weather = called(await rowOfFlag(page, 'weather'))
 
@@ -1442,7 +1431,6 @@ test('the second of two typed changes is the one the Story keeps', async ({ page
 
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The arrival')
-  await openTab(page, 'Flags')
 
   const called = 'Flag 1 set on entering The arrival'
   await page.getByRole('button', { name: 'Add a Flag to The arrival' }).click()
@@ -1680,9 +1668,12 @@ test('the keyboard lands an Exit on a Scene that is not there yet', async ({ pag
     { fromSceneId: scenes[0]!.id, toSceneId: written.id, position: 0 },
   ])
 
-  // No hand named a point, so the Scene is placed where the endpoint places every
-  // Scene nobody placed: the next free spot, under the last one written.
-  expect(await readScenePlacement(written.id)).toMatchObject({ x: 0, y: NODE_SPACING * 2 })
+  // No hand named a point, so the Scene goes beside the one it leaves: one column
+  // on, at that Scene's own height, and a node further down for every spot
+  // already taken — beside The arrival is where The platform already sits.
+  const left = await readScenePlacement(scenes[0]!.id)
+  expect(await readScenePlacement(written.id))
+    .toMatchObject({ x: left.x + NODE_WIDTH + NODE_GAP, y: left.y + NODE_SPACING })
 
   // And it arrives named the way the pointer's landing does: open for writing,
   // with the provisional name selected.
@@ -1693,14 +1684,10 @@ test('the keyboard lands an Exit on a Scene that is not there yet', async ({ pag
   await page.keyboard.press('Tab')
   await expect.poll(() => readSceneName(written.id)).toBe('The buffet')
 
-  // The other end of the same gesture is not offered while an Exit is being led
-  // elsewhere: an endpoint let go of in empty space leaves the Exit where it led,
-  // and it may not make a Scene either.
-  await page.getByRole('button', { name: 'Close this panel' }).click()
-  await page.getByRole('button', { name: 'Write the Exit to The buffet' }).press('Enter')
-  await page.getByRole('button', { name: 'Lead this Exit to another Scene' }).press('Enter')
-  await expect(page.getByRole('button', { name: 'Exit from The arrival to a new Scene' }))
-    .toHaveCount(0)
+  // That the same landing is not offered while an Exit is being led elsewhere is
+  // asserted where an Exit is led elsewhere: by dragging its endpoint, which is
+  // the one gesture that does it now that where a way on leads is a field of the
+  // Scene's own document.
 })
 
 /**
@@ -1782,13 +1769,14 @@ test('a second way on to the same Scene is written by duplicating the first',
 
     await page.goto(`/stories/${story.id}`)
 
-    // Duplicated from the Exit's own line, which is the deliberate act: the
-    // gesture that draws an Exit refuses to land on a Scene this one already
-    // reaches, so a second way on to the same Scene is asked for and never
-    // slipped into. The bench says so out loud, because an Exit that arrives
-    // without a gesture arrives on a line the Author may not be looking at.
-    await writeExit(page, 'The platform')
+    // Duplicated from the way on's own row, which is the deliberate act: neither
+    // the gesture that draws an Exit nor the field that adds one offers a Scene
+    // this Scene already reaches, so a second way on to the same Scene is asked
+    // for and never slipped into. The bench says so out loud, because the copy
+    // lands at the foot of a list the Author may have scrolled past.
+    await writeScene(page, 'The arrival')
     const duplicate = page.getByRole('button', { name: 'Duplicate Exit to The platform' })
+      .first()
     await duplicate.click()
     await expect(toast(page))
       .toHaveText('Another Exit from The arrival to The platform written')
@@ -1804,8 +1792,6 @@ test('a second way on to the same Scene is written by duplicating the first',
      */
     const wayOnAt = (place: number) => page.locator('.panel .ways > ol > li').nth(place - 1)
 
-    await writeScene(page, 'The arrival')
-    await openTab(page, 'Ways on')
     await expect(wayOnAt(2).locator('> .numbered')).toHaveText('2')
 
     // A Condition on the first, because a Condition is what the pair is for: two
@@ -1820,10 +1806,7 @@ test('a second way on to the same Scene is written by duplicating the first',
     await holds.blur()
 
     // Duplicated again, the Conditions come with it — and the duplicate is last
-    // among the ways on, not beside the Exit it was copied from. The graph is
-    // whole again for it, because an Exit is duplicated from its own line.
-    await page.keyboard.press('Escape')
-    await writeExit(page, 'The platform')
+    // among the ways on, not beside the Exit it was copied from.
     await duplicate.click()
     await expect.poll(() => readExits(from.id)).toMatchObject([
       { id: first.id, position: 0, conditions: [{ flag: 'coat', is: 'on' }] },
@@ -1833,8 +1816,6 @@ test('a second way on to the same Scene is written by duplicating the first',
     const copied = (await readExits(from.id))[2]!
 
     // What is written against the third row is written on the copy alone.
-    await writeScene(page, 'The arrival')
-    await openTab(page, 'Ways on')
     await expect(wayOnAt(3).locator('> .numbered')).toHaveText('3')
     const opposite = page.getByLabel('holds for Condition 1 of the way on 3 to The platform')
     await opposite.fill('off')
@@ -2073,33 +2054,42 @@ test('an Exit is led to another Scene by dragging its endpoint, and keeps what i
     expect((await (await request.get(`/api/stories/${story.id}`)).json()).scenes).toHaveLength(3)
   })
 
-test('the keyboard leads an Exit the same way, from the line it is written on',
+test('where a way on leads is a field, and the Exit keeps what it carries',
   async ({ page, request }) => {
     const { story, scenes } = await openRow(request, ['The arrival', 'The platform', 'The bar'])
-    const [arrival, , bar] = scenes as [{ id: string }, { id: string }, { id: string }]
-    const exit = await drawExit(request, arrival.id, scenes[1]!.id)
+    const [arrival, platform, bar] = scenes as [{ id: string }, { id: string }, { id: string }]
+    const exit = await drawExit(request, arrival.id, platform.id)
+    await request.patch(`/api/exits/${exit.id}`, { data: { text: 'Follow her out' } })
+    await request.put(`/api/exits/${exit.id}/conditions`, {
+      data: { conditions: [{ flag: 'coat', is: 'on' }] },
+    })
 
     await page.goto(`/stories/${story.id}`)
-    await writeExit(page, 'The platform')
+    await writeScene(page, 'The arrival')
 
-    // The line the Exit is written on is where a hand without a pointer begins the
-    // gesture the endpoint begins.
-    await page.getByRole('button', { name: 'Lead this Exit to another Scene' }).click()
-    await expect(toast(page)).toHaveText(/Leading the Exit from The arrival to The platform/)
-    await expect(page.getByRole('article', { name: 'The bar' })).toHaveClass(/lit/)
+    // Dragging the endpoint across the canvas is one way; the other is the field
+    // that says where the way on leads, which is the only way for an Author who
+    // never opens a canvas — see
+    // `docs/adr/0034-a-story-is-written-without-the-canvas.md`.
+    const leads = page.getByLabel('Where the way on 1 out of The arrival leads')
+    await expect(leads).toHaveValue(platform.id)
 
-    // Every Scene it may be led to offers the landing on the same hidden button the
-    // drawing lands on, named as what pressing it would do; the Scene it leaves
-    // offers the way out.
-    await expect(page.getByRole('button', { name: 'Leave the Exit from The arrival where it leads' }))
-      .toHaveCount(1)
-    await page.getByRole('button', { name: 'Lead the Exit from The arrival to The bar' })
-      .press('Enter')
+    // It offers the Scenes the way on may be led to and the one it already leads
+    // to, and no other: never the Scene it leaves, and never a Scene that Scene
+    // already reaches.
+    await expect(leads.locator('option')).toHaveText(['The platform', 'The bar'])
 
-    await expect(toast(page)).toHaveText('Exit from The arrival now leads to The bar')
+    await leads.selectOption(bar.id)
     await expect.poll(() => readExits(arrival.id)).toMatchObject([
-      { id: exit.id, toSceneId: bar.id, position: 0 },
+      { id: exit.id, toSceneId: bar.id, position: 0, text: 'Follow her out' },
     ])
+
+    // The text and the Conditions travel with it: the Exit was led elsewhere and
+    // not deleted and drawn again.
+    await expect.poll(async () => (await readExits(arrival.id))[0]!.conditions)
+      .toMatchObject([{ flag: 'coat', is: 'on' }])
+    await expect(page.getByRole('textbox', { name: 'Exit to The bar' }))
+      .toHaveValue('Follow her out')
   })
 
 /**
@@ -2269,16 +2259,18 @@ test('the bare bench is pushed about under the hand', async ({ page, request }) 
   for (let step = 0; step < 3; step++) await pullBack.click()
   await expect(page.locator('.zooming .level')).toContainText('25%')
 
-  // A press on an Exit's line is that Exit's own gesture still: it opens the Exit
-  // on that line rather than pushing the bench or closing anything.
+  // A press on an Exit's line is that Exit's own gesture still: it opens the Scene
+  // the Exit leaves, which is where the Exit is written, rather than pushing the
+  // bench or closing anything.
   await page.locator(`[data-exit="${exit.id}"] line.aimed`).click()
-  await expect(page.getByRole('group', { name: 'Writing the Exit to The platform' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Exit to The platform' })).toBeVisible()
 
   // And a Scene dragged on a bench pulled back travels as far as the hand does: a
   // hundred pixels at a quarter is four hundred pixels of graph. What is being
-  // written is let go of first, because the box on the line lies over the surface
-  // the card is dragged across — and the card is held to be in the frame first,
-  // since a hand can only drag what is on the bench.
+  // written is let go of first, because the graph is a rail while a Scene is on the
+  // surface — and the card is held to be in the frame first, since a hand can only
+  // drag what is on the bench.
   await page.keyboard.press('Escape')
   const node = page.getByRole('article', { name: 'The arrival' })
   await node.scrollIntoViewIfNeeded()
@@ -2519,4 +2511,68 @@ test('the graduation says which scale the bench is at, and goes straight to anot
   await expect(graven).toContainText('drag the bench to move the view')
   await expect(graven.locator('kbd')).toHaveCount(6)
   await expect(graven.locator('kbd').last()).toHaveText('0')
+})
+
+test('a way on is written from the Scene it leaves, without a canvas', async ({
+  page,
+  request,
+}) => {
+  const { story, scenes } = await openRow(request, ['The arrival', 'The platform', 'The bar'])
+  const [arrival, platform, bar] = scenes as [{ id: string }, { id: string }, { id: string }]
+
+  await page.goto(`/stories/${story.id}`)
+  await writeScene(page, 'The arrival')
+
+  // The field at the foot of the ways on offers the Scenes a way on out of here
+  // may land on, and never the Scene it leaves.
+  const adding = page.getByLabel('A way on from here')
+  await expect(adding.locator('option')).toHaveText([
+    'Where it leads…', 'The platform', 'The bar', 'To a Scene that is not there yet',
+  ])
+
+  await adding.selectOption(bar.id)
+  await expect.poll(() => readExits(arrival.id))
+    .toMatchObject([{ toSceneId: bar.id, position: 0 }])
+
+  // Chosen, it forgets: a control that acts must not stand there holding the last
+  // thing it did, and the Scene it just landed on is no longer on offer.
+  await expect(adding).toHaveValue('')
+  await expect(adding.locator('option')).toHaveText([
+    'Where it leads…', 'The platform', 'To a Scene that is not there yet',
+  ])
+
+  // And the way on that has nowhere to land yet writes the Scene at the far end of
+  // it, placed beside the Scene it leaves and open for writing with its
+  // provisional name selected — the counterpart of dropping an Exit on the bare
+  // bench, for an Author who never opens one.
+  await adding.selectOption('new')
+  await expect(toast(page)).toHaveText('Exit from The arrival to A new Scene drawn')
+
+  const read = await (await request.get(`/api/stories/${story.id}`)).json()
+  const written = read.scenes.find((held: { name: string }) => held.name === 'A new Scene')
+
+  const naming = page.getByLabel('Name of this Scene')
+  await expect(naming).toBeFocused()
+  await expect(naming).toHaveValue('A new Scene')
+  await page.keyboard.type('The buffet')
+  await page.keyboard.press('Tab')
+  await expect.poll(() => readSceneName(written.id)).toBe('The buffet')
+
+  // Beside The arrival is where The platform already sits, so the Scene drops one
+  // node further down that column rather than landing on top of it.
+  const left = await readScenePlacement(arrival.id)
+  expect(await readScenePlacement(written.id))
+    .toMatchObject({ x: left.x + NODE_WIDTH + NODE_GAP, y: left.y + NODE_SPACING })
+  await expect.poll(() => readExits(arrival.id)).toMatchObject([
+    { toSceneId: bar.id, position: 0 },
+    { toSceneId: written.id, position: 1 },
+  ])
+
+  // The Story has three Scenes joined and a fourth written, and no gesture on the
+  // canvas was used for any of it: `platform` is untouched and still reachable
+  // from the field.
+  await writeScene(page, 'The buffet')
+  await expect(page.getByLabel('A way on from here').locator('option'))
+    .toContainText(['The platform'])
+  expect(platform.id).toBeTruthy()
 })

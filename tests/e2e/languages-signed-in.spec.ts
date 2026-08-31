@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { openTab, test, writeStory } from './author'
+import { test, writeStory } from './author'
 
 /**
  * The two facts about language the product keeps apart: the Locale, which is the
@@ -61,11 +61,9 @@ test.describe('an interface read in French', () => {
 
     // The three tabs a Scene stands behind are the same three words, and the
     // Marqueurs are read behind theirs.
-    await openTab(page, 'Marqueurs')
     await expect(page.getByRole('button', { name: 'Ajouter un Marqueur à The street' }))
       .toBeVisible()
     expect(await everythingShown(page)).not.toMatch(A_RAW_KEY)
-    await openTab(page, 'Plans')
 
     // What the bench says about its own writing is in the Locale twice over: the
     // words, and the clock read the French way rather than the English one.

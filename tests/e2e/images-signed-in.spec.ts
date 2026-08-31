@@ -210,12 +210,14 @@ test('the thumbnail is the picker, and an empty one is the outline of an image',
   expect(behind.x).toBeGreaterThanOrEqual(thumb.x)
   expect(behind.x + behind.width).toBeLessThanOrEqual(thumb.x + thumb.width)
 
-  // The Description sits beside the image it describes, and keeps its own label
-  // rather than borrowing the thumbnail's box.
+  // The Description takes the line under the image it describes, across the width
+  // of the beat, and keeps its own label rather than borrowing the thumbnail's
+  // box: the thumbnail stands beside the beat's own text now — see
+  // `docs/adr/0033-a-scene-is-written-as-one-document.md`.
   const described = (await street.getByLabel('Description of the image of Shot 1')
     .boundingBox())!
-  expect(described.x).toBeGreaterThan(thumb.x + thumb.width)
-  expect(described.y).toBeLessThan(thumb.y + thumb.height)
+  expect(described.y).toBeGreaterThanOrEqual(thumb.y + thumb.height)
+  expect(described.x).toBeLessThan(thumb.x)
   expect(described.height).toBeLessThan(thumb.height)
 
   // And the word above it is a label and not a second thumbnail: it is the size of

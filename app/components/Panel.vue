@@ -45,33 +45,20 @@ const {
  * `attached` is the moment an image landed, which the page holds because the card
  * on the graph draws that image too.
  */
-const emit = defineEmits<{ close: [], attached: [string] }>()
+const emit = defineEmits<{ close: [], attached: [string], open: [string] }>()
 
 const { t } = useI18n()
 
 const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, scene.name])))
 
 /**
- * The three things a Scene holds, as the tabs they stand behind: what a Scene is
- * at full width is a long flat run, and an Author scrolled past all of it to
- * reach any of it. Each tab carries its count, so what is behind one says how
- * much is behind it before it is pressed, which is the whole of what the fold
- * has to give back. The decision and the cost it was taken at are in
- * `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`.
+ * How many of each thing the Scene holds, which each section of the document
+ * says beside its own heading. They used to be counts on three tabs, and what a
+ * tab bought — a short surface — is bought here by a beat costing a row instead
+ * of a card. What the tabs cost was that a Condition and the Flags it tests were
+ * never on screen together, though they are the same sentence read from two
+ * ends: see `docs/adr/0033-a-scene-is-written-as-one-document.md`.
  */
-const HOLDS = ['shots', 'flags', 'ways'] as const
-
-/**
- * Which of the three is open. The Shots, always, when a Scene arrives: writing
- * Shots is what a Scene is opened for, and the common act may not cost a press.
- * Reset per Scene rather than kept across them — the tab an Author left open on
- * one Scene is not a thing they asked to be true of the next.
- */
-const holding = ref<typeof HOLDS[number]>('shots')
-
-watch(() => sceneWritten?.id, () => holding.value = 'shots')
-
-/** How many of each the Scene holds, which is what its tab says. */
 const counted = computed(() => sceneWritten && {
   shots: sceneWritten.shots.length,
   flags: Object.keys(sceneWritten.sets).length,
@@ -119,8 +106,131 @@ function renameScene(scene: Scene) {
   }))
 }
 
-function addShot(scene: Scene) {
-  return change(() => send(`/api/scenes/${scene.id}/shots`, { method: 'POST' }))
+/**
+ * Adds a beat at the end of the Scene, which is where a hand adds one: the
+ * control under the run. A key adds one where the caret is — see `openBeat`.
+ */
+async function addShot(scene: Scene) {
+  let writtenId: string | undefined
+  await change(async () => {
+    writtenId = (await send(`/api/scenes/${scene.id}/shots`, { method: 'POST' }) as Shot).id
+  })
+
+  // After the change, which reads the Story back: the field the caret goes into
+  // is not in the page until that read has been rendered.
+  if (writtenId) return typeInShot(writtenId)
+}
+
+/**
+ * The run of beats is typed as one document although it stays one field per
+ * Shot. Enter at the end of a beat makes the next one, Backspace at the head of
+ * an empty one takes it away, and the two arrows with Alt held walk between
+ * them: the gestures a run of paragraphs answers to anywhere else, on a list of
+ * fields that never has to be parsed and never loses what a beat carries. See
+ * `docs/adr/0033-a-scene-is-written-as-one-document.md`.
+ *
+ * Nothing here is the only way to do what it does. Every one of them has a
+ * control on the surface — the button under the run, the mark that deletes a
+ * beat, the two that move one — because a key nobody can see is not a way in.
+ */
+function typeOn(scene: Scene, shot: Shot, place: number, event: KeyboardEvent) {
+  const field = event.target as HTMLTextAreaElement
+
+  // Shift and the modifiers are left alone: a beat may hold more than one line,
+  // and Shift+Enter is how every field in every editor writes the second.
+  if (event.key === 'Enter' && !event.shiftKey && !event.metaKey && !event.ctrlKey) {
+    event.preventDefault()
+    return openBeat(scene, shot, place)
+  }
+
+  if (event.key === 'Backspace' && emptied(shot) && field.selectionStart === 0
+    && field.selectionEnd === 0 && place > 0) {
+    event.preventDefault()
+    return joinBeat(scene, shot, place)
+  }
+
+  const stepped = event.altKey && { ArrowUp: -1, ArrowDown: 1 }[event.key]
+  if (!stepped) return
+
+  const walked = scene.shots[place + stepped]
+  if (!walked) return
+  event.preventDefault()
+  typeInShot(walked.id, true)
+}
+
+/**
+ * Whether a beat holds nothing an Author would miss. Backspace takes a beat away
+ * without asking — which is what the key does to an empty paragraph everywhere —
+ * and that is only safe where there is nothing on the beat but the caret: an
+ * Image or a Condition is work that took thought and nothing on the screen would
+ * show it being destroyed, which is the case
+ * `docs/adr/0017-a-confirmation-is-drawn-on-the-bench.md` exists for. A beat
+ * carrying either is deleted by the mark at the end of its row instead.
+ */
+function emptied(shot: Shot) {
+  return !shot.text && !shot.image && !shot.conditions.length
+}
+
+/**
+ * Enter: the next beat, written where the caret was rather than at the foot of
+ * the Scene. The endpoint adds a Shot at the end and the run is renumbered
+ * behind it, which is two requests inside the one change — the same seam
+ * `docs/adr/0031-a-scene-is-born-from-an-exit-dropped-on-the-bench.md` accepted
+ * for a Scene and an Exit, and for the same reason: a third endpoint that
+ * inserted would be a copy of the rules both of these already enforce.
+ *
+ * At the end of the run — where an Author writing forwards spends all their time
+ * — there is nothing to renumber and it is one request.
+ */
+async function openBeat(scene: Scene, shot: Shot, place: number) {
+  let writtenId: string | undefined
+
+  await change(async () => {
+    // What is in the field goes first, or the beat the Author has just finished
+    // is written after the one that follows it and the run is read back stale.
+    await send(`/api/shots/${shot.id}`, {
+      method: 'PATCH',
+      body: { text: shot.text, description: shot.description },
+    })
+
+    const written = await send(`/api/scenes/${scene.id}/shots`, { method: 'POST' }) as Shot
+    const last = place === scene.shots.length - 1
+    if (!last) {
+      const places = scene.shots.map(held => held.id)
+      places.splice(place + 1, 0, written.id)
+      await send(`/api/scenes/${scene.id}/shots/places`, { method: 'PUT', body: { places } })
+    }
+
+    writtenId = written.id
+  })
+
+  if (writtenId) return typeInShot(writtenId)
+}
+
+/**
+ * Backspace at the head of an empty beat: the beat goes and the caret lands at
+ * the end of the one before it, which is where it would be if the two had always
+ * been one paragraph.
+ */
+async function joinBeat(scene: Scene, shot: Shot, place: number) {
+  const before = scene.shots[place - 1]
+
+  await change(() => send(`/api/shots/${shot.id}`, { method: 'DELETE' }))
+  if (before) return typeInShot(before.id, true)
+}
+
+/**
+ * Puts the caret in a beat, after the read the change asks for has put the field
+ * in the page. At the end of what is written there when the caret arrives from
+ * below or from an arrow, and at the start of an empty one either way.
+ */
+async function typeInShot(shotId: string, atTheEnd = false) {
+  await nextTick()
+  const field = document.getElementById(`shot-${shotId}`) as HTMLTextAreaElement | null
+  if (!field) return
+
+  field.focus()
+  if (atTheEnd) field.setSelectionRange(field.value.length, field.value.length)
 }
 
 /**
@@ -384,6 +494,167 @@ function openOn(scene: Scene) {
   return change(() => send(`/api/scenes/${scene.id}/opening`, { method: 'POST' }))
 }
 
+/**
+ * The Scenes a way on out of this Scene may be led to: the Story's own, less the
+ * Scene it leaves and less every Scene it already reaches. Asked of the same
+ * function the graph's aiming asks, so the gesture and the field cannot disagree
+ * about where an Exit may land.
+ *
+ * `led` is the Scene a way on already arrives at, which belongs in its own field
+ * although a new way on may not land there: a select whose current value is not
+ * among its options is a control that has lost its own state.
+ */
+function mayLandOn(scene: Scene, led?: string) {
+  const landing = scenesAExitMayLandOn(story.scenes, story.exits, scene.id)
+
+  return story.scenes.filter(other => landing.has(other.id) || other.id === led)
+}
+
+/**
+ * Where a way on leads, changed in the field that says where it leads. The Exit
+ * keeps its text, its Conditions and its Place — only the arrival is written —
+ * which is the endpoint the graph's endpoint-drag reaches, from a control instead
+ * of from a hand. Until now an Exit could only be led elsewhere on the canvas,
+ * so a Story written without one could not be corrected at all: see
+ * `docs/adr/0034-a-story-is-written-without-the-canvas.md`.
+ */
+function leadExit(exit: Exit, toSceneId: string) {
+  if (!toSceneId || toSceneId === exit.toSceneId) return
+
+  return change(() => send(`/api/exits/${exit.id}/scene`, {
+    method: 'PUT',
+    body: { toSceneId },
+  }))
+}
+
+/**
+ * Writes a second way on to the same Scene, carrying the Conditions of the first.
+ * The field that adds one will not offer a Scene this Scene already reaches, which
+ * is what keeps a slip from making an accidental duplicate — but two ways on to
+ * one Scene under opposite Conditions is what Conditions on an Exit are for, so
+ * it is written on purpose from here: an Author duplicates a way on at the moment
+ * they mean to write its opposite Condition.
+ *
+ * The Conditions are copied and the text is not. The pair exists to be offered
+ * under opposite tests, so the second is phrased from scratch, and the Condition
+ * that makes it the opposite is the Author's next edit — on the row it lands on.
+ *
+ * The two writes are one change, and are not one transaction: Conditions refused
+ * after the Exit was written leave a bare duplicate on the surface, which the
+ * Author can go on writing or take away.
+ */
+function duplicateExit(scene: Scene, exit: Exit) {
+  const conditions = wholeConditions(exit.conditions)
+
+  return change(async () => {
+    const written = await send(`/api/scenes/${scene.id}/exits`, {
+      method: 'POST',
+      body: { toSceneId: exit.toSceneId },
+    }) as Exit
+
+    if (conditions.length) {
+      await send(`/api/exits/${written.id}/conditions`, { method: 'PUT', body: { conditions } })
+    }
+
+    announce(t('editor.exitDuplicated', {
+      from: scene.name,
+      to: sceneNamed(sceneNames.value, exit.toSceneId, t),
+    }))
+  })
+}
+
+/**
+ * Takes a way on away, from the row it is written on. No confirmation, for the
+ * reason the same act on the canvas has none: it is a control pressed on purpose
+ * and named for what it takes, which is not the slip of the hand
+ * `docs/adr/0017-a-confirmation-is-drawn-on-the-bench.md` is about.
+ */
+function deleteExit(exit: Exit) {
+  return change(() => send(`/api/exits/${exit.id}`, { method: 'DELETE' }))
+}
+
+/**
+ * What the field at the foot of the ways on is set to, which is nothing for as
+ * long as nobody has chosen: it is a control that acts and then forgets, like the
+ * field above the bench that goes to a Scene by name, so it never stands there
+ * holding the last thing it did.
+ */
+const adding = ref('')
+
+/**
+ * What the field is set to for the one option that is not a Scene. A word rather
+ * than the empty string, which is what the field reads when nothing has been
+ * chosen: the two must not be the same answer.
+ */
+const NEW_SCENE = 'new'
+
+/**
+ * A way on written from the Scene's own document: chosen from the Scenes it may
+ * land on, or to a Scene that does not exist yet — which is the counterpart of
+ * dropping an Exit on the bare bench, for an Author who never opens the canvas.
+ */
+async function addExit(scene: Scene, chosen: string) {
+  adding.value = ''
+  if (!chosen) return
+  if (chosen === NEW_SCENE) return openSceneFrom(scene)
+
+  return change(() => send(`/api/scenes/${scene.id}/exits`, {
+    method: 'POST',
+    body: { toSceneId: chosen },
+  }))
+}
+
+/**
+ * The Scene at the far end of a way on that had none: written under a provisional
+ * name, placed beside the Scene it leaves, joined to it, and handed to the page
+ * so that the Author is left in the field that names it. The same two writes in
+ * the same order as the gesture on the canvas — see
+ * `docs/adr/0031-a-scene-is-born-from-an-exit-dropped-on-the-bench.md`, whose
+ * seam this shares: they are one change and not one transaction.
+ */
+async function openSceneFrom(scene: Scene) {
+  const name = t('editor.provisionalSceneName')
+  let writtenId: string | undefined
+
+  await change(async () => {
+    const written = await send(`/api/stories/${story.id}/scenes`, {
+      method: 'POST',
+      body: { name, ...placedBeside(story.scenes, scene) },
+    }) as Scene
+
+    await send(`/api/scenes/${scene.id}/exits`, {
+      method: 'POST',
+      body: { toSceneId: written.id },
+    })
+
+    writtenId = written.id
+    // Asked for inside the change, so the page has put the Scene in the address
+    // and on the surface by the time the read the change asks for comes back:
+    // this is the order the same gesture on the canvas is written in.
+    emit('open', written.id)
+    announce(t('editor.exitDrawn', { from: scene.name, to: name }))
+  })
+
+  // After the read and the render it causes, which is what puts the field in the
+  // page at all. Selected rather than left with a caret in it: the name is
+  // provisional, so the first thing typed replaces it.
+  if (!writtenId) return
+  await nextTick()
+  const named = document.getElementById(`scene-name-${writtenId}`) as HTMLInputElement | null
+  named?.focus()
+  named?.select()
+}
+
+/**
+ * The words a Reader reads on the button that takes this way on. A typed write,
+ * like a Shot's text and the Scene's own name: what is on screen is what the
+ * Author typed, and the mark it leaves is the time on the bench and the flash in
+ * the field.
+ */
+function writeExitText(exit: Exit) {
+  return write(() => send(`/api/exits/${exit.id}`, { method: 'PATCH', body: { text: exit.text } }))
+}
+
 function moveExit(scene: Scene, exit: Exit, step: -1 | 1) {
   const ways = exitsFrom(story.exits, scene.id).map(held => held.id)
 
@@ -498,15 +769,6 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
     role="group"
     :aria-label="$t('editor.writingScene', { name: sceneWritten.name })"
   >
-    <!-- The writing is closed explicitly. Drawn at every width rather than only
-         below the breakpoint: on a narrow screen it is the whole of the way
-         out, because the surface covers the bench there and there is no bare
-         bench left to press, and a control that came and went with the width
-         would be one an Author had to learn twice. -->
-    <button type="button" class="close" @click="$emit('close')">
-      {{ $t('editor.closePanel') }}
-    </button>
-
     <!-- Why the last change was refused, against the Scene it concerns: with
          one Scene on the surface the server has somewhere precise to complain,
          which is what `0011` gave up when it said a refusal about a Shot is
@@ -528,14 +790,28 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
     <label class="visually-hidden" :for="`scene-name-${sceneWritten.id}`">
       {{ $t('editor.sceneName') }}
     </label>
-    <h2 class="named">
-      <input
-        :id="`scene-name-${sceneWritten.id}`"
-        v-model="sceneWritten.name"
-        :maxlength="SCENE_NAME_MAX_LENGTH"
-        @change="renameScene(sceneWritten)"
-      >
-    </h2>
+    <div class="heading">
+      <h2 class="named">
+        <input
+          :id="`scene-name-${sceneWritten.id}`"
+          v-model="sceneWritten.name"
+          :maxlength="SCENE_NAME_MAX_LENGTH"
+          @change="renameScene(sceneWritten)"
+        >
+      </h2>
+
+      <!-- The writing is closed explicitly. Drawn at every width rather than
+           only below the breakpoint: on a narrow screen it is the whole of the
+           way out, because the surface covers the bench there and there is no
+           bare bench left to press, and a control that came and went with the
+           width would be one an Author had to learn twice. Beside the name
+           rather than above it, because a row of its own at the head made the
+           way out the first thing on a surface whose subject is what is written
+           on it. -->
+      <button type="button" class="close" @click="$emit('close')">
+        {{ $t('editor.closePanel') }}
+      </button>
+    </div>
 
     <div class="standing">
       <!-- `data-step` is on the line rather than on the radio: the spotlight
@@ -561,41 +837,37 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
       </button>
     </div>
 
-    <!-- The three things a Scene holds, each behind its own tab and each tab
-         carrying its count: a Scene at full width was one flat run an Author
-         scrolled past all of to reach any of, and the count is what a folded
-         thing owes — the ways on say there are ways on before anything is
-         pressed. Every tab stays in the tab order rather than one of them
-         holding it: three controls in a row are reached by the key that
-         reaches every other control on this surface, and nothing has to be
-         learned about arrows to get to the Flags. -->
-    <div class="holds" role="tablist" :aria-label="$t('editor.whatTheSceneHolds')">
-      <button
-        v-for="held in HOLDS"
-        :id="`tab-${held}-${sceneWritten.id}`"
-        :key="held"
-        type="button"
-        role="tab"
-        :class="{ open: holding === held }"
-        :aria-selected="holding === held"
-        :aria-controls="`held-${held}-${sceneWritten.id}`"
-        @click="holding = held"
-      >
-        {{ $t(`editor.${held}Held`) }}
-        <span class="numbered">{{ counted![held] }}</span>
-      </button>
-    </div>
+    <!-- The Flags the Scene sets, at the head of the document because that is
+         where they happen: they are set on entry, before a word of the Scene is
+         played. On the surface rather than behind a tab, so a Condition further
+         down and the Flags that satisfy it are read together — which is the
+         whole point of taking the tabs out. -->
+    <section class="held" :aria-labelledby="`flags-of-${sceneWritten.id}`">
+      <h3 :id="`flags-of-${sceneWritten.id}`" class="eyebrow">
+        {{ $t('editor.flagsHeld') }}
+        <span class="numbered">{{ counted!.flags }}</span>
+      </h3>
 
-    <div
-      v-show="holding === 'shots'"
-      :id="`held-shots-${sceneWritten.id}`"
-      class="held"
-      role="tabpanel"
-      :aria-labelledby="`tab-shots-${sceneWritten.id}`"
-    >
-      <!-- The Shots as the run they are: numbered from one for the Author,
-           though the Scene counts from zero, and each one's number sits in
-           the gutter where the edge code would be. -->
+      <Flags
+        data-step="scene-flags"
+        :sets="sceneWritten.sets"
+        :scene="sceneWritten.name"
+        :id="sceneWritten.id"
+        @write="writeFlags(sceneWritten, $event)"
+      />
+    </section>
+
+    <!-- The body of the document: the run of beats, numbered from one for the
+         Author though the Scene counts from zero, each number in the gutter
+         where a frame's edge code would be. Typed as one text although it is one
+         field per Shot — see `typeOn` — so nothing is parsed and no beat loses
+         the Image and the Conditions it carries. -->
+    <section class="held" :aria-labelledby="`shots-of-${sceneWritten.id}`">
+      <h3 :id="`shots-of-${sceneWritten.id}`" class="eyebrow">
+        {{ $t('editor.shotsHeld') }}
+        <span class="numbered">{{ counted!.shots }}</span>
+      </h3>
+
       <ol class="shots">
         <li
           v-for="(shot, place) in sceneWritten.shots"
@@ -629,6 +901,7 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
               rows="2"
               :maxlength="SHOT_TEXT_MAX_LENGTH"
               @change="writeShot(shot)"
+              @keydown="typeOn(sceneWritten, shot, place, $event)"
             />
 
             <!-- The thumbnail is the picker: pressing it is how an image is
@@ -659,28 +932,28 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
                   @change="attachImage(shot, $event)"
                 >
               </label>
-
-              <!-- The Description beside the image it describes, in the width
-                   the file chrome used to take: it is what the image shows,
-                   and there is nothing to describe until one is attached. A
-                   Shot of text alone is not asked for one. -->
-              <p v-if="shot.image" class="described">
-                <label class="eyebrow" :for="`description-${shot.id}`">
-                  {{ $t('editor.description') }}
-                  <span class="visually-hidden">
-                    {{ $t('editor.descriptionOfShot', { place: place + 1 }) }}
-                  </span>
-                </label>
-                <input
-                  :id="`description-${shot.id}`"
-                  v-model="shot.description"
-                  type="text"
-                  :maxlength="SHOT_DESCRIPTION_MAX_LENGTH"
-                  :placeholder="$t('editor.whatTheImageShows')"
-                  @change="writeShot(shot)"
-                >
-              </p>
             </div>
+
+            <!-- The Description under the image it describes, across the width
+                 of the beat: it is what the image shows, and there is nothing to
+                 describe until one is attached. A Shot of text alone is not
+                 asked for one. -->
+            <p v-if="shot.image" class="described">
+              <label class="eyebrow" :for="`description-${shot.id}`">
+                {{ $t('editor.description') }}
+                <span class="visually-hidden">
+                  {{ $t('editor.descriptionOfShot', { place: place + 1 }) }}
+                </span>
+              </label>
+              <input
+                :id="`description-${shot.id}`"
+                v-model="shot.description"
+                type="text"
+                :maxlength="SHOT_DESCRIPTION_MAX_LENGTH"
+                :placeholder="$t('editor.whatTheImageShows')"
+                @change="writeShot(shot)"
+              >
+            </p>
 
             <!-- The Conditions the Shot plays under, so a Scene can say
                  something different on a return visit without the Author
@@ -690,110 +963,97 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
                  field of it, because what it asks for is a Condition and a
                  Condition is the row it is added as: `data-step` lands on the
                  component's own root, which is that list. -->
-            <Conditions
-              data-step="shot-condition"
-              :lead="$t('editor.playedWhen')"
-              :carrier="$t('editor.shotOfScene', {
-                place: place + 1,
-                scene: sceneWritten.name,
-              })"
-              :conditions="shot.conditions"
-              :scenes="story.scenes"
-              :counting="sceneWritten.id"
-              :id="shot.id"
-              @write="writeConditions('shots', shot.id, shot.conditions)"
-            />
+            <!-- What the beat plays under and what is done to the beat, on one
+                 line: a Shot carrying no Conditions — which is most of them —
+                 spends one quiet row on the pair instead of a full-width button
+                 and a row of marks under it. They part company the moment a
+                 Condition is written, because a list of Conditions is a
+                 column. -->
+            <div class="beneath">
+              <Conditions
+                data-step="shot-condition"
+                :lead="$t('editor.playedWhen')"
+                :carrier="$t('editor.shotOfScene', {
+                  place: place + 1,
+                  scene: sceneWritten.name,
+                })"
+                :conditions="shot.conditions"
+                :scenes="story.scenes"
+                :counting="sceneWritten.id"
+                :id="shot.id"
+                @write="writeConditions('shots', shot.id, shot.conditions)"
+              />
 
-            <!-- The three controls, as the marks they do rather than the
-                 sentences that name them: in the width the panel gives a Shot
-                 the three sentences fill the strip to its end and wrap out of
-                 it in the longer of the two languages. What each one says is
-                 not lost, it moves to where the Shot's other names are read,
-                 by assistive technology alone. -->
-            <div class="row marks">
-              <button
-                type="button"
-                :disabled="place === 0"
-                @click="moveShot(sceneWritten, shot, -1)"
-              >
-                <span aria-hidden="true">↑</span>
-                <span class="visually-hidden">
-                  {{ $t('common.moveEarlier') }}
-                  {{ $t('editor.shotNumber', { place: place + 1 }) }}
-                </span>
-              </button>
-              <button
-                type="button"
-                :disabled="place === sceneWritten.shots.length - 1"
-                @click="moveShot(sceneWritten, shot, 1)"
-              >
-                <span aria-hidden="true">↓</span>
-                <span class="visually-hidden">
-                  {{ $t('common.moveLater') }}
-                  {{ $t('editor.shotNumber', { place: place + 1 }) }}
-                </span>
-              </button>
-              <button type="button" class="danger" @click="deleteShot(shot)">
-                <span aria-hidden="true">×</span>
-                <span class="visually-hidden">
-                  {{ $t('common.delete') }}
-                  {{ $t('editor.shotNumber', { place: place + 1 }) }}
-                </span>
-              </button>
+              <!-- The three controls, as the marks they do rather than the
+                   sentences that name them: in the width the panel gives a Shot
+                   the three sentences fill the strip to its end and wrap out of
+                   it in the longer of the two languages. What each one says is
+                   not lost, it moves to where the Shot's other names are read,
+                   by assistive technology alone. -->
+              <div class="row marks">
+                <button
+                  type="button"
+                  :disabled="place === 0"
+                  @click="moveShot(sceneWritten, shot, -1)"
+                >
+                  <span aria-hidden="true">↑</span>
+                  <span class="visually-hidden">
+                    {{ $t('common.moveEarlier') }}
+                    {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  :disabled="place === sceneWritten.shots.length - 1"
+                  @click="moveShot(sceneWritten, shot, 1)"
+                >
+                  <span aria-hidden="true">↓</span>
+                  <span class="visually-hidden">
+                    {{ $t('common.moveLater') }}
+                    {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                  </span>
+                </button>
+                <button type="button" class="danger" @click="deleteShot(shot)">
+                  <span aria-hidden="true">×</span>
+                  <span class="visually-hidden">
+                    {{ $t('common.delete') }}
+                    {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </li>
       </ol>
 
-      <button type="button" @click="addShot(sceneWritten)">
+      <!-- The beat added by a hand rather than by a key. Enter at the end of the
+           last beat is what an Author writing gets, and this is what an Author
+           who has just opened a Scene with nothing in it gets — there is no beat
+           to press Enter at the end of. -->
+      <button type="button" class="add-shot" @click="addShot(sceneWritten)">
         {{ $t('editor.addShot') }}
         <span class="visually-hidden">
           {{ $t('editor.toScene', { name: sceneWritten.name }) }}
         </span>
       </button>
-    </div>
+    </section>
 
-    <!-- The Flags the Scene sets, as rows: the guided path points at the whole
-         list rather than at one field of it, the way it points at a Shot's
-         Conditions, because what it asks for is a Flag and a Flag is the row
-         it is added as. -->
-    <div
-      v-show="holding === 'flags'"
-      :id="`held-flags-${sceneWritten.id}`"
-      class="held"
-      role="tabpanel"
-      :aria-labelledby="`tab-flags-${sceneWritten.id}`"
-    >
-      <Flags
-        data-step="scene-flags"
-        :sets="sceneWritten.sets"
-        :scene="sceneWritten.name"
-        :id="sceneWritten.id"
-        @write="writeFlags(sceneWritten, $event)"
-      />
-    </div>
-
-    <!-- The ways on: each one's Place, the name it arrives at, the two controls
-         that renumber it, and the Conditions it is offered under. The Conditions
-         are here rather than on the Exit's own line because they test the Flags
-         this very Scene sets, and the two are read together or not at all, which
-         is the side by side
-         `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md` was written
-         for. The Exit's text is written on the graph, where it can be seen
+    <!-- The foot of the document: the ways on, in the Places the Scene offers
+         them at, each with the Conditions it is offered under. Last because that
+         is where a Reader meets them, and on the surface with everything else
+         because a way on's Conditions test the Flags at the head of this very
+         document. The Exit's text is written on the graph, where it can be seen
          leading somewhere. -->
-    <div
-      v-show="holding === 'ways'"
-      :id="`held-ways-${sceneWritten.id}`"
-      class="ways"
-      role="tabpanel"
-      :aria-labelledby="`tab-ways-${sceneWritten.id}`"
-    >
-      <!-- No heading of its own: the tab above says what this is, and its count
-           says how much of it there is. -->
+    <section class="ways held" :aria-labelledby="`ways-of-${sceneWritten.id}`">
+      <h3 :id="`ways-of-${sceneWritten.id}`" class="eyebrow">
+        {{ $t('editor.waysHeld') }}
+        <span class="numbered">{{ counted!.ways }}</span>
+      </h3>
+
       <p v-if="!exitsFrom(story.exits, sceneWritten.id).length" class="none">
         {{ $t('editor.noWayOnYet') }}
       </p>
-      <ol v-else :aria-labelledby="`tab-ways-${sceneWritten.id}`">
+      <ol v-else :aria-labelledby="`ways-of-${sceneWritten.id}`">
         <li
           v-for="(exit, place) in exitsFrom(story.exits, sceneWritten.id)"
           :key="exit.id"
@@ -817,62 +1077,152 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
           >{{ place + 1 }}</span>
 
           <div class="written">
+            <!-- Where the way on leads, in the field that says so: a way on is
+                 corrected here rather than only by dragging its endpoint across
+                 the canvas, so a Story can be written and put right without ever
+                 opening one. -->
             <p class="arrival">
-              {{ sceneNames.get(exit.toSceneId) }}
-              <span class="visually-hidden">
-                {{ $t('editor.wayOnFrom', { name: sceneWritten.name }) }}
-              </span>
+              <label class="visually-hidden" :for="`leads-${exit.id}`">
+                {{ $t('editor.wayOnLeadsTo', { place: place + 1, name: sceneWritten.name }) }}
+              </label>
+              <select
+                :id="`leads-${exit.id}`"
+                :value="exit.toSceneId"
+                @change="leadExit(exit, ($event.target as HTMLSelectElement).value)"
+              >
+                <option
+                  v-for="landing in mayLandOn(sceneWritten, exit.toSceneId)"
+                  :key="landing.id"
+                  :value="landing.id"
+                >
+                  {{ landing.name }}
+                </option>
+              </select>
+            </p>
+
+            <!-- The words the Reader reads on the button. Written here, with
+                 where the way on leads beside it and the Conditions it is
+                 offered under below, because those are the three things an Exit
+                 is — and a way on written on the canvas was a way on an Author
+                 who never opens one could not phrase at all. See
+                 `docs/adr/0034-a-story-is-written-without-the-canvas.md`. -->
+            <p class="said">
+              <!-- The label is read by assistive technology alone: the field
+                   stands beside the name of the Scene it leads to, and the
+                   placeholder says what is written in it, so a label over it
+                   would be the third thing on the row saying where the way on
+                   goes. -->
+              <label class="visually-hidden" :for="`exit-${exit.id}`">
+                {{ $t('exit.to', { scene: sceneNames.get(exit.toSceneId) }) }}
+              </label>
+              <input
+                :id="`exit-${exit.id}`"
+                v-model="exit.text"
+                :maxlength="EXIT_TEXT_MAX_LENGTH"
+                :placeholder="$t('editor.whatTheReaderPresses')"
+                @change="writeExitText(exit)"
+              >
             </p>
 
             <!-- Named by the Place as well as by where it arrives: a Scene may
                  offer two ways on to the same Scene under opposite Conditions,
                  and the Place is what tells the two rows apart — on the bench it
                  is the disc on the line. -->
-            <Conditions
-              :lead="$t('editor.offeredWhen')"
-              :carrier="$t('editor.theWayOnTo', {
-                place: place + 1,
-                scene: sceneNames.get(exit.toSceneId),
-              })"
-              :conditions="exit.conditions"
-              :scenes="story.scenes"
-              :counting="sceneWritten.id"
-              :id="exit.id"
-              @write="writeConditions('exits', exit.id, exit.conditions)"
-            />
+            <!-- What the way on is offered under, and what is done to the way
+                 on, on one line — as they are on a beat, and for the same
+                 reason: a way on carrying no Conditions is the ordinary way on,
+                 and two rows of controls under two fields made a way on as tall
+                 as a Scene. -->
+            <div class="beneath">
+              <Conditions
+                :lead="$t('editor.offeredWhen')"
+                :carrier="$t('editor.theWayOnTo', {
+                  place: place + 1,
+                  scene: sceneNames.get(exit.toSceneId),
+                })"
+                :conditions="exit.conditions"
+                :scenes="story.scenes"
+                :counting="sceneWritten.id"
+                :id="exit.id"
+                @write="writeConditions('exits', exit.id, exit.conditions)"
+              />
 
-            <div class="row">
-              <button
-                type="button"
-                :disabled="place === 0"
-                @click="moveExit(sceneWritten, exit, -1)"
-              >
-                {{ $t('common.moveEarlier') }}
-                <span class="visually-hidden">
-                  {{ $t('editor.theWayOnTo', {
-                    place: place + 1,
-                    scene: sceneNames.get(exit.toSceneId),
-                  }) }}
-                </span>
-              </button>
-              <button
-                type="button"
-                :disabled="place === exitsFrom(story.exits, sceneWritten.id).length - 1"
-                @click="moveExit(sceneWritten, exit, 1)"
-              >
-                {{ $t('common.moveLater') }}
-                <span class="visually-hidden">
-                  {{ $t('editor.theWayOnTo', {
-                    place: place + 1,
-                    scene: sceneNames.get(exit.toSceneId),
-                  }) }}
-                </span>
-              </button>
+              <div class="row marks">
+                <button
+                  type="button"
+                  :disabled="place === 0"
+                  @click="moveExit(sceneWritten, exit, -1)"
+                >
+                  {{ $t('common.moveEarlier') }}
+                  <span class="visually-hidden">
+                    {{ $t('editor.theWayOnTo', {
+                      place: place + 1,
+                      scene: sceneNames.get(exit.toSceneId),
+                    }) }}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  :disabled="place === exitsFrom(story.exits, sceneWritten.id).length - 1"
+                  @click="moveExit(sceneWritten, exit, 1)"
+                >
+                  {{ $t('common.moveLater') }}
+                  <span class="visually-hidden">
+                    {{ $t('editor.theWayOnTo', {
+                      place: place + 1,
+                      scene: sceneNames.get(exit.toSceneId),
+                    }) }}
+                  </span>
+                </button>
+                <button type="button" @click="duplicateExit(sceneWritten, exit)">
+                  <span aria-hidden="true">⧉</span>
+                  <span class="visually-hidden">
+                    {{ $t('editor.duplicateExitTo', {
+                      scene: sceneNames.get(exit.toSceneId),
+                    }) }}
+                  </span>
+                </button>
+                <button type="button" class="danger" @click="deleteExit(exit)">
+                  <span aria-hidden="true">×</span>
+                  <span class="visually-hidden">
+                    {{ $t('common.delete') }}
+                    {{ $t('editor.theWayOnTo', {
+                      place: place + 1,
+                      scene: sceneNames.get(exit.toSceneId),
+                    }) }}
+                  </span>
+                </button>
+  </div>
             </div>
           </div>
         </li>
       </ol>
-    </div>
+
+      <!-- A way on written from here: to a Scene the Story already holds, or to
+           one that does not exist yet, which is the counterpart of dropping an
+           Exit on the bare bench for an Author who never opens the canvas. A
+           field that acts and forgets rather than one that holds an answer. -->
+      <p class="adding">
+        <label class="eyebrow" :for="`add-way-${sceneWritten.id}`">
+          {{ $t('editor.addWayOn') }}
+        </label>
+        <select
+          :id="`add-way-${sceneWritten.id}`"
+          :value="adding"
+          @change="addExit(sceneWritten, ($event.target as HTMLSelectElement).value)"
+        >
+          <option value="" disabled>{{ $t('editor.chooseWhereItLeads') }}</option>
+          <option
+            v-for="landing in mayLandOn(sceneWritten)"
+            :key="landing.id"
+            :value="landing.id"
+          >
+            {{ landing.name }}
+          </option>
+          <option :value="NEW_SCENE">{{ $t('editor.toANewScene') }}</option>
+        </select>
+      </p>
+    </section>
   </div>
 </template>
 
@@ -911,49 +1261,35 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   gap: var(--s2);
 }
 
-/* The three things a Scene holds, as tabs across the top of what holds them: a
-   strip of the panel's own steel, on the rule that separates the tabs from what
-   is behind them. Drawn as the row of buttons it is rather than as a folder
-   metaphor — the bench has one material and this is a control on it. */
-.holds {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s1);
-  border-block-end: 1px solid var(--edge);
-}
-
-/* A tab is a button that has given up three of its sides: the rule below it is
-   the tablist's, and the open one is the one that breaks it. */
-.holds button {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  border-color: transparent;
-  border-radius: var(--machined) var(--machined) 0 0;
-  background: none;
-  color: var(--muted);
-  margin-block-end: -1px;
-}
-
-.holds button:hover:not(:disabled) {
-  background: var(--steel-lit);
-  color: inherit;
-}
-
-/* The tab that is open, marked by the rule it interrupts rather than by weight
-   alone: colour is not the only thing saying which of the three is showing. */
-.holds button[aria-selected='true'] {
-  border-color: var(--edge);
-  border-block-end-color: var(--steel);
-  background: var(--steel);
-  color: inherit;
-}
-
-/* What is behind a tab, laid out as the column the panel would have laid it out
-   as: the fold changes what is on screen and not how any of it reads. */
+/* The three parts of the document, in the order a Reader meets them: the Flags
+   set on entry, the run of beats, the ways on. Each one headed and counted where
+   it starts, on a rule, so an Author scrolling knows which part of the Scene
+   they are in — which is the whole of what the tabs were bought for, without
+   what they cost. */
 .held {
   display: grid;
   gap: var(--s2);
+}
+
+.held > h3 {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  padding-block-end: var(--s1);
+  border-block-end: 1px solid var(--edge);
+}
+
+/* The count in the grease pencil, because what it counts is what the Author
+   wrote on the film and not anything the machine is doing. */
+.held > h3 .numbered {
+  color: var(--grease);
+}
+
+/* The beat added by a hand, at the end of the run and no wider than the words on
+   it: the ordinary way to add one is Enter, and a control across the whole
+   surface would say otherwise. */
+.add-shot {
+  justify-self: start;
 }
 
 /* The run of Shots, each numbered in the gutter and separated from the next by a
@@ -1010,8 +1346,16 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   background: color-mix(in oklab, var(--grease) 12%, transparent);
 }
 
+/* A beat is a row and not a card. The text and the thumbnail stand side by side,
+   the Description takes the line under them where there is an image to describe,
+   and what the beat plays under shares the last line with the marks. A beat used
+   to cost the better part of a screen — a field, a thumbnail on a line of its
+   own, a full-width control that adds a Condition, and three buttons under that
+   — which is why a Scene had to be folded into tabs at all. */
 .written {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: var(--s2);
 }
 
@@ -1019,15 +1363,33 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   font-size: 0.875rem;
 }
 
+/* Everything but the text and the thumbnail takes the whole row. */
+.written > .described,
+.written > .beneath {
+  grid-column: 1 / -1;
+}
+
 /* An image is a thumbnail here and nothing more: it says which image the Shot
-   carries, and leaves the panel's height to the Flags and the Exits. The
-   Description sits beside it, in the width the browser's own file chrome used to
-   take. */
+   carries, and leaves the panel's height to the beats, the Flags and the ways
+   on. */
 .image {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: var(--s2);
+}
+
+/* What the beat plays under, and what is done to the beat: side by side, with
+   the marks at the trailing edge. A beat carrying Conditions grows a column of
+   them and the marks drop under it, which is the wrap doing the arithmetic. */
+.beneath {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--s1) var(--s3);
+}
+
+.beneath .conditions {
+  flex: 1 1 auto;
+  min-inline-size: 0;
 }
 
 /* The thumbnail itself is what is pressed to attach an image or to replace one, so
@@ -1189,6 +1551,59 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   box-shadow: var(--lifted);
 }
 
+/* A way on reads across two columns of its row: where it leads, and what the
+   Reader presses to take it. The Conditions and the marks take the whole width
+   under them, as they do on a beat. */
+.ways .written {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+}
+
+.ways .written > .beneath {
+  grid-column: 1 / -1;
+}
+
+/* Where a way on leads, worn as the heading of its own row rather than as a
+   field in a form: it is the name of a Scene, which is what an Author reads a way
+   on by, and the rule under it is all that says it can be changed. */
+.arrival select {
+  padding: 0 var(--s1);
+  border-color: transparent;
+  border-block-end-color: var(--edge);
+  background: none;
+  font-size: 0.9375rem;
+}
+
+.arrival select:hover,
+.arrival select:focus-visible {
+  border-color: var(--edge);
+}
+
+/* The way on written from here, at the foot of the ways on: a label and a field,
+   as narrow as the words in it — it is one control and not a section. */
+.adding {
+  display: grid;
+  justify-items: start;
+  gap: var(--s1);
+}
+
+.adding select {
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  padding: var(--s1) var(--s2);
+  font-size: 0.875rem;
+}
+
+/* What a Reader reads on the button, in the width the row gives it: it is the
+   Author's own words and the longest thing on the row. */
+.said {
+  display: grid;
+  gap: var(--s1);
+}
+
+.said input {
+  font-size: 0.875rem;
+}
+
 /* A row of controls, as the bench draws one everywhere it draws one. */
 .row {
   display: flex;
@@ -1209,8 +1624,23 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   justify-self: stretch;
 }
 
+/* The Scene's name takes the line and the way out sits at the end of it: the
+   name is what the surface is about, and a control that closes a thing belongs
+   at the far edge of the thing it closes. */
+.heading {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.heading .named {
+  flex: 1;
+}
+
 .close {
-  justify-self: start;
+  flex: none;
+  padding: var(--s1) var(--s2);
+  font-size: 0.7rem;
 }
 
 /* On a phone there is no room beside the graph, so the panel stops being a
