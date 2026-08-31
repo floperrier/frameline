@@ -116,6 +116,17 @@ which is a value a Reading carries rather than something the bench asks for.
 _Affiché_: Étape
 _Avoid_: hint, tip, tour, cue, onboarding, coach mark, repère, astuce
 
+**Remark**:
+One thing the bench has noticed about the Story open on it — a Scene no Exit
+arrives at, a Flag set and never tested, a Condition that can never hold — as a
+sentence and the Scene it is said of. Read off the Story like a Step, and
+advisory like nothing else in the product: it never refuses a write and never
+says a Story is wrong, because every one of them is a Story an Author may be in
+the middle of. Never a Step, which asks for something the Author has not done
+yet; a Remark reports something they have.
+_Affiché_: Remarque
+_Avoid_: error, warning, issue, problem, lint, validation, avertissement, alerte
+
 ### The reading
 
 **State**:

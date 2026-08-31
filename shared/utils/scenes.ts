@@ -172,6 +172,51 @@ export function snappedWithinReach({ x, y }: Point): Point {
 }
 
 /**
+ * Where a Scene born from an Exit goes when no hand named a point: one column on
+ * from the Scene it leaves, at that Scene's own height, and a node further down
+ * for every spot already taken.
+ *
+ * The two routes that arrive here are the keyboard's — an Exit landed on a Scene
+ * that does not exist yet — and any gesture the pointer ends off the surface.
+ * Both were placed by the server at the next free spot in a column of
+ * `NODES_PER_COLUMN`, which is where a Story of eight Scenes became eight cards
+ * stacked in one column whatever its Exits did: the drawing said nothing the list
+ * of names had not already said, and the Author had to lay the whole thing out by
+ * hand before the graph was worth looking at. Placed beside what it leaves, the
+ * graph draws the shape of the Story as the Story is written.
+ *
+ * Nothing already on the bench moves. This is where one Scene arrives, not a
+ * layout: where a Scene sits is a written fact the Author owns the moment it
+ * exists — `docs/adr/0010-the-graph-is-written-here-not-pulled-in.md` — and a
+ * graph that rearranged itself under a hand that had just dragged a card would be
+ * taking that fact back.
+ *
+ * A Story spread all the way to the far edge of the bench has no column left to
+ * the right of it, and the Scene goes under the one it leaves instead: every
+ * placement past the reach would otherwise pile against the same edge.
+ */
+export function placedBeside(scenes: Point[], leaving: Point): Point {
+  const beside = leaving.x + NODE_WIDTH + NODE_GAP
+  const room = beside + NODE_WIDTH <= GRAPH_REACH
+  const x = room ? beside : withinReach(leaving.x)
+
+  for (let y = leaving.y + (room ? 0 : NODE_SPACING); y <= GRAPH_REACH; y += NODE_SPACING) {
+    if (scenes.every(scene => !overlaps(scene, { x, y }))) return { x, y: withinReach(y) }
+  }
+
+  // A column full to the foot of the bench. The Scene lands beside the one it
+  // leaves and over whatever is already there, which the Author can drag off:
+  // there is nowhere else within reach, and refusing the placement would lose the
+  // Exit the gesture was drawing along with it.
+  return { x, y: withinReach(leaving.y) }
+}
+
+/** Whether two nodes, each `NODE_WIDTH` by `NODE_HEIGHT`, share any of the bench. */
+function overlaps(one: Point, other: Point) {
+  return Math.abs(one.x - other.x) < NODE_WIDTH && Math.abs(one.y - other.y) < NODE_HEIGHT
+}
+
+/**
  * How far back the Author may stand from their own graph, and how close they may
  * come. A quarter of the surface's own size is where forty Scenes fit on a
  * screen at once, and the surface's own size is the near end because there is

@@ -56,6 +56,34 @@ const sceneNames = computed(
 )
 
 /**
+ * The name of the Scene an Author is asking to be taken to, while they are
+ * typing it. A Story of forty Scenes had no way to reach one but to find its
+ * card: on a bench pulled back to a quarter the names are small, and folded into
+ * a rail they are gone — so the one thing an Author always has, the Scene's own
+ * name, was the one thing they could not use.
+ *
+ * A field with the names behind it rather than a list of them, because the list
+ * is already on the bench: what this adds is the keyboard, and the browser's own
+ * completion is what everybody already knows how to type into.
+ */
+const reaching = ref('')
+
+/**
+ * Puts the Scene the Author named on the writing surface. Where two Scenes share
+ * a name the first is the one opened — nothing here can tell them apart, and
+ * refusing to open either would be worse than opening one of them. A name that
+ * matches nothing is left in the field: the Author is halfway through typing it,
+ * and a field emptied under them would take the half back.
+ */
+function reachScene() {
+  const named = story?.scenes.find(scene => scene.name === reaching.value)
+  if (!named) return
+
+  reaching.value = ''
+  emit('writeScene', named.id)
+}
+
+/**
  * How far back the Author is standing from their own graph, where one is the
  * surface's own size. Like what is in the panel, it is the Author's view of their
  * own work rather than part of it: it is written nowhere, and every load opens on
@@ -315,6 +343,12 @@ function zoomToScale(percent: number) {
  * press when they have lost the work — pushed the bench into the room around it,
  * or dragged a Scene somewhere they cannot find — so it goes to the corner the
  * Scenes are laid out from and shows the whole of them.
+ *
+ * Pressed, and never done for the Author on arrival. A bench that opened fitted
+ * would draw a Story of forty Scenes at a quarter, which is the scale at which
+ * the shape is legible and not one word on a card is — and the scale is the
+ * Author's view of their own work rather than part of it, written nowhere, so
+ * every load opens at the surface's own size. See `zoom` above.
  */
 function zoomToFit() {
   const scroller = graph.value
@@ -741,8 +775,10 @@ function landOn(sceneId: string | undefined, onBench = false) {
  * `joining` is the Scene the Exit leaves, and nothing for the first Scene of a
  * Story, which comes from nowhere. `placed` is where the hand let go, snapped to
  * the bench's own pitch, and nothing where no hand named a point — the first
- * Scene, or one the keyboard landed an Exit on — in which case the endpoint puts
- * it at the next free spot rather than this component inventing one.
+ * Scene, or one the keyboard landed an Exit on. A Scene joining another is then
+ * placed beside it, by `placedBeside`, so that the graph draws the shape of the
+ * Story whichever hand wrote it; the first Scene of all is left to the endpoint,
+ * which lays it at the corner the bench begins at.
  *
  * The two writes are one change, so the bench reads the Story back once and finds
  * the Scene and the Exit in it together. They are not one transaction, and nothing
@@ -753,11 +789,20 @@ function landOn(sceneId: string | undefined, onBench = false) {
 async function makeScene({ joining, placed }: { joining?: string, placed?: Point } = {}) {
   const name = t('editor.provisionalSceneName')
   let writtenId: string | undefined
+  // Where the hand let go, or — where no hand named a point — the free spot
+  // beside the Scene the Exit leaves, which is what makes the graph draw the
+  // shape of the Story rather than a column of everything in it. The first Scene
+  // of a Story leaves nothing and names no point, so it is placed by the server
+  // at the corner the bench is laid out from.
+  const from = joining ? sceneById(joining) : undefined
+  const at = placed
+    ? snappedWithinReach(placed)
+    : from && placedBeside(story?.scenes ?? [], from)
 
   await change(async () => {
     const written = await send(`/api/stories/${id}/scenes`, {
       method: 'POST',
-      body: { name, ...(placed ? snappedWithinReach(placed) : {}) },
+      body: { name, ...(at ?? {}) },
     }) as Scene
 
     if (joining) {
@@ -1137,6 +1182,33 @@ function atAGlance(scene: Scene) {
        the Scenes they have. Nothing here makes one — a Scene is made on the
        bench, where it goes. -->
   <div class="tools">
+    <!-- What the bench has read in the Story, and the way to any Scene in it by
+         name. Both stay while a Scene is being written, because that is when an
+         Author most needs them: the graph is a rail then, and a rail is names
+         too small to read. The scale beside them does not — a rail is drawn at
+         the width's own scale and there is nothing to set. -->
+    <div class="reading">
+      <Remarks :story="story" @open="$emit('writeScene', $event)" />
+
+      <p v-if="story?.scenes.length" class="reach">
+        <label class="eyebrow" for="reach-scene">{{ $t('editor.goToScene') }}</label>
+        <!-- The names behind the field are the browser's own completion, which
+             is a list, a filter and a keyboard route that nobody had to write
+             and everybody has already used. -->
+        <input
+          id="reach-scene"
+          v-model="reaching"
+          list="scene-names"
+          :placeholder="$t('editor.goToSceneHint')"
+          :maxlength="SCENE_NAME_MAX_LENGTH"
+          @change="reachScene"
+        >
+        <datalist id="scene-names">
+          <option v-for="scene in story.scenes" :key="scene.id" :value="scene.name" />
+        </datalist>
+      </p>
+    </div>
+
     <!-- How far back the Author is standing, and the ways of changing it. Above
          the bench and in the flow of the page rather than floating in a corner
          of it: a control laid over the surface is a control something on the
@@ -1604,12 +1676,38 @@ function atAGlance(scene: Scene) {
 <style scoped>
 /* The row above the bench: the zoom controls sit at the trailing edge over the
    graph they act on, which is the only thing in it. */
+/* The row above the bench, read left to right as three things in the order they
+   are wanted: what the bench found in the Story, the way to any Scene in it, and
+   how far back the Author is standing to look at the lot. The first two are the
+   Story; the last is the view of it, so it sits at the far end on its own. */
 .tools {
   display: flex;
   flex-wrap: wrap;
   align-items: end;
-  justify-content: end;
+  justify-content: space-between;
   gap: var(--s2) var(--s4);
+}
+
+.reading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--s2) var(--s4);
+  min-inline-size: 0;
+}
+
+/* The way to a Scene by its name: the label above the field, the way a label
+   sits over every other field on the bench. */
+.reach {
+  display: grid;
+  gap: var(--s1);
+}
+
+.reach input {
+  inline-size: 14rem;
+  max-inline-size: 100%;
+  padding: var(--s1) var(--s2);
+  font-size: 0.875rem;
 }
 
 /* The bench of a Story that has none: the sentence saying so, and the one control

@@ -498,24 +498,15 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
     role="group"
     :aria-label="$t('editor.writingScene', { name: sceneWritten.name })"
   >
-    <!-- The writing is closed explicitly. Drawn at every width rather than only
-         below the breakpoint: on a narrow screen it is the whole of the way
-         out, because the surface covers the bench there and there is no bare
-         bench left to press, and a control that came and went with the width
-         would be one an Author had to learn twice. -->
-    <button type="button" class="close" @click="$emit('close')">
-      {{ $t('editor.closePanel') }}
-    </button>
-
     <!-- Why the last change was refused, against the Scene it concerns: with
          one Scene on the surface the server has somewhere precise to complain,
          which is what `0011` gave up when it said a refusal about a Shot is
          shown against the whole Story. -->
     <Refusal :problem="problem" />
 
-    <!-- The name is the heading and the heading is written in: a bare field,
-         the same idiom as a Shot's text and an Exit's, with no mode to enter
-         first.
+    <!-- The Scene's name, and the way out, on one line. The name is the heading
+         and the heading is written in: a bare field, the same idiom as a Shot's
+         text and an Exit's, with no mode to enter first.
 
          The label sits outside the heading rather than in it: a heading is
          named by what it holds, and a label inside would be read out ahead
@@ -528,14 +519,28 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
     <label class="visually-hidden" :for="`scene-name-${sceneWritten.id}`">
       {{ $t('editor.sceneName') }}
     </label>
-    <h2 class="named">
-      <input
-        :id="`scene-name-${sceneWritten.id}`"
-        v-model="sceneWritten.name"
-        :maxlength="SCENE_NAME_MAX_LENGTH"
-        @change="renameScene(sceneWritten)"
-      >
-    </h2>
+    <div class="heading">
+      <h2 class="named">
+        <input
+          :id="`scene-name-${sceneWritten.id}`"
+          v-model="sceneWritten.name"
+          :maxlength="SCENE_NAME_MAX_LENGTH"
+          @change="renameScene(sceneWritten)"
+        >
+      </h2>
+
+      <!-- The writing is closed explicitly. Drawn at every width rather than
+           only below the breakpoint: on a narrow screen it is the whole of the
+           way out, because the surface covers the bench there and there is no
+           bare bench left to press, and a control that came and went with the
+           width would be one an Author had to learn twice. Beside the name
+           rather than above it, because a row of its own at the head of the
+           surface made the way out the first thing on a surface whose subject
+           is what is written on it. -->
+      <button type="button" class="close" @click="$emit('close')">
+        {{ $t('editor.closePanel') }}
+      </button>
+    </div>
 
     <div class="standing">
       <!-- `data-step` is on the line rather than on the radio: the spotlight
@@ -690,56 +695,63 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
                  field of it, because what it asks for is a Condition and a
                  Condition is the row it is added as: `data-step` lands on the
                  component's own root, which is that list. -->
-            <Conditions
-              data-step="shot-condition"
-              :lead="$t('editor.playedWhen')"
-              :carrier="$t('editor.shotOfScene', {
-                place: place + 1,
-                scene: sceneWritten.name,
-              })"
-              :conditions="shot.conditions"
-              :scenes="story.scenes"
-              :counting="sceneWritten.id"
-              :id="shot.id"
-              @write="writeConditions('shots', shot.id, shot.conditions)"
-            />
+            <!-- What the Shot plays under and what is done to it, on one line:
+                 a Shot carrying no Conditions — which is most of them — spends
+                 one row on the pair instead of two, and the row it spends is
+                 quiet. They part company again the moment a Condition is
+                 written, because a list of Conditions is a column. -->
+            <div class="beneath">
+              <Conditions
+                data-step="shot-condition"
+                :lead="$t('editor.playedWhen')"
+                :carrier="$t('editor.shotOfScene', {
+                  place: place + 1,
+                  scene: sceneWritten.name,
+                })"
+                :conditions="shot.conditions"
+                :scenes="story.scenes"
+                :counting="sceneWritten.id"
+                :id="shot.id"
+                @write="writeConditions('shots', shot.id, shot.conditions)"
+              />
 
-            <!-- The three controls, as the marks they do rather than the
-                 sentences that name them: in the width the panel gives a Shot
-                 the three sentences fill the strip to its end and wrap out of
-                 it in the longer of the two languages. What each one says is
-                 not lost, it moves to where the Shot's other names are read,
-                 by assistive technology alone. -->
-            <div class="row marks">
-              <button
-                type="button"
-                :disabled="place === 0"
-                @click="moveShot(sceneWritten, shot, -1)"
-              >
-                <span aria-hidden="true">↑</span>
-                <span class="visually-hidden">
-                  {{ $t('common.moveEarlier') }}
-                  {{ $t('editor.shotNumber', { place: place + 1 }) }}
-                </span>
-              </button>
-              <button
-                type="button"
-                :disabled="place === sceneWritten.shots.length - 1"
-                @click="moveShot(sceneWritten, shot, 1)"
-              >
-                <span aria-hidden="true">↓</span>
-                <span class="visually-hidden">
-                  {{ $t('common.moveLater') }}
-                  {{ $t('editor.shotNumber', { place: place + 1 }) }}
-                </span>
-              </button>
-              <button type="button" class="danger" @click="deleteShot(shot)">
-                <span aria-hidden="true">×</span>
-                <span class="visually-hidden">
-                  {{ $t('common.delete') }}
-                  {{ $t('editor.shotNumber', { place: place + 1 }) }}
-                </span>
-              </button>
+              <!-- The three controls, as the marks they do rather than the
+                   sentences that name them: in the width the panel gives a Shot
+                   the three sentences fill the strip to its end and wrap out of
+                   it in the longer of the two languages. What each one says is
+                   not lost, it moves to where the Shot's other names are read,
+                   by assistive technology alone. -->
+              <div class="row marks">
+                <button
+                  type="button"
+                  :disabled="place === 0"
+                  @click="moveShot(sceneWritten, shot, -1)"
+                >
+                  <span aria-hidden="true">↑</span>
+                  <span class="visually-hidden">
+                    {{ $t('common.moveEarlier') }}
+                    {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  :disabled="place === sceneWritten.shots.length - 1"
+                  @click="moveShot(sceneWritten, shot, 1)"
+                >
+                  <span aria-hidden="true">↓</span>
+                  <span class="visually-hidden">
+                    {{ $t('common.moveLater') }}
+                    {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                  </span>
+                </button>
+                <button type="button" class="danger" @click="deleteShot(shot)">
+                  <span aria-hidden="true">×</span>
+                  <span class="visually-hidden">
+                    {{ $t('common.delete') }}
+                    {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </li>
@@ -1189,6 +1201,22 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   box-shadow: var(--lifted);
 }
 
+/* What a Shot plays under, and what is done to the Shot: side by side, with the
+   marks at the trailing edge. A Shot carrying Conditions grows a column of them
+   and the marks drop under it, which is the wrap doing the arithmetic. */
+.beneath {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--s1) var(--s3);
+}
+
+.beneath .conditions {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
 /* A row of controls, as the bench draws one everywhere it draws one. */
 .row {
   display: flex;
@@ -1209,8 +1237,23 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   justify-self: stretch;
 }
 
+/* The Scene's name takes the line and the way out sits at the end of it: the
+   name is what the surface is about, and a control that closes a thing belongs
+   at the far edge of the thing it closes. */
+.heading {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.heading .named {
+  flex: 1;
+}
+
 .close {
-  justify-self: start;
+  flex: none;
+  padding: var(--s1) var(--s2);
+  font-size: 0.7rem;
 }
 
 /* On a phone there is no room beside the graph, so the panel stops being a

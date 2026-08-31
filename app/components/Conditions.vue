@@ -107,7 +107,7 @@ function conditionCalled(place: number) {
 </script>
 
 <template>
-  <div class="conditions">
+  <div class="conditions" :class="{ quiet: !conditions.length }">
     <p class="eyebrow">
       {{ lead }}
       <span class="visually-hidden">— {{ carrier }}</span>
@@ -220,7 +220,7 @@ function conditionCalled(place: number) {
       </button>
     </div>
 
-    <button v-if="conditions.length < CONDITIONS_MAX" type="button" @click="add">
+    <button v-if="conditions.length < CONDITIONS_MAX" type="button" class="add" @click="add">
       {{ $t('conditions.add') }}
       <span class="visually-hidden">{{ $t('conditions.toCarrier', { carrier }) }}</span>
     </button>
@@ -236,6 +236,23 @@ function conditionCalled(place: number) {
 .conditions {
   display: grid;
   gap: var(--s1);
+}
+
+/* A Shot carrying no Conditions is the ordinary Shot, and the control that adds
+   the first one was the widest thing in its row: a line of prose with a
+   full-width button under it reads as though the button were the subject. With
+   none, the whole list is one quiet line — what holds, and the small way to
+   change it — and it grows into a column the moment there is a Condition in it. */
+.conditions.quiet {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s1) var(--s2);
+}
+
+.conditions.quiet .add {
+  padding: 0 var(--s2);
+  font-size: 0.7rem;
 }
 
 .when {

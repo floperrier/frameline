@@ -1680,9 +1680,16 @@ test('the keyboard lands an Exit on a Scene that is not there yet', async ({ pag
     { fromSceneId: scenes[0]!.id, toSceneId: written.id, position: 0 },
   ])
 
-  // No hand named a point, so the Scene is placed where the endpoint places every
-  // Scene nobody placed: the next free spot, under the last one written.
-  expect(await readScenePlacement(written.id)).toMatchObject({ x: 0, y: NODE_SPACING * 2 })
+  // No hand named a point, so the Scene goes beside the one it leaves: one column
+  // on, at that Scene's own height. The pointer's landing places the Scene where
+  // the hand let go and this is the same answer given without a hand — the Scene
+  // used to go to the next free spot at the foot of the first column, which is
+  // the far end of the bench from the Exit that made it.
+  // Beside The arrival is where The platform already sits, so the Scene drops one
+  // node further down that column rather than landing on top of it.
+  const left = await readScenePlacement(scenes[0]!.id)
+  expect(await readScenePlacement(written.id))
+    .toMatchObject({ x: left.x + NODE_WIDTH + NODE_GAP, y: left.y + NODE_SPACING })
 
   // And it arrives named the way the pointer's landing does: open for writing,
   // with the provisional name selected.
