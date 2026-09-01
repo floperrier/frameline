@@ -210,19 +210,41 @@ function unlist() {
         <!-- Listing is offered only once the Story is published, because the
              Catalogue leads to the public link and an entry pointing at a link
              that answers with a not-found is worse than no entry. -->
-        <button v-if="story?.listed" type="button" @click="unlist">
+        <button
+          v-if="story?.listed"
+          type="button"
+          :data-command="$t('editor.unlist')"
+          @click="unlist"
+        >
           {{ $t('editor.unlist') }}
         </button>
-        <button v-else-if="story?.publishedAt" type="button" @click="list">
+        <button
+          v-else-if="story?.publishedAt"
+          type="button"
+          :data-command="$t('editor.list')"
+          @click="list"
+        >
           {{ $t('editor.list') }}
         </button>
-        <button v-if="story?.publishedAt" type="button" @click="unpublish">
+        <button
+          v-if="story?.publishedAt"
+          type="button"
+          :data-command="$t('editor.unpublish')"
+          @click="unpublish"
+        >
           {{ $t('editor.unpublish') }}
         </button>
         <!-- The guided path ends here, so `data-step` is on this one and not on
              the button that unpublishes: the Step is met by the Story being
              published, and by then there is nothing left to point at. -->
-        <button v-else type="button" class="primary" data-step="publish" @click="publish">
+        <button
+          v-else
+          type="button"
+          class="primary"
+          data-step="publish"
+          :data-command="$t('editor.publish')"
+          @click="publish"
+        >
           {{ $t('editor.publish') }}
         </button>
       </div>

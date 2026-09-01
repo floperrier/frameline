@@ -18,6 +18,10 @@
     "heading": "This cannot be undone",
     "dismiss": "Leave it"
   },
+  "commands": {
+    "heading": "Name an act, or a Scene",
+    "nothing": "Nothing here answers to that."
+  },
   "scene": {
     "gone": "a Scene that is gone",
     "goneOption": "A Scene that is gone"
@@ -177,8 +181,9 @@
     "toANewScene": "To a Scene that is not there yet",
     "wayOnLeadsTo": "Where the way on {place} out of {name} leads",
     "whatTheReaderPresses": "What the Reader presses",
-    "goToScene": "Go to a Scene",
-    "goToSceneHint": "Its name"
+    "goToScene": "Go to {name}",
+    "commands": "Commands",
+    "commandsShortcut": "opens the Commands"
   },
   "conditions": {
     "ofCarrier": "of {carrier}",

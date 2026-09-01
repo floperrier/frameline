@@ -18,7 +18,7 @@
  * Story by, and pressed rather than laid out. See
  * `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`.
  */
-const { id, story, sceneWritten, asking, change, write, announce, imageOf } = defineProps<{
+const { id, story, sceneWritten, change, write, announce, imageOf } = defineProps<{
   /**
    * The Story's own id, which a Scene is created against. It comes from the route
    * rather than from the Story, because the form that names one stands there
@@ -29,8 +29,6 @@ const { id, story, sceneWritten, asking, change, write, announce, imageOf } = de
   story?: StoryInEditor
   /** The Scene the writing surface is on, which its card is lit for. */
   sceneWritten?: string
-  /** Whether a confirmation is up, which Escape belongs to rather than to the aiming. */
-  asking: boolean
   /** The one holder every write on this page goes through. */
   change: Change
   /** The same holder, for what the Author typed rather than what they clicked. */
@@ -46,43 +44,19 @@ const { id, story, sceneWritten, asking, change, write, announce, imageOf } = de
  * and the one press that takes what is in it out again. The Scene is the page's,
  * so the graph says what happened and the page decides what is written. An Exit
  * is not in there at all — it is written on its own line, here.
+ *
+ * The bar of Commands is asked for the same way. It is drawn beside the page's
+ * own dialogs rather than in the middle of the bench, and the control that opens
+ * it belongs in the row above the graph, so the two ends are in two components
+ * and the press travels between them.
  */
-const emit = defineEmits<{ writeScene: [string], letGo: [] }>()
+const emit = defineEmits<{ writeScene: [string], letGo: [], command: [] }>()
 
 const { t, locale } = useI18n()
 
 const sceneNames = computed(
   () => new Map(story?.scenes.map(scene => [scene.id, scene.name])),
 )
-
-/**
- * The name of the Scene an Author is asking to be taken to, while they are typing
- * it. A Story of forty Scenes had no way to reach one but to find its card: on a
- * bench pulled back to a quarter the names are small, and folded into a rail they
- * are gone — so the one thing an Author always has, the Scene's own name, was the
- * one thing they could not use. It is also the last thing the canvas was needed
- * for: see `docs/adr/0034-a-story-is-written-without-the-canvas.md`.
- *
- * A field with the names behind it rather than a list of them, because the list is
- * already on the bench: what this adds is the keyboard, and the browser's own
- * completion is what everybody already knows how to type into.
- */
-const reaching = ref('')
-
-/**
- * Puts the Scene the Author named on the writing surface. Where two Scenes share a
- * name the first is the one opened — nothing here can tell them apart, and
- * refusing to open either would be worse than opening one of them. A name that
- * matches nothing is left in the field: the Author is halfway through typing it,
- * and a field emptied under them would take the half back.
- */
-function reachScene() {
-  const named = story?.scenes.find(scene => scene.name === reaching.value)
-  if (!named) return
-
-  reaching.value = ''
-  emit('writeScene', named.id)
-}
 
 /**
  * How far back the Author is standing from their own graph, where one is the
@@ -878,10 +852,12 @@ function aimingName(scene: Scene) {
  */
 function letGoOnEscape(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
-  // Not while a confirmation is up. `<dialog>` answers Escape itself, and the
-  // control the question was asked from is on the bench: letting go out from
-  // under that answer would take the focus it hands back with it.
-  if (asking) return
+  // Not while a dialog is up — a confirmation, the bar of Commands, whatever is
+  // opened next. Each answers Escape itself, and the control it was opened from
+  // is on the bench: letting go out from under that answer would take the focus
+  // it hands back with it. Asked of the document rather than carried down as a
+  // prop, because the fact is the browser's and every dialog on the page has it.
+  if (document.querySelector('dialog:modal')) return
 
   abandonAiming()
 }
@@ -1070,27 +1046,19 @@ function atAGlance(scene: Scene) {
        the Scenes they have. Nothing here makes one — a Scene is made on the
        bench, where it goes. -->
   <div class="tools">
-    <!-- The way to any Scene by its name, which stays while a Scene is being
-         written because that is when it is most needed: the graph is a rail then,
-         and a rail is names too small to read. The scale beside it does not — a
-         rail is drawn at the width's own scale and there is nothing to set. -->
-    <p v-if="story?.scenes.length" class="reach">
-      <label class="eyebrow" for="reach-scene">{{ $t('editor.goToScene') }}</label>
-      <!-- The names behind the field are the browser's own completion, which is a
-           list, a filter and a keyboard route that nobody had to write and
-           everybody has already used. -->
-      <input
-        id="reach-scene"
-        v-model="reaching"
-        list="scene-names"
-        :placeholder="$t('editor.goToSceneHint')"
-        :maxlength="SCENE_NAME_MAX_LENGTH"
-        @change="reachScene"
-      >
-      <datalist id="scene-names">
-        <option v-for="scene in story.scenes" :key="scene.id" :value="scene.name" />
-      </datalist>
-    </p>
+    <!-- The way to everything the bench can do, by naming it — a Scene among
+         them, which is what the field that reached one by its name has become.
+         It stays while a Scene is being written because that is when it is most
+         needed: the graph is a rail then, and a rail is names too small to read.
+         The scale beside it does not — a rail is drawn at the width's own scale
+         and there is nothing to set.
+
+         A control and not only a key. `⌘K` opens the same bar and the legend
+         below says so, but a shortcut nobody was told about is not a way in:
+         see `docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md`. -->
+    <button type="button" class="commanding" @click="$emit('command')">
+      {{ $t('editor.commands') }}
+    </button>
 
     <!-- How far back the Author is standing, and the ways of changing it. Above
          the bench and in the flow of the page rather than floating in a corner
@@ -1139,7 +1107,12 @@ function atAGlance(scene: Scene) {
         >
           <span aria-hidden="true">+</span>
         </button>
-        <button type="button" class="fit" @click="zoomToFit">
+        <button
+          type="button"
+          class="fit"
+          :data-command="$t('editor.fitGraph')"
+          @click="zoomToFit"
+        >
           {{ $t('editor.fitGraph') }}
         </button>
       </div>
@@ -1166,6 +1139,10 @@ function atAGlance(scene: Scene) {
           <span class="combination"><kbd>{{ modifier }}</kbd><kbd>0</kbd></span>
           {{ $t('editor.fitShortcut') }}
         </span>
+        <span class="binding">
+          <span class="combination"><kbd>{{ modifier }}</kbd><kbd>K</kbd></span>
+          {{ $t('editor.commandsShortcut') }}
+        </span>
         <span class="binding">{{ $t('editor.pushBench') }}</span>
       </p>
     </div>
@@ -1185,7 +1162,12 @@ function atAGlance(scene: Scene) {
        `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md`. -->
   <div v-if="!story?.scenes.length" class="empty">
     <p class="none">{{ $t('editor.noScenes') }}</p>
-    <button type="button" data-step="first-scene" @click="makeScene()">
+    <button
+      type="button"
+      data-step="first-scene"
+      :data-command="$t('editor.writeFirstScene')"
+      @click="makeScene()"
+    >
       {{ $t('editor.writeFirstScene') }}
     </button>
   </div>
@@ -1395,6 +1377,7 @@ function atAGlance(scene: Scene) {
                     :id="`write-${scene.id}`"
                     type="button"
                     class="write"
+                    :data-command="$t('editor.goToScene', { name: scene.name })"
                     :aria-expanded="sceneWritten === scene.id"
                     @click="$emit('writeScene', scene.id)"
                   >
@@ -1488,18 +1471,11 @@ function atAGlance(scene: Scene) {
   gap: var(--s2) var(--s4);
 }
 
-/* The way to a Scene by its name: the label above the field, the way a label sits
-   over every other field on the bench. */
-.reach {
-  display: grid;
-  gap: var(--s1);
-}
-
-.reach input {
-  inline-size: 14rem;
-  max-inline-size: 100%;
-  padding: var(--s1) var(--s2);
-  font-size: 0.875rem;
+/* The way into the bar every act is named in. It reads as a control of the row
+   it stands in rather than as the primary act of the page: what is primary here
+   is the bench under it. */
+.commanding {
+  justify-self: start;
 }
 
 /* The bench of a Story that has none: the sentence saying so, and the one control

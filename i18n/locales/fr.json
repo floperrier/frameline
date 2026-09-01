@@ -18,6 +18,10 @@
     "heading": "C'est sans retour",
     "dismiss": "Ne rien supprimer"
   },
+  "commands": {
+    "heading": "Nommez un acte, ou une Scène",
+    "nothing": "Rien ici ne répond à cela."
+  },
   "scene": {
     "gone": "une Scène disparue",
     "goneOption": "Une Scène disparue"
@@ -177,8 +181,9 @@
     "toANewScene": "Vers une Scène qui n’existe pas encore",
     "wayOnLeadsTo": "Où mène la Sortie {place} depuis {name}",
     "whatTheReaderPresses": "Ce que presse le Lecteur",
-    "goToScene": "Aller à une Scène",
-    "goToSceneHint": "Son nom"
+    "goToScene": "Aller à {name}",
+    "commands": "Commandes",
+    "commandsShortcut": "ouvre les Commandes"
   },
   "conditions": {
     "ofCarrier": "de {carrier}",

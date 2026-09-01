@@ -20,6 +20,14 @@ const { problem, keptAt, change, write } = useEditing(refresh)
 const { asked, ask, answer } = useConfirming()
 
 /**
+ * Whether the bar every act of the bench is named in is up. It is opened by the
+ * key it listens for itself and by the control in the row above the graph, which
+ * is two components away from it, so which of them is showing is the page's — the
+ * way which Scene is being written is.
+ */
+const commanding = ref(false)
+
+/**
  * What the bench has just done, said once and gone: a Scene created, an Exit
  * drawn, a gesture begun or abandoned. One live region for the page rather than
  * one per thing announced, because two of them in the same corner would talk
@@ -171,10 +179,13 @@ function letGo() {
  */
 function letGoOnEscape(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
-  // Not while a confirmation is up. `<dialog>` answers Escape itself, and the
-  // control the question was asked from is in the panel: closing the panel out
-  // from under that answer would take the focus it hands back with it.
-  if (asked.value) return
+  // Not while a dialog is up — a confirmation, the bar of Commands, whatever is
+  // opened next. Each of them answers Escape itself, and the control it was
+  // opened from is in the panel: closing the panel out from under that answer
+  // would take the focus it hands back with it. Asked of the document rather
+  // than of a flag per dialog, because the fact is the browser's own and a flag
+  // is one more thing to remember the day a third dialog is drawn.
+  if (document.querySelector('dialog:modal')) return
 
   closePanel()
 }
@@ -204,13 +215,13 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
       :id="id"
       :story="story ?? undefined"
       :scene-written="sceneWritten?.id"
-      :asking="!!asked"
       :change="change"
       :write="write"
       :announce="announce"
       :image-of="imageOf"
       @write-scene="writeScene"
       @let-go="letGo"
+      @command="commanding = true"
     >
       <!-- What the bench says about itself, between the row of controls and the
            graph: why the last change was refused, and what has just been done.
@@ -252,6 +263,9 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
     </Graph>
 
     <Confirmation :asked="asked" @answer="answer" />
+    <!-- Every act the bench is offering, reached by naming it. It reads the
+         controls off the page as it opens, so it stands after all of them. -->
+    <Commands v-model="commanding" />
     <!-- The step the bench is asking for, if it is asking for one. Last, so it
          is drawn over the bench it is lighting a part of. -->
     <Step :story="story ?? undefined" />
