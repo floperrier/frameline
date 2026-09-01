@@ -1,9 +1,12 @@
 <script setup lang="ts">
 /**
- * The bar every act of the bench is reached by naming it in. It holds no list
- * of acts: it reads the controls the bench is drawing right now — the ones
+ * The bar every act of the bench is reached by naming it in. It holds almost no
+ * list of acts: it reads the controls the bench is drawing right now — the ones
  * their own templates mark with `data-command` — and pressing a result presses
- * that control. `app/utils/commands.ts` says why, and
+ * that control. The one exception is the offer to write a Scene under a name
+ * nothing answered to, which has no control behind it because a Scene is
+ * otherwise born from an Exit; `showing` says why it is here and what bounds it.
+ * `app/utils/commands.ts` says the rest, and
  * `docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md` records
  * the decision.
  *
@@ -18,6 +21,16 @@
  * the same press.
  */
 const opened = defineModel<boolean>({ required: true })
+
+/**
+ * The one thing the bar asks the page for rather than pressing on the bench: a
+ * Scene written under the name that reached nothing. The page owns it because
+ * the page owns `change` and which Scene is on the writing surface, the way it
+ * owns every other act that alters the Story.
+ */
+const emit = defineEmits<{ make: [name: string] }>()
+
+const { t } = useI18n()
 
 const bar = useTemplateRef<HTMLDialogElement>('bar')
 const field = useTemplateRef<HTMLInputElement>('field')
@@ -34,6 +47,32 @@ const typed = ref('')
 const offered = ref<Command[]>([])
 
 const reached = computed(() => commandsReached(offered.value, typed.value))
+
+/**
+ * What the list actually shows: the Commands the typed name reached, or — where
+ * it reached none — the offer to write a Scene under it.
+ *
+ * This is the one entry that has no control behind it, and the only place the
+ * bar writes an act rather than finding one. It stands here, in the shape of a
+ * Command, so that `Enter`, `↓` and a press with the pointer all reach it by the
+ * machinery every other entry already goes through: a second kind of row would
+ * be a second keyboard to get right. See
+ * `docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md`, which
+ * records the exception and its boundary.
+ *
+ * Offered only where nothing answers. A Story of forty Scenes would otherwise
+ * offer to write *Le* under an Author halfway through typing *Le café*, and a
+ * making that stands under every partial name is a making somebody presses by
+ * mistake.
+ */
+const showing = computed<Command[]>(() => {
+  if (reached.value.length) return reached.value
+
+  const name = typed.value.trim()
+  if (!name) return []
+
+  return [{ name: t('commands.writeScene', { name }), press: () => emit('make', name) }]
+})
 
 // After the update rather than before it, so the dialog the browser is about to
 // move focus into is in the document by the time it looks for it.
@@ -59,6 +98,21 @@ function run(command?: Command) {
 
   bar.value?.close()
   command.press()
+}
+
+/**
+ * The bar reporting that it has shut, which is not the same fact as the moment
+ * it was asked to. A `<dialog>` fires `close` from a queued task rather than
+ * from inside `close()` itself, so a bar put away and asked for again inside the
+ * same breath — two presses of the key, which is one hand changing its mind —
+ * receives the first `close` after the second `showModal`. Taken at face value
+ * that report says the bar is gone while it is on the screen, and the watch
+ * above then makes it true by shutting the bar the Author has just opened.
+ *
+ * So the report is believed only where the bar agrees with it.
+ */
+function letGoIfShut() {
+  if (!bar.value?.open) opened.value = false
 }
 
 /**
@@ -108,11 +162,11 @@ onBeforeUnmount(() => document.removeEventListener('keydown', toggleOnKeys))
     class="commands"
     aria-labelledby="commands-heading"
     @click.self="opened = false"
-    @close="opened = false"
+    @close="letGoIfShut"
   >
     <!-- A form, so `Enter` runs the first result without a key being listened
          for: submitting is what a field in a form does. -->
-    <form class="instrument" @submit.prevent="run(reached[0])">
+    <form class="instrument" @submit.prevent="run(showing[0])">
       <label id="commands-heading" class="eyebrow" for="commands-typed">
         {{ $t('commands.heading') }}
       </label>
@@ -122,6 +176,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', toggleOnKeys))
         v-model="typed"
         autofocus
         autocomplete="off"
+        :maxlength="SCENE_NAME_MAX_LENGTH"
         @keydown.down.prevent="results?.querySelector('button')?.focus()"
       >
 
@@ -129,16 +184,21 @@ onBeforeUnmount(() => document.removeEventListener('keydown', toggleOnKeys))
            them. No count and no headings above them: the list is the answer, and
            an Author who typed three letters is reading it rather than being told
            about it. -->
-      <ul v-if="reached.length" ref="results">
+      <!-- Said above the offer rather than instead of it: an Author who typed a
+           name nothing answers to is told so, and handed the one thing left to
+           do with that name. -->
+      <p v-if="!reached.length && typed.trim()" class="none">
+        {{ $t('commands.nothing') }}
+      </p>
+      <ul v-if="showing.length" ref="results">
         <!-- Keyed by where it comes in the list rather than by its name: two
              Scenes may share one, and nothing here can tell them apart. -->
-        <li v-for="(command, at) in reached" :key="at">
+        <li v-for="(command, at) in showing" :key="at">
           <button type="button" @click="run(command)" @keydown="walk($event, at)">
             {{ command.name }}
           </button>
         </li>
       </ul>
-      <p v-else class="none">{{ $t('commands.nothing') }}</p>
     </form>
   </dialog>
 </template>

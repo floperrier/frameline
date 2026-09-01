@@ -20,6 +20,19 @@ went to a Scene by name is gone: every
 Scene is in the list, which is that field absorbed rather than kept beside — two
 controls for one act is what `0034` refused for the Exit's text.
 
+**A name that reaches nothing is offered as a Scene to write.** Where the typed
+name answers to no Command, the bar offers exactly one thing: *Write a Scene
+named X*. An Author who has typed the name of a Scene that does not exist has
+already said what they want, and the alternative was a dead end — an empty state
+saying *nothing here answers to that* and nothing to do about it.
+
+This is not a new capability. `POST /api/stories/{id}/scenes` takes a name and
+places the Scene itself, and both existing ways of making one — the Exit dropped
+on the bare bench, the way on written towards a Scene that does not exist yet —
+create under a provisional name and then select the name field so the Author
+types over it. Naming a Scene into existence removes that step rather than
+adding a concept.
+
 **A Command is not written twice.** It is a control that already stands
 somewhere on the bench, marked in its own template with a `data-command` that
 carries the name the bar shows it under, and running one presses that control.
@@ -94,11 +107,24 @@ acts is a tool of the bench. *Command* / _Commande_ is the plain word, and the
 glossary entry carries palette, spotlight, quick open and raccourci on its
 `_Avoid_` list — a plain word is not a loose word.
 
-**Making a Scene that joins nothing, from the bar.** Not offered, and not by
-omission: a Scene is born from an Exit —
-`docs/adr/0031-a-scene-is-born-from-an-exit-dropped-on-the-bench.md` — so there
-is no standalone control to mark. The bar adds no act the bench does not have,
-which is the whole of its contract.
+**Refusing to make a Scene from the bar, because no control performs it.** That
+was the first position here, on the contract above: a Scene is born from an Exit
+— `docs/adr/0031-a-scene-is-born-from-an-exit-dropped-on-the-bench.md` — so
+there is nothing to mark, and the bar was to add no act the bench does not have.
+
+Reversed, deliberately and once. What the contract protects still holds either
+way: the act exists on the bench by pointer twice over, and the offer itself is
+a row in a bar a pointer opens and presses, so nothing here is reachable by the
+keyboard alone. What is genuinely paid is the third clause — this one act is
+written a second time, in the page, beside the acts the page already owns. That
+is the price of an empty state that invites rather than reports, and the
+boundary is the sentence above: **one** offer, only where nothing answers, and
+never a second act written into the bar because it was convenient.
+
+That it stands only where nothing answers is not a detail. A Story of forty
+Scenes would otherwise offer to write *Le* under an Author halfway through
+typing *Le café*, and a making that stands under every partial name is a making
+somebody presses by mistake.
 
 ## Consequences
 
@@ -126,6 +152,23 @@ stay written there because nothing on the row performs them; this one does not,
 because the control performing it is a hand's width away and can say so itself.
 A key belongs on its control where there is one, and in the legend where there
 is not.
+
+**A Scene named into existence joins nothing**, which neither gesture that makes
+one ever leaves a Story in on purpose: both draw the way to the Scene in the
+same breath as the Scene. So the bar makes an orphan cheap — two seconds at the
+keyboard — at exactly the moment `0034` took the canvas off the critical path
+and with it the one place an Author saw a Scene nothing leads to. The Preview
+says it for the Scene on the surface and nothing says it for the Story. That is
+issue #187, and this record is half of why it is owed.
+
+**A `<dialog>` reports its own shutting late.** `close()` queues the `close`
+event rather than firing it, so a bar put away and asked for again inside one
+breath — two presses of the key, which is one hand changing its mind — receives
+the first report after the second opening. Believed at face value it says the
+bar is gone while it is on the screen, and the state it writes back then shuts
+the bar the Author has just opened. The report is therefore believed only where
+the dialog agrees with it. The end-to-end suite holds the sequence, because
+nothing about it is visible in a single press.
 
 **Marking a new control is one attribute.** The cost of keeping the bar honest
 is that a control worth naming has to say so. That is deliberate: an act that

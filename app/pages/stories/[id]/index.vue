@@ -16,6 +16,7 @@ const { data: story, refresh } = await useAsyncData(
   () => send(`/api/stories/${id}`, { headers }) as Promise<StoryInEditor>,
   { deep: true },
 )
+const { t } = useI18n()
 const { problem, keptAt, change, write } = useEditing(refresh)
 const { asked, ask, answer } = useConfirming()
 
@@ -144,6 +145,34 @@ async function writeScene(sceneId: string) {
 }
 
 /**
+ * A Scene written from the bar, under the name that reached nothing there. The
+ * name is the Author's own rather than the provisional one every other way of
+ * making a Scene starts from — they have just typed it — so nothing is selected
+ * for them to type over: the Scene arrives named and opens for writing.
+ *
+ * It joins nothing, which the two gestures that make a Scene never leave a Story
+ * in on purpose. That is the honest cost of naming a Scene into existence, and
+ * it is why the bench owes an Author a way to see a Scene nothing leads to.
+ */
+async function makeSceneNamed(name: string) {
+  let writtenId: string | undefined
+
+  await change(async () => {
+    const written = await send(`/api/stories/${id}/scenes`, {
+      method: 'POST',
+      body: { name },
+    }) as Scene
+
+    writtenId = written.id
+    announce(t('editor.sceneCreated', { name }))
+  })
+
+  // After the read the change asks for, so the surface the Scene is written on
+  // is in the page by the time focus is sent into it.
+  if (writtenId) await writeScene(writtenId)
+}
+
+/**
  * Closes the writing and puts focus back on the write button of the card the
  * Scene belongs to, so the keyboard comes back out onto the bench rather than at
  * the top of the page. A press with the pointer on the bare bench closes it by
@@ -265,7 +294,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
     <Confirmation :asked="asked" @answer="answer" />
     <!-- Every act the bench is offering, reached by naming it. It reads the
          controls off the page as it opens, so it stands after all of them. -->
-    <Commands v-model="commanding" />
+    <Commands v-model="commanding" @make="makeSceneNamed" />
     <!-- The step the bench is asking for, if it is asking for one. Last, so it
          is drawn over the bench it is lighting a part of. -->
     <Step :story="story ?? undefined" />

@@ -4,7 +4,7 @@ import { seedScenes, test, writeScene, writeStory } from './author'
 
 /** The field the bar is typed into, which is the bar's own accessible name. */
 function typing(page: Page) {
-  return page.getByRole('textbox', { name: 'Name an act, or a Scene' })
+  return page.getByRole('textbox', { name: 'Type a name' })
 }
 
 /** The control the bar is opened by, named for the bar and carrying its key. */
@@ -18,18 +18,24 @@ function offered(page: Page) {
 }
 
 /**
- * Opens the bar with the key it answers to. A press is a moment and not a
- * state: sent before Nuxt has hydrated the page it lands on a document with no
- * listener on it and is gone, and nothing retries it the way Playwright retries
- * a click. So it is pressed until the bar is up — and only while it is not,
- * because the same keys put it away again.
+ * Opens the bar by its control, which is also how a spec waits for the page to
+ * be answering at all: `page.goto` returns when the document has loaded and not
+ * when Vue has attached anything to it, so the first gesture of a test can land
+ * on a page that is still inert.
+ *
+ * The press is repeated until it takes, and it is a press on the control rather
+ * than the key deliberately. The key is a toggle, so a repeat that was not
+ * needed puts the bar away again and the loop drives the very state it is
+ * waiting for; the control only ever opens, so a repeat that was not needed
+ * costs nothing. The keys have a spec of their own, which runs after this has
+ * proved the page is live.
  */
-async function openOnKeys(page: Page) {
+async function open(page: Page) {
+  const up = page.locator('dialog.commands[open]')
+
   await expect(async () => {
-    if (!await page.locator('dialog.commands[open]').count()) {
-      await page.keyboard.press('ControlOrMeta+k')
-    }
-    await expect(typing(page)).toBeVisible({ timeout: 1000 })
+    if (!await up.count()) await commanding(page).click()
+    await expect(typing(page)).toBeFocused({ timeout: 1000 })
   }).toPass()
 }
 
@@ -46,7 +52,7 @@ test('an Author goes to a Scene by naming it, accents or none', async ({ page, r
   await page.goto(`/stories/${story.id}`)
 
   await expect(commanding(page).locator('kbd')).toHaveText([/⌘|Ctrl/, 'K'])
-  await commanding(page).click()
+  await open(page)
 
   // Everything the bench can do, before a letter is typed: the four Scenes, the
   // fit above them and the Publish beside it. A bar that started empty would be
@@ -73,9 +79,15 @@ test('the bar opens and closes on the key, and Enter runs the first Command', as
   await seedScenes(story, ['Le café'])
   await page.goto(`/stories/${story.id}`)
 
+  // The page has to be answering before a key press means anything, so the
+  // pointer opens the bar once first and Escape puts it away.
+  await open(page)
+  await page.keyboard.press('Escape')
+  await expect(page.locator('dialog.commands')).toBeHidden()
+
   // `ControlOrMeta` is the key this platform writes the shortcut with, which is
   // the same reading the legend above the bench makes of it.
-  await openOnKeys(page)
+  await page.keyboard.press('ControlOrMeta+k')
   await expect(typing(page)).toBeFocused()
 
   // The same keys again put it away: the hand that reached for the bar is the
@@ -83,7 +95,14 @@ test('the bar opens and closes on the key, and Enter runs the first Command', as
   await page.keyboard.press('ControlOrMeta+k')
   await expect(page.locator('dialog.commands')).toBeHidden()
 
-  await openOnKeys(page)
+  // Put away and asked for again in one breath, which is what a hand that
+  // changed its mind twice does. A `<dialog>` reports its own shutting from a
+  // queued task, so the report of the first closing arrives after the second
+  // opening: the bar has to still be there when it does.
+  await page.keyboard.press('ControlOrMeta+k')
+  await expect(typing(page)).toBeFocused()
+  await expect(page.locator('dialog.commands[open]')).toHaveCount(1)
+
   await typing(page).fill('Le café')
   await typing(page).press('Enter')
 
@@ -96,7 +115,7 @@ test('the keyboard walks the Commands the typed name reaches', async ({ page, re
   await seedScenes(story, ['The alley', 'The attic'])
   await page.goto(`/stories/${story.id}`)
 
-  await openOnKeys(page)
+  await open(page)
   await typing(page).fill('Go to The a')
   await expect(offered(page)).toHaveCount(2)
   // Which of the two the bench draws second is the bench's to settle, so the
@@ -124,20 +143,49 @@ test('the keyboard walks the Commands the typed name reaches', async ({ page, re
     .toHaveValue(second)
 })
 
-test('a name nothing answers to leaves the bench alone', async ({ page, request }) => {
+test('a name nothing answers to is offered as a Scene to write', async ({ page, request }) => {
   const story = await writeStory(request)
   await page.goto(`/stories/${story.id}`)
 
-  await openOnKeys(page)
-  await typing(page).fill('a Scene nobody wrote')
+  await open(page)
+  await typing(page).fill('The quay at dawn')
 
-  await expect(offered(page)).toHaveCount(0)
+  // Told that nothing answers, and handed the one thing left to do with the
+  // name: the empty state is an invitation rather than a dead end.
   await expect(page.locator('dialog.commands')).toContainText('Nothing here answers to that.')
+  await expect(offered(page)).toHaveText(['Write a Scene named The quay at dawn'])
 
-  // Enter on nothing does nothing, rather than running whatever stood first
-  // before the field was typed in.
   await typing(page).press('Enter')
-  await expect(typing(page)).toBeFocused()
+
+  // The Scene arrives under the name that was typed rather than a provisional
+  // one, and it is the Scene on the writing surface. The name is on the card as
+  // well as in the field, so it was written to the Story and read back rather
+  // than only put on screen.
+  await expect(page.getByRole('textbox', { name: 'Name of this Scene' }))
+    .toHaveValue('The quay at dawn')
+  await expect(page.getByRole('article', { name: 'The quay at dawn' })).toBeVisible()
+
+  // And it is reachable by its name from the bar like every other Scene, which
+  // is what says the Story holds it.
+  await open(page)
+  await typing(page).fill('The quay')
+  await expect(offered(page)).toHaveText(['Go to The quay at dawn'])
+})
+
+test('the offer to write a Scene stands only where nothing answers', async ({ page, request }) => {
+  const story = await writeStory(request)
+  await page.goto(`/stories/${story.id}`)
+
+  await open(page)
+
+  // Nothing typed: every Command, and no offer to write anything — there is no
+  // name to write it under.
+  await expect(offered(page).filter({ hasText: 'Write a Scene named' })).toHaveCount(0)
+
+  // A name that answers: the Scene it reaches, and still no offer. An Author
+  // halfway through typing a name they already have is not making a second one.
+  await typing(page).fill('The str')
+  await expect(offered(page)).toHaveText(['Go to The street'])
 })
 
 test('the bar offers the acts of the Scene being written, and Escape leaves that Scene open', async ({ page, request }) => {
@@ -146,7 +194,7 @@ test('the bar offers the acts of the Scene being written, and Escape leaves that
   await writeScene(page, 'The street')
   await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
 
-  await openOnKeys(page)
+  await open(page)
   // The acts inside the writing surface are on offer because the surface is
   // open: what the bar lists is what the bench is drawing.
   await expect(offered(page).filter({ hasText: 'Add Shot' })).toBeVisible()
@@ -157,7 +205,7 @@ test('the bar offers the acts of the Scene being written, and Escape leaves that
   await expect(page.locator('dialog.commands')).toBeHidden()
   await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
 
-  await openOnKeys(page)
+  await open(page)
   await typing(page).fill('Add Shot')
   await offered(page).click()
 
@@ -169,7 +217,7 @@ test('an Author publishes a Story from the bar', async ({ page, request, baseURL
   const story = await writeStory(request)
   await page.goto(`/stories/${story.id}`)
 
-  await openOnKeys(page)
+  await open(page)
   await typing(page).fill('Publish')
   await offered(page).click()
 
@@ -177,7 +225,7 @@ test('an Author publishes a Story from the bar', async ({ page, request, baseURL
 
   // And the act that undoes it is in the bar the moment the bench draws it,
   // where the act that did it no longer is.
-  await openOnKeys(page)
+  await open(page)
   await typing(page).fill('publish this story')
   await expect(offered(page)).toHaveText(['Unpublish this Story'])
 })
@@ -188,7 +236,7 @@ test('a destructive Command asks before it acts, as its own control does', async
   await writeScene(page, 'The bar')
   await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
 
-  await openOnKeys(page)
+  await open(page)
   await typing(page).fill('Delete Scene')
   await offered(page).click()
 

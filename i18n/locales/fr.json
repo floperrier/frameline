@@ -19,8 +19,9 @@
     "dismiss": "Ne rien supprimer"
   },
   "commands": {
-    "heading": "Nommez un acte, ou une Scène",
-    "nothing": "Rien ici ne répond à cela."
+    "heading": "Tapez un nom",
+    "nothing": "Rien ici ne répond à cela.",
+    "writeScene": "Écrire une Scène nommée {name}"
   },
   "scene": {
     "gone": "une Scène disparue",

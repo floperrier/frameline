@@ -19,8 +19,9 @@
     "dismiss": "Leave it"
   },
   "commands": {
-    "heading": "Name an act, or a Scene",
-    "nothing": "Nothing here answers to that."
+    "heading": "Type a name",
+    "nothing": "Nothing here answers to that.",
+    "writeScene": "Write a Scene named {name}"
   },
   "scene": {
     "gone": "a Scene that is gone",
