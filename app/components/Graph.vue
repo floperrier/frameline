@@ -1053,10 +1053,12 @@ function atAGlance(scene: Scene) {
          The scale beside it does not — a rail is drawn at the width's own scale
          and there is nothing to set.
 
-         Named for what pressing it does rather than for what the bar is called,
-         which is how every other control on this bench is named — and the key
-         that does the same thing is drawn on it, where somebody who never reads
-         a legend will find it. A control and not only a key: see
+         Named by what it opens rather than by a sentence saying what is inside
+         it: what is inside grows, and a label that lists it is a label that goes
+         out of date the first time something is marked that is neither an act
+         nor a Scene. The key that does the same thing is drawn on the control
+         that does it, where somebody who never reads a legend will find it — a
+         control and not only a key: see
          `docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md`. -->
     <button type="button" class="commanding" @click="$emit('command')">
       {{ $t('editor.commands') }}

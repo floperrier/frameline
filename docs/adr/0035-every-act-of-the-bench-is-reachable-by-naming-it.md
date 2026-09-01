@@ -11,10 +11,10 @@ else — Publish in the header, the fit in the row of controls, Delete Scene
 inside the writing surface — had to be found where it was drawn.
 
 There is now one bar for all of it. `⌘K` opens it, so does a control in the row
-above the bench — which says *Name an act, or a Scene* and carries `⌘` `K` drawn
-on it, because a shortcut nobody was told about is not a way in and the place to
-tell them is the control that does the same thing. Typing narrows the list, `↓`
-walks it and `Enter` runs what is under focus. Matching ignores case and the
+above the bench — which says *Commands* and carries `⌘` `K` drawn on it, because
+a shortcut nobody was told about is not a way in and the place to tell them is
+the control that does the same thing. Typing narrows the list, `↓` walks it and
+`Enter` runs what is under focus. Matching ignores case and the
 accents on a letter, so *Le café* is reached by typing `cafe`. The field that
 went to a Scene by name is gone: every
 Scene is in the list, which is that field absorbed rather than kept beside — two
@@ -67,14 +67,25 @@ it is arrived at because it genuinely has focus, and a press with the pointer is
 the same press. There is no second state saying which row is active and
 therefore no way for it to disagree with where focus actually is.
 
-**Naming the control after the bar rather than after its act.** It said
-*Commands*, and that was the one control on this bench named by a noun: every
-other one says what pressing it does — *Write the first Scene*, *Fit the graph*,
-*Publish this Story*. A first-time Author reading *Commands* learns a category
-and not a way in. So the two names are swapped: the control says the act, and
-the word *Command* labels the list inside the bar, which is the one place it
-names what a thing actually is. The glossary keeps the term either way — what
-moved is which surface displays it.
+**Naming the control by what is inside the bar rather than by the bar.** It
+read *Name an act, or a Scene* for a while, on the argument that every other
+control here says what pressing it does — *Write the first Scene*, *Fit the
+graph*, *Publish this Story* — and that a first-time Author reading *Commands*
+learns a category rather than a way in.
+
+Refused, on two counts. A label that lists what is behind it has to be
+maintained as what is behind it grows, and it was already narrower than the
+truth: the bar carries every Scene, the acts that publish and list the Story,
+the acts of the Scene on the writing surface, and whatever is marked next — the
+first Command that is neither an act nor a Scene would leave the control lying.
+And *Command* is the word the glossary binds, so the surface an Author sees most
+of the time is the one place it most needs to be displayed.
+
+What the enumerating label was good at is not lost, it moved to the moment it is
+useful: the sentence labels the field inside the bar, read as the bar opens
+rather than guessed at from the row above. The cost of the noun is that finding
+out what it opens takes one press, and the key drawn beside it does most of that
+work already.
 
 **Naming it out of the grammar of cinema.**
 `docs/adr/0022-the-metaphor-stops-at-the-edge-of-the-work.md` settles it the

@@ -4,12 +4,12 @@ import { seedScenes, test, writeScene, writeStory } from './author'
 
 /** The field the bar is typed into, which is the bar's own accessible name. */
 function typing(page: Page) {
-  return page.getByRole('textbox', { name: 'Commands' })
+  return page.getByRole('textbox', { name: 'Name an act, or a Scene' })
 }
 
-/** The control the bar is opened by, which says what pressing it does. */
+/** The control the bar is opened by, named for the bar and carrying its key. */
 function commanding(page: Page) {
-  return page.getByRole('button', { name: 'Name an act, or a Scene' })
+  return page.getByRole('button', { name: 'Commands' })
 }
 
 /** Every Command the bar is offering under what has been typed, in its order. */
