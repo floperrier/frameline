@@ -19,7 +19,7 @@
     "dismiss": "Leave it"
   },
   "commands": {
-    "heading": "Name an act, or a Scene",
+    "heading": "Commands",
     "nothing": "Nothing here answers to that."
   },
   "scene": {
@@ -182,8 +182,7 @@
     "wayOnLeadsTo": "Where the way on {place} out of {name} leads",
     "whatTheReaderPresses": "What the Reader presses",
     "goToScene": "Go to {name}",
-    "commands": "Commands",
-    "commandsShortcut": "opens the Commands"
+    "commands": "Name an act, or a Scene"
   },
   "conditions": {
     "ofCarrier": "of {carrier}",

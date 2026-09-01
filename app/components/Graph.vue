@@ -1053,11 +1053,14 @@ function atAGlance(scene: Scene) {
          The scale beside it does not — a rail is drawn at the width's own scale
          and there is nothing to set.
 
-         A control and not only a key. `⌘K` opens the same bar and the legend
-         below says so, but a shortcut nobody was told about is not a way in:
-         see `docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md`. -->
+         Named for what pressing it does rather than for what the bar is called,
+         which is how every other control on this bench is named — and the key
+         that does the same thing is drawn on it, where somebody who never reads
+         a legend will find it. A control and not only a key: see
+         `docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md`. -->
     <button type="button" class="commanding" @click="$emit('command')">
       {{ $t('editor.commands') }}
+      <span class="combination"><kbd>{{ modifier }}</kbd><kbd>K</kbd></span>
     </button>
 
     <!-- How far back the Author is standing, and the ways of changing it. Above
@@ -1138,10 +1141,6 @@ function atAGlance(scene: Scene) {
         <span class="binding">
           <span class="combination"><kbd>{{ modifier }}</kbd><kbd>0</kbd></span>
           {{ $t('editor.fitShortcut') }}
-        </span>
-        <span class="binding">
-          <span class="combination"><kbd>{{ modifier }}</kbd><kbd>K</kbd></span>
-          {{ $t('editor.commandsShortcut') }}
         </span>
         <span class="binding">{{ $t('editor.pushBench') }}</span>
       </p>
@@ -1471,11 +1470,20 @@ function atAGlance(scene: Scene) {
   gap: var(--s2) var(--s4);
 }
 
-/* The way into the bar every act is named in. It reads as a control of the row
-   it stands in rather than as the primary act of the page: what is primary here
-   is the bench under it. */
+/* The way into the bar every act is named in: what it does, then the key that
+   does it. It reads as a control of the row it stands in rather than as the
+   primary act of the page — what is primary here is the bench under it. */
 .commanding {
+  display: flex;
+  align-items: center;
   justify-self: start;
+  gap: var(--s3);
+}
+
+/* A key is drawn as a key wherever it is drawn, so the two on this control are
+   set in the face the legend below sets its own in rather than in the button's. */
+.commanding kbd {
+  font-family: var(--data);
 }
 
 /* The bench of a Story that has none: the sentence saying so, and the one control

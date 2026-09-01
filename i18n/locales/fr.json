@@ -19,7 +19,7 @@
     "dismiss": "Ne rien supprimer"
   },
   "commands": {
-    "heading": "Nommez un acte, ou une Scène",
+    "heading": "Commandes",
     "nothing": "Rien ici ne répond à cela."
   },
   "scene": {
@@ -182,8 +182,7 @@
     "wayOnLeadsTo": "Où mène la Sortie {place} depuis {name}",
     "whatTheReaderPresses": "Ce que presse le Lecteur",
     "goToScene": "Aller à {name}",
-    "commands": "Commandes",
-    "commandsShortcut": "ouvre les Commandes"
+    "commands": "Nommez un acte, ou une Scène"
   },
   "conditions": {
     "ofCarrier": "de {carrier}",

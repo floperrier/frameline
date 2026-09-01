@@ -41,7 +41,9 @@ watch(opened, (open) => {
   if (!open) return bar.value?.open && bar.value.close()
 
   typed.value = ''
-  offered.value = [...document.querySelectorAll<HTMLElement>('[data-command]:not(:disabled)')]
+  const controls = document
+    .querySelectorAll<HTMLElement>('[data-command]:not(:disabled)')
+  offered.value = [...controls]
     .map(element => ({ name: element.dataset.command!, press: () => element.click() }))
   bar.value?.showModal()
 }, { flush: 'post' })

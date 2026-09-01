@@ -2508,10 +2508,9 @@ test('the graduation says which scale the bench is at, and goes straight to anot
   // as two of them pressed together rather than as a word.
   const graven = page.locator('.graven')
   await expect(graven).toContainText('fits')
-  await expect(graven).toContainText('opens the Commands')
   await expect(graven).toContainText('drag the bench to move the view')
-  await expect(graven.locator('kbd')).toHaveCount(8)
-  await expect(graven.locator('kbd').last()).toHaveText('K')
+  await expect(graven.locator('kbd')).toHaveCount(6)
+  await expect(graven.locator('kbd').last()).toHaveText('0')
 })
 
 test('a way on is written from the Scene it leaves, without a canvas', async ({

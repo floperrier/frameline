@@ -11,9 +11,12 @@ else — Publish in the header, the fit in the row of controls, Delete Scene
 inside the writing surface — had to be found where it was drawn.
 
 There is now one bar for all of it. `⌘K` opens it, so does a control in the row
-above the bench, typing narrows the list, `↓` walks it and `Enter` runs what is
-under focus. Matching ignores case and the accents on a letter, so *Le café* is
-reached by typing `cafe`. The field that went to a Scene by name is gone: every
+above the bench — which says *Name an act, or a Scene* and carries `⌘` `K` drawn
+on it, because a shortcut nobody was told about is not a way in and the place to
+tell them is the control that does the same thing. Typing narrows the list, `↓`
+walks it and `Enter` runs what is under focus. Matching ignores case and the
+accents on a letter, so *Le café* is reached by typing `cafe`. The field that
+went to a Scene by name is gone: every
 Scene is in the list, which is that field absorbed rather than kept beside — two
 controls for one act is what `0034` refused for the Exit's text.
 
@@ -64,6 +67,15 @@ it is arrived at because it genuinely has focus, and a press with the pointer is
 the same press. There is no second state saying which row is active and
 therefore no way for it to disagree with where focus actually is.
 
+**Naming the control after the bar rather than after its act.** It said
+*Commands*, and that was the one control on this bench named by a noun: every
+other one says what pressing it does — *Write the first Scene*, *Fit the graph*,
+*Publish this Story*. A first-time Author reading *Commands* learns a category
+and not a way in. So the two names are swapped: the control says the act, and
+the word *Command* labels the list inside the bar, which is the one place it
+names what a thing actually is. The glossary keeps the term either way — what
+moved is which surface displays it.
+
 **Naming it out of the grammar of cinema.**
 `docs/adr/0022-the-metaphor-stops-at-the-edge-of-the-work.md` settles it the
 other way: the cinema words name the work and what is inside it, and a bar of
@@ -97,6 +109,12 @@ control by hand.
 remove a control while it is up, and a live read would be a `MutationObserver`
 earning nothing. What that costs is that the list is of the bench as it stood a
 moment ago — which is exactly what the Author was looking at when they opened it.
+
+**The legend above the bench keeps its two bindings.** The scale's shortcuts
+stay written there because nothing on the row performs them; this one does not,
+because the control performing it is a hand's width away and can say so itself.
+A key belongs on its control where there is one, and in the legend where there
+is not.
 
 **Marking a new control is one attribute.** The cost of keeping the bar honest
 is that a control worth naming has to say so. That is deliberate: an act that

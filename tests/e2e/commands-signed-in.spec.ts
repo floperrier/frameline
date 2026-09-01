@@ -4,7 +4,12 @@ import { seedScenes, test, writeScene, writeStory } from './author'
 
 /** The field the bar is typed into, which is the bar's own accessible name. */
 function typing(page: Page) {
-  return page.getByRole('textbox', { name: 'Name an act, or a Scene' })
+  return page.getByRole('textbox', { name: 'Commands' })
+}
+
+/** The control the bar is opened by, which says what pressing it does. */
+function commanding(page: Page) {
+  return page.getByRole('button', { name: 'Name an act, or a Scene' })
 }
 
 /** Every Command the bar is offering under what has been typed, in its order. */
@@ -40,7 +45,8 @@ test('an Author goes to a Scene by naming it, accents or none', async ({ page, r
   await seedScenes(story, ['Le café', 'The alley'])
   await page.goto(`/stories/${story.id}`)
 
-  await page.getByRole('button', { name: 'Commands', exact: true }).click()
+  await expect(commanding(page).locator('kbd')).toHaveText([/⌘|Ctrl/, 'K'])
+  await commanding(page).click()
 
   // Everything the bench can do, before a letter is typed: the four Scenes, the
   // fit above them and the Publish beside it. A bar that started empty would be
