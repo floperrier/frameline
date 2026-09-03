@@ -1216,8 +1216,15 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
       <!-- A way on written from here: to a Scene the Story already holds, or to
            one that does not exist yet, which is the counterpart of dropping an
            Exit on the bare bench for an Author who never opens the canvas. A
-           field that acts and forgets rather than one that holds an answer. -->
-      <p class="adding">
+           field that acts and forgets rather than one that holds an answer.
+
+           `data-step` is on the line rather than on the field, the way the
+           opening mark's is, because what the guided path asks for is the whole
+           of it: the label says what a way on is and the field says where it
+           leads. It is here rather than on the rim an Exit is drawn from because
+           this is the route that answers where the Step is read — the Author is
+           in this very document, with the graph folded into a rail. -->
+      <p class="adding" data-step="way-on">
         <label class="eyebrow" :for="`add-way-${sceneWritten.id}`">
           {{ $t('editor.addWayOn') }}
         </label>
