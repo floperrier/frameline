@@ -1505,6 +1505,37 @@ async function aimFrom(page: Page, name: string) {
   await page.mouse.down()
 }
 
+/**
+ * Begins the same gesture by keyboard, and is also how a spec waits for the page
+ * to be answering at all: `page.goto` returns when the document has loaded and
+ * not when Vue has attached anything to it, so a press sent before hydration
+ * lands on a button with nothing behind it and is simply gone. Playwright
+ * retries a locator; it does not retry a gesture. A test whose first act after
+ * `goto` is a raw press needs this, or an assertion of something only a live
+ * page draws, before it presses anything.
+ *
+ * The press is repeated only while the aiming is not live, because the same
+ * button lets the aiming go again once it is: a loop that pressed regardless
+ * would drive the very state it is waiting for. `open` in
+ * `commands-signed-in.spec.ts` is the same shape.
+ *
+ * What it waits for is the aiming a fresh gesture enters, where the button on
+ * the card the line leaves reads as the abandon. A gesture that took hold of an
+ * Exit already drawn is led rather than aimed and the button reads as the leave
+ * instead, so this would press on for the whole timeout: that gesture begins
+ * elsewhere and has no business here.
+ */
+async function aimByKey(page: Page, name: string) {
+  const drawing = page.getByRole('button', { name: `Abandon the Exit from ${name}` })
+
+  await expect(async () => {
+    if (!await drawing.count()) {
+      await page.getByRole('button', { name: `Draw an Exit from ${name}` }).press('Enter')
+    }
+    await expect(drawing).toHaveCount(1, { timeout: 1000 })
+  }).toPass()
+}
+
 /** Moves the hand over a Scene's node, in the steps a hand really crosses a bench in. */
 async function moveOver(page: Page, name: string) {
   const middle = await middleOfNode(page, name)
@@ -1653,7 +1684,7 @@ test('the keyboard lands an Exit on a Scene that is not there yet', async ({ pag
 
   // The gesture begins where it always does, on the button the card hides until
   // it is focused.
-  await page.getByRole('button', { name: 'Draw an Exit from The arrival' }).press('Enter')
+  await aimByKey(page, 'The arrival')
 
   // And the landing that has no card to aim at is offered beside it, on the same
   // card: the hand that began the gesture is already on the button that ends it.
@@ -1708,7 +1739,7 @@ test('an Exit refused after the Scene was written leaves the Scene on the bench'
   }))
   await page.goto(`/stories/${story.id}`)
 
-  await page.getByRole('button', { name: 'Draw an Exit from The arrival' }).press('Enter')
+  await aimByKey(page, 'The arrival')
   await page.getByRole('button', { name: 'Exit from The arrival to a new Scene' }).press('Enter')
 
   // The bench says why, rather than leaving the Author to notice that nothing
@@ -1873,8 +1904,10 @@ test('the keyboard draws the same Exit, through a button hidden until it is focu
   expect(await seen()).toBeGreaterThan(2)
 
   // Pressing it enters the very state the drag enters, and says so, because a
-  // gesture nobody can see beginning is one nobody can follow.
-  await aim.press('Enter')
+  // gesture nobody can see beginning is one nobody can follow. Pressed through
+  // the helper: what the width above proved is that the stylesheet is there, not
+  // that Vue is, and this is still the first gesture of the test.
+  await aimByKey(page, 'The arrival')
   await expect(toast(page))
     .toHaveText(/Drawing an Exit from The arrival/)
   await expect(page.getByRole('article', { name: 'The platform' })).toHaveClass(/lit/)
