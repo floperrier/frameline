@@ -1,5 +1,4 @@
 import { expect, type Locator, type Page } from '@playwright/test'
-import { NODE_GAP, NODE_WIDTH } from '../../shared/utils/scenes'
 import {
   writeScene,
   readShotConditions,
@@ -171,8 +170,8 @@ test('an Author who knows what they are doing waves the guidance away', async ({
  * the steps come in, and a spec per step would never have crossed from one to the
  * next.
  *
- * A tall bench, because the second Scene is stacked under the first and the Exit
- * between them is drawn by hand across both cards.
+ * A tall bench, because the path is walked in the Scene's own document and the
+ * way on it asks for is at the foot of it, under everything written above.
  */
 test('the bench walks an Author from a bare Story to a published one', async ({
   page,
@@ -204,30 +203,23 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await shot.fill('She steps off the train.')
   await shot.blur()
 
-  // The second Scene and the Exit to it, which are one gesture and so one Step:
-  // dragged from the edge of the first Scene onto the bare bench, where the light
-  // is. An Exit is drawn on the graph and not on the rail, so the writing is
-  // closed first — which is what an Author does to get back to the bench.
+  // The second Scene and the Exit to it, which are one act and so one Step:
+  // written at the foot of the Scene the Author is already writing in, where the
+  // light is. Nothing is closed and nothing is switched to first — the Step
+  // before this one left them in this document, and what it points at answers a
+  // press from where they stand. The canvas would not: it is folded into a rail
+  // while a Scene is open, and the gesture the sentence names as the other route
+  // is not offered there.
   await expect(bubble(page)).toContainText(/branches between Scenes/)
-  await page.getByRole('button', { name: 'Close this panel' }).click()
-  await expect(page.locator('.panel')).toHaveCount(0)
-
-  const arrival = page.getByRole('article', { name: 'The arrival' })
-  await lights(page, arrival.locator('.strip'))
-
-  // Beside the card rather than under it: the bubble pointing at the strip is
-  // drawn over the bench just below the card, and a hand cannot let go through
-  // the guidance.
-  const card = (await arrival.boundingBox())!
-  await dragOnto(page, arrival.locator('.strip'), {
-    x: card.x + NODE_WIDTH + NODE_GAP,
-    y: card.y + card.height / 2,
-  })
+  await lights(page, page.locator('.panel .adding'))
+  await page
+    .getByLabel('A way on from here')
+    .selectOption({ label: 'To a Scene that is not there yet' })
 
   await expect(toast(page)).toHaveText('Exit from The arrival to A new Scene drawn')
 
-  // Born where it was dropped, already joined, and named in the panel the same
-  // gesture opened.
+  // Born beside the Scene it leaves, already joined, and named in the panel the
+  // same act moved on to.
   await expect(page.getByLabel('Name of this Scene')).toBeFocused()
   await page.keyboard.type('The platform')
   await page.keyboard.press('Tab')
@@ -326,59 +318,37 @@ async function lights(page: Page, target: Locator) {
 }
 
 /**
- * An Exit drawn by hand, from a node's edge onto the point it lands on. A point
- * rather than a node, because the landing this path walks an Author through is the
- * bare bench, where there is no node to aim at until the gesture writes one.
+ * The light is on a rectangle read off the page a frame at a time, so a target
+ * carried up the panel by the document growing under it is a target that has
+ * moved like any other. Proved on the step whose target is at the foot of the
+ * Scene's document — the way on written from here — because everything written
+ * above it pushes it.
  */
-async function dragOnto(page: Page, from: Locator, onto: { x: number, y: number }) {
-  const strip = (await from.boundingBox())!
-  await page.mouse.move(strip.x + strip.width / 2, strip.y + strip.height / 2)
-  await page.mouse.down()
-  await page.mouse.move(onto.x, onto.y, { steps: 5 })
-  await page.mouse.up()
-}
-
-/**
- * The light is on a rectangle read off the page a frame at a time, so a bench
- * drawn at three quarters of its size, or pushed across the screen under the
- * hand, is a target that has moved like any other. Proved on the step whose
- * target is on the surface itself — the strip an Exit is drawn from — because that
- * is the only kind of target the scale touches at all.
- */
-test('the light follows its target through a zoom and a push', async ({
+test('the light follows its target as the document grows above it', async ({
   page,
   author,
-  request,
 }) => {
+  // A Scene with something written in it, which is the Story the way on is asked
+  // of: a seeded Scene arrives with a Shot in it, the way an Author's does.
   const story = await seedStory(author, 'A Story')
-  await seedScenes(story, ['The arrival', 'The platform'])
-  // Laid out far apart, so the bench has somewhere to be pushed to and something
-  // to be pulled back from — and read back in the order the graph draws them,
-  // because the light is on the first card of it and the seed does not promise
-  // which Scene that is.
-  const read = await (await request.get(`/api/stories/${story.id}`)).json()
-  await request.patch(`/api/scenes/${read.scenes[0].id}`, { data: { x: 600, y: 300 } })
-  await request.patch(`/api/scenes/${read.scenes[1].id}`, { data: { x: 2400, y: 1400 } })
+  await seedScene(story, 'The arrival')
   await page.goto(`/stories/${story.id}`)
+  await writeScene(page, 'The arrival')
 
-  const strip = page.locator('[data-step="draw-exit"]').first()
+  const adding = page.locator('.panel .adding')
   await expect(bubble(page)).toContainText(/An Exit is the way on/)
-  await lights(page, strip)
+  await lights(page, adding)
 
   // Asked for with no motion, so the step arrives rather than travels: what is
-  // held against the light is where the strip ends up, never a frame of it on the
+  // held against the light is where the line ends up, never a frame of it on the
   // way there.
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await page.getByRole('button', { name: 'Pull back from the graph' }).click()
-  // Once the bench says how far back it is standing, it is standing there: the
-  // reading and the scale are written in the one render.
-  await expect(page.locator('.zooming .level')).toContainText('75%')
-  await lights(page, strip)
+  await page.getByRole('button', { name: 'Add Shot to The arrival' }).click()
+  await expect(page.getByRole('textbox', { name: 'Shot 2' })).toBeVisible()
+  await lights(page, adding)
 
-  const box = (await page.locator('.graph').boundingBox())!
-  await page.mouse.move(box.x + box.width - 60, box.y + 300)
-  await page.mouse.down()
-  await page.mouse.move(box.x + box.width - 160, box.y + 240, { steps: 5 })
-  await page.mouse.up()
-  await lights(page, strip)
+  // And the panel narrowing under a window that changed shape, which moves the
+  // line the other way.
+  await page.setViewportSize({ width: 900, height: 700 })
+  await lights(page, adding)
 })
