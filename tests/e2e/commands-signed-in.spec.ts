@@ -287,7 +287,7 @@ test('the bar names every act marked on a Scene being written, and no other', as
     'Add a Condition to Shot 1 of The street',
     'Add a Condition to Shot 2 of The street',
     'Add a Shot',
-    'Add a Condition to the way on 1 to The bar',
+    'Add a Condition to the Way On 1 to The bar',
     'Add a Way On',
   ])
 })
