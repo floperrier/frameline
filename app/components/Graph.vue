@@ -971,19 +971,26 @@ function nudge(scene: Scene, event: KeyboardEvent) {
  * `NODE_HEIGHT`, so the box a line leaves and the box it lands on are known from
  * the Story alone: the lines are right in the very first frame, on the server as
  * in the browser, and nothing is measured after a render.
+ *
+ * Which is what lets the two things that keep the lines readable be arithmetic on
+ * the Story as well: the ways on out of one Scene leave its rim at points of their
+ * own, and the disc of each is walked clear of every card the line runs under —
+ * the cards are drawn over the lines, so a disc behind one says nothing.
  */
 const exitLines = computed(() => story?.exits.map((exit) => {
-  const line = exitLine(pointOf(exit.fromSceneId), pointOf(exit.toSceneId))
-
   // The Place, counted from one for the Author as a Shot's is and read off the
-  // same list the strip in the node reads, and the point near the departing
-  // Scene where the disc saying it sits.
+  // same list the strip in the node reads, and with it how many ways on that
+  // Scene offers, which is what the departures are spread over.
+  const ways = exitsFrom(story?.exits ?? [], exit.fromSceneId)
+  const place = ways.indexOf(exit) + 1
+  const line = exitLine(pointOf(exit.fromSceneId), pointOf(exit.toSceneId), place, ways.length)
+
   return {
     id: exit.id,
     exit,
     ...line,
-    place: exitsFrom(story?.exits ?? [], exit.fromSceneId).indexOf(exit) + 1,
-    disc: discOfExit(line),
+    place,
+    disc: discOfExit(line, story?.scenes ?? []),
   }
 }) ?? [])
 
@@ -1271,8 +1278,12 @@ function atAGlance(scene: Scene) {
                      `docs/adr/0007-the-order-of-the-ways-on-is-written-not-drawn.md`. -->
                 <!-- Nine pixels of radius, which is what holds two digits of the
                      data face the number is set in: a Scene offering more than
-                     ninety-nine ways on is not a Scene. -->
-                <circle class="disc" :cx="line.disc.x" :cy="line.disc.y" r="9" />
+                     ninety-nine ways on is not a Scene. The radius is the one the
+                     disc is kept clear of the cards by, so it is read from there
+                     rather than written twice. -->
+                <circle
+                  class="disc" :cx="line.disc.x" :cy="line.disc.y" :r="EXIT_DISC_RADIUS"
+                />
                 <text class="place" :x="line.disc.x" :y="line.disc.y">{{ line.place }}</text>
 
                 <!-- The endpoint, where the Exit arrives: taken hold of and dropped

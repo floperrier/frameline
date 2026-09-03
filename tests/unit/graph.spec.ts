@@ -2,6 +2,8 @@ import { describe, expect, test } from 'vitest'
 import type { Exit, Scene } from '../../shared/utils/scenes'
 import {
   EXIT_DISC_ALONG,
+  EXIT_DISC_RADIUS,
+  EXIT_RIM_STEP,
   exitLine,
   exitLineTo,
   discOfExit,
@@ -59,6 +61,61 @@ describe('the line that draws an Exit', () => {
   })
 })
 
+describe('the lines that leave one Scene together', () => {
+  const street = { x: 0, y: 0 }
+  const bar = { x: 0, y: NODE_SPACING }
+  const alley = { x: 0, y: NODE_SPACING * 2 }
+
+  /**
+   * The Story that made this plain: three cards in one column, the first leading
+   * to both of the others. Drawn from one point, the line to the second Scene ran
+   * under the first and arrived below it, so the Scene in the middle read as
+   * leading somewhere it does not.
+   */
+  test('leaves the foot at a point of its own per way on, in the order they are offered', () => {
+    const first = exitLine(street, bar, 1, 2)
+    const second = exitLine(street, alley, 2, 2)
+
+    expect(first.from.y).toBe(NODE_HEIGHT)
+    expect(second.from.y).toBe(NODE_HEIGHT)
+    expect(second.from.x - first.from.x).toBe(EXIT_RIM_STEP)
+  })
+
+  test('spreads along the very side the line leaves by, so a flank is read as the foot is', () => {
+    const first = exitLine(street, { x: 600, y: 0 }, 1, 2)
+    const second = exitLine(street, { x: 1000, y: 0 }, 2, 2)
+
+    expect(first.from.x).toBe(NODE_WIDTH)
+    expect(second.from.x).toBe(NODE_WIDTH)
+    expect(second.from.y - first.from.y).toBe(EXIT_RIM_STEP)
+  })
+
+  test('leaves the one way on of a Scene where it always left, in the middle of its side', () => {
+    expect(exitLine(street, bar, 1, 1)).toEqual(exitLine(street, bar))
+  })
+
+  /**
+   * A Scene offering more ways on than the rim has room for closes the step up
+   * rather than sending the last of them off the card: every line still leaves
+   * the box it belongs to, which is the whole point of leaving from the rim.
+   */
+  test('holds every departure on the rim, however many ways on the Scene offers', () => {
+    const ways = 12
+    const departures = Array.from({ length: ways },
+      (_, at) => exitLine(street, bar, at + 1, ways).from)
+
+    for (const departure of departures) {
+      expect(departure.y).toBe(NODE_HEIGHT)
+      expect(departure.x).toBeGreaterThanOrEqual(street.x)
+      expect(departure.x).toBeLessThanOrEqual(street.x + NODE_WIDTH)
+    }
+  })
+
+  test('lands where it always landed: the ways on fan out, the arrivals do not', () => {
+    expect(exitLine(street, alley, 2, 2).to).toEqual(exitLine(street, alley).to)
+  })
+})
+
 describe('the line of an Exit being drawn', () => {
   test('leaves the edge of the node it is drawn from, and ends at the hand', () => {
     const at = { x: 600, y: NODE_HEIGHT / 2 }
@@ -91,6 +148,31 @@ describe('the disc that says a way on\u2019s Place', () => {
     const nowhere = { x: 40, y: 60 }
 
     expect(discOfExit({ from: nowhere, to: nowhere })).toEqual(nowhere)
+  })
+
+  test('stays near the Scene it leaves where no card stands in the line\u2019s way', () => {
+    const street = { x: 0, y: 0 }
+    const bar = { x: 600, y: 0 }
+    const line = exitLine(street, bar)
+
+    expect(discOfExit(line, [street, bar])).toEqual(discOfExit(line))
+  })
+
+  /**
+   * The disc is the one mark that tells two lines apart, so behind a card it is
+   * worth nothing: on the line that crosses the Scene in the middle of a column
+   * it goes past that card, where it is read.
+   */
+  test('goes past a card the line passes under, so the Place is never read behind one', () => {
+    const street = { x: 0, y: 0 }
+    // The card of the bar, dragged up under the street's own, closer than the
+    // disc stands from the rim: the line to the alley runs under it at once.
+    const bar = { x: 0, y: NODE_HEIGHT + 10 }
+    const alley = { x: 0, y: NODE_SPACING * 2 }
+    const disc = discOfExit(exitLine(street, alley, 2, 2), [street, bar, alley])
+
+    expect(disc.y).toBeGreaterThan(bar.y + NODE_HEIGHT + EXIT_DISC_RADIUS)
+    expect(disc.y).toBeLessThan(alley.y - EXIT_DISC_RADIUS)
   })
 })
 
