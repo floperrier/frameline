@@ -83,6 +83,13 @@ watch(opened, (open) => {
   const controls = document
     .querySelectorAll<HTMLElement>('[data-command]:not(:disabled)')
   offered.value = [...controls]
+    // The controls the bench is drawing *right now*, which is not the same set as
+    // the controls marked with a name: a fold takes a column of the bench away by
+    // hiding it, and the acts inside it go with it. Asked of the browser rather
+    // than worked out from a width, so the bar and the bench cannot disagree —
+    // and the visually hidden controls, which are on screen for a hand on the
+    // keyboard, are still counted as drawn.
+    .filter(element => element.checkVisibility())
     .map(element => ({ name: element.dataset.command!, press: () => element.click() }))
   bar.value?.showModal()
 }, { flush: 'post' })

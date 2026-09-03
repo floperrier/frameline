@@ -199,7 +199,10 @@ _Avoid_: user, player, viewer, visitor, audience
 **Preview**:
 An Author reading their own Story on the same engine a Reader runs — a pane
 inside the editor, beside the Scene being written, which replays the Path the
-Author is on with the State it has accumulated and stops on that Scene. Not a
+Author is on with the State it has accumulated and stops on that Scene. Beside
+the Scene where the bench can hold both, and in the Scene's own place where it
+cannot — see
+`docs/adr/0037-the-reading-folds-before-the-writing-does.md`. Not a
 Publish: nobody else can reach it. It is the one screen where the order the ways
 on are offered in is set, on the choice buttons as they are read, so a Preview is
 no longer without consequence for the Story — see

@@ -184,6 +184,8 @@
     "wayOnLeadsTo": "Où mène la Sortie {place} depuis {name}",
     "whatTheReaderPresses": "Ce que presse le Lecteur",
     "goToScene": "Aller à {name}",
+    "readTheStory": "Lire le Récit",
+    "writeTheScene": "Écrire la Scène",
     "commands": "Commandes",
     "remarks": "Remarques",
     "readRemarks": "Lire les Remarques",

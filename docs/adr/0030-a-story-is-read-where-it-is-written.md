@@ -95,3 +95,9 @@ goes through the same holder every other control on the bench writes into, and i
 refused and reported the same way. Nothing else in the pane changes anything: a
 way on pressed moves the Author, it does not record that a Reader took it, and no
 State survives the pane.
+
+_The reading is a fold below the width three columns need, rather than always
+beside the writing: see
+`docs/adr/0037-the-reading-folds-before-the-writing-does.md`. Everything above
+stands — it is the same pane, in the same place, asked for by a control where the
+bench cannot hold it and the Scene at once._

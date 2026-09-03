@@ -135,6 +135,45 @@ const RAIL_WIDTH = 160
 /** Whether the graph is folded, which is the same fact as a Scene being written. */
 const folded = computed(() => !!sceneWritten)
 
+/**
+ * Whether the Preview is what the bench is showing in the column a Scene is
+ * otherwise written in. Read only in the band where the bench cannot hold three
+ * columns — the style at the foot of this file names it — so on a wide screen the
+ * Preview stands beside the writing whatever this says, and what the Author chose
+ * in the band is still chosen when the window is narrowed again.
+ *
+ * Let go of when the writing closes, because writing a Scene begins on the
+ * Scene: a bench that opened a Scene straight into the Preview would put the
+ * focus the page sends into the Scene's name nowhere at all.
+ */
+const previewing = ref(false)
+
+watch(folded, (writing) => {
+  if (!writing) previewing.value = false
+})
+
+/**
+ * What the control that swaps them says, which is what pressing it does rather
+ * than what is folded — so the control and the Command that runs it are the one
+ * sentence, written once.
+ */
+const foldSays = computed(() =>
+  previewing.value ? t('editor.writeTheScene') : t('editor.readTheStory'))
+
+/**
+ * Swaps which of the two the bench is showing, and keeps the hand on the control
+ * that did it. The column that goes takes whatever was focused inside it with
+ * it, and this act is reachable from the bar of Commands — which hands focus
+ * back to whatever opened the bar, and that can be a control in the surface
+ * about to be hidden.
+ */
+function foldPreview(event: Event) {
+  const control = event.currentTarget as HTMLElement
+
+  previewing.value = !previewing.value
+  control.focus()
+}
+
 const railZoom = computed(() => Math.min(1, RAIL_WIDTH / graphSize.value.width))
 
 /**
@@ -1170,6 +1209,27 @@ function atAGlance(scene: Scene) {
         <span class="binding">{{ $t('editor.pushBench') }}</span>
       </p>
     </div>
+
+    <!-- Which of the two the bench is showing, where the scale stands when
+         nothing is being written: in the band between the phone and the width
+         three columns need, the Preview folds away and the Scene keeps a column
+         wide enough to write in — see
+         `docs/adr/0037-the-reading-folds-before-the-writing-does.md`. It says
+         what pressing it does, and the name changes with what that is, so
+         nothing has to announce a state the words do not already carry.
+
+         Drawn only in that band, by the style at the foot of this file. Outside
+         it there is nothing to choose between, and a control the bench is not
+         drawing is not offered in the bar of Commands either. -->
+    <button
+      v-if="folded"
+      type="button"
+      class="folding"
+      :data-command="foldSays"
+      @click="foldPreview"
+    >
+      {{ foldSays }}
+    </button>
   </div>
   <slot />
 
@@ -1201,7 +1261,7 @@ function atAGlance(scene: Scene) {
        rail and takes the width that frees. Either way the writing pushes the
        drawing rather than covering it, so nothing the Author is working on ends
        up hidden underneath. -->
-  <div v-else class="bench" :class="{ folded }">
+  <div v-else class="bench" :class="{ folded, previewing }">
     <!-- The window onto the graph: the box that scrolls, and the zoom controls
          docked in its corner. They are outside the surface, so they keep their
          own size whatever the bench is being looked at through. -->
@@ -1476,20 +1536,25 @@ function atAGlance(scene: Scene) {
       </div>
     </div>
 
-    <!-- The surface a Scene is written on, beside the graph folded into a rail.
-         What is on it is the page's to settle, because both halves of the bench
-         ask for it. -->
-    <slot name="panel" />
+    <!-- The surface a Scene is written on, beside the graph folded into a rail,
+         and the Story read as a Reader gets it beside that. What is on each of
+         them is the page's to settle, because both halves of the bench ask for
+         it — see `docs/adr/0030-a-story-is-read-where-it-is-written.md`.
 
-    <!-- The third column of the bench while a Scene is being written: the Story
-         read as a Reader gets it. The page settles what is in it, like the panel
-         beside it — see
-         `docs/adr/0030-a-story-is-read-where-it-is-written.md`. -->
-    <slot name="reading" />
+         Each stands in a holder of its own so that the fold can take one of the
+         two away without reaching into either component's own drawing. A holder
+         is `display: contents` and so no box at all: what the page puts in it is
+         a column of the bench itself, exactly as if it had been dropped in
+         bare. Which one holds what is said in an attribute rather than in two
+         class names, because the fold reads them as a pair. -->
+    <div class="column" data-holds="document"><slot name="panel" /></div>
+    <div class="column" data-holds="preview"><slot name="reading" /></div>
   </div>
 </template>
 
 <style scoped>
+@import '~/assets/css/folds.css';
+
 /* The row above the bench, read left to right as what the Story is and what the
    view of it is: the acts of the bench and the reading of the Story at one end,
    how far back the Author is standing at the other. The view sits at the far end
@@ -1542,23 +1607,34 @@ function atAGlance(scene: Scene) {
   max-inline-size: 46ch;
 }
 
-/* The bench: the graph, and the panel docked at its trailing edge. The panel is
-   a column of the bench rather than something floating over it, so it pushes the
-   graph narrower instead of covering whatever the Author was working on. Its
-   height is named here because both columns are that tall. */
-.bench {
-  /* ponytail: the bench can be dragged taller, and `--bench-height` does not
-     follow it, so the panel keeps the height the bench started at. Measure the
-     bench the day an Author complains. */
-  --bench-height: min(70dvh, 44rem);
+/* The bench: the graph, and the columns the writing takes beside it. Each is a
+   column of the bench rather than something floating over it, so the writing
+   pushes the graph narrower instead of covering whatever the Author was working
+   on.
 
+   As tall as the page has room for and no taller. The bench is the last thing on
+   the page, so it takes the height its column of the page leaves: a bench that
+   was a fixed fraction of the window either left the foot of the page empty
+   while the document scrolled inside it, or ran past the window and asked for a
+   second scroll. Every column is that tall because they stretch, which is also
+   how the number stops being a number. */
+.bench {
   display: flex;
-  align-items: start;
+  flex: 1;
+  align-items: stretch;
   gap: var(--s3);
-  /* The bench is a cell of the page's own grid, and what is inside it is a
+  /* The bench is a cell of the page's own column, and what is inside it is a
      surface a great deal wider than the screen: without this the cell is sized to
      the graph and the whole page scrolls sideways instead of the bench. */
   min-inline-size: 0;
+  /* Never as tall as a Scene of twenty Shots — left to itself the bench's own
+     minimum is what its tallest column holds, which would make the page as long
+     as the document and leave the document nothing to scroll inside — and never
+     shorter than three cards, which is the least a bench can be and still be
+     one: below that a graph pulled all the way back no longer shows a Story laid
+     out across the surface, because the scale stops at a quarter. A window too
+     short to leave three cards is the one case the page still scrolls. */
+  min-block-size: 30rem;
 }
 
 .viewport {
@@ -1567,6 +1643,10 @@ function atAGlance(scene: Scene) {
   position: relative;
   flex: 1;
   min-inline-size: 0;
+  /* And never as tall as the drawing. The window onto the graph takes the bench's
+     height; without this the column's own minimum is the surface's — ten thousand
+     pixels of it — and the bench would be as tall as the Story is spread. */
+  min-block-size: 0;
   /* And never anything to do with what is inside it. The surface is as wide as
      the Scenes an Author has dragged apart — ten thousand pixels of it are within
      reach — and the window onto it is a window: it takes the width the bench
@@ -1578,12 +1658,14 @@ function atAGlance(scene: Scene) {
 
 .graph {
   overflow: auto;
-  resize: vertical;
   /* The bare bench is pushed about, and a surface that can be pushed says so
      before it is pressed. The cards inside it keep their own cursor: they are
      dragged, which is a different thing done to a different object. */
   cursor: grab;
-  block-size: var(--bench-height);
+  /* The window onto the graph is the whole of its column. It used to be draggable
+     taller by a corner, which the panel beside it never followed, and the height
+     that reached the page's foot by itself is what that drag was for. */
+  block-size: 100%;
   border: 1px solid var(--edge);
   border-radius: var(--machined);
   background: color-mix(in oklab, var(--bench) 70%, black);
@@ -2148,13 +2230,56 @@ article.opens .strip {
   min-block-size: 100%;
 }
 
-/* On a phone the graph is worked on a screen narrower than a node, so it is
-   given more of the screen's height rather than a slice of it. In `dvh`, because
-   a browser's own chrome comes and goes and `vh` would leave the bench taller
-   than the screen it is on — three nested scrollbars deep. */
-@media (max-width: 44rem) {
-  .bench {
-    --bench-height: 70dvh;
+/* The two holders the width the fold frees is shared between: no box of their
+   own, so what the page puts in each is a column of the bench itself. Hiding a
+   holder is what takes a column away, which is a fact about the bench and
+   belongs here rather than inside the surface being folded. */
+.column {
+  display: contents;
+}
+
+/* The control that says which of the two is showing exists only where there is a
+   choice to make, which is that band. */
+.folding {
+  display: none;
+}
+
+/* Wide enough for the graph and one column of writing, and not for the Preview
+   beside it — and not the phone, where the writing surface is the page, so there
+   is no column to give the Preview and no row above the bench to press this
+   from. Both edges are named in `app/assets/css/folds.css`, and the band's lower
+   edge is the phone's own width rather than a second copy of it.
+
+   The upper edge is read off the writing column and not chosen: below 78rem a
+   beat's row stops reading across one line in the longer of the two languages.
+   It carries a margin over the narrowest width that measured, because what was
+   measured is rendered text and text is not the same width on every platform.
+   Below it the Preview folds away and comes back in the writing surface's own
+   column, so a Scene is written at a width it can be written at all the way down
+   to the phone — see
+   `docs/adr/0037-the-reading-folds-before-the-writing-does.md`. */
+@media (--two-columns) and (not (--phone)) {
+  .folding {
+    display: inline-block;
+  }
+
+  .column[data-holds='preview'] {
+    display: none;
+  }
+
+  /* The Preview standing where the writing was is a column of its own rather
+     than the bench's own contents, because it is set to a measure — 34rem of it
+     — and a measure in a column twice that wide belongs in the middle of it and
+     not against the rail. */
+  .bench.previewing .column[data-holds='preview'] {
+    display: flex;
+    flex: 1;
+    justify-content: center;
+    min-inline-size: 0;
+  }
+
+  .bench.previewing .column[data-holds='document'] {
+    display: none;
   }
 }
 </style>

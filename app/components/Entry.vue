@@ -65,6 +65,8 @@ const localePath = useLocalePath()
 </template>
 
 <style scoped>
+@import '~/assets/css/folds.css';
+
 li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -120,7 +122,7 @@ li {
   color: var(--paper);
 }
 
-@media (max-width: 44rem) {
+@media (--phone) {
   li {
     grid-template-columns: minmax(0, 1fr);
   }
