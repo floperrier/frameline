@@ -28,13 +28,32 @@ const newTitle = ref('')
 // English is preselected, so the common case costs the Author no interaction.
 const newLanguage = ref<StoryLanguage>('en')
 
-function createStory() {
+/**
+ * Names a Story and opens it, the way `makeSceneNamed` opens the Scene it wrote
+ * one level down: what the Author asked for is the Story, not a row about it,
+ * and the row is here behind them when they come back. Always, and not only
+ * while the list is empty — a form that navigates on the first Story and not on
+ * the fifth is a rule nobody could learn.
+ *
+ * A refused naming navigates nowhere and leaves the title where it was typed,
+ * so the Author can answer the refusal in the field it came from. The list is
+ * read back on that refusal alone — a Story that was written is one the Author
+ * is leaving the list for, and a refetch of it would be a roundtrip spent on a
+ * page nobody is looking at. See `docs/adr/0008-refetch-is-for-a-refusal.md`.
+ */
+async function createStory() {
   const title = newTitle.value
   const language = newLanguage.value
-  return change(async () => {
-    await $fetch('/api/stories', { method: 'POST', body: { title, language } })
-    newTitle.value = ''
+  let writtenId: string | undefined
+
+  // The field is not emptied: a naming that landed takes the Author off this
+  // page, and the form they come back to is a new one.
+  await write(async () => {
+    const written = await $fetch('/api/stories', { method: 'POST', body: { title, language } })
+    writtenId = written?.id
   })
+
+  if (writtenId) await navigateTo(localePath(`/stories/${writtenId}`))
 }
 
 function renameStory(id: string, title: string) {
