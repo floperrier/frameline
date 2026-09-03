@@ -90,9 +90,27 @@ watch(opened, (open) => {
     // and the visually hidden controls, which are on screen for a hand on the
     // keyboard, are still counted as drawn.
     .filter(element => element.checkVisibility())
-    .map(element => ({ name: element.dataset.command!, press: () => element.click() }))
+    .map(element => ({ name: element.dataset.command!, press: () => press(element) }))
   bar.value?.showModal()
 }, { flush: 'post' })
+
+/**
+ * Presses a control — or, where the control is a `<select>`, which no script
+ * can press, puts the hand on it: focus lands, and the browser is asked to open
+ * the list, which it does because the ask arrives inside the very gesture that
+ * ran the Command. A browser without `showPicker()` for a select is left with
+ * focus alone, and one press of Space or the first letter of a Scene's name opens
+ * it from there. `showPicker()` throws rather than declines when it cannot
+ * open, so the refusal is swallowed: focus is already where it should be.
+ */
+function press(element: HTMLElement) {
+  if (!(element instanceof HTMLSelectElement)) return element.click()
+  element.focus()
+  try {
+    element.showPicker?.()
+  }
+  catch {}
+}
 
 /**
  * Runs a Command: the bar goes, and the control it stood for is pressed. In that
