@@ -57,8 +57,14 @@ test('an Author goes to a Scene by naming it, accents or none', async ({ page, r
   // Everything the bench can do, before a letter is typed: the four Scenes, the
   // fit above them and the Publish beside it. A bar that started empty would be
   // a search.
-  await expect(offered(page)).toHaveCount(6)
-  for (const named of ['Go to Le café', 'Go to The alley', 'Fit the graph', 'Publish this Story']) {
+  await expect(offered(page)).toHaveCount(7)
+  for (const named of [
+    'Go to Le café',
+    'Go to The alley',
+    'Fit the graph',
+    'Publish this Story',
+    'Read the Remarks',
+  ]) {
     await expect(offered(page).filter({ hasText: named })).toBeVisible()
   }
 

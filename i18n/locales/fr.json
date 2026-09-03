@@ -183,7 +183,12 @@
     "wayOnLeadsTo": "Où mène la Sortie {place} depuis {name}",
     "whatTheReaderPresses": "Ce que presse le Lecteur",
     "goToScene": "Aller à {name}",
-    "commands": "Commandes"
+    "commands": "Commandes",
+    "remarks": "Remarques",
+    "readRemarks": "Lire les Remarques",
+    "closeRemarks": "Fermer les Remarques",
+    "noRemarks": "Rien à signaler : chaque Scène est atteinte, chaque Plan est écrit, chaque Marqueur est relié.",
+    "remarkAbout": "— ouvrir {scene}"
   },
   "conditions": {
     "ofCarrier": "de {carrier}",
@@ -225,6 +230,17 @@
     "putCondition": "Une Condition fait jouer la même Scène différemment selon le Lecteur, sans bifurquer. Écrivez la deuxième Scène, ajoutez-y un Plan, et faites-le jouer quand ce Marqueur vaut autre chose — « faible » fera l’affaire. Rien ne le joue encore, et c’est tout l’intérêt.",
     "previewCondition": "Rien ne joue ce Plan, et l’Aperçu à côté de la Scène dit pourquoi : il lit le Récit sur le moteur d’une Lecture, et montre pour chaque Plan qu’il a écarté ce que son test demandait, en face de ce que l’État contient vraiment. Lisez cela, puis corrigez la valeur.",
     "publish": "Voilà un Récit qui fonctionne. Publiez-le : n’importe qui peut alors le lire à son propre lien — celui que cette page affiche ensuite, à donner à qui vous l’avez écrit."
+  },
+  "remark": {
+    "noOpening": "Ce Récit ne désigne aucune Scène d’ouverture : aucune Lecture ne peut commencer. Marquez la Scène par laquelle il s’ouvre.",
+    "sceneUnreached": "Aucune Sortie n’arrive à {scene}, et le Récit ne s’ouvre pas dessus : aucun Lecteur n’y parvient.",
+    "sceneUnplayed": "{scene} ne porte aucun Plan : un Lecteur qui y arrive ne voit rien.",
+    "shotUnwritten": "Le Plan {place} de {scene} ne porte ni texte ni Image.",
+    "imageUndescribed": "L’Image du Plan {place} de {scene} n’a pas de Description : un Lecteur qui ne la voit pas n’en apprend rien.",
+    "flagUntested": "{scene} pose le Marqueur {flag}, et aucune Condition ne le teste nulle part.",
+    "flagUnset": "Une Condition de {scene} teste le Marqueur {flag}, et aucune Scène ne le pose.",
+    "exitUnofferable": "Une Sortie depuis {scene} n’est offerte que si {flag} vaut « {is} », valeur qu’aucune Scène ne lui donne.",
+    "shotUnplayable": "Un Plan de {scene} ne joue que si {flag} vaut « {is} », valeur qu’aucune Scène ne lui donne."
   },
   "preview": {
     "nobodyElse": "Personne d'autre ne peut voir ceci",
