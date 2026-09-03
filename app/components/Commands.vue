@@ -116,6 +116,19 @@ function letGoIfShut() {
 }
 
 /**
+ * Escape, taken as it happens rather than as it is reported. The browser fires
+ * `cancel` inside the very press that dismisses the bar and only queues `close`
+ * after it, so between the two the state here still says the bar is up while the
+ * screen says it is gone — and the key pressed in that window toggles the bar
+ * shut a second time instead of opening it, which is a bar that ignores the hand
+ * reaching for it. Written from the event that arrives first, so there is no
+ * window at all.
+ */
+function letGoOnEscape() {
+  opened.value = false
+}
+
+/**
  * The keyboard down the results. `↓` from the field arrives at the first, `↑`
  * from the first goes back to the field, and neither wraps: a list that comes
  * round to the top under one more press is one an Author cannot tell the end of.
@@ -162,6 +175,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', toggleOnKeys))
     class="commands"
     aria-labelledby="commands-heading"
     @click.self="opened = false"
+    @cancel="letGoOnEscape"
     @close="letGoIfShut"
   >
     <!-- A form, so `Enter` runs the first result without a key being listened
