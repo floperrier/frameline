@@ -1046,25 +1046,25 @@ function atAGlance(scene: Scene) {
        the Scenes they have. Nothing here makes one — a Scene is made on the
        bench, where it goes. -->
   <div class="tools">
-    <!-- The way to everything the bench can do, by naming it — a Scene among
-         them, which is what the field that reached one by its name has become.
-         It stays while a Scene is being written because that is when it is most
-         needed: the graph is a rail then, and a rail is names too small to read.
-         The scale beside it does not — a rail is drawn at the width's own scale
-         and there is nothing to set.
+    <!-- The two things about the Story itself rather than about how far back it
+         is being looked at: the way into every act by naming it, and what the
+         bench found when it read the Story back. Both stay while a Scene is being
+         written, because the scale is the only thing on this row a rail has no
+         use for — a rail is drawn at the width's own scale and there is nothing
+         to set. -->
+    <div class="about">
+      <!-- The way to everything the bench can do, by naming it — a Scene among
+           them, which is what the field that reached one by its name has become.
+           It stays while a Scene is being written because that is when it is most
+           needed: the graph is a rail then, and a rail is names too small to read.
 
-         Named by what it opens rather than by a sentence saying what is inside
-         it: what is inside grows, and a label that lists it is a label that goes
-         out of date the first time something is marked that is neither an act
-         nor a Scene. The key that does the same thing is drawn on the control
-         that does it, where somebody who never reads a legend will find it — a
-         control and not only a key: see
-         `docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md`. -->
-    <!-- The two things that are about the Story rather than about how it is being
-         looked at: the way into every act by naming it, and what the bench found
-         when it read the Story back. Both stay while a Scene is being written,
-         because the scale is the only thing on this row a rail has no use for. -->
-    <div class="naming">
+           Named by what it opens rather than by a sentence saying what is inside
+           it: what is inside grows, and a label that lists it is a label that goes
+           out of date the first time something is marked that is neither an act
+           nor a Scene. The key that does the same thing is drawn on the control
+           that does it, where somebody who never reads a legend will find it — a
+           control and not only a key: see
+           `docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md`. -->
       <button type="button" class="commanding" @click="$emit('command')">
         {{ $t('editor.commands') }}
         <span class="combination"><kbd>{{ modifier }}</kbd><kbd>K</kbd></span>
@@ -1476,10 +1476,10 @@ function atAGlance(scene: Scene) {
 </template>
 
 <style scoped>
-/* The row above the bench, read left to right as the two things in it: the way to
-   any Scene in the Story, and how far back the Author is standing to look at the
-   lot. The first is the Story; the second is the view of it, so it sits at the far
-   end on its own. */
+/* The row above the bench, read left to right as what the Story is and what the
+   view of it is: the acts of the bench and the reading of the Story at one end,
+   how far back the Author is standing at the other. The view sits at the far end
+   on its own, because it is the only thing here that is not the Story. */
 .tools {
   display: flex;
   flex-wrap: wrap;
@@ -1491,7 +1491,7 @@ function atAGlance(scene: Scene) {
 /* The head of the row: the way in by name, and the reading of the Story beside
    it. One cluster rather than two items, so the space the row spreads falls
    between what the Story is and how far back it is being looked at. */
-.naming {
+.about {
   display: flex;
   flex-wrap: wrap;
   align-items: end;

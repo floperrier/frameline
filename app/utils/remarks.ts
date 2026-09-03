@@ -65,14 +65,14 @@ export function remarks(story: StoryInEditor): Remark[] {
     if (!scene.shots.length) found.push({ name: 'sceneUnplayed', sceneId: scene.id, said })
 
     scene.shots.forEach((shot, place) => {
-      const of = { ...said, place: place + 1 }
+      const atPlace = { ...said, place: place + 1 }
       // Neither text nor Image is the glossary's own definition of a Shot the
       // Author has not written yet, so it is read back to them as exactly that.
       if (!shot.text.trim() && !shot.image) {
-        found.push({ name: 'shotUnwritten', sceneId: scene.id, said: of })
+        found.push({ name: 'shotUnwritten', sceneId: scene.id, said: atPlace })
       }
       if (shot.image && !shot.description.trim()) {
-        found.push({ name: 'imageUndescribed', sceneId: scene.id, said: of })
+        found.push({ name: 'imageUndescribed', sceneId: scene.id, said: atPlace })
       }
     })
   }
@@ -99,9 +99,15 @@ function flagRemarks(story: StoryInEditor): Remark[] {
     if ('flag' in condition && !tested.has(condition.flag)) tested.set(condition.flag, scene)
   }
 
-  const never = (of: Map<string, Scene | undefined>, other: Map<string, unknown>, name: string) =>
-    [...of].filter(([flag]) => flag.trim() && !other.has(flag))
-      .map(([flag, scene]) => ({ name, sceneId: scene?.id, said: { flag, scene: scene?.name ?? '' } }))
+  const never = (
+    half: Map<string, Scene | undefined>, other: Map<string, unknown>, name: string,
+  ) =>
+    [...half].filter(([flag]) => flag.trim() && !other.has(flag))
+      .map(([flag, scene]) => ({
+        name,
+        sceneId: scene?.id,
+        said: { flag, scene: scene?.name ?? '' },
+      }))
 
   return [
     ...never(set, tested, 'flagUntested'),
@@ -120,6 +126,14 @@ function flagRemarks(story: StoryInEditor): Remark[] {
  * and answering it wrongly would be worse than not answering it: an Author who
  * meant a Scene to be unreachable a third time would be told their Story is
  * broken.
+ *
+ * Nor is the empty value, which is not a value at all. A Flag never set reads as
+ * empty — `shared/utils/reading.ts`, and the glossary says so of a Flag — so a
+ * Condition asking for the empty value is a Condition asking for the absence of a
+ * Flag, and it holds at the top of every Reading. No Scene can ever be found
+ * setting it, because `flagsSet` drops an empty value as a row half typed; read
+ * without this it is exactly the wrong answer this record refuses, and the
+ * Exit *Reel Change* offers once is what it would be said of.
  */
 function deadRemarks(story: StoryInEditor): Remark[] {
   const values = new Map<string, Set<string>>()
@@ -133,6 +147,7 @@ function deadRemarks(story: StoryInEditor): Remark[] {
 
   const dead = ([condition]: Carried) =>
     'flag' in condition
+    && condition.is !== ''
     && values.has(condition.flag)
     && !values.get(condition.flag)!.has(condition.is)
 

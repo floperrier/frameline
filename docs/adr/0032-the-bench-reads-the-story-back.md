@@ -96,6 +96,13 @@ the Exit's text, and the answer here is the same: the nearer voice wins. The
 dropping is done where the list is drawn rather than in the reading, which knows
 the Story and has no business knowing the bench.
 
+What bounds it is that the Preview says only one of the two at a time. A Story
+with no opening Scene is the whole of what that pane reports — there is nowhere
+to read from, so it never gets as far as the Scene on the surface — and dropping
+the Scene's own sentence there would leave a fact said by nobody. So it is left
+to the Preview only where the Story opens somewhere. A voice that has fallen
+silent is not a voice, and the reading has to know which.
+
 **A Remark leads to the Scene by the act that already exists.** Pressing one asks
 the page for the Scene on the writing surface — the same act the card's own
 control performs and the same act the bar runs under *Go to X*, which is that

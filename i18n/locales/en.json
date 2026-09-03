@@ -186,6 +186,7 @@
     "commands": "Commands",
     "remarks": "Remarks",
     "readRemarks": "Read the Remarks",
+    "closeRemarks": "Close the Remarks",
     "noRemarks": "Nothing to report: every Scene is reached, every Shot is written, every Flag is joined up.",
     "remarkAbout": "— open {scene}"
   },

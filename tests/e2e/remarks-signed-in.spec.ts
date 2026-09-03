@@ -84,6 +84,12 @@ test('counts what it finds, and opens the Scene a Remark names', async ({ page, 
   await found(page).getByRole('button', { name: /sets the Flag coat/ }).click()
   await expect(page).toHaveURL(new RegExp(`scene=${arrival.id}`))
   await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
+
+  // And the Scene on the surface keeps its own sentence here, because the Preview
+  // is not saying it: a Story opening nowhere is the whole of what that pane
+  // reports, so it never gets as far as the Scene being written.
+  await openRemarks(page)
+  await expect(found(page)).toContainText('No Exit arrives at The arrival')
 })
 
 test('is opened by naming it, like every other act of the bench', async ({ page, request }) => {
@@ -95,6 +101,12 @@ test('is opened by naming it, like every other act of the bench', async ({ page,
   await page.getByRole('button', { name: 'Read the Remarks' }).click()
 
   await expect(found(page)).toContainText('Nothing to report')
+
+  // And the bar names it for what pressing it will do from where the list now
+  // stands: a summary toggles, so the act on an open list is to close it.
+  await page.getByRole('button', { name: 'Commands' }).click()
+  await page.getByRole('textbox', { name: 'Type a name' }).fill('Remarks')
+  await expect(page.getByRole('button', { name: 'Close the Remarks' })).toBeVisible()
 })
 
 test('leaves to the Preview what the Preview is already saying', async ({ page, request }) => {

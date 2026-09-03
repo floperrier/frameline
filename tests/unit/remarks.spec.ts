@@ -193,6 +193,19 @@ describe('what can never hold', () => {
     expect(remarks(story)).toEqual([])
   })
 
+  it('leaves the absence of a Flag alone, which is what the empty value asks for', () => {
+    // A Flag never set reads as empty, so a Condition on the empty value holds at
+    // the top of every Reading — and no Scene can be found setting it, because a
+    // Flag set to nothing is a row half typed. It is the way *Reel Change* offers
+    // one Exit exactly once.
+    const story = onTheBench([
+      { name: 'The booth', sets: { reel: 'threaded' } },
+      { name: 'The gate' },
+    ], { exits: [['The booth', 'The gate', { flag: 'reel', is: '' }]] })
+
+    expect(remarks(story)).toEqual([])
+  })
+
   it('leaves a visit count alone, however few visits the graph allows', () => {
     const story = onTheBench([
       { name: 'The bar' },

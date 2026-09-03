@@ -186,6 +186,7 @@
     "commands": "Commandes",
     "remarks": "Remarques",
     "readRemarks": "Lire les Remarques",
+    "closeRemarks": "Fermer les Remarques",
     "noRemarks": "Rien à signaler : chaque Scène est atteinte, chaque Plan est écrit, chaque Marqueur est relié.",
     "remarkAbout": "— ouvrir {scene}"
   },

@@ -45,30 +45,49 @@ const emit = defineEmits<{ open: [string] }>()
  * The Remarks the bench says out loud, which is every one it found less whatever
  * the Preview beside the writing surface is already saying. Two voices for one
  * fact is the objection `0034` raised about the Exit's text, and the Preview says
- * both of these in the Scene's own words while that Scene is open: that nothing
- * leads to it, and that the Story opens on nothing.
+ * both of these in the Scene's own words while that Scene is open: that the Story
+ * opens on nothing, and that nothing leads to the Scene being written.
+ *
+ * It says only one of them at a time, though, and that bounds what is dropped.
+ * A Story with no opening Scene is the whole of what the Preview reports — there
+ * is nowhere to read from, so it never gets as far as the Scene on the surface —
+ * and a Remark dropped there would be a fact said by nobody. So the Scene's own
+ * sentence is left to the Preview only where the Story opens somewhere.
  *
  * Dropped here rather than in the reading, which knows the Story and has no
  * business knowing the bench.
  */
+/**
+ * Whether the list is open, which the disclosure itself settles and this only
+ * hears about. Kept because the name the bar offers the summary under has to say
+ * what pressing it will do: a `<summary>` toggles, so *Read the Remarks* against
+ * an open list would close it, and a Command whose name and act disagree is the
+ * one thing `0035` marks a control to prevent. Named by the state, the way the
+ * header names Publish and Unpublish on the same fact.
+ */
+const open = ref(false)
+
 const spoken = computed(() => {
   const found = story ? remarks(story) : []
   if (!sceneWritten) return found
 
   return found.filter(remark => !(
     remark.name === 'noOpening'
-    || (remark.name === 'sceneUnreached' && remark.sceneId === sceneWritten)
+    || (remark.name === 'sceneUnreached'
+      && remark.sceneId === sceneWritten
+      && story?.openingSceneId)
   ))
 })
 </script>
 
 <template>
-  <details class="found">
-    <!-- Marked as a Command, because opening the reading is an act of the bench
+  <details class="found" @toggle="open = ($event.target as HTMLDetailsElement).open">
+    <!-- Marked as a Command, because reading what the bench found is an act of it
          like the fit and the Publish — see
          `docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md`. A
-         summary is pressed by the bar exactly as it is pressed by a hand. -->
-    <summary :data-command="$t('editor.readRemarks')">
+         summary is pressed by the bar exactly as it is pressed by a hand, and it
+         is named for what that press does from where the list stands. -->
+    <summary :data-command="$t(open ? 'editor.closeRemarks' : 'editor.readRemarks')">
       {{ $t('editor.remarks') }}
       <span class="numbered">{{ spoken.length }}</span>
     </summary>
@@ -161,20 +180,15 @@ ul {
 li button,
 li p {
   inline-size: 100%;
+  padding: var(--s1) var(--s2);
+  color: var(--paper);
   font-size: 0.875rem;
   text-align: start;
 }
 
-li p {
-  padding: var(--s1) var(--s2);
-  color: var(--paper);
-}
-
 li button {
-  padding: var(--s1) var(--s2);
   border-color: transparent;
   background: none;
-  color: var(--paper);
   font-family: inherit;
   text-transform: none;
   letter-spacing: normal;
