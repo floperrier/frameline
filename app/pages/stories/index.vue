@@ -148,6 +148,8 @@ async function signOut() {
 </template>
 
 <style scoped>
+@import '~/assets/css/folds.css';
+
 main {
   display: grid;
   gap: var(--s5);
@@ -297,7 +299,7 @@ h1 {
   grid-column: 1 / -1;
 }
 
-@media (max-width: 44rem) {
+@media (--phone) {
   .slates li {
     grid-template-columns: minmax(0, 1fr);
   }
