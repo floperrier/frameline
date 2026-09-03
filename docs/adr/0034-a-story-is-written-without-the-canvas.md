@@ -93,3 +93,14 @@ Condition.
 writes the Scene and then the Exit, which is the seam `0031` accepted for the same
 pair on the canvas: an Exit refused after the Scene was written leaves a Scene on
 the bench under its provisional name, and the refusal beside the surface says so.
+
+**The guided path teaches the document too.** The Step that asks a new Author for
+their second Scene and the way on to it pointed at the rim an Exit is drawn from,
+and it is read with a Scene open for writing — every act that makes a Scene opens
+it — where the canvas is folded into a rail and that gesture takes no press at
+all. It points at the field above instead, whose way on to a Scene that is not
+there yet is the same two writes in the same order; the canvas route is named in
+the sentence and taught by nothing, which is what this record says a drawing is
+worth as an input device. `tests/unit/steps.spec.ts` now holds every Step but the
+first against the surface that answers where it is read, so a target that goes
+back onto the drawing is caught rather than found by an Author.

@@ -94,13 +94,13 @@ describe('the Step the bench is showing', () => {
   it('asks for an Exit once the first Shot is written', () => {
     const story = onTheBench([['The arrival', 'The train pulls in.']])
 
-    expect(asking(story)).toBe('drawExit')
+    expect(asking(story)).toBe('wayOn')
   })
 
   it('asks for an Exit once there are two Scenes to join', () => {
     const story = onTheBench([['The arrival', 'The train pulls in.'], ['The platform']])
 
-    expect(asking(story)).toBe('drawExit')
+    expect(asking(story)).toBe('wayOn')
   })
 
   it('asks for a Flag once the two Scenes are joined', () => {
@@ -251,14 +251,25 @@ describe('the Step the bench is showing', () => {
   })
 })
 
-/** The files the bench is drawn from, which is where a Step's target has to be. */
-const EDITOR = [
+/**
+ * The bench with a Scene open for writing: the page, the header over it, the
+ * document the Scene is written in and the Preview beside it. Every Step but the
+ * first is read in that state, so this is where its target has to be.
+ */
+const WRITING = [
   'app/pages/stories/[id]/index.vue',
   'app/components/StoryHeader.vue',
-  'app/components/Graph.vue',
   'app/components/Panel.vue',
   'app/components/Preview.vue',
 ]
+
+/** Every file the bench is drawn from, the canvas the first Step points at included. */
+const EDITOR = ['app/components/Graph.vue', ...WRITING]
+
+/** Every file named, read as the one source the editor is drawn from. */
+function drawnFrom(files: string[]) {
+  return files.map(file => readFileSync(file, 'utf8')).join('\n')
+}
 
 describe('every Step', () => {
   it('carries a sentence in the message files', () => {
@@ -279,11 +290,39 @@ describe('every Step', () => {
     // Every file the bench is drawn from, because the editor is the page and the
     // three pieces it is laid out from: a target that moved from one of them to
     // another has moved within the same editor.
-    const editor = EDITOR.map(file => readFileSync(file, 'utf8')).join('\n')
-    const drawn = [...editor.matchAll(/data-step="([^"]+)"/g)].map(([, target]) => target)
+    const drawn = [...drawnFrom(EDITOR).matchAll(/data-step="([^"]+)"/g)]
+      .map(([, target]) => target)
 
     // Held as sets on both sides: the editor draws each target once, and two
     // Steps may ask for two things in the same place.
     expect(drawn.sort()).toEqual([...new Set(STEPS.map(step => step.target))].sort())
+  })
+
+  /**
+   * Not merely that the target is drawn somewhere, but that it is drawn where the
+   * bench answers a press at the moment the Step is shown. Every Step but the
+   * first is read with a Scene open for writing — every act that makes a Scene
+   * opens it — and there the canvas is folded into a rail: a press on a card in
+   * the rail writes that Scene, the aiming refuses outright, and the drawing has
+   * no bare bench left to let go on. A target on the canvas is therefore a Step
+   * asking for a gesture that does nothing, which is what the Exit step did until
+   * the way on it teaches moved into the Scene's own document.
+   *
+   * The first Step is the exception and the one target the canvas keeps: it is
+   * asked of a Story with no Scene in it, where the graph is not drawn at all and
+   * the control that writes the first Scene stands in its place.
+   *
+   * Which surface the target is drawn in is as far as source read as text can go.
+   * That the control then answers the press the sentence asks for is walked in
+   * `tests/e2e/steps-signed-in.spec.ts`, Step by Step, in the state each one is
+   * shown in and with nothing closed or switched to first.
+   */
+  it('points at something the bench answers where the Step is read', () => {
+    const written = drawnFrom(WRITING)
+
+    expect(STEPS
+      .filter(step => step.name !== 'nameScene')
+      .filter(step => !written.includes(`data-step="${step.target}"`))
+      .map(step => step.name)).toEqual([])
   })
 })

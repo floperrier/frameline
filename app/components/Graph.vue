@@ -1359,7 +1359,7 @@ function atAGlance(scene: Scene) {
                    way into the aiming. The gesture itself is the rim's now, and the
                    rim covers the strip, so what an Author has always drawn an Exit
                    from goes on drawing one. -->
-              <div class="strip" data-step="draw-exit">
+              <div class="strip">
                 <!-- The keyboard's way into the same aiming: a button hidden until
                      it takes focus, the pattern a skip link uses, so the gesture
                      stays the only visible way in while assistive technology still
