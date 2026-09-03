@@ -15,6 +15,13 @@
  * carries the sentence adrift until the Author is looking at the thing it names,
  * and no Step is spent asking them to look.
  *
+ * Which is also why every Step but the first points into that surface. The Step
+ * is read with a Scene open for writing, where the graph is folded into a rail
+ * and a press on it writes the Scene it lands on rather than working the drawing,
+ * so a target on the canvas would be a Step asking for something that cannot be
+ * done from where the Author is standing. `tests/unit/steps.spec.ts` holds that
+ * too.
+ *
  * The Steps are met in whatever order the Author arrives at them, and nothing
  * blocks or scolds. Because a bubble can only point at one thing, the one showing
  * is the first unmet — which makes the order of the list below a design decision
@@ -43,24 +50,34 @@ export type Step = {
 export const STEPS: Step[] = [
   // The only thing a Story cannot be without, so it is the only thing asked for
   // before anything else exists to point at — and the one control on the bench
-  // that makes a Scene out of nothing, since every Scene after the first is made
-  // by drawing an Exit onto bare bench and there is no card to draw from yet.
+  // that makes a Scene out of nothing, since every Scene after the first is
+  // written as the far end of a way on out of a Scene that exists, and there is
+  // none yet to write one from.
   { name: 'nameScene', target: 'first-scene', met: story => story.scenes.length > 0 },
   // Written rather than merely added, and written is text: a Shot is asked for
   // here as the beat it carries, so an image attached to an empty one has not met
   // this. The sentence carries the whole gesture, because a Scene the API writes
   // arrives with no Shot in it to point at.
   { name: 'writeShot', target: 'shot-text', met: written },
-  // The thesis of the product, and one Step rather than two: the gesture that
-  // draws an Exit onto bare bench makes the second Scene and the Exit joining it
-  // in one movement, so a Step asking for the Scene first would be met by the
-  // same gesture as the one after it and could never be shown alone. The Author
-  // is asked for the second Scene and the way on together, in the sentence.
+  // The thesis of the product, and one Step rather than two: a way on to a Scene
+  // that is not there yet writes the second Scene and the Exit joining it in one
+  // act, so a Step asking for the Scene first would be met by the same act as the
+  // one after it and could never be shown alone. The Author is asked for the
+  // second Scene and the way on together, in the sentence.
+  //
+  // Asked for at the foot of the Scene's own document rather than at the rim an
+  // Exit is drawn from, because that is the route that answers from where the
+  // Author is standing: the Step before this one asks for a written Shot, every
+  // act that makes a Scene opens it for writing, so this sentence is read with
+  // the panel open and the graph folded into a rail — where the drawing takes no
+  // gesture at all. The canvas route is named in the sentence and not taught by
+  // it; see `docs/adr/0034-a-story-is-written-without-the-canvas.md`, which is
+  // where a way on came to live.
   //
   // Any Exit at all, rather than one from the first Scene to the second: the
-  // sentence asks for the one the Story needs, and an Author who drew it the
+  // sentence asks for the one the Story needs, and an Author who wrote it the
   // other way round has joined two Scenes and is not told they did it wrong.
-  { name: 'drawExit', target: 'draw-exit', met: story => story.exits.length > 0 },
+  { name: 'wayOn', target: 'way-on', met: story => story.exits.length > 0 },
   // Where State comes from, asked for on the first Scene because that is where a
   // Reading starts and so the one place a Flag is certain to have been set by the
   // time the second Scene plays. Any Flag on any Scene meets it, though: an

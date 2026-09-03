@@ -44,11 +44,9 @@ const box = ref<DOMRect>()
 /**
  * What the Step showing is pointing at, as a selector.
  *
- * A target the editor draws once per card — the strip an Exit is drawn from — is
- * found on the first card of the graph, which is the first Scene the Author wrote
- * and where most of the path is walked.
- * Everything else a Step points at is in the panel, which holds one Scene by
- * construction, so nothing has to be scoped to a Scene by id.
+ * Nothing has to be scoped to a Scene by id: the one target the canvas carries is
+ * drawn on a Story with no Scene in it, and every other Step points into the
+ * panel, which holds one Scene by construction.
  */
 const pointing = computed(() => step.value && `[data-step="${step.value.target}"]`)
 

@@ -824,11 +824,26 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
            is a rectangle, and a radio's own is a dot beside the words that
            say what it marks. -->
       <p class="opening" data-step="opening-scene">
+        <!-- `data-command` is on the radio, because the Command is one press of
+             the control that performs the act and the radio is what performs it.
+             Named for the act rather than for the role — the label beside it says
+             *Opening Scene*, which reads as a state where the bar reads as a list
+             of things to do.
+
+             And only where the act has something to do. A radio already checked
+             answers a press with no `change` at all, so the Scene the Story
+             already opens on would put a row in the bar that presses a control
+             and leaves the Story exactly as it was — the same dead row the two
+             `<select>` acts are left unmarked to avoid. See
+             `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`. -->
         <input
           :id="`opening-${sceneWritten.id}`"
           type="radio"
           name="opening-scene"
           :checked="story.openingSceneId === sceneWritten.id"
+          :data-command="story.openingSceneId === sceneWritten.id
+            ? undefined
+            : $t('editor.markOpeningScene')"
           @change="openOn(sceneWritten)"
         >
         <label class="eyebrow" :for="`opening-${sceneWritten.id}`">
@@ -1228,8 +1243,15 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
       <!-- A way on written from here: to a Scene the Story already holds, or to
            one that does not exist yet, which is the counterpart of dropping an
            Exit on the bare bench for an Author who never opens the canvas. A
-           field that acts and forgets rather than one that holds an answer. -->
-      <p class="adding">
+           field that acts and forgets rather than one that holds an answer.
+
+           `data-step` is on the line rather than on the field, the way the
+           opening mark's is, because what the guided path asks for is the whole
+           of it: the label says what a way on is and the field says where it
+           leads. It is here rather than on the rim an Exit is drawn from because
+           this is the route that answers where the Step is read — the Author is
+           in this very document, with the graph folded into a rail. -->
+      <p class="adding" data-step="way-on">
         <label class="eyebrow" :for="`add-way-${sceneWritten.id}`">
           {{ $t('editor.addWayOn') }}
         </label>

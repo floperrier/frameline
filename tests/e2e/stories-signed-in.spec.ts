@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test'
-import { readStory, seedStory, test, writeStory } from './author'
+import { live, readStory, seedStory, test, writeStory } from './author'
 
 const noStoryId = '00000000-0000-4000-8000-000000000000'
 
@@ -138,6 +138,37 @@ test('a Story belongs to the one Author who wrote it', async ({ request, otherAu
   // The 404s have to mean the Story was left alone, not merely that the answer
   // said nothing about a Story that was changed anyway.
   await expect(readStory(theirs.id)).resolves.toEqual(theirs)
+})
+
+/**
+ * What the empty list promises — name one above, and it opens — is where the
+ * Author ends up, and it is where they end up on the second Story as well as on
+ * the first: the form navigates always, or the promise holds for one act only.
+ */
+test('an Author who names a Story lands on its bench', async ({ page }) => {
+  await page.goto('/stories')
+  await live(page)
+  await expect(page.getByText('No Stories yet.')).toBeVisible()
+
+  await page.getByRole('textbox', { name: 'Title of a new Story' }).fill('The night shift')
+  await page.getByRole('button', { name: 'Create Story' }).click()
+
+  await expect(page).toHaveURL(/\/stories\/[0-9a-f-]{36}$/)
+  await expect(page.getByRole('textbox', { name: 'Title of this Story' }))
+    .toHaveValue('The night shift')
+
+  // The row is in the list behind them — reached the way the Author would reach
+  // it, from the bench — and naming a second Story from a list that is no longer
+  // empty opens that one too.
+  await page.getByRole('link', { name: 'All Stories' }).click()
+  await expect(page.getByRole('link', { name: 'Open The night shift' })).toBeVisible()
+
+  await page.getByRole('textbox', { name: 'Title of a new Story' }).fill('A second Story')
+  await page.getByRole('button', { name: 'Create Story' }).click()
+
+  await expect(page).toHaveURL(/\/stories\/[0-9a-f-]{36}$/)
+  await expect(page.getByRole('textbox', { name: 'Title of this Story' }))
+    .toHaveValue('A second Story')
 })
 
 test('the Stories page lists what the Author wrote', async ({ page, request }) => {

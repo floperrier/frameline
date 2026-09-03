@@ -2,7 +2,7 @@
 status: accepted
 ---
 
-# Every act of the bench is reachable by naming it
+# Every act marked on the bench is reachable by naming it
 
 `docs/adr/0034-a-story-is-written-without-the-canvas.md` left a single field
 above the bench that went to a Scene by typing its name, and that field was the
@@ -137,10 +137,30 @@ flag, and a third a third. Both now ask the document instead:
 graph loses a prop, and the day a fourth surface opens modally nothing has to be
 remembered.
 
-**A Command is one press of one control.** Nothing in the bar composes two, and
-an act that asks a question asks it after the bar has gone: Delete Scene closes
-the bar and puts the confirmation up, which is the same sequence as pressing the
-control by hand.
+**A Command is one press of one control that answers a press.** Nothing in the
+bar composes two, and an act that asks a question asks it after the bar has
+gone: Delete Scene closes the bar and puts the confirmation up, which is the
+same sequence as pressing the control by hand.
+
+A `<select>` does not answer a press. `element.click()` on one fires the event
+and leaves the list shut, because a browser opens a menu under a gesture it
+made itself and under nothing else. So the two acts whose control is a
+select — *A way on from here*, and where an existing way on leads — cannot be
+reached by naming them however they are marked: a mark would put a row in the
+bar that presses a control and does nothing an Author can see, which is worse
+than an act the bar does not offer. They are unmarked for that reason and not
+for want of being worth naming. Whether *A way on from here* is owed a button
+beside its select — the way every other act of the writing surface has one — is
+a question for a record of its own, and is not settled by leaving it out here.
+That is issue #203.
+
+**The mark comes off where the act has nothing left to do.** The bar's own
+filter reaches `:disabled` and no further, and not every spent act is disabled:
+a radio already checked answers a press with no `change` at all, so the Scene
+the Story already opens on would offer *Mark as the Opening Scene* and leave the
+Story exactly as it was. The template says so by leaving the attribute off,
+which is the same dead row the paragraph above refuses — where the bench can
+tell that an act is spent, it is the bench that has to tell the bar.
 
 **The bar reads the page once, as it opens.** It is modal, so nothing can add or
 remove a control while it is up, and a live read would be a `MutationObserver`
@@ -175,3 +195,34 @@ is that a control worth naming has to say so. That is deliberate: an act that
 nobody bothered to mark is an act nobody wanted to reach by name, and the
 alternative — everything with an `onclick` — would fill the list with the eleven
 marks that renumber a Shot.
+
+**The test a mark is owed by is whether an Author would say it.** The first
+round of marking left the bar a Scene switcher: the header, the row above the
+graph and the way out of the writing surface were marked, and nothing the
+document of a Scene does was — not a Flag set on entry, not a Condition on a
+beat or on a way on, not the Scene marked as the one the Story opens on. Those
+three are acts an Author says out loud, so they carry the attribute now. The
+marks that renumber a beat or a way on, duplicate one, or attach an image still
+do not: they are done to a row an Author is already looking at, and naming a row
+in the bar takes longer than pressing the mark beside it. *Add a Condition*
+carries what it is added to after it, because a Scene draws one of those lists
+per Shot and one per way on and the words alone would name four acts at once.
+
+Two of the three are named by a phrase that stands nowhere on the screen —
+*Mark as the Opening Scene* for a radio whose label reads *Opening Scene*, and
+*Add a Condition to Shot 3 of The bar* for a button that says the carrier under
+its breath. That is the licence *Go to Le café* took above, and it carries the
+same cost: a phrase to keep in step with words nobody sees beside it. It is paid
+in the message files rather than in the templates, so the phrase is one string
+in two languages and not a sentence assembled in code.
+
+**The record is named for what is marked, which is not everything.** It was
+called *every act of the bench is reachable by naming it* while about a third of
+its acts were marked, and the title was read as a promise the code never made —
+issue #197 is that reading. The name is narrowed to what the design does rather
+than the marking widened until the old name came true, because an exhaustive
+marking is a rule somebody has to keep, and refusing rules of that kind is what
+this record did in the first place when it declined to hold a list of acts in
+the bar. What holds the coverage instead is a spec: the end-to-end suite reads
+the whole bar over a Scene being written and holds it against the acts named
+here, so a control that arrives unmarked arrives with a red run.

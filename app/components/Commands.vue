@@ -7,7 +7,7 @@
  * nothing answered to, which has no control behind it because a Scene is
  * otherwise born from an Exit; `showing` says why it is here and what bounds it.
  * `app/utils/commands.ts` says the rest, and
- * `docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md` records
+ * `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md` records
  * the decision.
  *
  * A `<dialog>` opened modally, like the one the product asks a question in, so
@@ -57,7 +57,7 @@ const reached = computed(() => commandsReached(offered.value, typed.value))
  * Command, so that `Enter`, `↓` and a press with the pointer all reach it by the
  * machinery every other entry already goes through: a second kind of row would
  * be a second keyboard to get right. See
- * `docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md`, which
+ * `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`, which
  * records the exception and its boundary.
  *
  * Offered only where nothing answers. A Story of forty Scenes would otherwise

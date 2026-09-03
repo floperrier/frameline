@@ -42,7 +42,7 @@ async function open(page: Page) {
 /**
  * The bar of Commands: every act the bench is offering, reached by naming it.
  * What each spec here is really holding is the contract in
- * `docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md` — that a
+ * `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md` — that a
  * Command is a control already on the bench and running one presses it — so each
  * asserts the act happened on the Story and not merely that the bar closed.
  */
@@ -253,4 +253,76 @@ test('a destructive Command asks before it acts, as its own control does', async
 
   await page.getByRole('button', { name: 'Leave It' }).click()
   await expect(page.getByRole('article', { name: 'The bar' })).toBeVisible()
+})
+
+test('the bar names every act marked on a Scene being written, and no other', async ({ page, request }) => {
+  const story = await writeStory(request)
+  await page.goto(`/stories/${story.id}`)
+  await writeScene(page, 'The street')
+  await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
+
+  await open(page)
+
+  // The whole of the bar over a Scene being written, in the order the bench draws
+  // it. Held exhaustively rather than by a filter apiece, because what this spec
+  // is for is coverage: which acts are nameable is a decision, and a control that
+  // arrives unmarked — or a mark nobody meant to add — has to arrive with a red
+  // run rather than be noticed by an Author who went looking for it. The record
+  // is `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`.
+  //
+  // Two acts are not among them, and rightly. The fit is gone because a Scene
+  // being written folds the graph into a rail and takes the whole dial with it,
+  // and marking the Opening Scene is gone because *The street* is already the one
+  // the Story opens on — an act with nothing left to do is not offered. The bar
+  // cannot offer an act the bench is not drawing, and the spec below holds the
+  // mark where the act does have something to do.
+  await expect(offered(page)).toHaveText([
+    'Publish this Story',
+    'Read the Remarks',
+    'Go to The street',
+    'Go to The bar',
+    'Close this Panel',
+    'Delete Scene',
+    'Add a Flag',
+    'Add a Condition to Shot 1 of The street',
+    'Add a Condition to Shot 2 of The street',
+    'Add a Shot',
+    'Add a Condition to the way on 1 to The bar',
+  ])
+})
+
+test('an Author sets a Flag and marks the Opening Scene by naming them', async ({ page, request }) => {
+  const story = await writeStory(request)
+  await page.goto(`/stories/${story.id}`)
+  // The second Scene written, so the Story already opens on the other one: what
+  // marking does here is move the role rather than fill an empty seat.
+  await writeScene(page, 'The bar')
+  await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
+
+  await open(page)
+  await typing(page).fill('Add a Flag')
+  await offered(page).click()
+
+  // The row is on the surface with the hand in it, which is what the control
+  // does: a Command is that press and nothing more.
+  await expect(page.getByRole('textbox', { name: 'Name of Flag 1 set on entering The bar' }))
+    .toBeFocused()
+
+  await open(page)
+  await typing(page).fill('Opening')
+  await expect(offered(page)).toHaveText(['Mark as the Opening Scene'])
+  await offered(page).click()
+
+  // The act ran on the Story: the Scene on the surface is the one the Story
+  // opens on, and the radio that performs it says so.
+  await expect(page.getByRole('radio', { name: 'Opening Scene The bar' })).toBeChecked()
+  await page.reload()
+  await expect(page.getByRole('radio', { name: 'Opening Scene The bar' })).toBeChecked()
+
+  // And the act has left the bar, because there is nothing left for it to do: a
+  // radio already checked answers a press with no change at all, so the row would
+  // press a control and leave the Story exactly as it was.
+  await open(page)
+  await typing(page).fill('Opening')
+  await expect(offered(page).filter({ hasText: 'Mark as the Opening Scene' })).toHaveCount(0)
 })
