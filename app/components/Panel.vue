@@ -1255,8 +1255,12 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
         <label class="eyebrow" :for="`add-way-${sceneWritten.id}`">
           {{ $t('editor.addWayOn') }}
         </label>
+        <!-- Marked for the bar of Commands like every other act of the document. A
+             select cannot be pressed, so the bar puts the hand on it instead —
+             `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`. -->
         <select
           :id="`add-way-${sceneWritten.id}`"
+          :data-command="$t('editor.addWayOnCommand')"
           :value="adding"
           @change="addExit(sceneWritten, ($event.target as HTMLSelectElement).value)"
         >

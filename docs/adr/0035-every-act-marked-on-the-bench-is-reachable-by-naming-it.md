@@ -144,15 +144,22 @@ same sequence as pressing the control by hand.
 
 A `<select>` does not answer a press. `element.click()` on one fires the event
 and leaves the list shut, because a browser opens a menu under a gesture it
-made itself and under nothing else. So the two acts whose control is a
-select — *A way on from here*, and where an existing way on leads — cannot be
-reached by naming them however they are marked: a mark would put a row in the
-bar that presses a control and does nothing an Author can see, which is worse
-than an act the bar does not offer. They are unmarked for that reason and not
-for want of being worth naming. Whether *A way on from here* is owed a button
-beside its select — the way every other act of the writing surface has one — is
-a question for a record of its own, and is not settled by leaving it out here.
-That is issue #203.
+made itself and under nothing else. For a while that left the one act whose
+control is a select — *A way on from here*, the field at the foot of the
+document that is how a Story branches at all — out of the bar, and issue #203
+asked whether it was owed a button beside the select so that it could answer a
+press like everything else. It is not: two controls for one act is what `0034`
+refused for the Exit's text. **The bar puts the hand on a select instead of
+pressing it.** Running a Command whose control is a select moves focus onto
+it and asks the browser to open its list — `showPicker()`, which runs under
+the very gesture that ran the Command and so is a gesture the browser made
+itself — and where a browser has no `showPicker()` for a select, focus alone
+lands and one press of Space, or the first letter of a Scene's name, opens it.
+That is one branch in the bar's press and nothing on the surface, and the
+select carries its mark under *Add a Way On*, beside *Add a Shot* and *Add a
+Flag*. The select on each existing way on, which says where it leads, stays
+unmarked for the reason the marks that renumber or duplicate a row are: it is
+done to a row an Author is already looking at.
 
 **The mark comes off where the act has nothing left to do.** The bar's own
 filter reaches `:disabled` and no further, and not every spent act is disabled:

@@ -288,7 +288,36 @@ test('the bar names every act marked on a Scene being written, and no other', as
     'Add a Condition to Shot 2 of The street',
     'Add a Shot',
     'Add a Condition to the way on 1 to The bar',
+    'Add a Way On',
   ])
+})
+
+test('an Author writes a way on by naming the act, and the hand lands on the select', async ({ page, request }) => {
+  const story = await writeStory(request)
+  await page.goto(`/stories/${story.id}`)
+  // The bar, which nothing leads out of yet: the way on written here is its first.
+  await writeScene(page, 'The bar')
+  await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
+
+  await open(page)
+  await typing(page).fill('way on')
+  await expect(offered(page)).toHaveText(['Add a Way On'])
+  await typing(page).press('Enter')
+
+  // A select cannot be pressed, so the bar puts the hand on it: the bar is gone
+  // and focus is on the field at the foot of the document, where one press opens
+  // the list. Whether a browser opens it unasked is the browser's own, so the
+  // spec holds focus and then chooses the way a keyboard would.
+  await expect(page.locator('dialog.commands')).toBeHidden()
+  const adding = page.getByRole('combobox', { name: 'A way on from here' })
+  await expect(adding).toBeFocused()
+  await adding.selectOption({ label: 'The street' })
+
+  // The act ran on the Story: The bar now has a way on to The street. Where a way
+  // on already written leads is a row's own, and the exhaustive spec above holds
+  // that the bar does not offer it.
+  await expect(page.getByRole('combobox', { name: 'Where the way on 1 out of The bar leads' }))
+    .toHaveValue(/./)
 })
 
 test('an Author sets a Flag and marks the Opening Scene by naming them', async ({ page, request }) => {

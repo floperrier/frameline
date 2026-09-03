@@ -179,6 +179,7 @@
     "commandKey": "⌘",
     "controlKey": "Ctrl",
     "addWayOn": "A way on from here",
+    "addWayOnCommand": "Add a Way On",
     "chooseWhereItLeads": "Where it leads…",
     "toANewScene": "To a Scene that is not there yet",
     "wayOnLeadsTo": "Where the way on {place} out of {name} leads",
