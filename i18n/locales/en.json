@@ -153,7 +153,7 @@
     "noWayOnYet": "No way on yet",
     "writingScene": "Writing {name}",
     "closePanel": "Close this Panel",
-    "theWayOnTo": "the way on {place} to {scene}",
+    "theWayOnTo": "the Way On {place} to {scene}",
     "theExitTo": "the Exit to {scene}",
     "duplicateExitTo": "Duplicate Exit to {scene}",
     "drawExitFrom": "Draw an Exit from {name}",
