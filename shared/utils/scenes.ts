@@ -269,12 +269,12 @@ export function zoomedAbout(zoom: number, to: number, anchor: Point, scroll: Poi
  * How far apart two ways on out of one Scene leave its rim. A Story is laid out
  * in columns, so two lines out of one Scene towards the same column left from the
  * same point and ran as one: the near one stopped at the card below, the far one
- * carried on under it, and nothing said which was which. Forty pixels is the gap
- * between two cards — the smallest distance the bench already asks an eye to
- * read — and twice the disc that says a Place is wide, so the two marks stand
- * apart as well as the two lines.
+ * carried on under it, and nothing said which was which. The gap between two
+ * cards is the step, because it is the smallest distance the bench already asks
+ * an eye to read, and it is wider than the disc that says a Place, so the two
+ * marks stand apart as well as the two lines.
  */
-export const EXIT_RIM_STEP = 40
+export const EXIT_RIM_STEP = NODE_GAP
 
 /**
  * Where the line that draws an Exit meets the two nodes: on the edge of the box it
@@ -338,17 +338,20 @@ export const EXIT_DISC_RADIUS = 9
 /**
  * Where that disc goes: on the line, near the Scene the Exit leaves, because what
  * it labels is the order that Scene offers its ways on in. Never past the middle
- * of the line, so two nodes all but touching still carry their discs at the end
- * they belong to, and on the node's own edge where the line has no length at all.
+ * of the line where nothing is in its way, so two nodes all but touching still
+ * carry their discs at the end they belong to, and on the node's own edge where
+ * the line has no length at all.
  *
  * And never behind a card. The cards are drawn over the lines, so a disc under one
  * is the single mark that tells two lines apart, hidden by the thing it would tell
  * them apart from; where the near stretch of a line is covered, the disc is walked
- * on along it — by its own radius, which is fine enough to find any gap the
- * bench leaves between two cards — until it is clear of every one of them. The
- * cards are the Author's to place and may be dropped anywhere, so a line covered
- * the whole way is a real Story: its disc goes back to the end it belongs to, and
- * is read by moving the card that hides it.
+ * on along it — by its own radius, which finds any gap two cards laid out on the
+ * bench leave between them — until it is clear of every one of them. Never as far
+ * as the end it arrives at, where the endpoint that leads the Exit elsewhere is
+ * taken hold of. The cards are the Author's to place and may be dropped closer
+ * together than the disc is wide, which leaves nowhere on the line to put it: the
+ * disc goes back to the end it belongs to, and is read by moving the card that
+ * hides it.
  */
 export function discOfExit({ from, to }: ExitLine, cards: Point[] = []): Point {
   const length = Math.hypot(to.x - from.x, to.y - from.y)
@@ -359,7 +362,9 @@ export function discOfExit({ from, to }: ExitLine, cards: Point[] = []): Point {
     y: Math.round(from.y + (to.y - from.y) * along / length),
   })
 
-  for (let along = near; along <= length; along += EXIT_DISC_RADIUS) {
+  const last = Math.max(near, length - EXIT_DISC_ALONG)
+
+  for (let along = near; along <= last; along += EXIT_DISC_RADIUS) {
     const disc = at(along)
     if (cards.every(card => !hides(card, disc))) return disc
   }
@@ -392,19 +397,30 @@ function onTheEdge(middle: Point, towards: Point, place = 1, ways = 1) {
   const reach = Math.min(byWidth, byHeight)
   if (!Number.isFinite(reach)) return { x: Math.round(middle.x), y: Math.round(middle.y) }
 
+  const reached = { x: middle.x + towards.x * reach, y: middle.y + towards.y * reach }
+
   // A flank where the width is reached first, the head or the foot otherwise —
   // which is also the side the ways on are spread along, and how much of it there
   // is to spread them over. A Scene offering more of them than the side has room
-  // for closes the step up rather than sending the last of them off the card, so
-  // half a step of rim is left at either end whatever the Story asks for.
+  // for closes the step up rather than sending the last of them off the card.
   const flank = byWidth <= byHeight
-  const along = flank ? NODE_HEIGHT : NODE_WIDTH
-  const step = Math.min(EXIT_RIM_STEP, (along - EXIT_RIM_STEP) / Math.max(ways - 1, 1))
-  const aside = (place - 1 - (ways - 1) / 2) * step
+  const side = flank ? NODE_HEIGHT : NODE_WIDTH
+  const centre = flank ? middle.y : middle.x
+  const step = Math.min(EXIT_RIM_STEP, (side - EXIT_RIM_STEP) / Math.max(ways - 1, 1))
+  const spread = (ways - 1) * step
+
+  // The ways on are spread about the point the line crosses the rim at, and that
+  // point is anywhere along the side: a line leaving by a corner is already at the
+  // end of it. So the whole spread is slid back onto the side rather than each
+  // line being held to it one at a time, which would pile them at the corner.
+  // A Scene with one way on has no spread at all, and is drawn where it always was.
+  const held = Math.min(Math.max(flank ? reached.y : reached.x, centre - (side - spread) / 2),
+    centre + (side - spread) / 2)
+  const at = held + (place - 1 - (ways - 1) / 2) * step
 
   return {
-    x: Math.round(middle.x + towards.x * reach + (flank ? 0 : aside)),
-    y: Math.round(middle.y + towards.y * reach + (flank ? aside : 0)),
+    x: Math.round(flank ? reached.x : at),
+    y: Math.round(flank ? at : reached.y),
   }
 }
 

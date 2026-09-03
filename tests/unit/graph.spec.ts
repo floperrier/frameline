@@ -96,19 +96,28 @@ describe('the lines that leave one Scene together', () => {
 
   /**
    * A Scene offering more ways on than the rim has room for closes the step up
-   * rather than sending the last of them off the card: every line still leaves
-   * the box it belongs to, which is the whole point of leaving from the rim.
+   * rather than sending the last of them off the card, and a Scene whose ways on
+   * all leave by one corner slides them back onto the side rather than spreading
+   * them about a point that is already at its end: every line leaves the box it
+   * belongs to, which is the whole point of leaving from the rim.
    */
-  test('holds every departure on the rim, however many ways on the Scene offers', () => {
+  test.each([
+    ['straight down its own column', { x: 0, y: NODE_SPACING }],
+    ['down and across, where the line leaves by the corner', { x: 640, y: 340 }],
+  ])('holds every departure on the rim, %s', (_, to) => {
     const ways = 12
     const departures = Array.from({ length: ways },
-      (_, at) => exitLine(street, bar, at + 1, ways).from)
+      (_, at) => exitLine(street, to, at + 1, ways).from)
 
     for (const departure of departures) {
       expect(departure.y).toBe(NODE_HEIGHT)
       expect(departure.x).toBeGreaterThanOrEqual(street.x)
       expect(departure.x).toBeLessThanOrEqual(street.x + NODE_WIDTH)
     }
+
+    // And on twelve points rather than on one: a spread held back onto the side
+    // by clamping each line to it would leave them piled at the corner.
+    expect(new Set(departures.map(departure => departure.x)).size).toBe(ways)
   })
 
   test('lands where it always landed: the ways on fan out, the arrivals do not', () => {

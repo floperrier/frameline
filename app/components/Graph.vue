@@ -981,9 +981,9 @@ const exitLines = computed(() => story?.exits.map((exit) => {
   // The Place, counted from one for the Author as a Shot's is and read off the
   // same list the strip in the node reads, and with it how many ways on that
   // Scene offers, which is what the departures are spread over.
-  const ways = exitsFrom(story?.exits ?? [], exit.fromSceneId)
-  const place = ways.indexOf(exit) + 1
-  const line = exitLine(pointOf(exit.fromSceneId), pointOf(exit.toSceneId), place, ways.length)
+  const waysOn = exitsFrom(story?.exits ?? [], exit.fromSceneId)
+  const place = waysOn.indexOf(exit) + 1
+  const line = exitLine(pointOf(exit.fromSceneId), pointOf(exit.toSceneId), place, waysOn.length)
 
   return {
     id: exit.id,
@@ -1282,7 +1282,10 @@ function atAGlance(scene: Scene) {
                      disc is kept clear of the cards by, so it is read from there
                      rather than written twice. -->
                 <circle
-                  class="disc" :cx="line.disc.x" :cy="line.disc.y" :r="EXIT_DISC_RADIUS"
+                  class="disc"
+                  :cx="line.disc.x"
+                  :cy="line.disc.y"
+                  :r="EXIT_DISC_RADIUS"
                 />
                 <text class="place" :x="line.disc.x" :y="line.disc.y">{{ line.place }}</text>
 
