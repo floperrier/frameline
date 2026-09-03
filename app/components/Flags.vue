@@ -171,7 +171,17 @@ function flagCalled(place: number) {
       </button>
     </div>
 
-    <button v-if="rows.length < FLAGS_PER_SCENE" type="button" class="add" @click="add">
+    <!-- Named in the bar of Commands as well as drawn here: setting a Flag is an
+         act an Author says out loud, and one list of Flags stands on the bench at
+         a time, so the name needs nothing after it to tell it from another. See
+         `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`. -->
+    <button
+      v-if="rows.length < FLAGS_PER_SCENE"
+      type="button"
+      class="add"
+      :data-command="$t('flags.add')"
+      @click="add"
+    >
       {{ $t('flags.add') }}
       <span class="visually-hidden">{{ $t('editor.toScene', { name: scene }) }}</span>
     </button>

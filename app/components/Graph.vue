@@ -1071,7 +1071,7 @@ function atAGlance(scene: Scene) {
            nor a Scene. The key that does the same thing is drawn on the control
            that does it, where somebody who never reads a legend will find it — a
            control and not only a key: see
-           `docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md`. -->
+           `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`. -->
       <button type="button" class="commanding" @click="$emit('command')">
         {{ $t('editor.commands') }}
         <span class="combination"><kbd>{{ modifier }}</kbd><kbd>K</kbd></span>

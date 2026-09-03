@@ -25,7 +25,7 @@ stands._ Reaching a Scene by naming it turned out to be one case of naming
 anything the bench can do, and a second such field beside the first would have
 been the very thing this record refuses two paragraphs down. Every Scene is now
 one entry in the bar of Commands — see
-`docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md` — along with
+`docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md` — along with
 the acts that publish the Story and write in the Scene on the surface.
 
 ## Considered Options

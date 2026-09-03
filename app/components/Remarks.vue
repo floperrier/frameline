@@ -84,7 +84,7 @@ const spoken = computed(() => {
   <details class="found" @toggle="open = ($event.target as HTMLDetailsElement).open">
     <!-- Marked as a Command, because reading what the bench found is an act of it
          like the fit and the Publish — see
-         `docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md`. A
+         `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`. A
          summary is pressed by the bar exactly as it is pressed by a hand, and it
          is named for what that press does from where the list stands. -->
     <summary :data-command="$t(open ? 'editor.closeRemarks' : 'editor.readRemarks')">
