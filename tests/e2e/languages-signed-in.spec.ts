@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { test, writeStory } from './author'
+import { live, test, writeStory } from './author'
 
 /**
  * The two facts about language the product keeps apart: the Locale, which is the
@@ -142,10 +142,14 @@ test('a Story is announced in its own Language while the chrome stays the Reader
 
 test('a Story created without a Language said is English, and one said is kept', async ({ page, request }) => {
   await page.goto('/stories')
+  await live(page)
   await page.getByLabel('Title of a new Story').fill('A Story in French')
   await page.getByLabel('Language of a new Story').selectOption('fr')
   await page.getByRole('button', { name: 'Create Story' }).click()
-  await expect(page.getByRole('link', { name: 'Open A Story in French' })).toBeVisible()
+
+  // Naming a Story opens it, so what it was declared to be written in is read on
+  // its own bench rather than off the row in the list.
+  await expect(page.getByText('Written in French')).toBeVisible()
 
   const [listed] = await (await request.get('/api/stories')).json()
   const written = await (await request.get(`/api/stories/${listed.id}`)).json()

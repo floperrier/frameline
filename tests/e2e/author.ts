@@ -404,3 +404,17 @@ export async function writeStory(request: APIRequestContext, language = 'en') {
 
   return story as { id: string, title: string, language: string }
 }
+
+/**
+ * Waits for the page to be answering, which `page.goto` does not: it returns
+ * when the document has loaded and not when Vue has attached anything to it, so
+ * a form submitted before then is submitted by the browser instead — the page
+ * reloads and what the Author typed is never written. Vue puts itself on the
+ * element it mounts, so that is the mark there is to wait for.
+ */
+export async function live(page: Page) {
+  await page.waitForFunction(() => {
+    const mounted = document.getElementById('__nuxt')
+    return !!mounted && '__vue_app__' in mounted
+  })
+}
