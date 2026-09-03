@@ -13,12 +13,24 @@ for (const name of ['NUXT_SESSION_PASSWORD', 'DATABASE_URL'] as const) {
 
 export default defineConfig({
   testDir: './tests/e2e',
-  // The suite addresses elements by their accessible name and their visible
-  // text, and the interface is read in the language the browser announces, so
-  // the language of the machine running the tests would otherwise decide which
-  // words the selectors are looking for. English is what the specs are written
-  // in; the one spec that wants French says so itself.
-  use: { baseURL: 'http://localhost:3101', locale: 'en-US' },
+  // A red run has to explain itself. The list is what the log reads as it goes,
+  // and the HTML report is the directory `.github/workflows/ci.yml` uploads when
+  // the suite fails — the default reporter writes no such directory, so the step
+  // was uploading nothing and every red run was read off a log excerpt.
+  reporter: [['list'], ['html', { open: 'never' }]],
+  use: {
+    baseURL: 'http://localhost:3101',
+    // The suite addresses elements by their accessible name and their visible
+    // text, and the interface is read in the language the browser announces, so
+    // the language of the machine running the tests would otherwise decide which
+    // words the selectors are looking for. English is what the specs are written
+    // in; the one spec that wants French says so itself.
+    locale: 'en-US',
+    // A race is only ever caught after it happened, so what a failure leaves
+    // behind is the whole evidence: the trace carries the snapshot, the network
+    // and the gesture, and the report copies it in beside the failure.
+    trace: 'retain-on-failure',
+  },
   webServer: {
     command: 'pnpm build && pnpm preview',
     url: 'http://localhost:3101',
