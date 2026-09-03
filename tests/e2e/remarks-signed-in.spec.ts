@@ -62,8 +62,9 @@ test('counts what it finds, and opens the Scene a Remark names', async ({ page, 
   const story = await seedStory(author, 'A Story')
   const arrival = await seedScene(story, 'The arrival')
   const platform = await seedScene(story, 'The platform')
-  // Two Scenes holding no Shot and a Flag nothing tests: three findings, and none
-  // of them a refusal.
+  // A Story opening nowhere — a seeded Scene never becomes the opening one, which
+  // only the endpoint that writes a Scene does — a Scene nothing arrives at, and a
+  // Flag nothing tests: three findings, and none of them a refusal.
   await seedExit(arrival.id, platform.id)
   await seedFlags(arrival.id, { coat: 'on' })
 
@@ -73,28 +74,16 @@ test('counts what it finds, and opens the Scene a Remark names', async ({ page, 
   await openRemarks(page)
   await expect(found(page).getByRole('listitem')).toHaveCount(3)
 
+  // The one Remark said of the Story itself is prose: there is no Scene to be
+  // taken to, so it is not a control that would go nowhere when pressed.
+  await expect(found(page)).toContainText('marks no opening Scene')
+  await expect(found(page).getByRole('button', { name: /opening Scene/ })).toHaveCount(0)
+
   // Pressing the Remark about the Flag puts the Scene that sets it on the writing
   // surface, which is where the Author answers it.
   await found(page).getByRole('button', { name: /sets the Flag coat/ }).click()
   await expect(page).toHaveURL(new RegExp(`scene=${arrival.id}`))
   await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
-})
-
-test('says the one Remark about the Story as a sentence, not a way in', async (
-  { page, request, author },
-) => {
-  const story = await seedStory(author, 'A Story')
-  const opening = await seedScene(story, 'The arrival')
-  await seedScene(story, 'The platform')
-  // The opening Scene taken away leaves the Story opening on nothing, which is
-  // the one finding said of the Story itself: there is no Scene to be taken to,
-  // so the line is prose rather than a control that would go nowhere.
-  await request.delete(`/api/scenes/${opening.id}`)
-
-  await page.goto(`/stories/${story.id}`)
-  await openRemarks(page)
-  await expect(found(page)).toContainText('marks no opening Scene')
-  await expect(found(page).getByRole('button', { name: /opening Scene/ })).toHaveCount(0)
 })
 
 test('is opened by naming it, like every other act of the bench', async ({ page, request }) => {
@@ -108,12 +97,17 @@ test('is opened by naming it, like every other act of the bench', async ({ page,
   await expect(found(page)).toContainText('Nothing to report')
 })
 
-test('leaves to the Preview what the Preview is already saying', async ({ page, author }) => {
-  const story = await seedStory(author, 'A Story')
-  await seedScene(story, 'The arrival')
-  const platform = await seedScene(story, 'The platform')
-  // Two Scenes and no Exit at all, so nothing arrives at the second one: the
-  // bench says so, and so does the Preview beside it once it is open.
+test('leaves to the Preview what the Preview is already saying', async ({ page, request }) => {
+  // Written through the API rather than seeded, because the first Scene it writes
+  // becomes the one the Story opens on: a Story opening nowhere is answered by a
+  // sentence of the Preview's own and never reaches the one this test is about.
+  const story = await (await request.post('/api/stories', { data: { title: 'A Story' } })).json()
+  await request.post(`/api/stories/${story.id}/scenes`, { data: { name: 'The arrival' } })
+  const platform = await (await request.post(
+    `/api/stories/${story.id}/scenes`, { data: { name: 'The platform' } })).json()
+
+  // No Exit at all, so nothing arrives at the second Scene: the bench says so,
+  // and so does the Preview beside it once that Scene is open.
   await page.goto(`/stories/${story.id}`)
   await openRemarks(page)
   await expect(found(page).getByRole('button', { name: /No Exit arrives at The platform/ }))
