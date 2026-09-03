@@ -823,11 +823,26 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
            is a rectangle, and a radio's own is a dot beside the words that
            say what it marks. -->
       <p class="opening" data-step="opening-scene">
+        <!-- `data-command` is on the radio, because the Command is one press of
+             the control that performs the act and the radio is what performs it.
+             Named for the act rather than for the role — the label beside it says
+             *Opening Scene*, which reads as a state where the bar reads as a list
+             of things to do.
+
+             And only where the act has something to do. A radio already checked
+             answers a press with no `change` at all, so the Scene the Story
+             already opens on would put a row in the bar that presses a control
+             and leaves the Story exactly as it was — the same dead row the two
+             `<select>` acts are left unmarked to avoid. See
+             `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`. -->
         <input
           :id="`opening-${sceneWritten.id}`"
           type="radio"
           name="opening-scene"
           :checked="story.openingSceneId === sceneWritten.id"
+          :data-command="story.openingSceneId === sceneWritten.id
+            ? undefined
+            : $t('editor.markOpeningScene')"
           @change="openOn(sceneWritten)"
         >
         <label class="eyebrow" :for="`opening-${sceneWritten.id}`">

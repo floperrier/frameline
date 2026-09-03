@@ -50,6 +50,21 @@ function conditionKind(condition: Condition): ConditionKind {
 const sceneNames = computed(() => new Map(scenes.map(scene => [scene.id, scene.name])))
 
 /**
+ * The name the bar of Commands shows the act of adding a Condition under: the
+ * words on the button, and what carries the list after them. The carrier belongs
+ * in the name here where it is left out of *Add Shot*, because a Scene on the
+ * writing surface draws one of these lists per Shot and one per way on — *Add a
+ * Condition* four times over names nothing.
+ *
+ * One message rather than the button's own two put end to end, because a name in
+ * the bar is a displayed string and those are written in the message files and
+ * nowhere else: where the carrier falls in the sentence is the translator's to
+ * settle, not this file's. See
+ * `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`.
+ */
+const addNamed = computed(() => t('conditions.addTo', { carrier }))
+
+/**
  * Adds a Condition. It starts as a Flag with no name, which is half a Condition
  * and which the server is right to refuse, so nothing is written until the name
  * is typed — or until the Author turns the row into a visit count, which is
@@ -220,7 +235,13 @@ function conditionCalled(place: number) {
       </button>
     </div>
 
-    <button v-if="conditions.length < CONDITIONS_MAX" type="button" class="add" @click="add">
+    <button
+      v-if="conditions.length < CONDITIONS_MAX"
+      type="button"
+      class="add"
+      :data-command="addNamed"
+      @click="add"
+    >
       {{ $t('conditions.add') }}
       <span class="visually-hidden">{{ $t('conditions.toCarrier', { carrier }) }}</span>
     </button>

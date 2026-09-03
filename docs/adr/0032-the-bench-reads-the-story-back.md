@@ -21,7 +21,7 @@ place a Scene nothing led to was visible without being looked for: it was the
 card sitting on its own on the canvas. That was never a diagnostic, but it was a
 picture the Author read every time they laid a Scene out. `0034` took the canvas
 off the critical path and
-`docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md` finished the
+`docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md` finished the
 job — a Story is now written, corrected and published without the graph ever
 being unfolded, and a Scene named into existence from the bar joins nothing at a
 cost of two seconds. `0035` says outright that this record is half of why the
