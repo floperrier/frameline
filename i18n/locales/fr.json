@@ -18,6 +18,11 @@
     "heading": "C'est sans retour",
     "dismiss": "Ne rien supprimer"
   },
+  "commands": {
+    "heading": "Tapez un nom",
+    "nothing": "Rien ici ne répond à cela.",
+    "writeScene": "Écrire une Scène nommée {name}"
+  },
   "scene": {
     "gone": "une Scène disparue",
     "goneOption": "Une Scène disparue"
@@ -177,8 +182,8 @@
     "toANewScene": "Vers une Scène qui n’existe pas encore",
     "wayOnLeadsTo": "Où mène la Sortie {place} depuis {name}",
     "whatTheReaderPresses": "Ce que presse le Lecteur",
-    "goToScene": "Aller à une Scène",
-    "goToSceneHint": "Son nom"
+    "goToScene": "Aller à {name}",
+    "commands": "Commandes"
   },
   "conditions": {
     "ofCarrier": "de {carrier}",

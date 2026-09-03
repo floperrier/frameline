@@ -118,6 +118,22 @@ which is a value a Reading carries rather than something the bench asks for.
 _Affiché_: Étape
 _Avoid_: hint, tip, tour, cue, onboarding, coach mark, repère, astuce
 
+**Command**:
+One thing the bench can be asked to do by naming it — go to a Scene, publish the
+Story, delete the Scene being written — offered in a bar an Author types into
+rather than found among the controls. Almost every Command is a control already
+standing on the bench, marked in its own template with the name the bar shows it
+under, and running it presses that control — so the bar offers nothing the bench
+does not, and nothing it offers is reachable by the keyboard alone. The one
+Command with no control behind it is the offer to write a Scene under a name
+that reached nothing, because an Author who has just typed the name of a Scene
+that does not exist has said what they want. Named in plain language rather than out of
+the grammar of cinema, because it is a tool of the bench and not a part of the
+Story — see `docs/adr/0022-the-metaphor-stops-at-the-edge-of-the-work.md`.
+_Affiché_: Commande
+_Avoid_: palette, command palette, action, shortcut, quick open, spotlight,
+raccourci, action rapide, recherche
+
 ### The reading
 
 **State**:

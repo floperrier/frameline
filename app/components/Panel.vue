@@ -808,7 +808,12 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
            rather than above it, because a row of its own at the head made the
            way out the first thing on a surface whose subject is what is written
            on it. -->
-      <button type="button" class="close" @click="$emit('close')">
+      <button
+        type="button"
+        class="close"
+        :data-command="$t('editor.closePanel')"
+        @click="$emit('close')"
+      >
         {{ $t('editor.closePanel') }}
       </button>
     </div>
@@ -831,7 +836,12 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
         </label>
       </p>
 
-      <button type="button" class="danger" @click="deleteScene(sceneWritten)">
+      <button
+        type="button"
+        class="danger"
+        :data-command="$t('editor.deleteScene')"
+        @click="deleteScene(sceneWritten)"
+      >
         {{ $t('editor.deleteScene') }}
         <span class="visually-hidden">{{ sceneWritten.name }}</span>
       </button>
@@ -1030,7 +1040,12 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
            last beat is what an Author writing gets, and this is what an Author
            who has just opened a Scene with nothing in it gets — there is no beat
            to press Enter at the end of. -->
-      <button type="button" class="add-shot" @click="addShot(sceneWritten)">
+      <button
+        type="button"
+        class="add-shot"
+        :data-command="$t('editor.addShot')"
+        @click="addShot(sceneWritten)"
+      >
         {{ $t('editor.addShot') }}
         <span class="visually-hidden">
           {{ $t('editor.toScene', { name: sceneWritten.name }) }}
