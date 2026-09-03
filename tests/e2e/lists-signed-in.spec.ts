@@ -122,7 +122,7 @@ test('an Author writes a List, gathers Stories into it, and takes it away', asyn
     .getByRole('listitem')).toHaveCount(1)
 
   // Taken out of the List it was gathered into, and still where else it was put.
-  await shelf.getByRole('button', { name: `Take out ${first.title}` }).click()
+  await shelf.getByRole('button', { name: `Take Out ${first.title}` }).click()
   await expect(shelf.getByRole('listitem')).toHaveCount(1)
   await expect(page.locator('section').filter({ hasText: 'Favourites' })
     .getByRole('listitem')).toHaveCount(1)

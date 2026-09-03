@@ -256,6 +256,48 @@ button:disabled {
   background: color-mix(in oklab, var(--alarm) 16%, transparent);
 }
 
+/* A control that acts on one row of a list — renumbers it, duplicates it, adds a
+   value to it, takes it away — is the mark of what it does and never the sentence
+   that names it. In the width a row of fields leaves, a way on's four sentences
+   fill the strip and wrap out of it in the longer of the two languages. Nothing
+   an eye reads is lost: what each one says is the visually hidden words inside
+   it, where the row's other names are already read.
+   Declared here rather than in whichever surface first needed it, because a
+   Condition's row, a Flag's row, a beat, a way on and the reading beside them all
+   carry these — and one act drawn two ways is what happens when five stylesheets
+   each decide again. Kept a square rather than shrunk to the glyph inside it, so
+   a finger is asked for no more aim than a word would need. */
+.mark {
+  min-inline-size: 1.75rem;
+  padding: var(--s1) var(--s2);
+  line-height: 1.2;
+}
+
+/* One row of a list read as the sentence it is — "coat holds on", "played when
+   Flag coat holds on" — with the mark that acts on the whole row held in a column
+   of its own at the trailing edge. Two columns rather than one wrapping line,
+   because the sentence wraps at the width of a phone and a mark that wrapped with
+   it would stand on a line of its own with nothing beside it to say what it
+   removes; centred on the sentence however many lines it takes, which is also
+   what says it acts on all of them.
+   Here for the reason `.mark` is: a Flag's row and a Condition's row are one
+   language on purpose — each component says so in its own words — and this is the
+   shape they are one language in. */
+.reads {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.reads .sentence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1);
+  font-size: 0.75rem;
+}
+
 /* Focus is the machine's light, drawn outside the control so it never moves the
    layout — and it is the same ring on every surface, which is what makes the
    interface followable without a mouse. */

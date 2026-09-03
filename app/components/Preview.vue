@@ -234,26 +234,31 @@ function why(conditions: Condition[]) {
         <!-- The order the ways on are offered in, set on the buttons as they are
              read. A pair of controls rather than a drag, because an order that
              can only be set with a pointer is an order some Authors cannot set. -->
+        <!-- The marks the Scene being written is renumbered by, because this pane
+             stands beside that surface and the Place of a way on is the same act
+             here as it is there — see `.mark` in `frameline.css`. -->
         <template #ordering="{ exit }">
           <button
             type="button"
-            class="place"
+            class="mark"
             :disabled="placeOf(exit) === 0"
             @click="moveWay(exit, -1)"
           >
-            {{ $t('common.moveEarlier') }}
+            <span aria-hidden="true">↑</span>
             <span class="visually-hidden">
+              {{ $t('common.moveEarlier') }}
               {{ $t('editor.theExitTo', { scene: sceneName(exit.toSceneId) }) }}
             </span>
           </button>
           <button
             type="button"
-            class="place"
+            class="mark"
             :disabled="placeOf(exit) === ways.length - 1"
             @click="moveWay(exit, 1)"
           >
-            {{ $t('common.moveLater') }}
+            <span aria-hidden="true">↓</span>
             <span class="visually-hidden">
+              {{ $t('common.moveLater') }}
               {{ $t('editor.theExitTo', { scene: sceneName(exit.toSceneId) }) }}
             </span>
           </button>
@@ -358,15 +363,6 @@ function why(conditions: Condition[]) {
   border: 1px solid var(--edge);
   border-radius: var(--machined);
   background: var(--steel);
-}
-
-/* The two controls that renumber a way on, held to the size the ones beside a
-   Shot are: they are the keyboard's route to the order, beside the button the
-   order is about. */
-.place {
-  flex: none;
-  padding: var(--s1) var(--s2);
-  font-size: 0.6875rem;
 }
 
 /* The bench under the reading, in the machine's own voice: mono, small, and on

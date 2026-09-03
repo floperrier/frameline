@@ -50,8 +50,8 @@ test('an Author with no Name is asked for one in the listing, once', async ({ pa
   // Asked in the act that needs it, and answered in the same gesture: the Story
   // is listed as soon as the Name is given.
   await page.getByLabel('Your Name').fill('Vivian Marsh')
-  await page.getByRole('button', { name: 'List it under this Name' }).click()
-  await expect(page.getByRole('button', { name: 'Take this Story out of the Catalogue' }))
+  await page.getByRole('button', { name: 'List It under this Name' }).click()
+  await expect(page.getByRole('button', { name: 'Take this Story Out of the Catalogue' }))
     .toBeVisible()
   expect(await readAuthorName(author.id)).toBe('Vivian Marsh')
 
@@ -61,7 +61,7 @@ test('an Author with no Name is asked for one in the listing, once', async ({ pa
   await page.goto(`/stories/${second.id}`)
   await page.getByRole('button', { name: 'Publish this Story', exact: true }).click()
   await page.getByRole('button', { name: 'List this Story in the Catalogue' }).click()
-  await expect(page.getByRole('button', { name: 'Take this Story out of the Catalogue' }))
+  await expect(page.getByRole('button', { name: 'Take this Story Out of the Catalogue' }))
     .toBeVisible()
   await expect(page.getByLabel('Your Name')).toBeHidden()
 })

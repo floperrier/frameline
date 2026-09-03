@@ -117,101 +117,107 @@ function conditionCalled(place: number) {
     <div
       v-for="(condition, place) in conditions"
       :key="place"
-      class="when"
+      class="when reads"
       @keydown.enter.prevent="addTyping"
     >
-      <span class="numbered" aria-hidden="true">{{ place + 1 }}</span>
-      <label class="visually-hidden" :for="`when-${id}-${place}`">
-        {{ conditionCalled(place) }}
-      </label>
-      <select
-        :id="`when-${id}-${place}`"
-        :value="conditionKind(condition)"
-        @change="choose(place, ($event.target as HTMLSelectElement).value as ConditionKind)"
-      >
-        <option value="flag">{{ $t('conditions.flag') }}</option>
-        <option value="visits">{{ $t('conditions.scene') }}</option>
-      </select>
-
-      <template v-if="'flag' in condition">
-        <label class="visually-hidden" :for="`flag-${id}-${place}`">
-          {{ $t('conditions.flag') }}
-          {{ $t('conditions.ofCarrier', { carrier: conditionCalled(place) }) }}
-        </label>
-        <input
-          :id="`flag-${id}-${place}`"
-          v-model="condition.flag"
-          class="data"
-          size="8"
-          :maxlength="FLAG_NAME_MAX_LENGTH"
-          @change="emit('write')"
-        >
-        <span class="says" aria-hidden="true">{{ $t('conditions.holds') }}</span>
-        <label class="visually-hidden" :for="`is-${id}-${place}`">
-          {{ $t('conditions.holds') }}
-          {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
-        </label>
-        <input
-          :id="`is-${id}-${place}`"
-          v-model="condition.is"
-          class="data"
-          size="8"
-          :maxlength="FLAG_VALUE_MAX_LENGTH"
-          @change="emit('write')"
-        >
-      </template>
-
-      <template v-else>
-        <label class="visually-hidden" :for="`counted-${id}-${place}`">
-          {{ $t('conditions.scene') }}
-          {{ $t('conditions.countedBy', { condition: conditionCalled(place) }) }}
+      <!-- The sentence, and then the mark that strikes the whole of it out — a
+           column of the row rather than the last field in the sentence, which is
+           `.reads` in `frameline.css` and the shape a Flag's row is read in
+           too. -->
+      <div class="sentence">
+        <span class="numbered" aria-hidden="true">{{ place + 1 }}</span>
+        <label class="visually-hidden" :for="`when-${id}-${place}`">
+          {{ conditionCalled(place) }}
         </label>
         <select
-          :id="`counted-${id}-${place}`"
-          v-model="condition.scene"
-          class="counted"
-          @change="emit('write')"
+          :id="`when-${id}-${place}`"
+          :value="conditionKind(condition)"
+          @change="choose(place, ($event.target as HTMLSelectElement).value as ConditionKind)"
         >
-          <!-- A Scene deleted since the Condition was written is still what it
-               counts, and saying so beats showing the Author a Scene they never
-               chose. -->
-          <option v-if="!sceneNames.get(condition.scene)" :value="condition.scene">
-            {{ $t('scene.goneOption') }}
-          </option>
-          <option v-for="counted in scenes" :key="counted.id" :value="counted.id">
-            {{ counted.name }}
-          </option>
+          <option value="flag">{{ $t('conditions.flag') }}</option>
+          <option value="visits">{{ $t('conditions.scene') }}</option>
         </select>
-        <span class="says" aria-hidden="true">{{ $t('conditions.entered') }}</span>
-        <label class="visually-hidden" :for="`visits-${id}-${place}`">
-          {{ $t('conditions.entered') }}
-          {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
-        </label>
-        <select
-          :id="`visits-${id}-${place}`"
-          v-model="condition.visits"
-          @change="emit('write')"
-        >
-          <option value="at least">{{ $t('conditions.atLeast') }}</option>
-          <option value="fewer than">{{ $t('conditions.fewerThan') }}</option>
-        </select>
-        <label class="visually-hidden" :for="`times-${id}-${place}`">
-          {{ $t('conditions.times') }}
-          {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
-        </label>
-        <input
-          :id="`times-${id}-${place}`"
-          v-model.number="condition.times"
-          class="times data"
-          type="number"
-          min="1"
-          :max="VISITS_MAX"
-          @change="emit('write')"
-        >
-        <span class="says" aria-hidden="true">{{ $t('conditions.times') }}</span>
-      </template>
 
-      <button type="button" class="danger strike" @click="remove(place)">
+        <template v-if="'flag' in condition">
+          <label class="visually-hidden" :for="`flag-${id}-${place}`">
+            {{ $t('conditions.flag') }}
+            {{ $t('conditions.ofCarrier', { carrier: conditionCalled(place) }) }}
+          </label>
+          <input
+            :id="`flag-${id}-${place}`"
+            v-model="condition.flag"
+            class="data"
+            size="8"
+            :maxlength="FLAG_NAME_MAX_LENGTH"
+            @change="emit('write')"
+          >
+          <span class="says" aria-hidden="true">{{ $t('conditions.holds') }}</span>
+          <label class="visually-hidden" :for="`is-${id}-${place}`">
+            {{ $t('conditions.holds') }}
+            {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
+          </label>
+          <input
+            :id="`is-${id}-${place}`"
+            v-model="condition.is"
+            class="data"
+            size="8"
+            :maxlength="FLAG_VALUE_MAX_LENGTH"
+            @change="emit('write')"
+          >
+        </template>
+
+        <template v-else>
+          <label class="visually-hidden" :for="`counted-${id}-${place}`">
+            {{ $t('conditions.scene') }}
+            {{ $t('conditions.countedBy', { condition: conditionCalled(place) }) }}
+          </label>
+          <select
+            :id="`counted-${id}-${place}`"
+            v-model="condition.scene"
+            class="counted"
+            @change="emit('write')"
+          >
+            <!-- A Scene deleted since the Condition was written is still what it
+                 counts, and saying so beats showing the Author a Scene they never
+                 chose. -->
+            <option v-if="!sceneNames.get(condition.scene)" :value="condition.scene">
+              {{ $t('scene.goneOption') }}
+            </option>
+            <option v-for="counted in scenes" :key="counted.id" :value="counted.id">
+              {{ counted.name }}
+            </option>
+          </select>
+          <span class="says" aria-hidden="true">{{ $t('conditions.entered') }}</span>
+          <label class="visually-hidden" :for="`visits-${id}-${place}`">
+            {{ $t('conditions.entered') }}
+            {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
+          </label>
+          <select
+            :id="`visits-${id}-${place}`"
+            v-model="condition.visits"
+            @change="emit('write')"
+          >
+            <option value="at least">{{ $t('conditions.atLeast') }}</option>
+            <option value="fewer than">{{ $t('conditions.fewerThan') }}</option>
+          </select>
+          <label class="visually-hidden" :for="`times-${id}-${place}`">
+            {{ $t('conditions.times') }}
+            {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
+          </label>
+          <input
+            :id="`times-${id}-${place}`"
+            v-model.number="condition.times"
+            class="times data"
+            type="number"
+            min="1"
+            :max="VISITS_MAX"
+            @change="emit('write')"
+          >
+          <span class="says" aria-hidden="true">{{ $t('conditions.times') }}</span>
+        </template>
+      </div>
+
+      <button type="button" class="danger mark" @click="remove(place)">
         <span aria-hidden="true">×</span>
         <span class="visually-hidden">
           {{ $t('conditions.remove', { place: place + 1 }) }}
@@ -238,12 +244,9 @@ function conditionCalled(place: number) {
   gap: var(--s1);
 }
 
-/* A Shot carrying no Conditions is the ordinary Shot, and the control that adds
-   the first one was the widest thing in its row: a line of prose with a
-   full-width button under it reads as though the button were the subject. With
-   none, the whole list is one quiet line — what holds, and the small way to
-   change it — and it grows into a column the moment there is a Condition in
-   it. */
+/* A Shot carrying no Conditions is the ordinary Shot: the whole list is one quiet
+   line — what holds, and the way to change it — and it grows into a column the
+   moment there is a Condition in it. */
 .conditions.quiet {
   display: flex;
   flex-wrap: wrap;
@@ -251,17 +254,21 @@ function conditionCalled(place: number) {
   gap: var(--s1) var(--s2);
 }
 
-.conditions.quiet .add {
+/* The control that adds one, at the size and in the place it has whether the list
+   holds none or five: as wide as its words and no wider, sat at the leading edge.
+   It used to be that small line only where there was nothing in the list and a
+   button across the whole width under one — two shapes for one act, on rows a
+   Scene reads together, and the wide one read as though the button were the
+   subject of the list above it. That is what the control that adds a Flag and the
+   one that adds a beat both refuse, for the same reason.
+   Two rules do it, because the list is laid out two ways: the quiet line above is
+   a flex row, where a button is already only as wide as its words, and a list
+   with a Condition in it is a grid, where `justify-self` is what stops the lone
+   button stretching across the column. */
+.conditions .add {
+  justify-self: start;
   padding: 0 var(--s2);
   font-size: 0.7rem;
-}
-
-.when {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s1);
-  font-size: 0.75rem;
 }
 
 /* Each field is as wide as what is in it and no wider — `field-sizing` where the
@@ -306,12 +313,6 @@ function conditionCalled(place: number) {
 
 .numbered {
   font-variant-numeric: tabular-nums;
-}
-
-/* The mark a row is struck out by, rather than the sentence "Remove Condition 2"
-   set beside a sentence. */
-.strike {
-  padding: 0 var(--s2);
 }
 
 /* Data the Author types rather than prose: a Condition's two sides, the count of

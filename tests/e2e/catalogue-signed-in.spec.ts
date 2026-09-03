@@ -59,7 +59,7 @@ test('an Author lists a published Story and anyone finds it in the Catalogue', a
   await expect(entryFor(await catalogueFor(browser, baseURL), title)).toBeHidden()
 
   await page.getByRole('button', { name: 'List this Story in the Catalogue' }).click()
-  await expect(page.getByRole('button', { name: 'Take this Story out of the Catalogue' }))
+  await expect(page.getByRole('button', { name: 'Take this Story Out of the Catalogue' }))
     .toBeVisible()
 
   // What an entry carries: the Title, the Language the work is written in, and
@@ -84,7 +84,7 @@ test('an Author lists a published Story and anyone finds it in the Catalogue', a
 
   // Unlisting is not unpublishing: the Story leaves the Catalogue and every link
   // already sent goes on working.
-  await page.getByRole('button', { name: 'Take this Story out of the Catalogue' }).click()
+  await page.getByRole('button', { name: 'Take this Story Out of the Catalogue' }).click()
   await expect(page.getByRole('button', { name: 'List this Story in the Catalogue' }))
     .toBeVisible()
   await expect(entryFor(await catalogueFor(browser, baseURL), title)).toBeHidden()

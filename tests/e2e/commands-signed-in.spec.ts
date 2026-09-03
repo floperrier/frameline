@@ -61,7 +61,7 @@ test('an Author goes to a Scene by naming it, accents or none', async ({ page, r
   for (const named of [
     'Go to Le café',
     'Go to The alley',
-    'Fit the graph',
+    'Fit the Graph',
     'Publish this Story',
     'Read the Remarks',
   ]) {
@@ -203,7 +203,7 @@ test('the bar offers the acts of the Scene being written, and Escape leaves that
   await open(page)
   // The acts inside the writing surface are on offer because the surface is
   // open: what the bar lists is what the bench is drawing.
-  await expect(offered(page).filter({ hasText: 'Add Shot' })).toBeVisible()
+  await expect(offered(page).filter({ hasText: 'Add a Shot' })).toBeVisible()
 
   // Escape belongs to the bar while the bar is up. The page listens for the same
   // key to close the writing surface, and the Scene has to still be there after.
@@ -212,7 +212,7 @@ test('the bar offers the acts of the Scene being written, and Escape leaves that
   await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
 
   await open(page)
-  await typing(page).fill('Add Shot')
+  await typing(page).fill('Add a Shot')
   await offered(page).click()
 
   // The act ran on the Story: a third Shot where the Scene had two.
@@ -251,6 +251,6 @@ test('a destructive Command asks before it acts, as its own control does', async
   await expect(page.locator('dialog.commands')).toBeHidden()
   await expect(page.getByRole('dialog')).toContainText('This cannot be undone')
 
-  await page.getByRole('button', { name: 'Leave it' }).click()
+  await page.getByRole('button', { name: 'Leave It' }).click()
   await expect(page.getByRole('article', { name: 'The bar' })).toBeVisible()
 })

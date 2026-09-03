@@ -108,64 +108,72 @@ function flagCalled(place: number) {
          over was what taking the tabs out left behind. -->
     <p v-if="!rows.length" class="eyebrow none">{{ $t('flags.none') }}</p>
 
-    <div v-for="(row, place) in rows" :key="place" class="sets" @keydown.enter.prevent="addTyping">
-      <span class="numbered" aria-hidden="true">{{ place + 1 }}</span>
-      <label class="visually-hidden" :for="`flag-${id}-${place}`">
-        {{ $t('flags.name', { flag: flagCalled(place) }) }}
-      </label>
-      <input
-        :id="`flag-${id}-${place}`"
-        v-model="row.name"
-        class="data"
-        size="8"
-        :maxlength="FLAG_NAME_MAX_LENGTH"
-        @change="write"
-      >
-      <span class="says" aria-hidden="true">{{ $t('flags.holds') }}</span>
-
-      <!-- The values a Flag is drawn from, one of them on each entry: the word
-           between them is what the draw does, so a row of three reads as a
-           choice rather than as three fields in a row. A row of one has nothing
-           to take away, so it is not offered. -->
-      <template v-for="(value, at) in row.values" :key="at">
-        <span v-if="at" class="says" aria-hidden="true">{{ $t('flags.or') }}</span>
-        <label class="visually-hidden" :for="`value-${id}-${place}-${at}`">
-          {{ $t('flags.value', { place: at + 1, flag: flagCalled(place) }) }}
+    <div v-for="(row, place) in rows" :key="place" class="sets reads" @keydown.enter.prevent="addTyping">
+      <!-- The Flag as the sentence it is, every mark inside it acting on one
+           value of the draw, and then the one mark that ends the whole Flag —
+           held apart in a column of its own, because taking a Flag away is not a
+           sibling of adding a value to it and the two stood side by side as
+           identical squares. `.reads` in `frameline.css` is that shape, and a
+           Condition's row is read in it too. -->
+      <div class="sentence">
+        <span class="numbered" aria-hidden="true">{{ place + 1 }}</span>
+        <label class="visually-hidden" :for="`flag-${id}-${place}`">
+          {{ $t('flags.name', { flag: flagCalled(place) }) }}
         </label>
         <input
-          :id="`value-${id}-${place}-${at}`"
-          v-model="row.values[at]"
+          :id="`flag-${id}-${place}`"
+          v-model="row.name"
           class="data"
           size="8"
-          :maxlength="FLAG_VALUE_MAX_LENGTH"
+          :maxlength="FLAG_NAME_MAX_LENGTH"
           @change="write"
         >
+        <span class="says" aria-hidden="true">{{ $t('flags.holds') }}</span>
+
+        <!-- The values a Flag is drawn from, one of them on each entry: the word
+             between them is what the draw does, so a row of three reads as a
+             choice rather than as three fields in a row. A row of one has nothing
+             to take away, so it is not offered. -->
+        <template v-for="(value, at) in row.values" :key="at">
+          <span v-if="at" class="says" aria-hidden="true">{{ $t('flags.or') }}</span>
+          <label class="visually-hidden" :for="`value-${id}-${place}-${at}`">
+            {{ $t('flags.value', { place: at + 1, flag: flagCalled(place) }) }}
+          </label>
+          <input
+            :id="`value-${id}-${place}-${at}`"
+            v-model="row.values[at]"
+            class="data"
+            size="8"
+            :maxlength="FLAG_VALUE_MAX_LENGTH"
+            @change="write"
+          >
+          <button
+            v-if="row.values.length > 1"
+            type="button"
+            class="danger mark"
+            @click="removeValue(row, at)"
+          >
+            <span aria-hidden="true">×</span>
+            <span class="visually-hidden">
+              {{ $t('flags.removeValue', { place: at + 1, flag: flagCalled(place) }) }}
+            </span>
+          </button>
+        </template>
+
         <button
-          v-if="row.values.length > 1"
+          v-if="row.values.length < FLAG_VALUES_MAX"
           type="button"
-          class="danger strike"
-          @click="removeValue(row, at)"
+          class="mark"
+          @click="addValue(row, place)"
         >
-          <span aria-hidden="true">×</span>
+          <span aria-hidden="true">+</span>
           <span class="visually-hidden">
-            {{ $t('flags.removeValue', { place: at + 1, flag: flagCalled(place) }) }}
+            {{ $t('flags.addValue', { flag: flagCalled(place) }) }}
           </span>
         </button>
-      </template>
+      </div>
 
-      <button
-        v-if="row.values.length < FLAG_VALUES_MAX"
-        type="button"
-        class="strike"
-        @click="addValue(row, place)"
-      >
-        <span aria-hidden="true">+</span>
-        <span class="visually-hidden">
-          {{ $t('flags.addValue', { flag: flagCalled(place) }) }}
-        </span>
-      </button>
-
-      <button type="button" class="danger strike" @click="remove(place)">
+      <button type="button" class="danger mark" @click="remove(place)">
         <span aria-hidden="true">×</span>
         <span class="visually-hidden">{{ $t('flags.remove', { flag: flagCalled(place) }) }}</span>
       </button>
@@ -197,14 +205,6 @@ function flagCalled(place: number) {
   gap: var(--s1);
 }
 
-.sets {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s1);
-  font-size: 0.75rem;
-}
-
 /* Each field is as wide as what is in it and no wider — `field-sizing` where the
    browser has it, and the `size` attribute where it does not, so a Flag of two
    short words still reads across one row rather than the twenty characters an
@@ -229,12 +229,6 @@ function flagCalled(place: number) {
 
 .numbered {
   font-variant-numeric: tabular-nums;
-}
-
-/* The marks a row and a value are taken off by, and the one a value is added by:
-   a mark rather than a sentence, the way a Condition's is. */
-.strike {
-  padding: 0 var(--s2);
 }
 
 /* Data the Author types rather than prose: a Flag's name and its values. */

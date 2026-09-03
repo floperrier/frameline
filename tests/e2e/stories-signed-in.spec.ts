@@ -37,7 +37,7 @@ test('an Author is asked before a Story goes, and can leave it', async ({ page, 
   const asking = page.getByRole('dialog')
   await expect(asking).toContainText('“A Story” goes, and everything written in it.')
 
-  await asking.getByRole('button', { name: 'Leave it' }).click()
+  await asking.getByRole('button', { name: 'Leave It' }).click()
   await expect(asking).toBeHidden()
   await expect(control).toBeFocused()
   await expect(readStory(story.id)).resolves.toEqual({ id: story.id, title: 'A Story' })
@@ -156,5 +156,5 @@ test('an Author on the landing page is shown their Stories rather than a door', 
   // Both places the way in is offered — beside the pitch and at the foot — carry
   // the same thing for somebody who is already signed in.
   await expect(page.getByRole('link', { name: 'Your Stories' })).toHaveCount(2)
-  await expect(page.getByRole('link', { name: 'Sign in with GitHub' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Sign In with GitHub' })).toHaveCount(0)
 })

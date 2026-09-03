@@ -190,7 +190,7 @@ test('an Author renumbers the Shots of a Scene from the controls', async ({ page
 
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The arrival')
-  await page.getByRole('button', { name: 'Move later Shot 1' }).click()
+  await page.getByRole('button', { name: 'Move Later Shot 1' }).click()
 
   // The control sends the whole run in its new order, so what the Scene holds is
   // the numbering and not a swap the page kept to itself.
@@ -218,9 +218,9 @@ test('a Shot’s three controls are marks on one line', async ({ page, request }
 
   // Each image says what it does and which Shot it does it to — the words moved
   // to where assistive technology alone reads them, they did not go.
-  const earlier = page.getByRole('button', { name: 'Move earlier Shot 2' })
+  const earlier = page.getByRole('button', { name: 'Move Earlier Shot 2' })
   await expect(earlier).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Move later Shot 2' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Move Later Shot 2' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Delete Shot 2' })).toBeVisible()
 
   // The whole point of the marks: each control is about as wide as it is tall
@@ -534,7 +534,7 @@ test('the Story page shows a Scene and the Shots in it', async ({ page, request 
   await writeScene(page, 'The arrival')
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('She steps off the train.')
 
-  await page.getByRole('button', { name: 'Add Shot' }).click()
+  await page.getByRole('button', { name: 'Add a Shot' }).click()
   await expect(page.getByRole('textbox', { name: 'Shot 2' })).toBeVisible()
 })
 
@@ -567,7 +567,7 @@ test('everything a Scene holds is on the surface at once, each part counted',
       .toHaveValue(platform.id)
 
     // The count follows the Story rather than the page it was drawn on.
-    await page.getByRole('button', { name: 'Add Shot' }).click()
+    await page.getByRole('button', { name: 'Add a Shot' }).click()
     await expect(page.locator('.panel .held > h3').nth(1)).toHaveText(/Shots\s*3/)
   })
 
@@ -637,7 +637,7 @@ test('an Author writes a Story from the page alone', async ({ page, request }) =
   // The one control that makes a Scene out of nothing. It lands under a
   // provisional name with the panel open on that name, selected, so naming it is
   // the first thing typed rather than a step before it existed.
-  await page.getByRole('button', { name: 'Write the first Scene' }).click()
+  await page.getByRole('button', { name: 'Write the First Scene' }).click()
   await expect(page.getByText('“A new Scene” created')).toBeVisible()
   const named = page.getByRole('textbox', { name: 'Name of this Scene' })
   await expect(named).toBeFocused()
@@ -649,7 +649,7 @@ test('an Author writes a Story from the page alone', async ({ page, request }) =
 
   // Blurring the Shot is what writes it, so each is left before the next is added.
   for (const [place, line] of ['She steps off the train.', 'The platform is empty.'].entries()) {
-    await page.getByRole('button', { name: 'Add Shot' }).click()
+    await page.getByRole('button', { name: 'Add a Shot' }).click()
     const shot = page.getByRole('textbox', { name: `Shot ${place + 1}` })
     await expect(shot).toBeVisible()
     await shot.fill(line)
@@ -657,7 +657,7 @@ test('an Author writes a Story from the page alone', async ({ page, request }) =
     await expect(shot).toHaveValue(line)
   }
 
-  await page.getByRole('button', { name: 'Move earlier Shot 2' }).click()
+  await page.getByRole('button', { name: 'Move Earlier Shot 2' }).click()
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('The platform is empty.')
   await expect(page.getByRole('textbox', { name: 'Shot 2' })).toHaveValue('She steps off the train.')
 
@@ -704,7 +704,7 @@ test('a Scene dismissed from the confirmation is left exactly as it was', async 
     '“The booth” goes, and with it 2 Shots, 1 Exit leaving it and 1 Exit arriving at it.')
 
   // What a stray Enter would land on is the answer that destroys nothing.
-  await expect(asking.getByRole('button', { name: 'Leave it' })).toBeFocused()
+  await expect(asking.getByRole('button', { name: 'Leave It' })).toBeFocused()
   await page.keyboard.press('Escape')
   await expect(asking).toBeHidden()
   await expect(control).toBeFocused()

@@ -21,6 +21,7 @@ import {
   readSceneName,
   readScenePlacement,
   seedExit,
+  seedFlags,
   seedScene,
   seedScenes,
   seedStory,
@@ -448,7 +449,7 @@ test('writing a Scene takes the width, and folds the graph into a rail', async (
 
   // Where the Author left the bench: pulled back a step, and pushed away from the
   // corner it opens at. Both are theirs, and the fold has to give both back.
-  await page.getByRole('button', { name: 'Pull back from the graph' }).click()
+  await page.getByRole('button', { name: 'Pull Back from the Graph' }).click()
   await expect(level).toContainText('75%')
   // A step of the zoom travels, and what a box scrolls across is what is drawn in
   // it: pushed while the scale is still on its way, the bench would be pushed
@@ -504,7 +505,7 @@ test('writing a Scene takes the width, and folds the graph into a rail', async (
   await writeScene(page, 'The arrival')
   await expect.poll(async () => (await panel.boundingBox())!.x).toBeLessThan(
     (await graph.boundingBox())!.x + 1)
-  await page.getByRole('button', { name: 'Close this panel' }).click()
+  await page.getByRole('button', { name: 'Close this Panel' }).click()
   await expect(panel).toHaveCount(0)
 })
 
@@ -878,7 +879,7 @@ test('every card is one size, whatever the Scene in it holds', async ({ page, re
   // one size, at whichever size the bench is drawing them, and a second Shot grows
   // the surface it is written on rather than the bench.
   await writeScene(page, 'The arrival')
-  await page.getByRole('button', { name: 'Add Shot to The arrival' }).click()
+  await page.getByRole('button', { name: 'Add a Shot to The arrival' }).click()
   await expect(page.getByRole('textbox', { name: 'Shot 2' })).toBeVisible()
   // To the pixel, because the rail draws the cards through a scale that is
   // whatever fits the Story in the room the header leaves: a card an eight-
@@ -1045,7 +1046,7 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
   // `docs/adr/0030-a-story-is-read-where-it-is-written.md`.
   const ways = page.locator('.panel .ways')
 
-  await ways.getByRole('button', { name: 'Move earlier the way on 2 to The tunnel' }).click()
+  await ways.getByRole('button', { name: 'Move Earlier the way on 2 to The tunnel' }).click()
   await expect(async () => {
     await expect(readExits(from.id)).resolves.toMatchObject([
       { toSceneId: tunnel.id, position: 0 },
@@ -1057,9 +1058,9 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
   // rather than asking. The reload comes back to the Scene being written, which the
   // address carries, so nothing is opened again here.
   await page.reload()
-  await expect(ways.getByRole('button', { name: 'Move earlier the way on 1 to The tunnel' }))
+  await expect(ways.getByRole('button', { name: 'Move Earlier the way on 1 to The tunnel' }))
     .toBeDisabled()
-  await expect(ways.getByRole('button', { name: 'Move later the way on 2 to The buffet' }))
+  await expect(ways.getByRole('button', { name: 'Move Later the way on 2 to The buffet' }))
     .toBeDisabled()
 
   // And by hand: a row dragged onto another takes the Place that row stood at.
@@ -1085,6 +1086,35 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
   // The Scene is still what is being written: a way on is dragged where it
   // stands, and nothing is handed anywhere.
   await expect(page.getByRole('group', { name: 'Writing The platform' })).toBeVisible()
+})
+
+test('a way on’s four controls are marks, as a Shot’s are', async ({ page, request }) => {
+  const { story, scenes } = await openGraph(request, ['The platform', 'The buffet'])
+  const [from, buffet] = scenes as [{ id: string }, { id: string }]
+  await drawExit(request, from.id, buffet.id)
+
+  await page.goto(`/stories/${story.id}`)
+  await writeScene(page, 'The platform')
+
+  // Each one says what it does and which way on it does it to, the words read by
+  // assistive technology alone — they moved, they did not go.
+  const earlier = page.getByRole('button', { name: 'Move Earlier the way on 1 to The buffet' })
+  await expect(earlier).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Move Later the way on 1 to The buffet' }))
+    .toBeVisible()
+  await expect(page.getByRole('button', { name: 'Duplicate Exit to The buffet' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Delete the way on 1 to The buffet' }))
+    .toBeVisible()
+
+  // The two that renumber used to spell their sentences out while a beat's
+  // twenty rows above carried arrows. One act, one document, one vocabulary: each
+  // control is about as wide as it is tall, so all four sit on one line — held
+  // here because an accessible name reads the same whether the control is a mark
+  // or a sentence, and nothing else would notice them going back.
+  const control = (await earlier.boundingBox())!
+  expect(control.width).toBeLessThan(control.height * 2)
+  const strip = (await page.locator('.panel .ways .written .row').first().boundingBox())!
+  expect(strip.height).toBeLessThan(control.height * 2)
 })
 
 /**
@@ -1359,7 +1389,7 @@ test('an Author writes the values a Flag is drawn from, a field apiece',
     // A second value, and a third: the Flag gains a field rather than a
     // punctuation mark, and each press leaves the hand in the field it made.
     for (const [place, value] of [[2, 'sun'], [3, 'haze']] as const) {
-      await page.getByRole('button', { name: `Add a value to ${called(1)}` }).click()
+      await page.getByRole('button', { name: `Add a Value to ${called(1)}` }).click()
       await expect(page.getByLabel(`Value ${place} of ${called(1)}`)).toBeFocused()
       await page.getByLabel(`Value ${place} of ${called(1)}`).fill(value)
     }
@@ -1393,11 +1423,45 @@ test('an Author writes the values a Flag is drawn from, a field apiece',
     }
 
     // A value taken off leaves the rest of the draw where it was.
-    await page.getByRole('button', { name: `Remove value 2 of ${weather}` }).click()
+    await page.getByRole('button', { name: `Remove Value 2 of ${weather}` }).click()
     await expect(async () => {
       await expect(readFlags(arrival.id))
         .resolves.toEqual({ weather: ['rain', 'haze'], coat: 'on' })
     }).toPass()
+  })
+
+/**
+ * The densest row in the product, at the narrowest width the product is read at.
+ * A Flag of two values carries three marks that act on a value and one that ends
+ * the whole Flag, and the last of those is destructive: it is held in a column of
+ * its own so that a sentence which wraps cannot leave it standing on a line by
+ * itself with nothing beside it to say what it removes.
+ */
+test('the mark that ends a Flag stands beside it at the width of a phone',
+  async ({ page, request }) => {
+    const { story, scenes } = await openGraph(request)
+    const [arrival] = scenes as [{ id: string }, { id: string }]
+    await seedFlags(arrival.id, { courage: ['high', 'low'] })
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto(`/stories/${story.id}`)
+    await writeScene(page, 'The arrival')
+
+    const called = 'Flag 1 set on entering The arrival'
+    await expect(page.getByLabel(`Name of ${called}`)).toHaveValue('courage')
+
+    // The sentence has wrapped at this width — that is the case being held, not an
+    // incidental — and the mark still shares its lines rather than falling under
+    // them.
+    const row = page.locator('.panel .flags .sets').first()
+    const sentence = (await row.locator('> .sentence').boundingBox())!
+    const field = (await page.getByLabel(`Value 1 of ${called}`).boundingBox())!
+    expect(sentence.height).toBeGreaterThan(field.height * 1.5)
+
+    const ends = (await page.getByRole('button', { name: `Remove ${called}` }).boundingBox())!
+    expect(ends.y + ends.height / 2).toBeGreaterThan(sentence.y)
+    expect(ends.y + ends.height / 2).toBeLessThan(sentence.y + sentence.height)
+    expect(ends.x).toBeGreaterThan(sentence.x + sentence.width - 1)
   })
 
 /**
@@ -1666,7 +1730,7 @@ test('letting go over the bare bench writes the Scene and exits to it', async ({
   // Scene is written where the Author aimed on the bench or nowhere at all. The
   // writing the gesture opened is closed first, because an Exit is drawn on the
   // graph and not on the rail a written Scene folds it into.
-  await page.getByRole('button', { name: 'Close this panel' }).click()
+  await page.getByRole('button', { name: 'Close this Panel' }).click()
   await expect(page.locator('.panel')).toHaveCount(0)
 
   await aimFrom(page, 'The arrival')
@@ -2162,8 +2226,8 @@ test('the bench pulls back to the whole Story, and comes closer under the pointe
   const node = page.getByRole('article', { name: 'The arrival' })
   const graph = page.locator('.graph')
   const level = page.locator('.zooming .level')
-  const pullBack = page.getByRole('button', { name: 'Pull back from the graph' })
-  const comeCloser = page.getByRole('button', { name: 'Come closer to the graph' })
+  const pullBack = page.getByRole('button', { name: 'Pull Back from the Graph' })
+  const comeCloser = page.getByRole('button', { name: 'Come Closer to the Graph' })
 
   // Every load opens on the bench at its own size, which is as close as it comes:
   // a card is read and never typed into, so magnifying one buys nothing.
@@ -2196,7 +2260,7 @@ test('the bench pulls back to the whole Story, and comes closer under the pointe
   // is always somewhere left to push it.
   await comeCloser.click()
   await comeCloser.click()
-  await page.getByRole('button', { name: 'Fit the graph' }).click()
+  await page.getByRole('button', { name: 'Fit the Graph' }).click()
   for (const name of ['The arrival', 'The platform']) {
     await expect.poll(() => framed(page, name)).toBe(true)
   }
@@ -2288,7 +2352,7 @@ test('the bare bench is pushed about under the hand', async ({ page, request }) 
 
   // Pulled back to a quarter, where the whole of this Story is on screen at once
   // and every line of it can be reached without scrolling to it.
-  const pullBack = page.getByRole('button', { name: 'Pull back from the graph' })
+  const pullBack = page.getByRole('button', { name: 'Pull Back from the Graph' })
   for (let step = 0; step < 3; step++) await pullBack.click()
   await expect(page.locator('.zooming .level')).toContainText('25%')
 
@@ -2480,7 +2544,7 @@ test('the bench is pushed about on the Story an Author has on their first day', 
 
   // And the fit brings the whole Story back into the frame, which is the way back
   // from a push that took the work off screen.
-  await page.getByRole('button', { name: 'Fit the graph' }).click()
+  await page.getByRole('button', { name: 'Fit the Graph' }).click()
   for (const name of ['The arrival', 'The bar']) {
     await expect.poll(() => framed(page, name)).toBe(true)
   }
@@ -2532,7 +2596,7 @@ test('the graduation says which scale the bench is at, and goes straight to anot
   await expect(page.getByRole('article', { name: 'The arrival' })).toHaveCount(1)
 
   // The two buttons and the graduation are one state: stepping moves the thumb.
-  await page.getByRole('button', { name: 'Pull back from the graph' }).click()
+  await page.getByRole('button', { name: 'Pull Back from the Graph' }).click()
   await expect(dial).toHaveValue('25')
   await expect(level).toContainText('25%')
 
