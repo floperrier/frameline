@@ -342,17 +342,21 @@ function why(conditions: Condition[]) {
 </template>
 
 <style scoped>
+@import '~/assets/css/folds.css';
+
 /* The third column of the bench: the reading, and the bench it is cut on under
    it. It is as tall as the other two and scrolls inside itself, so a long Scene
    is read here rather than down the page. */
 .preview {
   flex: 1;
+  /* The containing block for what is inside it, for the reason the writing
+     surface is one: see `Panel.vue`. */
+  position: relative;
   display: grid;
   align-content: start;
   gap: var(--s3);
   min-inline-size: 0;
   max-inline-size: 34rem;
-  block-size: var(--bench-height);
   overflow: auto;
   padding: var(--s3);
   border: 1px solid var(--edge);
@@ -447,9 +451,10 @@ function why(conditions: Condition[]) {
 }
 
 /* On a phone the writing surface covers the bench, so there is no column beside
-   it for the reading to be in. It comes back with the width, which is the same
-   fold the rail is under. */
-@media (max-width: 44rem) {
+   it for the reading to be in — and no row above the bench to press a fold from
+   either, which is why the band the reading folds in stops short of the phone:
+   see the foot of `Graph.vue`. */
+@media (--phone) {
   .preview {
     display: none;
   }

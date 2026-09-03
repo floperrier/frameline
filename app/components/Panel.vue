@@ -1264,6 +1264,8 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
 </template>
 
 <style scoped>
+@import '~/assets/css/folds.css';
+
 /* The panel's heading, as it is written in: the field inside is the heading's own
    type on the panel's own ground — dressed as the heading it replaces, not as
    another box — and the line under it is all that says it is a field. Focus is
@@ -1572,14 +1574,18 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
    the edge of it. */
 .panel {
   flex: 1;
+  /* The containing block for what is inside it, so that what the column scrolls
+     is clipped by the column. A visually hidden label is absolutely positioned,
+     and an absolute box whose containing block lies outside the scroller is not
+     clipped by it: the page grew a scrollbar for text a millimetre wide. */
+  position: relative;
   display: grid;
   gap: var(--s2);
   align-content: start;
   justify-items: start;
   min-inline-size: 0;
-  /* The height of the bench, past which a Scene of twenty Shots scrolls inside
-     itself rather than down the page. */
-  block-size: var(--bench-height);
+  /* As tall as the bench, which the column stretches to, and past that a Scene of
+     twenty Shots scrolls inside itself rather than down the page. */
   overflow: auto;
   padding: var(--s3);
   border: 1px solid var(--edge);
@@ -1683,12 +1689,11 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
 /* On a phone there is no room beside the graph, so the panel stops being a
    column of the bench and covers it instead — which is why it carries a control
    that closes it: on a wide screen the graph is still there to press. */
-@media (max-width: 44rem) {
+@media (--phone) {
   .panel {
     position: fixed;
     inset: 0;
     z-index: 3;
-    block-size: auto;
     /* The page's own margin, because at this width the panel *is* the page. */
     padding: var(--s4);
     border: none;

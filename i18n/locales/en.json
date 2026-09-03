@@ -184,6 +184,8 @@
     "wayOnLeadsTo": "Where the way on {place} out of {name} leads",
     "whatTheReaderPresses": "What the Reader presses",
     "goToScene": "Go to {name}",
+    "readTheStory": "Read the Story",
+    "writeTheScene": "Write the Scene",
     "commands": "Commands",
     "remarks": "Remarks",
     "readRemarks": "Read the Remarks",

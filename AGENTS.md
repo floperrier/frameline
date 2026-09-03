@@ -32,6 +32,12 @@ add only what is theirs in a scoped block. Colour, type and spacing come from
 the tokens declared there and from nowhere else. See
 `docs/adr/0006-two-rooms-one-language.md`.
 
+The widths the interface folds at are the one thing a token cannot carry, because
+a custom property cannot be read inside a media query. They are declared as
+custom media queries in `app/assets/css/folds.css` — names and no rules — and
+reached by name from the scoped block of every surface that folds at one. See
+`docs/adr/0037-the-reading-folds-before-the-writing-does.md`.
+
 ## Git flow
 
 A pull request per issue, squash-merged into `main`, which deploys to

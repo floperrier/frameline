@@ -303,13 +303,20 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
 
 <style scoped>
 /* The bench. Everything above the graph is the Story as a whole, and the graph
-   itself takes what is left of the screen. Each piece of it carries its own
-   drawing: what is left here is the page they are laid out on. */
+   itself takes what is left of the screen — literally what is left: a column, so
+   that the bench is the one thing on it that grows and the height it grows to is
+   the window's less what stands above it. A fraction of the window is what it
+   used to be, and no fraction is the height that is there. Each piece of it
+   carries its own drawing: what is left here is the page they are laid out on. */
 main {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: var(--s4);
-  align-content: start;
-  min-block-size: 100dvh;
+  /* Exactly the window, so that what is left of it after the rows above the
+     bench is a definite height for the bench to take. `dvh` because a browser's
+     own chrome comes and goes. A window too short to hold the bench's own floor
+     is the one case the page still scrolls. */
+  block-size: 100dvh;
   padding: var(--s4) var(--s4) var(--s5);
 }
 </style>
