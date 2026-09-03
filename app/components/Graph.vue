@@ -21,7 +21,7 @@
  * Story by, and pressed rather than laid out. See
  * `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`.
  */
-const { id, story, sceneWritten, change, write, announce, imageOf } = defineProps<{
+const { id, story, sceneWritten, covered, change, write, announce, imageOf } = defineProps<{
   /**
    * The Story's own id, which a Scene is created against. It comes from the route
    * rather than from the Story, because the form that names one stands there
@@ -32,6 +32,15 @@ const { id, story, sceneWritten, change, write, announce, imageOf } = defineProp
   story?: StoryInEditor
   /** The Scene the writing surface is on, which its card is lit for. */
   sceneWritten?: string
+  /**
+   * Whether the writing surface is over the bench rather than beside it, which
+   * it is on a phone. Nothing here is reachable then — it is all behind an opaque
+   * surface filling the window — so the row of controls and the graph go inert
+   * and the keyboard stays in the Scene being written. The page settles it,
+   * because the width and the writing are both facts it holds; see
+   * `docs/adr/0036-the-surface-that-covers-the-bench-is-not-a-dialog.md`.
+   */
+  covered?: boolean
   /** The one holder every write on this page goes through. */
   change: Change
   /** The same holder, for what the Author typed rather than what they clicked. */
@@ -1094,7 +1103,7 @@ function atAGlance(scene: Scene) {
   <!-- The row above the bench: how far back the Author is standing to look at
        the Scenes they have. Nothing here makes one — a Scene is made on the
        bench, where it goes. -->
-  <div class="tools">
+  <div class="tools" :inert="covered">
     <!-- The two things about the Story itself rather than about how far back it
          is being looked at: the way into every act by naming it, and what the
          bench found when it read the Story back. Both stay while a Scene is being
@@ -1268,7 +1277,11 @@ function atAGlance(scene: Scene) {
     <!-- The window onto the graph: the box that scrolls, and the zoom controls
          docked in its corner. They are outside the surface, so they keep their
          own size whatever the bench is being looked at through. -->
-    <div class="viewport" :style="folded ? { inlineSize: `${RAIL_WIDTH}px` } : undefined">
+    <div
+      class="viewport"
+      :inert="covered"
+      :style="folded ? { inlineSize: `${RAIL_WIDTH}px` } : undefined"
+    >
       <div
         ref="graph"
         class="graph"

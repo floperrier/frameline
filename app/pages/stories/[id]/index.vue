@@ -90,6 +90,49 @@ const sceneWritten = computed(
   () => story.value?.scenes.find(scene => scene.id === route.query.scene))
 
 /**
+ * The width below which the writing surface stops being a column of the bench
+ * and covers it. It is `--phone` in `app/assets/css/folds.css`, where the folds
+ * are named once so no two surfaces disagree about them — but a custom media
+ * query cannot be read from a script, so this is the same number written a
+ * second time, because inertness is not a thing CSS can say. The e2e spec holds
+ * the two against each other.
+ */
+const COVERING = '(max-width: 44rem)'
+
+/**
+ * Whether the bench is behind the writing surface rather than beside it. A
+ * surface filling the window owes what any sheet over a page owes: nothing under
+ * it may be tabbed into or read out, or a keyboard Author walks out of the Scene
+ * they are writing into a header and a graph that are not on the screen.
+ *
+ * Told to the two components that draw what is covered rather than done here,
+ * because `inert` is an attribute on those elements. It is deliberately not a
+ * `<dialog>`: the browser would give the inertness for free and take the guided
+ * path with it — the top layer is above the spotlight and the bubble, so the
+ * Step would point at the far side of the surface it is asking about. See
+ * `docs/adr/0036-the-surface-that-covers-the-bench-is-not-a-dialog.md`.
+ *
+ * False until the browser has been asked, so the render on the server and the
+ * first render here agree, and the answer arrives a tick later.
+ */
+const narrow = ref(false)
+const covered = computed(() => narrow.value && !!sceneWritten.value)
+
+let asking: MediaQueryList | undefined
+
+function readWidth() {
+  narrow.value = !!asking?.matches
+}
+
+onMounted(() => {
+  asking = window.matchMedia(COVERING)
+  asking.addEventListener('change', readWidth)
+  readWidth()
+})
+
+onBeforeUnmount(() => asking?.removeEventListener('change', readWidth))
+
+/**
  * Whether the writing already stands on the history as an entry of its own. The
  * first Scene written pushes one, so the browser's back closes the writing and
  * returns to the graph; every Scene written after it — pressed in the rail, or
@@ -201,10 +244,12 @@ function letGo() {
 }
 
 /**
- * Escape closes the panel at the edge of the bench. Listened for on the document
- * because the Author may be anywhere on the page when they press it — over the
- * graph, in a field of the panel — so there is no element to hang it on. The
- * graph listens for the same key to let go of an Exit being drawn.
+ * Escape closes the panel at every width, including the one where the panel
+ * covers the bench: the surface is not a dialog there, so the key is this
+ * listener's and there is nothing of the browser's to defer to. Listened for on
+ * the document because the Author may be anywhere on the page when they press it
+ * — over the graph, in a field of the panel — so there is no element to hang it
+ * on. The graph listens for the same key to let go of an Exit being drawn.
  */
 function letGoOnEscape(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
@@ -214,6 +259,11 @@ function letGoOnEscape(event: KeyboardEvent) {
   // would take the focus it hands back with it. Asked of the document rather
   // than of a flag per dialog, because the fact is the browser's own and a flag
   // is one more thing to remember the day a third dialog is drawn.
+  //
+  // The panel is never one of them, at any width. Were it opened modally on a
+  // phone this guard would read it as the dialog to defer to and refuse to close
+  // the very thing it exists to close — the question worth asking of a surface
+  // that starts behaving like a sheet, and answered by it not becoming one.
   if (document.querySelector('dialog:modal')) return
 
   closePanel()
@@ -225,11 +275,15 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
 
 <template>
   <main @dragover="refuseDrop" @drop="refuseDrop">
+    <!-- Out of reach while the writing surface is covering it: the header is
+         behind the surface at that width, and Publish is the first thing a
+         keyboard walks into past the control that closes the writing. -->
     <StoryHeader
       :id="id"
       :story="story ?? undefined"
       :kept-at="keptAt"
       :writing="!!sceneWritten"
+      :inert="covered"
       :change="change"
       :write="write"
     />
@@ -244,6 +298,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
       :id="id"
       :story="story ?? undefined"
       :scene-written="sceneWritten?.id"
+      :covered="covered"
       :change="change"
       :write="write"
       :announce="announce"

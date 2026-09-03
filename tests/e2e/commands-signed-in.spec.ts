@@ -40,6 +40,23 @@ async function open(page: Page) {
 }
 
 /**
+ * The bar opened by its key, for the one width at which its control is not on
+ * screen: the writing surface covers the bench below 44rem, and what the bar is
+ * asked for there is the bench behind it.
+ *
+ * Pressed once, with none of the repeating `open` above does. The reason that
+ * loop presses the control rather than the key is that the key is a toggle and a
+ * repeat that was not needed puts the bar away again — so a loop around this one
+ * would drive the very state it is waiting for. It needs none: by the time this
+ * is reached the page has already answered a gesture, which is the whole of what
+ * the loop is there to establish.
+ */
+async function openByKey(page: Page) {
+  await page.keyboard.press('ControlOrMeta+k')
+  await expect(typing(page)).toBeFocused()
+}
+
+/**
  * The bar of Commands: every act the bench is offering, reached by naming it.
  * What each spec here is really holding is the contract in
  * `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md` — that a
@@ -354,4 +371,41 @@ test('an Author sets a Flag and marks the Opening Scene by naming them', async (
   await open(page)
   await typing(page).fill('Opening')
   await expect(offered(page).filter({ hasText: 'Mark as the Opening Scene' })).toHaveCount(0)
+})
+
+/**
+ * The bar and the surface that covers the bench. Below 44rem the writing surface
+ * is the whole window and everything behind it is `inert`, and the bar still
+ * reaches every one of those acts — which is why the bench is made unreachable
+ * by `inert` rather than taken out of the page. A control that is merely out of
+ * the keyboard's way is still a control the bar can press, and a bench that was
+ * not drawn would be a bar with nothing left to offer: it reads the acts off the
+ * controls themselves. See
+ * `docs/adr/0036-the-surface-that-covers-the-bench-is-not-a-dialog.md`.
+ */
+test('the bar reaches the bench the writing surface is covering', async ({ page, request }) => {
+  const story = await writeStory(request)
+  await page.goto(`/stories/${story.id}`)
+  await expect(page.getByRole('article', { name: 'The street' })).toBeVisible()
+
+  await page.setViewportSize({ width: 600, height: 800 })
+  await writeScene(page, 'The street')
+  await expect(page.getByRole('group', { name: 'Writing The street' })).toBeVisible()
+
+  // Opened by the key rather than by its control, which the surface covers: what
+  // the bar is asked to reach here is the bench, and the way in at this width is
+  // a spec of its own.
+  await openByKey(page)
+  await typing(page).fill('bar')
+  await expect(offered(page)).toHaveText(['Go to The bar'])
+  await offered(page).click()
+  await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toHaveValue('The bar')
+
+  // And Publish, which is drawn in the header the surface covers.
+  await openByKey(page)
+  await typing(page).fill('Publish')
+  await offered(page).click()
+  await expect.poll(() => page.request.get(`/api/stories/${story.id}`)
+    .then(read => read.json())
+    .then(read => Boolean(read.publishedAt))).toBe(true)
 })

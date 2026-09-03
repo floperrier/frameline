@@ -1699,16 +1699,35 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
 
 /* On a phone there is no room beside the graph, so the panel stops being a
    column of the bench and covers it instead — which is why it carries a control
-   that closes it: on a wide screen the graph is still there to press. */
+   that closes it: on a wide screen the graph is still there to press.
+   `docs/adr/0036-the-surface-that-covers-the-bench-is-not-a-dialog.md` records
+   what a surface takes on by covering the window, and the page is where the
+   bench behind it is made inert: that is an attribute on the elements covered
+   and there is no way to say it from here. */
 @media (--phone) {
   .panel {
     position: fixed;
     inset: 0;
     z-index: 3;
-    /* The page's own margin, because at this width the panel *is* the page. */
-    padding: var(--s4);
+    block-size: auto;
+    /* The page's own margin, plus whatever the hardware is standing in at each
+       edge: at this width the panel *is* the page, and it is the only surface in
+       the product that goes right to the edge of the window. Without the insets
+       the Scene's name and the way out sit under a status bar and the last way
+       on sits under a home indicator. */
+    padding:
+      calc(var(--s4) + var(--safe-top))
+      calc(var(--s4) + var(--safe-right))
+      calc(var(--s4) + var(--safe-bottom))
+      calc(var(--s4) + var(--safe-left));
     border: none;
     border-radius: 0;
+    /* The end of a Scene is the end of the gesture. Scrolled past its own last
+       row the panel would hand the rest of the swipe to the document under it,
+       which at this width is the bench nobody can see: the Author would be
+       scrolling something they are not looking at. The bar of Commands carries
+       this for the same reason. */
+    overscroll-behavior: contain;
   }
 }
 </style>

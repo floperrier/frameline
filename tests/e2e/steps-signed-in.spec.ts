@@ -352,3 +352,68 @@ test('the light follows its target as the document grows above it', async ({
   await page.setViewportSize({ width: 900, height: 700 })
   await lights(page, adding)
 })
+
+/**
+ * The guidance and the surface that covers the bench. Below 44rem the writing
+ * surface is the whole window, and everything it covers is `inert` — which is
+ * precisely why the panel is not a `<dialog>` there: the spotlight and the
+ * bubble are drawn over the bench rather than in the top layer, and a modal
+ * surface would put the very field being pointed at on the far side of them.
+ *
+ * So the guidance still reaches into the surface, and stops pointing at what the
+ * surface covers: a light on a control the Author cannot press is guidance being
+ * wrong about the screen.
+ */
+test('the guidance reaches the surface that covers the bench, and nothing behind it', async ({
+  page,
+  author,
+}) => {
+  const story = await seedStory(author, 'A Story')
+  // One statement apiece, because the second Scene has to be the second one the
+  // bench reads back: the Condition the path teaches is asked of that Scene, and
+  // two Scenes written in one insert share a moment and are ordered by their ids.
+  const arrival = await seedScene(story, 'The arrival')
+  const platform = await seedScene(story, 'The platform')
+  await seedExit(arrival.id, platform.id)
+
+  // Opened at the address the writing carries, because the card that opens it is
+  // behind a header that stays on screen at a phone's width — a press on a Scene
+  // at this width is the graph's spec and not this one's.
+  await page.setViewportSize({ width: 600, height: 800 })
+  await page.goto(`/stories/${story.id}?scene=${arrival.id}`)
+  await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
+
+  // What is asked for is a Flag, which is set in the panel: the light is on the
+  // section of the Scene's own document, over the surface covering the bench.
+  await expect(bubble(page)).toContainText(/State is what one Reading carries with it/)
+  await lights(page, page.locator('[data-step="scene-flags"]'))
+
+  // And the bubble carrying the sentence is on top of the surface rather than
+  // under it, which is the whole of what the top layer would have cost.
+  expect(await page.evaluate(() => {
+    const said = document.querySelector('.bubble')!.getBoundingClientRect()
+    const over = document.elementFromPoint(said.x + said.width / 2, said.y + said.height / 2)
+
+    return said.width > 0 && !!over?.closest('.bubble')
+  })).toBe(true)
+
+  // A Flag set, and what is asked for next is a Condition — also in the panel.
+  await seedFlags(arrival.id, { courage: 'high' })
+  await page.reload()
+  await expect(bubble(page)).toContainText(/A Condition makes the same Scene play differently/)
+
+  // The Story is past both of those, and what is left to point at is behind the
+  // surface: the Publish in the header the panel covers. Nothing is lit, because
+  // nothing there can be pressed, and the sentence is said adrift instead.
+  await seedShotConditions(platform.shots[0]!.id, [{ flag: 'courage', is: 'high' }])
+  await page.request.post(`/api/scenes/${arrival.id}/opening`)
+  await page.reload()
+  await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
+  await expect(bubble(page)).toContainText(/That is a Story that works/)
+  await expect(bubble(page)).toHaveClass(/adrift/)
+  await expect(page.locator('.spotlight')).toHaveCount(0)
+
+  // Closed, the Publish is reachable again and the light goes back onto it.
+  await page.getByRole('button', { name: 'Close this Panel' }).click()
+  await lights(page, page.getByRole('button', { name: 'Publish this Story' }))
+})
