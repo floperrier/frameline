@@ -869,7 +869,7 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
          down and the Flags that satisfy it are read together — which is the
          whole point of taking the tabs out. -->
     <section class="held" :aria-labelledby="`flags-of-${sceneWritten.id}`">
-      <h3 :id="`flags-of-${sceneWritten.id}`" class="eyebrow">
+      <h3 :id="`flags-of-${sceneWritten.id}`">
         {{ $t('editor.flagsHeld') }}
         <span class="numbered">{{ counted!.flags }}</span>
       </h3>
@@ -889,7 +889,7 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
          field per Shot — see `typeOn` — so nothing is parsed and no beat loses
          the Image and the Conditions it carries. -->
     <section class="held" :aria-labelledby="`shots-of-${sceneWritten.id}`">
-      <h3 :id="`shots-of-${sceneWritten.id}`" class="eyebrow">
+      <h3 :id="`shots-of-${sceneWritten.id}`">
         {{ $t('editor.shotsHeld') }}
         <span class="numbered">{{ counted!.shots }}</span>
       </h3>
@@ -1077,7 +1077,7 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
          graph any more — see
          `docs/adr/0034-a-story-is-written-without-the-canvas.md`. -->
     <section class="ways held" :aria-labelledby="`ways-of-${sceneWritten.id}`">
-      <h3 :id="`ways-of-${sceneWritten.id}`" class="eyebrow">
+      <h3 :id="`ways-of-${sceneWritten.id}`">
         {{ $t('editor.waysHeld') }}
         <span class="numbered">{{ counted!.ways }}</span>
       </h3>
@@ -1320,7 +1320,11 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
    set on entry, the run of beats, the ways on. Each one headed and counted where
    it starts, on a rule, so an Author scrolling knows which part of the Scene
    they are in — which is the whole of what the tabs were bought for, without
-   what they cost. */
+   what they cost. The heading is drawn as the heading it is, in the face and at
+   the size the Scene's name above it takes, and not as an eyebrow: an eyebrow
+   names a field, and these three name the structure of the document. Set as a
+   field's label they were the quietest text on the surface, under the beats they
+   were meant to place. */
 .held {
   display: grid;
   gap: var(--s2);
@@ -1335,9 +1339,14 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
 }
 
 /* The count in the grease pencil, because what it counts is what the Author
-   wrote on the film and not anything the machine is doing. */
+   wrote on the film and not anything the machine is doing; in the data face and
+   a step under the word, because it is a figure beside a heading and not part of
+   it. */
 .held > h3 .numbered {
   color: var(--grease);
+  font-family: var(--data);
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 
 /* The beat added by a hand, at the end of the run and no wider than the words on

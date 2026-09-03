@@ -82,7 +82,13 @@ nothing to renumber and it is one request.
 **Each part of the document is headed and counted where it starts.** That is what
 the tabs' counts were bought for, and it survives them: an Author scrolling knows
 which part of the Scene they are in, and knows there are ways on to look at
-before they have got to them.
+before they have got to them. The heading is drawn as a heading — the interface's
+own face, at the size the Scene's name takes — and not as the eyebrow that names
+a field. Drawn as an eyebrow at first, the three were the quietest text on the
+surface, quieter than the beats they were there to place, and the count in the
+grease pencil was louder than the word it counted. The reopening condition stays
+the one written for width: if a Scene of many beats stops being navigable, the
+answer is a stronger heading, not a tab.
 
 **The guided path gains rather than loses.** Two of its Steps pointed at things
 behind a tab — the Flags a Scene sets, and the Conditions of a Shot — and were
