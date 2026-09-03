@@ -1060,10 +1060,26 @@ function atAGlance(scene: Scene) {
          that does it, where somebody who never reads a legend will find it — a
          control and not only a key: see
          `docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md`. -->
-    <button type="button" class="commanding" @click="$emit('command')">
-      {{ $t('editor.commands') }}
-      <span class="combination"><kbd>{{ modifier }}</kbd><kbd>K</kbd></span>
-    </button>
+    <!-- The two things that are about the Story rather than about how it is being
+         looked at: the way into every act by naming it, and what the bench found
+         when it read the Story back. Both stay while a Scene is being written,
+         because the scale is the only thing on this row a rail has no use for. -->
+    <div class="naming">
+      <button type="button" class="commanding" @click="$emit('command')">
+        {{ $t('editor.commands') }}
+        <span class="combination"><kbd>{{ modifier }}</kbd><kbd>K</kbd></span>
+      </button>
+
+      <!-- What the bench noticed about the Story, said without being asked, and
+           each line pressing to the Scene it is about — the same act the card's
+           own control performs. See
+           `docs/adr/0032-the-bench-reads-the-story-back.md`. -->
+      <Remarks
+        :story="story"
+        :scene-written="sceneWritten"
+        @open="$emit('writeScene', $event)"
+      />
+    </div>
 
     <!-- How far back the Author is standing, and the ways of changing it. Above
          the bench and in the flow of the page rather than floating in a corner
@@ -1470,6 +1486,16 @@ function atAGlance(scene: Scene) {
   align-items: end;
   justify-content: space-between;
   gap: var(--s2) var(--s4);
+}
+
+/* The head of the row: the way in by name, and the reading of the Story beside
+   it. One cluster rather than two items, so the space the row spreads falls
+   between what the Story is and how far back it is being looked at. */
+.naming {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--s2) var(--s3);
 }
 
 /* The way into the bar every act is named in: what it does, then the key that

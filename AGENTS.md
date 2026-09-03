@@ -79,8 +79,8 @@ the screen lands on the surface they are drawn on, where a Scene born from an
 Exit is placed, the two message
 files held against each other, the language a refusal is phrased in, the Steps the
 bench asks a Story for — whose targets are held against the editor's template
-read as source, the way the message files are held against each other — and the
-two Samples, that each holds together as a work and that the two of them are one
+read as source — the Remarks the bench reads back out of a Story, and the two
+Samples, that each holds together as a work and that the two of them are one
 shape in two languages. None of them needs a database, because none of them has
 one in reach. `pnpm test:e2e` runs
 Playwright against a built app and a real Neon branch — `docs/git-flow.md` says which branch.

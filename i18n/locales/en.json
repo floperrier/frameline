@@ -183,7 +183,11 @@
     "wayOnLeadsTo": "Where the way on {place} out of {name} leads",
     "whatTheReaderPresses": "What the Reader presses",
     "goToScene": "Go to {name}",
-    "commands": "Commands"
+    "commands": "Commands",
+    "remarks": "Remarks",
+    "readRemarks": "Read the Remarks",
+    "noRemarks": "Nothing to report: every Scene is reached, every Shot is written, every Flag is joined up.",
+    "remarkAbout": "— open {scene}"
   },
   "conditions": {
     "ofCarrier": "of {carrier}",
@@ -225,6 +229,17 @@
     "putCondition": "A Condition makes the same Scene play differently to different Readers, without branching. Write the second Scene, add a Shot, and have it played when that Flag holds something else — “low” will do. Nothing plays it yet, which is the point.",
     "previewCondition": "Nothing plays that Shot, and the Preview beside the Scene says why: it reads the Story on the engine a Reader runs, and shows what each Shot it skipped asked for beside what the State actually holds. Read that, then put the value right.",
     "publish": "That is a Story that works. Publish it, and anybody can read it at a link of its own — the one this page then shows, to hand to whoever you wrote it for."
+  },
+  "remark": {
+    "noOpening": "This Story marks no opening Scene, so no Reading can start. Mark the Scene it opens on.",
+    "sceneUnreached": "No Exit arrives at {scene}, and the Story does not open on it, so no Reader ever gets there.",
+    "sceneUnplayed": "{scene} holds no Shot: a Reader arriving there is shown nothing.",
+    "shotUnwritten": "Shot {place} of {scene} carries neither text nor Image.",
+    "imageUndescribed": "The Image of Shot {place} of {scene} has no Description, so a Reader who cannot see it is told nothing about it.",
+    "flagUntested": "{scene} sets the Flag {flag}, and no Condition anywhere tests it.",
+    "flagUnset": "A Condition in {scene} tests the Flag {flag}, and no Scene ever sets it.",
+    "exitUnofferable": "An Exit out of {scene} is offered only when {flag} holds “{is}”, which no Scene ever sets it to.",
+    "shotUnplayable": "A Shot of {scene} plays only when {flag} holds “{is}”, which no Scene ever sets it to."
   },
   "preview": {
     "nobodyElse": "Nobody else can reach this",
