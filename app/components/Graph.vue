@@ -10,8 +10,11 @@
  * writing surface should hold and asks the page to change it, so that one surface
  * answers to one page: see
  * `docs/adr/0011-the-scene-editor-is-the-scenes-own-node.md`, whose single surface
- * this is half of. An Exit is decided here, because it is written here — on its
- * own line, where it can be seen leading somewhere.
+ * this is half of. An Exit is drawn here and written nowhere here: the line, the
+ * arrowhead, the disc that reports the Place and the endpoint dragged to lead it
+ * elsewhere are the drawing's, and everything an Exit says is written in the
+ * document of the Scene it leaves — see
+ * `docs/adr/0034-a-story-is-written-without-the-canvas.md`.
  *
  * While a Scene is being written the graph is folded into a rail: the same
  * drawing at the scale that fits it, kept for what an Author recognises their own

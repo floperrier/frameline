@@ -22,7 +22,7 @@ describe('the Commands a typed name reaches', () => {
   })
 
   it('reaches a name typed in any case', () => {
-    expect(reached(named('Publish', 'Fit the graph'), 'PUB')).toEqual(['Publish'])
+    expect(reached(named('Publish', 'Fit the Graph'), 'PUB')).toEqual(['Publish'])
   })
 
   it('reaches an accented name typed without its accents, and the other way about', () => {

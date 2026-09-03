@@ -16,7 +16,7 @@ import { writeScene, readShots, seedScene, seedStory, test } from './author'
  */
 
 const SHUT = 'You are no longer signed in, so nothing was written.'
-const DOOR = 'Sign in again in a new tab'
+const DOOR = 'Sign In Again in a New Tab'
 
 test.use({ extraHTTPHeaders: {} })
 

@@ -53,6 +53,29 @@ reached at `/fr/...`. `CONTEXT.md` says which French word each glossary term is
 shown as, and that word binds: see
 `docs/adr/0014-the-glossary-is-the-codes-language.md`.
 
+**A control that acts is labelled in title case**, in English: the first word and
+every word that carries meaning take a capital, and the articles, prepositions
+and determiners between them stay lowercase — *Add a Shot*, *Close this Panel*,
+*Take Out*, *Duplicate Exit to {scene}*. The article is not dropped to save a
+word: it is *Add a Shot* beside *Add a Flag*, never *Add Shot*. A glossary term
+keeps the capital `CONTEXT.md` gives it wherever it falls, and the capital title
+case puts on an ordinary word — the *Panel* in *Close this Panel* — claims
+nothing about that word: only `CONTEXT.md` makes a term.
+
+The rule reaches the words on a button and the accessible name of one, and stops
+there. The label over a field is not an act — *Name of this Scene*, *Title of a
+new Story* — and neither is a sentence the interface says to somebody, which is
+written as a sentence: *Leave the Exit from {name} where it leads*, *I can take
+it from here*. French does not title-case, so a French label is a French sentence
+with the `_Affiché_` word carrying its own capital: *Ajouter un Plan*, *Fermer ce
+panneau*.
+
+What makes it worth settling is the bar of Commands —
+`docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md`. Matching
+there ignores case, so nothing breaks; but the bar is the one surface that reads
+every label in the product side by side, and a list where half the acts are
+titled and half are not is the mixed convention on show.
+
 The server reads the same two files. A refusal still travels as a phrase in the
 response body — `docs/adr/0009-a-refusal-travels-in-the-body.md` — and
 `server/utils/phrases.ts` is what settles which language it is phrased in,

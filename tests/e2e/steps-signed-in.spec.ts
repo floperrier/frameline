@@ -40,7 +40,7 @@ test('the bench asks a new Story for its first Scene', async ({ page, author }) 
   await expect(bubble(page)).toContainText(FIRST_STEP)
 
   // The light sits on the control itself, and does not cover it.
-  const field = page.getByRole('button', { name: 'Write the first Scene' })
+  const field = page.getByRole('button', { name: 'Write the First Scene' })
   expect(await page.locator('.spotlight').boundingBox()).toEqual(await field.boundingBox())
 
   // And follows it. The bench moves under the light for all sorts of reasons —
@@ -185,8 +185,8 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   // It opens the panel on the Scene it wrote, with the provisional name selected,
   // so the Author names it there and is asked for what goes in it rather than for
   // the surface they are already looking at.
-  await lights(page, page.getByRole('button', { name: 'Write the first Scene' }))
-  await page.getByRole('button', { name: 'Write the first Scene' }).click()
+  await lights(page, page.getByRole('button', { name: 'Write the First Scene' }))
+  await page.getByRole('button', { name: 'Write the First Scene' }).click()
   const named = page.getByLabel('Name of this Scene')
   await expect(named).toBeFocused()
   await page.keyboard.type('The arrival')
@@ -197,7 +197,7 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   // written — so it is said from the corner until there is a field to say it at.
   await expect(bubble(page)).toContainText(NEXT_STEP)
   await expect(bubble(page)).toHaveClass(/adrift/)
-  await page.getByRole('button', { name: 'Add Shot' }).click()
+  await page.getByRole('button', { name: 'Add a Shot' }).click()
   const shot = page.getByRole('textbox', { name: 'Shot 1' })
   await lights(page, shot)
   await shot.fill('She steps off the train.')
@@ -249,7 +249,7 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   // there.
   await expect(bubble(page)).toContainText(/A Condition makes the same Scene play differently/)
   await writeScene(page, 'The platform')
-  await page.getByRole('button', { name: 'Add Shot to The platform' }).click()
+  await page.getByRole('button', { name: 'Add a Shot to The platform' }).click()
 
   // The light is on the Conditions of the Shot in the panel, which is the one the
   // sentence just asked for.
@@ -343,7 +343,7 @@ test('the light follows its target as the document grows above it', async ({
   // held against the light is where the line ends up, never a frame of it on the
   // way there.
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await page.getByRole('button', { name: 'Add Shot to The arrival' }).click()
+  await page.getByRole('button', { name: 'Add a Shot to The arrival' }).click()
   await expect(page.getByRole('textbox', { name: 'Shot 2' })).toBeVisible()
   await lights(page, adding)
 

@@ -11,12 +11,12 @@
   },
   "common": {
     "delete": "Delete",
-    "moveEarlier": "Move earlier",
-    "moveLater": "Move later"
+    "moveEarlier": "Move Earlier",
+    "moveLater": "Move Later"
   },
   "confirmation": {
     "heading": "This cannot be undone",
-    "dismiss": "Leave it"
+    "dismiss": "Leave It"
   },
   "commands": {
     "heading": "Type a name",
@@ -35,9 +35,9 @@
     "pitch": "An editor for interactive narrative works that speaks the grammar of cinema. Write in Shots, draw Exits between Scenes, and hand a Reader one link.",
     "yourStories": "Your Stories",
     "signInFailed": "Signing in did not work. Please try again.",
-    "signInToWrite": "Sign in to write",
-    "signInWithGitHub": "Sign in with GitHub",
-    "signInWithGoogle": "Sign in with Google",
+    "signInToWrite": "Sign In to Write",
+    "signInWithGitHub": "Sign In with GitHub",
+    "signInWithGoogle": "Sign In with Google",
     "specimen": "What a Reader is shown",
     "specimenScene": "The street",
     "specimenShot": "The door gives on the third push. Rain, and the neon of the bar opposite, already lit at four in the afternoon.",
@@ -69,7 +69,7 @@
     "name": "Your Name",
     "save": "Save",
     "askedBeforeListing": "Every entry in the Catalogue is signed. Write the Name you want to appear under, and this Story is listed.",
-    "list": "List it under this Name"
+    "list": "List It under this Name"
   },
   "profile": {
     "line": "What {name} has listed in the Catalogue, most recently published first.",
@@ -85,7 +85,7 @@
     "title": "Title",
     "rename": "Rename",
     "empty": "Nothing in this List yet. Gather a Story into it from the Catalogue, or from the page it is read on.",
-    "take": "Take out",
+    "take": "Take Out",
     "favourite": "Favourite",
     "gatherInto": "Gather into a List",
     "signedOut": "Favourites and Lists are kept per account, so gathering a Story needs one. Reading needs none, and nothing here takes you off this page.",
@@ -94,7 +94,7 @@
   },
   "stories": {
     "heading": "Stories",
-    "signOut": "Sign out",
+    "signOut": "Sign Out",
     "newTitle": "Title of a new Story",
     "newLanguage": "Language of a new Story",
     "create": "Create Story",
@@ -114,10 +114,10 @@
     "readableAt": "Anyone can read this Story at",
     "keptAt": "Kept at {time}",
     "list": "List this Story in the Catalogue",
-    "unlist": "Take this Story out of the Catalogue",
+    "unlist": "Take this Story Out of the Catalogue",
     "unpublish": "Unpublish this Story",
     "publish": "Publish this Story",
-    "writeFirstScene": "Write the first Scene",
+    "writeFirstScene": "Write the First Scene",
     "provisionalSceneName": "A new Scene",
     "sceneCreated": "“{name}” created",
     "noScenes": "No Scenes yet. Write the first one, and every Scene after it is made on the bench: draw an Exit from a card onto bare bench and one is born where you let go.",
@@ -147,12 +147,12 @@
     "shotsHeld": "Shots",
     "flagsHeld": "Flags",
     "waysHeld": "Ways on",
-    "addShot": "Add Shot",
+    "addShot": "Add a Shot",
     "toScene": "to {name}",
     "offeredWhen": "Offered when",
     "noWayOnYet": "No way on yet",
     "writingScene": "Writing {name}",
-    "closePanel": "Close this panel",
+    "closePanel": "Close this Panel",
     "theWayOnTo": "the way on {place} to {scene}",
     "theExitTo": "the Exit to {scene}",
     "duplicateExitTo": "Duplicate Exit to {scene}",
@@ -169,10 +169,10 @@
     "leaveExitFrom": "Leave the Exit from {name} where it leads",
     "exitLedTo": "Exit from {from} now leads to {to}",
     "exitNotLed": "The Exit was left where it led",
-    "zoomOut": "Pull back from the graph",
-    "zoomIn": "Come closer to the graph",
+    "zoomOut": "Pull Back from the Graph",
+    "zoomIn": "Come Closer to the Graph",
     "zoomLevel": "Zoom",
-    "fitGraph": "Fit the graph",
+    "fitGraph": "Fit the Graph",
     "scaleShortcut": "scale",
     "fitShortcut": "fits",
     "pushBench": "drag the bench to move the view",
@@ -220,8 +220,8 @@
     "or": "or",
     "add": "Add a Flag",
     "remove": "Remove {flag}",
-    "addValue": "Add a value to {flag}",
-    "removeValue": "Remove value {place} of {flag}"
+    "addValue": "Add a Value to {flag}",
+    "removeValue": "Remove Value {place} of {flag}"
   },
   "step": {
     "heading": "Next",
@@ -259,7 +259,7 @@
     "noFlagValue": "(nothing)",
     "noFlags": "No Scene has set one yet",
     "scenesEntered": "Scenes entered",
-    "reroll": "Draw again",
+    "reroll": "Draw Again",
     "rerollNote": "the same Position, another draw",
     "needsFlag": "needs {flag} to hold {is}, holds {holds}",
     "nothing": "nothing",
@@ -276,7 +276,7 @@
     "shotOf": "Shot {place} of {of}",
     "next": "Next Shot",
     "ended": "The path ends here.",
-    "again": "Read again from the start"
+    "again": "Read Again from the Start"
   },
   "read": {
     "eyebrow": "A Frameline Story"
@@ -286,7 +286,7 @@
     "none": "Nothing has been said about this Story yet.",
     "write": "What you have to say about this Story",
     "note": "A Comment is about the Story whole. Say nothing of one Scene or one Shot: whoever reads it has not read the Story yet.",
-    "send": "Add your Comment",
+    "send": "Add Your Comment",
     "signedOut": "Comments are signed with their Author's Name, so writing one needs an account. Reading them needs none, and this Story stays where it is.",
     "delete": "Delete the Comment by {name}"
   },
@@ -294,7 +294,7 @@
     "refused": "That did not work. Please try again.",
     "wentWrong": "Something went wrong.",
     "home": "Back to Frameline",
-    "signInAgain": "Sign in again in a new tab"
+    "signInAgain": "Sign In Again in a New Tab"
   },
   "refusals": {
     "noSuch": {
@@ -329,7 +329,7 @@
     "exitTarget": "An Exit arrives at a Scene.",
     "sceneName": "A Scene needs a name.",
     "sceneNameLong": "A name cannot be longer than {max} characters.",
-    "scenePlacement": "A Scene sits between 0 and {reach} pixels from the graph's corner.",
+    "scenePlacement": "A Scene sits between 0 and {reach} pixels from the Graph's corner.",
     "tooManyFlags": "A Scene cannot set more than {max} Flags.",
     "badFlag": "A Flag is a name and a value, and neither of them may be left empty.",
     "tooManyFlagValues": "A Flag cannot be drawn from more than {max} values.",
@@ -348,7 +348,7 @@
     "authorNameLong": "A Name cannot be longer than {max} characters.",
     "nameBeforeListing": "A Story is listed under its Author's Name, so write yours before listing it.",
     "listPublished": "A Story is published before it is listed, because an entry in the Catalogue leads to its public link.",
-    "openingScene": "A Story needs an opening Scene before it can be published. Write a Scene on the graph and mark it as the one to start on.",
+    "openingScene": "A Story needs an opening Scene before it can be published. Write a Scene on the Graph and mark it as the one to start on.",
     "signedOut": "You are no longer signed in, so nothing was written.",
     "commentText": "A Comment carries what you have to say, so it cannot be empty.",
     "commentTextLong": "A Comment cannot be longer than {max} characters.",

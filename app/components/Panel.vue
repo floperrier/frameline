@@ -3,9 +3,10 @@
  * Where a Scene is written: the surface that takes the width of the bench, with
  * the graph folded into a rail beside it — see
  * `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`. Nothing else is
- * ever on it. An Exit's text is written on its own line on the graph, and what
- * of an Exit is written here is what is read against the Scene: its Conditions,
- * which test the Flags this Scene sets, and the Place it is offered at.
+ * ever on it. Everything an Exit is is written here — where it leads, the words a
+ * Reader presses to take it, the Conditions that test the Flags this Scene sets,
+ * and the Place it is offered at — because a Story is written without the canvas:
+ * `docs/adr/0034-a-story-is-written-without-the-canvas.md`.
  *
  * Which Scene it holds is the page's to say, because the graph asks for it from
  * the other side of the bench: the surface is handed the Scene and says when it
@@ -990,10 +991,9 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
                  component's own root, which is that list. -->
             <!-- What the beat plays under and what is done to the beat, on one
                  line: a Shot carrying no Conditions — which is most of them —
-                 spends one quiet row on the pair instead of a full-width button
-                 and a row of marks under it. They part company the moment a
-                 Condition is written, because a list of Conditions is a
-                 column. -->
+                 spends one quiet row on the pair rather than a row apiece. They
+                 part company the moment a Condition is written, because a list of
+                 Conditions is a column. -->
             <div class="beneath">
               <Conditions
                 data-step="shot-condition"
@@ -1010,14 +1010,13 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
               />
 
               <!-- The three controls, as the marks they do rather than the
-                   sentences that name them: in the width the panel gives a Shot
-                   the three sentences fill the strip to its end and wrap out of
-                   it in the longer of the two languages. What each one says is
-                   not lost, it moves to where the Shot's other names are read,
-                   by assistive technology alone. -->
-              <div class="row marks">
+                   sentences that name them — the vocabulary every row of this
+                   document is acted on in, and the reason it is a mark is written
+                   once beside `.mark` in `frameline.css`. -->
+              <div class="row">
                 <button
                   type="button"
+                  class="mark"
                   :disabled="place === 0"
                   @click="moveShot(sceneWritten, shot, -1)"
                 >
@@ -1029,6 +1028,7 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
                 </button>
                 <button
                   type="button"
+                  class="mark"
                   :disabled="place === sceneWritten.shots.length - 1"
                   @click="moveShot(sceneWritten, shot, 1)"
                 >
@@ -1038,7 +1038,7 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
                     {{ $t('editor.shotNumber', { place: place + 1 }) }}
                   </span>
                 </button>
-                <button type="button" class="danger" @click="deleteShot(shot)">
+                <button type="button" class="danger mark" @click="deleteShot(shot)">
                   <span aria-hidden="true">×</span>
                   <span class="visually-hidden">
                     {{ $t('common.delete') }}
@@ -1072,8 +1072,10 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
          them at, each with the Conditions it is offered under. Last because that
          is where a Reader meets them, and on the surface with everything else
          because a way on's Conditions test the Flags at the head of this very
-         document. The Exit's text is written on the graph, where it can be seen
-         leading somewhere. -->
+         document. The words a Reader presses are written here as well, on the row
+         of the way on they belong to: nothing about a way on is written on the
+         graph any more — see
+         `docs/adr/0034-a-story-is-written-without-the-canvas.md`. -->
     <section class="ways held" :aria-labelledby="`ways-of-${sceneWritten.id}`">
       <h3 :id="`ways-of-${sceneWritten.id}`" class="eyebrow">
         {{ $t('editor.waysHeld') }}
@@ -1177,14 +1179,22 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
                 @write="writeConditions('exits', exit.id, exit.conditions)"
               />
 
-              <div class="row marks">
+              <!-- The four controls, as the marks they do. The two that renumber
+                   used to spell their sentences out while a beat's twenty rows
+                   above carried arrows: one act drawn two ways in one document,
+                   and the marks are what won it — the argument is written beside
+                   `.mark` in `frameline.css`. The arrows are also what the drag on
+                   the Place is for a hand that wants no drag at all. -->
+              <div class="row">
                 <button
                   type="button"
+                  class="mark"
                   :disabled="place === 0"
                   @click="moveExit(sceneWritten, exit, -1)"
                 >
-                  {{ $t('common.moveEarlier') }}
+                  <span aria-hidden="true">↑</span>
                   <span class="visually-hidden">
+                    {{ $t('common.moveEarlier') }}
                     {{ $t('editor.theWayOnTo', {
                       place: place + 1,
                       scene: sceneNames.get(exit.toSceneId),
@@ -1193,18 +1203,20 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
                 </button>
                 <button
                   type="button"
+                  class="mark"
                   :disabled="place === exitsFrom(story.exits, sceneWritten.id).length - 1"
                   @click="moveExit(sceneWritten, exit, 1)"
                 >
-                  {{ $t('common.moveLater') }}
+                  <span aria-hidden="true">↓</span>
                   <span class="visually-hidden">
+                    {{ $t('common.moveLater') }}
                     {{ $t('editor.theWayOnTo', {
                       place: place + 1,
                       scene: sceneNames.get(exit.toSceneId),
                     }) }}
                   </span>
                 </button>
-                <button type="button" @click="duplicateExit(sceneWritten, exit)">
+                <button type="button" class="mark" @click="duplicateExit(sceneWritten, exit)">
                   <span aria-hidden="true">⧉</span>
                   <span class="visually-hidden">
                     {{ $t('editor.duplicateExitTo', {
@@ -1212,7 +1224,7 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
                     }) }}
                   </span>
                 </button>
-                <button type="button" class="danger" @click="deleteExit(exit)">
+                <button type="button" class="danger mark" @click="deleteExit(exit)">
                   <span aria-hidden="true">×</span>
                   <span class="visually-hidden">
                     {{ $t('common.delete') }}
@@ -1222,7 +1234,7 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
                     }) }}
                   </span>
                 </button>
-  </div>
+              </div>
             </div>
           </div>
         </li>
@@ -1482,18 +1494,12 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   font-size: 0.8125rem;
 }
 
+/* The marks that act on a beat or on a way on, set closer together than a row of
+   controls is anywhere else: three or four of them are one strip and not that
+   many separate acts. What one of them is is `.mark` in `frameline.css`, for
+   every row on this surface at once. */
 .written .row {
   gap: var(--s1);
-}
-
-/* A Shot's three controls, each one mark wide: the square the words used to be
-   pressed by, kept as a square rather than shrunk to the mark inside it, so the
-   three sit on one line without asking a finger for more aim than before. */
-.written .row.marks button {
-  min-inline-size: 1.75rem;
-  padding: var(--s1) var(--s2);
-  font-size: 0.8125rem;
-  line-height: 1.2;
 }
 
 /* The bare strip of the ways on leaving this Scene: a row apiece, and nothing
@@ -1559,14 +1565,6 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
 
 .ways li.under {
   background: color-mix(in oklab, var(--grease) 12%, transparent);
-}
-
-/* The two controls that renumber, held to the size the ones under a Shot are:
-   they are the keyboard's way to do what the drag does. */
-.ways li .row button {
-  flex: none;
-  padding: var(--s1) var(--s2);
-  font-size: 0.6875rem;
 }
 
 /* A Scene is written at the width the folded graph leaves, which is the bench's

@@ -60,7 +60,7 @@ test('an Author plays their own Story beside the Scene they are writing',
     await preview.getByRole('button', { name: 'Next Shot' }).click()
     await expect(preview.getByRole('status')).toHaveText('The path ends here.')
 
-    await preview.getByRole('button', { name: 'Read again from the start' }).click()
+    await preview.getByRole('button', { name: 'Read Again from the Start' }).click()
     await expect(preview.getByText('A door opens.')).toBeVisible()
   })
 
@@ -226,7 +226,7 @@ test('the order the ways on are offered in is set on the buttons as they are rea
 
     // The pair of controls beside each button is the order, so it is set without a
     // pointer gesture: the second way on moved earlier is the first way on.
-    await preview.getByRole('button', { name: 'Move earlier the Exit to The alley' }).click()
+    await preview.getByRole('button', { name: 'Move Earlier the Exit to The alley' }).click()
     await expect(ways).toHaveText(['Stay outside', 'Follow her out'])
 
     // And it is written on the Story rather than held on the screen: the Places
@@ -236,7 +236,7 @@ test('the order the ways on are offered in is set on the buttons as they are rea
       .toEqual(['Stay outside', 'Follow her out'])
 
     // The controls stop at the ends of the list they renumber.
-    await expect(preview.getByRole('button', { name: 'Move earlier the Exit to The alley' }))
+    await expect(preview.getByRole('button', { name: 'Move Earlier the Exit to The alley' }))
       .toBeDisabled()
   })
 
@@ -496,7 +496,7 @@ test('a Scene draws one of several values, and the Author draws it again',
     // comes up. A press that draws the same value again is not a failure, so the
     // button is pressed until it differs rather than once.
     await expect.poll(async () => {
-      await bench.getByRole('button', { name: 'Draw again' }).click()
+      await bench.getByRole('button', { name: 'Draw Again' }).click()
       return await played()
     }).not.toBe(first)
 
@@ -545,7 +545,7 @@ function drawn(page: Page) {
 }
 
 /** The two controls that row is measured across, as this suite reads them. */
-const IN_ENGLISH = { condition: 'Add a Condition to Shot 1 of The street', mark: 'Move later Shot 1' }
+const IN_ENGLISH = { condition: 'Add a Condition to Shot 1 of The street', mark: 'Move Later Shot 1' }
 const IN_FRENCH = { condition: 'Ajouter une Condition à Plan 1 de The street', mark: 'Déplacer après Plan 1' }
 
 /**
@@ -610,7 +610,7 @@ test('the reading folds away where the bench cannot hold three columns',
     // The way out of the writing is on the surface being written, so leaving it
     // from the reading is two presses: back to the Scene, then close it.
     await page.getByRole('button', { name: 'Write the Scene' }).click()
-    await page.getByRole('button', { name: 'Close this panel' }).click()
+    await page.getByRole('button', { name: 'Close this Panel' }).click()
     await page.getByRole('button', { name: 'Write Scene The street' }).click()
     await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeFocused()
     await expect(preview).toBeHidden()
