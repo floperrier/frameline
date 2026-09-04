@@ -44,12 +44,20 @@ only, so a preview shows the signed-out pages and nothing more. What a preview
 did prove — that a production build succeeds — the `check` job now proves with
 `pnpm build`.
 
-**Nothing deploys from `dev` either, so what is read before a promotion is a
-diff and a list of commits, not a product anyone can hold.** That is the known
-cost of the arrangement. Closing it means giving `dev` a stable origin and
-registering it with the identity provider; until then, a change is judged on
-`dev` the way it was judged in its pull request, and used only once it is in
-production.
+**Nothing deploys from `dev` either, and nothing needs to: `dev` is judged by
+running it.** `localhost:3100` is one of the two registered OAuth callbacks, so
+a checkout signs in and behaves like the product — which is exactly what a
+preview deployment cannot do. Before a promotion:
+
+```sh
+git switch dev && git pull
+pnpm install && pnpm db:migrate && pnpm dev
+```
+
+`pnpm db:migrate` touches the `development` branch of the database and never
+production, so a migration waiting in the promotion is exercised on the way in.
+A promotion is therefore read as a diff *and* used as a product, which is more
+than a preview origin would have bought.
 
 The `check` job also runs `pnpm test`, the Vitest suite over the Reading engine.
 That one needs no database at all, so it runs on every push rather than waiting
