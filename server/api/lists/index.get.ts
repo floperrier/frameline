@@ -37,6 +37,7 @@ export default defineEventHandler(async (event) => {
       publishedAt: stories.publishedAt,
       authorId: authors.id,
       authorName: authors.name,
+      cover: coverShotOf,
     })
     .from(lists)
     .leftJoin(listStories, eq(listStories.listId, lists.id))
@@ -62,6 +63,7 @@ export default defineEventHandler(async (event) => {
           publishedAt: row.publishedAt,
           authorId: row.authorId!,
           authorName: row.authorName,
+          cover: coverUrl(row.cover),
         }
       : null,
   })))

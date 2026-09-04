@@ -249,11 +249,14 @@ test('the image and the text of a Shot are one beat on screen', async ({ browser
 
   // And the Reader meets at the public link exactly what the Preview showed —
   // the same component on the same engine, so it could hardly be otherwise, but
-  // the image is fetched over a door with no session behind it.
+  // the image is fetched over a door with no session behind it. The same frame
+  // also stands in the title card as the Story's Cover, so the one asked for is
+  // the one inside the Shot's figure, beside its text.
   await request.post(`/api/stories/${story.id}/publish`)
   const reader = await (await browser.newContext({ extraHTTPHeaders: {} })).newPage()
   await reader.goto(`/read/${story.id}`)
-  await expect(reader.locator(`img[src^="/api/shots/${shots[0]!.id}/image"]`)).toBeVisible()
+  const frame = reader.getByRole('figure').locator(`img[src^="/api/shots/${shots[0]!.id}/image"]`)
+  await expect(frame).toBeVisible()
   await expect(reader.getByText('A door opens.')).toBeVisible()
 })
 

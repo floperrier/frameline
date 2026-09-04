@@ -84,6 +84,8 @@ export const stories = pgTable('stories', {
   synopsis: text('synopsis').notNull().default(''),
   openingSceneId: uuid('opening_scene_id')
     .references((): AnyPgColumn => scenes.id, { onDelete: 'set null' }),
+  coverShotId: uuid('cover_shot_id')
+    .references((): AnyPgColumn => shots.id, { onDelete: 'set null' }),
   publishedAt: timestamp('published_at', { withTimezone: true }),
   listed: boolean('listed').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

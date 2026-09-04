@@ -55,6 +55,17 @@ it, and a Story has one Synopsis where it has as many Descriptions as Images.
 _Affiché_: Synopsis
 _Avoid_: description, blurb, summary, pitch, résumé, présentation
 
+**Cover**:
+The one Image a Story is presented by wherever it is met before it is opened — the
+Catalogue, a Profile, a List, the title card of the reading page — named by the
+Author from among the Images its Shots already carry, never uploaded on its own.
+A Story nobody named one for is presented by the first Image of its Opening
+Scene, and a Story with no Image at all by its words alone. A plain word rather
+than a cinematic one, because a cover is what this is — see
+`docs/adr/0040-a-story-is-presented-by-one-of-its-own-frames.md`.
+_Affiché_: Couverture
+_Avoid_: poster, still, key art, thumbnail, hero image, affiche, vignette
+
 **Place**:
 Where a Shot comes in its Scene's run, or an Exit in the ways on offered at the end
 of the Scene it leaves — the Author's own numbering, counted from the first, with

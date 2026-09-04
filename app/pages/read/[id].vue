@@ -13,7 +13,7 @@ const id = useRoute().params.id as string
 const { loggedIn } = useUserSession()
 const { data: story, error } = await useAsyncData(
   `read-${id}`,
-  () => send(`/api/read/${id}`) as Promise<StoryToShow & { title: string, language: string }>,
+  () => send(`/api/read/${id}`) as Promise<StoryToShow & { title: string, language: string, cover: string | null }>,
 )
 
 // An unpublished Story, one unpublished after this link went out, and one that
@@ -27,7 +27,14 @@ if (error.value) throw createError({ ...error.value, fatal: true })
   <main class="room">
     <!-- The title card: the Story is named once, at the head of the reel, and
          then the frames have the room to themselves. -->
-    <header>
+    <header :class="{ covered: story?.cover }">
+      <!-- The frame the Story was presented by on the shelf, beside the title as
+           it stood beside it there: a Reader arrives where the entry they pressed
+           said they would. Small, because the first Shot is about to play under
+           it at full width and a poster over a poster is one picture too many.
+           Decorative beside the title that names the work — the Shot itself, with
+           its Description, is met in the Reading. -->
+      <img v-if="story?.cover" class="cover" :src="story.cover" alt="">
       <p class="eyebrow">{{ $t('read.eyebrow') }}</p>
       <!-- The Story's own title, announced in the Story's Language while the
            line above it stays in the Reader's. -->
@@ -55,6 +62,25 @@ if (error.value) throw createError({ ...error.value, fatal: true })
 </template>
 
 <style scoped>
+/* The title card with its frame: the Cover down the left, the words beside it,
+   the same card the shelf drew so the Reader knows they arrived. */
+header.covered {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  column-gap: var(--s4);
+}
+
+.cover {
+  grid-row: 1 / span 3;
+  inline-size: 9rem;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border: 1px solid var(--edge);
+  border-radius: var(--machined);
+  background: var(--bench);
+}
+
 h1 {
   font-size: clamp(2rem, 1.4rem + 2.4vw, 3rem);
 }

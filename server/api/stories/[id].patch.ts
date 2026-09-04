@@ -5,7 +5,7 @@ import { useDb } from '../../db'
 export default defineEventHandler(async (event) => {
   const author = await requireAuthor(event)
   const id = readId(event, 'Story')
-  const changes = await readStoryChanges(event)
+  const changes = await readStoryChanges(event, id)
 
   // Scoping by Author is what makes another Author's Story unreachable, here and
   // in the delete beside it — there is no separate ownership check to forget.
