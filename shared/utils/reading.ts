@@ -233,15 +233,37 @@ function walk(story: StoryToRead, { seed, taken }: Path) {
   let sceneId = story.openingSceneId
   if (sceneId) enter(sceneId)
 
+  // How many of the taken Exits the walk got through, which is how `resumes`
+  // tells a Path that still fits the Story from one the Story has moved under.
+  let walked = 0
   for (const takenId of taken) {
     const exit = story.exits.find(exit =>
       exit.id === takenId && exit.fromSceneId === sceneId && holds(exit.conditions, state))
     if (!exit) break
     sceneId = exit.toSceneId
     enter(sceneId)
+    walked++
   }
 
-  return { sceneId, state }
+  return { sceneId, state, walked }
+}
+
+/**
+ * Whether a Path kept from an earlier visit is one to put the Reader back at.
+ * It is not where nothing has been read yet — there is nothing to come back to
+ * — nor at an ending, which is a place to leave from rather than be returned to.
+ * And it is not where the Story has moved underneath it since: an Exit taken
+ * that is no longer there, or no longer offered to this Reading, stops the walk
+ * short, and a Shot count past the run means Shots were taken away. Either
+ * would drop the Reader somewhere they never stood, so the Story starts over
+ * instead. See `docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md`.
+ */
+export function resumes(story: StoryToRead, at: Path) {
+  if (at.taken.length === 0 && at.shot === 0) return false
+  if (walk(story, at).walked < at.taken.length) return false
+
+  const { run, ended } = reading(story, at)
+  return !ended && at.shot <= run.length
 }
 
 /** What this Story shows a Reading that has taken this Path. */
