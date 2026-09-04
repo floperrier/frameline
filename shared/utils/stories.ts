@@ -27,3 +27,25 @@ export const STORY_LANGUAGE_DEFAULT: StoryLanguage = 'en'
  * being it.
  */
 export const STORY_SYNOPSIS_MAX_LENGTH = 600
+
+/**
+ * The Shot whose Image presents a Story wherever it is met before it is opened:
+ * the one the Author named as its Cover, where they named one and it still
+ * carries an Image, and otherwise the first Shot of the Opening Scene that
+ * carries one. Null is a Story with nothing to show, presented by its words
+ * alone. The server resolves the same rule in SQL for every shelf; this is the
+ * bench's copy, so the picker marks the frame a Reader will actually see. See
+ * `docs/adr/0040-a-story-is-presented-by-one-of-its-own-frames.md`.
+ */
+export function coverOf(story: {
+  coverShotId: string | null
+  openingSceneId: string | null
+  scenes: { id: string, shots: { id: string, image: string | null }[] }[]
+}) {
+  const shots = story.scenes.flatMap(scene => scene.shots)
+  const named = shots.find(shot => shot.id === story.coverShotId && shot.image)
+  if (named) return named.id
+
+  const opening = story.scenes.find(scene => scene.id === story.openingSceneId)
+  return opening?.shots.find(shot => shot.image)?.id ?? null
+}

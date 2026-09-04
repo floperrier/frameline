@@ -33,6 +33,7 @@ export default defineEventHandler(async (event) => {
       language: stories.language,
       synopsis: stories.synopsis,
       publishedAt: stories.publishedAt,
+      cover: coverShotOf,
     })
     .from(stories)
     .where(and(
@@ -42,5 +43,5 @@ export default defineEventHandler(async (event) => {
     ))
     .orderBy(desc(stories.publishedAt))
 
-  return { ...author, stories: listed }
+  return { ...author, stories: listed.map(row => ({ ...row, cover: coverUrl(row.cover) })) }
 })

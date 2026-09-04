@@ -655,6 +655,8 @@ export type StoryInEditor = {
   /** The few lines presenting the Story, empty where nobody has written any. */
   synopsis: string
   openingSceneId: string | null
+  /** The Shot whose Image the Author named as the Cover, or null where none is named. */
+  coverShotId: string | null
   publishedAt: string | null
   /** Whether the Author has put the published Story in the Catalogue. */
   listed: boolean

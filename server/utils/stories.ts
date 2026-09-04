@@ -1,6 +1,6 @@
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, isNotNull, sql } from 'drizzle-orm'
 import type { H3Event } from 'h3'
-import { exits, scenes, shots } from '../db/schema'
+import { exits, scenes, shots, stories } from '../db/schema'
 import { useDb } from '../db'
 
 /**
@@ -49,25 +49,72 @@ export async function readStorySynopsis(event: H3Event) {
 }
 
 /**
- * What a PATCH may change about a Story: its title, its Synopsis, or both. Each
- * is read only where the body names it, so the bench can write the one field the
- * Author typed in without carrying the other along — two fields in one header,
- * each landing on its own.
+ * Reads the Cover from the request body: the id of a Shot of this Story that
+ * carries an Image, or null to take the naming away. A trust boundary twice
+ * over — the id is checked for shape here and for belonging below, because a
+ * Shot of somebody else's Story would otherwise put their Image on this shelf.
+ */
+export async function readStoryCover(event: H3Event, storyId: string) {
+  const body = await readBody<{ coverShotId?: unknown }>(event)
+  const coverShotId = body?.coverShotId
+  if (coverShotId === null) return null
+
+  const refused = () => createError({ statusCode: 400, message: saying(event)('refusals.cover') })
+  if (typeof coverShotId !== 'string' || !UUID_PATTERN.test(coverShotId)) throw refused()
+
+  const [shot] = await useDb()
+    .select({ id: shots.id })
+    .from(shots)
+    .innerJoin(scenes, eq(shots.sceneId, scenes.id))
+    .where(and(eq(shots.id, coverShotId), eq(scenes.storyId, storyId), isNotNull(shots.image)))
+  if (!shot) throw refused()
+
+  return shot.id
+}
+
+/**
+ * What a PATCH may change about a Story: its title, its Synopsis, its Cover, or
+ * any of them together. Each is read only where the body names it, so the bench
+ * can write the one field the Author typed in without carrying the others along
+ * — three fields in one header, each landing on its own.
  *
- * A body naming neither is a request that changes nothing, and is refused as a
+ * A body naming none is a request that changes nothing, and is refused as a
  * title being asked for: the title is the one thing a Story cannot be without,
  * so that is what an empty change is missing.
  */
-export async function readStoryChanges(event: H3Event) {
-  const body = await readBody<{ title?: unknown, synopsis?: unknown }>(event)
-  const changes: { title?: string, synopsis?: string } = {}
+export async function readStoryChanges(event: H3Event, storyId: string) {
+  const body = await readBody<{ title?: unknown, synopsis?: unknown, coverShotId?: unknown }>(event)
+  const changes: { title?: string, synopsis?: string, coverShotId?: string | null } = {}
 
   if (body?.title !== undefined) changes.title = await readStoryTitle(event)
   if (body?.synopsis !== undefined) changes.synopsis = await readStorySynopsis(event)
+  if (body?.coverShotId !== undefined) changes.coverShotId = await readStoryCover(event, storyId)
   // Which is a title asked for, by the reader that phrases the refusal.
-  if (!changes.title && changes.synopsis === undefined) await readStoryTitle(event)
+  if (!Object.keys(changes).length) await readStoryTitle(event)
 
   return changes
+}
+
+/**
+ * The Shot whose Image presents a Story on a shelf, as one column of any query
+ * over `stories`: the Cover the Author named where it still carries an Image, and
+ * otherwise the first Shot of the Opening Scene that carries one. Null is a Story
+ * presented by its words alone. The same rule as `coverOf` in
+ * `shared/utils/stories.ts`, which the bench runs over the Story it holds; here it
+ * runs in SQL so a Catalogue of a hundred Stories is still one query. See
+ * `docs/adr/0040-a-story-is-presented-by-one-of-its-own-frames.md`.
+ */
+export const coverShotOf = sql<string | null>`coalesce(
+  (select ${shots.id} from ${shots}
+    where ${shots.id} = ${stories.coverShotId} and ${shots.image} is not null),
+  (select ${shots.id} from ${shots}
+    where ${shots.sceneId} = ${stories.openingSceneId} and ${shots.image} is not null
+    order by ${shots.position} limit 1)
+)`
+
+/** The address of the Image a shelf shows for a Story, or null where it has none. */
+export function coverUrl(coverShotId: string | null) {
+  return coverShotId && shotImageUrl(coverShotId)
 }
 
 /**
