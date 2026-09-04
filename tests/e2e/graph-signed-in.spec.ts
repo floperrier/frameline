@@ -714,7 +714,8 @@ test('the bench says when a write was kept, and a move says nothing', async ({ p
   // Both marks are quiet on purpose. A live region firing every time a field is
   // left would talk over the next thing typed, so a write that landed is seen and
   // never heard — what does get announced is a refusal, and there was none.
-  await expect(toast(page)).toHaveCount(0)
+  await expect(toast(page)).toBeEmpty()
+  await expect(toast(page)).toHaveCSS('opacity', '0')
   await expect(page.getByRole('alert')).toHaveCount(0)
 
   // Moving a node is drawing and not writing, so it leaves the time alone even
@@ -1936,6 +1937,12 @@ test('on a phone the bench is heard over the writing surface covering it',
     // fixed too, at the foot corner of the window, so without a z-index of its
     // own it is painted under the very surface the act was done on.
     await page.setViewportSize({ width: 600, height: 800 })
+    // The live region is in the document before it has anything to say, and
+    // paints nothing: a screen reader announces a change to a node it already
+    // holds, never a node that arrives with its sentence inside it.
+    const region = await toast(page).elementHandle()
+    await expect(toast(page)).toBeEmpty()
+    await expect(toast(page)).toHaveCSS('opacity', '0')
     await page.getByRole('button', { name: 'Duplicate Exit to The platform' }).first().click()
     await expect(toast(page))
       .toHaveText('Another Exit from The arrival to The platform written')
@@ -1943,6 +1950,8 @@ test('on a phone the bench is heard over the writing surface covering it',
     // click runs the actionability checks, hit target included, and presses
     // nothing.
     await toast(page).click({ trial: true })
+    // Same node, so the sentence was a change and not an arrival.
+    expect(await toast(page).evaluate((el, held) => el === held, region)).toBe(true)
   })
 
 test('Escape abandons a gesture, by pointer and by keyboard', async ({ page, request }) => {
