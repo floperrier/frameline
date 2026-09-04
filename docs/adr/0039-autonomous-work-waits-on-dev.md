@@ -66,13 +66,17 @@ every commit on `dev` is already one squashed sentence. The merge commit is what
 marks the release, which is the one thing this repository had no marker for
 after deciding it needed no tags.
 
-**Nothing deploys from `dev`, so a promotion is read and not used.**
-`vercel.json` enables Git deployments for `main` alone, and a deployment
-elsewhere could not sign anyone in: the OAuth callback URLs are registered for
-the production origin and `localhost:3100` only. So the developer reviews a diff
-and a list of commits, not a product they can hold. That is the known weakness
-of this arrangement, and the way out of it is a stable origin for `dev`
-registered with the identity provider, not a change to these two branches.
+**Nothing deploys from `dev`, and a promotion is used all the same — by
+running `dev`.** `vercel.json` enables Git deployments for `main` alone, and a
+deployment elsewhere could sign nobody in: the OAuth callback URLs are
+registered for the production origin and `localhost:3100` only. The second of
+those two is the point. A checkout of `dev` run with `pnpm dev` signs in and
+behaves like the product, with `pnpm db:migrate` exercising any waiting
+migration against the `development` branch of the database, so what the quarantine
+withholds from Authors is still held by the developer before they release it.
+This record first called that a weakness and proposed a stable origin for `dev`
+registered with the identity provider; that was reaching for infrastructure the
+loopback callback already makes unnecessary.
 
 **Anything that derives the base branch from `origin/HEAD` now gets `dev`.**
 That resolution is why this record exists: a run took `main` from `origin/HEAD`,
