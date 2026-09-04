@@ -8,9 +8,17 @@
  * The Path lives here and nowhere else. It never leaves the browser, so
  * every Reading starts with empty State and two Readers of one Story cannot
  * share what they have accumulated — there is no place for them to share it.
- * Leaving the page starts the Story over for the same reason.
+ *
+ * `keptFor` is the Story whose Reading this browser keeps between visits: named,
+ * the Path is written to local storage on every move and read back when the
+ * page opens, so a Reader who left comes back to where they stood. Left out,
+ * nothing is kept, which is what a Preview asks for — see
+ * `docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md`.
  */
-const { story } = defineProps<{ story: StoryToShow & { language: string } }>()
+const { story, keptFor } = defineProps<{
+  story: StoryToShow & { language: string }
+  keptFor?: string
+}>()
 
 const { t } = useI18n()
 
@@ -25,7 +33,54 @@ const emit = defineEmits<{ at: [Path] }>()
 
 const at = ref<Path>(UNDRAWN)
 const shown = computed(() => reading(story, at.value))
-const shownAt = () => emit('at', at.value)
+
+/**
+ * Every move is said out loud, and kept where the browser will find it again:
+ * the whole Path, so what is read back is exactly what replays. Written here
+ * rather than in `moveTo` so the opening is kept too — a Reader who has just
+ * started over is back at the start next time as well.
+ */
+const key = keptFor && `reading-${keptFor}`
+
+function shownAt() {
+  emit('at', at.value)
+  if (!key) return
+  // A browser that refuses storage, or has none left, refuses quietly: the
+  // Reading goes on, it is just not kept.
+  try {
+    localStorage.setItem(key, JSON.stringify(at.value))
+  }
+  catch {}
+}
+
+/**
+ * The Path this browser kept from an earlier visit, if it is one to go back to:
+ * `resumes` says whether it has moved, has not ended, and still fits the Story as
+ * published. Anything else in the slot — nothing, an ending, a Path the Author
+ * has since edited from under, bytes that are not a Path — is a fresh start.
+ */
+function kept(): Path | undefined {
+  if (!key) return
+  let at: unknown
+  try {
+    at = JSON.parse(localStorage.getItem(key) ?? 'null')
+  }
+  catch {
+    return
+  }
+  return isPath(at) && resumes(story, at) ? at : undefined
+}
+
+/** Whether what the browser handed back has the shape of a Path, whatever wrote it. */
+function isPath(at: unknown): at is Path {
+  return typeof at === 'object' && at !== null
+    && Number.isInteger((at as Path).seed)
+    && Number.isInteger((at as Path).shot) && (at as Path).shot >= 0
+    && Array.isArray((at as Path).taken)
+}
+
+/** Whether what is on screen is where the Reader left off, said until they move. */
+const resumed = ref(false)
 
 /**
  * The seed every draw a Scene makes comes out of, drawn once the Reading is in
@@ -33,10 +88,13 @@ const shownAt = () => emit('at', at.value)
  * Path this starts at, because the server renders this page too and a seed
  * drawn there and drawn again here would be two Stories either side of
  * hydration. It is the one impure moment in a Reading — see
- * `docs/adr/0024-the-seed-belongs-to-the-position.md`.
+ * `docs/adr/0024-the-seed-belongs-to-the-position.md`. A Path kept from before
+ * carries its seed with it, so a Reading picked up draws what it drew.
  */
 onMounted(() => {
-  at.value = opening()
+  const before = kept()
+  resumed.value = before !== undefined
+  at.value = before ?? opening()
   shownAt()
 })
 
@@ -56,6 +114,7 @@ const exits = useTemplateRef<HTMLElement>('exits')
 
 async function moveTo(to: Path) {
   at.value = to
+  resumed.value = false
   shownAt()
   await nextTick()
   ;(shown.value.shot ? frame.value : exits.value?.querySelector('button'))?.focus()
@@ -113,6 +172,12 @@ function offered(exit: Exit) {
 
 <template>
   <div class="reading">
+    <!-- Said before the frame, where a Reader landing mid-Story looks first: they
+         are where they left off, not at a Story that starts in the middle. A
+         status, so a screen reader hears it as the beat arrives, and gone at the
+         next move — the notice is about the arrival, not about the Reading. -->
+    <p v-if="resumed" class="resumed trail" role="status">{{ $t('reading.resumed') }}</p>
+
     <!-- One Shot at a time, and the Exits only once the Scene has played out —
          behind the frame it played out on, which is held rather than taken away. -->
     <template v-if="held">
@@ -306,6 +371,7 @@ figcaption {
   background: var(--steel-lit);
 }
 
+.resumed,
 .ended {
   display: flex;
   align-items: center;
@@ -314,7 +380,10 @@ figcaption {
 }
 
 /* The tail sample either side of the ending, which is what the end of a reel
-   looks like. */
+   looks like — and either side of a Reading picked up, which is the same splice
+   seen from the other end: the film was cut here, and here it runs on. */
+.resumed::before,
+.resumed::after,
 .ended::before,
 .ended::after {
   content: '';

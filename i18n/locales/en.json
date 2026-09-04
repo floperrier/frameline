@@ -230,7 +230,8 @@
     "shotOf": "Shot {place} of {of}",
     "next": "Next Shot",
     "ended": "The path ends here.",
-    "again": "Read again from the start"
+    "again": "Read again from the start",
+    "resumed": "Picked up where you left off."
   },
   "read": {
     "eyebrow": "A Frameline Story"

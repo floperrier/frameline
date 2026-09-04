@@ -230,7 +230,8 @@
     "shotOf": "Plan {place} sur {of}",
     "next": "Plan suivant",
     "ended": "Le chemin s'arrête ici.",
-    "again": "Relire depuis le début"
+    "again": "Relire depuis le début",
+    "resumed": "Reprise là où vous en étiez."
   },
   "read": {
     "eyebrow": "Un Récit Frameline"

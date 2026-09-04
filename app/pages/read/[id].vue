@@ -42,7 +42,10 @@ if (error.value) throw createError({ ...error.value, fatal: true })
       </div>
     </header>
 
-    <Reading v-if="story" :story="story" />
+    <!-- Kept for this Story in this browser, so the Reader who left comes back to
+         where they stood. The Preview draws the same component and keeps
+         nothing: an Author on the bench is testing, not reading. -->
+    <Reading v-if="story" :story="story" :kept-for="id" />
 
     <!-- What has been said about the Story, under the Story: whoever came to
          read it meets the work before anybody's answer to it. Read with or

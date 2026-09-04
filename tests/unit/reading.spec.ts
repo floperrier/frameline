@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Condition, Sets } from '../../shared/utils/scenes'
 import type { Path, State, StoryToRead } from '../../shared/utils/reading'
-import { advance, opening, reading, take, unmet } from '../../shared/utils/reading'
+import { advance, opening, reading, resumes, take, unmet } from '../../shared/utils/reading'
 import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
 import type { Phrase } from '../../shared/utils/phrases'
 
@@ -625,5 +625,50 @@ describe('a Scene drawing one of several values for a Flag', () => {
     for (const at of seeds.slice(0, 20)) {
       expect(reading(setting, at).state.flags.coat).toBe('on')
     }
+  })
+})
+
+describe('a Path kept in the browser and replayed', () => {
+  const two = story(
+    { Street: ['A door opens.', 'She steps out.'], Bar: ['Smoke.'] },
+    [['Street', 'Follow her out', 'Bar']],
+  )
+  const [out] = two.exits
+
+  it('is not picked up where nothing has been read yet', () => {
+    expect(resumes(two, OPENING)).toBe(false)
+  })
+
+  it('is picked up at the Shot it left on', () => {
+    expect(resumes(two, advance(OPENING))).toBe(true)
+  })
+
+  it('is picked up at the Exits on offer, with the run behind it', () => {
+    expect(resumes(two, advance(advance(OPENING)))).toBe(true)
+  })
+
+  it('is picked up in the Scene an Exit led to', () => {
+    expect(resumes(two, take(OPENING, out!))).toBe(true)
+  })
+
+  it('is not picked up at an ending, which is nowhere to be put back', () => {
+    expect(resumes(two, advance(take(OPENING, out!)))).toBe(false)
+  })
+
+  it('is not picked up where an Exit it took has since been taken away', () => {
+    const cut = story({ Street: ['A door opens.', 'She steps out.'], Bar: ['Smoke.'] })
+    expect(resumes(cut, take(OPENING, out!))).toBe(false)
+  })
+
+  it('is not picked up where an Exit it took is now hidden from it', () => {
+    const gated = story(
+      { Street: ['A door opens.'], Bar: ['Smoke.'] },
+      [['Street', 'Follow her out', 'Bar', [{ flag: 'key', is: 'held' }]]],
+    )
+    expect(resumes(gated, take(OPENING, out!))).toBe(false)
+  })
+
+  it('is not picked up past the run, where Shots have since been taken away', () => {
+    expect(resumes(two, { ...OPENING, shot: 5 })).toBe(false)
   })
 })
