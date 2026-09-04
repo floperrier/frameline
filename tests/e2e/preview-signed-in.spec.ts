@@ -68,9 +68,13 @@ test('an Author plays their own Story beside the Scene they are writing',
     await expect(ending).toHaveText('The path ends here.')
     // Same node, so the sentence was a change and not an arrival.
     expect(await ending.evaluate((el, held) => el === held, region)).toBe(true)
+    // The last press took its own button away, so focus lands on the one left.
+    const again = preview.getByRole('button', { name: 'Read Again from the Start' })
+    await expect(again).toBeFocused()
 
-    await preview.getByRole('button', { name: 'Read Again from the Start' }).click()
+    await again.click()
     await expect(preview.getByText('A door opens.')).toBeVisible()
+    await expect(preview.locator('.frame')).toBeFocused()
   })
 
 test('the reading is stopped on the Scene being written', async ({ page, request }) => {
