@@ -556,14 +556,14 @@ test('everything a Scene holds is on the surface at once, each part counted',
     // headed and counted where it starts: the Flags set on entry, the run of
     // beats, the ways on.
     await expect(page.locator('.panel .held > h3'))
-      .toHaveText([/Flags\s*1/, /Shots\s*2/, /Ways on\s*1/])
+      .toHaveText([/Flags\s*1/, /Shots\s*2/, /Exits\s*1/])
 
     // And all three are on the surface together, which is what taking the tabs
     // out bought: a Condition and the Flags that satisfy it are read at once.
     await expect(page.getByRole('textbox', { name: 'Shot 1' })).toBeVisible()
     await expect(page.getByLabel('Name of Flag 1 set on entering The arrival')).toHaveValue('coat')
     await expect(page.locator('.panel .ways > ol > li > .numbered')).toHaveText('1')
-    await expect(page.getByLabel('Where the way on 1 out of The arrival leads'))
+    await expect(page.getByLabel('Where the Exit 1 out of The arrival leads'))
       .toHaveValue(platform.id)
 
     // The count follows the Story rather than the page it was drawn on.
