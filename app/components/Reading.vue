@@ -199,7 +199,10 @@ function offered(exit: Exit) {
       </li>
     </ul>
 
-    <p v-if="shown.ended" class="ended trail" role="status">{{ $t('reading.ended') }}</p>
+    <!-- In the document before it has anything to say: a live region announces
+         a change to a node it already holds, never a node that arrives with its
+         sentence inside it. -->
+    <p class="ended trail" role="status">{{ shown.ended ? $t('reading.ended') : '' }}</p>
 
     <p class="again">
       <button type="button" class="trail" @click="moveTo(opening())">
@@ -349,6 +352,19 @@ figcaption {
   flex: 1;
   block-size: 1px;
   background: var(--edge);
+}
+
+/* Nothing to say yet: out of the column's flow, so the gap either side of it
+   goes too, and not `display: none`, which would take it out of the
+   accessibility tree and bring the silence back. */
+.ended:empty {
+  position: absolute;
+  opacity: 0;
+}
+
+.ended:empty::before,
+.ended:empty::after {
+  content: none;
 }
 
 .again {

@@ -56,9 +56,18 @@ test('an Author plays their own Story beside the Scene they are writing',
     await preview.getByRole('button', { name: 'Follow her out' }).click()
     await expect(preview.getByText('Smoke, and no one she knows.')).toBeVisible()
 
-    // The bar has no Exit out of it, so the Reader is told the path ends there.
+    // The bar has no Exit out of it, so the Reader is told the path ends there —
+    // in a live region that was in the document, empty and drawing nothing,
+    // before it had anything to say: a screen reader announces the change to a
+    // node it already holds, never a node arriving with its sentence inside it.
+    const ending = preview.getByRole('status').and(preview.locator('.ended'))
+    const region = await ending.elementHandle()
+    await expect(ending).toBeEmpty()
+    await expect(ending).toHaveCSS('opacity', '0')
     await preview.getByRole('button', { name: 'Next Shot' }).click()
-    await expect(preview.getByRole('status')).toHaveText('The path ends here.')
+    await expect(ending).toHaveText('The path ends here.')
+    // Same node, so the sentence was a change and not an arrival.
+    expect(await ending.evaluate((el, held) => el === held, region)).toBe(true)
 
     await preview.getByRole('button', { name: 'Read Again from the Start' }).click()
     await expect(preview.getByText('A door opens.')).toBeVisible()
