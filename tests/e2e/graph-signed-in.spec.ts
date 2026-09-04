@@ -428,7 +428,7 @@ test('an Author lays out the graph from the page alone', async ({ page, request 
 
   // Taken away from the row it is written on, and the line the graph drew for it
   // goes with it.
-  await page.getByRole('button', { name: 'Delete the Way On 1 to The platform' }).click()
+  await page.getByRole('button', { name: 'Delete the Exit 1 to The platform' }).click()
   await expect(page.getByRole('textbox', { name: 'Exit to The platform' })).toHaveCount(0)
   await expect(readExits(scenes[0]!.id)).resolves.toEqual([])
 })
@@ -625,9 +625,9 @@ test('an Exit is written where it is, and never takes the Scene\u2019s place', a
   // carry the Conditions each one is offered under — beside the Flags that Scene
   // sets, which is what they test.
   await writeScene(page, 'The arrival')
-  await page.getByRole('button', { name: 'Add a Condition to the Way On 1 to The platform' }).click()
+  await page.getByRole('button', { name: 'Add a Condition to the Exit 1 to The platform' }).click()
   await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
-  const flag = page.getByLabel('Flag of Condition 1 of the Way On 1 to The platform')
+  const flag = page.getByLabel('Flag of Condition 1 of the Exit 1 to The platform')
   await expect(flag).toBeFocused()
   await flag.fill('coat')
   await flag.blur()
@@ -647,7 +647,7 @@ test('an Exit is written where it is, and never takes the Scene\u2019s place', a
   // And the three things a way on is are on that same row, without leaving the
   // Scene for any of them: where it leads, what the Reader presses to take it,
   // and the Conditions it is offered under.
-  await expect(page.getByLabel('Where the way on 1 out of The arrival leads'))
+  await expect(page.getByLabel('Where the Exit 1 out of The arrival leads'))
     .toHaveValue(scenes[1]!.id)
   const said = page.getByRole('textbox', { name: 'Exit to The platform' })
   await said.fill('Follow her out')
@@ -752,7 +752,7 @@ test('the graph of several dozen Scenes is read as cards', async ({ page, author
   await expect(page.getByRole('tab', { name: /^Flags/ })).toHaveCount(0)
   await expect(page.getByRole('article', { name: 'Scene 1', exact: true }))
     .toContainText('1 Shot, on to Scene 2')
-  await expect(last).toContainText('1 Shot, no way on')
+  await expect(last).toContainText('1 Shot, no Exit')
   expect((await last.boundingBox())!.height).toBeCloseTo(NODE_HEIGHT, 0)
 
   // The editor comes on demand, on the surface the bench folds open, and for the
@@ -1047,7 +1047,7 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
   // `docs/adr/0030-a-story-is-read-where-it-is-written.md`.
   const ways = page.locator('.panel .ways')
 
-  await ways.getByRole('button', { name: 'Move Earlier the Way On 2 to The tunnel' }).click()
+  await ways.getByRole('button', { name: 'Move Earlier the Exit 2 to The tunnel' }).click()
   await expect(async () => {
     await expect(readExits(from.id)).resolves.toMatchObject([
       { toSceneId: tunnel.id, position: 0 },
@@ -1059,9 +1059,9 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
   // rather than asking. The reload comes back to the Scene being written, which the
   // address carries, so nothing is opened again here.
   await page.reload()
-  await expect(ways.getByRole('button', { name: 'Move Earlier the Way On 1 to The tunnel' }))
+  await expect(ways.getByRole('button', { name: 'Move Earlier the Exit 1 to The tunnel' }))
     .toBeDisabled()
-  await expect(ways.getByRole('button', { name: 'Move Later the Way On 2 to The buffet' }))
+  await expect(ways.getByRole('button', { name: 'Move Later the Exit 2 to The buffet' }))
     .toBeDisabled()
 
   // And by hand: a row dragged onto another takes the Place that row stood at.
@@ -1099,12 +1099,12 @@ test('a way on’s four controls are marks, as a Shot’s are', async ({ page, r
 
   // Each one says what it does and which way on it does it to, the words read by
   // assistive technology alone — they moved, they did not go.
-  const earlier = page.getByRole('button', { name: 'Move Earlier the Way On 1 to The buffet' })
+  const earlier = page.getByRole('button', { name: 'Move Earlier the Exit 1 to The buffet' })
   await expect(earlier).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Move Later the Way On 1 to The buffet' }))
+  await expect(page.getByRole('button', { name: 'Move Later the Exit 1 to The buffet' }))
     .toBeVisible()
   await expect(page.getByRole('button', { name: 'Duplicate Exit to The buffet' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Delete the Way On 1 to The buffet' }))
+  await expect(page.getByRole('button', { name: 'Delete the Exit 1 to The buffet' }))
     .toBeVisible()
 
   // The two that renumber used to spell their sentences out while a beat's
@@ -1222,7 +1222,7 @@ test('an Exit\u2019s line says its Place and leads to where the Exit is written'
 
   // And taken away from the row it is written on, which takes the line the graph
   // drew for it with it.
-  await page.getByRole('button', { name: 'Delete the Way On 1 to The platform' }).click()
+  await page.getByRole('button', { name: 'Delete the Exit 1 to The platform' }).click()
   await expect(page.getByRole('textbox', { name: 'Exit to The platform' })).toHaveCount(0)
   await expect(drawing(first)).toHaveCount(0)
   await expect(async () => {
@@ -1250,7 +1250,7 @@ test('an Exit is reached, written and taken away without a pointer',
     // Where it leads, what the Reader presses, and the Conditions it is offered
     // under: three fields of one row, each reached by the key that reaches every
     // other field on the surface.
-    const leads = page.getByLabel('Where the way on 1 out of The arrival leads')
+    const leads = page.getByLabel('Where the Exit 1 out of The arrival leads')
     await expect(leads).toHaveValue(to.id)
 
     const exitText = page.getByRole('textbox', { name: 'Exit to The platform' })
@@ -1263,7 +1263,7 @@ test('an Exit is reached, written and taken away without a pointer',
     }).toPass()
 
     // And taken away from the same row, by the mark at the end of it.
-    await page.getByRole('button', { name: 'Delete the Way On 1 to The platform' }).press('Enter')
+    await page.getByRole('button', { name: 'Delete the Exit 1 to The platform' }).press('Enter')
     await expect(async () => {
       await expect(readExits(from.id)).resolves.toEqual([])
     }).toPass()
@@ -1301,27 +1301,27 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
 
   // The Conditions of a way on are written beside the Scene, one tab away from
   // the Flags they are tested against.
-  await page.getByRole('button', { name: 'Add a Condition to the Way On 1 to The platform' }).click()
+  await page.getByRole('button', { name: 'Add a Condition to the Exit 1 to The platform' }).click()
   // The name of the Flag and the value it holds are written one at a time,
   // because the Flag alone is half a Condition and is written as soon as it has
   // a name — and the value is then typed into the same field the Author was
   // left holding.
-  const tested = page.getByLabel('Flag of Condition 1 of the Way On 1 to The platform')
+  const tested = page.getByLabel('Flag of Condition 1 of the Exit 1 to The platform')
   await expect(tested).toBeFocused()
   await tested.fill('coat')
   await tested.blur()
-  const is = page.getByLabel('holds for Condition 1 of the Way On 1 to The platform')
+  const is = page.getByLabel('holds for Condition 1 of the Exit 1 to The platform')
   await is.fill('on')
   // A second Condition, added from the keyboard while the first is being
   // written, which is what makes several in a row one gesture repeated: what was
   // typed is written on the way, and the hand lands in the new row.
   await is.press('Enter')
-  await expect(page.getByLabel('Flag of Condition 2 of the Way On 1 to The platform'))
+  await expect(page.getByLabel('Flag of Condition 2 of the Exit 1 to The platform'))
     .toBeFocused()
-  // Exactly, because "Condition 2 of the Way On 1 to The platform" is also the tail
+  // Exactly, because "Condition 2 of the Exit 1 to The platform" is also the tail
   // of the labels on the fields of that Condition.
   await page
-    .getByLabel('Condition 2 of the Way On 1 to The platform', { exact: true })
+    .getByLabel('Condition 2 of the Exit 1 to The platform', { exact: true })
     .selectOption('visits')
 
   // Read back past the page, which is what proves all of it landed — and has to
@@ -1344,17 +1344,17 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
     .toHaveValue('coat')
   await expect(page.getByLabel('Value 1 of Flag 1 set on entering The arrival'))
     .toHaveValue('on')
-  await expect(page.getByLabel('Condition 1 of the Way On 1 to The platform', { exact: true }))
+  await expect(page.getByLabel('Condition 1 of the Exit 1 to The platform', { exact: true }))
     .toHaveValue('flag')
-  await expect(page.getByLabel('Flag of Condition 1 of the Way On 1 to The platform'))
+  await expect(page.getByLabel('Flag of Condition 1 of the Exit 1 to The platform'))
     .toHaveValue('coat')
-  await expect(page.getByLabel('Condition 2 of the Way On 1 to The platform', { exact: true }))
+  await expect(page.getByLabel('Condition 2 of the Exit 1 to The platform', { exact: true }))
     .toHaveValue('visits')
 
   // And an Exit with every Condition taken off it is offered always again.
   for (const place of [2, 1]) {
     await page.getByRole('button',
-      { name: `Remove Condition ${place} of the Way On 1 to The platform` }).click()
+      { name: `Remove Condition ${place} of the Exit 1 to The platform` }).click()
   }
   await expect(async () => {
     await expect(readExits(from.id)).resolves.toMatchObject([{ conditions: [] }])
@@ -1892,12 +1892,12 @@ test('a second way on to the same Scene is written by duplicating the first',
 
     // A Condition on the first, because a Condition is what the pair is for: two
     // ways on to one Scene are offered under opposite tests.
-    await page.getByRole('button', { name: 'Add a Condition to the Way On 1 to The platform' })
+    await page.getByRole('button', { name: 'Add a Condition to the Exit 1 to The platform' })
       .click()
-    const flag = page.getByLabel('Flag of Condition 1 of the Way On 1 to The platform')
+    const flag = page.getByLabel('Flag of Condition 1 of the Exit 1 to The platform')
     await flag.fill('coat')
     await flag.blur()
-    const holds = page.getByLabel('holds for Condition 1 of the Way On 1 to The platform')
+    const holds = page.getByLabel('holds for Condition 1 of the Exit 1 to The platform')
     await holds.fill('on')
     await holds.blur()
 
@@ -1913,7 +1913,7 @@ test('a second way on to the same Scene is written by duplicating the first',
 
     // What is written against the third row is written on the copy alone.
     await expect(wayOnAt(3).locator('> .numbered')).toHaveText('3')
-    const opposite = page.getByLabel('holds for Condition 1 of the Way On 3 to The platform')
+    const opposite = page.getByLabel('holds for Condition 1 of the Exit 3 to The platform')
     await opposite.fill('off')
     await opposite.blur()
 
@@ -2199,7 +2199,7 @@ test('where a way on leads is a field, and the Exit keeps what it carries',
     // that says where the way on leads, which is the only way for an Author who
     // never opens a canvas — see
     // `docs/adr/0034-a-story-is-written-without-the-canvas.md`.
-    const leads = page.getByLabel('Where the way on 1 out of The arrival leads')
+    const leads = page.getByLabel('Where the Exit 1 out of The arrival leads')
     await expect(leads).toHaveValue(platform.id)
 
     // It offers the Scenes the way on may be led to and the one it already leads
@@ -2653,7 +2653,7 @@ test('a way on is written from the Scene it leaves, without a canvas', async ({
 
   // The field at the foot of the ways on offers the Scenes a way on out of here
   // may land on, and never the Scene it leaves.
-  const adding = page.getByLabel('A way on from here')
+  const adding = page.getByLabel('An Exit from here')
   await expect(adding.locator('option')).toHaveText([
     'Where it leads…', 'The platform', 'The bar', 'To a Scene that is not there yet',
   ])
@@ -2700,7 +2700,7 @@ test('a way on is written from the Scene it leaves, without a canvas', async ({
   // canvas was used for any of it: `platform` is untouched and still reachable
   // from the field.
   await writeScene(page, 'The buffet')
-  await expect(page.getByLabel('A way on from here').locator('option'))
+  await expect(page.getByLabel('An Exit from here').locator('option'))
     .toContainText(['The platform'])
   expect(platform.id).toBeTruthy()
 })

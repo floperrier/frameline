@@ -213,7 +213,7 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await expect(bubble(page)).toContainText(/branches between Scenes/)
   await lights(page, page.locator('.panel .adding'))
   await page
-    .getByLabel('A way on from here')
+    .getByLabel('An Exit from here')
     .selectOption({ label: 'To a Scene that is not there yet' })
 
   await expect(toast(page)).toHaveText('Exit from The arrival to A new Scene drawn')
