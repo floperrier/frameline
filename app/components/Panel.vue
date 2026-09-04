@@ -884,7 +884,7 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
     <section class="held" :aria-labelledby="`flags-of-${sceneWritten.id}`">
       <h3 :id="`flags-of-${sceneWritten.id}`">
         {{ $t('editor.flagsHeld') }}
-        <span class="numbered">{{ counted!.flags }}</span>
+        <span class="counted">{{ counted!.flags }}</span>
       </h3>
 
       <Flags
@@ -904,7 +904,7 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
     <section class="held" :aria-labelledby="`shots-of-${sceneWritten.id}`">
       <h3 :id="`shots-of-${sceneWritten.id}`">
         {{ $t('editor.shotsHeld') }}
-        <span class="numbered">{{ counted!.shots }}</span>
+        <span class="counted">{{ counted!.shots }}</span>
       </h3>
 
       <ol class="shots">
@@ -1092,7 +1092,7 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
     <section class="ways held" :aria-labelledby="`ways-of-${sceneWritten.id}`">
       <h3 :id="`ways-of-${sceneWritten.id}`">
         {{ $t('editor.waysHeld') }}
-        <span class="numbered">{{ counted!.ways }}</span>
+        <span class="counted">{{ counted!.ways }}</span>
       </h3>
 
       <p v-if="!exitsFrom(story.exits, sceneWritten.id).length" class="none">
@@ -1354,10 +1354,13 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
 /* The count in the grease pencil, because what it counts is what the Author
    wrote on the film and not anything the machine is doing; in the data face and
    a step under the word, because it is a figure beside a heading and not part of
-   it. */
-.held > h3 .numbered {
+   it. A class of its own and not `.numbered`: that one is the handle a row is
+   dragged by, and a count that nothing drags must not wear the grab hand or
+   refuse to be selected. */
+.held > h3 .counted {
   color: var(--grease);
   font-family: var(--data);
+  font-variant-numeric: tabular-nums;
   font-size: 0.875rem;
   font-weight: 500;
 }
