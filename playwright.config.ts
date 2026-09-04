@@ -18,6 +18,15 @@ export default defineConfig({
   // the suite fails — the default reporter writes no such directory, so the step
   // was uploading nothing and every red run was read off a log excerpt.
   reporter: [['list'], ['html', { open: 'never' }]],
+  // Half the cores is Playwright's default, which is two tests at a time on a
+  // GitHub runner and six minutes for two hundred of them. Nothing here is
+  // shared — every test seals its own session and seeds the Author it takes away
+  // again — and what the suite spends its time on is waiting for a database at
+  // the other end of the network rather than for the processor, so the runner's
+  // four cores are given four tests. A development machine keeps the default:
+  // there a run is watched, and a browser that steals focus four at a time is
+  // not what it looks like.
+  workers: process.env.CI ? '100%' : undefined,
   use: {
     baseURL: 'http://localhost:3101',
     // The suite addresses elements by their accessible name and their visible
