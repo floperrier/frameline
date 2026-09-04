@@ -32,10 +32,18 @@ add only what is theirs in a scoped block. Colour, type and spacing come from
 the tokens declared there and from nowhere else. See
 `docs/adr/0006-two-rooms-one-language.md`.
 
+The widths the interface folds at are the one thing a token cannot carry, because
+a custom property cannot be read inside a media query. They are declared as
+custom media queries in `app/assets/css/folds.css` — names and no rules — and
+reached by name from the scoped block of every surface that folds at one. See
+`docs/adr/0037-the-reading-folds-before-the-writing-does.md`.
+
 ## Git flow
 
-A pull request per issue, squash-merged into `main`, which deploys to
-production. See `docs/git-flow.md`.
+A pull request per issue, squash-merged into `dev`, the default branch. `main`
+is what deploys to production, and `dev` reaches it whole in a promotion of its
+own. See `docs/git-flow.md` and
+`docs/adr/0039-autonomous-work-waits-on-dev.md`.
 
 ## Languages
 
@@ -46,6 +54,29 @@ language of unprefixed URLs and the language a new key is authored in; French is
 reached at `/fr/...`. `CONTEXT.md` says which French word each glossary term is
 shown as, and that word binds: see
 `docs/adr/0014-the-glossary-is-the-codes-language.md`.
+
+**A control that acts is labelled in title case**, in English: the first word and
+every word that carries meaning take a capital, and the articles, prepositions
+and determiners between them stay lowercase — *Add a Shot*, *Close this Panel*,
+*Take Out*, *Duplicate Exit to {scene}*. The article is not dropped to save a
+word: it is *Add a Shot* beside *Add a Flag*, never *Add Shot*. A glossary term
+keeps the capital `CONTEXT.md` gives it wherever it falls, and the capital title
+case puts on an ordinary word — the *Panel* in *Close this Panel* — claims
+nothing about that word: only `CONTEXT.md` makes a term.
+
+The rule reaches the words on a button and the accessible name of one, and stops
+there. The label over a field is not an act — *Name of this Scene*, *Title of a
+new Story* — and neither is a sentence the interface says to somebody, which is
+written as a sentence: *Leave the Exit from {name} where it leads*, *I can take
+it from here*. French does not title-case, so a French label is a French sentence
+with the `_Affiché_` word carrying its own capital: *Ajouter un Plan*, *Fermer ce
+panneau*.
+
+What makes it worth settling is the bar of Commands —
+`docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md`. Matching
+there ignores case, so nothing breaks; but the bar is the one surface that reads
+every label in the product side by side, and a list where half the acts are
+titled and half are not is the mixed convention on show.
 
 The server reads the same two files. A refusal still travels as a phrase in the
 response body — `docs/adr/0009-a-refusal-travels-in-the-body.md` — and
@@ -74,12 +105,13 @@ outright: the migration snapshots are the generator's to write.
 `pnpm test` runs the Vitest suite over the modules that are pure functions: the
 Reading engine, what a Shot's image is read to be, the Conditions a request is
 allowed to write, the sequence of Places it renumbers a Scene by, the Scenes a
-Exit may land on, the geometry of the lines the graph draws and where a point on
-the screen lands on the surface they are drawn on, the two message
+Exit may land on, the geometry of the lines the graph draws, where a point on
+the screen lands on the surface they are drawn on, where a Scene born from an
+Exit is placed, the two message
 files held against each other, the language a refusal is phrased in, the Steps the
 bench asks a Story for — whose targets are held against the editor's template
-read as source, the way the message files are held against each other — and the
-two Samples, that each holds together as a work and that the two of them are one
+read as source — the Remarks the bench reads back out of a Story, and the two
+Samples, that each holds together as a work and that the two of them are one
 shape in two languages. None of them needs a database, because none of them has
 one in reach. `pnpm test:e2e` runs
 Playwright against a built app and a real Neon branch — `docs/git-flow.md` says which branch.

@@ -7,22 +7,24 @@
  * so this draws it and nothing else. Two elements: a spotlight sitting on the
  * target's own rectangle, and a bubble beneath it carrying the sentence. Neither
  * is a `<dialog>`, and nothing here is modal: the Author has to be able to type
- * into the very field being pointed at, so nothing may make the page inert.
+ * into the very field being pointed at, so the guidance makes nothing inert and
+ * takes nothing out of the top layer's way.
+ *
+ * What the bench itself makes inert is read rather than ignored. The writing
+ * surface covering the bench on a phone puts the header and the graph out of
+ * reach — `docs/adr/0036-the-surface-that-covers-the-bench-is-not-a-dialog.md` —
+ * and a Step pointing in there says so from the corner instead of lighting a
+ * control the Author cannot press. That the surface is not a dialog is what lets
+ * the light and the bubble be drawn over it at all.
  *
  * The bubble is an `<aside>` rather than a live region. It is on screen from the
  * moment the page is, and a live region firing every time a step is met would
  * talk over the field the Author is typing in — the same reason the bench's
  * `keptAt` mark is not one either.
  */
-const { story, writing } = defineProps<{
-  /** The Story on the bench, which is nearly the whole of what a Step is computed from. */
+const { story } = defineProps<{
+  /** The Story on the bench, which is the whole of what a Step is computed from. */
   story?: StoryInEditor
-  /**
-   * Which Scene is in the panel at the edge of the bench, if one is. The rest of
-   * what a Step asks about is in the Story; this is not, and a Step may not point
-   * into a panel nobody has opened.
-   */
-  writing?: string
 }>()
 
 /**
@@ -42,8 +44,7 @@ const BUBBLE_WIDTH = 320
  */
 const dismissed = ref(true)
 
-const step = computed(() =>
-  !dismissed.value && story ? stepShowing(story, writing) : undefined)
+const step = computed(() => !dismissed.value && story ? stepShowing(story) : undefined)
 
 /** Where the target is on screen, or nothing when the target is not on screen at all. */
 const box = ref<DOMRect>()
@@ -51,11 +52,9 @@ const box = ref<DOMRect>()
 /**
  * What the Step showing is pointing at, as a selector.
  *
- * A target the editor draws once per card — the button that writes a Scene, the
- * strip an Exit is drawn from — is found on the first card of the graph, which is
- * the first Scene the Author wrote and where most of the path is walked.
- * Everything else a Step points at is in the panel, which holds one Scene by
- * construction, so nothing has to be scoped to a Scene by id.
+ * Nothing has to be scoped to a Scene by id: the one target the canvas carries is
+ * drawn on a Story with no Scene in it, and every other Step points into the
+ * panel, which holds one Scene by construction.
  */
 const pointing = computed(() => step.value && `[data-step="${step.value.target}"]`)
 
@@ -83,7 +82,18 @@ function look() {
   // and a light on a rectangle of no size would be a dot in the corner of the
   // bench. Read as absent, so the bubble goes adrift rather than being wrong
   // about the screen.
-  const found = seen?.width && seen.height ? seen : undefined
+  //
+  // A target behind the writing surface covering the bench is read as absent for
+  // the same reason, and it is the stronger case: it measures perfectly well and
+  // cannot be pressed at all. The light would be drawn over the surface, on a
+  // control the surface is hiding — guidance pointing through a wall. Asked of
+  // the attribute rather than of the width, because `inert` is how the bench
+  // writes "the Author cannot reach this" and the width is only one reason it
+  // might. The attribute and not the inertness the browser imposes under a modal
+  // dialog: that one needs no answer here, because a dialog is drawn above the
+  // light and covers it rather than being pointed at through it.
+  const reachable = seen?.width && seen.height && !target?.closest('[inert]')
+  const found = reachable ? seen : undefined
   if (!alike(box.value, found)) box.value = found
 
   looking = step.value ? requestAnimationFrame(look) : 0

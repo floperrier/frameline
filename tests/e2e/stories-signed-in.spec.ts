@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test'
-import { readStory, seedStory, test } from './author'
+import { live, readStory, seedStory, test, writeStory } from './author'
 
 const noStoryId = '00000000-0000-4000-8000-000000000000'
 
@@ -37,7 +37,7 @@ test('an Author is asked before a Story goes, and can leave it', async ({ page, 
   const asking = page.getByRole('dialog')
   await expect(asking).toContainText('“A Story” goes, and everything written in it.')
 
-  await asking.getByRole('button', { name: 'Leave it' }).click()
+  await asking.getByRole('button', { name: 'Leave It' }).click()
   await expect(asking).toBeHidden()
   await expect(control).toBeFocused()
   await expect(readStory(story.id)).resolves.toEqual({ id: story.id, title: 'A Story' })
@@ -47,6 +47,64 @@ test('an Author is asked before a Story goes, and can leave it', async ({ page, 
   await asking.getByRole('button', { name: 'Delete Story' }).click()
   await expect(page.getByText('No Stories yet.')).toBeVisible()
   await expect(readStory(story.id)).resolves.toBeUndefined()
+})
+
+/**
+ * The bench's own header, on the side that says what the Story is: the title is
+ * written where the Story is worked on rather than on the list of Stories, the
+ * Language it is written in is stated beside it, and the Locale — a property of
+ * whoever is reading and not of the Story — is not there at all.
+ */
+test('an Author renames a Story on the bench, beside the Language it is written in', async ({
+  page,
+  request,
+}) => {
+  const story = await writeStory(request)
+  await page.goto(`/stories/${story.id}`)
+
+  // The heading is the field: what names the Story on the bench is what is in
+  // the box the Author types the name into.
+  const title = page.getByRole('textbox', { name: 'Title of this Story' })
+  await expect(title).toHaveValue('A Story')
+  await title.fill('The night shift')
+  await title.blur()
+
+  // A typed write, so it leaves the two quiet marks and announces nothing.
+  await expect(page.getByText(/^Kept at /)).toBeVisible()
+  await expect(readStory(story.id)).resolves.toEqual({ id: story.id, title: 'The night shift' })
+  await expect(page.getByRole('heading', { name: 'The night shift' })).toBeVisible()
+
+  // The Language is stated and not offered: nothing translates a Story, so there
+  // is no later moment at which it changes.
+  await expect(page.getByText('Written in English')).toBeVisible()
+  await expect(page.getByRole('combobox', { name: /Language/ })).toHaveCount(0)
+
+  // The interface's Locale has left the bench — see
+  // `docs/adr/0013-the-interfaces-locale-is-not-the-storys-language.md`. It is
+  // changed on the list of the Author's own Stories, which is theirs rather than
+  // a Story's.
+  await expect(page.getByRole('link', { name: 'Français' })).toHaveCount(0)
+  await page.goto('/stories')
+  await expect(page.getByRole('link', { name: 'Français' })).toBeVisible()
+})
+
+test('a Synopsis is the few lines it says it is, and a Story still needs a title', async ({
+  request,
+}) => {
+  const story = await (await request.post('/api/stories', { data: { title: 'A Story' } })).json()
+
+  const long = await request.patch(`/api/stories/${story.id}`, {
+    data: { synopsis: 'A woman leaves. '.repeat(60) },
+  })
+  expect(long.status()).toBe(400)
+  expect((await long.json()).message).toContain(
+    'A Synopsis cannot be longer than 600 characters.')
+
+  // A body naming neither field changes nothing, and is refused as the one thing
+  // a Story cannot be without being asked for.
+  const nothing = await request.patch(`/api/stories/${story.id}`, { data: {} })
+  expect(nothing.status()).toBe(400)
+  expect((await nothing.json()).message).toContain('A Story needs a title.')
 })
 
 test('a Story needs a title', async ({ request }) => {
@@ -82,6 +140,37 @@ test('a Story belongs to the one Author who wrote it', async ({ request, otherAu
   await expect(readStory(theirs.id)).resolves.toEqual(theirs)
 })
 
+/**
+ * What the empty list promises — name one above, and it opens — is where the
+ * Author ends up, and it is where they end up on the second Story as well as on
+ * the first: the form navigates always, or the promise holds for one act only.
+ */
+test('an Author who names a Story lands on its bench', async ({ page }) => {
+  await page.goto('/stories')
+  await live(page)
+  await expect(page.getByText('No Stories yet.')).toBeVisible()
+
+  await page.getByRole('textbox', { name: 'Title of a new Story' }).fill('The night shift')
+  await page.getByRole('button', { name: 'Create Story' }).click()
+
+  await expect(page).toHaveURL(/\/stories\/[0-9a-f-]{36}$/)
+  await expect(page.getByRole('textbox', { name: 'Title of this Story' }))
+    .toHaveValue('The night shift')
+
+  // The row is in the list behind them — reached the way the Author would reach
+  // it, from the bench — and naming a second Story from a list that is no longer
+  // empty opens that one too.
+  await page.getByRole('link', { name: 'All Stories' }).click()
+  await expect(page.getByRole('link', { name: 'Open The night shift' })).toBeVisible()
+
+  await page.getByRole('textbox', { name: 'Title of a new Story' }).fill('A second Story')
+  await page.getByRole('button', { name: 'Create Story' }).click()
+
+  await expect(page).toHaveURL(/\/stories\/[0-9a-f-]{36}$/)
+  await expect(page.getByRole('textbox', { name: 'Title of this Story' }))
+    .toHaveValue('A second Story')
+})
+
 test('the Stories page lists what the Author wrote', async ({ page, request }) => {
   await request.post('/api/stories', { data: { title: 'A Listed Story' } })
 
@@ -98,5 +187,5 @@ test('an Author on the landing page is shown their Stories rather than a door', 
   // Both places the way in is offered — beside the pitch and at the foot — carry
   // the same thing for somebody who is already signed in.
   await expect(page.getByRole('link', { name: 'Your Stories' })).toHaveCount(2)
-  await expect(page.getByRole('link', { name: 'Sign in with GitHub' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Sign In with GitHub' })).toHaveCount(0)
 })

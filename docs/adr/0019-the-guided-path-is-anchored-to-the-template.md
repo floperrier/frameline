@@ -73,10 +73,16 @@ That scoping is since gone. A Scene is written in a panel at the edge of the
 bench rather than inside its node — see
 `docs/adr/0021-a-scene-is-written-in-a-panel-at-the-edge-of-the-bench.md` — so
 every target inside a Scene is drawn once, in a panel that holds one Scene by
-construction, and the only targets drawn per node are the two on the card itself.
-There is nothing left to say "which Scene", so the guidance names a `data-cue`
-and nothing else, and the whole of what it asks about outside the Story is which
-Scene is in the panel.
+construction, and the only targets drawn per node are the ones on the card
+itself. There is nothing left to say "which Scene", so the guidance names a
+`data-cue` and nothing else.
+
+What it asks about outside the Story is since gone too. Every gesture that makes
+a Scene opens that Scene for writing, so no step is spent asking for the writing
+surface to be opened, and the one step that did — the Write button on the card —
+was dropped along with the button's anchor. A Step is now a predicate over the
+Story and nothing else: the Story is the whole of the state the guidance reads,
+which is what `docs/adr/0020-progress-is-the-story.md` says it should be.
 
 A target can be scrolled out of the panel or off the bench at any moment, so the
 bubble degrades rather than pointing at nothing: with no rectangle to work from

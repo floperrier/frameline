@@ -66,6 +66,10 @@ _Avoid_: index, order, rank, slot, sort key
 A directed connection from one Scene to another, offered to the Reader at the end
 of a Scene as something to take. It is the Reader's way out of the Scene, named
 for what they do with it rather than for anything the screen shows them.
+The English interface shows the word itself — _Exits_ over the part of a Scene's
+document that holds them, _the Exit 1 to …_ on every control of a row — and a
+Step may gloss it as _the way on_ once, when it introduces the term; the gloss
+is never a label.
 _Affiché_: Sortie
 _Avoid_: choice, option, link, branch, edge, transition, cut, coupe, raccord,
 montage
@@ -74,9 +78,13 @@ montage
 A whole Story seen at once, as its Scenes and the Exits between them. A Scene is
 drawn in it as a node and an Exit as an edge — words for the drawing, never for the
 Scene or the Exit itself. A node is drawn as a card, which is a word for that
-drawing on the same terms: the Scene it stands for is never a card, and what a
-Scene is written in is the panel at the edge of the bench — see
-`docs/adr/0021-a-scene-is-written-in-a-panel-at-the-edge-of-the-bench.md`.
+drawing on the same terms: the Scene it stands for is never a card, and where a
+Scene is written is the surface the bench folds open for it, with the Graph beside
+it as a rail — see
+`docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`. Nothing is written in
+the drawing: an Exit is written in the document of the Scene it leaves, and a
+press on its line opens that Scene — see
+`docs/adr/0034-a-story-is-written-without-the-canvas.md`.
 _Affiché_: Graphe
 _Avoid_: map, tree, flowchart, board, canvas
 
@@ -114,6 +122,37 @@ which is a value a Reading carries rather than something the bench asks for.
 _Affiché_: Étape
 _Avoid_: hint, tip, tour, cue, onboarding, coach mark, repère, astuce
 
+**Command**:
+One thing the bench can be asked to do by naming it — go to a Scene, publish the
+Story, delete the Scene being written — offered in a bar an Author types into
+rather than found among the controls. Almost every Command is a control already
+standing on the bench, marked in its own template with the name the bar shows it
+under, and running it presses that control — so the bar offers nothing the bench
+does not, and nothing it offers is reachable by the keyboard alone. Not every
+act of the bench is one: the mark is on the controls whose act an Author would
+say out loud — go to a Scene, add a Flag, mark the Opening Scene — and off the
+marks that renumber a row, which are pressed beside the row they are done to,
+and off the two acts whose control is a `<select>`, which no press can open.
+The one Command with no control behind it is the offer to write a Scene under a
+name that reached nothing, because an Author who has just typed the name of a Scene
+that does not exist has said what they want. Named in plain language rather than out of
+the grammar of cinema, because it is a tool of the bench and not a part of the
+Story — see `docs/adr/0022-the-metaphor-stops-at-the-edge-of-the-work.md`.
+_Affiché_: Commande
+_Avoid_: palette, command palette, action, shortcut, quick open, spotlight,
+raccourci, action rapide, recherche
+
+**Remark**:
+One thing the bench has noticed about the Story open on it — a Scene no Exit
+arrives at, a Flag set and never tested, a Condition that can never hold — as a
+sentence and the Scene it is said of. Read off the Story like a Step, and
+advisory like nothing else in the product: it never refuses a write and never
+says a Story is wrong, because every one of them is a Story an Author may be in
+the middle of. Never a Step, which asks for something the Author has not done
+yet; a Remark reports something they have.
+_Affiché_: Remarque
+_Avoid_: error, warning, issue, problem, lint, validation, avertissement, alerte
+
 ### The reading
 
 **State**:
@@ -131,7 +170,10 @@ _Affiché_: Marqueur
 _Avoid_: variable, switch, toggle, key, drapeau
 
 **Reading**:
-One traversal of a published Story by one Reader, carrying its own State.
+One traversal of a published Story by one Reader, carrying its own State. Kept in
+the Reader's browser between visits and nowhere else, so a Reader who leaves comes
+back to where they stood — see
+`docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md`.
 _Affiché_: Lecture
 _Avoid_: session, playthrough, run, visit
 
@@ -162,9 +204,16 @@ _Affiché_: Lecteur
 _Avoid_: user, player, viewer, visitor, audience
 
 **Preview**:
-An Author reading their own Story before it is published, on the same engine a
-Reader runs. Not a mode of the editor and not a Publish: nothing about the Story
-changes, and nobody else can reach it.
+An Author reading their own Story on the same engine a Reader runs — a pane
+inside the editor, beside the Scene being written, which replays the Path the
+Author is on with the State it has accumulated and stops on that Scene. Beside
+the Scene where the bench can hold both, and in the Scene's own place where it
+cannot — see
+`docs/adr/0037-the-reading-folds-before-the-writing-does.md`. Not a
+Publish: nobody else can reach it. It is the one screen where the order the ways
+on are offered in is set, on the choice buttons as they are read, so a Preview is
+no longer without consequence for the Story — see
+`docs/adr/0030-a-story-is-read-where-it-is-written.md`.
 _Affiché_: Aperçu
 _Avoid_: test, play mode, simulate, dry run, rehearse
 

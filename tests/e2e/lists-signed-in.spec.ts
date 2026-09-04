@@ -109,8 +109,11 @@ test('an Author writes a List, gathers Stories into it, and takes it away', asyn
   }
 
   // The same Story sits in Favourites at the same time: one Story, several
-  // Lists, and nothing about the one says anything about the other.
+  // Lists, and nothing about the one says anything about the other. Pressed is
+  // read back off the shelves, so waiting for it is what keeps the navigation
+  // below from cancelling the write that is still in flight.
   await favouriting(page, first.title).click()
+  await expect(favouriting(page, first.title)).toHaveAttribute('aria-pressed', 'true')
 
   await page.goto('/lists')
   const shelf = page.locator('section').filter({ hasText: 'To read on the train' })
@@ -119,7 +122,7 @@ test('an Author writes a List, gathers Stories into it, and takes it away', asyn
     .getByRole('listitem')).toHaveCount(1)
 
   // Taken out of the List it was gathered into, and still where else it was put.
-  await shelf.getByRole('button', { name: `Take out ${first.title}` }).click()
+  await shelf.getByRole('button', { name: `Take Out ${first.title}` }).click()
   await expect(shelf.getByRole('listitem')).toHaveCount(1)
   await expect(page.locator('section').filter({ hasText: 'Favourites' })
     .getByRole('listitem')).toHaveCount(1)

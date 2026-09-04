@@ -5,8 +5,8 @@ test('a signed-out Author is offered both ways to sign in', async ({ page }) => 
 
   // Each door is on the page twice — beside the pitch and again at the foot — so
   // the first of each pair is the one the opening screen offers.
-  await expect(page.getByRole('link', { name: 'Sign in with GitHub' }).first()).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Sign in with Google' }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Sign In with GitHub' }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Sign In with Google' }).first()).toBeVisible()
 })
 
 /**
@@ -44,8 +44,8 @@ test('a visitor reads what a Story is made of, and finds the doors again at the 
 
   // Two of each door now, and the second pair is under everything said to
   // convince anyone of it.
-  await expect(page.getByRole('link', { name: 'Sign in with GitHub' })).toHaveCount(2)
-  await expect(page.getByRole('link', { name: 'Sign in with Google' })).toHaveCount(2)
+  await expect(page.getByRole('link', { name: 'Sign In with GitHub' })).toHaveCount(2)
+  await expect(page.getByRole('link', { name: 'Sign In with Google' })).toHaveCount(2)
 
   // The Catalogue is its own page, and this is how somebody with no account
   // reaches it: the landing page points at it rather than showing it.

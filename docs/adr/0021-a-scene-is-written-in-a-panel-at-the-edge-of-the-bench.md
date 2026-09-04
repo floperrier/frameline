@@ -1,8 +1,14 @@
 ---
-status: accepted
+status: superseded by 0029
 ---
 
 # A Scene is written in a panel at the edge of the bench
+
+Superseded by `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`: the
+reopening condition below arrived — an Exit's Conditions and the Scene they test
+are wanted side by side — and writing a Scene is now a state the whole bench is
+in, with the Graph folded into a rail, rather than a panel docked at its edge.
+What follows is the record as it stood.
 
 A Scene is written in one panel docked at the trailing edge of the bench, and a
 node is a card. The panel is three hundred and eighty pixels of the bench's own

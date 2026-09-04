@@ -36,8 +36,9 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     # The whole job takes about four minutes. Left unbounded, a stalled step —
-    # `playwright install` waiting on apt has done it once — runs for the six
-    # hours GitHub allows before anyone notices.
+    # `playwright install` waiting on apt did it once, before it stopped asking
+    # apt for anything — runs for the six hours GitHub allows before anyone
+    # notices.
     timeout-minutes: 20
     env:
       NEON_BRANCH: ci-pr-${{ github.event.number }}-${{ github.run_id }}
@@ -59,25 +60,48 @@ jobs:
       # holds a copy of production data. The expiry is a safety net: if cleanup
       # below never runs, Neon collects the branch instead of leaving it to
       # pile up.
+      #
+      # The API is asked directly rather than through `neon`, the CLI: three
+      # `npx -y neon@latest` calls spent three and a half minutes of every run
+      # downloading a package nothing here caches, and one request answers all
+      # three questions this step used to ask. `curl` and `jq` are already on
+      # the runner.
       - name: Create a Neon branch for this run
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
         run: |
-          npx -y neon@latest branches create \
-            --project-id "$NEON_PROJECT_ID" --name "$NEON_BRANCH" \
-            --parent development \
-            --expires-at "$(date -u -d '+2 hours' +%Y-%m-%dT%H:%M:%SZ)" --output json > /dev/null
-          url=$(npx -y neon@latest connection-string "$NEON_BRANCH" \
-            --project-id "$NEON_PROJECT_ID" --pooled)
-          echo "::add-mask::$url"
-          echo "DATABASE_URL=$url" >> "$GITHUB_ENV"
+          api="https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID"
+          auth=(--fail-with-body -sS -H "Authorization: Bearer $NEON_API_KEY" -H 'Content-Type: application/json')
+
+          parent=$(curl "${auth[@]}" "$api/branches" |
+            jq -re '.branches[] | select(.name == "development") | .id')
+
+          # Asking for the compute in the same request is what makes the reply
+          # carry the connection strings: a branch with nothing to connect to
+          # has none.
+          created=$(curl "${auth[@]}" "$api/branches" --data "$(jq -n \
+            --arg parent "$parent" --arg name "$NEON_BRANCH" \
+            --arg expiry "$(date -u -d '+2 hours' +%Y-%m-%dT%H:%M:%SZ)" \
+            '{ branch: { parent_id: $parent, name: $name, expires_at: $expiry },
+               endpoints: [{ type: "read_write" }] }')")
+
+          # The branch is deleted below by its id, which is not its name.
+          echo "NEON_BRANCH_ID=$(jq -re .branch.id <<< "$created")" >> "$GITHUB_ENV"
+
           # Migrations connect directly: the pooler runs in transaction mode and
           # drops the session state a migration relies on. Production splits the
-          # two the same way, so the suite exercises the split as well.
-          direct=$(npx -y neon@latest connection-string "$NEON_BRANCH" \
-            --project-id "$NEON_PROJECT_ID")
+          # two the same way, so the suite exercises the split as well. One
+          # string is handed back, and the pooled host is the same host under
+          # another name.
+          connection=$(jq -re '.connection_uris[0]' <<< "$created")
+          direct=$(jq -re .connection_uri <<< "$connection")
+          host=$(jq -re .connection_parameters.host <<< "$connection")
+          pooler=$(jq -re .connection_parameters.pooler_host <<< "$connection")
+          pooled=${direct/"$host"/$pooler}
           echo "::add-mask::$direct"
+          echo "::add-mask::$pooled"
           echo "DIRECT_DATABASE_URL=$direct" >> "$GITHUB_ENV"
+          echo "DATABASE_URL=$pooled" >> "$GITHUB_ENV"
 
       - run: pnpm db:migrate
         env:
@@ -88,7 +112,21 @@ jobs:
       - name: Seal sessions with a password for this run only
         run: echo "NUXT_SESSION_PASSWORD=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
 
-      - run: pnpm exec playwright install --with-deps chromium
+      # `--with-deps` is not asked for: the runner image already carries the
+      # libraries a headless Chromium links against, and the apt run it added
+      # was both half a minute and the one step that has ever hung here.
+      #
+      # The browser and the build have nothing to say to each other, so they are
+      # fetched and written at once and the step costs the longer of the two
+      # rather than the sum. `pnpm preview` in `playwright.config.ts` then finds
+      # `.output` already there.
+      - name: Fetch the browser while the app builds
+        run: |
+          pnpm exec playwright install chromium &
+          browser=$!
+          pnpm build
+          wait "$browser"
+
       - run: pnpm test:e2e
 
       - name: Upload the Playwright report
@@ -100,9 +138,13 @@ jobs:
           retention-days: 7
 
       - name: Delete the Neon branch
-        if: always()
+        # Nothing to delete when the step above is what failed, and the expiry
+        # collects the branch if the runner dies before this ever runs.
+        if: always() && env.NEON_BRANCH_ID != ''
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
         run: |
-          npx -y neon@latest branches delete "$NEON_BRANCH" \
-            --project-id "$NEON_PROJECT_ID" --output json > /dev/null
+          curl --fail-with-body -sS -X DELETE \
+            -H "Authorization: Bearer $NEON_API_KEY" \
+            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID" \
+            > /dev/null

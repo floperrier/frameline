@@ -172,6 +172,50 @@ export function snappedWithinReach({ x, y }: Point): Point {
 }
 
 /**
+ * Where a Scene born from an Exit goes when no hand named a point: one column on
+ * from the Scene it leaves, at that Scene's own height, and a node further down
+ * for every spot already taken.
+ *
+ * Three routes arrive here and none of them has a point to give — the keyboard
+ * landing an Exit on a Scene that does not exist yet, a way on written in the
+ * Scene's own document, and any gesture that ends off the surface. All three were
+ * placed by the server at the next free spot in a column of `NODES_PER_COLUMN`,
+ * which is the far end of the bench from the Scene the Exit left: the drawing
+ * said nothing the list of names had not already said. Placed beside what it
+ * leaves, the graph draws the shape of the Story however the Story was written.
+ *
+ * Nothing already on the bench moves. This is where one Scene arrives, not a
+ * layout: where a Scene sits is a written fact the Author owns the moment it
+ * exists — `docs/adr/0010-the-graph-is-written-here-not-pulled-in.md` — and a
+ * graph that rearranged itself under a hand that had just dragged a card would be
+ * taking that fact back.
+ *
+ * A Story spread all the way to the far edge of the bench has no column left to
+ * the right of it, and the Scene goes under the one it leaves instead: every
+ * placement past the reach would otherwise pile against the same edge.
+ */
+export function placedBeside(scenes: Point[], leaving: Point): Point {
+  const beside = leaving.x + NODE_WIDTH + NODE_GAP
+  const room = beside + NODE_WIDTH <= GRAPH_REACH
+  const x = room ? beside : withinReach(leaving.x)
+
+  for (let y = leaving.y + (room ? 0 : NODE_SPACING); y <= GRAPH_REACH; y += NODE_SPACING) {
+    if (scenes.every(scene => !overlaps(scene, { x, y }))) return { x, y: withinReach(y) }
+  }
+
+  // A column full to the foot of the bench. The Scene lands beside the one it
+  // leaves and over whatever is already there, which the Author can drag off:
+  // there is nowhere else within reach, and refusing the placement would lose the
+  // Exit the gesture was drawing along with it.
+  return { x, y: withinReach(leaving.y) }
+}
+
+/** Whether two nodes, each `NODE_WIDTH` by `NODE_HEIGHT`, share any of the bench. */
+function overlaps(one: Point, other: Point) {
+  return Math.abs(one.x - other.x) < NODE_WIDTH && Math.abs(one.y - other.y) < NODE_HEIGHT
+}
+
+/**
  * How far back the Author may stand from their own graph, and how close they may
  * come. A quarter of the surface's own size is where forty Scenes fit on a
  * screen at once, and the surface's own size is the near end because there is
@@ -222,18 +266,36 @@ export function zoomedAbout(zoom: number, to: number, anchor: Point, scroll: Poi
 }
 
 /**
+ * How far apart two ways on out of one Scene leave its rim. A Story is laid out
+ * in columns, so two lines out of one Scene towards the same column left from the
+ * same point and ran as one: the near one stopped at the card below, the far one
+ * carried on under it, and nothing said which was which. The gap between two
+ * cards is the step, because it is the smallest distance the bench already asks
+ * an eye to read, and it is wider than the disc that says a Place, so the two
+ * marks stand apart as well as the two lines.
+ */
+export const EXIT_RIM_STEP = NODE_GAP
+
+/**
  * Where the line that draws an Exit meets the two nodes: on the edge of the box it
  * leaves, and on the edge of the box it lands on. A line between two points fixed
  * inside the nodes crossed whatever sat between them and arrived under the node it
  * arrived at; a line between edges says which Scene leads to which at a glance.
+ *
+ * The Place and how many ways on the Scene offers spread the departures along the
+ * side each line leaves by, in the order they are offered in, about the point the
+ * one way on of a Scene leaves from. A Scene with one way on is drawn exactly as
+ * it was; two are told apart at the moment they leave, which is the one place a
+ * card cannot be over them. The end that lands is left alone: a Scene is arrived
+ * at once however many Scenes lead to it.
  */
-export function exitLine(from: Point, to: Point) {
+export function exitLine(from: Point, to: Point, place = 1, ways = 1) {
   const leaving = middleOf(from)
   const landing = middleOf(to)
   const towards = { x: landing.x - leaving.x, y: landing.y - leaving.y }
 
   return {
-    from: onTheEdge(leaving, towards),
+    from: onTheEdge(leaving, towards, place, ways),
     to: onTheEdge(landing, { x: -towards.x, y: -towards.y }),
   }
 }
@@ -267,20 +329,55 @@ export type ExitLine = { from: Point, to: Point }
 export const EXIT_DISC_ALONG = 26
 
 /**
+ * How wide that disc is drawn, and so how far clear of a card it has to sit to be
+ * read at all. The drawing takes its radius from here, so what is measured and
+ * what is drawn cannot drift apart.
+ */
+export const EXIT_DISC_RADIUS = 9
+
+/**
  * Where that disc goes: on the line, near the Scene the Exit leaves, because what
  * it labels is the order that Scene offers its ways on in. Never past the middle
- * of the line, so two nodes all but touching still carry their discs at the end
- * they belong to, and on the node's own edge where the line has no length at all.
+ * of the line where nothing is in its way, so two nodes all but touching still
+ * carry their discs at the end they belong to, and on the node's own edge where
+ * the line has no length at all.
+ *
+ * And never behind a card. The cards are drawn over the lines, so a disc under one
+ * is the single mark that tells two lines apart, hidden by the thing it would tell
+ * them apart from; where the near stretch of a line is covered, the disc is walked
+ * on along it — by its own radius, which finds any gap two cards laid out on the
+ * bench leave between them — until it is clear of every one of them. Never as far
+ * as the end it arrives at, where the endpoint that leads the Exit elsewhere is
+ * taken hold of. The cards are the Author's to place and may be dropped closer
+ * together than the disc is wide, which leaves nowhere on the line to put it: the
+ * disc goes back to the end it belongs to, and is read by moving the card that
+ * hides it.
  */
-export function discOfExit({ from, to }: ExitLine): Point {
+export function discOfExit({ from, to }: ExitLine, cards: Point[] = []): Point {
   const length = Math.hypot(to.x - from.x, to.y - from.y)
   if (!length) return from
-  const along = Math.min(EXIT_DISC_ALONG, length / 2)
-
-  return {
+  const near = Math.min(EXIT_DISC_ALONG, length / 2)
+  const at = (along: number) => ({
     x: Math.round(from.x + (to.x - from.x) * along / length),
     y: Math.round(from.y + (to.y - from.y) * along / length),
+  })
+
+  const last = Math.max(near, length - EXIT_DISC_ALONG)
+
+  for (let along = near; along <= last; along += EXIT_DISC_RADIUS) {
+    const disc = at(along)
+    if (cards.every(card => !hides(card, disc))) return disc
   }
+
+  return at(near)
+}
+
+/** Whether a card would hide a disc drawn at this point, the disc's own width counted in. */
+function hides(card: Point, disc: Point) {
+  return disc.x > card.x - EXIT_DISC_RADIUS
+    && disc.x < card.x + NODE_WIDTH + EXIT_DISC_RADIUS
+    && disc.y > card.y - EXIT_DISC_RADIUS
+    && disc.y < card.y + NODE_HEIGHT + EXIT_DISC_RADIUS
 }
 
 function middleOf(node: Point) {
@@ -294,16 +391,37 @@ function middleOf(node: Point) {
  * the middle, so what is drawn is a line of no length rather than one shooting off
  * the graph. Rounded, because a line on a screen is not read finer than a pixel.
  */
-function onTheEdge(middle: Point, towards: Point) {
-  const reach = Math.min(
-    towards.x ? NODE_WIDTH / 2 / Math.abs(towards.x) : Infinity,
-    towards.y ? NODE_HEIGHT / 2 / Math.abs(towards.y) : Infinity,
-  )
-  const reached = Number.isFinite(reach)
-    ? { x: middle.x + towards.x * reach, y: middle.y + towards.y * reach }
-    : middle
+function onTheEdge(middle: Point, towards: Point, place = 1, ways = 1) {
+  const byWidth = towards.x ? NODE_WIDTH / 2 / Math.abs(towards.x) : Infinity
+  const byHeight = towards.y ? NODE_HEIGHT / 2 / Math.abs(towards.y) : Infinity
+  const reach = Math.min(byWidth, byHeight)
+  if (!Number.isFinite(reach)) return { x: Math.round(middle.x), y: Math.round(middle.y) }
 
-  return { x: Math.round(reached.x), y: Math.round(reached.y) }
+  const reached = { x: middle.x + towards.x * reach, y: middle.y + towards.y * reach }
+
+  // A flank where the width is reached first, the head or the foot otherwise —
+  // which is also the side the ways on are spread along, and how much of it there
+  // is to spread them over. A Scene offering more of them than the side has room
+  // for closes the step up rather than sending the last of them off the card.
+  const flank = byWidth <= byHeight
+  const side = flank ? NODE_HEIGHT : NODE_WIDTH
+  const centre = flank ? middle.y : middle.x
+  const step = Math.min(EXIT_RIM_STEP, (side - EXIT_RIM_STEP) / Math.max(ways - 1, 1))
+  const spread = (ways - 1) * step
+
+  // The ways on are spread about the point the line crosses the rim at, and that
+  // point is anywhere along the side: a line leaving by a corner is already at the
+  // end of it. So the whole spread is slid back onto the side rather than each
+  // line being held to it one at a time, which would pile them at the corner.
+  // A Scene with one way on has no spread at all, and is drawn where it always was.
+  const held = Math.min(Math.max(flank ? reached.y : reached.x, centre - (side - spread) / 2),
+    centre + (side - spread) / 2)
+  const at = held + (place - 1 - (ways - 1) / 2) * step
+
+  return {
+    x: Math.round(flank ? reached.x : at),
+    y: Math.round(flank ? at : reached.y),
+  }
 }
 
 /**
@@ -371,48 +489,107 @@ export type Flags = Record<string, string>
 export type Sets = Record<string, string | string[]>
 
 /**
- * What separates a Flag's name from its value where an Author types them, and
- * what separates one value of a draw from the next. Here rather than in the
- * editor, because the server refuses a name or a value holding either — one that
- * did could not be shown back as the line it was typed on — and one module has to
- * own the format both sides obey.
+ * What separates a Flag's name from its value where the server reads them, and
+ * what separates one value of a draw from the next. No Author types either of
+ * them any more — the Flags a Scene sets are written as rows, a name and its
+ * values apiece — but the server goes on refusing a name or a value holding one,
+ * so that what a Scene stores can never be mistaken for two things where a pair
+ * is written out flat.
  */
 export const FLAG_SEPARATOR = '='
 export const FLAG_VALUES_SEPARATOR = '|'
 
 /**
- * The Flags a Scene sets, as one `name = value` a line, for an Author to read. A
- * Flag with several values is one line too — `weather = rain | sun | haze` — so
- * what a Scene sets stays a list read at a glance.
+ * One Flag as it is written: a name, and the values one of which is drawn on
+ * each entry. A row rather than an entry of the map, because a row is written
+ * before it is whole — a name with no value yet, a value being retyped — and the
+ * map holds only the Flags a Scene actually sets.
  */
-export function flagLines(sets: Sets) {
-  return Object.entries(sets)
-    .map(([name, held]) => [name, valueLine(held)].join(` ${FLAG_SEPARATOR} `))
-    .join('\n')
-}
+export type FlagRow = { name: string, values: string[] }
 
-function valueLine(held: string | string[]) {
-  return Array.isArray(held) ? held.join(` ${FLAG_VALUES_SEPARATOR} `) : held
+/** The Flags a Scene sets, as the rows an Author reads them in. */
+export function flagRows(sets: Sets): FlagRow[] {
+  return Object.entries(sets).map(([name, held]) => ({
+    name,
+    values: Array.isArray(held) ? [...held] : [held],
+  }))
 }
 
 /**
- * The Flags an Author typed. Split on the first name separator alone, so a value
- * may hold one; a line missing it is a name with no value, which the server
- * refuses, and a name typed twice holds what the later line gave it.
+ * The Flags the rows amount to, with the half-written ones left out: a row with
+ * no name, or none of whose values has been typed, is half a Flag, which the
+ * server is right to refuse — and dropping it beats holding back the rest, the
+ * way a half-written Condition is dropped from the list it is in.
  *
- * What is left is then split on the values separator, and a line carrying one is
- * a draw rather than a plain value. A line carrying none stays a string, so
- * nothing already written becomes a list of one; a separator that leaves a value
- * empty is refused by the rule that a Flag is given a value.
+ * A row left with one value is a plain value and not a list of one, which is what
+ * keeps a Scene naming a single value stored as it always was. A name typed twice
+ * holds what the later row gave it.
  */
-export function flagsTyped(typed: string): Sets {
-  return Object.fromEntries(typed.split('\n').filter(line => line.trim()).map((line) => {
-    const [name, ...held] = line.split(FLAG_SEPARATOR)
-    const value = held.join(FLAG_SEPARATOR).trim()
-    const values = value.split(FLAG_VALUES_SEPARATOR).map(one => one.trim())
+export function flagsSet(rows: FlagRow[]): Sets {
+  return Object.fromEntries(rows.flatMap(({ name, values }) => {
+    const held = values.map(value => value.trim()).filter(Boolean)
+    const flag = name.trim()
 
-    return [name!.trim(), values.length > 1 ? values : value]
+    return flag && held.length ? [[flag, held.length > 1 ? held : held[0]!] as const] : []
   }))
+}
+
+/**
+ * The ways on leaving one Scene, in the Places it numbers them at. Taken by id
+ * rather than by the Scene, because the disc drawn on an Exit's line asks this
+ * too and it has only the id the Exit carries — and because the graph and the
+ * panel both ask it: one answer, so the number in the node and the number on the
+ * bench cannot say two different things.
+ */
+export function exitsFrom(exits: Exit[], sceneId: string) {
+  return exits.filter(exit => exit.fromSceneId === sceneId)
+}
+
+/**
+ * A list of Conditions with the half-written rows left out. A row whose Flag has
+ * no name is half a Condition, which the server is right to refuse, and dropping
+ * it beats holding back the rest — a Condition taken off has to reach the Story
+ * whatever else the Author is in the middle of typing.
+ *
+ * One function, because every route that sends a list sends it from a surface the
+ * Author may be halfway through: the row they are still naming would otherwise
+ * take the whole list down with it, and an Exit duplicated at that moment — from
+ * its own line, away from the Conditions written beside the Scene — would arrive
+ * carrying nothing.
+ */
+export function wholeConditions(carried: Condition[]) {
+  return carried.filter(condition => !('flag' in condition) || condition.flag.trim())
+}
+
+/**
+ * The sequence with one id moved a Place, which is what the two controls that
+ * renumber a thing send. Each is disabled at the end it cannot move past, so the
+ * Place swapped with is always one of the sequence's own.
+ *
+ * Shared because the ways on are renumbered from two screens now — the strip
+ * beside the Scene and the choice buttons in the reading — and an order that
+ * moved one way in one and another way in the other would be two products.
+ */
+export function movedBy(ids: string[], id: string, step: -1 | 1) {
+  const from = ids.indexOf(id)
+  const moved = [...ids]
+  moved[from] = ids[from + step]!
+  moved[from + step] = id
+
+  return moved
+}
+
+/**
+ * `1 Shot` and `2 Shots`: a card counts them, and a Delete asks about them. One
+ * phrase a count rather than a suffix on a noun, because a plural is not a letter
+ * added in every language the interface is read in.
+ */
+export function countedShots(many: number, say: Phrase) {
+  return say(many === 1 ? 'editor.oneShot' : 'editor.manyShots', { count: many })
+}
+
+export function countedExits(many: number, say: Phrase) {
+  return say(many === 1 ? 'editor.oneExit' : 'editor.manyExits', { count: many })
 }
 
 /**
@@ -475,6 +652,8 @@ export type StoryInEditor = {
   title: string
   /** The Language the work is written in, which is never the Author's Locale. */
   language: string
+  /** The few lines presenting the Story, empty where nobody has written any. */
+  synopsis: string
   openingSceneId: string | null
   publishedAt: string | null
   /** Whether the Author has put the published Story in the Catalogue. */

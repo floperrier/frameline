@@ -26,6 +26,51 @@ export async function readStoryTitle(event: H3Event) {
 }
 
 /**
+ * Reads a Synopsis from the request body. A trust boundary like the title: it
+ * reaches the database and every shelf the Story is presented on, so the length
+ * is capped here rather than left to Postgres.
+ *
+ * Empty is allowed, and is how a Synopsis is taken back off a Story — the few
+ * lines are the Author's to write and theirs to withdraw, and a Story with none
+ * is presented the way it was presented before anybody wrote one.
+ */
+export async function readStorySynopsis(event: H3Event) {
+  const body = await readBody<{ synopsis?: unknown }>(event)
+  const synopsis = typeof body?.synopsis === 'string' ? body.synopsis.trim() : ''
+
+  if (synopsis.length > STORY_SYNOPSIS_MAX_LENGTH) {
+    throw createError({
+      statusCode: 400,
+      message: saying(event)('refusals.storySynopsisLong', { max: STORY_SYNOPSIS_MAX_LENGTH }),
+    })
+  }
+
+  return synopsis
+}
+
+/**
+ * What a PATCH may change about a Story: its title, its Synopsis, or both. Each
+ * is read only where the body names it, so the bench can write the one field the
+ * Author typed in without carrying the other along — two fields in one header,
+ * each landing on its own.
+ *
+ * A body naming neither is a request that changes nothing, and is refused as a
+ * title being asked for: the title is the one thing a Story cannot be without,
+ * so that is what an empty change is missing.
+ */
+export async function readStoryChanges(event: H3Event) {
+  const body = await readBody<{ title?: unknown, synopsis?: unknown }>(event)
+  const changes: { title?: string, synopsis?: string } = {}
+
+  if (body?.title !== undefined) changes.title = await readStoryTitle(event)
+  if (body?.synopsis !== undefined) changes.synopsis = await readStorySynopsis(event)
+  // Which is a title asked for, by the reader that phrases the refusal.
+  if (!changes.title && changes.synopsis === undefined) await readStoryTitle(event)
+
+  return changes
+}
+
+/**
  * Reads the Language a Story is being written in. A trust boundary like the
  * title, and narrower than the column: the column holds any BCP-47 code, and
  * what an Author may pick from here is the short list the form offers. Saying

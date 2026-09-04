@@ -24,6 +24,8 @@ async function readToTheEnd(page: Page) {
   await expect(page.getByText('Smoke, and no one she knows.')).toBeVisible()
   await page.getByRole('button', { name: 'Next Shot' }).click()
   await expect(page.getByRole('status')).toHaveText('The path ends here.')
+  // The button that was pressed is gone, so the one control left takes the focus it held.
+  await expect(page.getByRole('button', { name: 'Read Again from the Start' })).toBeFocused()
 }
 
 /**
@@ -88,6 +90,6 @@ test('a Story with no opening Scene cannot be published', async ({ page, request
 
   await expect(page.getByRole('alert')).toHaveText(
     'A Story needs an opening Scene before it can be published. '
-    + 'Write a Scene on the graph and mark it as the one to start on.')
+    + 'Write a Scene on the Graph and mark it as the one to start on.')
   await expect(page.getByRole('button', { name: 'Publish this Story', exact: true })).toBeVisible()
 })

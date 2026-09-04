@@ -8,14 +8,14 @@ import {
   FLAG_VALUES_MAX,
   FLAG_VALUES_SEPARATOR,
   FLAG_VALUE_MAX_LENGTH,
-  flagLines,
-  flagsTyped,
+  flagRows,
+  flagsSet,
 } from '../../shared/utils/scenes'
 
 /**
  * The Flags a Scene sets, read at the request boundary and written back out as
- * the lines an Author typed them on. Two seams in one file because they are two
- * halves of one format: what the reader refuses is what the round trip may never
+ * the rows an Author writes them in. Two seams in one file because they are two
+ * halves of one thing: what the reader refuses is what the rows may never
  * produce.
  *
  * The reader is a server module, so what it reaches for is nitro's own: the body
@@ -115,9 +115,9 @@ describe('the Flags a request writes', () => {
   })
 })
 
-describe('the Flags an Author typed, read and shown again', () => {
-  /** What one Scene's Flags come back as, having been shown as lines and read again. */
-  const roundTrip = (sets: Parameters<typeof flagLines>[0]) => flagsTyped(flagLines(sets))
+describe('the Flags a Scene sets, as rows and back', () => {
+  /** What one Scene's Flags come back as, having been drawn as rows and read again. */
+  const roundTrip = (sets: Parameters<typeof flagRows>[0]) => flagsSet(flagRows(sets))
 
   it('brings a plain Flag back as the value it was', () => {
     expect(roundTrip({ coat: 'on', drink: 'whisky' })).toEqual({ coat: 'on', drink: 'whisky' })
@@ -128,27 +128,30 @@ describe('the Flags an Author typed, read and shown again', () => {
       .toEqual({ weather: ['rain', 'sun', 'haze'], coat: 'on' })
   })
 
-  it('writes a Flag and its values on one line apiece', () => {
-    expect(flagLines({ weather: ['rain', 'sun'], coat: 'on' }))
-      .toBe('weather = rain | sun\ncoat = on')
+  it('gives a Flag of one value one field to type it in', () => {
+    expect(flagRows({ coat: 'on', weather: ['rain', 'sun'] })).toEqual([
+      { name: 'coat', values: ['on'] },
+      { name: 'weather', values: ['rain', 'sun'] },
+    ])
   })
 
-  it('reads a line with no values separator as the one value it holds', () => {
-    expect(flagsTyped('coat = on')).toEqual({ coat: 'on' })
-    expect(flagsTyped('coat=on')).toEqual({ coat: 'on' })
+  it('keeps a row of one value a plain value rather than a list of one', () => {
+    expect(flagsSet([{ name: 'coat', values: ['on'] }])).toEqual({ coat: 'on' })
   })
 
-  it('reads the values of a line however the Author spaced them', () => {
-    expect(flagsTyped('weather = rain|sun |  haze')).toEqual({
-      weather: ['rain', 'sun', 'haze'],
-    })
+  it('trims what the Author typed, name and values alike', () => {
+    expect(flagsSet([{ name: ' coat ', values: [' on '] }])).toEqual({ coat: 'on' })
   })
 
-  it('leaves a malformed line to the server to refuse rather than mending it', () => {
-    // A separator with nothing either side of it is a value the Author has not
-    // written, and the reader above refuses it: what this must not do is quietly
-    // drop it and write a shorter list than the one on screen.
-    expect(flagsTyped('weather = rain |')).toEqual({ weather: ['rain', ''] })
-    expect(flagsTyped('weather =')).toEqual({ weather: '' })
+  it('leaves out the row that is half a Flag rather than sending it to be refused', () => {
+    // A row with no name yet, a row given no value, and a value the Author has
+    // emptied on their way to typing another: none of them is a Flag the Scene
+    // sets, and none of them may take the rest of the list down with it.
+    expect(flagsSet([{ name: '', values: ['on'] }])).toEqual({})
+    expect(flagsSet([{ name: 'coat', values: [' '] }])).toEqual({})
+    expect(flagsSet([
+      { name: 'weather', values: ['rain', '', 'haze'] },
+      { name: 'coat', values: ['on'] },
+    ])).toEqual({ weather: ['rain', 'haze'], coat: 'on' })
   })
 })

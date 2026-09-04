@@ -8,9 +8,17 @@
  * The Path lives here and nowhere else. It never leaves the browser, so
  * every Reading starts with empty State and two Readers of one Story cannot
  * share what they have accumulated — there is no place for them to share it.
- * Leaving the page starts the Story over for the same reason.
+ *
+ * `keptFor` is the Story whose Reading this browser keeps between visits: named,
+ * the Path is written to local storage on every move and read back when the
+ * page opens, so a Reader who left comes back to where they stood. Left out,
+ * nothing is kept, which is what a Preview asks for — see
+ * `docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md`.
  */
-const { story } = defineProps<{ story: StoryToShow & { language: string } }>()
+const { story, keptFor } = defineProps<{
+  story: StoryToShow & { language: string }
+  keptFor?: string
+}>()
 
 const { t } = useI18n()
 
@@ -25,7 +33,54 @@ const emit = defineEmits<{ at: [Path] }>()
 
 const at = ref<Path>(UNDRAWN)
 const shown = computed(() => reading(story, at.value))
-const shownAt = () => emit('at', at.value)
+
+/**
+ * Every move is said out loud, and kept where the browser will find it again:
+ * the whole Path, so what is read back is exactly what replays. Written here
+ * rather than in `moveTo` so the opening is kept too — a Reader who has just
+ * started over is back at the start next time as well.
+ */
+const key = keptFor && `reading-${keptFor}`
+
+function shownAt() {
+  emit('at', at.value)
+  if (!key) return
+  // A browser that refuses storage, or has none left, refuses quietly: the
+  // Reading goes on, it is just not kept.
+  try {
+    localStorage.setItem(key, JSON.stringify(at.value))
+  }
+  catch {}
+}
+
+/**
+ * The Path this browser kept from an earlier visit, if it is one to go back to:
+ * `resumes` says whether it has moved, has not ended, and still fits the Story as
+ * published. Anything else in the slot — nothing, an ending, a Path the Author
+ * has since edited from under, bytes that are not a Path — is a fresh start.
+ */
+function kept(): Path | undefined {
+  if (!key) return
+  let at: unknown
+  try {
+    at = JSON.parse(localStorage.getItem(key) ?? 'null')
+  }
+  catch {
+    return
+  }
+  return isPath(at) && resumes(story, at) ? at : undefined
+}
+
+/** Whether what the browser handed back has the shape of a Path, whatever wrote it. */
+function isPath(at: unknown): at is Path {
+  return typeof at === 'object' && at !== null
+    && Number.isInteger((at as Path).seed)
+    && Number.isInteger((at as Path).shot) && (at as Path).shot >= 0
+    && Array.isArray((at as Path).taken)
+}
+
+/** Whether what is on screen is where the Reader left off, said until they move. */
+const resumed = ref(false)
 
 /**
  * The seed every draw a Scene makes comes out of, drawn once the Reading is in
@@ -33,10 +88,13 @@ const shownAt = () => emit('at', at.value)
  * Path this starts at, because the server renders this page too and a seed
  * drawn there and drawn again here would be two Stories either side of
  * hydration. It is the one impure moment in a Reading — see
- * `docs/adr/0024-the-seed-belongs-to-the-position.md`.
+ * `docs/adr/0024-the-seed-belongs-to-the-position.md`. A Path kept from before
+ * carries its seed with it, so a Reading picked up draws what it drew.
  */
 onMounted(() => {
-  at.value = opening()
+  const before = kept()
+  resumed.value = before !== undefined
+  at.value = before ?? opening()
   shownAt()
 })
 
@@ -49,16 +107,20 @@ onMounted(() => {
  * asks for the next one, and the first Exit takes it when the Scene has played
  * out — the Reader lands on what they are being offered. The frame left standing
  * at the end of a Scene is passed over: it is still on screen, but it is not
- * what has just arrived.
+ * what has just arrived. At the end of the Story there is neither a Shot nor a
+ * way on, and the press that got there took its own button away, so the one
+ * control left — reading again from the start — takes the focus it held.
  */
 const frame = useTemplateRef<HTMLElement>('frame')
 const exits = useTemplateRef<HTMLElement>('exits')
+const again = useTemplateRef<HTMLElement>('again')
 
 async function moveTo(to: Path) {
   at.value = to
+  resumed.value = false
   shownAt()
   await nextTick()
-  ;(shown.value.shot ? frame.value : exits.value?.querySelector('button'))?.focus()
+  ;(shown.value.shot ? frame.value : (exits.value?.querySelector('button') ?? again.value))?.focus()
 }
 
 /**
@@ -73,7 +135,19 @@ function reroll() {
   shownAt()
 }
 
-defineExpose({ reroll })
+/**
+ * The Reading put at a Path worked out somewhere else: the pane an Author writes
+ * beside routes the reading to the Scene they are on, and a Path held in two
+ * places would be two Readings. Nothing takes focus, because nobody pressed
+ * anything in here — the Author pressed a card in the rail, and the keyboard
+ * belongs where they left it.
+ */
+function goTo(to: Path) {
+  at.value = to
+  shownAt()
+}
+
+defineExpose({ reroll, goTo })
 
 const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, scene.name])))
 
@@ -113,6 +187,12 @@ function offered(exit: Exit) {
 
 <template>
   <div class="reading">
+    <!-- Said before the frame, where a Reader landing mid-Story looks first: they
+         are where they left off, not at a Story that starts in the middle. A
+         status, so a screen reader hears it as the beat arrives, and gone at the
+         next move — the notice is about the arrival, not about the Reading. -->
+    <p v-if="resumed" class="resumed trail" role="status">{{ $t('reading.resumed') }}</p>
+
     <!-- One Shot at a time, and the Exits only once the Scene has played out —
          behind the frame it played out on, which is held rather than taken away. -->
     <template v-if="held">
@@ -177,13 +257,23 @@ function offered(exit: Exit) {
         <button type="button" class="splice" :lang="story.language" @click="moveTo(take(at, exit))">
           {{ offered(exit) }}
         </button>
+
+        <!-- Whatever an Author is given beside the way on they are being offered:
+             the pair of controls that renumber it, which is where the order of
+             the ways on is set — see
+             `docs/adr/0030-a-story-is-read-where-it-is-written.md`. Empty for a
+             Reader, who is offered the choice and nothing about how it is made. -->
+        <slot name="ordering" :exit="exit" />
       </li>
     </ul>
 
-    <p v-if="shown.ended" class="ended trail" role="status">{{ $t('reading.ended') }}</p>
+    <!-- In the document before it has anything to say: a live region announces
+         a change to a node it already holds, never a node that arrives with its
+         sentence inside it. -->
+    <p class="ended trail" role="status">{{ shown.ended ? $t('reading.ended') : '' }}</p>
 
     <p class="again">
-      <button type="button" class="trail" @click="moveTo(opening())">
+      <button ref="again" type="button" class="trail" @click="moveTo(opening())">
         {{ $t('reading.again') }}
       </button>
     </p>
@@ -290,11 +380,20 @@ figcaption {
   gap: var(--s2);
 }
 
-.exits button {
+/* The line the Reader takes, and whatever is offered beside it: nothing at all
+   for a Reader, so the choice is the whole width it was. */
+.exits li {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.exits .splice {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: var(--s3);
-  inline-size: 100%;
+  flex: 1;
+  min-inline-size: 0;
   padding: var(--s3) var(--s4);
   background: color-mix(in oklab, var(--steel) 70%, transparent);
   font-family: var(--ui);
@@ -302,10 +401,11 @@ figcaption {
   text-align: start;
 }
 
-.exits button:hover {
+.exits .splice:hover {
   background: var(--steel-lit);
 }
 
+.resumed,
 .ended {
   display: flex;
   align-items: center;
@@ -314,13 +414,29 @@ figcaption {
 }
 
 /* The tail sample either side of the ending, which is what the end of a reel
-   looks like. */
+   looks like — and either side of a Reading picked up, which is the same splice
+   seen from the other end: the film was cut here, and here it runs on. */
+.resumed::before,
+.resumed::after,
 .ended::before,
 .ended::after {
   content: '';
   flex: 1;
   block-size: 1px;
   background: var(--edge);
+}
+
+/* Nothing to say yet: out of the column's flow, so the gap either side of it
+   goes too, and not `display: none`, which would take it out of the
+   accessibility tree and bring the silence back. */
+.ended:empty {
+  position: absolute;
+  opacity: 0;
+}
+
+.ended:empty::before,
+.ended:empty::after {
+  content: none;
 }
 
 .again {

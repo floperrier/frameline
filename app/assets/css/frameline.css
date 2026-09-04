@@ -59,6 +59,28 @@
   --s5: 2rem;
   --s6: 3.25rem;
 
+  /* What the machine itself takes off each edge of the window: the notch, the
+     rounded corner, the bar the hand swipes home on. A surface that stops at the
+     edge of the window has to stop at these instead, so they are added to the
+     spacing rather than replacing it — the padding a surface asked for, plus
+     whatever the hardware is standing in.
+
+     Beside the scale rather than written where they are used, because they are
+     the same fact for every full-bleed surface and there is going to be more
+     than one: the writing surface covering the bench on a phone is the first,
+     and the reading room is the next.
+
+     Physical names, because that is what `env()` answers in: the four insets are
+     top, right, bottom and left of the screen whichever way the text runs, and a
+     logical name over a physical value is a lie the day the interface is read
+     right to left. Zero on every screen with nothing in the way, and zero until
+     a page asks for the whole window with `viewport-fit=cover` — no page here
+     does yet, so today these buy the surface nothing and cost it nothing. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
   /* Machined corners everywhere, except the film gate: a real gate is a
      rectangle with its corners rounded off, and that is the one place the
      product shows a curve. */
@@ -256,6 +278,48 @@ button:disabled {
   background: color-mix(in oklab, var(--alarm) 16%, transparent);
 }
 
+/* A control that acts on one row of a list — renumbers it, duplicates it, adds a
+   value to it, takes it away — is the mark of what it does and never the sentence
+   that names it. In the width a row of fields leaves, a way on's four sentences
+   fill the strip and wrap out of it in the longer of the two languages. Nothing
+   an eye reads is lost: what each one says is the visually hidden words inside
+   it, where the row's other names are already read.
+   Declared here rather than in whichever surface first needed it, because a
+   Condition's row, a Flag's row, a beat, a way on and the reading beside them all
+   carry these — and one act drawn two ways is what happens when five stylesheets
+   each decide again. Kept a square rather than shrunk to the glyph inside it, so
+   a finger is asked for no more aim than a word would need. */
+.mark {
+  min-inline-size: 1.75rem;
+  padding: var(--s1) var(--s2);
+  line-height: 1.2;
+}
+
+/* One row of a list read as the sentence it is — "coat holds on", "played when
+   Flag coat holds on" — with the mark that acts on the whole row held in a column
+   of its own at the trailing edge. Two columns rather than one wrapping line,
+   because the sentence wraps at the width of a phone and a mark that wrapped with
+   it would stand on a line of its own with nothing beside it to say what it
+   removes; centred on the sentence however many lines it takes, which is also
+   what says it acts on all of them.
+   Here for the reason `.mark` is: a Flag's row and a Condition's row are one
+   language on purpose — each component says so in its own words — and this is the
+   shape they are one language in. */
+.reads {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.reads .sentence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1);
+  font-size: 0.75rem;
+}
+
 /* Focus is the machine's light, drawn outside the control so it never moves the
    layout — and it is the same ring on every surface, which is what makes the
    interface followable without a mouse. */
@@ -352,6 +416,11 @@ button:disabled {
    rather than waiting for a click. */
 .toast {
   position: fixed;
+  /* Over the writing surface where it covers the bench — `Panel.vue` at
+     `--phone` is fixed at 3 — and no higher than the guided step's own light
+     (`Step.vue`, 4 and 5), which is drawn after it and stays over it. What the
+     bench has just done is said to the Author, not to the bench. */
+  z-index: 4;
   inset-block-end: var(--s4);
   inset-inline-end: var(--s4);
   padding: var(--s2) var(--s3);
@@ -359,6 +428,17 @@ button:disabled {
   background: color-mix(in oklab, var(--light) 12%, var(--bench));
   box-shadow: var(--lifted);
   font-size: 0.875rem;
+}
+
+/* Between sentences the region stays in the document, empty, so a screen reader
+   hears the next one as a change. `opacity`, not `display` or `visibility`: those
+   two take it out of the accessibility tree and bring the silence back. The box
+   goes with the text so no empty card stands in the corner. */
+.toast:empty {
+  opacity: 0;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
 }
 
 /* The field a typed change has just been written out of, lit for a moment in the

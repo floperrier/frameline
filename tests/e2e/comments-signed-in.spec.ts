@@ -60,7 +60,7 @@ test('an Author comments on a published Story and anyone reads what was said', a
   await expect(page.getByText('Nothing has been said about this Story yet.')).toBeVisible()
 
   await page.getByLabel('What you have to say about this Story').fill(said)
-  await page.getByRole('button', { name: 'Add your Comment' }).click()
+  await page.getByRole('button', { name: 'Add Your Comment' }).click()
 
   // The Comment is under the Story, signed, and the Name leads to the Author
   // rather than to the work.
@@ -192,7 +192,7 @@ test('an Author with no Name is asked for one before commenting', async ({ page,
 
   await page.goto(`/read/${story.id}`)
   await page.getByLabel('What you have to say about this Story').fill('Nameless')
-  await page.getByRole('button', { name: 'Add your Comment' }).click()
+  await page.getByRole('button', { name: 'Add Your Comment' }).click()
 
   await expect(page.getByRole('alert')).toContainText(
     'A Comment is signed with its Author\'s Name, so write yours on the list of '

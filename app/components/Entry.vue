@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /**
  * One Story as it is met before it is opened: its title, which is the link to
- * the Reading, and what is said about it on the shelf — the Author who wrote it,
- * the Language it is written in and the day it was published.
+ * the Reading, the Synopsis its Author wrote for whoever is deciding whether to
+ * read it, and what is said about it on the shelf — the Author who wrote it, the
+ * Language it is written in and the day it was published.
  *
  * Drawn by every surface that hands over other people's work — the Catalogue, a
  * Profile, and an Author's own Lists — so they are all the same shelf, seen by
@@ -20,6 +21,7 @@ const { story } = defineProps<{
     id: string
     title: string
     language: string
+    synopsis?: string
     publishedAt: string | null
     authorId?: string
     authorName?: string | null
@@ -35,6 +37,11 @@ const localePath = useLocalePath()
     <NuxtLink class="open" :to="`/read/${story.id}`" :lang="story.language">
       {{ story.title }}
     </NuxtLink>
+    <!-- The Synopsis in the Author's own words, so it is set in the Language the
+         work is written in rather than in the Locale the shelf is read in. A
+         Story nobody wrote one for draws nothing here: the shelf invents no
+         lines out of the Story's own text. -->
+    <p v-if="story.synopsis" class="synopsis" :lang="story.language">{{ story.synopsis }}</p>
     <p class="facts">
       <!-- The Name leads to the Author rather than to the work: one entry, two
            ways out of it. The link is the interface talking, so it carries the
@@ -58,6 +65,8 @@ const localePath = useLocalePath()
 </template>
 
 <style scoped>
+@import '~/assets/css/folds.css';
+
 li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -78,6 +87,18 @@ li {
 
 .open:hover {
   color: var(--light);
+}
+
+/* The few lines the Author wrote to present the work, between the title and the
+   labels on the reel. Quiet and measured, like every other sentence on a shelf:
+   what the eye lands on is the title, and the Synopsis is what it reads next
+   rather than instead. The interface's own face, because a shelf is the
+   interface talking about a work and not the work — the reading face is the
+   Reading's alone. */
+.synopsis {
+  grid-column: 1;
+  color: var(--muted);
+  max-inline-size: 60ch;
 }
 
 /* What is said about a Story before it is opened: who wrote it, the Language it
@@ -101,7 +122,7 @@ li {
   color: var(--paper);
 }
 
-@media (max-width: 44rem) {
+@media (--phone) {
   li {
     grid-template-columns: minmax(0, 1fr);
   }

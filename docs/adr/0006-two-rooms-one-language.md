@@ -93,3 +93,12 @@ own graph and is written nowhere, which is why this is a note about the drawing
 and not a decision about the Story. That rule survives an open node being as
 tall as its writing: uniformity is a property of the folded nodes, and an open
 one is the Author saying which Scene they are working in.
+
+_A second file sits beside the stylesheet, and holds no rules: the widths the
+interface folds at are declared as custom media queries in
+`app/assets/css/folds.css`, because a media query's condition is the one thing a
+custom property cannot carry — see
+`docs/adr/0037-the-reading-folds-before-the-writing-does.md`. It compiles to
+nothing, and the rules a fold turns on stay in the scoped block of the surface
+that folds. "The tokens are the whole vocabulary" stands; this is the one part of
+the vocabulary CSS will not let a token hold._

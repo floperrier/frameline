@@ -59,11 +59,11 @@ function playedWhen(story: StoryInEditor, scene: number, ...conditions: Conditio
 }
 
 /**
- * What the bench is asking for, of a Story with the Scene it is given in the
- * panel — and of one with nothing in it, which is where the bench starts.
+ * What the bench is asking for of this Story — and of one with nothing in it,
+ * which is where the bench starts.
  */
-function asking(story: StoryInEditor, writing?: string) {
-  return stepShowing(story, writing)?.name
+function asking(story: StoryInEditor) {
+  return stepShowing(story)?.name
 }
 
 describe('the Step the bench is showing', () => {
@@ -71,43 +71,47 @@ describe('the Step the bench is showing', () => {
     expect(asking(onTheBench())).toBe('nameScene')
   })
 
-  it('asks for the Scene to be written once there is one on the bench', () => {
-    expect(asking(onTheBench([['The arrival']]))).toBe('writeScene')
-  })
-
-  it('asks for a Shot to be written once a Scene is in the panel', () => {
-    const story = onTheBench([['The arrival']])
-
-    expect(asking(story, 'The arrival')).toBe('writeShot')
+  /**
+   * The gesture that makes a Scene opens it for writing as well, so a Story with
+   * a Scene in it is a Story whose writing surface the Author has already been
+   * shown: what is asked for next is what goes in it.
+   */
+  it('asks for a Shot once there is a Scene on the bench', () => {
+    expect(asking(onTheBench([['The arrival']]))).toBe('writeShot')
   })
 
   it('reads a Shot of blank space as one nobody has written', () => {
     const story = onTheBench([['The arrival', '   ']])
 
-    expect(asking(story, 'The arrival')).toBe('writeShot')
+    expect(asking(story)).toBe('writeShot')
   })
 
-  it('asks for a second Scene once the first Shot is written', () => {
+  /**
+   * The second Scene and the Exit to it are one gesture and so one Step: an
+   * Author with one written Scene is asked to draw a way on out of it, and the
+   * Scene it lands on is made by the same movement.
+   */
+  it('asks for an Exit once the first Shot is written', () => {
     const story = onTheBench([['The arrival', 'The train pulls in.']])
 
-    expect(asking(story, 'The arrival')).toBe('secondScene')
+    expect(asking(story)).toBe('wayOn')
   })
 
   it('asks for an Exit once there are two Scenes to join', () => {
     const story = onTheBench([['The arrival', 'The train pulls in.'], ['The platform']])
 
-    expect(asking(story, 'The arrival')).toBe('drawExit')
+    expect(asking(story)).toBe('wayOn')
   })
 
   it('asks for a Flag once the two Scenes are joined', () => {
-    expect(asking(joined(), 'The arrival')).toBe('setFlag')
+    expect(asking(joined())).toBe('setFlag')
   })
 
   it('asks for a Condition once a Flag is set', () => {
     const story = joined()
     sets(story, 0, { courage: 'high' })
 
-    expect(asking(story, 'The arrival')).toBe('putCondition')
+    expect(asking(story)).toBe('putCondition')
   })
 
   /**
@@ -234,27 +238,38 @@ describe('the Step the bench is showing', () => {
   })
 
   /**
-   * Nothing blocks and nothing is confirmed, so an Author who improvises past
-   * three steps meets three Steps and is asked for the fourth, whatever the panel
-   * is holding.
+   * Nothing blocks and nothing is confirmed, so an Author who joined two Scenes
+   * before writing a word in either is asked for the word: the Steps ahead of the
+   * one they jumped are met, and the one they left behind is the one they are
+   * asked for.
    */
   it('asks for what is still missing when the Author works out of order', () => {
-    const story = onTheBench([['The arrival', 'The train pulls in.'], ['The platform']])
+    const story = onTheBench([['The arrival'], ['The platform']])
+    story.exits = [{ id: 'a-exit' }] as StoryInEditor['exits']
 
-    expect(asking(story)).toBe('drawExit')
-  })
-
-  /**
-   * The panel is opened for the sake of what is written in it, so a Story that
-   * arrives written — a Sample — is never asked to open it, and a Sample, which is
-   * past every step, is asked nothing at all.
-   */
-  it('asks a Story whose Shots are already written to open no panel', () => {
-    const story = onTheBench([['The arrival', 'The train pulls in.']])
-
-    expect(asking(story)).toBe('secondScene')
+    expect(asking(story)).toBe('writeShot')
   })
 })
+
+/**
+ * The bench with a Scene open for writing: the page, the header over it, the
+ * document the Scene is written in and the Preview beside it. Every Step but the
+ * first is read in that state, so this is where its target has to be.
+ */
+const WRITING = [
+  'app/pages/stories/[id]/index.vue',
+  'app/components/StoryHeader.vue',
+  'app/components/Panel.vue',
+  'app/components/Preview.vue',
+]
+
+/** Every file the bench is drawn from, the canvas the first Step points at included. */
+const EDITOR = ['app/components/Graph.vue', ...WRITING]
+
+/** Every file named, read as the one source the editor is drawn from. */
+function drawnFrom(files: string[]) {
+  return files.map(file => readFileSync(file, 'utf8')).join('\n')
+}
 
 describe('every Step', () => {
   it('carries a sentence in the message files', () => {
@@ -272,11 +287,42 @@ describe('every Step', () => {
    * nothing. See `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md`.
    */
   it('points at an element the editor actually draws, exactly once', () => {
-    const editor = readFileSync('app/pages/stories/[id]/index.vue', 'utf8')
-    const drawn = [...editor.matchAll(/data-step="([^"]+)"/g)].map(([, target]) => target)
+    // Every file the bench is drawn from, because the editor is the page and the
+    // three pieces it is laid out from: a target that moved from one of them to
+    // another has moved within the same editor.
+    const drawn = [...drawnFrom(EDITOR).matchAll(/data-step="([^"]+)"/g)]
+      .map(([, target]) => target)
 
     // Held as sets on both sides: the editor draws each target once, and two
     // Steps may ask for two things in the same place.
     expect(drawn.sort()).toEqual([...new Set(STEPS.map(step => step.target))].sort())
+  })
+
+  /**
+   * Not merely that the target is drawn somewhere, but that it is drawn where the
+   * bench answers a press at the moment the Step is shown. Every Step but the
+   * first is read with a Scene open for writing — every act that makes a Scene
+   * opens it — and there the canvas is folded into a rail: a press on a card in
+   * the rail writes that Scene, the aiming refuses outright, and the drawing has
+   * no bare bench left to let go on. A target on the canvas is therefore a Step
+   * asking for a gesture that does nothing, which is what the Exit step did until
+   * the way on it teaches moved into the Scene's own document.
+   *
+   * The first Step is the exception and the one target the canvas keeps: it is
+   * asked of a Story with no Scene in it, where the graph is not drawn at all and
+   * the control that writes the first Scene stands in its place.
+   *
+   * Which surface the target is drawn in is as far as source read as text can go.
+   * That the control then answers the press the sentence asks for is walked in
+   * `tests/e2e/steps-signed-in.spec.ts`, Step by Step, in the state each one is
+   * shown in and with nothing closed or switched to first.
+   */
+  it('points at something the bench answers where the Step is read', () => {
+    const written = drawnFrom(WRITING)
+
+    expect(STEPS
+      .filter(step => step.name !== 'nameScene')
+      .filter(step => !written.includes(`data-step="${step.target}"`))
+      .map(step => step.name)).toEqual([])
   })
 })

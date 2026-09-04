@@ -1,0 +1,26 @@
+/**
+ * The two widths the interface folds at, named once so that no two surfaces can
+ * disagree about where a fold falls. Nothing but names: a stylesheet that
+ * declares only custom media queries compiles to nothing, which is why every
+ * scoped block that needs one can import it without carrying a rule it did not
+ * write. The rules themselves stay where the surface they fold is drawn — see
+ * `docs/adr/0006-two-rooms-one-language.md` for why a page adds only what is
+ * its own.
+ *
+ * A width used by one surface alone would not earn a file of its own: the
+ * landing page turns two rooms side by side at sixty rem and nothing else reads
+ * that number, so it stays written where it is used. These two are here because
+ * they are read together — the band the bench folds the reading in runs from one
+ * to the other, so a copy of either is a copy that can drift out of the band.
+ *
+ * Both are read off the writing column rather than chosen — see
+ * `docs/adr/0037-the-reading-folds-before-the-writing-does.md`.
+ */
+
+/* A screen with no room for two columns of anything: the phone. */
+@custom-media --phone (max-width: 44rem);
+
+/* Wide enough for the graph and one column of writing, and not for the reading
+   beside it. Composed with `--phone` where the band is what matters, so the
+   band's lower edge is the phone's own width and not a second copy of it. */
+@custom-media --two-columns (max-width: 78rem);

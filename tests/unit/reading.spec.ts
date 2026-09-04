@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Condition, Sets } from '../../shared/utils/scenes'
 import type { Path, State, StoryToRead } from '../../shared/utils/reading'
-import { advance, opening, reading, take, unmet } from '../../shared/utils/reading'
+import { advance, opening, pathTo, reading, resumes, take, unmet } from '../../shared/utils/reading'
 import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
 import type { Phrase } from '../../shared/utils/phrases'
 
@@ -625,5 +625,168 @@ describe('a Scene drawing one of several values for a Flag', () => {
     for (const at of seeds.slice(0, 20)) {
       expect(reading(setting, at).state.flags.coat).toBe('on')
     }
+  })
+})
+
+describe('a Reading stopped at one Scene', () => {
+  /**
+   * Three Scenes in a line, so a Path to the last one is a Path that took both
+   * Exits: what `pathTo` comes back with is held against what the engine says the
+   * Reading is standing in, never against the Exits it happens to have chosen.
+   */
+  const line = story(
+    { Street: ['A door opens.'], Bar: ['Smoke.'], Back: ['A door onto the alley.'] },
+    [['Street', 'Go in', 'Bar'], ['Bar', 'Slip out', 'Back']],
+  )
+
+  /** The Scene a Path is standing in, which is the whole of what a stop is judged by. */
+  function stopsIn(read: StoryToRead, at: Path | undefined) {
+    return at && reading(read, at).sceneId
+  }
+
+  it('comes back with the Path already taken where it stands there', () => {
+    expect(pathTo(line, OPENING, 'Street')).toEqual(OPENING)
+  })
+
+  it('takes the ways on that reach the Scene', () => {
+    const there = pathTo(line, OPENING, 'Back')
+
+    expect(stopsIn(line, there)).toBe('Back')
+    expect(there?.taken).toEqual(['exit-0', 'exit-1'])
+  })
+
+  it('stops on the first Shot of the Scene it arrives at', () => {
+    expect(reading(line, pathTo(line, OPENING, 'Bar')!).shot?.text).toBe('Smoke.')
+  })
+
+  it('goes on from where the Reading already stands', () => {
+    const inTheBar = pathTo(line, OPENING, 'Bar')!
+
+    expect(pathTo(line, inTheBar, 'Back')?.taken).toEqual(['exit-0', 'exit-1'])
+  })
+
+  it('reaches nothing where no way on leads to the Scene', () => {
+    const orphan = story({ Street: ['A door opens.'], Attic: ['Dust.'] })
+
+    expect(pathTo(orphan, OPENING, 'Attic')).toBeUndefined()
+  })
+
+  it('reaches nothing where the Story has no opening Scene', () => {
+    expect(pathTo(story({ Street: ['A door opens.'] }, [], null), OPENING, 'Street'))
+      .toBeUndefined()
+  })
+
+  it('does not go round a Story that comes back on itself for ever', () => {
+    const loop = story(
+      { Booth: ['The projector ticks over.'], House: ['Rows of empty seats.'] },
+      [['Booth', 'Walk the house', 'House'], ['House', 'Back up', 'Booth']],
+    )
+
+    expect(pathTo(loop, OPENING, 'Nowhere')).toBeUndefined()
+  })
+
+  /**
+   * The whole of why the pane replays a Path rather than playing the Scene alone:
+   * a Shot carrying a Condition is in the run exactly when a Reader who came the
+   * same way would be played it, and not otherwise.
+   */
+  it('plays a conditioned Shot only where the Path arrived holding the Flag', () => {
+    const coats = story(
+      {
+        Street: ['A door opens.'],
+        Cloakroom: ['A rail of coats.'],
+        Bar: ['Smoke.', ['You keep your coat on.', [{ flag: 'coat', is: 'on' }]]],
+      },
+      [
+        ['Street', 'Straight in', 'Bar'],
+        ['Street', 'Take a coat', 'Cloakroom'],
+        ['Cloakroom', 'Go through', 'Bar'],
+      ],
+      'Street',
+      { Cloakroom: { coat: 'on' } },
+    )
+
+    // The way in that is one Exit shorter arrives with nothing set, so the Shot
+    // under the Condition is no part of the run.
+    expect(run(coats, pathTo(coats, OPENING, 'Bar')!)).toEqual(['Smoke.'])
+
+    // Through the cloakroom, the same Scene plays the Shot: the State the Path
+    // accumulated is what the Condition is held against.
+    const dressed = pathTo(coats, pathTo(coats, OPENING, 'Cloakroom')!, 'Bar')!
+    expect(run(coats, dressed)).toEqual(['Smoke.', 'You keep your coat on.'])
+  })
+
+  it('does not take a way on this Reading was never offered', () => {
+    const locked = story(
+      { Street: ['A door opens.'], Vault: ['Rows of tins.'] },
+      [['Street', 'Unlock it', 'Vault', [{ flag: 'key', is: 'found' }]]],
+    )
+
+    expect(pathTo(locked, OPENING, 'Vault')).toBeUndefined()
+  })
+
+  /**
+   * A Scene is passed once for each set of Flags it has been arrived holding, so
+   * a Story that loops back to set one and returns is a Story whose second
+   * arrival opens a way on the first did not.
+   */
+  it('goes round again where the way on wants a Flag set further on', () => {
+    const key = story(
+      { Hall: ['A locked door.'], Study: ['A key on the desk.'], Vault: ['Rows of tins.'] },
+      [
+        ['Hall', 'Unlock it', 'Vault', [{ flag: 'key', is: 'found' }]],
+        ['Hall', 'Try the study', 'Study'],
+        ['Study', 'Back to the hall', 'Hall'],
+      ],
+      'Hall',
+      { Study: { key: 'found' } },
+    )
+
+    expect(stopsIn(key, pathTo(key, OPENING, 'Vault'))).toBe('Vault')
+  })
+})
+
+describe('a Path kept in the browser and replayed', () => {
+  const two = story(
+    { Street: ['A door opens.', 'She steps out.'], Bar: ['Smoke.'] },
+    [['Street', 'Follow her out', 'Bar']],
+  )
+  const [out] = two.exits
+
+  it('is not picked up where nothing has been read yet', () => {
+    expect(resumes(two, OPENING)).toBe(false)
+  })
+
+  it('is picked up at the Shot it left on', () => {
+    expect(resumes(two, advance(OPENING))).toBe(true)
+  })
+
+  it('is picked up at the Exits on offer, with the run behind it', () => {
+    expect(resumes(two, advance(advance(OPENING)))).toBe(true)
+  })
+
+  it('is picked up in the Scene an Exit led to', () => {
+    expect(resumes(two, take(OPENING, out!))).toBe(true)
+  })
+
+  it('is not picked up at an ending, which is nowhere to be put back', () => {
+    expect(resumes(two, advance(take(OPENING, out!)))).toBe(false)
+  })
+
+  it('is not picked up where an Exit it took has since been taken away', () => {
+    const cut = story({ Street: ['A door opens.', 'She steps out.'], Bar: ['Smoke.'] })
+    expect(resumes(cut, take(OPENING, out!))).toBe(false)
+  })
+
+  it('is not picked up where an Exit it took is now hidden from it', () => {
+    const gated = story(
+      { Street: ['A door opens.'], Bar: ['Smoke.'] },
+      [['Street', 'Follow her out', 'Bar', [{ flag: 'key', is: 'held' }]]],
+    )
+    expect(resumes(gated, take(OPENING, out!))).toBe(false)
+  })
+
+  it('is not picked up past the run, where Shots have since been taken away', () => {
+    expect(resumes(two, { ...OPENING, shot: 5 })).toBe(false)
   })
 })

@@ -4,6 +4,13 @@ export default defineNuxtConfig({
   modules: ['nuxt-auth-utils', '@nuxt/fonts', '@nuxtjs/i18n'],
   compatibilityDate: '2026-08-19',
   css: ['~/assets/css/frameline.css'],
+  // The widths the interface folds at are declared once, in
+  // `app/assets/css/folds.css`, and reached by name from the scoped block of
+  // every surface that folds. A media query's condition is the one thing plain
+  // CSS gives no way to share — a custom property cannot be read inside one —
+  // and this plugin is Media Queries Level 5's own answer to that, so `44rem`
+  // and `74rem` are written in one file rather than in five.
+  postcss: { plugins: { 'postcss-custom-media': {} } },
   // Two languages the interface is read in, and one the strings are written in:
   // English is the `defaultLocale`, so it is what an unprefixed URL serves and
   // what a new key is authored in. French is reached at `/fr/...`.

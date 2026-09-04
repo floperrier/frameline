@@ -3,13 +3,24 @@
  * one step at a time.
  *
  * A Step is a predicate over the Story the bench already holds, never a listener
- * on what the Author did. The one thing it reads besides the Story is which Scene
- * is in the panel at the edge of the bench, because no Step may point into a panel
- * that is not open. The editor fetches the whole Story and reads it back after every
- * write, so a Step asks a question of that data — this Story has at least one
- * Scene — and is therefore idempotent, survives a reload, and cannot disagree
- * with the screen. Nothing stores progress, because the Story is the
- * progress: see `docs/adr/0020-progress-is-the-story.md`.
+ * on what the Author did, and the Story is the whole of what it reads. The editor
+ * fetches the whole Story and reads it back after every write, so a Step asks a
+ * question of that data — this Story has at least one Scene — and is therefore
+ * idempotent, survives a reload, and cannot disagree with the screen. Nothing
+ * stores progress, because the Story is the progress: see
+ * `docs/adr/0020-progress-is-the-story.md`.
+ *
+ * A Step whose target is in the writing surface is asked for whether or not that
+ * surface is open, because every gesture that makes a Scene opens it: the bubble
+ * carries the sentence adrift until the Author is looking at the thing it names,
+ * and no Step is spent asking them to look.
+ *
+ * Which is also why every Step but the first points into that surface. The Step
+ * is read with a Scene open for writing, where the graph is folded into a rail
+ * and a press on it writes the Scene it lands on rather than working the drawing,
+ * so a target on the canvas would be a Step asking for something that cannot be
+ * done from where the Author is standing. `tests/unit/steps.spec.ts` holds that
+ * too.
  *
  * The Steps are met in whatever order the Author arrives at them, and nothing
  * blocks or scolds. Because a bubble can only point at one thing, the one showing
@@ -30,48 +41,43 @@ export type Step = {
    * written under in both languages: `step.nameScene`.
    */
   name: string
-  /**
-   * The `data-step` attribute of the element in the editor this Step points at.
-   * Two Steps may name the same one — the second Scene is asked for in the field
-   * the first was named in.
-   */
+  /** The `data-step` attribute of the element in the editor this Step points at. */
   target: string
-  /**
-   * Whether the bench already holds what this Step asks for: the Story, and which
-   * Scene is in the panel. The panel is the one thing a Step asks about that is not
-   * in the Story — it is how the Author is looking at their own work and is never
-   * written anywhere — and a Step may not point into a panel nobody has opened, so
-   * writing a Scene is a step like the rest.
-   */
-  met: (story: StoryInEditor, writing?: string) => boolean
+  /** Whether the Story on the bench already holds what this Step asks for. */
+  met: (story: StoryInEditor) => boolean
 }
 
 export const STEPS: Step[] = [
   // The only thing a Story cannot be without, so it is the only thing asked for
-  // before anything else exists to point at.
-  { name: 'nameScene', target: 'new-scene-name', met: story => story.scenes.length > 0 },
-  // Nothing inside a Scene can be pointed at until the Scene is in the panel, so
-  // the Author puts one there before anything in it is asked for — and only for
-  // the sake of what is written in it, so a Story whose Shots are already written
-  // is never asked to open the panel at all. A Sample, which arrives finished, is
-  // asked nothing.
-  {
-    name: 'writeScene',
-    target: 'write-scene',
-    met: (story, writing) => Boolean(writing) || written(story),
-  },
+  // before anything else exists to point at — and the one control on the bench
+  // that makes a Scene out of nothing, since every Scene after the first is
+  // written as the far end of a way on out of a Scene that exists, and there is
+  // none yet to write one from.
+  { name: 'nameScene', target: 'first-scene', met: story => story.scenes.length > 0 },
   // Written rather than merely added, and written is text: a Shot is asked for
   // here as the beat it carries, so an image attached to an empty one has not met
   // this. The sentence carries the whole gesture, because a Scene the API writes
   // arrives with no Shot in it to point at.
   { name: 'writeShot', target: 'shot-text', met: written },
-  // The thesis of the product, in the order it can be shown in: a second Scene
-  // first, because an Exit needs somewhere to land.
-  { name: 'secondScene', target: 'new-scene-name', met: story => story.scenes.length > 1 },
+  // The thesis of the product, and one Step rather than two: a way on to a Scene
+  // that is not there yet writes the second Scene and the Exit joining it in one
+  // act, so a Step asking for the Scene first would be met by the same act as the
+  // one after it and could never be shown alone. The Author is asked for the
+  // second Scene and the way on together, in the sentence.
+  //
+  // Asked for at the foot of the Scene's own document rather than at the rim an
+  // Exit is drawn from, because that is the route that answers from where the
+  // Author is standing: the Step before this one asks for a written Shot, every
+  // act that makes a Scene opens it for writing, so this sentence is read with
+  // the panel open and the graph folded into a rail — where the drawing takes no
+  // gesture at all. The canvas route is named in the sentence and not taught by
+  // it; see `docs/adr/0034-a-story-is-written-without-the-canvas.md`, which is
+  // where a way on came to live.
+  //
   // Any Exit at all, rather than one from the first Scene to the second: the
-  // sentence asks for the one the Story needs, and an Author who drew it the
+  // sentence asks for the one the Story needs, and an Author who wrote it the
   // other way round has joined two Scenes and is not told they did it wrong.
-  { name: 'drawExit', target: 'draw-exit', met: story => story.exits.length > 0 },
+  { name: 'wayOn', target: 'way-on', met: story => story.exits.length > 0 },
   // Where State comes from, asked for on the first Scene because that is where a
   // Reading starts and so the one place a Flag is certain to have been set by the
   // time the second Scene plays. Any Flag on any Scene meets it, though: an
@@ -96,8 +102,9 @@ export const STEPS: Step[] = [
   // their Story starts, which is why the radio is drawn on every node — and the
   // one way to arrive there is to delete the Scene the Story opened on. Asked
   // for here because this is where the path stops being about writing and starts
-  // being about reading: the two steps left send the Author to the Preview and
-  // to Publish, and both of them refuse a Story that has nowhere to start. Met
+  // being about reading: the two steps left send the Author to the Preview beside
+  // the Scene and to Publish, and both of them refuse a Story that has nowhere to
+  // start. Met
   // by every Story that never lost its opening, so the ordinary path never sees
   // it. The sentence carries the whole gesture the way the Condition's does: the
   // mark is set in the panel, and this is the one Step that can be arrived at with
@@ -107,14 +114,15 @@ export const STEPS: Step[] = [
     target: 'opening-scene',
     met: story => Boolean(story.openingSceneId),
   },
-  // What puts the broken Condition right, and the one Step whose sentence asks for
-  // something outside the bench: open the Preview, watch the Shot not play, read
-  // what the interface says the test asked for against what the State holds, and
-  // come back and correct it. The trip through the Preview is instructed and not
-  // tracked — whether the Author opened it is not a property of the Story and
-  // nothing here stores anything — so the predicate is only the end of the
-  // gesture, and an Author who fixed the value without ever previewing is not
-  // stuck.
+  // What puts the broken Condition right, and the one Step that asks for nothing
+  // to be written: the Preview is the pane beside the Scene — see
+  // `docs/adr/0030-a-story-is-read-where-it-is-written.md` — so it is already on
+  // screen, and what is asked for is that the Author read it. It says the Shot
+  // was skipped and what the test asked for against what the State holds; the
+  // correction goes back into the Condition. Reading is not tracked — whether the
+  // Author looked is not a property of the Story and nothing here stores anything
+  // — so the predicate is only the end of the gesture, and an Author who fixed
+  // the value without reading a word is not stuck.
   {
     name: 'previewCondition',
     target: 'preview',
@@ -168,8 +176,8 @@ function conditionTaught(story: StoryInEditor, holding = false) {
  * at all once every one of them has. A Story that arrives finished — a Sample, or
  * the Author's fourth — therefore asks nothing.
  */
-export function stepShowing(story: StoryInEditor, writing?: string) {
-  return STEPS.find(step => !step.met(story, writing))
+export function stepShowing(story: StoryInEditor) {
+  return STEPS.find(step => !step.met(story))
 }
 
 /**

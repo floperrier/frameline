@@ -18,7 +18,7 @@ async function openShots(request: APIRequestContext) {
   const story = await writeStory(request)
   const read: StoryInEditor = await (await request.get(`/api/stories/${story.id}`)).json()
 
-  return { story, shots: read.scenes[0]!.shots }
+  return { story, scene: read.scenes[0]!.id, shots: read.scenes[0]!.shots }
 }
 
 /** Reads the Shots of the first Scene again, to see what a request left behind. */
@@ -164,7 +164,11 @@ test('the Author picks a file in the editor, and a refused one says why', async 
     mimeType: 'image/png',
     buffer: Buffer.from('Not an image at all'),
   })
-  await expect(page.getByRole('alert')).toContainText('a JPEG, a PNG or a WebP image')
+  // Against the Scene it concerns rather than above the whole bench: one Scene is
+  // written at a time and the surface it is written on is where the server has to
+  // complain about a Shot — see
+  // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`.
+  await expect(street.getByRole('alert')).toContainText('a JPEG, a PNG or a WebP image')
   await expect(street.locator('img')).toBeVisible()
 })
 
@@ -206,12 +210,14 @@ test('the thumbnail is the picker, and an empty one is the outline of an image',
   expect(behind.x).toBeGreaterThanOrEqual(thumb.x)
   expect(behind.x + behind.width).toBeLessThanOrEqual(thumb.x + thumb.width)
 
-  // The Description sits beside the image it describes, and keeps its own label
-  // rather than borrowing the thumbnail's box.
+  // The Description takes the line under the image it describes, across the width
+  // of the beat, and keeps its own label rather than borrowing the thumbnail's
+  // box: the thumbnail stands beside the beat's own text now — see
+  // `docs/adr/0033-a-scene-is-written-as-one-document.md`.
   const described = (await street.getByLabel('Description of the image of Shot 1')
     .boundingBox())!
-  expect(described.x).toBeGreaterThan(thumb.x + thumb.width)
-  expect(described.y).toBeLessThan(thumb.y + thumb.height)
+  expect(described.y).toBeGreaterThanOrEqual(thumb.y + thumb.height)
+  expect(described.x).toBeLessThan(thumb.x)
   expect(described.height).toBeLessThan(thumb.height)
 
   // And the word above it is a label and not a second thumbnail: it is the size of
@@ -222,19 +228,23 @@ test('the thumbnail is the picker, and an empty one is the outline of an image',
 })
 
 test('the image and the text of a Shot are one beat on screen', async ({ browser, page, request }) => {
-  const { story, shots } = await openShots(request)
+  const { story, scene, shots } = await openShots(request)
   await request.put(`/api/shots/${shots[0]!.id}/image`, { data: ONE_PIXEL })
 
-  await page.goto(`/stories/${story.id}/preview`)
+  // Read where it is written, beside the Scene: the same image is a thumbnail in
+  // the writing surface and a frame in the reading, so the frame is asked for
+  // inside the reading rather than on the page.
+  await page.goto(`/stories/${story.id}?scene=${scene}`)
+  const preview = page.getByRole('region', { name: /^Preview/ })
 
   // Both at once: the Shot the Reading opens on shows its image beside its text.
-  const image = page.locator(`img[src="/api/shots/${shots[0]!.id}/image"]`)
+  const image = preview.locator(`img[src="/api/shots/${shots[0]!.id}/image"]`)
   await expect(image).toBeVisible()
-  await expect(page.getByText('A door opens.')).toBeVisible()
+  await expect(preview.getByText('A door opens.')).toBeVisible()
 
   // The next Shot has no image, and reads perfectly well without one.
-  await page.getByRole('button', { name: 'Next Shot' }).click()
-  await expect(page.getByText('She steps out.')).toBeVisible()
+  await preview.getByRole('button', { name: 'Next Shot' }).click()
+  await expect(preview.getByText('She steps out.')).toBeVisible()
   await expect(image).toBeHidden()
 
   // And the Reader meets at the public link exactly what the Preview showed —

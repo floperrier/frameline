@@ -2,6 +2,8 @@ import { describe, expect, test } from 'vitest'
 import type { Exit, Scene } from '../../shared/utils/scenes'
 import {
   EXIT_DISC_ALONG,
+  EXIT_DISC_RADIUS,
+  EXIT_RIM_STEP,
   exitLine,
   exitLineTo,
   discOfExit,
@@ -9,7 +11,10 @@ import {
   NODE_HEIGHT,
   NODE_PITCH,
   NODE_WIDTH,
+  NODE_GAP,
+  NODE_SPACING,
   onTheSurface,
+  placedBeside,
   scenesAExitMayLandOn,
   snappedWithinReach,
   withinReach,
@@ -56,6 +61,70 @@ describe('the line that draws an Exit', () => {
   })
 })
 
+describe('the lines that leave one Scene together', () => {
+  const street = { x: 0, y: 0 }
+  const bar = { x: 0, y: NODE_SPACING }
+  const alley = { x: 0, y: NODE_SPACING * 2 }
+
+  /**
+   * The Story that made this plain: three cards in one column, the first leading
+   * to both of the others. Drawn from one point, the line to the second Scene ran
+   * under the first and arrived below it, so the Scene in the middle read as
+   * leading somewhere it does not.
+   */
+  test('leaves the foot at a point of its own per way on, in the order they are offered', () => {
+    const first = exitLine(street, bar, 1, 2)
+    const second = exitLine(street, alley, 2, 2)
+
+    expect(first.from.y).toBe(NODE_HEIGHT)
+    expect(second.from.y).toBe(NODE_HEIGHT)
+    expect(second.from.x - first.from.x).toBe(EXIT_RIM_STEP)
+  })
+
+  test('spreads along the very side the line leaves by, so a flank is read as the foot is', () => {
+    const first = exitLine(street, { x: 600, y: 0 }, 1, 2)
+    const second = exitLine(street, { x: 1000, y: 0 }, 2, 2)
+
+    expect(first.from.x).toBe(NODE_WIDTH)
+    expect(second.from.x).toBe(NODE_WIDTH)
+    expect(second.from.y - first.from.y).toBe(EXIT_RIM_STEP)
+  })
+
+  test('leaves the one way on of a Scene where it always left, in the middle of its side', () => {
+    expect(exitLine(street, bar, 1, 1)).toEqual(exitLine(street, bar))
+  })
+
+  /**
+   * A Scene offering more ways on than the rim has room for closes the step up
+   * rather than sending the last of them off the card, and a Scene whose ways on
+   * all leave by one corner slides them back onto the side rather than spreading
+   * them about a point that is already at its end: every line leaves the box it
+   * belongs to, which is the whole point of leaving from the rim.
+   */
+  test.each([
+    ['straight down its own column', { x: 0, y: NODE_SPACING }],
+    ['down and across, where the line leaves by the corner', { x: 640, y: 340 }],
+  ])('holds every departure on the rim, %s', (_, to) => {
+    const ways = 12
+    const departures = Array.from({ length: ways },
+      (_, at) => exitLine(street, to, at + 1, ways).from)
+
+    for (const departure of departures) {
+      expect(departure.y).toBe(NODE_HEIGHT)
+      expect(departure.x).toBeGreaterThanOrEqual(street.x)
+      expect(departure.x).toBeLessThanOrEqual(street.x + NODE_WIDTH)
+    }
+
+    // And on twelve points rather than on one: a spread held back onto the side
+    // by clamping each line to it would leave them piled at the corner.
+    expect(new Set(departures.map(departure => departure.x)).size).toBe(ways)
+  })
+
+  test('lands where it always landed: the ways on fan out, the arrivals do not', () => {
+    expect(exitLine(street, alley, 2, 2).to).toEqual(exitLine(street, alley).to)
+  })
+})
+
 describe('the line of an Exit being drawn', () => {
   test('leaves the edge of the node it is drawn from, and ends at the hand', () => {
     const at = { x: 600, y: NODE_HEIGHT / 2 }
@@ -88,6 +157,31 @@ describe('the disc that says a way on\u2019s Place', () => {
     const nowhere = { x: 40, y: 60 }
 
     expect(discOfExit({ from: nowhere, to: nowhere })).toEqual(nowhere)
+  })
+
+  test('stays near the Scene it leaves where no card stands in the line\u2019s way', () => {
+    const street = { x: 0, y: 0 }
+    const bar = { x: 600, y: 0 }
+    const line = exitLine(street, bar)
+
+    expect(discOfExit(line, [street, bar])).toEqual(discOfExit(line))
+  })
+
+  /**
+   * The disc is the one mark that tells two lines apart, so behind a card it is
+   * worth nothing: on the line that crosses the Scene in the middle of a column
+   * it goes past that card, where it is read.
+   */
+  test('goes past a card the line passes under, so the Place is never read behind one', () => {
+    const street = { x: 0, y: 0 }
+    // The card of the bar, dragged up under the street's own, closer than the
+    // disc stands from the rim: the line to the alley runs under it at once.
+    const bar = { x: 0, y: NODE_HEIGHT + 10 }
+    const alley = { x: 0, y: NODE_SPACING * 2 }
+    const disc = discOfExit(exitLine(street, alley, 2, 2), [street, bar, alley])
+
+    expect(disc.y).toBeGreaterThan(bar.y + NODE_HEIGHT + EXIT_DISC_RADIUS)
+    expect(disc.y).toBeLessThan(alley.y - EXIT_DISC_RADIUS)
   })
 })
 
@@ -196,5 +290,50 @@ describe('the zoom, and the scroll that holds a point still under it', () => {
 
     expect(zoom).toBe(ZOOM_MIN)
     expect(scroll).toEqual({ x: 200 + 400 * (ZOOM_MIN - 0.5), y: 200 + 400 * (ZOOM_MIN - 0.5) })
+  })
+})
+
+describe('where a Scene born from an Exit lands', () => {
+  /** Only where a Scene sits is read here, so that is all a Scene is given. */
+  const at = (...placed: [number, number][]) => placed.map(([x, y]) => ({ x, y }))
+
+  test('goes one column on from the Scene it leaves, at its own height', () => {
+    expect(placedBeside(at([100, 200]), { x: 100, y: 200 }))
+      .toEqual({ x: 100 + NODE_WIDTH + NODE_GAP, y: 200 })
+  })
+
+  test('drops a node further down for every spot already taken', () => {
+    const beside = NODE_WIDTH + NODE_GAP
+
+    expect(placedBeside(at([0, 0], [beside, 0], [beside, NODE_SPACING]), { x: 0, y: 0 }))
+      .toEqual({ x: beside, y: NODE_SPACING * 2 })
+  })
+
+  test('passes over every spot a Scene overlaps, not only the one it sits on', () => {
+    const beside = NODE_WIDTH + NODE_GAP
+
+    // A card dragged off the lattice covers part of two spots, and neither of
+    // them is free: a Scene dropped on the second would sit across it.
+    expect(placedBeside(at([beside, NODE_HEIGHT - 1]), { x: 0, y: 0 }))
+      .toEqual({ x: beside, y: NODE_SPACING * 2 })
+  })
+
+  test('takes a spot a Scene clears by a pixel', () => {
+    const beside = NODE_WIDTH + NODE_GAP
+
+    expect(placedBeside(at([beside, NODE_HEIGHT]), { x: 0, y: 0 })).toEqual({ x: beside, y: 0 })
+  })
+
+  test('goes under the Scene it leaves where the bench has no column left', () => {
+    const leaving = { x: GRAPH_REACH - NODE_WIDTH, y: 0 }
+
+    expect(placedBeside(at([leaving.x, 0]), leaving)).toEqual({ x: leaving.x, y: NODE_SPACING })
+  })
+
+  test('never lands outside the graph reach', () => {
+    const { x, y } = placedBeside([], { x: GRAPH_REACH, y: GRAPH_REACH })
+
+    expect(x).toBeLessThanOrEqual(GRAPH_REACH)
+    expect(y).toBeLessThanOrEqual(GRAPH_REACH)
   })
 })

@@ -235,13 +235,30 @@ export async function seedScenes(story: Story, names: string[]) {
 }
 
 /**
- * Puts a Scene in the panel at the edge of the bench, the way the Author would. A
+ * Puts a Scene on the surface it is written on, the way the Author would. A
  * card carries nothing to type into — the Scene's name, the image of its first
  * Shot, its Shot count and where its ways on land — so a test that writes
  * anything about a Scene from the page opens its panel first.
  */
 export async function writeScene(page: Page, name: string) {
+  // Folded into a rail, the card itself is what is pressed: the button on it is
+  // drawn at the rail's own scale and is no target for a hand — see
+  // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`. Either way the
+  // press is a toggle, so a Scene pressed twice is closed.
+  if (await page.locator('.bench.folded').count()) {
+    return await page.getByRole('article', { name }).click()
+  }
+
   await page.getByRole('button', { name: `Write Scene ${name}` }).click()
+}
+
+/**
+ * What the bench has just said out loud. Reached by its own mark rather than by
+ * the `status` role alone: the reading beside a Scene being written is a live
+ * region too, so a bare role on this page can mean either of them.
+ */
+export function toast(page: Page) {
+  return page.locator('.toast')
 }
 
 /** Draws an Exit on behalf of an Author nobody is signed in as. */
@@ -386,4 +403,18 @@ export async function writeStory(request: APIRequestContext, language = 'en') {
   await request.patch(`/api/exits/${exit.id}`, { data: { text: 'Follow her out' } })
 
   return story as { id: string, title: string, language: string }
+}
+
+/**
+ * Waits for the page to be answering, which `page.goto` does not: it returns
+ * when the document has loaded and not when Vue has attached anything to it, so
+ * a form submitted before then is submitted by the browser instead — the page
+ * reloads and what the Author typed is never written. Vue puts itself on the
+ * element it mounts, so that is the mark there is to wait for.
+ */
+export async function live(page: Page) {
+  await page.waitForFunction(() => {
+    const mounted = document.getElementById('__nuxt')
+    return !!mounted && '__vue_app__' in mounted
+  })
 }

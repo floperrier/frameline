@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { test, writeStory } from './author'
+import { live, test, writeStory } from './author'
 
 /**
  * The two facts about language the product keeps apart: the Locale, which is the
@@ -58,7 +58,11 @@ test.describe('an interface read in French', () => {
     // a Plan and a Flag is a Marqueur, as `CONTEXT.md` says they are shown.
     await page.getByRole('button', { name: 'Écrire Scène The street' }).click()
     await expect(page.getByRole('button', { name: 'Ajouter un Plan' })).toBeVisible()
-    await expect(page.getByLabel('Marqueurs posés à l\'entrée dans The street')).toBeVisible()
+
+    // The three tabs a Scene stands behind are the same three words, and the
+    // Marqueurs are read behind theirs.
+    await expect(page.getByRole('button', { name: 'Ajouter un Marqueur à The street' }))
+      .toBeVisible()
     expect(await everythingShown(page)).not.toMatch(A_RAW_KEY)
 
     // What the bench says about its own writing is in the Locale twice over: the
@@ -68,8 +72,8 @@ test.describe('an interface read in French', () => {
     await shot.blur()
     await expect(page.getByText(/^Enregistré à \d{2}:\d{2}$/)).toBeVisible()
 
-    // The Aperçu, where a Story's own words and the tool's are on screen at once.
-    await page.goto(`/fr/stories/${story.id}/preview`)
+    // The Aperçu, beside the Scene being written, where a Story's own words and
+    // the tool's are on screen at once.
     await expect(page.getByText('Sur la table de montage')).toBeVisible()
     expect(await everythingShown(page)).not.toMatch(A_RAW_KEY)
 
@@ -138,10 +142,14 @@ test('a Story is announced in its own Language while the chrome stays the Reader
 
 test('a Story created without a Language said is English, and one said is kept', async ({ page, request }) => {
   await page.goto('/stories')
+  await live(page)
   await page.getByLabel('Title of a new Story').fill('A Story in French')
   await page.getByLabel('Language of a new Story').selectOption('fr')
   await page.getByRole('button', { name: 'Create Story' }).click()
-  await expect(page.getByRole('link', { name: 'Open A Story in French' })).toBeVisible()
+
+  // Naming a Story opens it, so what it was declared to be written in is read on
+  // its own bench rather than off the row in the list.
+  await expect(page.getByText('Written in French')).toBeVisible()
 
   const [listed] = await (await request.get('/api/stories')).json()
   const written = await (await request.get(`/api/stories/${listed.id}`)).json()
