@@ -41,7 +41,11 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   webServer: {
-    command: 'pnpm build && pnpm preview',
+    // CI builds in a step of its own, alongside fetching the browser, so here
+    // there is only a server to start. Everywhere else the one command still
+    // builds: a run on a development machine is started without thinking about
+    // whether `.output` is the code being tested.
+    command: process.env.CI ? 'pnpm preview' : 'pnpm build && pnpm preview',
     url: 'http://localhost:3101',
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

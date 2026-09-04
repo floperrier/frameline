@@ -35,9 +35,10 @@ jobs:
     # is no reason to spend one on a push that no one is reviewing yet.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    # The whole job takes about five minutes. Left unbounded, a stalled step —
-    # `playwright install` waiting on apt has done it once — runs for the six
-    # hours GitHub allows before anyone notices.
+    # The whole job takes about four minutes. Left unbounded, a stalled step —
+    # `playwright install` waiting on apt did it once, before it stopped asking
+    # apt for anything — runs for the six hours GitHub allows before anyone
+    # notices.
     timeout-minutes: 20
     env:
       NEON_BRANCH: ci-pr-${{ github.event.number }}-${{ github.run_id }}
@@ -111,7 +112,21 @@ jobs:
       - name: Seal sessions with a password for this run only
         run: echo "NUXT_SESSION_PASSWORD=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
 
-      - run: pnpm exec playwright install --with-deps chromium
+      # `--with-deps` is not asked for: the runner image already carries the
+      # libraries a headless Chromium links against, and the apt run it added
+      # was both half a minute and the one step that has ever hung here.
+      #
+      # The browser and the build have nothing to say to each other, so they are
+      # fetched and written at once and the step costs the longer of the two
+      # rather than the sum. `pnpm preview` in `playwright.config.ts` then finds
+      # `.output` already there.
+      - name: Fetch the browser while the app builds
+        run: |
+          pnpm exec playwright install chromium &
+          browser=$!
+          pnpm build
+          wait "$browser"
+
       - run: pnpm test:e2e
 
       - name: Upload the Playwright report
