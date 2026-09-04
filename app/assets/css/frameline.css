@@ -59,6 +59,28 @@
   --s5: 2rem;
   --s6: 3.25rem;
 
+  /* What the machine itself takes off each edge of the window: the notch, the
+     rounded corner, the bar the hand swipes home on. A surface that stops at the
+     edge of the window has to stop at these instead, so they are added to the
+     spacing rather than replacing it — the padding a surface asked for, plus
+     whatever the hardware is standing in.
+
+     Beside the scale rather than written where they are used, because they are
+     the same fact for every full-bleed surface and there is going to be more
+     than one: the writing surface covering the bench on a phone is the first,
+     and the reading room is the next.
+
+     Physical names, because that is what `env()` answers in: the four insets are
+     top, right, bottom and left of the screen whichever way the text runs, and a
+     logical name over a physical value is a lie the day the interface is read
+     right to left. Zero on every screen with nothing in the way, and zero until
+     a page asks for the whole window with `viewport-fit=cover` — no page here
+     does yet, so today these buy the surface nothing and cost it nothing. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
   /* Machined corners everywhere, except the film gate: a real gate is a
      rectangle with its corners rounded off, and that is the one place the
      product shows a curve. */

@@ -509,6 +509,69 @@ test('writing a Scene takes the width, and folds the graph into a rail', async (
   await expect(panel).toHaveCount(0)
 })
 
+/**
+ * A surface that covers the whole window owes what a sheet owes, and the panel
+ * below 44rem is that surface: the bench is behind it rather than beside it. It
+ * is still the `role="group"` it is at every other width — it is not a dialog,
+ * because the guided path has to reach into it and the top layer is where the
+ * spotlight cannot follow — so the one thing the browser would have given for
+ * free is asked for by hand: everything the surface covers is `inert`.
+ */
+test('the surface covering the bench takes the bench out of reach', async ({
+  page,
+  request,
+}) => {
+  const { story } = await openWideGraph(request)
+  await page.goto(`/stories/${story.id}`)
+  await expect(page.getByRole('article', { name: 'The arrival' })).toBeVisible()
+
+  /**
+   * Everything the keyboard can still land on that is not the writing surface,
+   * asked of the page by trying: a control is reachable where focusing it takes
+   * focus, which is the one question `inert` answers and no attribute of the
+   * markup does. Without moving the bench, or the reading of it would scroll
+   * every box in the page into view on its way through.
+   */
+  const outside = () => page.evaluate(() => [...document.querySelectorAll<HTMLElement>(
+    'a[href], button, input, select, textarea, [tabindex]')]
+    .filter((control) => {
+      control.focus({ preventScroll: true })
+
+      return document.activeElement === control && !control.closest('.panel')
+    })
+    .length)
+
+  await page.setViewportSize({ width: 600, height: 800 })
+  await writeScene(page, 'The arrival')
+  await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
+
+  // The surface is covering rather than beside, and nothing behind it can be
+  // reached: not Publish in the header, not the bar of Commands above the bench,
+  // not a card of a graph that is not on the screen. The two are asserted
+  // together deliberately — 44rem is written in the stylesheet and again in the
+  // page, because there is no way to say `inert` from CSS and no way to ask CSS
+  // what it decided, so the one thing worth holding is that the two agree.
+  await expect(page.locator('.panel')).toHaveCSS('position', 'fixed')
+  expect(await outside()).toBe(0)
+
+  // And the gesture that reaches the end of a Scene stops there rather than
+  // being handed on to the bench underneath, which is the page nobody can see.
+  await expect(page.locator('.panel')).toHaveCSS('overscroll-behavior-y', 'contain')
+
+  // The width is the whole of what puts the surface there, so the width is the
+  // whole of what takes it away: the bench beside it is worked on again.
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
+  await expect(page.locator('.panel')).toHaveCSS('position', 'relative')
+  expect(await outside()).toBeGreaterThan(0)
+
+  // Closed, the bench is back at either width.
+  await page.setViewportSize({ width: 600, height: 800 })
+  await page.getByRole('button', { name: 'Close this Panel' }).click()
+  await expect(page.locator('.panel')).toHaveCount(0)
+  expect(await outside()).toBeGreaterThan(0)
+})
+
 test('a Scene being written has an address, and a stale one is not an error', async ({
   page,
   request,
