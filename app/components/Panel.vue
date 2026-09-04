@@ -46,7 +46,7 @@ const {
  * `attached` is the moment an image landed, which the page holds because the card
  * on the graph draws that image too.
  */
-const emit = defineEmits<{ close: [], attached: [string], open: [string] }>()
+const emit = defineEmits<{ close: [], attached: [string], open: [string], command: [] }>()
 
 const { t } = useI18n()
 
@@ -801,6 +801,19 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
         >
       </h2>
 
+      <!-- The way into the bar of Commands, drawn here at the one width where the
+           control the row above the graph carries is under this surface and
+           cannot be pressed, and the key asks for a keyboard a phone does not
+           have. At every other width that control is beside the surface and this
+           one is not drawn: one act, drawn once per width and never twice on one
+           screen. No key on its face, because there is none to draw at this
+           width; no `data-command`, because the bar does not offer to open
+           itself. See
+           `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`. -->
+      <button type="button" class="commands" @click="$emit('command')">
+        {{ $t('editor.commands') }}
+      </button>
+
       <!-- The writing is closed explicitly. Drawn at every width rather than
            only below the breakpoint: on a narrow screen it is the whole of the
            way out, because the surface covers the bench there and there is no
@@ -871,7 +884,7 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
     <section class="held" :aria-labelledby="`flags-of-${sceneWritten.id}`">
       <h3 :id="`flags-of-${sceneWritten.id}`">
         {{ $t('editor.flagsHeld') }}
-        <span class="numbered">{{ counted!.flags }}</span>
+        <span class="counted">{{ counted!.flags }}</span>
       </h3>
 
       <Flags
@@ -891,7 +904,7 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
     <section class="held" :aria-labelledby="`shots-of-${sceneWritten.id}`">
       <h3 :id="`shots-of-${sceneWritten.id}`">
         {{ $t('editor.shotsHeld') }}
-        <span class="numbered">{{ counted!.shots }}</span>
+        <span class="counted">{{ counted!.shots }}</span>
       </h3>
 
       <ol class="shots">
@@ -1079,7 +1092,7 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
     <section class="ways held" :aria-labelledby="`ways-of-${sceneWritten.id}`">
       <h3 :id="`ways-of-${sceneWritten.id}`">
         {{ $t('editor.waysHeld') }}
-        <span class="numbered">{{ counted!.ways }}</span>
+        <span class="counted">{{ counted!.ways }}</span>
       </h3>
 
       <p v-if="!exitsFrom(story.exits, sceneWritten.id).length" class="none">
@@ -1341,10 +1354,13 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
 /* The count in the grease pencil, because what it counts is what the Author
    wrote on the film and not anything the machine is doing; in the data face and
    a step under the word, because it is a figure beside a heading and not part of
-   it. */
-.held > h3 .numbered {
+   it. A class of its own and not `.numbered`: that one is the handle a row is
+   dragged by, and a count that nothing drags must not wear the grab hand or
+   refuse to be selected. */
+.held > h3 .counted {
   color: var(--grease);
   font-family: var(--data);
+  font-variant-numeric: tabular-nums;
   font-size: 0.875rem;
   font-weight: 500;
 }
@@ -1691,7 +1707,22 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   flex: 1;
 }
 
-.close {
+/* The way into the bar is drawn here only where the graph's own is covered: on a
+   wide screen the row above the graph is beside the surface and carries it. */
+.commands {
+  display: none;
+}
+
+@media (--phone) {
+  .commands {
+    display: block;
+  }
+}
+
+/* The controls at the end of the heading line are set alike, small beside the
+   name that is the line's subject. */
+.close,
+.commands {
   flex: none;
   padding: var(--s1) var(--s2);
   font-size: 0.7rem;

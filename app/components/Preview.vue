@@ -225,10 +225,12 @@ function why(conditions: Condition[]) {
 
     <template v-else>
       <!-- A Scene nothing leads to yet: the reading stands where it got to, and
-           says so, rather than playing the Scene with no State behind it. -->
-      <p v-if="!reached" class="nothing" role="status">
-        {{ $t('preview.notReached', { scene: sceneName(sceneWritten) }) }}
-      </p>
+           says so, rather than playing the Scene with no State behind it. The
+           element is in the document before it has anything to say, on one
+           line so that Vue writes nothing at all into it: a live region
+           announces a change to a node it already holds, never a node that
+           arrives with its sentence inside it. -->
+      <p class="nothing" role="status">{{ reached ? '' : $t('preview.notReached', { scene: sceneName(sceneWritten) }) }}</p>
 
       <Reading ref="reel" :story="story" @at="heard">
         <!-- The order the ways on are offered in, set on the buttons as they are
@@ -444,6 +446,16 @@ function why(conditions: Condition[]) {
   border: 1px dashed var(--edge);
   border-radius: var(--machined);
   color: var(--muted);
+}
+
+/* Nothing to say: out of the pane's grid, so the gap it would open goes too, and
+   no box — but never `display: none`, which would take the live region out of
+   the accessibility tree and bring the silence back. */
+.nothing:empty {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  opacity: 0;
 }
 
 /* On a phone the writing surface covers the bench, so there is no column beside

@@ -416,6 +416,11 @@ button:disabled {
    rather than waiting for a click. */
 .toast {
   position: fixed;
+  /* Over the writing surface where it covers the bench — `Panel.vue` at
+     `--phone` is fixed at 3 — and no higher than the guided step's own light
+     (`Step.vue`, 4 and 5), which is drawn after it and stays over it. What the
+     bench has just done is said to the Author, not to the bench. */
+  z-index: 4;
   inset-block-end: var(--s4);
   inset-inline-end: var(--s4);
   padding: var(--s2) var(--s3);
@@ -423,6 +428,17 @@ button:disabled {
   background: color-mix(in oklab, var(--light) 12%, var(--bench));
   box-shadow: var(--lifted);
   font-size: 0.875rem;
+}
+
+/* Between sentences the region stays in the document, empty, so a screen reader
+   hears the next one as a change. `opacity`, not `display` or `visibility`: those
+   two take it out of the accessibility tree and bring the silence back. The box
+   goes with the text so no empty card stands in the corner. */
+.toast:empty {
+  opacity: 0;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
 }
 
 /* The field a typed change has just been written out of, lit for a moment in the

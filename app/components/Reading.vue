@@ -49,16 +49,19 @@ onMounted(() => {
  * asks for the next one, and the first Exit takes it when the Scene has played
  * out — the Reader lands on what they are being offered. The frame left standing
  * at the end of a Scene is passed over: it is still on screen, but it is not
- * what has just arrived.
+ * what has just arrived. At the end of the Story there is neither a Shot nor a
+ * way on, and the press that got there took its own button away, so the one
+ * control left — reading again from the start — takes the focus it held.
  */
 const frame = useTemplateRef<HTMLElement>('frame')
 const exits = useTemplateRef<HTMLElement>('exits')
+const again = useTemplateRef<HTMLElement>('again')
 
 async function moveTo(to: Path) {
   at.value = to
   shownAt()
   await nextTick()
-  ;(shown.value.shot ? frame.value : exits.value?.querySelector('button'))?.focus()
+  ;(shown.value.shot ? frame.value : (exits.value?.querySelector('button') ?? again.value))?.focus()
 }
 
 /**
@@ -199,10 +202,13 @@ function offered(exit: Exit) {
       </li>
     </ul>
 
-    <p v-if="shown.ended" class="ended trail" role="status">{{ $t('reading.ended') }}</p>
+    <!-- In the document before it has anything to say: a live region announces
+         a change to a node it already holds, never a node that arrives with its
+         sentence inside it. -->
+    <p class="ended trail" role="status">{{ shown.ended ? $t('reading.ended') : '' }}</p>
 
     <p class="again">
-      <button type="button" class="trail" @click="moveTo(opening())">
+      <button ref="again" type="button" class="trail" @click="moveTo(opening())">
         {{ $t('reading.again') }}
       </button>
     </p>
@@ -349,6 +355,19 @@ figcaption {
   flex: 1;
   block-size: 1px;
   background: var(--edge);
+}
+
+/* Nothing to say yet: out of the column's flow, so the gap either side of it
+   goes too, and not `display: none`, which would take it out of the
+   accessibility tree and bring the silence back. */
+.ended:empty {
+  position: absolute;
+  opacity: 0;
+}
+
+.ended:empty::before,
+.ended:empty::after {
+  content: none;
 }
 
 .again {

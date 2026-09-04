@@ -312,7 +312,11 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
            A refusal while a Scene is being written is shown against that Scene
            instead, on the surface it is written on. -->
       <Refusal v-if="!sceneWritten" :problem="problem" />
-      <p v-if="announced" class="toast" role="status">{{ announced }}</p>
+      <!-- Always in the document, empty between sentences: a live region announces
+           a change to what it already holds, never a node that arrives with its
+           sentence inside it. So the element is never mounted or removed, and the
+           three-second clearing in `useToast` is the change that ends it. -->
+      <p class="toast" role="status">{{ announced }}</p>
 
       <template #panel>
         <Panel
@@ -328,6 +332,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', letGoOnEscape))
           @close="closePanel"
           @attached="attachedAt[$event] = Date.now()"
           @open="writeScene"
+          @command="commanding = true"
         />
       </template>
 

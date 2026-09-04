@@ -40,9 +40,11 @@ async function open(page: Page) {
 }
 
 /**
- * The bar opened by its key, for the one width at which its control is not on
- * screen: the writing surface covers the bench below 44rem, and what the bar is
- * asked for there is the bench behind it.
+ * The bar opened by its key, for the one width at which the control above the
+ * graph is not on screen: the writing surface covers the bench below 44rem, and
+ * what the bar is asked for there is the bench behind it. The surface carries a
+ * *Commands* of its own at that width — the spec above holds it — so the key is
+ * the second way in and not the only one.
  *
  * Pressed once, with none of the repeating `open` above does. The reason that
  * loop presses the control rather than the key is that the key is a toggle and a
@@ -253,6 +255,38 @@ test('an Author publishes a Story from the bar', async ({ page, request, baseURL
   await expect(offered(page)).toHaveText(['Unpublish this Story'])
 })
 
+test('on a phone the writing surface carries its own way into the bar', async ({ page, request }) => {
+  const story = await writeStory(request)
+  await page.goto(`/stories/${story.id}`)
+  await expect(page.getByRole('article', { name: 'The street' })).toBeVisible()
+
+  await writeScene(page, 'The street')
+  const surface = page.getByRole('group', { name: 'Writing The street' })
+  await expect(surface).toBeVisible()
+
+  // Wide, the row above the graph is beside the surface and carries the one
+  // control: the surface draws none, so no screen shows the act twice.
+  await expect(commanding(page)).toHaveCount(1)
+  await expect(surface.getByRole('button', { name: 'Commands' })).toBeHidden()
+
+  // Narrow, the surface covers that row, and the way in is the surface's own —
+  // a press, where the key would ask for a keyboard a phone does not have.
+  await page.setViewportSize({ width: 600, height: 800 })
+  const within = surface.getByRole('button', { name: 'Commands' })
+  await expect(within).toBeVisible()
+  await within.click()
+  await expect(typing(page)).toBeFocused()
+
+  // And it reaches the bench the surface is covering, without the surface
+  // having been closed. Named in full: *bar* alone would also answer with the
+  // Condition on the way on from *The street* to *The bar*, which is on the bar
+  // too and rightly, so the spec asks for the one act it is about to press.
+  await typing(page).fill('Go to The bar')
+  await expect(offered(page)).toHaveText(['Go to The bar'])
+  await offered(page).click()
+  await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toHaveValue('The bar')
+})
+
 test('a destructive Command asks before it acts, as its own control does', async ({ page, request }) => {
   const story = await writeStory(request)
   await page.goto(`/stories/${story.id}`)
@@ -304,8 +338,8 @@ test('the bar names every act marked on a Scene being written, and no other', as
     'Add a Condition to Shot 1 of The street',
     'Add a Condition to Shot 2 of The street',
     'Add a Shot',
-    'Add a Condition to the Way On 1 to The bar',
-    'Add a Way On',
+    'Add a Condition to the Exit 1 to The bar',
+    'Add an Exit',
   ])
 })
 
@@ -317,8 +351,8 @@ test('an Author writes a way on by naming the act, and the hand lands on the sel
   await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
 
   await open(page)
-  await typing(page).fill('way on')
-  await expect(offered(page)).toHaveText(['Add a Way On'])
+  await typing(page).fill('exit')
+  await expect(offered(page)).toHaveText(['Add an Exit'])
   await typing(page).press('Enter')
 
   // A select cannot be pressed, so the bar puts the hand on it: the bar is gone
@@ -326,14 +360,14 @@ test('an Author writes a way on by naming the act, and the hand lands on the sel
   // the list. Whether a browser opens it unasked is the browser's own, so the
   // spec holds focus and then chooses the way a keyboard would.
   await expect(page.locator('dialog.commands')).toBeHidden()
-  const adding = page.getByRole('combobox', { name: 'A way on from here' })
+  const adding = page.getByRole('combobox', { name: 'An Exit from here' })
   await expect(adding).toBeFocused()
   await adding.selectOption({ label: 'The street' })
 
   // The act ran on the Story: The bar now has a way on to The street. Where a way
   // on already written leads is a row's own, and the exhaustive spec above holds
   // that the bar does not offer it.
-  await expect(page.getByRole('combobox', { name: 'Where the way on 1 out of The bar leads' }))
+  await expect(page.getByRole('combobox', { name: 'Where the Exit 1 out of The bar leads' }))
     .toHaveValue(/./)
 })
 
@@ -392,9 +426,10 @@ test('the bar reaches the bench the writing surface is covering', async ({ page,
   await writeScene(page, 'The street')
   await expect(page.getByRole('group', { name: 'Writing The street' })).toBeVisible()
 
-  // Opened by the key rather than by its control, which the surface covers: what
-  // the bar is asked to reach here is the bench, and the way in at this width is
-  // a spec of its own.
+  // Opened by the key rather than by the control above the graph, which the
+  // surface covers: what the bar is asked to reach here is the bench behind it,
+  // and the surface's own way in is held by the spec above. Named in full,
+  // because *bar* alone answers with the Condition on the Exit to The bar too.
   await openByKey(page)
   await typing(page).fill('Go to The bar')
   await expect(offered(page)).toHaveText(['Go to The bar'])

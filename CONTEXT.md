@@ -66,6 +66,10 @@ _Avoid_: index, order, rank, slot, sort key
 A directed connection from one Scene to another, offered to the Reader at the end
 of a Scene as something to take. It is the Reader's way out of the Scene, named
 for what they do with it rather than for anything the screen shows them.
+The English interface shows the word itself — _Exits_ over the part of a Scene's
+document that holds them, _the Exit 1 to …_ on every control of a row — and a
+Step may gloss it as _the way on_ once, when it introduces the term; the gloss
+is never a label.
 _Affiché_: Sortie
 _Avoid_: choice, option, link, branch, edge, transition, cut, coupe, raccord,
 montage
