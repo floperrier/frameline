@@ -90,6 +90,28 @@ function present() {
   }))
 }
 
+/**
+ * Every Image the Story carries, in the order the Story is written — each one a
+ * frame the Author may name as the Cover — and the one a shelf shows today,
+ * named or standing in. The bench runs the same rule the server does, so the
+ * frame marked here is the frame a Reader meets. See
+ * `docs/adr/0040-a-story-is-presented-by-one-of-its-own-frames.md`.
+ */
+const frames = computed(() => (story?.scenes ?? []).flatMap(scene => scene.shots
+  .filter(shot => shot.image)
+  .map(shot => ({ shot, place: shot.position + 1, scene: scene.name }))))
+const presented = computed(() => story && coverOf(story))
+
+/**
+ * Naming the Cover, and taking the naming away. A click rather than a typed
+ * write, so the Story is read back and the shelf's own rule marks the frame.
+ * Taking it away leaves the Opening Scene's first Image standing in, which is
+ * what a Story nobody named a Cover for is presented by.
+ */
+function nameCover(coverShotId: string | null) {
+  return change(() => send(`/api/stories/${id}`, { method: 'PATCH', body: { coverShotId } }))
+}
+
 function publish() {
   return change(() => send(`/api/stories/${id}/publish`, { method: 'POST' }))
 }
@@ -197,6 +219,43 @@ function unlist() {
           @change="present"
         />
       </p>
+
+      <!-- The Image the Story is presented by, beside the Synopsis because it is
+           the same subject: what a stranger is handed before they open the work.
+           Named from among the Story's own Images and never uploaded here, so a
+           Cover is always a frame of the work — each thumbnail is a radio, and
+           the one checked is the one a shelf shows, whether the Author named it
+           or the Opening Scene is standing in. -->
+      <fieldset v-if="!writing && story" class="cover">
+        <legend class="eyebrow">{{ $t('editor.cover') }}</legend>
+        <p class="note">{{ $t(frames.length ? 'editor.coverNote' : 'editor.coverNone') }}</p>
+        <div v-if="frames.length" class="frames">
+          <label
+            v-for="{ shot, place, scene } in frames"
+            :key="shot.id"
+            :class="{ chosen: shot.id === presented }"
+          >
+            <input
+              type="radio"
+              name="cover"
+              :value="shot.id"
+              :checked="shot.id === presented"
+              @change="nameCover(shot.id)"
+            >
+            <img :src="shot.image!" :alt="$t('editor.coverOf', { place, scene })">
+          </label>
+        </div>
+        <!-- Offered only while a Cover is named: with none, the Opening Scene is
+             already standing in and there is nothing to take away. -->
+        <button
+          v-if="story.coverShotId"
+          type="button"
+          :data-command="$t('editor.coverUnname')"
+          @click="nameCover(null)"
+        >
+          {{ $t('editor.coverUnname') }}
+        </button>
+      </fieldset>
 
       <!-- The link, shown in full so it can be copied out of the page. It is
            what publishing hands over, and it goes on working whether or not
@@ -343,6 +402,81 @@ header.writing .named input {
 .release .synopsis {
   display: grid;
   gap: var(--s1);
+}
+
+/* The Cover beside the Synopsis: a strip of the Story's own frames, each one a
+   thumbnail the size the panel draws a Shot's, so the same Image reads as the same
+   thing on the two surfaces. The fieldset draws no box of its own — the legend is
+   the label the other fields wear. */
+.cover {
+  display: grid;
+  gap: var(--s1);
+  justify-items: start;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.cover legend {
+  padding: 0;
+}
+
+.cover .note {
+  color: var(--muted);
+  font-size: 0.875rem;
+  max-inline-size: 60ch;
+}
+
+.cover .frames {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+/* The radio lies over its thumbnail at no opacity, so the frame is what is pressed
+   and what is marked, and the press lands on the control itself. The chosen one
+   wears the grease pencil the Opening Scene wears on the graph: it is the frame the
+   world outside is shown. */
+.cover label {
+  position: relative;
+  display: block;
+  inline-size: 4.5rem;
+  block-size: 3rem;
+  border: 1px solid var(--edge);
+  border-radius: var(--machined);
+  background: var(--bench);
+  cursor: pointer;
+}
+
+.cover input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.cover label.chosen {
+  border-color: var(--grease);
+  outline: 2px solid var(--grease);
+  outline-offset: -1px;
+}
+
+/* The focus the input takes cannot be seen where the input is, so the ring is
+   drawn round the frame that is pressed — the one in `frameline.css`, restated
+   here because `:has()` cannot reach back to a rule written for `:focus-visible`. */
+.cover label:has(:focus-visible) {
+  outline: 2px solid var(--light);
+  outline-offset: 2px;
+}
+
+.cover img {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  border-radius: inherit;
 }
 
 /* The two acts on the Story as a whole, side by side: they are the one decision

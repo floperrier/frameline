@@ -17,6 +17,7 @@ export default defineEventHandler(async (event) => {
       language: stories.language,
       synopsis: stories.synopsis,
       openingSceneId: stories.openingSceneId,
+      coverShotId: stories.coverShotId,
       publishedAt: stories.publishedAt,
       listed: stories.listed,
     })

@@ -21,6 +21,9 @@ export default defineEventHandler(async (event) => {
       title: stories.title,
       language: stories.language,
       openingSceneId: stories.openingSceneId,
+      // The title card wears the same Image the shelf did, so a Reader arrives
+      // where the entry they pressed said they would.
+      cover: coverShotOf,
     })
     .from(stories)
     .where(and(eq(stories.id, id), isNotNull(stories.publishedAt)))
@@ -33,6 +36,7 @@ export default defineEventHandler(async (event) => {
   // business, so it does not leave the editor.
   return {
     ...story,
+    cover: coverUrl(story.cover),
     scenes: scenes.map(({ id, name, sets, shots }) => ({ id, name, sets, shots })),
     exits,
   }
