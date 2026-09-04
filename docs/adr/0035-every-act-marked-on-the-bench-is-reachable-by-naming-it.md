@@ -233,3 +233,14 @@ this record did in the first place when it declined to hold a list of acts in
 the bar. What holds the coverage instead is a spec: the end-to-end suite reads
 the whole bar over a Scene being written and holds it against the acts named
 here, so a control that arrives unmarked arrives with a red run.
+
+**On a phone the way into the bar is the writing surface's own control.** Below
+the width where the surface covers the bench, the control in the row above the
+graph is under the surface and cannot be pressed, and the key asks for a
+keyboard a phone does not have — so every act behind the surface was reached by
+closing the writing and pressing them one by one, which is the walk this record
+exists to spare. The surface's heading row therefore carries *Commands* itself,
+at that width only: one act, drawn once per width and never twice on one screen.
+It is the same string and no new mark — the bar does not offer to open itself —
+and what it reaches is unchanged, because the bar reads the whole page and the
+bench behind the surface is still on it. Issue #214.

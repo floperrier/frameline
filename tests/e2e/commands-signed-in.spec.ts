@@ -236,6 +236,38 @@ test('an Author publishes a Story from the bar', async ({ page, request, baseURL
   await expect(offered(page)).toHaveText(['Unpublish this Story'])
 })
 
+test('on a phone the writing surface carries its own way into the bar', async ({ page, request }) => {
+  const story = await writeStory(request)
+  await page.goto(`/stories/${story.id}`)
+  await expect(page.getByRole('article', { name: 'The street' })).toBeVisible()
+
+  await writeScene(page, 'The street')
+  const surface = page.getByRole('group', { name: 'Writing The street' })
+  await expect(surface).toBeVisible()
+
+  // Wide, the row above the graph is beside the surface and carries the one
+  // control: the surface draws none, so no screen shows the act twice.
+  await expect(commanding(page)).toHaveCount(1)
+  await expect(surface.getByRole('button', { name: 'Commands' })).toBeHidden()
+
+  // Narrow, the surface covers that row, and the way in is the surface's own —
+  // a press, where the key would ask for a keyboard a phone does not have.
+  await page.setViewportSize({ width: 600, height: 800 })
+  const within = surface.getByRole('button', { name: 'Commands' })
+  await expect(within).toBeVisible()
+  await within.click()
+  await expect(typing(page)).toBeFocused()
+
+  // And it reaches the bench the surface is covering, without the surface
+  // having been closed. Named in full: *bar* alone would also answer with the
+  // Condition on the way on from *The street* to *The bar*, which is on the bar
+  // too and rightly, so the spec asks for the one act it is about to press.
+  await typing(page).fill('Go to The bar')
+  await expect(offered(page)).toHaveText(['Go to The bar'])
+  await offered(page).click()
+  await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toHaveValue('The bar')
+})
+
 test('a destructive Command asks before it acts, as its own control does', async ({ page, request }) => {
   const story = await writeStory(request)
   await page.goto(`/stories/${story.id}`)
