@@ -408,6 +408,17 @@ button:disabled {
   font-size: 0.875rem;
 }
 
+/* Between sentences the region stays in the document, empty, so a screen reader
+   hears the next one as a change. `opacity`, not `display` or `visibility`: those
+   two take it out of the accessibility tree and bring the silence back. The box
+   goes with the text so no empty card stands in the corner. */
+.toast:empty {
+  opacity: 0;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+}
+
 /* The field a typed change has just been written out of, lit for a moment in the
    machine's own light — the interface saying it did something, so it is the cyan
    and never the grease pencil. It is the quiet half of the pair the bench carries:
