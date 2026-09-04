@@ -170,7 +170,10 @@ _Affiché_: Marqueur
 _Avoid_: variable, switch, toggle, key, drapeau
 
 **Reading**:
-One traversal of a published Story by one Reader, carrying its own State.
+One traversal of a published Story by one Reader, carrying its own State. Kept in
+the Reader's browser between visits and nowhere else, so a Reader who leaves comes
+back to where they stood — see
+`docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md`.
 _Affiché_: Lecture
 _Avoid_: session, playthrough, run, visit
 
