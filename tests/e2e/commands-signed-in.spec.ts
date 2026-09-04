@@ -396,7 +396,7 @@ test('the bar reaches the bench the writing surface is covering', async ({ page,
   // the bar is asked to reach here is the bench, and the way in at this width is
   // a spec of its own.
   await openByKey(page)
-  await typing(page).fill('bar')
+  await typing(page).fill('Go to The bar')
   await expect(offered(page)).toHaveText(['Go to The bar'])
   await offered(page).click()
   await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toHaveValue('The bar')

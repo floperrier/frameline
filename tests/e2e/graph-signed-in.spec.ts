@@ -562,7 +562,7 @@ test('the surface covering the bench takes the bench out of reach', async ({
   // whole of what takes it away: the bench beside it is worked on again.
   await page.setViewportSize({ width: 1280, height: 800 })
   await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
-  await expect(page.locator('.panel')).toHaveCSS('position', 'static')
+  await expect(page.locator('.panel')).toHaveCSS('position', 'relative')
   expect(await outside()).toBeGreaterThan(0)
 
   // Closed, the bench is back at either width.
