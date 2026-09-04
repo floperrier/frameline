@@ -46,7 +46,7 @@ const {
  * `attached` is the moment an image landed, which the page holds because the card
  * on the graph draws that image too.
  */
-const emit = defineEmits<{ close: [], attached: [string], open: [string] }>()
+const emit = defineEmits<{ close: [], attached: [string], open: [string], command: [] }>()
 
 const { t } = useI18n()
 
@@ -800,6 +800,19 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
           @change="renameScene(sceneWritten)"
         >
       </h2>
+
+      <!-- The way into the bar of Commands, drawn here at the one width where the
+           control the row above the graph carries is under this surface and
+           cannot be pressed, and the key asks for a keyboard a phone does not
+           have. At every other width that control is beside the surface and this
+           one is not drawn: one act, drawn once per width and never twice on one
+           screen. No key on its face, because there is none to draw at this
+           width; no `data-command`, because the bar does not offer to open
+           itself. See
+           `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`. -->
+      <button type="button" class="commands" @click="$emit('command')">
+        {{ $t('editor.commands') }}
+      </button>
 
       <!-- The writing is closed explicitly. Drawn at every width rather than
            only below the breakpoint: on a narrow screen it is the whole of the
@@ -1691,7 +1704,22 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   flex: 1;
 }
 
-.close {
+/* The way into the bar is drawn here only where the graph's own is covered: on a
+   wide screen the row above the graph is beside the surface and carries it. */
+.commands {
+  display: none;
+}
+
+@media (--phone) {
+  .commands {
+    display: block;
+  }
+}
+
+/* The controls at the end of the heading line are set alike, small beside the
+   name that is the line's subject. */
+.close,
+.commands {
   flex: none;
   padding: var(--s1) var(--s2);
   font-size: 0.7rem;
