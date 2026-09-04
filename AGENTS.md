@@ -40,8 +40,10 @@ reached by name from the scoped block of every surface that folds at one. See
 
 ## Git flow
 
-A pull request per issue, squash-merged into `main`, which deploys to
-production. See `docs/git-flow.md`.
+A pull request per issue, squash-merged into `dev`, the default branch. `main`
+is what deploys to production, and `dev` reaches it whole in a promotion of its
+own. See `docs/git-flow.md` and
+`docs/adr/0039-autonomous-work-waits-on-dev.md`.
 
 ## Languages
 
