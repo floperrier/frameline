@@ -1923,6 +1923,28 @@ test('a second way on to the same Scene is written by duplicating the first',
     ])
   })
 
+test('on a phone the bench is heard over the writing surface covering it',
+  async ({ page, request }) => {
+    const { story, scenes } = await openGraph(request, ['The arrival', 'The platform'])
+    const [from, to] = scenes as [{ id: string }, { id: string }]
+    await drawExit(request, from.id, to.id)
+
+    await page.goto(`/stories/${story.id}`)
+    await writeScene(page, 'The arrival')
+
+    // Below `--phone` the surface is fixed over the whole bench. The toast is
+    // fixed too, at the foot corner of the window, so without a z-index of its
+    // own it is painted under the very surface the act was done on.
+    await page.setViewportSize({ width: 600, height: 800 })
+    await page.getByRole('button', { name: 'Duplicate Exit to The platform' }).first().click()
+    await expect(toast(page))
+      .toHaveText('Another Exit from The arrival to The platform written')
+    // Receiving the pointer is what proves nothing is drawn over it: a trial
+    // click runs the actionability checks, hit target included, and presses
+    // nothing.
+    await toast(page).click({ trial: true })
+  })
+
 test('Escape abandons a gesture, by pointer and by keyboard', async ({ page, request }) => {
   const { story, scenes } = await openRow(request)
   await page.goto(`/stories/${story.id}`)
