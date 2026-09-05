@@ -108,7 +108,7 @@ test('a way on pressed in the reading moves the writing with it', async ({ page,
   await expect(page).toHaveURL(new RegExp(`scene=${scenes[1]!.id}`))
 })
 
-test('a card pressed in the rail routes the reading to that Scene', async ({ page, request }) => {
+test('a node pressed on the Graph routes the reading to that Scene', async ({ page, request }) => {
   const story = await writeStory(request)
   const { scenes } = await scenesOf(request, story.id)
   const preview = await writing(page, story.id, scenes[0]!.id)
@@ -518,16 +518,15 @@ test('a Scene draws one of several values, and the Author draws it again',
   })
 
 /**
- * The bench cannot hold the rail, a Scene and the reading at once below a
- * certain width, and between that width and the phone it used to draw all three
- * anyway — at widths none of them worked at. The reading folds away there and is
- * offered back by a control; the width is read off the writing column and is
- * written once, in `app/assets/css/folds.css`. See
+ * The bench cannot hold a Scene and the reading side by side below a certain
+ * width. The reading folds away there and is offered back by a control; the
+ * width is read off the writing column and is written once, in
+ * `app/assets/css/folds.css`. See
  * `docs/adr/0037-the-reading-folds-before-the-writing-does.md`.
  */
 const TWO_COLUMNS = { width: 1024, height: 800 }
 
-/** Wide enough for the rail, the Scene and the reading side by side. */
+/** Wide enough for the Scene and the reading side by side. */
 const THREE_COLUMNS = { width: 1400, height: 800 }
 
 /**
@@ -614,18 +613,14 @@ test('the reading folds away where the bench cannot hold three columns',
     await page.setViewportSize(THREE_COLUMNS)
     await expect(preview).toBeVisible()
 
-    // And a Scene opened for writing opens on the Scene, whatever the reading was
-    // last asked for: the focus the bench sends into the Scene's name has to land
-    // somewhere that is drawn.
+    // And a Scene pressed on the Graph while the reading is up is written where the
+    // reading stood: the focus the bench sends into the Scene's name has to land
+    // somewhere that is drawn, so the Scene comes back with it.
     await page.setViewportSize(TWO_COLUMNS)
     await page.getByRole('button', { name: 'Read the Story' }).click()
     await expect(preview).toBeVisible()
-    // The way out of the writing is on the surface being written, so leaving it
-    // from the reading is two presses: back to the Scene, then close it.
     await page.getByRole('button', { name: 'Write the Scene' }).click()
-    await page.getByRole('button', { name: 'Close this Panel' }).click()
-    await page.getByRole('button', { name: 'Write Scene The street' }).click()
-    await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeFocused()
+    await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
     await expect(preview).toBeHidden()
   })
 
@@ -710,8 +705,8 @@ test('the bench takes the height the window leaves it', async ({ page, request }
   const story = await writeStory(request)
   const { scenes } = await scenesOf(request, story.id)
 
-  // A window in the band, a tall one, and a phone — where the writing surface is
-  // the page and the bench beneath it is the rail alone.
+  // A window in the band, a tall one, and a phone — where the document is the one
+  // column under the map.
   for (const size of [
     { width: 1024, height: 768 },
     { width: 1440, height: 1000 },
@@ -719,19 +714,16 @@ test('the bench takes the height the window leaves it', async ({ page, request }
   ]) {
     await page.setViewportSize(size)
     await writing(page, story.id, scenes[0]!.id)
-    await expect(page.locator('.folded.bench')).toBeVisible()
+    await expect(page.locator('main > .bench')).toBeVisible()
 
     const read = await page.evaluate(() => {
-      const bench = document.querySelector('.folded.bench')!.getBoundingClientRect()
+      const bench = document.querySelector('main > .bench')!.getBoundingClientRect()
       const panel = document.querySelector('.panel')!
 
       return {
         scrolls: document.documentElement.scrollHeight > innerHeight,
         // What the bench leaves unused between its own foot and the page's.
         below: Math.round(innerHeight - bench.bottom),
-        // The writing surface is only a column of the bench where it is not the
-        // whole page, which is what the phone makes it.
-        column: getComputedStyle(panel).position !== 'fixed',
         panel: Math.round(panel.getBoundingClientRect().height),
         bench: Math.round(bench.height),
       }
@@ -742,6 +734,6 @@ test('the bench takes the height the window leaves it', async ({ page, request }
     // column rather than down the page.
     expect(read.scrolls).toBe(false)
     expect(read.below).toBeLessThanOrEqual(32)
-    if (read.column) expect(read.panel).toBe(read.bench)
+    expect(read.panel).toBe(read.bench)
   }
 })

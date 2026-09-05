@@ -15,12 +15,11 @@
  * carries the sentence adrift until the Author is looking at the thing it names,
  * and no Step is spent asking them to look.
  *
- * Which is also why every Step but the first points into that surface. The Step
- * is read with a Scene open for writing, where the graph is folded into a rail
- * and a press on it writes the Scene it lands on rather than working the drawing,
- * so a target on the canvas would be a Step asking for something that cannot be
- * done from where the Author is standing. `tests/unit/steps.spec.ts` holds that
- * too.
+ * Which is also why every Step but the first points into that surface. There is
+ * always a Scene on the bench, its document under the Graph, and the Graph takes
+ * no gesture but a press on a node — so a target anywhere else would be a Step
+ * asking for something that cannot be done from where the Author is standing.
+ * `tests/unit/steps.spec.ts` holds that too.
  *
  * The Steps are met in whatever order the Author arrives at them, and nothing
  * blocks or scolds. Because a bubble can only point at one thing, the one showing
@@ -65,14 +64,10 @@ export const STEPS: Step[] = [
   // one after it and could never be shown alone. The Author is asked for the
   // second Scene and the way on together, in the sentence.
   //
-  // Asked for at the foot of the Scene's own document rather than at the rim an
-  // Exit is drawn from, because that is the route that answers from where the
-  // Author is standing: the Step before this one asks for a written Shot, every
-  // act that makes a Scene opens it for writing, so this sentence is read with
-  // the panel open and the graph folded into a rail — where the drawing takes no
-  // gesture at all. The canvas route is named in the sentence and not taught by
-  // it; see `docs/adr/0034-a-story-is-written-without-the-canvas.md`, which is
-  // where a way on came to live.
+  // Asked for at the foot of the Scene's own document, where a way on is written
+  // by naming the Scene it leads to — the one route there is, see
+  // `docs/adr/0034-a-story-is-written-without-the-canvas.md` and
+  // `docs/adr/0041-the-graph-is-drawn-from-the-story.md`.
   //
   // Any Exit at all, rather than one from the first Scene to the second: the
   // sentence asks for the one the Story needs, and an Author who wrote it the

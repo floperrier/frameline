@@ -1,9 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { neon } from '@neondatabase/serverless'
-import { test as base, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test'
+import { expect, test as base, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test'
 import { DISMISSED } from '../../app/utils/steps'
 import type { Condition, Exit, Scene, Sets, Shot } from '../../shared/utils/scenes'
-import { NODE_GAP, NODE_SPACING, NODE_WIDTH, NODES_PER_COLUMN } from '../../shared/utils/scenes'
 import { sealSession, type H3Event } from 'h3'
 
 const sql = neon(process.env.DATABASE_URL!)
@@ -215,12 +214,8 @@ export async function seedScene(story: Story, name: string) {
  */
 export async function seedScenes(story: Story, names: string[]) {
   const scenes = await sql`
-    insert into scenes (story_id, name, x, y)
-    select
-      ${story.id},
-      name,
-      ((place - 1) / ${NODES_PER_COLUMN}) * ${NODE_WIDTH + NODE_GAP},
-      ((place - 1) % ${NODES_PER_COLUMN}) * ${NODE_SPACING}
+    insert into scenes (story_id, name)
+    select ${story.id}, name
     from unnest(${names}::text[]) with ordinality as named (name, place)
     returning id, name` as Pick<Scene, 'id' | 'name'>[]
 
@@ -235,21 +230,17 @@ export async function seedScenes(story: Story, names: string[]) {
 }
 
 /**
- * Puts a Scene on the surface it is written on, the way the Author would. A
- * card carries nothing to type into — the Scene's name, the image of its first
- * Shot, its Shot count and where its ways on land — so a test that writes
- * anything about a Scene from the page opens its panel first.
+ * Puts a Scene on the surface it is written on, the way an Author would: by
+ * pressing its node on the map. The Story opens on its Opening Scene already, so
+ * a node already lit is left alone — a press on it does nothing — and either way
+ * the document of that Scene is waited for. Scoped to the Graph, because the
+ * document's own way on carries a mark named the same way.
  */
 export async function writeScene(page: Page, name: string) {
-  // Folded into a rail, the card itself is what is pressed: the button on it is
-  // drawn at the rail's own scale and is no target for a hand — see
-  // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`. Either way the
-  // press is a toggle, so a Scene pressed twice is closed.
-  if (await page.locator('.bench.folded').count()) {
-    return await page.getByRole('article', { name }).click()
-  }
-
-  await page.getByRole('button', { name: `Write Scene ${name}` }).click()
+  const node = page.locator('.graph').getByRole('button', { name: `Go to ${name}` })
+  await expect(node).toBeVisible()
+  if (await node.getAttribute('aria-current') !== 'true') await node.click()
+  await expect(page.getByRole('group', { name: `Writing ${name}` })).toBeVisible()
 }
 
 /**
@@ -315,16 +306,6 @@ export async function readFlags(sceneId: string) {
     select sets from scenes where id = ${sceneId}` as { sets: Sets }[]
 
   return scene!.sets
-}
-
-/** Reads where a Scene sits in the graph, and which Scene its Story opens on. */
-export async function readScenePlacement(id: string) {
-  const [node] = await sql`
-    select scenes.x, scenes.y, stories.opening_scene_id as "openingSceneId"
-    from scenes join stories on stories.id = scenes.story_id
-    where scenes.id = ${id}` as { x: number, y: number, openingSceneId: string | null }[]
-
-  return node!
 }
 
 /** Reads what a Scene is called past the API, to see what a rename really wrote. */

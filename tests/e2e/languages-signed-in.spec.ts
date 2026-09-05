@@ -54,9 +54,9 @@ test.describe('an interface read in French', () => {
     await expect(page.getByRole('link', { name: 'Tous les Récits' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Publier ce Récit', exact: true })).toBeVisible()
 
-    // The words of the craft, on a Scene in the panel it is written in: a Shot is
-    // a Plan and a Flag is a Marqueur, as `CONTEXT.md` says they are shown.
-    await page.getByRole('button', { name: 'Écrire Scène The street' }).click()
+    // The words of the craft, on the Scene the Story opens on: a Shot is a Plan
+    // and a Flag is a Marqueur, as `CONTEXT.md` says they are shown.
+    await expect(page.getByRole('group', { name: 'Écriture de The street' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Ajouter un Plan' })).toBeVisible()
 
     // The three tabs a Scene stands behind are the same three words, and the

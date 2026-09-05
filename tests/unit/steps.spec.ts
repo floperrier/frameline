@@ -26,8 +26,6 @@ function onTheBench(scenes: [name: string, shot?: string][] = []): StoryInEditor
     scenes: scenes.map(([name, shot], place) => ({
       id: name,
       name,
-      x: 0,
-      y: place * 100,
       sets: {},
       shots: shot === undefined ? [] : [{ id: `${name}-1`, text: shot }],
     })) as StoryInEditor['scenes'],
@@ -263,7 +261,7 @@ const WRITING = [
   'app/components/Preview.vue',
 ]
 
-/** Every file the bench is drawn from, the canvas the first Step points at included. */
+/** Every file the bench is drawn from, the page the first Step points at included. */
 const EDITOR = ['app/components/Graph.vue', ...WRITING]
 
 /** Every file named, read as the one source the editor is drawn from. */
@@ -301,16 +299,13 @@ describe('every Step', () => {
   /**
    * Not merely that the target is drawn somewhere, but that it is drawn where the
    * bench answers a press at the moment the Step is shown. Every Step but the
-   * first is read with a Scene open for writing — every act that makes a Scene
-   * opens it — and there the canvas is folded into a rail: a press on a card in
-   * the rail writes that Scene, the aiming refuses outright, and the drawing has
-   * no bare bench left to let go on. A target on the canvas is therefore a Step
-   * asking for a gesture that does nothing, which is what the Exit step did until
-   * the way on it teaches moved into the Scene's own document.
+   * first is read with a Scene on the bench — there always is one — and the Graph
+   * above it takes no gesture but a press on a node, so a target on the Graph is a
+   * Step asking for a gesture that does nothing.
    *
-   * The first Step is the exception and the one target the canvas keeps: it is
-   * asked of a Story with no Scene in it, where the graph is not drawn at all and
-   * the control that writes the first Scene stands in its place.
+   * The first Step is the exception: it is asked of a Story with no Scene in it,
+   * where the Graph is not drawn at all and the control that writes the first
+   * Scene stands in its place, on the page.
    *
    * Which surface the target is drawn in is as far as source read as text can go.
    * That the control then answers the press the sentence asks for is walked in

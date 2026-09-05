@@ -1,8 +1,14 @@
 ---
-status: accepted
+status: superseded by 0041
 ---
 
 # A Scene is born from an Exit dropped on the bench
+
+Superseded by `docs/adr/0041-the-graph-is-drawn-from-the-story.md`: nothing is
+dropped on the bench any more. A Scene is born at the foot of another, by naming
+where a way on leads under a name nothing answers to — the same two writes, one
+change and not one transaction, from a field rather than a gesture.
+
 
 An Exit is drawn from a card and dropped. Dropped on another card it joins the
 two Scenes, which is what it has always done. Dropped on bare bench it makes a

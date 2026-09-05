@@ -28,6 +28,9 @@ test('the Opening Scene stands in until the Author names a Cover, on the bench a
   await page.goto(`/stories/${story.id}`)
   await live(page)
 
+  // The Cover is folded into the disclosure beside the Synopsis, written once and
+  // shut while a Scene is written all day.
+  await page.getByText('Synopsis and Cover').click()
   const cover = page.getByRole('group', { name: 'Cover' })
   const standingIn = cover.getByRole('radio', { name: 'Shot 1 of The street as the Cover' })
   const named = cover.getByRole('radio', { name: 'Shot 1 of The bar as the Cover' })
@@ -53,6 +56,7 @@ test('the Opening Scene stands in until the Author names a Cover, on the bench a
   // Taking the naming away leaves the Opening Scene standing in again.
   await page.goto(`/stories/${story.id}`)
   await live(page)
+  await page.getByText('Synopsis and Cover').click()
   await cover.getByRole('button', { name: 'Let the Opening Scene Stand In' }).click()
   await expect(standingIn).toBeChecked()
   await page.goto('/catalogue')
