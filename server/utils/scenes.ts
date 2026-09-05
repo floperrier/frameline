@@ -41,52 +41,19 @@ export async function readSceneName(event: H3Event) {
 }
 
 /**
- * Reads the name a Scene is being renamed to, where the request may not be
- * carrying one: a node dragged sends its placement alone, and a rename sends the
- * two together. A name that is there is held to what a Scene may be called in
- * the first place — a blank one is refused rather than written over the name the
- * Scene already answers to.
+ * Reads the Shot a Scene is split before. Only its shape is read here: whether it
+ * is a Shot of this Scene, and not its first, is what the split's own statement
+ * settles, because both are facts about the Scene as it stands at that moment.
  */
-export async function readSceneRename(event: H3Event) {
-  const body = await readBody<{ name?: unknown }>(event)
+export async function readSplitShot(event: H3Event) {
+  const body = await readBody<{ shotId?: unknown }>(event)
+  const shotId = body?.shotId
 
-  return body?.name === undefined ? undefined : await readSceneName(event)
-}
-
-/**
- * Reads where in the graph a Scene has been put. Both coordinates are bounded, so a
- * Scene cannot be written to a place the graph cannot show; whole pixels, so the
- * integer column takes them as they are.
- */
-export async function readScenePlacement(event: H3Event) {
-  const body = await readBody<{ x?: unknown, y?: unknown }>(event)
-  const [x, y] = [body?.x, body?.y].map(value =>
-    typeof value === 'number' && value >= 0 && value <= GRAPH_REACH ? Math.round(value) : undefined)
-
-  if (x === undefined || y === undefined) {
-    throw createError({
-      statusCode: 400,
-      message: saying(event)('refusals.scenePlacement', { reach: GRAPH_REACH }),
-    })
+  if (typeof shotId !== 'string' || !UUID_PATTERN.test(shotId)) {
+    throw createError({ statusCode: 400, message: saying(event)('refusals.split') })
   }
 
-  return { x, y }
-}
-
-/**
- * Reads where a Scene is being placed, where the request may be carrying no
- * placement at all: a Scene written by dropping an Exit on the bare bench says
- * where it landed, and one written from the form at the top of the page leaves
- * the endpoint to choose a spot itself. A placement that is there is held to the
- * same bound as one on a Scene already written — a Story cannot be seeded with a
- * node beyond the graph's reach any more than it can be dragged to one.
- */
-export async function readScenePlacementOffered(event: H3Event) {
-  const body = await readBody<{ x?: unknown, y?: unknown }>(event)
-
-  return body?.x === undefined && body?.y === undefined
-    ? undefined
-    : await readScenePlacement(event)
+  return shotId
 }
 
 /**

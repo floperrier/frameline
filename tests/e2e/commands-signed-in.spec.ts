@@ -74,13 +74,11 @@ test('an Author goes to a Scene by naming it, accents or none', async ({ page, r
   await open(page)
 
   // Everything the bench can do, before a letter is typed: the four Scenes, the
-  // fit above them and the Publish beside it. A bar that started empty would be
-  // a search.
-  await expect(offered(page)).toHaveCount(7)
+  // Publish above them and every act of the Scene on the surface. A bar that
+  // started empty would be a search.
   for (const named of [
     'Go to Le café',
     'Go to The alley',
-    'Fit the Graph',
     'Publish this Story',
     'Read the Remarks',
   ]) {
@@ -188,7 +186,7 @@ test('a name nothing answers to is offered as a Scene to write', async ({ page, 
   // than only put on screen.
   await expect(page.getByRole('textbox', { name: 'Name of this Scene' }))
     .toHaveValue('The quay at dawn')
-  await expect(page.getByRole('article', { name: 'The quay at dawn' })).toBeVisible()
+  await expect(page.locator('.graph').getByRole('button', { name: 'Go to The quay at dawn' })).toBeVisible()
 
   // And it is reachable by its name from the bar like every other Scene, which
   // is what says the Story holds it.
@@ -207,10 +205,12 @@ test('the offer to write a Scene stands only where nothing answers', async ({ pa
   // name to write it under.
   await expect(offered(page).filter({ hasText: 'Write a Scene named' })).toHaveCount(0)
 
-  // A name that answers: the Scene it reaches, and still no offer. An Author
-  // halfway through typing a name they already have is not making a second one.
+  // A name that answers: the Scene it reaches — and every act naming it on the
+  // Scene being written — and still no offer. An Author halfway through typing a
+  // name they already have is not making a second one.
   await typing(page).fill('The str')
-  await expect(offered(page)).toHaveText(['Go to The street'])
+  await expect(offered(page)).toContainText(['Go to The street'])
+  await expect(offered(page).filter({ hasText: 'Write a Scene named' })).toHaveCount(0)
 })
 
 test('the bar offers the acts of the Scene being written, and Escape leaves that Scene open', async ({ page, request }) => {
@@ -255,38 +255,6 @@ test('an Author publishes a Story from the bar', async ({ page, request, baseURL
   await expect(offered(page)).toHaveText(['Unpublish this Story'])
 })
 
-test('on a phone the writing surface carries its own way into the bar', async ({ page, request }) => {
-  const story = await writeStory(request)
-  await page.goto(`/stories/${story.id}`)
-  await expect(page.getByRole('article', { name: 'The street' })).toBeVisible()
-
-  await writeScene(page, 'The street')
-  const surface = page.getByRole('group', { name: 'Writing The street' })
-  await expect(surface).toBeVisible()
-
-  // Wide, the row above the graph is beside the surface and carries the one
-  // control: the surface draws none, so no screen shows the act twice.
-  await expect(commanding(page)).toHaveCount(1)
-  await expect(surface.getByRole('button', { name: 'Commands' })).toBeHidden()
-
-  // Narrow, the surface covers that row, and the way in is the surface's own —
-  // a press, where the key would ask for a keyboard a phone does not have.
-  await page.setViewportSize({ width: 600, height: 800 })
-  const within = surface.getByRole('button', { name: 'Commands' })
-  await expect(within).toBeVisible()
-  await within.click()
-  await expect(typing(page)).toBeFocused()
-
-  // And it reaches the bench the surface is covering, without the surface
-  // having been closed. Named in full: *bar* alone would also answer with the
-  // Condition on the way on from *The street* to *The bar*, which is on the bar
-  // too and rightly, so the spec asks for the one act it is about to press.
-  await typing(page).fill('Go to The bar')
-  await expect(offered(page)).toHaveText(['Go to The bar'])
-  await offered(page).click()
-  await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toHaveValue('The bar')
-})
-
 test('a destructive Command asks before it acts, as its own control does', async ({ page, request }) => {
   const story = await writeStory(request)
   await page.goto(`/stories/${story.id}`)
@@ -303,7 +271,7 @@ test('a destructive Command asks before it acts, as its own control does', async
   await expect(page.getByRole('dialog')).toContainText('This cannot be undone')
 
   await page.getByRole('button', { name: 'Leave It' }).click()
-  await expect(page.getByRole('article', { name: 'The bar' })).toBeVisible()
+  await expect(page.locator('.graph').getByRole('button', { name: 'Go to The bar' })).toBeVisible()
 })
 
 test('the bar names every act marked on a Scene being written, and no other', async ({ page, request }) => {
@@ -321,18 +289,15 @@ test('the bar names every act marked on a Scene being written, and no other', as
   // run rather than be noticed by an Author who went looking for it. The record
   // is `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`.
   //
-  // Two acts are not among them, and rightly. The fit is gone because a Scene
-  // being written folds the graph into a rail and takes the whole dial with it,
-  // and marking the Opening Scene is gone because *The street* is already the one
-  // the Story opens on — an act with nothing left to do is not offered. The bar
-  // cannot offer an act the bench is not drawing, and the spec below holds the
-  // mark where the act does have something to do.
+  // Marking the Opening Scene is not among them, because *The street* is already
+  // the one the Story opens on — an act with nothing left to do is not offered.
+  // The bar cannot offer an act the bench is not drawing, and the spec below
+  // holds the mark where the act does have something to do.
   await expect(offered(page)).toHaveText([
     'Publish this Story',
     'Read the Remarks',
     'Go to The street',
     'Go to The bar',
-    'Close this Panel',
     'Delete Scene',
     'Add a Flag',
     'Add a Condition to Shot 1 of The street',
@@ -343,7 +308,7 @@ test('the bar names every act marked on a Scene being written, and no other', as
   ])
 })
 
-test('an Author writes a way on by naming the act, and the hand lands on the select', async ({ page, request }) => {
+test('an Author writes a way on by naming the act, and the hand lands on the field', async ({ page, request }) => {
   const story = await writeStory(request)
   await page.goto(`/stories/${story.id}`)
   // The bar, which nothing leads out of yet: the way on written here is its first.
@@ -355,14 +320,14 @@ test('an Author writes a way on by naming the act, and the hand lands on the sel
   await expect(offered(page)).toHaveText(['Add an Exit'])
   await typing(page).press('Enter')
 
-  // A select cannot be pressed, so the bar puts the hand on it: the bar is gone
-  // and focus is on the field at the foot of the document, where one press opens
-  // the list. Whether a browser opens it unasked is the browser's own, so the
-  // spec holds focus and then chooses the way a keyboard would.
+  // A field cannot be pressed, so the bar puts the hand on it: the bar is gone
+  // and focus is at the foot of the document, where the Scene the way on leads
+  // to is named.
   await expect(page.locator('dialog.commands')).toBeHidden()
   const adding = page.getByRole('combobox', { name: 'An Exit from here' })
   await expect(adding).toBeFocused()
-  await adding.selectOption({ label: 'The street' })
+  await adding.fill('The street')
+  await adding.press('Enter')
 
   // The act ran on the Story: The bar now has a way on to The street. Where a way
   // on already written leads is a row's own, and the exhaustive spec above holds
@@ -408,35 +373,28 @@ test('an Author sets a Flag and marks the Opening Scene by naming them', async (
 })
 
 /**
- * The bar and the surface that covers the bench. Below 44rem the writing surface
- * is the whole window and everything behind it is `inert`, and the bar still
- * reaches every one of those acts — which is why the bench is made unreachable
- * by `inert` rather than taken out of the page. A control that is merely out of
- * the keyboard's way is still a control the bar can press, and a bench that was
- * not drawn would be a bar with nothing left to offer: it reads the acts off the
- * controls themselves. See
- * `docs/adr/0036-the-surface-that-covers-the-bench-is-not-a-dialog.md`.
+ * The bar at the width of a phone, where the bench is one column: the Graph, the
+ * document and the header are all still drawn, so the bar reaches every one of
+ * their acts — it reads the acts off the controls themselves.
  */
-test('the bar reaches the bench the writing surface is covering', async ({ page, request }) => {
+test('the bar reaches every act of the bench at the width of a phone', async ({ page, request }) => {
   const story = await writeStory(request)
   await page.goto(`/stories/${story.id}`)
-  await expect(page.getByRole('article', { name: 'The street' })).toBeVisible()
+  await expect(page.locator('.graph').getByRole('button', { name: 'Go to The street' })).toBeVisible()
 
   await page.setViewportSize({ width: 600, height: 800 })
   await writeScene(page, 'The street')
   await expect(page.getByRole('group', { name: 'Writing The street' })).toBeVisible()
 
-  // Opened by the key rather than by the control above the graph, which the
-  // surface covers: what the bar is asked to reach here is the bench behind it,
-  // and the surface's own way in is held by the spec above. Named in full,
-  // because *bar* alone answers with the Condition on the Exit to The bar too.
+  // Opened by the key. Named in full, because *bar* alone answers with the
+  // Condition on the Exit to The bar too.
   await openByKey(page)
   await typing(page).fill('Go to The bar')
   await expect(offered(page)).toHaveText(['Go to The bar'])
   await offered(page).click()
   await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toHaveValue('The bar')
 
-  // And Publish, which is drawn in the header the surface covers.
+  // And Publish, which is drawn in the header.
   await openByKey(page)
   await typing(page).fill('Publish')
   await offered(page).click()

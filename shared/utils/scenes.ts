@@ -105,176 +105,121 @@ export const VISITS_MAX = 100
 export const FLAG_VALUES_MAX = 6
 
 /**
- * How far a Scene's node may sit from the graph's top left, in pixels. A bound
- * on both sides of the wire: the server refuses anything beyond it, and dragging
- * stops there, so a Scene cannot be dropped somewhere nobody can scroll to.
- */
-export const GRAPH_REACH = 10_000
-
-/**
- * The pitch the bench is pricked out at: how far one arrow key moves a node, how
- * wide the strip an Exit is drawn from is, and the grid a Scene written by dropping
- * an Exit on the bare bench snaps to. One number, so a Story laid out by hand and a
- * Story written by dragging line up on the same lattice — see
- * `docs/adr/0015-a-cut-is-drawn-by-hand.md`.
- */
-export const NODE_PITCH = 20
-
-/**
- * How wide and how tall a Scene's node is drawn, and how far below the last one
- * a new Scene is placed. Shared because the server does the placing and the
- * graph does the drawing, and the spacing clears the height so a new Scene does
- * not land on top of the one above it.
+ * How wide and how tall a Scene's node is drawn on the Graph, how far apart two
+ * nodes of one column stand, and how far apart two columns are. Every node is
+ * exactly this size — a node is what an Author recognises a Scene by at a glance,
+ * its name and how much is in it, and a Scene is written in the document under
+ * the Graph rather than inside its node — so the line that draws an Exit leaves a
+ * box the Graph can work out for itself, and nothing is measured after render.
  *
- * Every node is exactly this tall: a card is what an Author needs to recognise a
- * Scene at a glance — its name, the image of its first Shot, its Shot count and
- * where its ways on land — and a Scene is written in the panel at the edge of the
- * bench rather than inside the card. So the height is known rather than measured,
- * and the line that draws an Exit leaves a box the graph can work out for itself.
- * The width is left at what a phone can show, because a node wider than the
- * screen is a graph nobody can lay out on one, and the strip down a node's
- * leading edge comes out of it rather than adding to it.
+ * The columns stand further apart than the nodes in a column do, because that is
+ * where the lines run: a way on leaves the flank of one column for the flank of
+ * the next, and a gap the length of an arrowhead is a gap nobody can read a line
+ * in.
  */
-export const NODE_WIDTH = 320
-export const NODE_HEIGHT = 160
-export const NODE_GAP = 40
-export const NODE_SPACING = NODE_HEIGHT + NODE_GAP
+export const NODE_WIDTH = 168
+export const NODE_HEIGHT = 44
+export const NODE_GAP = 12
+export const DEPTH_GAP = 56
 
 /**
- * A point on the graph's surface — where the Author put a node, or where their
- * hand has reached. A node's box is this point and the two constants above, so
- * nothing carries a size around with it.
+ * A point on the Graph — where a node is drawn. A node's box is this point and the
+ * two constants above, so nothing carries a size around with it.
  */
 export type Point = { x: number, y: number }
 
 /**
- * How far along one axis a node may sit: never outside the graph's reach, and on
- * a whole pixel, because the column that holds it is an integer. The same bound
- * the server refuses a placement by, held here so a node under the hand stops at
- * the edge rather than being pulled back by a refusal.
- */
-export function withinReach(pixels: number) {
-  return Math.min(GRAPH_REACH, Math.max(0, Math.round(pixels)))
-}
-
-/**
- * Where a point the hand landed on puts a node: on the nearest crossing of the
- * bench's own pitch, and within the graph's reach. One function for both, because
- * a Scene dropped outside the reach and then snapped could be snapped back out of
- * it. Only a Scene the gesture writes is snapped — a node the Author drags goes
- * exactly where they put it, which is `withinReach` and nothing more; what the
- * pitch is for here is a Scene that arrives where nobody aimed it precisely.
- */
-export function snappedWithinReach({ x, y }: Point): Point {
-  const snapped = (pixels: number) => withinReach(Math.round(pixels / NODE_PITCH) * NODE_PITCH)
-
-  return { x: snapped(x), y: snapped(y) }
-}
-
-/**
- * Where a Scene born from an Exit goes when no hand named a point: one column on
- * from the Scene it leaves, at that Scene's own height, and a node further down
- * for every spot already taken.
+ * Where every Scene of a Story is drawn, read off the Story and nothing else.
  *
- * Three routes arrive here and none of them has a point to give — the keyboard
- * landing an Exit on a Scene that does not exist yet, a way on written in the
- * Scene's own document, and any gesture that ends off the surface. All three were
- * placed by the server at the next free spot in a column of `NODES_PER_COLUMN`,
- * which is the far end of the bench from the Scene the Exit left: the drawing
- * said nothing the list of names had not already said. Placed beside what it
- * leaves, the graph draws the shape of the Story however the Story was written.
+ * The Graph is layered left to right: the Opening Scene stands alone in the first
+ * column, the Scenes its ways on lead to make the column after it, theirs the
+ * column after that, each Scene in the first column it is reached in — its
+ * distance from the opening, in Exits taken. Within a column the Scenes stand in
+ * the order they were reached: by the Scene offering them first, then in the
+ * Place that Scene offers them at. So a Story read from its opening is read
+ * across the Graph the way film runs, and two ways on out of one Scene are read
+ * top to bottom beside it in the order the Reader is offered them.
  *
- * Nothing already on the bench moves. This is where one Scene arrives, not a
- * layout: where a Scene sits is a written fact the Author owns the moment it
- * exists — `docs/adr/0010-the-graph-is-written-here-not-pulled-in.md` — and a
- * graph that rearranged itself under a hand that had just dragged a card would be
- * taking that fact back.
+ * A Scene no Exit reaches — one the Author has just written, or one whose only
+ * way in was taken away — is drawn too, in the columns after the last one the
+ * opening reaches, each cluster of them laid out from its own first Scene the
+ * same way. A Story with no Opening Scene is laid out from its first Scene, so a
+ * Graph is drawn for every Story that has a Scene in it.
  *
- * A Story spread all the way to the far edge of the bench has no column left to
- * the right of it, and the Scene goes under the one it leaves instead: every
- * placement past the reach would otherwise pile against the same edge.
+ * Each column is centred on the tallest, so a Story that branches and gathers
+ * again is drawn as the shape it is rather than hung from one edge. Nothing here
+ * is written anywhere: the Graph is a reading of the Story, and it moves when the
+ * Story does — see `docs/adr/0041-the-graph-is-drawn-from-the-story.md`.
  */
-export function placedBeside(scenes: Point[], leaving: Point): Point {
-  const beside = leaving.x + NODE_WIDTH + NODE_GAP
-  const room = beside + NODE_WIDTH <= GRAPH_REACH
-  const x = room ? beside : withinReach(leaving.x)
+export function laidOut(scenes: Scene[], exits: Exit[], openingSceneId: string | null) {
+  const columns: string[][] = []
+  const placedIn = new Map<string, number>()
+  const known = new Set(scenes.map(scene => scene.id))
 
-  for (let y = leaving.y + (room ? 0 : NODE_SPACING); y <= GRAPH_REACH; y += NODE_SPACING) {
-    if (scenes.every(scene => !overlaps(scene, { x, y }))) return { x, y: withinReach(y) }
+  // Lays out everything reachable from one Scene, breadth first, from the column
+  // given. A Scene already placed — by an earlier cluster, or by a way on that
+  // comes back on itself — stays in the column it was first reached in.
+  function layer(from: string, depth: number) {
+    if (placedIn.has(from)) return
+    let edge = [from]
+    placedIn.set(from, depth)
+    while (edge.length) {
+      ;(columns[depth] ??= []).push(...edge)
+      const next: string[] = []
+      for (const id of edge) {
+        for (const exit of exitsFrom(exits, id)) {
+          if (!known.has(exit.toSceneId) || placedIn.has(exit.toSceneId)) continue
+          placedIn.set(exit.toSceneId, depth + 1)
+          next.push(exit.toSceneId)
+        }
+      }
+      edge = next
+      depth++
+    }
   }
 
-  // A column full to the foot of the bench. The Scene lands beside the one it
-  // leaves and over whatever is already there, which the Author can drag off:
-  // there is nowhere else within reach, and refusing the placement would lose the
-  // Exit the gesture was drawing along with it.
-  return { x, y: withinReach(leaving.y) }
-}
+  if (openingSceneId && known.has(openingSceneId)) layer(openingSceneId, 0)
+  for (const scene of scenes) layer(scene.id, columns.length)
 
-/** Whether two nodes, each `NODE_WIDTH` by `NODE_HEIGHT`, share any of the bench. */
-function overlaps(one: Point, other: Point) {
-  return Math.abs(one.x - other.x) < NODE_WIDTH && Math.abs(one.y - other.y) < NODE_HEIGHT
-}
+  const tallest = Math.max(0, ...columns.map(column => column.length))
+  const height = tallest * NODE_HEIGHT + Math.max(0, tallest - 1) * NODE_GAP
+  const width = columns.length * NODE_WIDTH + Math.max(0, columns.length - 1) * DEPTH_GAP
+  const placed = new Map<string, Point>()
 
-/**
- * How far back the Author may stand from their own graph, and how close they may
- * come. A quarter of the surface's own size is where forty Scenes fit on a
- * screen at once, and the surface's own size is the near end because there is
- * nothing above it: a card is read and never typed into — what a Scene is
- * written in is the panel at the edge of the bench — so magnifying one buys
- * nothing.
- */
-export const ZOOM_MIN = 0.25
-export const ZOOM_MAX = 1
+  columns.forEach((column, depth) => {
+    const columnHeight = column.length * NODE_HEIGHT + (column.length - 1) * NODE_GAP
+    const top = Math.round((height - columnHeight) / 2)
+    column.forEach((id, place) => {
+      placed.set(id, {
+        x: depth * (NODE_WIDTH + DEPTH_GAP),
+        y: top + place * (NODE_HEIGHT + NODE_GAP),
+      })
+    })
+  })
 
-/**
- * Where a point on the screen lands on the surface the nodes are laid out on.
- * Two things sit between the two: the bench scrolls, so the surface's own corner
- * is somewhere else on screen, and the surface is drawn at a scale, so a pixel of
- * it is not a pixel of the window. Every gesture that reads a pointer goes
- * through here — the drag that lays a Scene out, the Exit drawn by hand, the push
- * that pans the bench — because a Scene that lands where the hand is at one zoom
- * and a finger's width away at another is the defect a viewport arrives with.
- *
- * The rectangle is the surface's own, as the browser reports it, which already
- * carries the scale: what is left to undo is the scale itself.
- */
-export function onTheSurface(client: Point, surface: { left: number, top: number }, zoom: number) {
-  return { x: (client.x - surface.left) / zoom, y: (client.y - surface.top) / zoom }
+  return { placed, width, height }
 }
 
 /**
- * The scale after a zoom, and the scroll that keeps one point of the surface
- * where it was on screen. The point is the pointer's for a wheel or a pinch, and
- * the middle of what is on screen for the buttons and the shortcuts, which have
- * no pointer to anchor on.
- *
- * A surface point sits at `point * zoom` from the corner of what scrolls, so
- * holding it still under a changed scale is the difference between the two,
- * multiplied out. One function for every route in, so the bound and the anchoring
- * cannot be one thing by wheel and another by button.
+ * How many words the Shots of a Scene hold, which is the one count an Author
+ * writing prose asks of a document. The Shots' text alone — not the Scene's
+ * name, not what the Reader presses to take a way on — so the figure is an
+ * editorial one, the way the one tool of nineteen in
+ * `docs/research/2026-08-27-paysage-concurrentiel.md` that counts at all gives
+ * it. Counted as runs of anything but whitespace, which is what a word is in
+ * every language the interface is read in.
  */
-export function zoomedAbout(zoom: number, to: number, anchor: Point, scroll: Point) {
-  const held = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, to))
-
-  return {
-    zoom: held,
-    scroll: {
-      x: scroll.x + anchor.x * (held - zoom),
-      y: scroll.y + anchor.y * (held - zoom),
-    },
-  }
+export function wordsOf(shots: Shot[]) {
+  return shots.reduce((words, shot) => words + (shot.text.match(/\S+/g)?.length ?? 0), 0)
 }
 
 /**
- * How far apart two ways on out of one Scene leave its rim. A Story is laid out
- * in columns, so two lines out of one Scene towards the same column left from the
- * same point and ran as one: the near one stopped at the card below, the far one
- * carried on under it, and nothing said which was which. The gap between two
- * cards is the step, because it is the smallest distance the bench already asks
- * an eye to read, and it is wider than the disc that says a Place, so the two
- * marks stand apart as well as the two lines.
+ * How far apart two ways on out of one Scene leave its edge. Two lines out of one
+ * node towards the same column would otherwise leave from one point and run as
+ * one, with nothing to say which was which; a step wider than a line is a step an
+ * eye reads, and four ways on at this step still leave by the node's own flank.
  */
-export const EXIT_RIM_STEP = NODE_GAP
+export const EXIT_RIM_STEP = 10
 
 /**
  * Where the line that draws an Exit meets the two nodes: on the edge of the box it
@@ -300,85 +245,8 @@ export function exitLine(from: Point, to: Point, place = 1, ways = 1) {
   }
 }
 
-/**
- * Where the line of an Exit being drawn runs: off the edge of the node it is left
- * from, and to the point the hand has reached. The far end is the point itself
- * rather than the edge of anything, because there is nothing there yet — an Exit
- * under the Author's hand lands wherever they are, and only the near end has a
- * box to leave.
- */
-export function exitLineTo(from: Point, at: Point) {
-  const leaving = middleOf(from)
-
-  return {
-    from: onTheEdge(leaving, { x: at.x - leaving.x, y: at.y - leaving.y }),
-    to: at,
-  }
-}
-
 /** The two ends of the line that draws an Exit, as `exitLine` gives them. */
 export type ExitLine = { from: Point, to: Point }
-
-/**
- * How far along its own line, measured from the node it leaves, the disc that
- * says a way on's Place sits. Twenty-six pixels is the disc's own diameter and a
- * little over, so it clears the edge of the box it labels instead of sitting half
- * under it, and it is still near enough that which end of the line it belongs to
- * is never in question.
- */
-export const EXIT_DISC_ALONG = 26
-
-/**
- * How wide that disc is drawn, and so how far clear of a card it has to sit to be
- * read at all. The drawing takes its radius from here, so what is measured and
- * what is drawn cannot drift apart.
- */
-export const EXIT_DISC_RADIUS = 9
-
-/**
- * Where that disc goes: on the line, near the Scene the Exit leaves, because what
- * it labels is the order that Scene offers its ways on in. Never past the middle
- * of the line where nothing is in its way, so two nodes all but touching still
- * carry their discs at the end they belong to, and on the node's own edge where
- * the line has no length at all.
- *
- * And never behind a card. The cards are drawn over the lines, so a disc under one
- * is the single mark that tells two lines apart, hidden by the thing it would tell
- * them apart from; where the near stretch of a line is covered, the disc is walked
- * on along it — by its own radius, which finds any gap two cards laid out on the
- * bench leave between them — until it is clear of every one of them. Never as far
- * as the end it arrives at, where the endpoint that leads the Exit elsewhere is
- * taken hold of. The cards are the Author's to place and may be dropped closer
- * together than the disc is wide, which leaves nowhere on the line to put it: the
- * disc goes back to the end it belongs to, and is read by moving the card that
- * hides it.
- */
-export function discOfExit({ from, to }: ExitLine, cards: Point[] = []): Point {
-  const length = Math.hypot(to.x - from.x, to.y - from.y)
-  if (!length) return from
-  const near = Math.min(EXIT_DISC_ALONG, length / 2)
-  const at = (along: number) => ({
-    x: Math.round(from.x + (to.x - from.x) * along / length),
-    y: Math.round(from.y + (to.y - from.y) * along / length),
-  })
-
-  const last = Math.max(near, length - EXIT_DISC_ALONG)
-
-  for (let along = near; along <= last; along += EXIT_DISC_RADIUS) {
-    const disc = at(along)
-    if (cards.every(card => !hides(card, disc))) return disc
-  }
-
-  return at(near)
-}
-
-/** Whether a card would hide a disc drawn at this point, the disc's own width counted in. */
-function hides(card: Point, disc: Point) {
-  return disc.x > card.x - EXIT_DISC_RADIUS
-    && disc.x < card.x + NODE_WIDTH + EXIT_DISC_RADIUS
-    && disc.y > card.y - EXIT_DISC_RADIUS
-    && disc.y < card.y + NODE_HEIGHT + EXIT_DISC_RADIUS
-}
 
 function middleOf(node: Point) {
   return { x: node.x + NODE_WIDTH / 2, y: node.y + NODE_HEIGHT / 2 }
@@ -425,16 +293,8 @@ function onTheEdge(middle: Point, towards: Point, place = 1, ways = 1) {
 }
 
 /**
- * How many Scenes a column of the graph holds before the next one starts a new
- * column. A Story numbering its Scenes down one endless column would put the
- * later ones past `GRAPH_REACH`, somewhere the Author could never drag them back
- * from; laid out in columns, a Story stays within reach for hundreds of Scenes.
- */
-export const NODES_PER_COLUMN = 20
-
-/**
  * A Story as the Author edits it: Scenes in the order they were written, each a
- * run of Shots, a node in the graph and the Flags it sets, and the Exits that
+ * run of Shots and the Flags it sets, and the Exits that
  * join them, each in the Place it is offered at and with the Conditions it is
  * offered under. A Story with no Scenes has no opening Scene, and neither has
  * one whose opening Scene was deleted. `publishedAt` is null until the Story is
@@ -458,8 +318,6 @@ export type Shot = {
 export type Scene = {
   id: string
   name: string
-  x: number
-  y: number
   sets: Sets
   shots: Shot[]
 }
@@ -501,9 +359,9 @@ export const FLAG_VALUES_SEPARATOR = '|'
 
 /**
  * One Flag as it is written: a name, and the values one of which is drawn on
- * each entry. A row rather than an entry of the map, because a row is written
+ * each entry. A row rather than an entry of the Graph, because a row is written
  * before it is whole — a name with no value yet, a value being retyped — and the
- * map holds only the Flags a Scene actually sets.
+ * Graph holds only the Flags a Scene actually sets.
  */
 export type FlagRow = { name: string, values: string[] }
 
@@ -590,6 +448,11 @@ export function countedShots(many: number, say: Phrase) {
 
 export function countedExits(many: number, say: Phrase) {
   return say(many === 1 ? 'editor.oneExit' : 'editor.manyExits', { count: many })
+}
+
+/** `1 word` and `120 words`, which the heading over a Scene's Shots reads — see `wordsOf`. */
+export function countedWords(many: number, say: Phrase) {
+  return say(many === 1 ? 'editor.oneWord' : 'editor.manyWords', { count: many })
 }
 
 /**
