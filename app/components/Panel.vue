@@ -566,6 +566,9 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
     <label class="visually-hidden" :for="`scene-name-${sceneWritten.id}`">
       {{ $t('editor.sceneName') }}
     </label>
+    <!-- The name, what the Scene stands for in the Story and the one act that
+         takes it away, on one line: the slate at the head of the document, read
+         before anything under it and never a second row of chrome. -->
     <div class="heading">
       <h2 class="named">
         <input
@@ -575,9 +578,7 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
           @change="renameScene(sceneWritten)"
         >
       </h2>
-    </div>
 
-    <div class="standing">
       <!-- A Command only where the press does something: the radio already
            checked answers a press with no `change` at all. -->
       <p class="opening" data-step="opening-scene">
@@ -599,7 +600,7 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
 
       <button
         type="button"
-        class="danger"
+        class="danger going"
         :data-command="$t('editor.deleteScene')"
         @click="deleteScene(sceneWritten)"
       >
@@ -960,58 +961,61 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
 </template>
 
 <style scoped>
-/* The document, a column of the bench under the Graph: it takes the height the
-   bench leaves and scrolls inside itself, so a Scene of twenty Shots is read
-   here rather than down the page. The containing block for what is inside it,
-   so a visually hidden label deep in a long Scene is clipped by the column and
-   not by the page. */
+/* The document of one Scene, and the surface the Story is actually written on.
+   It is the deepest surface of the bench rather than a plate laid over it: what
+   is raised here is the Author's own work — a beat at a time, on the strips
+   below — and the machine around it stays down where the light does not catch
+   it. It takes the height the bench leaves and scrolls inside itself, so a Scene
+   of twenty Shots is read here rather than down the page, and it is the
+   containing block for what is inside it, so a visually hidden label deep in a
+   long Scene is clipped by the column and not by the page. */
 .panel {
   flex: 1;
   position: relative;
   display: grid;
-  gap: var(--s2);
+  gap: var(--s4);
   align-content: start;
   min-inline-size: 0;
   overflow: auto;
-  padding: var(--s3);
+  padding: var(--s4);
   border: 1px solid var(--edge);
   border-radius: var(--machined);
-  background: var(--steel);
-  box-shadow: var(--lifted);
+  background: var(--bench);
 }
 
-/* The Scene's name wears the heading's face; the frame it draws is held off the
-   pointer rather than restated, so it and every other field here cannot drift
-   apart. */
+/* The slate: the Scene's name, whether the Story opens on it, and the one act
+   that takes it away — one line, and the only place on the bench where the
+   condensed face a title card is set in appears at the size it is meant to be
+   read at. The name is typed where it is read, so the field draws no box until
+   the pointer is on it. */
+.heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+  padding-block-end: var(--s2);
+  border-block-end: 1px solid var(--edge);
+}
+
 .named {
+  flex: 1 1 12rem;
   min-inline-size: 0;
 }
 
 .named input {
   padding: 0 var(--s1);
-  background: none;
-}
-
-.named input:not(:hover) {
   border-color: transparent;
-  border-block-end-color: var(--edge);
+  background: none;
+  font-family: var(--display);
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
 }
 
-.heading {
-  display: flex;
-  align-items: center;
-  gap: var(--s3);
-}
-
-.heading .named {
-  flex: 1;
-}
-
-.standing {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s2);
+.named input:hover {
+  border-color: var(--edge);
+  background: var(--steel);
 }
 
 .opening {
@@ -1020,42 +1024,56 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   gap: var(--s2);
 }
 
-/* The three parts of the document, each headed and counted where it starts, on
-   a rule, so an Author scrolling knows which part of the Scene they are in. */
+/* Taking the Scene away is named in full — it is what the bar of Commands reads
+   and what a screen reader hears — and worn as the quiet mark it should be: the
+   act at the far end of the slate, in the alarm's colour only once the hand is
+   on it. */
+.going {
+  border-color: transparent;
+  background: none;
+  color: var(--muted);
+}
+
+/* The three parts of the document — what the Scene sets on entry, the run of
+   beats, the ways out — each headed and counted where it starts. The heading is
+   the only stencilled line in the column, so an Author scrolling a long Scene
+   always knows which part of it they are in. */
 .held {
   display: grid;
-  gap: var(--s2);
+  gap: var(--s3);
 }
 
 .held > h3 {
   display: flex;
   align-items: baseline;
   gap: var(--s2);
-  padding-block-end: var(--s1);
-  border-block-end: 1px solid var(--edge);
+  color: var(--paper);
 }
 
 .held > h3 .counted {
   color: var(--grease);
   font-family: var(--data);
   font-variant-numeric: tabular-nums;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 500;
 }
 
-/* The words, at the far end of the rule: a reading and not a heading. */
+/* The words, at the far end of the heading: a reading and not a heading. */
 .held > h3 .words {
   margin-inline-start: auto;
   color: var(--muted);
   font-size: 0.75rem;
+  font-family: var(--data);
 }
 
 .add-shot {
   justify-self: start;
 }
 
-/* The run of Shots, numbered in the gutter and each separated from the next by a
-   hairline — a Scene read the way a length of film is. */
+/* The run of beats, laid out as the length of film it is: one strip a Shot,
+   raised off the bench, with the number in the margin the perforations would
+   run down. Nothing is drawn between them but the gap — a rule under every beat
+   is what made a page of writing read as a table. */
 .shots {
   display: grid;
   gap: var(--s2);
@@ -1064,26 +1082,40 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
 .shots li,
 .ways li {
   display: grid;
-  grid-template-columns: 1.5rem minmax(0, 1fr);
-  gap: var(--s2);
-  padding-block-end: var(--s3);
-  border-block-end: 1px dashed color-mix(in oklab, var(--edge) 70%, transparent);
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  gap: var(--s1) var(--s2);
+  padding: var(--s2);
+  border-inline-start: 2px solid var(--edge);
+  border-radius: var(--machined);
+  transition: background-color 120ms ease-out;
 }
 
-.shots li:last-child,
-.ways li:last-child {
-  border-block-end: none;
-  padding-block-end: 0;
+/* The strip under the hand is the one that lifts off the bench, and the one
+   being typed in takes the machine's own light down its edge — the interface
+   saying where the caret is, never anything the Author wrote. Between times a
+   beat is nothing but its own words, because a run of filled boxes is a rack and
+   what this column holds is writing. */
+.shots li:hover,
+.ways li:hover {
+  background: var(--steel);
 }
 
-/* A Shot's number is what the Author refers to it by, read at the contrast the
-   other labels are; it is also the handle the Shot is dragged by, so it is not
-   selected and not scrolled under the pointer. */
+.shots li:focus-within,
+.ways li:focus-within {
+  border-inline-start-color: var(--light);
+  background: var(--steel);
+}
+
+/* A Shot's number is what the Author refers to it by, and it is also the handle
+   the Shot is dragged by, so it is not selected and not scrolled under the
+   pointer. */
 .shot-number {
-  padding-block-start: var(--s2);
   color: var(--muted);
   font-family: var(--data);
   font-size: 0.8125rem;
+  /* The same line box as the beat beside it, so the number and the first line of
+     the Shot sit on one baseline however far the beat has grown. */
+  line-height: 1.55;
   letter-spacing: 0;
   text-align: end;
   font-variant-numeric: tabular-nums;
@@ -1097,7 +1129,8 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
 }
 
 .shots li.under {
-  background: color-mix(in oklab, var(--grease) 12%, transparent);
+  border-inline-start-color: var(--grease);
+  background: color-mix(in oklab, var(--grease) 12%, var(--steel));
 }
 
 /* A beat is a row and not a card: the text and the thumbnail side by side, the
@@ -1110,13 +1143,57 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   gap: var(--s2);
 }
 
-.written textarea {
-  font-size: 0.875rem;
+/* The four parts of a beat, placed rather than stacked: the text, the thumbnail
+   beside it holding the height of two rows, what the beat plays under on the
+   line beneath the text — inside the column the text has, so a beat that carries
+   neither an image nor a Condition is two short lines and not the tall empty box
+   a thumbnail's height used to make of every one of them — and the Description
+   across the foot, under the image it describes. */
+.written > textarea {
+  grid-area: 1 / 1;
 }
 
-.written > .described,
+.written > .image {
+  grid-area: 1 / 2 / span 2 / 3;
+}
+
 .written > .beneath {
-  grid-column: 1 / -1;
+  grid-area: 2 / 1;
+}
+
+.written > .described {
+  grid-area: 3 / 1 / auto / -1;
+}
+
+/* The one field on the bench an Author spends hours in, so it is the one thing
+   here set at the size of ordinary prose rather than of a label — and it carries
+   no box at all: the beat is written straight onto the strip, and grows down the
+   strip as it is typed rather than opening a scrollbar two lines deep. `rows` is
+   still on the element for a browser without `field-sizing`, which simply keeps
+   the two lines it was given. */
+.written textarea {
+  field-sizing: content;
+  block-size: auto;
+  min-block-size: 1lh;
+  max-block-size: 16lh;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 1rem;
+}
+
+.written textarea:hover {
+  border: none;
+}
+
+/* Where the field sizes itself there is nothing left for a grip to do, and the
+   hatched corner it draws is the one piece of browser chrome on a surface that
+   is otherwise all writing. Where the browser has no `field-sizing`, the grip
+   is how a long beat is read, so it stays. */
+@supports (field-sizing: content) {
+  .written textarea {
+    resize: none;
+  }
 }
 
 /* The Conditions and the marks on one line, the marks at the trailing edge. A
@@ -1128,6 +1205,7 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   align-items: end;
   justify-content: space-between;
   gap: var(--s1) var(--s3);
+  min-block-size: 1.5rem;
 }
 
 .beneath .conditions {
@@ -1135,15 +1213,69 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   min-inline-size: 0;
 }
 
+/* What is done to a beat rather than written in it — move it, split before it,
+   take it away, put it under a Condition — waits for the hand or the keyboard to
+   arrive at the beat. It is drawn and laid out at every moment, so nothing moves
+   when it appears and nothing is taken out of the tab order or off a screen
+   reader: it is simply not lit until the beat is the one being worked on. What
+   the Author has already written — a Condition that exists — is never dimmed;
+   only the offer to add one is. */
+.written .row,
+.beneath .conditions.quiet {
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+
+li:hover .row,
+li:focus-within .row,
+li:hover .conditions.quiet,
+li:focus-within .conditions.quiet {
+  opacity: 1;
+}
+
+/* A screen with no pointer has no hover to reveal anything with, so there the
+   strip is simply always lit. */
+@media (hover: none) {
+  .written .row,
+  .beneath .conditions.quiet {
+    opacity: 1;
+  }
+}
+
+/* The box an image goes in, at the size a thumbnail is whether or not one has
+   landed in it: an unfinished beat is legible as one. Empty it is an outline
+   with the mark that fills it; full it is the image, edge to edge. */
 .image > label {
   position: relative;
   display: block;
   inline-size: 4.5rem;
   block-size: 3rem;
-  border: 1px solid var(--edge);
+  border: 1px dashed var(--edge);
   border-radius: var(--machined);
   background: var(--bench);
+  color: var(--muted);
   cursor: pointer;
+}
+
+.image > label:not(:has(img))::before {
+  content: '+';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--data);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.image > label:hover {
+  border-color: color-mix(in oklab, var(--light) 55%, var(--edge));
+  color: var(--paper);
+}
+
+/* An image landed: the outline it stood for is gone and the picture is the box. */
+.image > label:has(img) {
+  border-style: solid;
 }
 
 /* The focus the input takes cannot be seen where the input is, so the ring is
@@ -1168,13 +1300,24 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   border-radius: inherit;
 }
 
+/* What the image shows, on the line under it: a label and a field, at the size
+   of the note it is rather than of the beat it belongs to. */
 .described {
-  display: grid;
-  gap: var(--s1);
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
 }
 
 .described input {
+  padding: var(--s1) var(--s2);
+  border-color: transparent;
+  background: none;
   font-size: 0.8125rem;
+}
+
+.described input:hover,
+.described input:focus-visible {
+  border-color: var(--edge);
 }
 
 /* The marks that act on a beat or a way on, set closer than a row of controls
@@ -1185,22 +1328,34 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
 
 .ways ol {
   display: grid;
-  gap: var(--s1);
+  gap: var(--s2);
 }
 
-/* The Place of a way on, in the gutter where a Shot's number sits. */
+/* A way out is the Author's own cut, so the strip it is written on wears the
+   grease pencil down its edge where a beat wears the machined one. */
+.ways li {
+  border-inline-start-color: color-mix(in oklab, var(--grease) 60%, var(--edge));
+}
+
+/* The Place of a way on, in the margin where a Shot's number sits. */
 .numbered {
-  min-inline-size: 1.25rem;
-  padding-block-start: var(--s1);
   color: var(--grease);
   font-family: var(--data);
+  font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
   text-align: end;
 }
 
-/* Where the way on leads and what the Reader presses to take it, side by side. */
+/* Where the way on leads and what the Reader presses to take it, side by side,
+   and what it is offered under across the width of both — a Condition is a
+   sentence and reads as one whichever half of the row it belongs to. */
 .ways .written {
-  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  grid-template-columns: minmax(8rem, 14rem) minmax(0, 1fr);
+  align-items: center;
+}
+
+.ways .written > .beneath {
+  grid-column: 1 / -1;
 }
 
 .arrival {
@@ -1210,14 +1365,19 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   min-inline-size: 0;
 }
 
-/* Where the way on leads, worn as a heading rather than a field in a form: the
-   name of a Scene, and the rule under it says it can be changed. */
+/* Where the way on leads: a Scene's name worn as one, in a field that draws its
+   frame only under the pointer — the same idiom as the Scene's own name at the
+   head of the document — and as wide as the name in it rather than as wide as
+   the column, so the row reads "1 → The bar" and not as a slot with a name lying
+   at one end of it. */
 .arrival select {
-  flex: 1;
-  min-inline-size: 0;
-  padding: 0 var(--s1);
+  field-sizing: content;
+  flex: 0 1 auto;
+  inline-size: auto;
+  min-inline-size: 4rem;
+  max-inline-size: 100%;
+  padding: var(--s1) var(--s2);
   border-color: transparent;
-  border-block-end-color: var(--edge);
   background: none;
   font-size: 0.9375rem;
 }
@@ -1227,26 +1387,51 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   border-color: var(--edge);
 }
 
+/* The way on's own way through: the mark that opens the Scene at the far end,
+   quiet until the strip is under the hand, like everything else that acts on a
+   row. */
+.arrival .mark {
+  border-color: transparent;
+  background: none;
+  color: var(--muted);
+}
+
+li:hover .arrival .mark,
+li:focus-within .arrival .mark {
+  color: var(--paper);
+}
+
 .said {
-  display: grid;
-  gap: var(--s1);
+  min-inline-size: 0;
 }
 
+/* What the Reader presses, typed where it is read: the line the Author wrote on
+   the Exit, in a field that draws its frame under the pointer like the name of
+   the Scene it leads to. */
 .said input {
-  font-size: 0.875rem;
+  padding: var(--s1) var(--s2);
+  border-color: transparent;
+  background: none;
+  font-size: 0.9375rem;
 }
 
-/* The way on written here, at the foot of the ways on: a label and one field,
-   as wide as a Scene's name and no wider. */
+.said input:hover,
+.said input:focus-visible {
+  border-color: var(--edge);
+}
+
+/* The way on written here, at the foot of the ways on: a label and one field, as
+   wide as a Scene's name and no wider. */
 .adding {
   display: grid;
   justify-items: start;
   gap: var(--s1);
+  padding-block-start: var(--s1);
 }
 
 .adding input {
   inline-size: min(100%, 24rem);
-  padding: var(--s1) var(--s2);
+  padding: var(--s2) var(--s3);
   font-size: 0.875rem;
 }
 
@@ -1258,6 +1443,7 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
 
 .none {
   color: var(--muted);
+  font-size: 0.875rem;
   max-inline-size: 60ch;
 }
 
