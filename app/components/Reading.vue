@@ -231,11 +231,8 @@ function offered(exit: Exit) {
            editor reads it — and the only thing on the page that says how much of
            the Scene is left, every tick lit once the run is behind the Reader. -->
       <div class="edge">
-        <p class="eyebrow">
-          <span :lang="story.language">{{ scene?.name }}</span>
-          <span aria-hidden="true">·</span>
-          {{ $t('reading.shotOf', { place, of: run.length }) }}
-        </p>
+        <p class="eyebrow" :lang="story.language">{{ scene?.name }}</p>
+        <p class="counting">{{ $t('reading.shotOf', { place, of: run.length }) }}</p>
         <ol aria-hidden="true" class="ticks">
           <li v-for="(_, tick) in run.length" :key="tick" :class="{ lit: tick < place }" />
         </ol>
@@ -344,11 +341,23 @@ figcaption {
   padding: var(--s5) clamp(var(--s4), 4vw, var(--s5));
 }
 
+/* The edge of the film: the Scene the beat belongs to at the leading end, and at
+   the trailing end how far into its run the Reader is — the count and the ticks
+   reading the same fact twice, once in words and once as the length of film that
+   is left. */
 .edge {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--s4);
+  gap: var(--s3);
+}
+
+.counting {
+  margin-inline-start: auto;
+  color: var(--muted);
+  font-family: var(--data);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* One tick a Shot, filled up to the one on screen. */
@@ -439,9 +448,11 @@ figcaption {
   content: none;
 }
 
+/* Reading the Story again from the start: the way out of the reading, at the
+   leading edge under everything it is a way out of, rather than centred in the
+   room where it reads as the thing the page was for. */
 .again {
   display: flex;
-  justify-content: center;
 }
 
 .again button {
