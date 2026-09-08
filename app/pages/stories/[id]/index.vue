@@ -335,6 +335,8 @@ function turnGate(event: Event) {
 </template>
 
 <style scoped>
+@import '~/assets/css/folds.css';
+
 /* The page is a column exactly one window tall, and the Graph is the one thing
    on it that grows: the edge takes its row and the table takes everything the
    rows above leave. `dvh` because a browser's own chrome comes and goes. */
@@ -350,6 +352,24 @@ main {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--s2);
+}
+
+/* At the width of a phone they are a strip that winds sideways rather than a row
+   that wraps into two: every one of them stays drawn, so the bar of Commands
+   reaches them all — see
+   `docs/adr/0042-the-scene-is-written-where-it-stands.md`. */
+@media (--phone) {
+  .tools {
+    flex: 1 1 100%;
+    flex-wrap: nowrap;
+    min-inline-size: 0;
+    overflow-x: auto;
+    padding-block-end: 2px;
+  }
+
+  .tools > * {
+    flex: none;
+  }
 }
 
 /* The way into the bar, with the key that opens it drawn on its face. */

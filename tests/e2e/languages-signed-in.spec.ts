@@ -125,6 +125,9 @@ test('a Story is announced in its own Language while the chrome stays the Reader
 
   await page.goto(`/stories/${story.id}`)
   await page.getByRole('button', { name: 'Publish this Story', exact: true }).click()
+  // The link the bench draws once the Story is out is what says the Publish
+  // landed: a Reader sent to it before that reads a Story nobody has published.
+  await expect(page.getByRole('link', { name: new RegExp(`/read/${story.id}$`) })).toBeVisible()
 
   const reader = await (await browser.newContext({ locale: 'en-US' })).newPage()
   await reader.goto(`${baseURL}/read/${story.id}`)

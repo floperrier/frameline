@@ -337,6 +337,8 @@ function unlist() {
 </template>
 
 <style scoped>
+@import '~/assets/css/folds.css';
+
 /* The edge: one row, and the containing block for the two things that open over
    the table rather than pushing the row taller. */
 header {
@@ -508,6 +510,48 @@ header {
   display: flex;
   flex-wrap: wrap;
   gap: var(--s2);
+}
+
+/* At the width of a phone the edge is three rows and not eight: what the Story
+   is, then the acts of the bench, then the acts on the Story — each of the last
+   two a strip that winds sideways rather than a row that wraps into four. Every
+   control stays drawn, so the bar of Commands still reaches every one of them and
+   the guided path still has something to point at; and the acts lead their strip,
+   so what a row too narrow to hold everything shows first is what an Author
+   presses. See `docs/adr/0042-the-scene-is-written-where-it-stands.md`. */
+@media (--phone) {
+  header {
+    gap: var(--s2) var(--s3);
+    padding: var(--s2) var(--s3);
+  }
+
+  .release {
+    flex: 1 1 100%;
+    flex-wrap: nowrap;
+    min-inline-size: 0;
+    overflow-x: auto;
+    margin-inline-start: 0;
+    padding-block-end: 2px;
+  }
+
+  .release > * {
+    flex: none;
+  }
+
+  /* The acts lead the strip: what a row too narrow to hold everything shows
+     first is what an Author presses. In the fold rather than in the document,
+     because the order of the edge is a visual matter and the document's order is
+     the order the bar of Commands reads the bench in — see
+     `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`. */
+  .acts {
+    order: -1;
+  }
+
+  /* The link gives up its width first: it is read once and copied, and the acts
+     beside it are pressed. */
+  .link {
+    max-inline-size: 11rem;
+  }
 }
 
 /* The Name asked for in the listing, over the table for the reason the Synopsis
