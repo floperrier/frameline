@@ -259,12 +259,26 @@ export function sceneNode(page: Page, name: string) {
 }
 
 /**
+ * Waits for the drawing to stop moving. The Graph opens up around the Scene being
+ * written and closes again when the gate is lifted off — see
+ * `docs/adr/0042-the-scene-is-written-where-it-stands.md` — and the nodes glide
+ * to their new columns rather than jumping, so a box measured while the sheet is
+ * still spreading is a box nothing will be at. Asked of the browser's own list of
+ * running animations rather than waited out by a number.
+ */
+export function stillDrawing(page: Page) {
+  return page.waitForFunction(
+    () => document.getAnimations().every(moving => moving.playState !== 'running'))
+}
+
+/**
  * Lifts the gate off the Graph, which is how an Author looks at the whole Story:
  * every Scene has a node again, the one being written included.
  */
 export async function wholeStory(page: Page) {
   await page.getByRole('button', { name: 'The whole Story' }).click()
   await expect(page.locator('.panel')).toHaveCount(0)
+  await stillDrawing(page)
 }
 
 /**
