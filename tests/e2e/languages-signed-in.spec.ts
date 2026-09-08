@@ -72,8 +72,9 @@ test.describe('an interface read in French', () => {
     await shot.blur()
     await expect(page.getByText(/^Enregistré à \d{2}:\d{2}$/)).toBeVisible()
 
-    // The Aperçu, beside the Scene being written, where a Story's own words and
-    // the tool's are on screen at once.
+    // The Aperçu, the gate's other face, where a Story's own words and the tool's
+    // are on screen at once.
+    await page.getByRole('button', { name: 'Lire le Récit' }).click()
     await expect(page.getByText('Sur la table de montage')).toBeVisible()
     expect(await everythingShown(page)).not.toMatch(A_RAW_KEY)
 

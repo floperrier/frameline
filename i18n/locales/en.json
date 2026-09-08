@@ -181,7 +181,12 @@
     "oneWord": "{count} word",
     "manyWords": "{count} words",
     "graph": "Graph",
-    "presentation": "Synopsis and Cover"
+    "presentation": "Synopsis and Cover",
+    "writeShot": "Write Shot {place}",
+    "noShotYet": "Nothing is written in this Scene yet. Add the first beat.",
+    "add": "add",
+    "wholeStory": "The whole Story",
+    "writingIn": "Writing in {name}"
   },
   "conditions": {
     "ofCarrier": "of {carrier}",
@@ -221,7 +226,7 @@
     "setFlag": "State is what one Reading carries with it. Give this Scene a Flag — “courage = high” — and it is set on every Reader who enters.",
     "openingScene": "A Reading has to start somewhere, and nothing marks where this Story does. Write a Scene and mark it as the one to start on — any of them will do, and you can name another whenever you like.",
     "putCondition": "A Condition makes the same Scene play differently to different Readers, without branching. Write the second Scene, add a Shot, and have it played when that Flag holds something else — “low” will do. Nothing plays it yet, which is the point.",
-    "previewCondition": "Nothing plays that Shot, and the Preview beside the Scene says why: it reads the Story on the engine a Reader runs, and shows what each Shot it skipped asked for beside what the State actually holds. Read that, then put the value right.",
+    "previewCondition": "Nothing plays that Shot, and the reading says why: turn the gate over and it reads the Story on the engine a Reader runs, showing what each Shot it skipped asked for beside what the State actually holds. Read that, then put the value right.",
     "publish": "That is a Story that works. Publish it, and anybody can read it at a link of its own — the one this page then shows, to hand to whoever you wrote it for."
   },
   "remark": {

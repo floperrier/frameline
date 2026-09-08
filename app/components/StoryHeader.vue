@@ -1,11 +1,18 @@
 <script setup lang="ts">
 /**
- * The bench's own header, in two halves. On one side what the Story **is**: the
- * way back, its title — written here, so an Author never leaves the Story to
- * rename it — the Language it is written in, and the state of the last write. On
- * the other, one place for where it can be **read**: the Synopsis, the public
- * link, Publish and List, which are four faces of the one subject rather than
- * four controls that appear and disappear under one another.
+ * The bench's own edge: one row above the table the Story is laid out on. What
+ * the Story **is** — the way back, its title, written here so an Author never
+ * leaves the Story to rename it, the Language it is written in and the state of
+ * the last write — then the acts of the bench, which the page puts in the slot
+ * between the two halves, and then one place for where the Story can be
+ * **read**: the Synopsis, the public link, Publish and List, which are four
+ * faces of the one subject rather than four controls that appear and disappear
+ * under one another.
+ *
+ * One row, because the table under it is the whole of the screen — see
+ * `docs/adr/0042-the-scene-is-written-where-it-stands.md`. What is written once
+ * rather than all day, the Synopsis and the Cover, folds into a disclosure that
+ * opens over the table instead of pushing the edge taller.
  *
  * The interface's Locale is not here. It is a property of the person reading and
  * not of the Story — see
@@ -193,8 +200,12 @@ function unlist() {
       <p v-if="kept" class="kept-at">{{ $t('editor.keptAt', { time: kept }) }}</p>
     </div>
 
+    <!-- The acts of the bench, which belong to the page and not to the Story:
+         the bar of Commands, the Remarks, the gate. -->
+    <slot />
+
     <section class="release" aria-labelledby="release">
-      <h2 id="release" class="eyebrow">{{ $t('editor.whereItIsRead') }}</h2>
+      <h2 id="release" class="visually-hidden">{{ $t('editor.whereItIsRead') }}</h2>
 
       <!-- What a stranger is handed before they open the work — the few lines
            of the Synopsis and the Cover — folded shut, because it is written
@@ -204,6 +215,7 @@ function unlist() {
       <details v-if="story" class="presenting">
         <summary class="eyebrow">{{ $t('editor.presentation') }}</summary>
 
+        <div class="folded">
         <p class="synopsis">
           <label class="eyebrow" for="story-synopsis">{{ $t('editor.synopsis') }}</label>
           <textarea
@@ -249,13 +261,14 @@ function unlist() {
           {{ $t('editor.coverUnname') }}
         </button>
         </fieldset>
+        </div>
       </details>
 
       <!-- The link, shown in full so it can be copied out of the page. It is
            what publishing hands over, and it goes on working whether or not
            the Story is in the Catalogue. -->
       <p v-if="story?.publishedAt" class="live">
-        <span class="eyebrow">{{ $t('editor.readableAt') }}</span>
+        <span class="visually-hidden">{{ $t('editor.readableAt') }}</span>
         <a class="link" :href="publicLink">{{ publicLink }}</a>
       </p>
 
@@ -324,26 +337,29 @@ function unlist() {
 </template>
 
 <style scoped>
+/* The edge: one row, and the containing block for the two things that open over
+   the table rather than pushing the row taller. */
 header {
-  position: sticky;
-  inset-block-start: 0;
+  position: relative;
   z-index: 2;
+  flex: none;
   display: flex;
   flex-wrap: wrap;
-  align-items: start;
-  justify-content: space-between;
-  gap: var(--s3) var(--s4);
-  padding-block: var(--s2);
+  align-items: center;
+  gap: var(--s2) var(--s4);
+  padding: var(--s2) var(--s4);
   border-block-end: 1px solid var(--edge);
-  /* The graph scrolls under the header, so the header cannot be transparent. */
   background: var(--bench);
 }
 
+/* What the Story is, read along the edge: the way back, the title, and the two
+   marks the bench keeps about it. */
 .titling {
-  display: grid;
-  gap: var(--s1);
-  flex: 1 1 20rem;
-  max-inline-size: 34rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s2) var(--s3);
+  min-inline-size: 0;
 }
 
 /* A Story's title is the Author's own words, so nothing here recases them. The
@@ -364,30 +380,46 @@ header {
   border-block-end-color: var(--edge);
 }
 
-/* Where the Story can be read: the Synopsis, the link and the two acts, in one
-   column so that they read as one subject rather than as a row of controls. */
+/* Where the Story can be read: the Synopsis, the link and the two acts, at the
+   trailing end of the edge so that they read as one subject rather than as a row
+   of controls scattered along it. */
 .release {
-  display: grid;
-  gap: var(--s2);
-  flex: 1 1 24rem;
-  max-inline-size: 34rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+  margin-inline-start: auto;
+  min-inline-size: 0;
 }
 
-/* The title comes down to a label on a reel: the Scene under the header is what
+/* The title comes down to a label on a reel: the table under the edge is what
    the screen is for. */
 .named input {
-  font-size: 1.75rem;
+  font-size: 1.375rem;
 }
 
 /* The disclosure the Synopsis and the Cover fold into, its summary set as the
-   labels around it are. Open, it lays the two out as the column they were. */
+   labels around it are. Open, it lays the two out over the table rather than
+   making the edge two rows tall: they are written once, and the Story is laid
+   out under them all day. */
 .presenting summary {
   cursor: pointer;
 }
 
-.presenting[open] {
+.folded {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: 100%;
+  inset-inline-end: var(--s4);
   display: grid;
-  gap: var(--s2);
+  gap: var(--s3);
+  inline-size: min(30rem, calc(100vw - 2 * var(--s4)));
+  padding: var(--s4);
+  border: 1px solid var(--edge);
+  border-block-start: none;
+  border-radius: 0 0 var(--machined) var(--machined);
+  background: var(--steel);
+  box-shadow: var(--lifted);
 }
 
 .release .synopsis {
@@ -478,11 +510,23 @@ header {
   gap: var(--s2);
 }
 
-/* The Name asked for in the listing: a row of its own under the acts, because
-   it is a sentence and a field rather than another control beside the buttons. */
+/* The Name asked for in the listing, over the table for the reason the Synopsis
+   is: it is a sentence and a field rather than another control beside the
+   buttons, and the edge is one row. */
 .signing {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: 100%;
+  inset-inline-end: var(--s4);
   display: grid;
-  gap: var(--s1);
+  gap: var(--s2);
+  inline-size: min(26rem, calc(100vw - 2 * var(--s4)));
+  padding: var(--s4);
+  border: 1px solid var(--edge);
+  border-block-start: none;
+  border-radius: 0 0 var(--machined) var(--machined);
+  background: var(--steel);
+  box-shadow: var(--lifted);
 }
 
 .signing .asked {
@@ -500,12 +544,20 @@ header {
 }
 
 /* A published Story wears the grease pencil: the link is the one thing on the
-   bench that anyone outside can reach. */
+   bench that anyone outside can reach. Along the edge it is a mark rather than a
+   block, and it gives up its width before the acts beside it do. */
 .live {
-  display: grid;
-  gap: 2px;
-  padding-inline-start: var(--s3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s1) var(--s2);
+  min-inline-size: 0;
+  padding-inline-start: var(--s2);
   border-inline-start: 2px solid var(--grease);
+}
+
+.live .eyebrow {
+  flex: none;
 }
 
 /* The time of the last write, set in the face the interface reads its own
@@ -518,10 +570,13 @@ header {
 }
 
 .link {
+  overflow: hidden;
+  max-inline-size: 16rem;
   color: var(--paper);
   font-family: var(--data);
   font-size: 0.75rem;
-  word-break: break-all;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* The way back to the Stories, at the start of the line it is on. */

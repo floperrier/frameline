@@ -1,15 +1,22 @@
 <script setup lang="ts">
 /**
- * Where a Scene is written: the document under the Graph, which the bench always
- * holds one of. Everything a Scene is is written here — its name, the Flags it
- * sets, the run of its Shots, and the Exits leaving it, each named by where it
- * leads — because a Story is written without the canvas:
- * `docs/adr/0034-a-story-is-written-without-the-canvas.md`, and the Graph above
- * is a reading of the Story rather than a surface anything is written on:
- * `docs/adr/0041-the-graph-is-drawn-from-the-story.md`.
+ * Where a Scene is written: the gate, standing on the Graph in the place of the
+ * node of the Scene it holds — see
+ * `docs/adr/0042-the-scene-is-written-where-it-stands.md`. Everything a Scene is
+ * is written here — its name, the Flags it sets, the run of its Shots, and the
+ * Exits leaving it, each named by where it leads — because a Story is written
+ * without the canvas: `docs/adr/0034-a-story-is-written-without-the-canvas.md`,
+ * and the Graph under it is a reading of the Story rather than a surface anything
+ * is written on: `docs/adr/0041-the-graph-is-drawn-from-the-story.md`.
+ *
+ * The run of beats is one beat at a time in the gate — the frame at the size a
+ * Reader meets it, and the words under it in the face they are read in — with the
+ * whole run along the foot as the strip it is. It is still one document: the
+ * three parts stay in the order a Reader meets them, and the run is still typed
+ * as one text, `Enter` at the end of a beat opening the next.
  *
  * Which Scene it holds is the page's to say, because the Graph asks for it from
- * above the document. Everything typed here is written into the Story the page
+ * under the gate. Everything typed here is written into the Story the page
  * fetched, in place, and sent through the one holder the page keeps.
  */
 const {
@@ -50,6 +57,32 @@ const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, s
 
 /** The ways on leaving the Scene, in the Places it numbers them at. */
 const ways = computed(() => exitsFrom(story.exits, sceneWritten.id))
+
+/**
+ * Which beat of the run is in the gate, as its Place counted from zero. The
+ * strip is what moves it, and so does every act that writes a beat: a Scene put
+ * on the bench opens at its first beat, which is where a Reader meets it.
+ */
+const atShot = ref(0)
+
+watch(() => sceneWritten.id, () => { atShot.value = 0 })
+
+/**
+ * Which beat of the run the gate is actually holding, held to the run as it
+ * stands: a beat deleted from the end leaves the gate on the one before it
+ * rather than on a Place the Scene no longer has, and every mark beside the gate
+ * is named for this rather than for what was asked for.
+ */
+const gated = computed(() =>
+  Math.max(0, Math.min(atShot.value, sceneWritten.shots.length - 1)))
+
+/** The beat in the gate, and nothing at all in a Scene with no beats yet. */
+const shotWritten = computed(() => sceneWritten.shots[gated.value])
+
+/** Puts one beat of the run in the gate. */
+function gateShot(place: number) {
+  atShot.value = place
+}
 
 /**
  * How many Flags, Shots and words the Scene holds, said beside each heading of
@@ -185,9 +218,21 @@ async function joinBeat(scene: Scene, shot: Shot, place: number) {
   if (before) return typeInShot(before.id, true)
 }
 
-/** Puts the caret in a Shot's field, once the read the change asks for has rendered it. */
+/**
+ * Puts the caret in a Shot's field, once the read the change asks for has
+ * rendered it. There is one such field — the gate's — so the beat is put in the
+ * gate first: walking the run with `Alt` and the arrows, opening a beat with
+ * `Enter`, joining one to the beat before it with `Backspace` all move the gate
+ * as well, because the caret and the frame are never on two different beats.
+ */
 async function typeInShot(shotId: string, atTheEnd = false) {
   await nextTick()
+  const place = sceneWritten.shots.findIndex(held => held.id === shotId)
+  if (place === -1) return
+
+  gateShot(place)
+  await nextTick()
+
   const field = document.getElementById(`shot-${shotId}`) as HTMLTextAreaElement | null
   if (!field) return
 
@@ -244,66 +289,66 @@ async function splitBefore(scene: Scene, shot: Shot) {
 }
 
 /**
- * The Shot dragged by its number, and the Shot the hand is over. Held by id and
+ * The Shot dragged along the strip, and the Shot the hand is over. Held by id and
  * not by Shot: the read that lands mid-drag replaces every Scene in the Story.
  */
 const draggedShot = ref<{ shotId: string, over?: string }>()
 
 /**
- * The band along the document's top and bottom edge where a dragged Shot scrolls
- * the run under it, and how fast: about the height of a Shot's own number, at
- * five hundred pixels a second. Under `prefers-reduced-motion` the run still
- * travels the same distance in the same time, a Shot's row at a stride every
- * fifth of a second instead of a few pixels a frame.
+ * The band at either end of the strip where a dragged Shot winds the run under
+ * it, and how fast: about the width of a cell, at five hundred pixels a second.
+ * Under `prefers-reduced-motion` the run still travels the same distance in the
+ * same time, a cell at a stride every fifth of a second instead of a few pixels
+ * a frame.
  */
-const SHOT_SCROLL_BAND = 48
-const SHOT_SCROLL_TICK = 16
-const SHOT_SCROLL_STEP = 8
-const SHOT_SCROLL_STILL_TICK = 200
-const SHOT_SCROLL_STILL_STEP = 100
+const STRIP_SCROLL_BAND = 64
+const STRIP_SCROLL_TICK = 16
+const STRIP_SCROLL_STEP = 8
+const STRIP_SCROLL_STILL_TICK = 200
+const STRIP_SCROLL_STILL_STEP = 100
 
-let shotScroll: {
-  body: HTMLElement
+let stripScroll: {
+  strip: HTMLElement
   step: number
   at: { clientX: number, clientY: number }
   tick: ReturnType<typeof setInterval>
 } | undefined
 
 /**
- * Which way the run under the hand should be running, measured against what is
- * on screen of the document rather than the whole of it: a foot below the fold
- * would carry a band the hand could never reach.
+ * Which way the strip under the hand should be winding, measured against what is
+ * on screen of it rather than the whole run: a band off the end of the window
+ * would be one the hand could never reach.
  */
-function shotScrollWay(body: HTMLElement, y: number) {
-  const box = body.getBoundingClientRect()
-  const top = Math.max(box.top, 0)
-  const bottom = Math.min(box.bottom, window.innerHeight)
-  if (y >= top && y < top + SHOT_SCROLL_BAND) return -1
-  if (y <= bottom && y > bottom - SHOT_SCROLL_BAND) return 1
+function stripScrollWay(strip: HTMLElement, x: number) {
+  const box = strip.getBoundingClientRect()
+  const start = Math.max(box.left, 0)
+  const finish = Math.min(box.right, window.innerWidth)
+  if (x >= start && x < start + STRIP_SCROLL_BAND) return -1
+  if (x <= finish && x > finish - STRIP_SCROLL_BAND) return 1
 
   return 0
 }
 
-function runShotScroll() {
-  const run = shotScroll
+function runStripScroll() {
+  const run = stripScroll
   if (!run || !draggedShot.value) return
 
-  const way = shotScrollWay(run.body, run.at.clientY)
+  const way = stripScrollWay(run.strip, run.at.clientX)
   if (!way) return
 
-  run.body.scrollTop += way * run.step
-  draggedShot.value.over = rowUnder(run.at)
+  run.strip.scrollLeft += way * run.step
+  draggedShot.value.over = cellUnder(run.at)
 }
 
-function stopShotScroll() {
-  if (shotScroll) clearInterval(shotScroll.tick)
-  shotScroll = undefined
+function stopStripScroll() {
+  if (stripScroll) clearInterval(stripScroll.tick)
+  stripScroll = undefined
 }
 
-onBeforeUnmount(stopShotScroll)
+onBeforeUnmount(stopStripScroll)
 
 function startShotDrag(shot: Shot, event: PointerEvent) {
-  // A finger scrolls the document instead: the two controls move a Shot a Place
+  // A finger winds the strip instead: the two controls move a Shot a Place
   // without a drag, so touch keeps the whole route and loses only the shortcut.
   if (event.pointerType === 'touch') return
 
@@ -311,26 +356,26 @@ function startShotDrag(shot: Shot, event: PointerEvent) {
   handle.setPointerCapture(event.pointerId)
   draggedShot.value = { shotId: shot.id }
 
-  const body = handle.closest('.panel')
-  if (!(body instanceof HTMLElement)) return
+  const strip = handle.closest('.strip')
+  if (!(strip instanceof HTMLElement)) return
 
   const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  shotScroll = {
-    body,
-    step: still ? SHOT_SCROLL_STILL_STEP : SHOT_SCROLL_STEP,
+  stripScroll = {
+    strip,
+    step: still ? STRIP_SCROLL_STILL_STEP : STRIP_SCROLL_STEP,
     at: { clientX: event.clientX, clientY: event.clientY },
-    tick: setInterval(runShotScroll, still ? SHOT_SCROLL_STILL_TICK : SHOT_SCROLL_TICK),
+    tick: setInterval(runStripScroll, still ? STRIP_SCROLL_STILL_TICK : STRIP_SCROLL_TICK),
   }
 }
 
 function keepShotDrag(event: PointerEvent) {
   if (!draggedShot.value) return
-  draggedShot.value.over = rowUnder(event)
-  if (shotScroll) shotScroll.at = { clientX: event.clientX, clientY: event.clientY }
+  draggedShot.value.over = cellUnder(event)
+  if (stripScroll) stripScroll.at = { clientX: event.clientX, clientY: event.clientY }
 }
 
 function cancelShotDrag() {
-  stopShotScroll()
+  stopStripScroll()
   draggedShot.value = undefined
 }
 
@@ -345,8 +390,8 @@ function endShotDrag(scene: Scene) {
   return renumber(scene, 'shots', places)
 }
 
-/** The Shot's row under a point, asked of the page: the browser already hit-tests them. */
-function rowUnder(at: { clientX: number, clientY: number }) {
+/** The Shot's cell under a point, asked of the page: the browser already hit-tests them. */
+function cellUnder(at: { clientX: number, clientY: number }) {
   const under = document.elementFromPoint(at.clientX, at.clientY)
   return (under?.closest('[data-shot]') as HTMLElement | null)?.dataset.shot
 }
@@ -610,8 +655,10 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
     </div>
 
     <!-- The Flags the Scene sets, at the head of the document where they happen:
-         set on entry, before the first Shot plays. -->
-    <section class="held" :aria-labelledby="`flags-of-${sceneWritten.id}`">
+         set on entry, before the first Shot plays. On one line with its heading
+         while the Scene sets none — which is most Scenes — because the frame
+         under it is what the gate is for. -->
+    <section class="held set" :aria-labelledby="`flags-of-${sceneWritten.id}`">
       <h3 :id="`flags-of-${sceneWritten.id}`">
         {{ $t('editor.flagsHeld') }}
         <span class="counted">{{ counted.flags }}</span>
@@ -626,18 +673,164 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
       />
     </section>
 
-    <!-- The run of beats, typed as one text although there is one field per Shot
-         — see `typeOn` — so nothing is parsed and no beat loses the Image or the
-         Conditions it carries. Counted twice: in Shots, which is what the Graph
-         says, and in words, which is what a writer asks. -->
-    <section class="held" :aria-labelledby="`shots-of-${sceneWritten.id}`">
+    <!-- The run of beats: the one in the gate at the size a Reader meets it — the
+         frame, and the words under it in the face they are read in — and the
+         whole run along the foot as the strip it is. Still typed as one text, and
+         still one field per Shot: the field is the gate's, and walking the run
+         moves the gate with the caret. Counted twice: in Shots, which is what the
+         node says, and in words, which is what a writer asks. -->
+    <section class="held run" :aria-labelledby="`shots-of-${sceneWritten.id}`">
       <h3 :id="`shots-of-${sceneWritten.id}`">
         {{ $t('editor.shotsHeld') }}
         <span class="counted">{{ counted.shots }}</span>
         <span class="counted words">{{ counted.words }}</span>
       </h3>
 
-      <ol class="shots">
+      <p v-if="!shotWritten" class="none">{{ $t('editor.noShotYet') }}</p>
+
+      <div v-else class="looking">
+        <!-- The gate proper: exactly what a Reader is shown of this beat, and the
+             field the Author types it in. -->
+        <div class="lit">
+          <!-- The frame is pressed to attach an image or replace one: the box is
+               a label and the input is clipped away inside it. Drawn whether or
+               not there is an image in it, so an unfinished beat reads as
+               unfinished. -->
+          <label
+            class="image"
+            :class="{ over: fileOver === shotWritten.id }"
+            @dragenter.prevent.stop="overImage(shotWritten, $event)"
+            @dragover.prevent.stop="overImage(shotWritten, $event)"
+            @dragleave="leaveImage(shotWritten, $event)"
+            @drop.prevent.stop="dropImage(shotWritten, $event)"
+          >
+            <img
+              v-if="shotWritten.image"
+              :src="imageOf(shotWritten)"
+              :alt="$t('editor.imageOfShot', { place: gated + 1 })"
+            >
+            <input
+              type="file"
+              class="visually-hidden"
+              :accept="SHOT_IMAGE_TYPES.join(',')"
+              :aria-label="$t('editor.pickImageOfShot', { place: gated + 1 })"
+              @change="attachImage(shotWritten, $event)"
+            >
+          </label>
+
+          <label class="visually-hidden" :for="`shot-${shotWritten.id}`">
+            {{ $t('editor.shotNumber', { place: gated + 1 }) }}
+          </label>
+          <textarea
+            :id="`shot-${shotWritten.id}`"
+            v-model="shotWritten.text"
+            data-step="shot-text"
+            class="prose"
+            rows="2"
+            :lang="story.language"
+            :maxlength="SHOT_TEXT_MAX_LENGTH"
+            @change="writeShot(shotWritten)"
+            @keydown="typeOn(sceneWritten, shotWritten, gated, $event)"
+          />
+        </div>
+
+        <!-- What the machine has to say about the beat in the gate, and what is
+             done to it rather than written in it: beside the gate, so the gate
+             holds the work and nothing else. -->
+        <aside class="machine">
+          <!-- What the image shows, for a Reader who cannot see it: nothing to
+               describe until one is attached. -->
+          <p v-if="shotWritten.image" class="described">
+            <label class="eyebrow" :for="`description-${shotWritten.id}`">
+              {{ $t('editor.description') }}
+              <span class="visually-hidden">
+                {{ $t('editor.descriptionOfShot', { place: gated + 1 }) }}
+              </span>
+            </label>
+            <input
+              :id="`description-${shotWritten.id}`"
+              v-model="shotWritten.description"
+              type="text"
+              :maxlength="SHOT_DESCRIPTION_MAX_LENGTH"
+              :placeholder="$t('editor.whatTheImageShows')"
+              @change="writeShot(shotWritten)"
+            >
+          </p>
+
+          <!-- The marks act on the beat in the gate, which is the beat they are
+               beside: the scissors split the Scene before it, which the first
+               beat has nothing before it to be split from. -->
+          <div class="row">
+            <button
+              v-if="gated > 0"
+              type="button"
+              class="mark"
+              @click="splitBefore(sceneWritten, shotWritten)"
+            >
+              <span aria-hidden="true">✂</span>
+              <span class="visually-hidden">
+                {{ $t('editor.splitBefore', { place: gated + 1 }) }}
+              </span>
+            </button>
+            <button
+              type="button"
+              class="mark"
+              :disabled="gated === 0"
+              @click="moveShot(sceneWritten, shotWritten, -1)"
+            >
+              <span aria-hidden="true">↑</span>
+              <span class="visually-hidden">
+                {{ $t('common.moveEarlier') }}
+                {{ $t('editor.shotNumber', { place: gated + 1 }) }}
+              </span>
+            </button>
+            <button
+              type="button"
+              class="mark"
+              :disabled="gated === sceneWritten.shots.length - 1"
+              @click="moveShot(sceneWritten, shotWritten, 1)"
+            >
+              <span aria-hidden="true">↓</span>
+              <span class="visually-hidden">
+                {{ $t('common.moveLater') }}
+                {{ $t('editor.shotNumber', { place: gated + 1 }) }}
+              </span>
+            </button>
+            <button type="button" class="danger mark" @click="deleteShot(shotWritten)">
+              <span aria-hidden="true">×</span>
+              <span class="visually-hidden">
+                {{ $t('common.delete') }}
+                {{ $t('editor.shotNumber', { place: gated + 1 }) }}
+              </span>
+            </button>
+          </div>
+        </aside>
+      </div>
+
+      <!-- What the beat plays under, across the width of the gate: a Condition is
+           a sentence and reads as one, which a column twelve rems wide is not. -->
+      <Conditions
+        v-if="shotWritten"
+        data-step="shot-condition"
+        :lead="$t('editor.playedWhen')"
+        :carrier="$t('editor.shotOfScene', {
+          place: gated + 1,
+          scene: sceneWritten.name,
+        })"
+        :conditions="shotWritten.conditions"
+        :scenes="story.scenes"
+        :counting="sceneWritten.id"
+        :id="shotWritten.id"
+        @write="writeConditions('shots', shotWritten.id, shotWritten.conditions)"
+      />
+
+      <!-- The strip: the whole run, wound under the gate. A cell is dragged to
+           another Place by the same grip that puts it in the gate — it is what the
+           Author refers to the beat as, so there is no second grip to explain.
+           Unmarked for the bar of Commands: which beat is in the gate is where the
+           Author is standing rather than an act they would say out loud, the way
+           the marks that renumber a row are pressed beside the row. -->
+      <ol class="strip">
         <li
           v-for="(shot, place) in sceneWritten.shots"
           :key="shot.id"
@@ -647,159 +840,43 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
             under: draggedShot?.over === shot.id && draggedShot.shotId !== shot.id,
           }"
         >
-          <!-- The number alone in the gutter, and the handle the Shot is dragged
-               by: it is what the Author refers to the Shot as, so there is no
-               second grip to explain. -->
-          <label
-            class="shot-number"
-            :for="`shot-${shot.id}`"
+          <button
+            type="button"
+            class="cell"
+            :aria-label="$t('editor.writeShot', { place: place + 1 })"
+            :aria-current="place === gated ? 'true' : undefined"
+            @click="gateShot(place)"
             @pointerdown="startShotDrag(shot, $event)"
             @pointermove="keepShotDrag"
             @pointerup="endShotDrag(sceneWritten)"
             @pointercancel="cancelShotDrag"
           >
-            <span class="visually-hidden">{{ $t('editor.shot') }} </span>{{ place + 1 }}
-          </label>
-          <div class="written">
-            <textarea
-              :id="`shot-${shot.id}`"
-              v-model="shot.text"
-              data-step="shot-text"
-              rows="2"
-              :maxlength="SHOT_TEXT_MAX_LENGTH"
-              @change="writeShot(shot)"
-              @keydown="typeOn(sceneWritten, shot, place, $event)"
-            />
+            <span class="cut" aria-hidden="true">
+              <img v-if="shot.image" :src="imageOf(shot)" alt="" draggable="false">
+            </span>
+            <span class="no" aria-hidden="true">{{ place + 1 }}</span>
+          </button>
+        </li>
 
-            <!-- The thumbnail is pressed to attach an image or replace one: the
-                 box is a label and the input is clipped away inside it. Drawn
-                 whether or not there is an image in it, so an unfinished Shot
-                 reads as unfinished. -->
-            <div class="image">
-              <label
-                :class="{ over: fileOver === shot.id }"
-                @dragenter.prevent.stop="overImage(shot, $event)"
-                @dragover.prevent.stop="overImage(shot, $event)"
-                @dragleave="leaveImage(shot, $event)"
-                @drop.prevent.stop="dropImage(shot, $event)"
-              >
-                <img
-                  v-if="shot.image"
-                  :src="imageOf(shot)"
-                  :alt="$t('editor.imageOfShot', { place: place + 1 })"
-                >
-                <input
-                  type="file"
-                  class="visually-hidden"
-                  :accept="SHOT_IMAGE_TYPES.join(',')"
-                  :aria-label="$t('editor.pickImageOfShot', { place: place + 1 })"
-                  @change="attachImage(shot, $event)"
-                >
-              </label>
-            </div>
-
-            <!-- What the image shows, for a Reader who cannot see it: nothing to
-                 describe until one is attached. -->
-            <p v-if="shot.image" class="described">
-              <label class="eyebrow" :for="`description-${shot.id}`">
-                {{ $t('editor.description') }}
-                <span class="visually-hidden">
-                  {{ $t('editor.descriptionOfShot', { place: place + 1 }) }}
-                </span>
-              </label>
-              <input
-                :id="`description-${shot.id}`"
-                v-model="shot.description"
-                type="text"
-                :maxlength="SHOT_DESCRIPTION_MAX_LENGTH"
-                :placeholder="$t('editor.whatTheImageShows')"
-                @change="writeShot(shot)"
-              >
-            </p>
-
-            <!-- What the beat plays under and what is done to the beat, on one
-                 line: a Shot carrying no Conditions — most of them — spends one
-                 quiet row on the pair. The marks are `.mark` in `frameline.css`;
-                 the scissors split the Scene before this beat, which the first
-                 beat has nothing before it to be split from. -->
-            <div class="beneath">
-              <Conditions
-                data-step="shot-condition"
-                :lead="$t('editor.playedWhen')"
-                :carrier="$t('editor.shotOfScene', {
-                  place: place + 1,
-                  scene: sceneWritten.name,
-                })"
-                :conditions="shot.conditions"
-                :scenes="story.scenes"
-                :counting="sceneWritten.id"
-                :id="shot.id"
-                @write="writeConditions('shots', shot.id, shot.conditions)"
-              />
-
-              <div class="row">
-                <button
-                  v-if="place > 0"
-                  type="button"
-                  class="mark"
-                  @click="splitBefore(sceneWritten, shot)"
-                >
-                  <span aria-hidden="true">✂</span>
-                  <span class="visually-hidden">
-                    {{ $t('editor.splitBefore', { place: place + 1 }) }}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  class="mark"
-                  :disabled="place === 0"
-                  @click="moveShot(sceneWritten, shot, -1)"
-                >
-                  <span aria-hidden="true">↑</span>
-                  <span class="visually-hidden">
-                    {{ $t('common.moveEarlier') }}
-                    {{ $t('editor.shotNumber', { place: place + 1 }) }}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  class="mark"
-                  :disabled="place === sceneWritten.shots.length - 1"
-                  @click="moveShot(sceneWritten, shot, 1)"
-                >
-                  <span aria-hidden="true">↓</span>
-                  <span class="visually-hidden">
-                    {{ $t('common.moveLater') }}
-                    {{ $t('editor.shotNumber', { place: place + 1 }) }}
-                  </span>
-                </button>
-                <button type="button" class="danger mark" @click="deleteShot(shot)">
-                  <span aria-hidden="true">×</span>
-                  <span class="visually-hidden">
-                    {{ $t('common.delete') }}
-                    {{ $t('editor.shotNumber', { place: place + 1 }) }}
-                  </span>
-                </button>
-              </div>
-            </div>
-          </div>
+        <!-- A beat added by hand rather than by key: what an Author who has just
+             opened a Scene with nothing in it gets, since there is no beat to
+             press Enter at the end of. -->
+        <li>
+          <button
+            type="button"
+            class="cell more"
+            :data-command="$t('editor.addShot')"
+            @click="addShot(sceneWritten)"
+          >
+            <span class="cut" aria-hidden="true">+</span>
+            <span class="no" aria-hidden="true">{{ $t('editor.add') }}</span>
+            <span class="visually-hidden">
+              {{ $t('editor.addShot') }}
+              {{ $t('editor.toScene', { name: sceneWritten.name }) }}
+            </span>
+          </button>
         </li>
       </ol>
-
-      <!-- A beat added by hand rather than by key: what an Author who has just
-           opened a Scene with nothing in it gets, since there is no beat to
-           press Enter at the end of. -->
-      <button
-        type="button"
-        class="add-shot"
-        :data-command="$t('editor.addShot')"
-        @click="addShot(sceneWritten)"
-      >
-        {{ $t('editor.addShot') }}
-        <span class="visually-hidden">
-          {{ $t('editor.toScene', { name: sceneWritten.name }) }}
-        </span>
-      </button>
     </section>
 
     <!-- The foot of the document: the ways on, in the Places the Scene offers
@@ -961,26 +1038,31 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
 </template>
 
 <style scoped>
-/* The document of one Scene, and the surface the Story is actually written on.
-   It is the deepest surface of the bench rather than a plate laid over it: what
-   is raised here is the Author's own work — a beat at a time, on the strips
-   below — and the machine around it stays down where the light does not catch
-   it. It takes the height the bench leaves and scrolls inside itself, so a Scene
-   of twenty Shots is read here rather than down the page, and it is the
-   containing block for what is inside it, so a visually hidden label deep in a
-   long Scene is clipped by the column and not by the page. */
+@import '~/assets/css/folds.css';
+
+/* The gate: the Scene being written, standing on the Graph in the place of its
+   own node — see `docs/adr/0042-the-scene-is-written-where-it-stands.md`. It
+   fills exactly the box the layout reserved for it and scrolls inside itself, so
+   a Scene of twenty beats and six ways on is read here rather than pushing the
+   Story it stands on about. It is the one thing on the table drawn in the
+   machine's own light: everything else there is a reading of the Story, and this
+   is where the Story is written.
+
+   It is the containing block for what is inside it, so a visually hidden label at
+   the foot of a long Scene is clipped by the gate and not by the page. */
 .panel {
   flex: 1;
   position: relative;
   display: grid;
-  gap: var(--s4);
+  gap: var(--s3);
   align-content: start;
   min-inline-size: 0;
   overflow: auto;
   padding: var(--s4);
-  border: 1px solid var(--edge);
+  border: 1px solid var(--light);
   border-radius: var(--machined);
   background: var(--bench);
+  box-shadow: 0 40px 90px -25px rgb(0 0 0 / 0.85);
 }
 
 /* The slate: the Scene's name, whether the Story opens on it, and the one act
@@ -1043,6 +1125,16 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   gap: var(--s3);
 }
 
+/* What the Scene sets on entering, read along one line with its own heading: a
+   Scene that sets nothing spends a line on saying so and not a paragraph, and
+   one that sets three Flags wraps them under it. */
+.held.set {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s2) var(--s3);
+}
+
 .held > h3 {
   display: flex;
   align-items: baseline;
@@ -1066,123 +1158,111 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   font-family: var(--data);
 }
 
-.add-shot {
-  justify-self: start;
-}
-
-/* The run of beats, laid out as the length of film it is: one strip a Shot,
-   raised off the bench, with the number in the margin the perforations would
-   run down. Nothing is drawn between them but the gap — a rule under every beat
-   is what made a page of writing read as a table. */
-.shots {
+/* The beat in the gate and the machine beside it. The gate takes the width and
+   the machine what is left, because the gate is what the surface is for. */
+.looking {
   display: grid;
-  gap: var(--s2);
-}
-
-.shots li,
-.ways li {
-  display: grid;
-  grid-template-columns: 1.75rem minmax(0, 1fr);
-  gap: var(--s1) var(--s2);
-  padding: var(--s2);
-  border-inline-start: 2px solid var(--edge);
-  border-radius: var(--machined);
-  transition: background-color 120ms ease-out;
-}
-
-/* The strip under the hand is the one that lifts off the bench, and the one
-   being typed in takes the machine's own light down its edge — the interface
-   saying where the caret is, never anything the Author wrote. Between times a
-   beat is nothing but its own words, because a run of filled boxes is a rack and
-   what this column holds is writing. */
-.shots li:hover,
-.ways li:hover {
-  background: var(--steel);
-}
-
-.shots li:focus-within,
-.ways li:focus-within {
-  border-inline-start-color: var(--light);
-  background: var(--steel);
-}
-
-/* A Shot's number is what the Author refers to it by, and it is also the handle
-   the Shot is dragged by, so it is not selected and not scrolled under the
-   pointer. */
-.shot-number {
-  color: var(--muted);
-  font-family: var(--data);
-  font-size: 0.8125rem;
-  /* The same line box as the beat beside it, so the number and the first line of
-     the Shot sit on one baseline however far the beat has grown. */
-  line-height: 1.55;
-  letter-spacing: 0;
-  text-align: end;
-  font-variant-numeric: tabular-nums;
-  user-select: none;
-  cursor: grab;
-  touch-action: none;
-}
-
-.shots li.dragged {
-  opacity: 0.5;
-}
-
-.shots li.under {
-  border-inline-start-color: var(--grease);
-  background: color-mix(in oklab, var(--grease) 12%, var(--steel));
-}
-
-/* A beat is a row and not a card: the text and the thumbnail side by side, the
-   Description on a line under where there is an image to describe, and what the
-   beat plays under sharing the last line with the marks. */
-.written {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) 12rem;
+  gap: var(--s3);
   align-items: start;
-  gap: var(--s2);
 }
 
-/* The four parts of a beat, placed rather than stacked: the text, the thumbnail
-   beside it holding the height of two rows, what the beat plays under on the
-   line beneath the text — inside the column the text has, so a beat that carries
-   neither an image nor a Condition is two short lines and not the tall empty box
-   a thumbnail's height used to make of every one of them — and the Description
-   across the foot, under the image it describes. */
-.written > textarea {
-  grid-area: 1 / 1;
+/* The gate proper: the frame, and the words under it. On the film gate's own
+   ground and behind its own curve — the one curve in the product — because this
+   is the frame a Reader will meet and not a thumbnail of it. */
+.lit {
+  display: grid;
+  gap: var(--s3);
+  padding: var(--s3);
+  border-radius: var(--gate);
+  background: var(--room);
 }
 
-.written > .image {
-  grid-area: 1 / 2 / span 2 / 3;
+/* The frame, drawn whether or not there is an image in it: an empty one is the
+   outline of the image nobody attached, which is how an unfinished beat reads as
+   unfinished. Pressed to attach one or replace one — the box is the label and the
+   input is clipped away inside it. Held to a share of the window so the words
+   under it are never pushed off the gate by a tall screen's worth of frame. */
+.image {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  inline-size: min(100%, 42ch);
+  max-block-size: 30vh;
+  margin-inline: auto;
+  border: 1px dashed var(--edge);
+  border-radius: var(--machined);
+  background: var(--bench);
+  color: var(--muted);
+  cursor: pointer;
 }
 
-.written > .beneath {
-  grid-area: 2 / 1;
+.image:not(:has(img))::before {
+  content: '+';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--data);
+  font-size: 1.5rem;
+  line-height: 1;
 }
 
-.written > .described {
-  grid-area: 3 / 1 / auto / -1;
+.image:hover {
+  border-color: color-mix(in oklab, var(--light) 55%, var(--edge));
+  color: var(--paper);
 }
 
-/* The one field on the bench an Author spends hours in, so it is the one thing
-   here set at the size of ordinary prose rather than of a label — and it carries
-   no box at all: the beat is written straight onto the strip, and grows down the
-   strip as it is typed rather than opening a scrollbar two lines deep. `rows` is
-   still on the element for a browser without `field-sizing`, which simply keeps
-   the two lines it was given. */
-.written textarea {
+/* An image landed: the outline it stood for is gone and the picture is the box. */
+.image:has(img) {
+  border-style: solid;
+  border-color: transparent;
+}
+
+/* The focus the input takes cannot be seen where the input is, so the ring is
+   drawn round the box that is pressed. */
+.image:has(:focus-visible) {
+  outline: 2px solid var(--light);
+  outline-offset: 2px;
+}
+
+/* A file over the frame wears the grease pencil: letting go would do something. */
+.image.over {
+  border-color: var(--grease);
+  background: color-mix(in oklab, var(--grease) 12%, var(--bench));
+}
+
+.image img {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+  border-radius: inherit;
+}
+
+/* The one field on the bench an Author spends hours in, and the only place in
+   the product where the interface is set in the reading face: what is typed here
+   is what is read, at the size and on the measure a Reader reads it at. It
+   carries no box at all — the beat is written straight into the gate — and grows
+   as it is typed rather than opening a scrollbar two lines deep. `rows` is still
+   on the element for a browser without `field-sizing`, which simply keeps the two
+   lines it was given. */
+.prose {
   field-sizing: content;
   block-size: auto;
-  min-block-size: 1lh;
-  max-block-size: 16lh;
+  min-block-size: 2lh;
+  max-block-size: 10lh;
+  inline-size: min(100%, 42ch);
+  margin-inline: auto;
   padding: 0;
   border: none;
   background: none;
-  font-size: 1rem;
+  font-family: var(--prose);
+  font-size: clamp(1.125rem, 1rem + 0.5vw, 1.375rem);
+  line-height: 1.5;
 }
 
-.written textarea:hover {
+.prose:hover {
   border: none;
 }
 
@@ -1191,13 +1271,121 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
    is otherwise all writing. Where the browser has no `field-sizing`, the grip
    is how a long beat is read, so it stays. */
 @supports (field-sizing: content) {
-  .written textarea {
+  .prose {
     resize: none;
   }
 }
 
+/* What the machine has to say about the beat in the gate: the Description, and
+   the marks that act on it. One beat's worth, so none of it waits to be asked
+   for — there is nothing here about a beat the Author is not looking at. */
+.machine {
+  display: grid;
+  align-content: start;
+  gap: var(--s3);
+}
+
+.machine .row {
+  gap: var(--s1);
+}
+
+/* The strip: the whole run wound under the gate, one cell a beat, with its Place
+   under it. It scrolls inside itself, so a Scene of twenty beats is wound along
+   rather than pushing the ways on off the gate. */
+.strip {
+  display: flex;
+  gap: var(--s2);
+  overflow-x: auto;
+  padding-block: var(--s2);
+  border-block: 1px solid var(--edge);
+}
+
+.strip li {
+  flex: none;
+}
+
+/* A cell is the grip as well as the way into the beat: it is what the Author
+   refers to the beat as, so there is no second handle to explain. Not selected
+   and not scrolled under the pointer, for that reason. */
+.strip .cell {
+  display: grid;
+  gap: 2px;
+  padding: 0;
+  border: none;
+  background: none;
+  user-select: none;
+  cursor: grab;
+  touch-action: none;
+}
+
+.strip .cut {
+  display: grid;
+  place-items: center;
+  inline-size: 5rem;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--edge);
+  border-radius: var(--machined);
+  background: var(--bench);
+  color: var(--muted);
+  font-family: var(--data);
+}
+
+.strip .cut img {
+  display: block;
+  -webkit-user-drag: none;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+.strip .no {
+  color: var(--muted);
+  font-family: var(--data);
+  font-size: 0.625rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.strip .cell:hover .cut {
+  border-color: color-mix(in oklab, var(--light) 55%, var(--edge));
+}
+
+/* The beat in the gate, said on the strip as well: the machine's own light, on
+   the cell whose frame is up. */
+.strip .cell[aria-current] .cut {
+  border-color: var(--light);
+  outline: 1px solid var(--light);
+}
+
+.strip .cell[aria-current] .no {
+  color: var(--light);
+}
+
+.strip .more .cut {
+  border-style: dashed;
+}
+
+.strip li.dragged {
+  opacity: 0.5;
+}
+
+.strip li.under .cut {
+  border-color: var(--grease);
+  background: color-mix(in oklab, var(--grease) 12%, var(--steel));
+}
+
+/* A way on is a row and not a card: where it leads and what the Reader presses
+   side by side, and what it is offered under under both. */
+.written {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--s2);
+}
+
 /* The Conditions and the marks on one line, the marks at the trailing edge. A
-   beat carrying Conditions grows a column of them and the marks drop under it,
+   way on carrying Conditions grows a column of them and the marks drop under it,
    which is what wrap is for. */
 .beneath {
   display: flex;
@@ -1213,99 +1401,40 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
   min-inline-size: 0;
 }
 
-/* What is done to a beat rather than written in it — move it, split before it,
-   take it away, put it under a Condition — waits for the hand or the keyboard to
-   arrive at the beat. It is drawn and laid out at every moment, so nothing moves
-   when it appears and nothing is taken out of the tab order or off a screen
-   reader: it is simply not lit until the beat is the one being worked on. What
-   the Author has already written — a Condition that exists — is never dimmed;
-   only the offer to add one is. */
-.written .row,
-.beneath .conditions.quiet {
+/* What is done to a way on rather than written in it — move it, take it away,
+   write a second one to the same Scene, put it under a Condition — waits for the
+   hand or the keyboard to arrive at the row. It is drawn and laid out at every
+   moment, so nothing moves when it appears and nothing is taken out of the tab
+   order or off a screen reader: it is simply not lit until the row is the one
+   being worked on. What the Author has already written — a Condition that
+   exists — is never dimmed; only the offer to add one is. */
+.ways .written .row,
+.ways .beneath .conditions.quiet {
   opacity: 0;
   transition: opacity 120ms ease-out;
 }
 
-li:hover .row,
-li:focus-within .row,
-li:hover .conditions.quiet,
-li:focus-within .conditions.quiet {
+.ways li:hover .row,
+.ways li:focus-within .row,
+.ways li:hover .conditions.quiet,
+.ways li:focus-within .conditions.quiet {
   opacity: 1;
 }
 
 /* A screen with no pointer has no hover to reveal anything with, so there the
-   strip is simply always lit. */
+   row is simply always lit. */
 @media (hover: none) {
-  .written .row,
-  .beneath .conditions.quiet {
+  .ways .written .row,
+  .ways .beneath .conditions.quiet {
     opacity: 1;
   }
 }
 
-/* The box an image goes in, at the size a thumbnail is whether or not one has
-   landed in it: an unfinished beat is legible as one. Empty it is an outline
-   with the mark that fills it; full it is the image, edge to edge. */
-.image > label {
-  position: relative;
-  display: block;
-  inline-size: 4.5rem;
-  block-size: 3rem;
-  border: 1px dashed var(--edge);
-  border-radius: var(--machined);
-  background: var(--bench);
-  color: var(--muted);
-  cursor: pointer;
-}
-
-.image > label:not(:has(img))::before {
-  content: '+';
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-family: var(--data);
-  font-size: 1rem;
-  line-height: 1;
-}
-
-.image > label:hover {
-  border-color: color-mix(in oklab, var(--light) 55%, var(--edge));
-  color: var(--paper);
-}
-
-/* An image landed: the outline it stood for is gone and the picture is the box. */
-.image > label:has(img) {
-  border-style: solid;
-}
-
-/* The focus the input takes cannot be seen where the input is, so the ring is
-   drawn round the box that is pressed. */
-.image > label:has(:focus-visible) {
-  outline: 2px solid var(--light);
-  outline-offset: 2px;
-}
-
-/* A file over the thumbnail wears the grease pencil: letting go would do
-   something. */
-.image > label.over {
-  border-color: var(--grease);
-  background: color-mix(in oklab, var(--grease) 12%, var(--bench));
-}
-
-.image img {
-  display: block;
-  inline-size: 100%;
-  block-size: 100%;
-  object-fit: cover;
-  border-radius: inherit;
-}
-
-/* What the image shows, on the line under it: a label and a field, at the size
-   of the note it is rather than of the beat it belongs to. */
+/* What the image shows, in the machine column beside the gate: a label over a
+   field, at the size of the note it is rather than of the beat it belongs to. */
 .described {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
+  display: grid;
+  gap: var(--s1);
 }
 
 .described input {
@@ -1320,8 +1449,8 @@ li:focus-within .conditions.quiet {
   border-color: var(--edge);
 }
 
-/* The marks that act on a beat or a way on, set closer than a row of controls
-   anywhere else: three or four are one strip. */
+/* The marks that act on a way on, set closer than a row of controls anywhere
+   else: three or four are one strip. */
 .written .row {
   gap: var(--s1);
 }
@@ -1449,5 +1578,18 @@ li:focus-within .arrival .mark {
 
 .panel > * {
   justify-self: stretch;
+}
+
+/* On a phone the gate is the whole table, and there is no room beside the frame
+   for the machine's own column: it goes under the gate, where the strip and the
+   ways on already are. */
+@media (--phone) {
+  .looking {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .panel {
+    padding: var(--s3);
+  }
 }
 </style>

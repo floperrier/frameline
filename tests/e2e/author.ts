@@ -230,17 +230,74 @@ export async function seedScenes(story: Story, names: string[]) {
 }
 
 /**
- * Puts a Scene on the surface it is written on, the way an Author would: by
- * pressing its node on the map. The Story opens on its Opening Scene already, so
- * a node already lit is left alone — a press on it does nothing — and either way
- * the document of that Scene is waited for. Scoped to the Graph, because the
- * document's own way on carries a mark named the same way.
+ * Puts a Scene under the gate, the way an Author would: by pressing its node on
+ * the Graph. The Scene the gate already stands on has no node — there is nothing
+ * a press on it could do — so a Scene already being written is left alone, and
+ * either way the gate is waited for. Scoped to the Graph, because the gate's own
+ * way on carries a mark named the same way.
  */
 export async function writeScene(page: Page, name: string) {
-  const node = page.locator('.graph').getByRole('button', { name: `Go to ${name}` })
-  await expect(node).toBeVisible()
-  if (await node.getAttribute('aria-current') !== 'true') await node.click()
-  await expect(page.getByRole('group', { name: `Writing ${name}` })).toBeVisible()
+  const gate = page.getByRole('group', { name: `Writing ${name}` })
+
+  if (!await gate.isVisible()) {
+    const node = sceneNode(page, name)
+    await expect(node).toBeVisible()
+    await node.click()
+  }
+
+  await expect(gate).toBeVisible()
+}
+
+/**
+ * A Scene's node on the Graph, told apart from the mark in the gate that carries
+ * the same name: a way on's own control is *Go to* the Scene it lands on too,
+ * and the gate stands inside the Graph now — see
+ * `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
+ */
+export function sceneNode(page: Page, name: string) {
+  return page.getByRole('button', { name: `Go to ${name}` }).and(page.locator('.node'))
+}
+
+/**
+ * Lifts the gate off the Graph, which is how an Author looks at the whole Story:
+ * every Scene has a node again, the one being written included.
+ */
+export async function wholeStory(page: Page) {
+  await page.getByRole('button', { name: 'The whole Story' }).click()
+  await expect(page.locator('.panel')).toHaveCount(0)
+}
+
+/**
+ * Turns the gate over onto its reading face, which is where an Author reads their
+ * own Story: the same box in the same place on the Graph — see
+ * `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
+ */
+export async function readTheStory(page: Page) {
+  const preview = page.getByRole('region', { name: /^Preview/ })
+  if (!await preview.isVisible()) {
+    await page.getByRole('button', { name: 'Read the Story' }).click()
+  }
+  await expect(preview).toBeVisible()
+
+  return preview
+}
+
+/**
+ * Puts one beat of the Scene being written in the gate, the way an Author does:
+ * by pressing its cell on the strip. There is one field for the run — the
+ * gate's — so this is how a spec reaches the words of any beat but the one the
+ * Scene opened at, and it hands that field back. See
+ * `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
+ */
+export async function writeShot(page: Page, place: number) {
+  const cell = page.getByRole('button', { name: `Write Shot ${place}` })
+  await expect(cell).toBeVisible()
+  if (await cell.getAttribute('aria-current') !== 'true') await cell.click()
+
+  const field = page.getByRole('textbox', { name: `Shot ${place}`, exact: true })
+  await expect(field).toBeVisible()
+
+  return field
 }
 
 /**

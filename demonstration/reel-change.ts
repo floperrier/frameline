@@ -39,7 +39,6 @@ export const REEL_CHANGE: Work = {
   scenes: [
     {
       name: 'The booth',
-      at: [60, 460],
       shots: [
         {
           text: 'The last show has run out. Down in the house the seats fold up on their own, '
@@ -84,7 +83,6 @@ export const REEL_CHANGE: Work = {
 
     {
       name: 'The gate',
-      at: [520, 40],
       sets: { reel: 'threaded' },
       shots: [
         {
@@ -155,7 +153,6 @@ export const REEL_CHANGE: Work = {
 
     {
       name: 'Row nine',
-      at: [520, 900],
       shots: [
         {
           text: 'The house is warm still, and smells of the dust the lamp burns.',
@@ -215,7 +212,6 @@ export const REEL_CHANGE: Work = {
 
     {
       name: 'The coat',
-      at: [980, 900],
       shots: [
         {
           text: 'The same coat, over the same arm of the same seat, two hundred feet upstairs.',
@@ -272,7 +268,6 @@ export const REEL_CHANGE: Work = {
 
     {
       name: 'Daybreak',
-      at: [980, 400],
       shots: [
         {
           text: 'The window over the bench gives onto the boulevard, and the boulevard '

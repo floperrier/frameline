@@ -4,7 +4,10 @@ import type { StoryInEditor } from '../../shared/utils/scenes'
 import { CONDITIONS_MAX, FLAGS_PER_SCENE, VISITS_MAX } from '../../shared/utils/scenes'
 import {
   ONE_PIXEL,
+  sceneNode,
+  wholeStory,
   writeScene,
+  writeShot,
   readExits,
   readFlags,
   readSceneName,
@@ -952,15 +955,17 @@ test('a way on is written by naming where it leads, and a name nothing answers t
     ])
     await expect(page.getByRole('textbox', { name: 'Exit to The buffet' })).toBeFocused()
 
-    // The Graph has drawn the new Scene one column on from the one it leaves, with
-    // nothing placed by anybody.
-    const arrivalNode = page.locator('.graph').getByRole('button', { name: 'Go to The arrival' })
-    const buffetNode = page.locator('.graph').getByRole('button', { name: 'Go to The buffet' })
-    expect((await buffetNode.boundingBox())!.x).toBeGreaterThan((await arrivalNode.boundingBox())!.x)
-
     // `platform` is untouched and still reachable from the field.
     expect(platform.id).toBeTruthy()
     await expect.poll(offered).toEqual(['The platform'])
+
+    // The Graph has drawn the new Scene one column on from the one it leaves, with
+    // nothing placed by anybody. Read with the gate lifted off, because the Scene
+    // it stands on has no node of its own.
+    await wholeStory(page)
+    const arrivalNode = sceneNode(page, 'The arrival')
+    const buffetNode = sceneNode(page, 'The buffet')
+    expect((await buffetNode.boundingBox())!.x).toBeGreaterThan((await arrivalNode.boundingBox())!.x)
   })
 
 test('the Graph is drawn from the Story, and redrawn as the Story changes', async ({ page, request }) => {
@@ -974,10 +979,14 @@ test('the Graph is drawn from the Story, and redrawn as the Story changes', asyn
   await page.goto(`/stories/${story.id}`)
 
   // Every Scene is a node, named for what pressing it does, and every Exit but
-  // one to the Scene itself is a line.
+  // one to the Scene itself is a line. Read with the gate lifted off: the Scene
+  // being written stands on the Graph in the place of its own node, so the whole
+  // drawing is what the whole Story looks like — see
+  // `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
   const graph = page.getByRole('navigation', { name: 'Graph' })
-  const node = (name: string) => graph.getByRole('button', { name: `Go to ${name}` })
+  const node = (name: string) => sceneNode(page, name)
   const at = async (name: string) => (await node(name).boundingBox())!
+  await wholeStory(page)
   await expect(graph.getByRole('button')).toHaveCount(5)
   await expect(graph.locator('line')).toHaveCount(3)
 
@@ -994,17 +1003,18 @@ test('the Graph is drawn from the Story, and redrawn as the Story changes', asyn
   await expect(node('The loose end')).toHaveClass(/unreached/)
   await expect(node('The arrival')).toContainText('0 Shots')
 
-  // The Story opens on its Opening Scene, and a press on a node puts that Scene
-  // on the surface under the Graph — which the node then says.
-  await expect(node('The arrival')).toHaveAttribute('aria-current', 'true')
+  // A press on a node puts that Scene under the gate, and the gate takes the
+  // place of its node: which Scene is being written is said by the gate rather
+  // than by a mark on a node, because the node is not there.
   await node('The bar').click()
   await expect(page.getByRole('group', { name: 'Writing The bar' })).toBeVisible()
-  await expect(node('The bar')).toHaveAttribute('aria-current', 'true')
-  await expect(node('The arrival')).not.toHaveAttribute('aria-current', 'true')
+  await expect(node('The bar')).toHaveCount(0)
+  await expect(node('The arrival')).toBeVisible()
 
   // Nothing is placed by hand, so the Graph follows the Story: another Opening
   // Scene is another first column.
   await page.getByRole('radio', { name: 'Opening Scene The bar' }).check()
+  await wholeStory(page)
   await expect(node('The bar')).toHaveClass(/opens/)
   await expect.poll(async () => (await at('The arrival')).x > (await at('The bar')).x).toBe(true)
 })
@@ -1029,7 +1039,10 @@ test('a Scene is split before one of its Shots, and its ways on move to the seco
     expect(refused.status()).toBe(400)
 
     await page.goto(`/stories/${story.id}`)
+    // The first beat has nothing before it to be split from, so the mark is not
+    // drawn beside it; the second is put in the gate, where the mark acts.
     await expect(page.getByRole('button', { name: 'Split the Scene before Shot 1' })).toHaveCount(0)
+    await writeShot(page, 2)
     await page.getByRole('button', { name: 'Split the Scene before Shot 2' }).click()
     await expect(toast(page))
       .toHaveText('“The arrival” split: what followed is now “The arrival, continued”')

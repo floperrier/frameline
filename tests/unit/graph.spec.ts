@@ -3,6 +3,8 @@ import type { Exit, Scene } from '../../shared/utils/scenes'
 import {
   DEPTH_GAP,
   exitLine,
+  GATE_HEIGHT,
+  GATE_WIDTH,
   inDocumentOrder,
   laidOut,
   NODE_GAP,
@@ -26,12 +28,15 @@ function exit(from: string, to: string, position = 0): Exit {
 const column = (depth: number) => depth * (NODE_WIDTH + DEPTH_GAP)
 const row = (place: number) => place * (NODE_HEIGHT + NODE_GAP)
 
+/** A node's own box, which is every box on a Graph with no gate standing on it. */
+const node = (x: number, y: number) => ({ x, y, width: NODE_WIDTH, height: NODE_HEIGHT })
+
 describe('where the map draws each Scene', () => {
   test('puts the Opening Scene alone in the first column', () => {
     const { placed } = laidOut([scene('a'), scene('b')], [exit('a', 'b')], 'a')
 
-    expect(placed.get('a')).toEqual({ x: 0, y: 0 })
-    expect(placed.get('b')).toEqual({ x: column(1), y: 0 })
+    expect(placed.get('a')).toEqual(node(0, 0))
+    expect(placed.get('b')).toEqual(node(column(1), 0))
   })
 
   test('puts a Scene in the column of its distance from the opening, in Exits taken', () => {
@@ -82,15 +87,15 @@ describe('where the map draws each Scene', () => {
     const scenes = ['a', 'b'].map(scene)
     const { placed } = laidOut(scenes, [exit('a', 'b'), exit('b', 'a'), exit('b', 'b', 1)], 'a')
 
-    expect(placed.get('a')).toEqual({ x: 0, y: 0 })
-    expect(placed.get('b')).toEqual({ x: column(1), y: 0 })
+    expect(placed.get('a')).toEqual(node(0, 0))
+    expect(placed.get('b')).toEqual(node(column(1), 0))
   })
 
   test('lays a Story with no Opening Scene out from its first Scene', () => {
     const { placed, width, height } = laidOut(['a', 'b'].map(scene), [exit('a', 'b')], null)
 
-    expect(placed.get('a')).toEqual({ x: 0, y: 0 })
-    expect(placed.get('b')).toEqual({ x: column(1), y: 0 })
+    expect(placed.get('a')).toEqual(node(0, 0))
+    expect(placed.get('b')).toEqual(node(column(1), 0))
     expect({ width, height }).toEqual({ width: column(1) + NODE_WIDTH, height: NODE_HEIGHT })
   })
 
@@ -105,17 +110,67 @@ describe('where the map draws each Scene', () => {
   })
 })
 
+describe('where the Graph puts the Scene being written', () => {
+  test('gives its box the gate and leaves every other one a node', () => {
+    const { placed } = laidOut([scene('a'), scene('b')], [exit('a', 'b')], 'a', 'a')
+
+    expect(placed.get('a')).toMatchObject({ width: GATE_WIDTH, height: GATE_HEIGHT })
+    expect(placed.get('b')).toMatchObject({ width: NODE_WIDTH, height: NODE_HEIGHT })
+  })
+
+  test('widens the column it stands in, and pushes the columns after it along', () => {
+    const { placed, width } = laidOut([scene('a'), scene('b')], [exit('a', 'b')], 'a', 'a')
+
+    expect(placed.get('a')!.x).toBe(0)
+    expect(placed.get('b')!.x).toBe(GATE_WIDTH + DEPTH_GAP)
+    expect(width).toBe(GATE_WIDTH + DEPTH_GAP + NODE_WIDTH)
+  })
+
+  test('centres a node of the widened column on it, so a column stays a column', () => {
+    const scenes = ['a', 'b', 'c'].map(scene)
+    // `b` and `c` share the second column, and the gate is on `b`.
+    const { placed } = laidOut(scenes, [exit('a', 'b'), exit('a', 'c', 1)], 'a', 'b')
+
+    expect(placed.get('b')!.x).toBe(placed.get('c')!.x - (GATE_WIDTH - NODE_WIDTH) / 2)
+  })
+
+  test('pushes the Scenes under it down by what the gate takes', () => {
+    const scenes = ['a', 'b', 'c'].map(scene)
+    const exits = [exit('a', 'b'), exit('a', 'c', 1)]
+    const { placed, height } = laidOut(scenes, exits, 'a', 'b')
+
+    expect(placed.get('c')!.y - placed.get('b')!.y).toBe(GATE_HEIGHT + NODE_GAP)
+    expect(height).toBe(GATE_HEIGHT + NODE_GAP + NODE_HEIGHT)
+  })
+
+  test('closes back up when nothing is being written on it', () => {
+    const scenes = ['a', 'b'].map(scene)
+    const exits = [exit('a', 'b')]
+
+    expect(laidOut(scenes, exits, 'a', undefined)).toEqual(laidOut(scenes, exits, 'a'))
+  })
+
+  test('leaves the order of the columns and the rows alone whichever Scene it is on', () => {
+    const scenes = ['a', 'b', 'c'].map(scene)
+    const exits = [exit('a', 'b'), exit('a', 'c', 1)]
+    const read = (written?: string) => [...laidOut(scenes, exits, 'a', written).placed.keys()]
+
+    expect(read('b')).toEqual(read())
+    expect(read('c')).toEqual(read())
+  })
+})
+
 describe('the line that draws an Exit', () => {
   test('runs from the flank of one node to the flank of the next', () => {
-    const { from, to } = exitLine({ x: 0, y: 0 }, { x: column(1), y: 0 })
+    const { from, to } = exitLine(node(0, 0), node(column(1), 0))
 
     expect(from).toEqual({ x: NODE_WIDTH, y: NODE_HEIGHT / 2 })
     expect(to).toEqual({ x: column(1), y: NODE_HEIGHT / 2 })
   })
 
   test('spreads two ways on out of one node along its flank, in the order offered', () => {
-    const first = exitLine({ x: 0, y: 0 }, { x: column(1), y: 0 }, 1, 2)
-    const second = exitLine({ x: 0, y: 0 }, { x: column(1), y: 0 }, 2, 2)
+    const first = exitLine(node(0, 0), node(column(1), 0), 1, 2)
+    const second = exitLine(node(0, 0), node(column(1), 0), 2, 2)
 
     expect(first.from.x).toBe(NODE_WIDTH)
     expect(first.from.y).toBeLessThan(second.from.y)
@@ -124,9 +179,16 @@ describe('the line that draws an Exit', () => {
   })
 
   test('draws a line of no length between two nodes on one spot', () => {
-    const { from, to } = exitLine({ x: 0, y: 0 }, { x: 0, y: 0 })
+    const { from, to } = exitLine(node(0, 0), node(0, 0))
 
     expect(from).toEqual(to)
+  })
+
+  test('leaves the gate by the gate flank, not by a node flank', () => {
+    const gate = { x: 0, y: 0, width: GATE_WIDTH, height: GATE_HEIGHT }
+    const { from } = exitLine(gate, node(GATE_WIDTH + DEPTH_GAP, 0))
+
+    expect(from.x).toBe(GATE_WIDTH)
   })
 })
 

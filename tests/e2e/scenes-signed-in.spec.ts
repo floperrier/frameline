@@ -2,7 +2,7 @@ import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 import { CONDITIONS_MAX, SCENE_NAME_MAX_LENGTH, VISITS_MAX } from '../../shared/utils/scenes'
 import {
-  writeScene, readExits, readSceneName, readShotConditions, readShots, seedFlags,
+  writeScene, writeShot, readExits, readSceneName, readShotConditions, readShots, seedFlags,
   seedExit, seedScene, seedStory, test,
 } from './author'
 
@@ -104,10 +104,12 @@ test('an Author renames a Scene in the panel', async ({ page, request }) => {
   await expect(async () => {
     await expect(readSceneName(scene.id)).resolves.toBe('The arrival')
   }).toPass()
-  // And the node answers to the new name: the name it carries is the Scene's, so
-  // everything that says which Scene this is has followed the correction.
-  await expect(page.locator('.graph').getByRole('button', { name: 'Go to The arrival' })).toBeVisible()
-  // The panel's heading is the field, so what it is called is what the field
+  // And everything that says which Scene this is has followed the correction: the
+  // gate is named by the Scene it holds, and the Scene has no node of its own
+  // while the gate stands on it — see
+  // `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
+  await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
+  // The gate's heading is the field, so what it is called is what the field
   // holds: the label saying which Scene this is sits outside it rather than in
   // front of the name.
   await expect(page.locator('.panel').getByRole('heading', { name: 'The arrival' }))
@@ -206,6 +208,9 @@ test('a Shot’s three controls are marks on one line', async ({ page, request }
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The arrival')
 
+  // The marks act on the beat in the gate, which is the beat they stand beside.
+  await writeShot(page, 2)
+
   // Each image says what it does and which Shot it does it to — the words moved
   // to where assistive technology alone reads them, they did not go.
   const earlier = page.getByRole('button', { name: 'Move Earlier Shot 2' })
@@ -214,30 +219,31 @@ test('a Shot’s three controls are marks on one line', async ({ page, request }
   await expect(page.getByRole('button', { name: 'Delete Shot 2' })).toBeVisible()
 
   // The whole point of the marks: each control is about as wide as it is tall
-  // rather than as wide as the sentence it used to be set in, so the three sit on
-  // one line in the width a node gives a Shot.
+  // rather than as wide as the sentence it used to be set in, so the four sit on
+  // one line in the machine's own column beside the gate.
   const control = (await earlier.boundingBox())!
   expect(control.width).toBeLessThan(control.height * 2)
-  const strip = (await page.locator('.written .row').nth(1).boundingBox())!
+  const strip = (await page.locator('.machine .row').boundingBox())!
   expect(strip.height).toBeLessThan(control.height * 2)
 })
 
 test.describe('dragging a Shot', () => {
-  // Tall enough that a Scene of three Shots is on screen at once, so the drags
-  // below say what a drop does and nothing about what a long run scrolls — that
-  // is the test at the end of this block, which asks for a short bench instead.
-  test.use({ viewport: { width: 1280, height: 1400 }, hasTouch: true })
+  // Wide enough that the gate stands on the Graph rather than covering it, and
+  // tall enough that the whole of it is on screen: the drags below say what a
+  // drop does and nothing about what a long run winds — that is the test at the
+  // end of this block, which asks for a run longer than the strip instead.
+  test.use({ viewport: { width: 1440, height: 1200 }, hasTouch: true })
 
-  test('an Author drags a Shot by its number to the Place it belongs', async ({
+  test('an Author drags a Shot by its cell to the Place it belongs', async ({
     page, request,
   }) => {
     const { story, scene } = await openScene(request, 'The arrival')
     const [first, , third] = await writeShots(request, scene.id, ['First', 'Second', 'Third'])
-    const number = (shot: { id: string }) => page.locator(`[data-shot="${shot.id}"] .shot-number`)
+    const cell = (shot: { id: string }) => page.locator(`[data-shot="${shot.id}"] .cell`)
 
     await page.goto(`/stories/${story.id}`)
     await writeScene(page, 'The arrival')
-    await dragShot(page, number(first!), number(third!))
+    await dragShot(page, cell(first!), cell(third!))
 
     // Dropped on the Shot that stood last, it takes that Place and the two it
     // passed come up one apiece: a drag crosses the run rather than swapping
@@ -254,19 +260,19 @@ test.describe('dragging a Shot', () => {
     // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`, so the reload
     // comes back to it and there is nothing to open again.
     await page.reload()
-    await expect(page.getByRole('textbox', { name: 'Shot 3' })).toHaveValue('First')
+    await expect(await writeShot(page, 3)).toHaveValue('First')
 
-    // A finger says nothing here: it scrolls the panel, and the two controls are
+    // A finger says nothing here: it winds the strip, and the two controls are
     // its route to the same renumbering. The same gesture as above, aimed at the
     // same two Shots and carrying the same points — everything but the finger it
     // is made with — so what leaves the Scene as it was is the finger itself.
     //
-    // What this pins is the scrolling: give the number a `touch-action` of none
-    // and the finger renumbers, which is the browser saying the gesture was the
+    // What this pins is the winding: give the cell a `touch-action` of none and
+    // the finger renumbers, which is the browser saying the gesture was the
     // page's rather than the scroller's. The Shot drag refuses a finger twice
     // over, and the second refusal — `pointerType`, for a run with nothing to
-    // scroll — is not one an assertion here can tell apart from the first.
-    await touchShot(page, number(third!), number(first!))
+    // wind — is not one an assertion here can tell apart from the first.
+    await touchShot(page, cell(third!), cell(first!))
     await expect(readShots(scene.id)).resolves.toMatchObject([
       { text: 'Second', position: 0 },
       { text: 'Third', position: 1 },
@@ -274,23 +280,23 @@ test.describe('dragging a Shot', () => {
     ])
   })
 
-  test('a Shot let go of away from the run is left where it was', async ({ page, request }) => {
+  test('a Shot let go of away from the strip is left where it was', async ({ page, request }) => {
     const { story, scene } = await openScene(request, 'The arrival')
     const [first] = await writeShots(request, scene.id, ['First', 'Second', 'Third'])
-    const number = (shot: { id: string }) => page.locator(`[data-shot="${shot.id}"] .shot-number`)
+    const cell = (shot: { id: string }) => page.locator(`[data-shot="${shot.id}"] .cell`)
 
     await page.goto(`/stories/${story.id}`)
     await writeScene(page, 'The arrival')
 
-    // Let go of over the bare bench rather than over a Place: one panel holds one
-    // Scene's run, so anywhere that is not a row of it is nowhere the drop could
+    // Let go of over the bare Graph rather than over a Place: one strip holds one
+    // Scene's run, so anywhere that is not a cell of it is nowhere the drop could
     // mean anything. The hit-test asks the whole page, and what it comes back
     // with is held against the run before a Place is written.
-    const held = await pointOn(number(first!))
-    const bench = (await page.locator('.graph').boundingBox())!
+    const held = await pointOn(cell(first!))
+    const table = (await page.locator('.graph').boundingBox())!
     await page.mouse.move(held.x, held.y)
     await page.mouse.down()
-    await page.mouse.move(bench.x + bench.width / 2, bench.y + bench.height - 20, { steps: 5 })
+    await page.mouse.move(table.x + 8, table.y + 8, { steps: 5 })
     await page.mouse.up()
 
     // Nothing was renumbered: the drop said nothing rather than something else.
@@ -301,87 +307,81 @@ test.describe('dragging a Shot', () => {
     ])
   })
 
-  // Twice over, because the run is written twice: a glide of a few pixels a frame
-  // for an Author who asked for nothing, and a stride of a Shot's row every fifth
-  // of a second for one who asked for less motion. Both travel the same distance
-  // in the same time, and the Place has to be reachable either way.
+  // Twice over, because the run is wound twice: a glide of a few pixels a frame
+  // for an Author who asked for nothing, and a stride of a cell every fifth of a
+  // second for one who asked for less motion. Both travel the same distance in
+  // the same time, and the Place has to be reachable either way.
   for (const motion of ['no-preference', 'reduce'] as const) {
-    test.describe(`to a Place off screen, with ${motion} motion`, () => {
-      // Tall enough that the whole of the panel is on screen — bands, foot and
-      // all, so every point this drag needs is one a hand could reach — and short
-      // enough that a Scene of fourteen Shots still overflows the height of the
-      // bench the panel is capped at, which is what gives the run somewhere to go.
-      test.use({ viewport: { width: 1280, height: 1100 }, reducedMotion: motion })
+    test.describe(`to a Place off the strip, with ${motion} motion`, () => {
+      test.use({ viewport: { width: 1440, height: 1200 }, reducedMotion: motion })
 
-      test('a Shot dragged to the edge of a long run scrolls the panel to it', async ({
+      test('a Shot dragged to the end of a long run winds the strip to it', async ({
         page, request,
       }) => {
         const { story, scene } = await openScene(request, 'The arrival')
         const texts = [...Array(14)].map((_, at) => `Shot ${at + 1}`)
         const written = await writeShots(request, scene.id, texts)
-        const number = (shot: { id: string }) =>
-          page.locator(`[data-shot="${shot.id}"] .shot-number`)
+        const cell = (shot: { id: string }) => page.locator(`[data-shot="${shot.id}"] .cell`)
         const first = written[0]!
         const last = written.at(-1)!
 
         await page.goto(`/stories/${story.id}`)
         await writeScene(page, 'The arrival')
 
-        // The Place the drag is aimed at is off the foot of the panel when it
-        // begins: the panel is capped at the height of the bench, and the run is
-        // longer than that. The whole of the panel is on screen, which is what
-        // makes the rest of this a gesture rather than an arrangement of points.
-        const body = page.locator('.panel')
-        const box = (await body.boundingBox())!
+        // The Place the drag is aimed at is off the trailing end of the strip
+        // when it begins: the strip is as wide as the gate, and a run of fourteen
+        // beats is wider than that. The whole of the strip is on screen, which is
+        // what makes the rest of this a gesture rather than an arrangement of
+        // points.
+        const strip = page.locator('.strip')
+        const box = (await strip.boundingBox())!
         expect(box.y + box.height).toBeLessThan(page.viewportSize()!.height)
-        expect((await number(last).boundingBox())!.y).toBeGreaterThan(box.y + box.height)
+        expect((await cell(last).boundingBox())!.x).toBeGreaterThan(box.x + box.width)
 
-        const held = await pointOn(number(first))
+        const held = await pointOn(cell(first))
         await page.mouse.move(held.x, held.y)
         await page.mouse.down()
 
-        // The band is measured after the press, not before it: pressing a Shot's
-        // number focuses that Shot's field, and a browser that scrolls the page
-        // to show it has moved the panel since the box above was taken.
-        const pressed = (await body.boundingBox())!
-        const band = { x: held.x, y: pressed.y + pressed.height - 8 }
+        const band = { x: box.x + box.width - 8, y: held.y }
 
-        // Into the band at the panel's bottom edge, and then nothing: the hand
-        // stays where it is while the run carries the list past it.
-        const scrolled = () => body.evaluate(scroller => scroller.scrollTop)
+        // Into the band at the strip's trailing edge, and then nothing: the hand
+        // stays where it is while the run carries the cells past it.
+        const wound = () => strip.evaluate(scroller => scroller.scrollLeft)
         const elsewhere = () => page.evaluate(() => [
-          window.scrollY, document.querySelector('.graph')!.scrollTop,
+          window.scrollY,
+          document.querySelector('.graph')!.scrollLeft,
+          document.querySelector('.panel')!.scrollTop,
         ])
         const before = await elsewhere()
         await page.mouse.move(band.x, band.y, { steps: 5 })
-        await expect.poll(scrolled).toBeGreaterThan(0)
+        await expect.poll(wound).toBeGreaterThan(0)
 
         // Out of the band and back into the middle of the run, where the hand is
-        // over a row rather than an edge: the run stops with it.
-        await page.mouse.move(band.x, pressed.y + pressed.height / 2, { steps: 5 })
-        const stopped = await scrolled()
+        // over a cell rather than an edge: the run stops with it.
+        await page.mouse.move(box.x + box.width / 2, band.y, { steps: 5 })
+        const stopped = await wound()
         await page.waitForTimeout(300)
-        expect(await scrolled()).toBe(stopped)
+        expect(await wound()).toBe(stopped)
 
-        // Back into the band, and this time all the way to the foot of the run.
-        // Long enough for it to cross a Scene of fourteen Shots on a machine with
+        // Back into the band, and this time all the way to the end of the run.
+        // Long enough for it to cross a Scene of fourteen beats on a machine with
         // other things on its mind: it travels five hundred pixels a second, and
-        // there are about nine hundred of them to cross.
+        // there are about seven hundred of them to cross.
         await page.mouse.move(band.x, band.y, { steps: 5 })
         await expect.poll(
-          () => body.evaluate(scroller => scroller.scrollHeight - scroller.clientHeight
-            - scroller.scrollTop),
+          () => strip.evaluate(scroller => scroller.scrollWidth - scroller.clientWidth
+            - scroller.scrollLeft),
           { timeout: 15_000 },
         ).toBeLessThan(2)
-        await expect(number(last)).toBeInViewport()
+        await expect(cell(last)).toBeInViewport()
 
-        // Neither the bench nor the window went anywhere while it ran: the only
-        // thing the run scrolls is the panel the drag is inside.
+        // Neither the table nor the gate nor the window went anywhere while it
+        // ran: the only thing the run winds is the strip the drag is inside.
         expect(await elsewhere()).toEqual(before)
 
         // Onto the Shot that stood last, which is the Place the Author aimed at,
-        // asked for where it stands now that the list has stopped moving.
-        const onto = await pointOn(number(last))
+        // asked for where it stands now that the run has stopped moving.
+        const onto = await pointOn(cell(last))
         await page.mouse.move(onto.x, onto.y, { steps: 5 })
         await page.mouse.up()
 
@@ -393,11 +393,11 @@ test.describe('dragging a Shot', () => {
         }).toPass()
 
         // And no run outlives the gesture that started it: the same point in the
-        // band, with nothing in hand, scrolls nothing.
+        // band, with nothing in hand, winds nothing.
         await page.mouse.move(band.x, band.y, { steps: 5 })
-        const ended = await body.evaluate(scroller => scroller.scrollTop)
+        const ended = await wound()
         await page.waitForTimeout(300)
-        expect(await body.evaluate(scroller => scroller.scrollTop)).toBe(ended)
+        expect(await wound()).toBe(ended)
       })
     })
   }
@@ -424,12 +424,8 @@ test.describe('dragging a Shot', () => {
   }
 
   /**
-   * Drags a Shot by its number onto another's, which is what renumbers a Scene
-   * by hand. By mouse, because that is the input the gesture answers to.
-   *
-   * Aimed at the top of each number rather than its middle: a number is as tall
-   * as the Shot it belongs to, and the third of them has its middle below the
-   * panel a Scene is written in — which is the ceiling the drag is written with.
+   * Drags a Shot by its cell onto another's, which is what renumbers a Scene by
+   * hand. By mouse, because that is the input the gesture answers to.
    */
   async function dragShot(page: Page, held: Locator, onto: Locator) {
     const from = await pointOn(held)
@@ -441,11 +437,11 @@ test.describe('dragging a Shot', () => {
     await page.mouse.up()
   }
 
-  /** Where on a Shot's number a gesture takes hold of it. */
-  async function pointOn(number: Locator) {
-    const box = (await number.boundingBox())!
+  /** Where on a Shot's cell a gesture takes hold of it. */
+  async function pointOn(cell: Locator) {
+    const box = (await cell.boundingBox())!
 
-    return { x: box.x + box.width / 2, y: box.y + 12 }
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
   }
 })
 
@@ -567,7 +563,7 @@ test('a Scene is typed as one document, beat after beat', async ({ page, request
 
   // Enter at the end of a beat writes it and opens the next, with the caret
   // already in it: an Author writing forwards never leaves the keyboard.
-  const first = page.getByRole('textbox', { name: 'Shot 1' })
+  const first = await writeShot(page, 1)
   await first.click()
   await page.keyboard.press('End')
   await page.keyboard.press('Enter')
@@ -588,7 +584,7 @@ test('a Scene is typed as one document, beat after beat', async ({ page, request
 
   // In the middle of the run the beat is written where the caret was and not at
   // the foot of the Scene.
-  await first.click()
+  await (await writeShot(page, 1)).click()
   await page.keyboard.press('End')
   await page.keyboard.press('Enter')
   await expect(page.getByRole('textbox', { name: 'Shot 2' })).toBeFocused()
@@ -630,9 +626,10 @@ test('an Author writes a Story from the page alone', async ({ page, request }) =
   await expect(named).toBeFocused()
   await named.fill('The arrival')
   await named.blur()
-  // The node, rather than the heading: the document the gesture opened is named
-  // by the Scene too, so a heading alone is two things on this page.
-  await expect(page.locator('.graph').getByRole('button', { name: 'Go to The arrival' })).toHaveCount(1)
+  // The gate is named by the Scene it holds, which is what says the name reached
+  // the Story rather than only the field: the Scene under the gate has no node of
+  // its own — see `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
+  await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
 
   // Blurring the Shot is what writes it, so each is left before the next is added.
   for (const [place, line] of ['She steps off the train.', 'The platform is empty.'].entries()) {
@@ -644,20 +641,21 @@ test('an Author writes a Story from the page alone', async ({ page, request }) =
     await expect(shot).toHaveValue(line)
   }
 
+  await writeShot(page, 2)
   await page.getByRole('button', { name: 'Move Earlier Shot 2' }).click()
-  await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('The platform is empty.')
-  await expect(page.getByRole('textbox', { name: 'Shot 2' })).toHaveValue('She steps off the train.')
+  await expect(await writeShot(page, 1)).toHaveValue('The platform is empty.')
+  await expect(await writeShot(page, 2)).toHaveValue('She steps off the train.')
 
   // What the page shows has to be what was written, not what the page remembers.
   // The Scene being written is in the address since
   // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`, so the reload
   // comes back to it and there is nothing to open again.
   await page.reload()
-  await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('The platform is empty.')
+  await expect(await writeShot(page, 1)).toHaveValue('The platform is empty.')
 
   await page.getByRole('button', { name: 'Delete Shot 1' }).click()
-  await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('She steps off the train.')
-  await expect(page.getByRole('textbox', { name: 'Shot 2' })).toBeHidden()
+  await expect(await writeShot(page, 1)).toHaveValue('She steps off the train.')
+  await expect(page.getByRole('button', { name: 'Write Shot 2' })).toHaveCount(0)
 
   // Deleting a Scene takes Shots and Exits with it, so it is asked about first —
   // on the bench's own surface, read like any other part of the interface.

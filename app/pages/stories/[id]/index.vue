@@ -22,7 +22,7 @@ const { asked, ask, answer } = useConfirming()
 
 /**
  * Whether the bar every act of the bench is named in is up. It is opened by the
- * key it listens for itself and by the control in the row above the Graph, so
+ * key it listens for itself and by the control on the bench's own edge, so
  * which of them is showing is the page's — the way which Scene is being written
  * is.
  */
@@ -63,7 +63,7 @@ function imageOf(shot: Shot) {
 }
 
 /**
- * A file let go of anywhere but a thumbnail. What the browser does with an image
+ * A file let go of anywhere but a frame. What the browser does with an image
  * dropped on a page is leave the editor and open the file, so the default is
  * refused for the whole page and the cursor says as much. A file and nothing
  * else: dragging a line of text from one field into another is the browser's.
@@ -88,21 +88,50 @@ const sceneWritten = computed(() => story.value?.scenes.find(scene => scene.id =
   ?? story.value?.scenes[0])
 
 /**
- * Puts one Scene on the writing surface. The address is replaced rather than
- * pushed: the Graph changes which Scene is on the surface, and a back that walked
- * the Author through every node they had pressed would never leave the Story.
- * Focus goes into the name, the first field of the Scene — selected where the
- * Scene arrived under a provisional name, so the first thing typed replaces it.
+ * Puts one Scene under the gate, leaving the gate on the face it was showing: a
+ * node pressed while the Story is being read is the Author reading on, not asking
+ * to write. The gate comes back down if it had been lifted off — pressing a node
+ * is asking for that Scene — and the address is replaced rather than pushed,
+ * because a back that walked the Author through every node they had pressed
+ * would never leave the Story.
  */
-async function writeScene(sceneId: string, naming = false) {
+async function goToScene(sceneId: string) {
+  lifted.value = false
+
   if (sceneWritten.value?.id !== sceneId) {
     await router.replace({ query: { ...route.query, scene: sceneId } })
     await nextTick()
   }
+}
+
+/**
+ * Puts one Scene under the gate to be written: the same as going there, and the
+ * gate is turned to the face a Scene is written on, with focus in the name — its
+ * first field — selected where the Scene arrived under a provisional name, so the
+ * first thing typed replaces it. This is what a Remark opens, what a way on's own
+ * mark opens, and what a Scene written from nothing arrives in.
+ */
+async function writeScene(sceneId: string, naming = false) {
+  reading.value = false
+  await goToScene(sceneId)
+  await nextTick()
 
   const named = document.getElementById(`scene-name-${sceneId}`) as HTMLInputElement | null
   named?.focus()
   if (naming) named?.select()
+}
+
+/**
+ * The reading has moved on: the writing follows it. The face the Author is
+ * reading on stays up — pressing a way on in the reading is reading, not asking
+ * to write the Scene it lands in — and there is one notion of where they are,
+ * which is the Path: see
+ * `docs/adr/0030-a-story-is-read-where-it-is-written.md`.
+ */
+async function follow(sceneId: string) {
+  if (sceneWritten.value?.id === sceneId) return
+
+  await router.replace({ query: { ...route.query, scene: sceneId } })
 }
 
 /**
@@ -134,26 +163,45 @@ async function makeScene(name = t('editor.provisionalSceneName')) {
 }
 
 /**
- * Whether the Preview is what the bench is showing in the column the Scene is
- * otherwise written in. Read only where the bench cannot hold the two side by
- * side — the style at the foot of the file names the width — so on a wide screen
- * the Preview stands beside the writing whatever this says, and an Author who
- * chose it in the band has still chosen it when the window narrows again. See
- * `docs/adr/0037-the-reading-folds-before-the-writing-does.md`.
+ * Whether the gate has been lifted off the Graph, leaving the whole Story on the
+ * table with nothing standing on it. The Scene being written is still the one it
+ * was — lifting the gate is looking at the Story, not leaving the Scene — so
+ * putting it back down needs no address and no read.
  */
-const previewing = ref(false)
+const lifted = ref(false)
+
+/** What the control that lifts and lowers the gate says: what pressing it does. */
+const liftSays = computed(() => lifted.value
+  ? t('editor.writingIn', { name: sceneWritten.value?.name ?? '' })
+  : t('editor.wholeStory'))
+
+function lift(event: Event) {
+  lifted.value = !lifted.value
+  ;(event.currentTarget as HTMLElement).focus()
+}
 
 /**
- * What the control that swaps them says: what pressing it does, rather than
- * which is showing — so the control and the Command that runs it are one
- * sentence. Focus is kept on the control, because the column that goes takes
+ * Which of its two faces the gate is showing: the Scene being written, or the
+ * Story read on the engine a Reader runs. One box on the table with two faces,
+ * rather than two columns of a bench — a Story is read exactly where it is
+ * written, which is what
+ * `docs/adr/0030-a-story-is-read-where-it-is-written.md` asked for and what
+ * `docs/adr/0042-the-scene-is-written-where-it-stands.md` finally gives it.
+ */
+const reading = ref(false)
+
+/**
+ * What the control that turns the gate over says: what pressing it does, rather
+ * than which face is up — so the control and the Command that runs it are one
+ * sentence. Focus is kept on the control, because the face that goes takes
  * whatever was focused inside it with it.
  */
-const foldSays = computed(() =>
-  previewing.value ? t('editor.writeTheScene') : t('editor.readTheStory'))
+const faceSays = computed(() =>
+  reading.value ? t('editor.writeTheScene') : t('editor.readTheStory'))
 
-function foldPreview(event: Event) {
-  previewing.value = !previewing.value
+function turnGate(event: Event) {
+  reading.value = !reading.value
+  lifted.value = false
   ;(event.currentTarget as HTMLElement).focus()
 }
 </script>
@@ -166,43 +214,55 @@ function foldPreview(event: Event) {
       :kept-at="keptAt"
       :change="change"
       :write="write"
-    />
+    >
+      <!-- The bench's own acts, on the Story's own edge: the way into every act
+           by naming it, what the bench noticed about the Story, whether the gate
+           is standing on the Graph, and which of its two faces is up. One row,
+           because the table under it is what the screen is for. -->
+      <div class="tools">
+        <!-- The key does the same thing as the control, drawn on the control where
+             somebody who never reads a legend will find it — see
+             `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`. -->
+        <button type="button" class="commanding" @click="commanding = true">
+          {{ $t('editor.commands') }}
+          <span class="combination"><kbd>{{ modifier }}</kbd><kbd>K</kbd></span>
+        </button>
 
-    <!-- The row above the Graph: the way into every act by naming it, what the
-         bench noticed about the Story, and — where the bench cannot hold the
-         document and the Preview side by side — which of the two it is showing.
-         Every one of them is about the Story rather than about how it is drawn,
-         because nothing about the drawing is set any more. -->
-    <div class="tools">
-      <!-- The key does the same thing as the control, drawn on the control where
-           somebody who never reads a legend will find it — see
-           `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`. -->
-      <button type="button" class="commanding" @click="commanding = true">
-        {{ $t('editor.commands') }}
-        <span class="combination"><kbd>{{ modifier }}</kbd><kbd>K</kbd></span>
-      </button>
+        <!-- See `docs/adr/0032-the-bench-reads-the-story-back.md`. -->
+        <Remarks
+          :story="story ?? undefined"
+          :scene-written="sceneWritten?.id"
+          @open="writeScene"
+        />
 
-      <!-- See `docs/adr/0032-the-bench-reads-the-story-back.md`. -->
-      <Remarks
-        :story="story ?? undefined"
-        :scene-written="sceneWritten?.id"
-        @open="writeScene"
-      />
+        <button
+          v-if="sceneWritten"
+          type="button"
+          :data-command="liftSays"
+          @click="lift"
+        >
+          {{ liftSays }}
+        </button>
 
-      <button
-        v-if="sceneWritten"
-        type="button"
-        class="folding"
-        :data-command="foldSays"
-        @click="foldPreview"
-      >
-        {{ foldSays }}
-      </button>
-    </div>
+        <!-- `data-step` is here rather than on the reading itself: the guided
+             path sends an Author to read why a Shot is not playing, and the turn
+             is the gesture it has to point at — see
+             `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md`. -->
+        <button
+          v-if="sceneWritten"
+          type="button"
+          data-step="reading"
+          :data-command="faceSays"
+          @click="turnGate"
+        >
+          {{ faceSays }}
+        </button>
+      </div>
+    </StoryHeader>
 
     <!-- What the bench says about itself while there is no Scene to say it
-         against: why the last change was refused. With a Scene on the surface
-         the refusal is shown there instead. -->
+         against: why the last change was refused. With a Scene on the table the
+         refusal is shown in the gate instead. -->
     <Refusal v-if="!sceneWritten" :problem="problem" />
     <!-- Always in the document, empty between sentences: a live region announces
          a change to what it already holds, never a node that arrives with its
@@ -226,23 +286,20 @@ function foldPreview(event: Event) {
       </button>
     </div>
 
-    <!-- The Graph, a band across the bench, and under it the Scene being written
-         with the Story read beside it: one surface, laid out from the Story
-         alone — see `docs/adr/0041-the-graph-is-drawn-from-the-story.md`. -->
+    <!-- The Graph is the bench, and the Scene being written stands on it: one
+         surface, laid out from the Story alone, with the gate in the place of the
+         node of the Scene it holds — see
+         `docs/adr/0042-the-scene-is-written-where-it-stands.md`. -->
     <Graph
       :story="story ?? undefined"
       :scene-written="sceneWritten?.id"
       :image-of="imageOf"
-      @write-scene="writeScene"
-    />
-
-    <!-- Each column stands in a holder of its own so the fold can take one of
-         the two away without reaching into either component's own drawing.
-         Which one a holder holds is said in an attribute rather than a class,
-         because the fold reads it and a class would be one more name to keep. -->
-    <div v-if="story && sceneWritten" class="bench" :class="{ previewing }">
-      <div class="column" data-holds="document">
+      :lifted="lifted"
+      @write-scene="goToScene"
+    >
+      <template v-if="story && sceneWritten">
         <Panel
+          v-if="!reading"
           :story="story"
           :scene-written="sceneWritten"
           :change="change"
@@ -254,19 +311,18 @@ function foldPreview(event: Event) {
           @attached="attachedAt[$event] = Date.now()"
           @open="writeScene"
         />
-      </div>
-      <div class="column" data-holds="preview">
         <!-- There is one notion of where the Author is and it is the Path, so a
              way on pressed in the reading moves the writing with it — see
              `docs/adr/0030-a-story-is-read-where-it-is-written.md`. -->
         <Preview
+          v-else
           :story="story"
           :scene-written="sceneWritten.id"
           :change="change"
-          @moved="writeScene"
+          @moved="follow"
         />
-      </div>
-    </div>
+      </template>
+    </Graph>
 
     <Confirmation :asked="asked" @answer="answer" />
     <!-- Every act the bench is offering, reached by naming it. It reads the
@@ -279,24 +335,21 @@ function foldPreview(event: Event) {
 </template>
 
 <style scoped>
-@import '~/assets/css/folds.css';
-
-/* The page is a column exactly one window tall, and the bench is the one thing
-   on it that grows: the Graph takes its band, and the columns under it take what
-   the rows above leave. `dvh` because a browser's own chrome comes and goes. */
+/* The page is a column exactly one window tall, and the Graph is the one thing
+   on it that grows: the edge takes its row and the table takes everything the
+   rows above leave. `dvh` because a browser's own chrome comes and goes. */
 main {
   display: flex;
   flex-direction: column;
-  gap: var(--s3);
   block-size: 100dvh;
-  padding: var(--s4) var(--s4) var(--s5);
 }
 
+/* The bench's own acts, on the Story's edge. */
 .tools {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--s2) var(--s3);
+  gap: var(--s2);
 }
 
 /* The way into the bar, with the key that opens it drawn on its face. */
@@ -320,17 +373,16 @@ kbd {
   font-size: 0.6875rem;
 }
 
-.folding {
-  margin-inline-start: auto;
-}
-
 /* The bench with nothing on it: a note where the Graph would be, and the one
    control that writes the first Scene. */
 .empty {
   display: grid;
   justify-items: start;
+  align-content: center;
   gap: var(--s3);
-  padding: var(--s4);
+  flex: 1;
+  margin: var(--s4);
+  padding: var(--s5);
   border: 1px dashed var(--edge);
   border-radius: var(--machined);
 }
@@ -338,54 +390,5 @@ kbd {
 .empty .none {
   max-inline-size: 60ch;
   color: var(--muted);
-}
-
-/* The two columns under the Graph, as tall as what the Graph leaves and each
-   scrolling inside itself. Never shorter than a floor, below which the document
-   is a slot: a window too short to leave that much is the one case the page
-   still scrolls. */
-.bench {
-  display: flex;
-  flex: 1;
-  gap: var(--s3);
-  min-block-size: 24rem;
-}
-
-.column {
-  display: contents;
-}
-
-/* The control that says which of the two is showing exists only where there is a
-   choice to make: below the width the two columns need, named once in
-   `app/assets/css/folds.css` and read off the document's own rows — see
-   `docs/adr/0037-the-reading-folds-before-the-writing-does.md`. Down to the
-   phone and onto it: the document is a column of the page at every width now,
-   so the Preview is a press away at every width. */
-.folding {
-  display: none;
-}
-
-@media (--two-columns) {
-  .folding {
-    display: inline-block;
-  }
-
-  .column[data-holds='preview'] {
-    display: none;
-  }
-
-  /* The Preview standing where the writing was is a column of its own rather than
-     the bench's contents, because it is set to a measure and a measure in a
-     column twice as wide belongs in the middle of it. */
-  .bench.previewing .column[data-holds='preview'] {
-    display: flex;
-    flex: 1;
-    justify-content: center;
-    min-inline-size: 0;
-  }
-
-  .bench.previewing .column[data-holds='document'] {
-    display: none;
-  }
 }
 </style>

@@ -1,13 +1,13 @@
 import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test'
-import { test, writeScene, writeStory } from './author'
+import { readTheStory, sceneNode, test, writeStory } from './author'
 
 /**
- * The Story read beside the Scene being written — see
- * `docs/adr/0030-a-story-is-read-where-it-is-written.md`. Everything about the
+ * The Story read where it is written: the other face of the gate the Scene is
+ * written in, in the same box in the same place on the Graph — see
+ * `docs/adr/0030-a-story-is-read-where-it-is-written.md` and
+ * `docs/adr/0042-the-scene-is-written-where-it-stands.md`. Everything about the
  * Reading is asserted inside it rather than on the page, because the Scene being
- * written is on the same screen and says the same words: the beat in the frame is
- * the text in a field of the writing surface, and the ways on are a strip beside
- * it.
+ * written says the same words on the other face.
  */
 function previewIn(page: Page) {
   return page.getByRole('region', { name: /^Preview/ })
@@ -26,7 +26,7 @@ function benchIn(page: Page) {
 async function writing(page: Page, storyId: string, sceneId: string) {
   await page.goto(`/stories/${storyId}?scene=${sceneId}`)
 
-  return previewIn(page)
+  return await readTheStory(page)
 }
 
 /** The Scenes of a Story, in the order the Author wrote them. */
@@ -98,14 +98,19 @@ test('a way on pressed in the reading moves the writing with it', async ({ page,
   const preview = await writing(page, story.id, scenes[0]!.id)
 
   // There is one notion of where the Author is and it is the Path, so taking the
-  // way on hands the writing surface the Scene it leads to — and the address
-  // carrying the Scene says so too.
+  // way on hands the writing the Scene it leads to — and the address carrying the
+  // Scene says so too. The face stays as it was: taking a way on is reading on,
+  // and the Scene is there on the other face of the gate when the Author turns
+  // back to it.
   await preview.getByRole('button', { name: 'Next Shot' }).click()
   await preview.getByRole('button', { name: 'Next Shot' }).click()
   await preview.getByRole('button', { name: 'Follow her out' }).click()
 
-  await expect(page.getByRole('group', { name: 'Writing The bar' })).toBeVisible()
+  await expect(preview.getByText('Smoke, and no one she knows.')).toBeVisible()
   await expect(page).toHaveURL(new RegExp(`scene=${scenes[1]!.id}`))
+
+  await page.getByRole('button', { name: 'Write the Scene' }).click()
+  await expect(page.getByRole('group', { name: 'Writing The bar' })).toBeVisible()
 })
 
 test('a node pressed on the Graph routes the reading to that Scene', async ({ page, request }) => {
@@ -116,20 +121,25 @@ test('a node pressed on the Graph routes the reading to that Scene', async ({ pa
   await expect(preview.getByText('A door opens.')).toBeVisible()
 
   // The other half of the same cursor: the writing moved, so the reading is
-  // replayed to where the writing now is.
-  await writeScene(page, 'The bar')
+  // replayed to where the writing now is. The face stays as it was — a node
+  // pressed while the Story is being read is the Author reading on.
+  await sceneNode(page, 'The bar').click()
   await expect(preview.getByText('Smoke, and no one she knows.')).toBeVisible()
 })
 
 test('what an Author types reaches the reading', async ({ page, request }) => {
   const story = await writeStory(request)
   const { scenes } = await scenesOf(request, story.id)
-  const preview = await writing(page, story.id, scenes[0]!.id)
+  await page.goto(`/stories/${story.id}?scene=${scenes[0]!.id}`)
 
+  // Typed on the face a Scene is written on, and read on the other one: the two
+  // are the same box on the table — see
+  // `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
   const beat = page.locator(`#shot-${scenes[0]!.shots[0]!.id}`)
   await beat.fill('A door opens onto the rain.')
   await beat.blur()
 
+  const preview = await readTheStory(page)
   await expect(preview.getByText('A door opens onto the rain.')).toBeVisible()
 })
 
@@ -517,223 +527,101 @@ test('a Scene draws one of several values, and the Author draws it again',
     expect((await played()).toLowerCase()).toContain(await drawn())
   })
 
-/**
- * The bench cannot hold a Scene and the reading side by side below a certain
- * width. The reading folds away there and is offered back by a control; the
- * width is read off the writing column and is written once, in
- * `app/assets/css/folds.css`. See
- * `docs/adr/0037-the-reading-folds-before-the-writing-does.md`.
- */
-const TWO_COLUMNS = { width: 1024, height: 800 }
-
-/** Wide enough for the Scene and the reading side by side. */
-const THREE_COLUMNS = { width: 1400, height: 800 }
-
-/**
- * Whether the marks a beat is moved and deleted by share the line with the
- * control that puts a Condition on it. They are laid out to, and the first thing
- * a writing column too narrow to write in does is drop them onto a second line:
- * this is the row the fold's width was read off.
- */
-async function beatReadsAcrossOneLine(page: Page, said: {
-  condition: string
-  mark: string
-}) {
-  await drawn(page)
-  const conditions = await page.getByRole('button', { name: said.condition }).boundingBox()
-  const marks = await page.getByRole('button', { name: said.mark }).boundingBox()
-
-  return Math.abs(conditions!.y - marks!.y) < conditions!.height
-}
-
-/**
- * Waits for the faces the interface is set in. Both rows above are measurements
- * of rendered text, and a row read while the fallback face is still on screen is
- * a measurement of the wrong font: the interface's own is narrower, so the answer
- * flips as the swap lands.
- */
-function drawn(page: Page) {
-  return page.evaluate(() => document.fonts.ready.then(() => undefined))
-}
-
-/** The two controls that row is measured across, as this suite reads them. */
-const IN_ENGLISH = { condition: 'Add a Condition to Shot 1 of The street', mark: 'Move Later Shot 1' }
-const IN_FRENCH = { condition: 'Ajouter une Condition à Plan 1 de The street', mark: 'Déplacer après Plan 1' }
-
-/**
- * Whether a Flag's row holds both of its values on one line. The second row the
- * fold's width was read off: a column too narrow breaks it after a dangling *or*
- * and drops the second value onto the next line. It is the looser of the two, so
- * a width the beat's row survives this one survives with room to spare — which
- * is the fact worth holding, because it is the pair that settled the number.
- */
-async function flagReadsAcrossOneLine(page: Page) {
-  await drawn(page)
-
-  return await page.locator('.sets').first().evaluate((row) => {
-    const parts = [...row.children] as HTMLElement[]
-
-    return parts.at(-1)!.getBoundingClientRect().top
-      <= parts[0]!.getBoundingClientRect().top + 2
-  })
-}
-
-test('the reading folds away where the bench cannot hold three columns',
-  async ({ page, request }) => {
-    const story = await writeStory(request)
-    const { scenes } = await scenesOf(request, story.id)
-
-    await page.setViewportSize(THREE_COLUMNS)
-    const preview = await writing(page, story.id, scenes[0]!.id)
-
-    // Three columns: the reading stands beside the Scene, and there is nothing to
-    // choose between, so the control that chooses is not drawn.
-    await expect(preview).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Read the Story' })).toBeHidden()
-    expect(await beatReadsAcrossOneLine(page, IN_ENGLISH)).toBe(true)
-
-    // Narrowed into the band, the reading goes and the Scene keeps a column it can
-    // still be written in — which is the whole of what the fold buys.
-    await page.setViewportSize(TWO_COLUMNS)
-    await expect(preview).toBeHidden()
-    expect(await beatReadsAcrossOneLine(page, IN_ENGLISH)).toBe(true)
-
-    // And it is a fold rather than an absence: the reading comes back in the
-    // column the Scene was in, and the same control hands the Scene back.
-    await page.getByRole('button', { name: 'Read the Story' }).click()
-    await expect(preview).toBeVisible()
-    await expect(preview.getByText('A door opens.')).toBeVisible()
-    await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeHidden()
-
-    await page.getByRole('button', { name: 'Write the Scene' }).click()
-    await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
-    await expect(preview).toBeHidden()
-
-    // Widened again, both are on the bench whatever was last chosen in the band.
-    await page.setViewportSize(THREE_COLUMNS)
-    await expect(preview).toBeVisible()
-
-    // And a Scene pressed on the Graph while the reading is up is written where the
-    // reading stood: the focus the bench sends into the Scene's name has to land
-    // somewhere that is drawn, so the Scene comes back with it.
-    await page.setViewportSize(TWO_COLUMNS)
-    await page.getByRole('button', { name: 'Read the Story' }).click()
-    await expect(preview).toBeVisible()
-    await page.getByRole('button', { name: 'Write the Scene' }).click()
-    await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
-    await expect(preview).toBeHidden()
-  })
-
-/**
- * The width itself, held at both edges of the band in the language it was read
- * off. The number is a measurement of two rows of the document — a beat's marks
- * beside the control that puts a Condition on it, and a Flag's two values — and a
- * measurement nothing holds is a number that drifts. French, because it is the
- * longer of the two languages and therefore the one the rows wrap in first.
- *
- * Both edges, because either alone leaves the number free: at the band's own
- * width the bench must be folded, and one pixel above it the Preview must stand
- * beside a Scene whose two rows each still read across one line. A threshold
- * moved either way fails one of the two.
- */
-test.describe('the width the reading folds at', () => {
-  test.use({ locale: 'fr-FR' })
-
-  /** The band's upper edge, which is 78rem, and the first width above it. */
-  const FOLDED = { width: 1248, height: 800 }
-  const BESIDE = { width: 1249, height: 800 }
-
-  test('is the narrowest at which the Scene beside it still reads across one line',
-    async ({ page, request }) => {
-      const story = await writeStory(request, 'fr')
-      const { scenes } = await scenesOf(request, story.id)
-      // Two Flags of two values apiece, which is what makes a Flags row a row
-      // rather than a pair of fields.
-      await request.put(`/api/scenes/${scenes[0]!.id}/flags`, {
-        data: { sets: { manteau: ['mis', 'ôté'], temps: ['pluie', 'soleil'] } },
-      })
-
-      await page.setViewportSize(FOLDED)
-      await page.goto(`/fr/stories/${story.id}?scene=${scenes[0]!.id}`)
-      await expect(page.getByRole('textbox', { name: 'Nom de cette Scène' })).toBeVisible()
-
-      // At the band's own width the bench holds two columns, so the Scene has the
-      // whole of the width the Preview would have shared.
-      await expect(page.getByRole('region', { name: /^Aperçu/ })).toBeHidden()
-      await expect(page.getByRole('button', { name: 'Lire le Récit' })).toBeVisible()
-
-      // One pixel wider, all three stand, and both rows of the document still
-      // read across one line each in the column that leaves. This is the
-      // measurement: a threshold any lower and the beat's marks wrap here.
-      await page.setViewportSize(BESIDE)
-      await expect(page.getByRole('region', { name: /^Aperçu/ })).toBeVisible()
-      await expect(page.getByRole('button', { name: 'Lire le Récit' })).toBeHidden()
-      expect(await beatReadsAcrossOneLine(page, IN_FRENCH)).toBe(true)
-      expect(await flagReadsAcrossOneLine(page)).toBe(true)
-    })
-})
-
-test('the fold is an act of the bench, named in the bar where the bench offers it',
-  async ({ page, request }) => {
-    const story = await writeStory(request)
-    const { scenes } = await scenesOf(request, story.id)
-
-    await page.setViewportSize(TWO_COLUMNS)
-    const preview = await writing(page, story.id, scenes[0]!.id)
-
-    /** What the bar is offering under a name, which is the bar's own list. */
-    const named = async (name: string) => {
-      await page.getByRole('button', { name: 'Commands' }).click()
-      await expect(page.getByRole('textbox', { name: 'Type a name' })).toBeFocused()
-      await page.getByRole('textbox', { name: 'Type a name' }).fill(name)
-
-      return page.locator('dialog.commands li button')
-    }
-
-    await (await named('Read the Story')).first().click()
-    await expect(preview).toBeVisible()
-
-    // Above the band the bench draws no such control, and the bar offers nothing
-    // the bench does not: an act that would do nothing is not on the list, and
-    // what stands under the name instead is the offer to write a Scene under it.
-    await page.setViewportSize(THREE_COLUMNS)
-    await expect(await named('Write the Scene'))
-      .toHaveText(['Write a Scene named Write the Scene'])
-  })
-
-test('the bench takes the height the window leaves it', async ({ page, request }) => {
+test('the reading is the gate’s other face, at every width', async ({ page, request }) => {
   const story = await writeStory(request)
   const { scenes } = await scenesOf(request, story.id)
 
-  // A window in the band, a tall one, and a phone — where the document is the one
-  // column under the map.
+  // A wide window, a narrow one and a phone. There is no width at which the two
+  // stand side by side and none at which either is unreachable: the gate holds
+  // one Scene and turns over — see
+  // `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
   for (const size of [
+    { width: 1600, height: 1000 },
     { width: 1024, height: 768 },
-    { width: 1440, height: 1000 },
     { width: 390, height: 844 },
   ]) {
     await page.setViewportSize(size)
-    await writing(page, story.id, scenes[0]!.id)
-    await expect(page.locator('main > .bench')).toBeVisible()
+    await page.goto(`/stories/${story.id}?scene=${scenes[0]!.id}`)
+
+    const named = page.getByRole('textbox', { name: 'Name of this Scene' })
+    const preview = previewIn(page)
+
+    // The Scene is the face up, and the control that turns the gate over says
+    // what pressing it does.
+    await expect(named).toBeVisible()
+    await expect(preview).toBeHidden()
+
+    const gate = (await page.locator('.panel').boundingBox())!
+
+    await page.getByRole('button', { name: 'Read the Story' }).click()
+    await expect(preview).toBeVisible()
+    await expect(preview.getByText('A door opens.')).toBeVisible()
+    await expect(named).toBeHidden()
+
+    // The same box in the same place: the two faces are one thing on the table
+    // rather than two surfaces that take turns being somewhere.
+    const turned = (await page.locator('.preview').boundingBox())!
+    expect(Math.round(turned.x)).toBe(Math.round(gate.x))
+    expect(Math.round(turned.y)).toBe(Math.round(gate.y))
+    expect(Math.round(turned.width)).toBe(Math.round(gate.width))
+
+    await page.getByRole('button', { name: 'Write the Scene' }).click()
+    await expect(named).toBeVisible()
+    await expect(preview).toBeHidden()
+  }
+})
+
+test('turning the gate over is an act of the bench, named in the bar', async ({ page, request }) => {
+  const story = await writeStory(request)
+  const { scenes } = await scenesOf(request, story.id)
+
+  await page.goto(`/stories/${story.id}?scene=${scenes[0]!.id}`)
+
+  /** What the bar is offering under a name, which is the bar's own list. */
+  const named = async (name: string) => {
+    await page.getByRole('button', { name: 'Commands' }).click()
+    await expect(page.getByRole('textbox', { name: 'Type a name' })).toBeFocused()
+    await page.getByRole('textbox', { name: 'Type a name' }).fill(name)
+
+    return page.locator('dialog.commands li button')
+  }
+
+  await (await named('Read the Story')).first().click()
+  await expect(previewIn(page)).toBeVisible()
+
+  // And the bar names it for what pressing it will do from the face that is up,
+  // the way it names Publish and Unpublish on the one fact.
+  await (await named('Write the Scene')).first().click()
+  await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
+})
+
+test('the gate takes the room the window leaves it', async ({ page, request }) => {
+  const story = await writeStory(request)
+  const { scenes } = await scenesOf(request, story.id)
+
+  // A wide window, a narrow one, and a phone — where the gate is the whole table.
+  for (const size of [
+    { width: 1600, height: 1000 },
+    { width: 1024, height: 768 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(size)
+    await page.goto(`/stories/${story.id}?scene=${scenes[0]!.id}`)
+    await expect(page.locator('.panel')).toBeVisible()
 
     const read = await page.evaluate(() => {
-      const bench = document.querySelector('main > .bench')!.getBoundingClientRect()
-      const panel = document.querySelector('.panel')!
+      const table = document.querySelector('main > .graph')!.getBoundingClientRect()
 
       return {
         scrolls: document.documentElement.scrollHeight > innerHeight,
-        // What the bench leaves unused between its own foot and the page's.
-        below: Math.round(innerHeight - bench.bottom),
-        panel: Math.round(panel.getBoundingClientRect().height),
-        bench: Math.round(bench.height),
+        // What the table leaves unused between its own foot and the page's.
+        below: Math.round(innerHeight - table.bottom),
       }
     })
 
-    // Nothing to scroll at all: the bench ends where the page does, bar the
-    // page's own margin, and a Scene longer than the bench scrolls inside its own
-    // column rather than down the page.
+    // Nothing to scroll at all: the table ends where the page does, and a Scene
+    // longer than the gate scrolls inside the gate rather than down the page.
     expect(read.scrolls).toBe(false)
-    expect(read.below).toBeLessThanOrEqual(32)
-    expect(read.panel).toBe(read.bench)
+    expect(read.below).toBeLessThanOrEqual(1)
   }
 })

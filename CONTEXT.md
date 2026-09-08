@@ -90,11 +90,13 @@ A whole Story seen at once, as its Scenes and the Exits between them. A Scene is
 drawn in it as a node and an Exit as an edge — words for the drawing, never for the
 Scene or the Exit itself. Where every node stands is read off the Story — how far the Scene is from the
 Opening Scene in Exits taken, and in what order it is offered — and never placed
-by hand: the Graph is a reading of the Story and moves when the Story does, a
-band across the bench above the Scene being written — see
-`docs/adr/0041-the-graph-is-drawn-from-the-story.md`. Nothing is written in the
-drawing: an Exit is written in the document of the Scene it leaves, by naming the
-Scene it leads to, and a press on a node puts that Scene on the bench — see
+by hand: the Graph is a reading of the Story and moves when the Story does — see
+`docs/adr/0041-the-graph-is-drawn-from-the-story.md`. It is the whole surface of
+the bench rather than a band across it, and the Scene being written stands on it:
+the gate takes the place of that Scene's node, and the Graph opens up around it —
+see `docs/adr/0042-the-scene-is-written-where-it-stands.md`. Nothing is written in
+the drawing: an Exit is written in the document of the Scene it leaves, by naming
+the Scene it leads to, and a press on a node puts that Scene under the gate — see
 `docs/adr/0034-a-story-is-written-without-the-canvas.md`.
 _Affiché_: Graphe
 _Avoid_: map, tree, flowchart, board, canvas
@@ -215,12 +217,12 @@ _Affiché_: Lecteur
 _Avoid_: user, player, viewer, visitor, audience
 
 **Preview**:
-An Author reading their own Story on the same engine a Reader runs — a pane
-inside the editor, beside the Scene being written, which replays the Path the
-Author is on with the State it has accumulated and stops on that Scene. Beside
-the Scene where the bench can hold both, and in the Scene's own place where it
-cannot — see
-`docs/adr/0037-the-reading-folds-before-the-writing-does.md`. Not a
+An Author reading their own Story on the same engine a Reader runs, which replays
+the Path the Author is on with the State it has accumulated and stops on the Scene
+they are writing. It is the other face of the gate that Scene is written in — the
+same box in the same place on the Graph, turned over by a control — so a Story is
+read exactly where it is written, at every width: see
+`docs/adr/0042-the-scene-is-written-where-it-stands.md`. Not a
 Publish: nobody else can reach it. It is the one screen where the order the ways
 on are offered in is set, on the choice buttons as they are read, so a Preview is
 no longer without consequence for the Story — see

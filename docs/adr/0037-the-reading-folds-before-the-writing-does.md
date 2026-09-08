@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by 0042
 ---
 
 # The reading folds before the writing does

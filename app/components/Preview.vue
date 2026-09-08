@@ -204,13 +204,11 @@ function why(conditions: Condition[]) {
 </script>
 
 <template>
-  <!-- The reading and the bench it is cut on, stacked in a column of the bench:
-       a landmark, because it is one of the three things the bench holds while a
-       Scene is written and an Author can be sent to it. -->
-  <!-- `data-step` is on the whole pane rather than on a control in it: the
-       guided path sends an Author to read why a Shot is not playing, and what it
-       has to point at is the reading itself. -->
-  <section class="preview" data-step="preview" aria-labelledby="preview-heading">
+  <!-- The reading and the bench it is cut on, stacked in the gate's other face:
+       a landmark, because an Author can be sent to it. The guided path points at
+       the control that turns the gate over rather than at this pane — the pane is
+       not on screen until they do, and what the Step asks for is the turn. -->
+  <section class="preview" aria-labelledby="preview-heading">
     <p id="preview-heading" class="says">
       <span class="eyebrow">{{ $t('preview.reading') }}</span>
       <span class="aside">{{ $t('preview.nobodyElse') }}</span>
@@ -346,12 +344,15 @@ function why(conditions: Condition[]) {
 </template>
 
 <style scoped>
-/* The third column of the bench: the Story read as a Reader will read it, and
-   under it the instrument the Author reads it with. The reading is at the top
-   because that is what the column is for, and the bench is pushed to the foot of
-   the column — a control desk under a screen, rather than a second card floating
-   halfway down an empty pane. It is as tall as the other columns and scrolls
-   inside itself, so a long Scene is read here rather than down the page. */
+/* The gate's other face: the Story read as a Reader will read it, and under it
+   the instrument the Author reads it with. It fills exactly the box the Scene
+   being written stands in — a Story is read where it is written, in the very same
+   box on the table, see
+   `docs/adr/0030-a-story-is-read-where-it-is-written.md` and
+   `docs/adr/0042-the-scene-is-written-where-it-stands.md`. The reading is at the
+   top because that is what the face is for, and the bench is pushed to the foot
+   of it — a control desk under a screen, rather than a second card floating
+   halfway down an empty pane. */
 .preview {
   flex: 1;
   /* The containing block for what is inside it, for the reason the writing
@@ -361,12 +362,12 @@ function why(conditions: Condition[]) {
   flex-direction: column;
   gap: var(--s3);
   min-inline-size: 0;
-  max-inline-size: 34rem;
   overflow: auto;
-  padding: var(--s3);
-  border: 1px solid var(--edge);
+  padding: var(--s4);
+  border: 1px solid var(--light);
   border-radius: var(--machined);
   background: var(--bench);
+  box-shadow: 0 40px 90px -25px rgb(0 0 0 / 0.85);
 }
 
 /* What this column is, and what is true of it: the stencilled name of the
