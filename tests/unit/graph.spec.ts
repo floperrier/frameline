@@ -3,6 +3,7 @@ import type { Exit, Scene } from '../../shared/utils/scenes'
 import {
   DEPTH_GAP,
   exitLine,
+  inDocumentOrder,
   laidOut,
   NODE_GAP,
   NODE_HEIGHT,
@@ -126,6 +127,94 @@ describe('the line that draws an Exit', () => {
     const { from, to } = exitLine({ x: 0, y: 0 }, { x: 0, y: 0 })
 
     expect(from).toEqual(to)
+  })
+})
+
+describe('the order a Story is written in', () => {
+  /** The names in the sequence, which is all the order is. */
+  const named = (scenes: Scene[], exits: Exit[], opening: string | null) =>
+    inDocumentOrder(scenes, exits, opening).map(scene => scene.id)
+
+  /**
+   * The order the boxes themselves are in, read left to right and then down.
+   * The sequence is held against this rather than against a list written out by
+   * hand, because what has to stay true is that the document and the drawing
+   * are one reading: a layout that started filling its map in another order
+   * would fail here rather than quietly send the document somewhere else.
+   */
+  const asDrawn = (scenes: Scene[], exits: Exit[], opening: string | null) =>
+    [...laidOut(scenes, exits, opening).placed.entries()]
+      .sort(([, one], [, other]) => one.x - other.x || one.y - other.y)
+      .map(([id]) => id)
+
+  test('is the layout read left to right and then down', () => {
+    // A Story that branches and gathers again, which is the shape a flattened
+    // layout could most easily get wrong. Handed over in an order that is not
+    // the answer, so a function that returned the Scenes as they arrived would
+    // fail here instead of passing by coincidence.
+    const scenes = ['d', 'a', 'e', 'c', 'b'].map(scene)
+    const exits = [
+      exit('a', 'b'), exit('a', 'c', 1), exit('b', 'd'), exit('c', 'd'), exit('d', 'e'),
+    ]
+
+    expect(named(scenes, exits, 'a')).toEqual(asDrawn(scenes, exits, 'a'))
+    expect(named(scenes, exits, 'a')).toEqual(['a', 'b', 'c', 'd', 'e'])
+  })
+
+  test('opens on the Opening Scene', () => {
+    const scenes = ['later', 'first'].map(scene)
+
+    expect(named(scenes, [exit('first', 'later')], 'first')[0]).toBe('first')
+  })
+
+  test('reads a column in the Places its Scene offers its Exits at', () => {
+    const scenes = ['a', 'b', 'c'].map(scene)
+    // The Exits arrive in the Places the Story numbers them at, which is what
+    // `server/utils/stories.ts` orders them by.
+    const exits = [exit('a', 'c', 0), exit('a', 'b', 1)]
+
+    expect(named(scenes, exits, 'a')).toEqual(['a', 'c', 'b'])
+  })
+
+  test('does not move when a write leaves the shape alone', () => {
+    const scenes = ['a', 'b', 'c'].map(scene)
+    const exits = [exit('a', 'b'), exit('b', 'c')]
+    const before = named(scenes, exits, 'a')
+
+    const rewritten = scenes.map(one => ({
+      ...one,
+      name: `${one.name} renamed`,
+      shots: [{ id: `${one.id}-1`, text: 'A Shot', position: 0, image: null, description: '', conditions: [] }],
+    }))
+
+    expect(named(rewritten, exits, 'a')).toEqual(before)
+  })
+
+  test('puts a Scene nothing arrives at after every Scene the opening reaches', () => {
+    const scenes = ['a', 'b', 'loose'].map(scene)
+
+    expect(named(scenes, [exit('a', 'b')], 'a')).toEqual(['a', 'b', 'loose'])
+  })
+
+  test('reads every Scene of a Story with no Opening Scene, once each', () => {
+    const scenes = ['a', 'b'].map(scene)
+
+    expect(named(scenes, [exit('a', 'b'), exit('b', 'a')], null)).toEqual(['a', 'b'])
+  })
+
+  test('reads a Scene once when a way on comes back on itself', () => {
+    const scenes = ['a', 'b'].map(scene)
+    const exits = [exit('a', 'b'), exit('b', 'a'), exit('b', 'b', 1)]
+
+    expect(named(scenes, exits, 'a')).toEqual(['a', 'b'])
+  })
+
+  test('names nobody for a way on to a Scene the Story no longer holds', () => {
+    expect(named([scene('a')], [exit('a', 'gone')], 'a')).toEqual(['a'])
+  })
+
+  test('reads nothing out of a Story with no Scene in it', () => {
+    expect(inDocumentOrder([], [], null)).toEqual([])
   })
 })
 
