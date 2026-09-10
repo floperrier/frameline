@@ -121,6 +121,44 @@ function atAGlance(scene: Scene) {
 function press(scene: Scene) {
   emit('writeScene', scene.id)
 }
+
+/**
+ * The gate brought onto the screen. The table is wider than a window as soon as
+ * a Story has a few columns, and nothing until now scrolled it: measured on a
+ * chain of eleven Scenes, the gate stood entirely off the edge for six of them
+ * at 1440 and for more at every narrower width, with the table's own
+ * `scrollLeft` at zero in every case. `docs/adr/0042-the-scene-is-written-where-it-stands.md`
+ * says the gate is scrolled to whenever it moves, and this is what says it.
+ *
+ * `scrollIntoView` rather than arithmetic on the box. The room to leave around
+ * the gate is the table's own padding, and reading that back into script would
+ * be the same number written twice; `scroll-margin` says it once, in the units
+ * the padding is already written in. `nearest` is what keeps it quiet: a gate
+ * already on screen is not moved, so the table does not lurch when an Author
+ * presses a node they can already see. Smoothness is the stylesheet's, where
+ * the reduced-motion question is answered once.
+ */
+const gate = useTemplateRef('gate')
+
+function windOn(behavior: ScrollBehavior) {
+  gate.value?.scrollIntoView({ behavior, block: 'nearest', inline: 'nearest' })
+}
+
+// Two callers rather than one immediate watch: an immediate watch runs at setup,
+// where the ref is still empty and, on the server, where there is nothing to
+// scroll at all. The first sight of the bench is the case that matters — a
+// reload comes back to an address — so it is the mount that owns it.
+//
+// And the two arrive differently. A bench opened on a Scene is already there:
+// winding the whole table past the Author before they can read anything says
+// nothing and takes half a second. A gate that moves because they pressed a
+// node is a move they made, and the table follows it. `instant` beats the
+// stylesheet's `smooth`; the empty argument leaves it in charge.
+onMounted(() => windOn('instant'))
+watch(() => standing.value, async () => {
+  await nextTick()
+  windOn('smooth')
+})
 </script>
 
 <template>
@@ -212,6 +250,7 @@ function press(scene: Scene) {
            `docs/adr/0042-the-scene-is-written-where-it-stands.md`. -->
       <div
         v-if="standing"
+        ref="gate"
         class="gate"
         :style="{
           '--at-x': `${boxOf(standing).x}px`,
@@ -247,7 +286,19 @@ function press(scene: Scene) {
   min-block-size: 0;
   overflow: auto;
   padding: var(--s5) var(--s4);
+  /* The gate is wound onto the screen rather than jumped to, because the nodes
+     glide to their new columns at the same moment and a table that arrived
+     before them would have moved for no reason an eye can follow. Asked of the
+     scroller in CSS rather than of `scrollIntoView` at each call, so the answer
+     to `prefers-reduced-motion` is given once. */
+  scroll-behavior: smooth;
   background: color-mix(in oklab, var(--bench) 70%, black);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .graph {
+    scroll-behavior: auto;
+  }
 }
 
 /* The surface the nodes are laid out on, exactly as large as the drawing: the
@@ -405,6 +456,10 @@ svg path {
   z-index: 1;
   inset-block-start: 0;
   inset-inline-start: 0;
+  /* What the table leaves around the gate when it winds it onto the screen: its
+     own padding, so the gate arrives sitting where a gate sits rather than
+     wedged against the edge. */
+  scroll-margin: var(--s5) var(--s4);
   display: flex;
   inline-size: var(--gate-width);
   block-size: var(--gate-height);

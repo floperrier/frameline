@@ -16,6 +16,7 @@ import {
   seedScene,
   seedScenes,
   seedStory,
+  stillDrawing,
   test,
   toast,
 } from './author'
@@ -1063,4 +1064,55 @@ test('a Scene is split before one of its Shots, and its ways on move to the seco
       .toEqual(['One'])
     await expect(readExits(arrival.id)).resolves.toMatchObject([{ toSceneId: half.id, text: '' }])
     await expect(readExits(half.id)).resolves.toMatchObject([{ toSceneId: platform.id }])
+  })
+
+/**
+ * The one thing the layout cannot do for the Author.
+ * `docs/adr/0042-the-scene-is-written-where-it-stands.md` says the gate is
+ * scrolled to whenever it moves, and nothing held it to that: measured over a
+ * chain of eleven Scenes opened one at a time, the gate stood entirely off the
+ * edge for thirty of the fifty-five pairs of Scene and width, with the table's
+ * own `scrollLeft` at zero in every one of them.
+ *
+ * The Scenes are chained by name and the Opening Scene is marked through its own
+ * route. Neither is fussiness: `RETURNING` promises no order, so a chain built on
+ * the order an insert hands back is a chain of a different depth on every run —
+ * see issue #261 — and a Scene seeded past the API never becomes the Opening
+ * Scene, so the layout would be rooted somewhere else entirely.
+ */
+test('winds the gate onto the screen when the table is wider than the window',
+  async ({ page, request }) => {
+    const story = await (await request.post('/api/stories', {
+      data: { title: 'A Story' },
+    })).json()
+
+    const seeded = await seedScenes(story, Array.from({ length: 11 },
+      (_, place) => `Scene ${place + 1}`))
+    const scenes = Array.from({ length: 11 },
+      (_, place) => seeded.find(scene => scene.name === `Scene ${place + 1}`)!)
+    for (const [place, scene] of scenes.slice(0, -1).entries()) {
+      await seedExit(scene.id, scenes[place + 1]!.id)
+    }
+    expect((await request.post(`/api/scenes/${scenes[0]!.id}/opening`)).ok()).toBeTruthy()
+
+    const gate = page.locator('.gate')
+    const table = page.locator('.graph')
+
+    // The far corner of the table at a wide window and at a narrow one, because
+    // what changes with the width is how much of the table is off the edge.
+    for (const width of [1440, 768]) {
+      await page.setViewportSize({ width, height: 900 })
+      await page.goto(`/stories/${story.id}?scene=${scenes.at(-1)!.id}`)
+      await stillDrawing(page)
+
+      // The table really did scroll, which is the fact the arithmetic cannot
+      // give: every box is where the layout put it either way.
+      await expect.poll(() => table.evaluate(one => one.scrollLeft))
+        .toBeGreaterThan(0)
+
+      const box = (await gate.boundingBox())!
+      expect(box.x).toBeGreaterThanOrEqual(0)
+      expect(box.x).toBeLessThan(width)
+      expect(box.y).toBeLessThan(900)
+    }
   })
