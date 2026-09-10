@@ -196,6 +196,17 @@ describe('the order a Story is written in', () => {
     expect(named(scenes, [exit('a', 'b')], 'a')).toEqual(['a', 'b', 'loose'])
   })
 
+  test('reads a cluster nothing arrives at from its own first Scene, not by name', () => {
+    // Two clusters of two, named so that reading them alphabetically and
+    // reading them as they are drawn give different answers. One detached
+    // Scene proves nothing here: with one, every order is the right order.
+    const scenes = ['a', 'zulu', 'yankee', 'whisky', 'x-ray'].map(scene)
+    const exits = [exit('zulu', 'yankee'), exit('whisky', 'x-ray')]
+
+    expect(named(scenes, exits, 'a')).toEqual(asDrawn(scenes, exits, 'a'))
+    expect(named(scenes, exits, 'a')).toEqual(['a', 'zulu', 'yankee', 'whisky', 'x-ray'])
+  })
+
   test('reads every Scene of a Story with no Opening Scene, once each', () => {
     const scenes = ['a', 'b'].map(scene)
 
