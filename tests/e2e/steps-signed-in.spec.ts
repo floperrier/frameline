@@ -59,7 +59,7 @@ test('the bench asks a new Story for its first Scene', async ({ page, author }) 
   // the next one before the Scene has finished landing. It arrives under a
   // provisional name, which the panel the same gesture opened is where the Author
   // corrects.
-  await expect(page.getByRole('article', { name: 'A new Scene' })).toHaveCount(1)
+  await expect(page.locator('.graph').getByRole('button', { name: 'Go to A new Scene' })).toHaveCount(1)
   await expect(bubble(page)).toContainText(NEXT_STEP)
 })
 
@@ -137,10 +137,8 @@ test('an Author who deleted the Scene their Story opened on is sent to the mark'
   await page.getByRole('dialog').getByRole('button', { name: 'Delete Scene', exact: true }).click()
 
   // The bench stops asking for the Publish, which would refuse, and asks for the
-  // mark instead — from the corner while the panel is closed, because the mark is
-  // set in the panel.
+  // mark instead — on the Scene now on the surface, since there always is one.
   await expect(bubble(page)).toContainText(/nothing marks where this Story does/)
-  await expect(bubble(page)).toHaveClass(/adrift/)
 
   await writeScene(page, 'The platform')
   await lights(page, page.locator('.panel .opening'))
@@ -191,7 +189,7 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await expect(named).toBeFocused()
   await page.keyboard.type('The arrival')
   await page.keyboard.press('Tab')
-  await expect(page.getByRole('article', { name: 'The arrival' })).toHaveCount(1)
+  await expect(page.locator('.graph').getByRole('button', { name: 'Go to The arrival' })).toHaveCount(1)
 
   // Written. The sentence carries the whole gesture — a Shot is added and then
   // written — so it is said from the corner until there is a field to say it at.
@@ -205,25 +203,20 @@ test('the bench walks an Author from a bare Story to a published one', async ({
 
   // The second Scene and the Exit to it, which are one act and so one Step:
   // written at the foot of the Scene the Author is already writing in, where the
-  // light is. Nothing is closed and nothing is switched to first — the Step
-  // before this one left them in this document, and what it points at answers a
-  // press from where they stand. The canvas would not: it is folded into a rail
-  // while a Scene is open, and the gesture the sentence names as the other route
-  // is not offered there.
+  // light is, by naming the Scene the way on leads to. Nothing is closed and
+  // nothing is switched to first — the Step before this one left them in this
+  // document, and what it points at answers a press from where they stand.
   await expect(bubble(page)).toContainText(/branches between Scenes/)
   await lights(page, page.locator('.panel .adding'))
-  await page
-    .getByLabel('An Exit from here')
-    .selectOption({ label: 'To a Scene that is not there yet' })
+  const adding = page.getByLabel('An Exit from here')
+  await adding.fill('The platform')
+  await adding.press('Enter')
 
-  await expect(toast(page)).toHaveText('Exit from The arrival to A new Scene drawn')
+  await expect(toast(page))
+    .toHaveText('“The platform” written, and an Exit from The arrival to it drawn')
 
-  // Born beside the Scene it leaves, already joined, and named in the panel the
-  // same act moved on to.
-  await expect(page.getByLabel('Name of this Scene')).toBeFocused()
-  await page.keyboard.type('The platform')
-  await page.keyboard.press('Tab')
-  await expect(page.getByRole('article', { name: 'The platform' })).toHaveCount(1)
+  // Born under the name typed, already joined, and drawn on the Graph at once.
+  await expect(page.locator('.graph').getByRole('button', { name: 'Go to The platform' })).toHaveCount(1)
   const read = await (await page.request.get(`/api/stories/${story.id}`)).json()
   const beside = read.scenes.find((scene: { name: string }) => scene.name === 'The platform')
 
@@ -354,17 +347,12 @@ test('the light follows its target as the document grows above it', async ({
 })
 
 /**
- * The guidance and the surface that covers the bench. Below 44rem the writing
- * surface is the whole window, and everything it covers is `inert` — which is
- * precisely why the panel is not a `<dialog>` there: the spotlight and the
- * bubble are drawn over the bench rather than in the top layer, and a modal
- * surface would put the very field being pointed at on the far side of them.
- *
- * So the guidance still reaches into the surface, and stops pointing at what the
- * surface covers: a light on a control the Author cannot press is guidance being
- * wrong about the screen.
+ * The guidance at the width of a phone, where the bench is one column: the
+ * header, the Graph and the document are all drawn, so every Step has something
+ * on screen to point at, and the light lands on it rather than being said
+ * adrift.
  */
-test('the guidance reaches the surface that covers the bench, and nothing behind it', async ({
+test('the guidance reaches every part of the bench at the width of a phone', async ({
   page,
   author,
 }) => {
@@ -376,20 +364,17 @@ test('the guidance reaches the surface that covers the bench, and nothing behind
   const platform = await seedScene(story, 'The platform')
   await seedExit(arrival.id, platform.id)
 
-  // Opened at the address the writing carries, because the card that opens it is
-  // behind a header that stays on screen at a phone's width — a press on a Scene
-  // at this width is the graph's spec and not this one's.
   await page.setViewportSize({ width: 600, height: 800 })
   await page.goto(`/stories/${story.id}?scene=${arrival.id}`)
   await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
 
-  // What is asked for is a Flag, which is set in the panel: the light is on the
-  // section of the Scene's own document, over the surface covering the bench.
+  // What is asked for is a Flag, which is set in the document: the light is on
+  // that section of the Scene's own document.
   await expect(bubble(page)).toContainText(/State is what one Reading carries with it/)
   await lights(page, page.locator('[data-step="scene-flags"]'))
 
-  // And the bubble carrying the sentence is on top of the surface rather than
-  // under it, which is the whole of what the top layer would have cost.
+  // And the bubble carrying the sentence is on top of the bench rather than
+  // under anything.
   expect(await page.evaluate(() => {
     const said = document.querySelector('.bubble')!.getBoundingClientRect()
     const over = document.elementFromPoint(said.x + said.width / 2, said.y + said.height / 2)
@@ -397,23 +382,17 @@ test('the guidance reaches the surface that covers the bench, and nothing behind
     return said.width > 0 && !!over?.closest('.bubble')
   })).toBe(true)
 
-  // A Flag set, and what is asked for next is a Condition — also in the panel.
+  // A Flag set, and what is asked for next is a Condition — also in the document.
   await seedFlags(arrival.id, { courage: 'high' })
   await page.reload()
   await expect(bubble(page)).toContainText(/A Condition makes the same Scene play differently/)
 
-  // The Story is past both of those, and what is left to point at is behind the
-  // surface: the Publish in the header the panel covers. Nothing is lit, because
-  // nothing there can be pressed, and the sentence is said adrift instead.
+  // The Story is past both of those, and what is left to point at is the Publish
+  // in the header, which is on screen at every width.
   await seedShotConditions(platform.shots[0]!.id, [{ flag: 'courage', is: 'high' }])
   await page.request.post(`/api/scenes/${arrival.id}/opening`)
   await page.reload()
   await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
   await expect(bubble(page)).toContainText(/That is a Story that works/)
-  await expect(bubble(page)).toHaveClass(/adrift/)
-  await expect(page.locator('.spotlight')).toHaveCount(0)
-
-  // Closed, the Publish is reachable again and the light goes back onto it.
-  await page.getByRole('button', { name: 'Close this Panel' }).click()
   await lights(page, page.getByRole('button', { name: 'Publish this Story' }))
 })

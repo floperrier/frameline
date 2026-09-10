@@ -123,10 +123,12 @@ function conditionCalled(place: number) {
 
 <template>
   <div class="conditions" :class="{ quiet: !conditions.length }">
-    <p class="eyebrow">
+    <!-- The words the list opens on, only where there is a list: a Shot carrying
+         no Conditions — most of them — is the ordinary Shot, and the one control
+         that puts a Condition on it is all the row says about it. -->
+    <p v-if="conditions.length" class="eyebrow">
       {{ lead }}
       <span class="visually-hidden">— {{ carrier }}</span>
-      <template v-if="!conditions.length">{{ $t('conditions.always') }}</template>
     </p>
 
     <div
@@ -244,7 +246,7 @@ function conditionCalled(place: number) {
     <button
       v-if="conditions.length < CONDITIONS_MAX"
       type="button"
-      class="add"
+      class="mark add"
       :data-command="addNamed"
       @click="add"
     >

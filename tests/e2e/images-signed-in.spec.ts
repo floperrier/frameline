@@ -74,21 +74,20 @@ test('a Shot keeps the image attached last, and shows it', async ({ page, reques
   await expect.poll(shown).not.toBe(first)
 })
 
-test('a card shows the image of the Scene\u2019s first Shot', async ({ page, request }) => {
+test('a node shows the image of the Scene\u2019s first Shot', async ({ page, request }) => {
   const { story, shots } = await openShots(request)
   await request.put(`/api/shots/${shots[0]!.id}/image`, { data: ONE_PIXEL })
 
   await page.goto(`/stories/${story.id}`)
 
   // What an Author recognises a Scene by before they have read a word of it, read
-  // off the card with nothing opened.
-  await expect(page.getByRole('article', { name: 'The street' })
-    .getByRole('img', { name: 'The image of Shot 1' }))
+  // off the node on the map.
+  await expect(page.locator('.graph').getByRole('button', { name: 'Go to The street' }).locator('.frame img'))
     .toHaveAttribute('src', `/api/shots/${shots[0]!.id}/image`)
 
-  // The other Scene's first Shot carries none, so its card is the outline of the
-  // image nobody has attached — the same way an unfinished Shot reads in the panel.
-  await expect(page.getByRole('article', { name: 'The bar' }).locator('img')).toHaveCount(0)
+  // The other Scene's first Shot carries none, so its node is the outline of the
+  // image nobody has attached — the same way an unfinished Shot reads in the document.
+  await expect(page.locator('.graph').getByRole('button', { name: 'Go to The bar' }).locator('img')).toHaveCount(0)
 })
 
 test('an upload of the wrong kind, or too heavy, is refused by its reason', async ({ request }) => {

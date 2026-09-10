@@ -1,8 +1,15 @@
 ---
-status: accepted
+status: superseded by 0041
 ---
 
 # Writing a Scene is a state of the bench
+
+Superseded by `docs/adr/0041-the-graph-is-drawn-from-the-story.md`: the bench
+has one state now. There is always a Scene on it, the Graph is a band above the
+Scene drawn from the Story rather than a rail of stored coordinates, and nothing
+folds open or shut. What this record decided about the width a Scene is written
+at and the address it has stands.
+
 
 The bench has two states. In one, the Graph is the whole surface and a Story is
 laid out and read at once. In the other, a Scene is being written: the Graph

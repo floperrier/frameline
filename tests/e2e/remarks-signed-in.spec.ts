@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test'
 import type { APIRequestContext, Page } from '@playwright/test'
-import { seedExit, seedFlags, seedScene, seedStory, test } from './author'
+import { seedExit, seedFlags, seedScene, seedStory, test, writeScene } from './author'
 
 /**
  * What the bench reads back to the Author: the Remarks it finds in the Story,
@@ -68,16 +68,16 @@ test('counts what it finds, and opens the Scene a Remark names', async ({ page, 
   await seedExit(arrival.id, platform.id)
   await seedFlags(arrival.id, { coat: 'on' })
 
+  // Read with The platform on the surface. Two of the three are said here: the
+  // Preview beside the Scene being written already says the Story opens nowhere,
+  // and there is always a Scene being written, so that one is never said twice.
   await page.goto(`/stories/${story.id}`)
-  await expect(found(page)).toContainText('3')
+  await writeScene(page, 'The platform')
+  await expect(found(page)).toContainText('2')
 
   await openRemarks(page)
-  await expect(found(page).getByRole('listitem')).toHaveCount(3)
-
-  // The one Remark said of the Story itself is prose: there is no Scene to be
-  // taken to, so it is not a control that would go nowhere when pressed.
-  await expect(found(page)).toContainText('marks no opening Scene')
-  await expect(found(page).getByRole('button', { name: /opening Scene/ })).toHaveCount(0)
+  await expect(found(page).getByRole('listitem')).toHaveCount(2)
+  await expect(found(page)).not.toContainText('marks no opening Scene')
 
   // Pressing the Remark about the Flag puts the Scene that sets it on the writing
   // surface, which is where the Author answers it.

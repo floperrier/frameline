@@ -12,7 +12,7 @@
  * `docs/adr/0013-the-interfaces-locale-is-not-the-storys-language.md` — so it is
  * changed where the rest of what is theirs is, on the list of their own Stories.
  */
-const { id, story, keptAt, writing, change, write } = defineProps<{
+const { id, story, keptAt, change, write } = defineProps<{
   /**
    * The Story's own id, which every act here is sent against. It comes from the
    * route rather than from the Story, because the Publish is offered while a
@@ -23,16 +23,6 @@ const { id, story, keptAt, writing, change, write } = defineProps<{
   story?: StoryInEditor
   /** When a typed change last reached the Story, which the bench reports here. */
   keptAt?: Date
-  /**
-   * Whether a Scene is on the writing surface, which is what the header folds
-   * for. Writing a Scene is a state of the whole bench — see
-   * `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md` — and the graph
-   * already folds into a rail for it; the header owes the same. What the Story
-   * is stays, because that is what the Author is inside, and so do the acts that
-   * publish it and the link a Publish hands out. The Synopsis folds away: it is
-   * the one thing here nobody writes while they are writing a Scene.
-   */
-  writing?: boolean
   /** The one holder every write on this page goes through. */
   change: Change
   /**
@@ -165,10 +155,12 @@ function unlist() {
 </script>
 
 <template>
-  <!-- The bench's own header, in two halves: what the Story is, and where it can
-       be read. It stays on screen, because the graph below it scrolls a long
-       way. -->
-  <header :class="{ writing }">
+  <!-- The bench's own header, in two halves on one row: what the Story is, and
+       where it can be read. One row, because a Scene is always being written
+       under it and the rows below are what the screen is for: the Synopsis and
+       the Cover, which nobody writes while writing a Scene, fold into a
+       disclosure, and the acts that publish stay on the row. -->
+  <header>
     <div class="titling">
       <NuxtLink class="back trail" :to="localePath('/stories')">
         {{ $t('editor.allStories') }}
@@ -201,32 +193,33 @@ function unlist() {
       <p v-if="kept" class="kept-at">{{ $t('editor.keptAt', { time: kept }) }}</p>
     </div>
 
-    <section class="release" :class="{ folded: writing }" aria-labelledby="release">
+    <section class="release" aria-labelledby="release">
       <h2 id="release" class="eyebrow">{{ $t('editor.whereItIsRead') }}</h2>
 
-      <!-- The few lines the Story is presented by wherever somebody meets it
-           before opening it. Written here, beside the acts that put the Story
-           where it can be met, because it is the same subject: what a stranger
-           is handed. -->
-      <p v-if="!writing" class="synopsis">
-        <label class="eyebrow" for="story-synopsis">{{ $t('editor.synopsis') }}</label>
-        <textarea
-          v-if="story"
-          id="story-synopsis"
-          v-model="story.synopsis"
-          rows="2"
-          :maxlength="STORY_SYNOPSIS_MAX_LENGTH"
-          @change="present"
-        />
-      </p>
+      <!-- What a stranger is handed before they open the work — the few lines
+           of the Synopsis and the Cover — folded shut, because it is written
+           once and the Scene under the header is written all day. A native
+           disclosure, so the browser keeps it open or shut and the keyboard
+           already knows it. -->
+      <details v-if="story" class="presenting">
+        <summary class="eyebrow">{{ $t('editor.presentation') }}</summary>
 
-      <!-- The Image the Story is presented by, beside the Synopsis because it is
-           the same subject: what a stranger is handed before they open the work.
-           Named from among the Story's own Images and never uploaded here, so a
-           Cover is always a frame of the work — each thumbnail is a radio, and
-           the one checked is the one a shelf shows, whether the Author named it
-           or the Opening Scene is standing in. -->
-      <fieldset v-if="!writing && story" class="cover">
+        <p class="synopsis">
+          <label class="eyebrow" for="story-synopsis">{{ $t('editor.synopsis') }}</label>
+          <textarea
+            id="story-synopsis"
+            v-model="story.synopsis"
+            rows="2"
+            :maxlength="STORY_SYNOPSIS_MAX_LENGTH"
+            @change="present"
+          />
+        </p>
+
+        <!-- Named from among the Story's own Images and never uploaded here, so a
+             Cover is always a frame of the work — each thumbnail is a radio, and
+             the one checked is the one a shelf shows, whether the Author named it
+             or the Opening Scene is standing in. -->
+        <fieldset class="cover">
         <legend class="eyebrow">{{ $t('editor.cover') }}</legend>
         <p class="note">{{ $t(frames.length ? 'editor.coverNote' : 'editor.coverNone') }}</p>
         <div v-if="frames.length" class="frames">
@@ -255,7 +248,8 @@ function unlist() {
         >
           {{ $t('editor.coverUnname') }}
         </button>
-      </fieldset>
+        </fieldset>
+      </details>
 
       <!-- The link, shown in full so it can be copied out of the page. It is
            what publishing hands over, and it goes on working whether or not
@@ -339,7 +333,7 @@ header {
   align-items: start;
   justify-content: space-between;
   gap: var(--s3) var(--s4);
-  padding-block: var(--s3);
+  padding-block: var(--s2);
   border-block-end: 1px solid var(--edge);
   /* The graph scrolls under the header, so the header cannot be transparent. */
   background: var(--bench);
@@ -379,24 +373,21 @@ header {
   max-inline-size: 34rem;
 }
 
-/* Writing a Scene is a state of the bench and the header takes it too, the way
-   the graph beside it folds into a rail: the title comes down to a label on a
-   reel and the Synopsis folds away, because the three columns below are what the
-   screen is for. Nothing leaves the tab order and nothing changes shape. */
-header.writing {
-  padding-block: var(--s2);
-}
-
-header.writing .named input {
+/* The title comes down to a label on a reel: the Scene under the header is what
+   the screen is for. */
+.named input {
   font-size: 1.75rem;
 }
 
-.release.folded {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: end;
-  gap: var(--s2) var(--s3);
+/* The disclosure the Synopsis and the Cover fold into, its summary set as the
+   labels around it are. Open, it lays the two out as the column they were. */
+.presenting summary {
+  cursor: pointer;
+}
+
+.presenting[open] {
+  display: grid;
+  gap: var(--s2);
 }
 
 .release .synopsis {

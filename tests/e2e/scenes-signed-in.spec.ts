@@ -64,7 +64,7 @@ test('an Author corrects the name of a Scene', async ({ request }) => {
   const { story, scene } = await openScene(request, 'The arival')
 
   const renamed = await request.patch(
-    `/api/scenes/${scene.id}`, { data: { name: 'The arrival', x: scene.x, y: scene.y } })
+    `/api/scenes/${scene.id}`, { data: { name: 'The arrival' } })
 
   expect(renamed.status()).toBe(200)
   await expect(renamed.json()).resolves.toMatchObject({ id: scene.id, name: 'The arrival' })
@@ -73,19 +73,10 @@ test('an Author corrects the name of a Scene', async ({ request }) => {
   })
 })
 
-test('a Scene keeps its name where a request carries none', async ({ request }) => {
-  const { scene } = await openScene(request, 'The arrival')
-
-  const moved = await request.patch(`/api/scenes/${scene.id}`, { data: { x: 40, y: 60 } })
-
-  expect(moved.status()).toBe(200)
-  await expect(readSceneName(scene.id)).resolves.toBe('The arrival')
-})
-
 test('a Scene cannot be renamed to nothing, or to more than a name', async ({ request }) => {
   const { scene } = await openScene(request, 'The arrival')
   const rename = (name: string) => request.patch(
-    `/api/scenes/${scene.id}`, { data: { name, x: scene.x, y: scene.y } })
+    `/api/scenes/${scene.id}`, { data: { name } })
 
   const refused = await Promise.all([rename('  '), rename('x'.repeat(SCENE_NAME_MAX_LENGTH + 1))])
 
@@ -113,10 +104,9 @@ test('an Author renames a Scene in the panel', async ({ page, request }) => {
   await expect(async () => {
     await expect(readSceneName(scene.id)).resolves.toBe('The arrival')
   }).toPass()
-  // And the card answers to the new name: the name it carries is the Scene's, so
+  // And the node answers to the new name: the name it carries is the Scene's, so
   // everything that says which Scene this is has followed the correction.
-  await expect(page.getByRole('article', { name: 'The arrival' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Write Scene The arrival' })).toBeVisible()
+  await expect(page.locator('.graph').getByRole('button', { name: 'Go to The arrival' })).toBeVisible()
   // The panel's heading is the field, so what it is called is what the field
   // holds: the label saying which Scene this is sits outside it rather than in
   // front of the name.
@@ -545,9 +535,6 @@ test('everything a Scene holds is on the surface at once, each part counted',
     await seedFlags(scene.id, { coat: 'on' })
     const platform = await seedScene(story, 'The platform')
     await seedExit(scene.id, platform.id)
-    // Laid beside the first rather than on top of it: a seeded Scene is stacked
-    // where the last one is, and a card under another is a card no hand reaches.
-    await request.patch(`/api/scenes/${platform.id}`, { data: { x: 600, y: 0 } })
 
     await page.goto(`/stories/${story.id}`)
     await writeScene(page, 'The arrival')
@@ -643,9 +630,9 @@ test('an Author writes a Story from the page alone', async ({ page, request }) =
   await expect(named).toBeFocused()
   await named.fill('The arrival')
   await named.blur()
-  // The card, rather than the heading on it: the panel the gesture opened is
-  // named by the Scene too, so a heading alone is two things on this page.
-  await expect(page.getByRole('article', { name: 'The arrival' })).toHaveCount(1)
+  // The node, rather than the heading: the document the gesture opened is named
+  // by the Scene too, so a heading alone is two things on this page.
+  await expect(page.locator('.graph').getByRole('button', { name: 'Go to The arrival' })).toHaveCount(1)
 
   // Blurring the Shot is what writes it, so each is left before the next is added.
   for (const [place, line] of ['She steps off the train.', 'The platform is empty.'].entries()) {

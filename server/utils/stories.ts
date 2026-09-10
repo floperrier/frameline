@@ -137,7 +137,7 @@ export async function readStoryLanguage(event: H3Event): Promise<StoryLanguage> 
 }
 
 /**
- * The Scenes of a Story, each a run of Shots in order and a node of the graph,
+ * The Scenes of a Story, each a run of Shots in order,
  * and the Exits that join them. Shared because an Author's Story and a Reader's
  * are the same graph read by two different doors — a Preview and a Reading play
  * the same Story, so they cannot be assembled by two queries that could drift.
@@ -149,8 +149,6 @@ export async function readStoryGraph(storyId: string) {
     .select({
       sceneId: scenes.id,
       name: scenes.name,
-      x: scenes.x,
-      y: scenes.y,
       sets: scenes.sets,
       shotId: shots.id,
       text: shots.text,
@@ -175,8 +173,6 @@ export async function readStoryGraph(storyId: string) {
       scene = {
         id: row.sceneId,
         name: row.name,
-        x: row.x,
-        y: row.y,
         sets: row.sets,
         shots: [],
       }

@@ -10,13 +10,6 @@
  * into the very field being pointed at, so the guidance makes nothing inert and
  * takes nothing out of the top layer's way.
  *
- * What the bench itself makes inert is read rather than ignored. The writing
- * surface covering the bench on a phone puts the header and the graph out of
- * reach — `docs/adr/0036-the-surface-that-covers-the-bench-is-not-a-dialog.md` —
- * and a Step pointing in there says so from the corner instead of lighting a
- * control the Author cannot press. That the surface is not a dialog is what lets
- * the light and the bubble be drawn over it at all.
- *
  * The bubble is an `<aside>` rather than a live region. It is on screen from the
  * moment the page is, and a live region firing every time a step is met would
  * talk over the field the Author is typing in — the same reason the bench's
@@ -82,17 +75,7 @@ function look() {
   // and a light on a rectangle of no size would be a dot in the corner of the
   // bench. Read as absent, so the bubble goes adrift rather than being wrong
   // about the screen.
-  //
-  // A target behind the writing surface covering the bench is read as absent for
-  // the same reason, and it is the stronger case: it measures perfectly well and
-  // cannot be pressed at all. The light would be drawn over the surface, on a
-  // control the surface is hiding — guidance pointing through a wall. Asked of
-  // the attribute rather than of the width, because `inert` is how the bench
-  // writes "the Author cannot reach this" and the width is only one reason it
-  // might. The attribute and not the inertness the browser imposes under a modal
-  // dialog: that one needs no answer here, because a dialog is drawn above the
-  // light and covers it rather than being pointed at through it.
-  const reachable = seen?.width && seen.height && !target?.closest('[inert]')
+  const reachable = seen?.width && seen.height
   const found = reachable ? seen : undefined
   if (!alike(box.value, found)) box.value = found
 

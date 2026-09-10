@@ -91,10 +91,13 @@ export const stories = pgTable('stories', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-// `x` and `y` are where the Author put the Scene's node in the Story graph, in
-// pixels from the graph's top left. They say nothing about the Story itself —
-// two Scenes may sit on top of each other — so nothing constrains them beyond
-// the reach of the graph.
+// `x` and `y` were where the Author put the Scene's node in the Story's graph.
+// Nothing reads or writes them any more: where a Scene is drawn is read off the
+// Story itself — see `docs/adr/0041-the-graph-is-drawn-from-the-story.md`. They
+// stay one deploy longer, because the code running before this one still writes
+// them and a column dropped from under it would take that code down — see
+// `docs/adr/0002-the-schema-moves-with-the-deploy.md`. The migration that drops
+// them follows.
 //
 // `sets` is the Flags the Scene sets on every entry, as one flat object of names
 // to values — or, where the Author named several, to the list one value is drawn

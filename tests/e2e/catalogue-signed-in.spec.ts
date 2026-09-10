@@ -114,6 +114,7 @@ test('an Author writes a Synopsis and whoever browses the Catalogue reads it', a
   await expect(bare).not.toContainText('A door opens.')
 
   await page.goto(`/stories/${story.id}`)
+  await page.getByText('Synopsis and Cover').click()
   const synopsis = page.getByRole('textbox', { name: 'Synopsis' })
   await synopsis.fill('A woman leaves a door open behind her, and the street takes her.')
   await synopsis.blur()

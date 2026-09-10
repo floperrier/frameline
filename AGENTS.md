@@ -36,7 +36,8 @@ The widths the interface folds at are the one thing a token cannot carry, becaus
 a custom property cannot be read inside a media query. They are declared as
 custom media queries in `app/assets/css/folds.css` — names and no rules — and
 reached by name from the scoped block of every surface that folds at one. See
-`docs/adr/0037-the-reading-folds-before-the-writing-does.md`.
+`docs/adr/0037-the-reading-folds-before-the-writing-does.md` and
+`docs/adr/0041-the-graph-is-drawn-from-the-story.md`.
 
 ## Git flow
 
@@ -105,9 +106,8 @@ outright: the migration snapshots are the generator's to write.
 `pnpm test` runs the Vitest suite over the modules that are pure functions: the
 Reading engine, what a Shot's image is read to be, the Conditions a request is
 allowed to write, the sequence of Places it renumbers a Scene by, the Scenes a
-Exit may land on, the geometry of the lines the graph draws, where a point on
-the screen lands on the surface they are drawn on, where a Scene born from an
-Exit is placed, the two message
+Exit may land on, where every Scene of a Story is drawn on the Graph and the geometry of the lines
+between them, the two message
 files held against each other, the language a refusal is phrased in, the Steps the
 bench asks a Story for — whose targets are held against the editor's template
 read as source — the Remarks the bench reads back out of a Story, and the two

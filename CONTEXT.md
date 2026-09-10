@@ -88,13 +88,13 @@ montage
 **Graph**:
 A whole Story seen at once, as its Scenes and the Exits between them. A Scene is
 drawn in it as a node and an Exit as an edge — words for the drawing, never for the
-Scene or the Exit itself. A node is drawn as a card, which is a word for that
-drawing on the same terms: the Scene it stands for is never a card, and where a
-Scene is written is the surface the bench folds open for it, with the Graph beside
-it as a rail — see
-`docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`. Nothing is written in
-the drawing: an Exit is written in the document of the Scene it leaves, and a
-press on its line opens that Scene — see
+Scene or the Exit itself. Where every node stands is read off the Story — how far the Scene is from the
+Opening Scene in Exits taken, and in what order it is offered — and never placed
+by hand: the Graph is a reading of the Story and moves when the Story does, a
+band across the bench above the Scene being written — see
+`docs/adr/0041-the-graph-is-drawn-from-the-story.md`. Nothing is written in the
+drawing: an Exit is written in the document of the Scene it leaves, by naming the
+Scene it leads to, and a press on a node puts that Scene on the bench — see
 `docs/adr/0034-a-story-is-written-without-the-canvas.md`.
 _Affiché_: Graphe
 _Avoid_: map, tree, flowchart, board, canvas
