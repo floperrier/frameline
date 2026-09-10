@@ -201,6 +201,30 @@ export function laidOut(scenes: Scene[], exits: Exit[], openingSceneId: string |
 }
 
 /**
+ * The Scenes of a Story in the order they are written in: the Opening Scene, then
+ * each Scene in the first column it is reached in, and within a column in the
+ * order the Reader is offered it, then the Scenes nothing arrives at.
+ *
+ * It is the Graph's own layout read as a sequence rather than as a picture, and
+ * it is read off `laidOut` rather than walking the Story a second time. Two walks
+ * are two facts, and the day they disagree the order a Story reads in and the
+ * shape it is drawn as are saying different things about one Story — see
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ *
+ * What that rests on is that `laidOut` fills its map column by column and, within
+ * a column, row by row, so its keys are already the sequence. That is a fact
+ * about the function and not about this one, so the spec holds it against the
+ * points themselves: the order here is the order of the boxes, read left to right
+ * and then down.
+ */
+export function inDocumentOrder(scenes: Scene[], exits: Exit[], openingSceneId: string | null) {
+  const { placed } = laidOut(scenes, exits, openingSceneId)
+  const named = new Map(scenes.map(scene => [scene.id, scene]))
+
+  return [...placed.keys()].map(id => named.get(id)!)
+}
+
+/**
  * How many words the Shots of a Scene hold, which is the one count an Author
  * writing prose asks of a document. The Shots' text alone — not the Scene's
  * name, not what the Reader presses to take a way on — so the figure is an
