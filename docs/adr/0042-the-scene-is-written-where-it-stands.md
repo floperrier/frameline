@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by 0043
 ---
 
 # The Scene is written where it stands
