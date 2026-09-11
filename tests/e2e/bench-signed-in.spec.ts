@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test'
 import type { APIRequestContext, Page } from '@playwright/test'
-import { live, seedExit, seedScenes, test } from './author'
+import { live, sceneNode, seedExit, seedScenes, test } from './author'
 
 /**
  * The bench as one document: the rail, the writing and what the bench says beside
@@ -78,9 +78,9 @@ function scrollsSideways(page: Page) {
  * out of the accessibility tree and out of the tab order on purpose, so counting
  * its marks would be counting the Story twice.
  */
-function controlsOnScreen(page: Page) {
-  return page.evaluate(() => {
-    const controls = document.querySelectorAll<HTMLElement>(
+function controlsOnScreen(page: Page, within = 'body') {
+  return page.evaluate((where) => {
+    const controls = document.querySelector(where)!.querySelectorAll<HTMLElement>(
       'button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])')
 
     return [...controls].filter((control) => {
@@ -95,7 +95,7 @@ function controlsOnScreen(page: Page) {
       return box.right > 0 && box.bottom > 0
         && box.left < window.innerWidth && box.top < window.innerHeight
     }).length
-  })
+  }, within)
 }
 
 /**
@@ -173,6 +173,8 @@ test('offers no more controls on a Story of forty Scenes than on one of three',
     await live(page)
     await expect(page.locator('.panel')).toBeVisible()
     const few = await controlsOnScreen(page)
+    const inTheDocument = await controlsOnScreen(page, '.writing')
+    const written = await controlsOnScreen(page, '.panel')
 
     const large = await chained(request, 40)
     await page.goto(`/stories/${large.story.id}`)
@@ -180,10 +182,24 @@ test('offers no more controls on a Story of forty Scenes than on one of three',
     await expect(page.locator('.panel')).toBeVisible()
     await expect(page.locator('.rail .mark')).toHaveCount(40)
     const many = await controlsOnScreen(page)
+    const alsoInTheDocument = await controlsOnScreen(page, '.writing')
 
     // The Story really did grow, and the screen really did not.
     expect(few).toBeGreaterThan(0)
     expect(many).toBeLessThanOrEqual(few)
+
+    // And the document is why, said on its own rather than read out of a total.
+    // A total is the page's, and the page holds things that answer to something
+    // other than the size of the Story: the Story's own edge is a fixed row, and
+    // the Remarks are sentences about what is still to do, which a Story held
+    // together at both sizes has none of either way. What the layout promises is
+    // narrower and is the whole of the claim — that a Scene added to the document
+    // adds no control to the bench — so it is measured where it is made. Every
+    // Scene but the one the caret is in is read, and reading takes no controls;
+    // the writing surface is the one section that has any, and #252 is where the
+    // rest of the document becomes writable in its turn.
+    expect(written).toBe(inTheDocument)
+    expect(inTheDocument).toBe(alsoInTheDocument)
   })
 
 test('keeps the rail out of the accessibility tree and out of the tab order',
@@ -249,6 +265,45 @@ test('scrolls the document to the Scene the address names', async ({ page, reque
   // rail: one notion of where the Author is, said in both places.
   await expect(page.getByRole('group', { name: `Writing ${eighth.name}` })).toBeVisible()
   await expect(page.locator('.rail .here')).toHaveAttribute('data-scene', eighth.id)
+})
+
+test('winds the document back to the Scene the caret is already in', async ({ page, request }) => {
+  const { story, scenes } = await chained(request, 10)
+  const eighth = scenes[7]!
+
+  await page.goto(`/stories/${story.id}?scene=${eighth.id}`)
+  await live(page)
+
+  const scroller = page.locator('.document')
+  await expect.poll(() => scroller.evaluate(one => one.scrollTop)).toBeGreaterThan(0)
+
+  // The document scrolls under the caret: an Author reads their way back up the
+  // Story without leaving the Scene they are writing, and the address does not
+  // move because nothing about which Scene that is has changed.
+  await scroller.evaluate(one => one.scrollTo({ top: 0, behavior: 'instant' }))
+  await expect.poll(() => scroller.evaluate(one => one.scrollTop)).toBe(0)
+  await expect(page.getByRole('group', { name: `Writing ${eighth.name}` })).toBeAttached()
+
+  // So asking for that Scene again is asking to be taken back to it, which is the
+  // whole of what *Go to* can still mean there. An act with nothing left to do is
+  // one the bar of Commands should not be offering, and the rail offers this one
+  // for every Scene of the Story — see
+  // `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`.
+  await sceneNode(page, eighth.name).click()
+
+  // Polled to the end of the wind rather than measured at the start of it. The
+  // document scrolls smoothly, so a section eight down is still on its way long
+  // after the scroller's first pixel has moved, and a box read then is a box
+  // nothing will be at.
+  await expect.poll(async () => {
+    const showing = (await scroller.boundingBox())!
+    const at = (await page.locator(`#scene-${eighth.id}`).boundingBox())!
+
+    return at.y >= showing.y && at.y < showing.y + showing.height
+  }).toBe(true)
+
+  // And the address did not move, because which Scene the caret is in did not.
+  await expect(page).toHaveURL(new RegExp(`scene=${eighth.id}$`))
 })
 
 test('opens a Story whose address names a Scene that is gone where a Reading would',

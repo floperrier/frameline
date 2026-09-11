@@ -105,9 +105,16 @@ const sceneWritten = computed(() => story.value?.scenes.find(scene => scene.id =
  * focus into the Scene's own name, which announces itself, and every act that
  * writes a Scene has already said what it did — a second sentence there would
  * talk over the first.
+ *
+ * Asking for the Scene the caret is already in still winds the document to it,
+ * and that is the whole of what the act means there: the document scrolls under
+ * the caret, so an Author who read their way down the Story and then asked for
+ * the Scene they are writing has asked to be taken back to it. The address does
+ * not change, so nothing is said out loud either — arriving where you already
+ * were is not news.
  */
 async function goToScene(sceneId: string, spoken = true) {
-  if (sceneWritten.value?.id === sceneId) return
+  if (sceneWritten.value?.id === sceneId) return windOn('auto')
 
   await router.replace({ query: { ...route.query, scene: sceneId } })
   await nextTick()
@@ -239,7 +246,7 @@ const reading = ref(false)
 const faceSays = computed(() =>
   reading.value ? t('editor.writeTheScene') : t('editor.readTheStory'))
 
-function turnGate(event: Event) {
+function turnOver(event: Event) {
   reading.value = !reading.value
   ;(event.currentTarget as HTMLElement).focus()
 }
@@ -277,7 +284,7 @@ function turnGate(event: Event) {
           type="button"
           data-step="reading"
           :data-command="faceSays"
-          @click="turnGate"
+          @click="turnOver"
         >
           {{ faceSays }}
         </button>
