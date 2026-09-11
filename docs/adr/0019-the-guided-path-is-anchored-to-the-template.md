@@ -4,12 +4,11 @@ status: accepted
 
 # The guided path is anchored to the editor's own template
 
-> Amended by `docs/adr/0043-a-story-is-written-as-one-document.md`: the panel
-> that held one Scene by construction is gone, so the per-Scene scoping this
-> record dropped comes back. A Step names the Scene it is about as well as the
-> target, and the target is resolved inside that Scene's section of the
-> document. Everything else here stands.
-
+Amended by `docs/adr/0043-a-story-is-written-as-one-document.md`: the panel that
+held one Scene by construction is gone, so the per-Scene scoping this record
+dropped comes back. A Step names the Scene it is about as well as the target, and
+the target is resolved inside that Scene's section of the document. Everything
+else here stands.
 
 A Repère points at a real element of `app/pages/stories/[id]/index.vue`, found by
 a `data-cue` attribute written on that element. The guidance holds the name of

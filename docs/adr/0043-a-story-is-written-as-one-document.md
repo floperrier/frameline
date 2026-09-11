@@ -40,7 +40,7 @@ is the thing `docs/adr/0014-the-glossary-is-the-codes-language.md` exists to
 prevent. What stands on that side is the Remarks, which is a word the glossary
 already has.
 
-The document is read three ways, and a control chooses which. **The script** is
+The document is read three ways, and a control chooses which. **The writing** is
 the document above, and it is where a Story is written. **The contact sheet** is
 every Shot of every Scene as the Image it carries, in bands, one band a Scene: the
 Story seen rather than read, which is how an Author judges what is still a grey
@@ -50,19 +50,28 @@ replaying the Path with the State it has accumulated. The rail and the Remarks d
 not move between the three. What changes is what the middle is a reading of, never
 where anything is.
 
-Two new names and one old one. The Preview takes no new word, because
-`docs/adr/0030-a-story-is-read-where-it-is-written.md` already refused a second
-word for an Author reading their own Story and a *room* beside a *Preview* would
-be exactly that; *room* stays what `0006` uses for the surface a Reading is thrown
-onto, and never for the reading itself. *Script* and *contact sheet* are out of the
-grammar of cinema, which
+One new name for three readings. Two of them are named already and the third is
+the only word coined here.
+
+The Preview takes no new word, because
+`docs/adr/0030-a-story-is-read-where-it-is-written.md` refused a second word for
+an Author reading their own Story, and a *room* beside a *Preview* would be
+exactly that; *room* stays what `0006` calls the dark space a Reading is watched
+in, never the reading itself. The writing takes no new word either: it is what
+`0029` and `0042` already call the act this surface exists for, and a word the
+corpus uses is worth more than a better one it does not. It is not *text*, which
+is what a Shot carries beside its Image, and not *script*, which fails the test
+applied to *gutter* and *margin* one paragraph above — two dozen components open
+on one, `0028` and `0036` use it for running code — and which in the grammar of
+cinema names the whole written work rather than one way of reading it.
+
+That leaves *contact sheet*, out of the grammar of cinema, which
 `docs/adr/0022-the-metaphor-stops-at-the-edge-of-the-work.md` reserves for the
-work: the seam holds, because a reading is a way of looking at the work while the
-control that chooses between them is a tool of the bench and takes plain words.
-Neither word is *text*, which is already what a Shot carries beside its Image.
-Each of the two is a term the moment it is on a screen, so each takes an entry in
-`CONTEXT.md` with the word it is shown as in French, in #256 where they are first
-drawn.
+work. The seam holds where that record puts it: a reading is a way of looking at
+the work, so it takes the work's grammar, while the control that chooses between
+the three is a tool of the bench and takes plain words. It is a term the moment it
+is on a screen, so it takes an entry in `CONTEXT.md` with the word it is shown as
+in French, in #256, where it is first drawn.
 
 Typing is `docs/adr/0033-a-scene-is-written-as-one-document.md` unchanged, over a
 longer document. One field per Shot, nothing parsed, no Shot losing the id its
@@ -79,13 +88,12 @@ and it appears in the document at the place the order puts it.
 A control that acts on one row is drawn on that row and reaches full strength when
 the caret or the pointer is on it. What changes is its weight and never its
 presence, so `display: none` is not the mechanism and the control keeps its place
-in the tab order wherever it stands. Whether it is a Command is a second question
-and the Consequences answer it separately: `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`
-has the bar read the marks off the page, and a Story of forty Scenes would hand it
-forty Scenes' worth of row marks, so the mark that names a row's act is carried
-only in the Scene the caret stands in. Drawn everywhere, named where the Author
-is. This is what issue #245 asked
-for on one Scene, held for the whole Story.
+in the tab order wherever it stands. Whether it is also a Command is a second
+question, and the Consequences answer it separately: a Story of forty Scenes would
+otherwise hand the bar forty Scenes' worth of row marks, so the mark that names a
+row's act is carried only in the Scene the caret stands in. Drawn everywhere,
+named where the Author is. This is what issue #245 asked for on one Scene, held
+for the whole Story.
 
 This supersedes `0042` whole, and with it the gate and the surface that covers the
 bench on a phone that `0042` introduced. It supersedes the *beside* of
@@ -178,10 +186,13 @@ exist, because nothing in the layout is measured in pixels of gate. Held by an
 end-to-end spec at 1440, 1180, 900, 768 and 390, of which 900 and 768 are inside
 that band.
 
-**`--phone` stays declared.** Only the bench's use of it goes. `app/assets/css/folds.css`
-says the width is read by the landing page and by the list of Stories as well, and
-`0041` says the widths there stay two. An ADR that deleted the declaration would
-break two surfaces it does not touch.
+**`--phone` stays declared.** Only the bench's use of it goes.
+`app/components/Entry.vue` reads it, and through it the Catalogue, a List and a
+Profile, and so does `app/pages/stories/index.vue`; `0041` says the widths there
+stay two. An ADR that deleted the declaration would break surfaces it does not
+touch. The file's own comment names the landing page among its readers and is
+wrong — `app/pages/index.vue` does not import it — which #258 corrects where it
+is written rather than here.
 
 **The guided path is scoped to a Scene again, and `0019` is amended.**
 `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md` dropped per-Scene
@@ -202,7 +213,7 @@ fixed panel carrying the same sentence.
 **The nearest voice still wins.** `0032` drops two Remarks while the reading is
 saying them in the Scene's own words. That rule is kept and generalised: the
 Preview is the nearer voice for those two while it is the reading on screen, so
-the Remarks drop them then and say them in the script and in the contact sheet.
+the Remarks drop them then and say them in the writing and in the contact sheet.
 `0042`
 had already given those two back to the bench, for the same reason in reverse;
 what changes here is that they are dropped again exactly when something nearer is
@@ -217,7 +228,8 @@ in stopped on, and the order of the Exits set on the buttons as they are read.
 What answers `0030`'s own reason — that reading is how a line is judged between
 two keystrokes — is that the judgement moved into the writing instead of standing
 next to it: a Shot's text is set in the reading face at the reading measure in the
-script itself, so the line is judged where it is typed. What the Preview adds is the
+writing itself, so the line is judged where it is typed. What the Preview adds is
+the
 Image, the State and the Exits as they will be pressed, and that is a thing an
 Author turns to rather than glances at. The `beside` of `0030` is superseded; its
 engine rule is not.
@@ -227,7 +239,7 @@ engine rule is not.
 `UNDRAWN` and draw once it is in the browser it will stay in, written against two
 different Stories either side of hydration. A bench rendered whole by the server
 must carry that rule up with the Path, or it reintroduces exactly that split.
-Turning from the script to the Preview and back then resumes the reading the
+Turning from the writing to the Preview and back then resumes the reading the
 Author was in. Note what this is not: the seed loss reported in #247 is an implementation
 defect of a `v-if` pair that a `v-show` fixes today, on the current branch, with no
 record at all. It is not an argument for a layout.
@@ -279,7 +291,8 @@ the change that removes it, and `0014` is the reason they cannot be left
 describing a surface that is gone. #258 also re-points `0033` and `0037` at this
 record, since both say `superseded by 0042`, so that nobody tracing the typing
 rule crosses two dead records to reach a live one. `0019` is amended rather than
-superseded, and carries a line to that effect from this record's own change. `0036` is not superseded here: it already says `superseded by 0041`, and
+superseded, and carries a line to that effect from this record's own change.
+`0036` is not superseded here: it already says `superseded by 0041`, and
 the covering surface this removes is the one `0042` introduced.
 
 **Reopening condition.** This is the fourth layout in as many records, so it is
