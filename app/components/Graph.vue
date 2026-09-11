@@ -118,7 +118,10 @@ watch(() => sceneWritten, async () => {
    itself, because a Story of forty Scenes is a tall rail and the document is what
    the window is for. */
 .rail {
-  --mark: 20px;
+  /* Twenty-four pixels, which is the smallest a target may be for a finger, at
+     both of the widths below: what narrows at the fold is the rail and never what
+     can be pressed. Four to a row at this width, and one to a row at the strip's. */
+  --mark: 24px;
   flex: none;
   display: grid;
   align-content: start;
@@ -126,7 +129,7 @@ watch(() => sceneWritten, async () => {
   inline-size: 120px;
   min-block-size: 0;
   overflow-y: auto;
-  padding: var(--s2);
+  padding: var(--s2) var(--s1);
   border-inline-end: 1px solid var(--edge);
   background: color-mix(in oklab, var(--bench) 70%, black);
   /* The mark the caret is on is wound into the rail rather than jumped to, and
@@ -203,7 +206,6 @@ watch(() => sceneWritten, async () => {
    the strip, so what narrows is the rail and never what can be pressed. */
 @media (--phone) {
   .rail {
-    --mark: 24px;
     gap: var(--s2);
     inline-size: 32px;
     padding: var(--s1);
