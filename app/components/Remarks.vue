@@ -104,6 +104,8 @@ const spoken = computed(() => story ? remarks(story) : [])
 </template>
 
 <style scoped>
+@import '~/assets/css/folds.css';
+
 /* Drawn in the machine's own materials: this is the bench talking about the Story
    rather than any part of the Story. It flows in the region it stands in — it
    covers nothing, because there is nothing beside it to cover. */
@@ -188,5 +190,16 @@ li button:focus-visible {
   max-inline-size: 46ch;
   color: var(--muted);
   font-size: 0.875rem;
+}
+
+/* At the fold the Remarks stand at the head of the document rather than beside
+   it, and the document is what the window is for: the list is held to a couple of
+   sentences there and goes on scrolling inside itself. It is still open and still
+   says what it found — what folds is the width the Remarks are said in and never
+   their voice. See `docs/adr/0043-a-story-is-written-as-one-document.md`. */
+@media (--two-columns) {
+  ul {
+    max-block-size: 6rem;
+  }
 }
 </style>
