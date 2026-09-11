@@ -113,7 +113,7 @@ test('a way on pressed in the reading moves the writing with it', async ({ page,
   await expect(page.getByRole('group', { name: 'Writing The bar' })).toBeVisible()
 })
 
-test('a node pressed on the Graph routes the reading to that Scene', async ({ page, request }) => {
+test('a mark pressed on the rail routes the reading to that Scene', async ({ page, request }) => {
   const story = await writeStory(request)
   const { scenes } = await scenesOf(request, story.id)
   const preview = await writing(page, story.id, scenes[0]!.id)
@@ -121,8 +121,10 @@ test('a node pressed on the Graph routes the reading to that Scene', async ({ pa
   await expect(preview.getByText('A door opens.')).toBeVisible()
 
   // The other half of the same cursor: the writing moved, so the reading is
-  // replayed to where the writing now is. The face stays as it was — a node
-  // pressed while the Story is being read is the Author reading on.
+  // replayed to where the writing now is. The rail does not move between the
+  // readings and neither does the reading that is up — a mark pressed while the
+  // Story is being read is the Author reading on, not asking to write. See
+  // `docs/adr/0043-a-story-is-written-as-one-document.md`.
   await sceneNode(page, 'The bar').click()
   await expect(preview.getByText('Smoke, and no one she knows.')).toBeVisible()
 })
@@ -527,14 +529,17 @@ test('a Scene draws one of several values, and the Author draws it again',
     expect((await played()).toLowerCase()).toContain(await drawn())
   })
 
-test('the reading is the gate’s other face, at every width', async ({ page, request }) => {
+test('the reading takes the document’s place, at every width', async ({ page, request }) => {
   const story = await writeStory(request)
   const { scenes } = await scenesOf(request, story.id)
 
-  // A wide window, a narrow one and a phone. There is no width at which the two
-  // stand side by side and none at which either is unreachable: the gate holds
-  // one Scene and turns over — see
-  // `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
+  // A wide window, one inside the fold that sends what the bench says beside the
+  // document to the head of it, and a phone. There is no width at which the
+  // writing and the reading stand side by side and none at which either is
+  // unreachable: the middle of the bench is one reading at a time and a control
+  // chooses which — see
+  // `docs/adr/0043-a-story-is-written-as-one-document.md`, which supersedes the
+  // *beside* of `0030` and keeps its engine rule.
   for (const size of [
     { width: 1600, height: 1000 },
     { width: 1024, height: 768 },
@@ -545,25 +550,33 @@ test('the reading is the gate’s other face, at every width', async ({ page, re
 
     const named = page.getByRole('textbox', { name: 'Name of this Scene' })
     const preview = previewIn(page)
+    const boxes = async () => ({
+      document: (await page.locator('.document').boundingBox())!,
+      rail: (await page.locator('.rail').boundingBox())!,
+      // `aside.said` and not `.said`: what a Reader presses to take a way on is
+      // said too, on a row of the document.
+      said: (await page.locator('aside.said').boundingBox())!,
+    })
 
-    // The Scene is the face up, and the control that turns the gate over says
-    // what pressing it does.
+    // The writing is the reading that is up, and the control that turns the
+    // middle over says what pressing it does.
     await expect(named).toBeVisible()
     await expect(preview).toBeHidden()
 
-    const gate = (await page.locator('.panel').boundingBox())!
+    const before = await boxes()
 
     await page.getByRole('button', { name: 'Read the Story' }).click()
     await expect(preview).toBeVisible()
     await expect(preview.getByText('A door opens.')).toBeVisible()
     await expect(named).toBeHidden()
 
-    // The same box in the same place: the two faces are one thing on the table
-    // rather than two surfaces that take turns being somewhere.
+    // What changes is what the middle is a reading of, never where anything is:
+    // the rail and the Remarks do not move, the document keeps the box it had,
+    // and the Preview is inside it rather than beside it.
+    expect(await boxes()).toEqual(before)
     const turned = (await page.locator('.preview').boundingBox())!
-    expect(Math.round(turned.x)).toBe(Math.round(gate.x))
-    expect(Math.round(turned.y)).toBe(Math.round(gate.y))
-    expect(Math.round(turned.width)).toBe(Math.round(gate.width))
+    expect(turned.x).toBeGreaterThanOrEqual(before.document.x)
+    expect(turned.x + turned.width).toBeLessThanOrEqual(before.document.x + before.document.width)
 
     await page.getByRole('button', { name: 'Write the Scene' }).click()
     await expect(named).toBeVisible()
@@ -595,11 +608,15 @@ test('turning the gate over is an act of the bench, named in the bar', async ({ 
   await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
 })
 
-test('the gate takes the room the window leaves it', async ({ page, request }) => {
+test('the bench takes the room the window leaves it', async ({ page, request }) => {
   const story = await writeStory(request)
   const { scenes } = await scenesOf(request, story.id)
 
-  // A wide window, a narrow one, and a phone — where the gate is the whole table.
+  // A wide window, one inside the fold where what the bench says beside the
+  // document goes to the head of it, and a phone — where the rail narrows to a
+  // strip of dots. Three regions that never trade width at any of them, and no
+  // fold that hides anything: see
+  // `docs/adr/0043-a-story-is-written-as-one-document.md`.
   for (const size of [
     { width: 1600, height: 1000 },
     { width: 1024, height: 768 },
@@ -610,17 +627,18 @@ test('the gate takes the room the window leaves it', async ({ page, request }) =
     await expect(page.locator('.panel')).toBeVisible()
 
     const read = await page.evaluate(() => {
-      const table = document.querySelector('main > .graph')!.getBoundingClientRect()
+      const bench = document.querySelector('main > .bench')!.getBoundingClientRect()
 
       return {
         scrolls: document.documentElement.scrollHeight > innerHeight,
-        // What the table leaves unused between its own foot and the page's.
-        below: Math.round(innerHeight - table.bottom),
+        // What the bench leaves unused between its own foot and the page's.
+        below: Math.round(innerHeight - bench.bottom),
       }
     })
 
-    // Nothing to scroll at all: the table ends where the page does, and a Scene
-    // longer than the gate scrolls inside the gate rather than down the page.
+    // Nothing to scroll at all: the bench ends where the page does, and a Story
+    // longer than the window scrolls inside the document — the one scroller on
+    // the bench — rather than down the page.
     expect(read.scrolls).toBe(false)
     expect(read.below).toBeLessThanOrEqual(1)
   }

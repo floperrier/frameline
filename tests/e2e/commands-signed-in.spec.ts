@@ -74,13 +74,17 @@ test('an Author goes to a Scene by naming it, accents or none', async ({ page, r
   await open(page)
 
   // Everything the bench can do, before a letter is typed: the four Scenes, the
-  // Publish above them and every act of the Scene on the surface. A bar that
-  // started empty would be a search.
+  // Publish above them and every act of the Scene the caret is in. A bar that
+  // started empty would be a search. The Remarks are named *Close* because they
+  // stand open — they flow in a region of their own now rather than covering the
+  // table, so there is room to say what they found without being asked, and a
+  // Command is named for what pressing it does. See
+  // `docs/adr/0043-a-story-is-written-as-one-document.md`.
   for (const named of [
     'Go to Le café',
     'Go to The alley',
     'Publish this Story',
-    'Read the Remarks',
+    'Close the Remarks',
   ]) {
     await expect(offered(page).filter({ hasText: named })).toBeVisible()
   }
@@ -297,17 +301,36 @@ test('the bar names every act marked on a Scene being written, and no other', as
   // The bar cannot offer an act the bench is not drawing, and the spec below
   // holds the mark where the act does have something to do.
   //
-  // Two of them are new with the gate: whether it stands on the Graph, and which
-  // of its two faces is up. Two are gone with it — *Go to The street*, because
-  // the Scene the gate stands on has no node and going to it would do nothing,
-  // and the Condition on the second beat, because the bench draws the beat in
-  // the gate and no other. See
-  // `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
+  // The Condition on the second beat is not among them either, and that has not
+  // changed: the bench draws one beat in the gate and no other, so there is no
+  // control to name for the rest of the run.
+  //
+  // Four things did change, with
+  // `docs/adr/0043-a-story-is-written-as-one-document.md`, and the order is one of
+  // them: the bar reads the bench in document order, and the bench is now the
+  // Story's own edge, then the rail, then the document, then what the bench says
+  // beside it — so the Remarks, which used to be first because they were laid over
+  // the head of the table, are last.
+  //
+  // *The whole Story* is gone with the gate: there is no gate to lift off a
+  // drawing any more, because the drawing is a rail beside the document and the
+  // whole Story is in the document at every moment.
+  //
+  // And *Go to The street* is back. It went when the Scene the gate stood on lost
+  // its node; the rail draws every Scene of the Story, the one the caret is in
+  // included, so every one of them is an act the bench is offering — and the act
+  // has something left to do, because *Go to* now winds the document to a Scene
+  // rather than opening it. The rail is `aria-hidden`, which the bar does not
+  // consult: it filters by `checkVisibility()`.
+  //
+  // The Remarks are named *Close* rather than *Read* because they stand open:
+  // they flow in a region of their own now instead of covering the table, so
+  // there is room to say what they found without being asked, and a Command is
+  // named for what pressing it does.
   await expect(offered(page)).toHaveText([
-    'Read the Remarks',
-    'The whole Story',
     'Read the Story',
     'Publish this Story',
+    'Go to The street',
     'Go to The bar',
     'Delete Scene',
     'Add a Flag',
@@ -315,6 +338,7 @@ test('the bar names every act marked on a Scene being written, and no other', as
     'Add a Shot',
     'Add a Condition to the Exit 1 to The bar',
     'Add an Exit',
+    'Close the Remarks',
   ])
 })
 
@@ -370,7 +394,21 @@ test('an Author sets a Flag and marks the Opening Scene by naming them', async (
 
   // The act ran on the Story: the Scene on the surface is the one the Story
   // opens on, and the radio that performs it says so.
+  //
+  // Read back past the page before the reload, because the radio is checked by
+  // the browser the instant it is pressed and the write is still on its way out:
+  // a reload on top of an unfinished request cancels it, and the bench comes back
+  // saying what the Story never heard. The reload is here to prove the mark was
+  // kept rather than drawn, so it has to happen after the keeping.
+  const bar = await (await page.request.get(`/api/stories/${story.id}`)).json()
+    .then((read: { scenes: { id: string, name: string }[] }) =>
+      read.scenes.find(scene => scene.name === 'The bar')!)
   await expect(page.getByRole('radio', { name: 'Opening Scene The bar' })).toBeChecked()
+  await expect
+    .poll(async () => (await (await page.request.get(`/api/stories/${story.id}`)).json())
+      .openingSceneId)
+    .toBe(bar.id)
+
   await page.reload()
   await expect(page.getByRole('radio', { name: 'Opening Scene The bar' })).toBeChecked()
 

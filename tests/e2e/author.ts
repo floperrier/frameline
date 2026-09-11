@@ -230,61 +230,63 @@ export async function seedScenes(story: Story, names: string[]) {
 }
 
 /**
- * Puts a Scene under the gate, the way an Author would: by pressing its node on
- * the Graph. The Scene the gate already stands on has no node — there is nothing
- * a press on it could do — so a Scene already being written is left alone, and
- * either way the gate is waited for. Scoped to the Graph, because the gate's own
- * way on carries a mark named the same way.
+ * Puts the caret in a Scene, the way an Author would: by pressing its mark on the
+ * rail. The whole Story is in the document now, so there is nothing to open and
+ * nothing that closes — what a press does is move the caret and wind the document
+ * to that Scene's own section, where the writing surface stands. A Scene the caret
+ * is already in is left alone, because pressing its mark would be asking to go
+ * where the caret already is, and either way the writing surface is waited for.
+ * See `docs/adr/0043-a-story-is-written-as-one-document.md`.
  */
 export async function writeScene(page: Page, name: string) {
-  const gate = page.getByRole('group', { name: `Writing ${name}` })
+  const writing = page.getByRole('group', { name: `Writing ${name}` })
 
-  if (!await gate.isVisible()) {
+  if (!await writing.isVisible()) {
     const node = sceneNode(page, name)
     await expect(node).toBeVisible()
     await node.click()
   }
 
-  await expect(gate).toBeVisible()
+  await expect(writing).toBeVisible()
 }
 
 /**
- * A Scene's node on the Graph, told apart from the mark in the gate that carries
- * the same name: a way on's own control is *Go to* the Scene it lands on too,
- * and the gate stands inside the Graph now — see
- * `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
+ * A Scene as the rail draws it: the Graph is a hundred and twenty pixels down the
+ * side of the document now, and a Scene in it is a mark and no words — no image,
+ * no line, no name — see `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ *
+ * `getByRole` cannot reach one, and that is the rail working as designed rather
+ * than an oversight to route around. The rail is `aria-hidden` with every mark at
+ * `tabindex="-1"`, because every fact it draws — where a Scene stands in the
+ * Story, whether the Story opens on it, whether anything arrives at it — is said
+ * in words in the document's own markup, and a drawing in the accessibility tree
+ * would be the whole Story announced twice with a tab order running through it.
+ * So a mark is found by the name the bar of Commands reads it under, which is the
+ * one thing about the rail that does still reach the keyboard:
+ * `app/components/Commands.vue` filters by `checkVisibility()`, which does not
+ * consult `aria-hidden` — see
+ * `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`.
+ * Scoped to the rail all the same, because a way on's own row in the Scene being
+ * written carries a control named *Go to* the Scene it lands on.
+ *
+ * Still `sceneNode` rather than `sceneMark`. *Node* is `CONTEXT.md`'s word for a
+ * Scene as the Graph draws it, and the rail is the Graph read small rather than a
+ * second surface; *mark* is the class the rail gives it, and it is a word two
+ * other things on the bench already carry — the controls that renumber a row, and
+ * what `0035` calls a control named for the bar — so it is not the word to take
+ * for this one.
  */
 export function sceneNode(page: Page, name: string) {
-  return page.getByRole('button', { name: `Go to ${name}` }).and(page.locator('.node'))
+  return page.locator(`.rail [data-command="Go to ${name}"]`)
 }
 
 /**
- * Waits for the drawing to stop moving. The Graph opens up around the Scene being
- * written and closes again when the gate is lifted off — see
- * `docs/adr/0042-the-scene-is-written-where-it-stands.md` — and the nodes glide
- * to their new columns rather than jumping, so a box measured while the sheet is
- * still spreading is a box nothing will be at. Asked of the browser's own list of
- * running animations rather than waited out by a number.
- */
-export function stillDrawing(page: Page) {
-  return page.waitForFunction(
-    () => document.getAnimations().every(moving => moving.playState !== 'running'))
-}
-
-/**
- * Lifts the gate off the Graph, which is how an Author looks at the whole Story:
- * every Scene has a node again, the one being written included.
- */
-export async function wholeStory(page: Page) {
-  await page.getByRole('button', { name: 'The whole Story' }).click()
-  await expect(page.locator('.panel')).toHaveCount(0)
-  await stillDrawing(page)
-}
-
-/**
- * Turns the gate over onto its reading face, which is where an Author reads their
- * own Story: the same box in the same place on the Graph — see
- * `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
+ * Turns the middle of the bench onto the Story read on the engine a Reader runs.
+ * The rail and the Remarks do not move between the readings — what changes is
+ * what the middle is a reading of, never where anything is — so the Preview
+ * arrives in the document's own place rather than in a box of its own. See
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`, which keeps `0030`'s
+ * engine rule and supersedes its *beside*.
  */
 export async function readTheStory(page: Page) {
   const preview = page.getByRole('region', { name: /^Preview/ })
@@ -300,8 +302,10 @@ export async function readTheStory(page: Page) {
  * Puts one beat of the Scene being written in the gate, the way an Author does:
  * by pressing its cell on the strip. There is one field for the run — the
  * gate's — so this is how a spec reaches the words of any beat but the one the
- * Scene opened at, and it hands that field back. See
- * `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
+ * Scene opened at, and it hands that field back. The gate here is the frame one
+ * beat is written in, which `app/components/Panel.vue` still draws unchanged: the
+ * gate that stood on the Graph is what
+ * `docs/adr/0043-a-story-is-written-as-one-document.md` took away.
  */
 export async function writeShot(page: Page, place: number) {
   const cell = page.getByRole('button', { name: `Write Shot ${place}` })

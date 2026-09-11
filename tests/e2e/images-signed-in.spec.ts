@@ -1,7 +1,6 @@
 import { expect } from '@playwright/test'
 import {
-  ONE_PIXEL, readTheStory, sceneNode, seedScene, seedStory, test, wholeStory, writeScene,
-  writeStory,
+  ONE_PIXEL, readTheStory, seedScene, seedStory, test, writeScene, writeStory,
 } from './author'
 import { SHOT_DESCRIPTION_MAX_LENGTH, SHOT_IMAGE_MAX_BYTES } from '../../shared/utils/scenes'
 import type { APIRequestContext, Page } from '@playwright/test'
@@ -77,23 +76,29 @@ test('a Shot keeps the image attached last, and shows it', async ({ page, reques
   await expect.poll(shown).not.toBe(first)
 })
 
-test('a node shows the image of the Scene\u2019s first Shot', async ({ page, request }) => {
+test('the strip shows the image of every Shot that carries one', async ({ page, request }) => {
   const { story, shots } = await openShots(request)
   await request.put(`/api/shots/${shots[0]!.id}/image`, { data: ONE_PIXEL })
 
   await page.goto(`/stories/${story.id}`)
-  // The Scene being written has no node — the gate stands in its place — so the
-  // whole Story is what the nodes are read off.
-  await wholeStory(page)
+  await writeScene(page, 'The street')
 
-  // What an Author recognises a Scene by before they have read a word of it, read
-  // off the node on the map.
-  await expect(sceneNode(page, 'The street').locator('.frame img'))
+  // This claim used to be made of a node: the Graph drew the image of a Scene's
+  // first Shot, and that was what an Author recognised the Scene by before they
+  // had read a word of it. The Graph is the rail now — a hundred and twenty pixels
+  // down the side of the document, drawing no image, no line and no name, see
+  // `docs/adr/0043-a-story-is-written-as-one-document.md` — so the claim moves to
+  // where an image is still drawn small: the strip under the gate, where a cell
+  // carries the image of its own beat. It is what is left on the bench of reading
+  // the work by looking rather than by reading, which is the question an Author
+  // judging how much of it is still a grey rectangle is asking.
+  const cell = (place: number) => writing(page).locator('.strip li').nth(place - 1)
+  await expect(cell(1).locator('img'))
     .toHaveAttribute('src', `/api/shots/${shots[0]!.id}/image`)
 
-  // The other Scene's first Shot carries none, so its node is the outline of the
-  // image nobody has attached — the same way an unfinished beat reads in the gate.
-  await expect(sceneNode(page, 'The bar').locator('img')).toHaveCount(0)
+  // The second beat carries none, so its cell is the outline of the image nobody
+  // has attached — the same way an unfinished beat reads in the gate itself.
+  await expect(cell(2).locator('img')).toHaveCount(0)
 })
 
 test('an upload of the wrong kind, or too heavy, is refused by its reason', async ({ request }) => {
