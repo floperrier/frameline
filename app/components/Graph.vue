@@ -52,13 +52,39 @@ const columns = computed(() => inColumns(
  * in a sentence.
  */
 const arrivedAt = computed(() => new Set((story?.exits ?? []).map(exit => exit.toSceneId)))
+
+/**
+ * The mark the caret is on, brought into the rail. The rail scrolls inside itself,
+ * and a Story long enough puts the Scene being written past its foot: a locator
+ * that cannot show where the Author is standing has stopped being one, which is
+ * the condition `0043` says to reopen the whole layout on.
+ *
+ * `nearest` is what keeps it quiet — a mark already in the rail is not moved, so
+ * the rail does not lurch every time the caret moves a Scene — and the document
+ * beside it is scrolled by the page rather than by this, so the two cannot argue.
+ * The mount is instant for the reason the document's own wind is: the first sight
+ * of the bench is a reload coming back to an address, and a rail winding past the
+ * Author before they can read it says nothing.
+ */
+const rail = useTemplateRef<HTMLElement>('rail')
+
+function windOn(behavior: ScrollBehavior) {
+  rail.value?.querySelector('.mark.here')
+    ?.scrollIntoView({ behavior, block: 'nearest', inline: 'nearest' })
+}
+
+onMounted(() => windOn('instant'))
+watch(() => sceneWritten, async () => {
+  await nextTick()
+  windOn('smooth')
+})
 </script>
 
 <template>
   <!-- One element per column, the Scenes of a column running across it. Nothing
        inside is announced and nothing inside is tabbed to: the document is where
        all of this is said in words. -->
-  <div v-if="story?.scenes.length" class="rail" aria-hidden="true">
+  <div v-if="story?.scenes.length" ref="rail" class="rail" aria-hidden="true">
     <div v-for="(column, depth) in columns" :key="depth" class="column">
       <!-- Named for what pressing it does, so the bar of Commands offers every
            Scene under the same words the mark answers to. The name is also the
@@ -103,6 +129,16 @@ const arrivedAt = computed(() => new Set((story?.exits ?? []).map(exit => exit.t
   padding: var(--s2);
   border-inline-end: 1px solid var(--edge);
   background: color-mix(in oklab, var(--bench) 70%, black);
+  /* The mark the caret is on is wound into the rail rather than jumped to, and
+     the answer to `prefers-reduced-motion` is given once here rather than at each
+     call — the same arrangement the document beside it is scrolled under. */
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail {
+    scroll-behavior: auto;
+  }
 }
 
 /* A column of the Graph, read across the rail rather than down it: the page runs
