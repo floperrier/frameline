@@ -78,26 +78,25 @@ function refuseDrop(event: DragEvent) {
 /**
  * The Scene being written, which the address carries as `?scene=` on the
  * Story's own page, so an Author can send themselves a link to the Scene they
- * were writing. There is always one on the bench while the Story has a Scene at
- * all: the one the address names, or the Opening Scene, or the first written —
- * a Story is not opened onto nothing, and a stale link to a Scene the Author
- * deleted opens the Story where a Reading would.
+ * were writing. A query rather than a fragment, because a fragment never reaches
+ * the server and a bench rendered whole is a server's answer — see
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`. There is always one on
+ * the bench while the Story has a Scene at all: the one the address names, or the
+ * Opening Scene, or the first written — a Story is not opened onto nothing, and a
+ * stale link to a Scene the Author deleted opens the Story where a Reading would.
  */
 const sceneWritten = computed(() => story.value?.scenes.find(scene => scene.id === route.query.scene)
   ?? story.value?.scenes.find(scene => scene.id === story.value?.openingSceneId)
   ?? story.value?.scenes[0])
 
 /**
- * Puts one Scene under the gate, leaving the gate on the face it was showing: a
- * node pressed while the Story is being read is the Author reading on, not asking
- * to write. The gate comes back down if it had been lifted off — pressing a node
- * is asking for that Scene — and the address is replaced rather than pushed,
- * because a back that walked the Author through every node they had pressed
- * would never leave the Story.
+ * Puts the caret in one Scene, leaving the middle of the bench on the reading it
+ * was showing: a mark pressed on the rail while the Story is being read is the
+ * Author reading on, not asking to write. The address is replaced rather than
+ * pushed, because a back that walked the Author through every mark they had
+ * pressed would never leave the Story.
  */
 async function goToScene(sceneId: string) {
-  lifted.value = false
-
   if (sceneWritten.value?.id !== sceneId) {
     await router.replace({ query: { ...route.query, scene: sceneId } })
     await nextTick()
@@ -105,8 +104,36 @@ async function goToScene(sceneId: string) {
 }
 
 /**
- * Puts one Scene under the gate to be written: the same as going there, and the
- * gate is turned to the face a Scene is written on, with focus in the name — its
+ * The document wound to the Scene the address names. The whole Story is on the
+ * bench, so going to a Scene is a scroll rather than an opening — which is what
+ * `docs/adr/0043-a-story-is-written-as-one-document.md` says *Go to* now means.
+ *
+ * `scrollIntoView` rather than arithmetic on the section's offset: the room to
+ * leave above it is `scroll-margin-block-start` on the section itself, said once
+ * in the units the document's own padding is written in. Smoothness is the
+ * stylesheet's, where the answer to `prefers-reduced-motion` is given once.
+ *
+ * Two callers rather than one immediate watch, and they arrive differently. The
+ * first sight of the bench is a reload coming back to an address, and winding the
+ * document past the Author before they can read anything says nothing and takes
+ * half a second — so the mount is instant. A Scene reached afterwards is a move
+ * they made, and the document follows it. `instant` beats the stylesheet's
+ * `smooth`; the empty argument leaves it in charge.
+ */
+function windOn(behavior: ScrollBehavior) {
+  document.getElementById(`scene-${sceneWritten.value?.id}`)
+    ?.scrollIntoView({ behavior, block: 'start' })
+}
+
+onMounted(() => windOn('instant'))
+watch(() => sceneWritten.value?.id, async () => {
+  await nextTick()
+  windOn('smooth')
+})
+
+/**
+ * Puts the caret in one Scene to write it: the same as going there, with the
+ * middle of the bench turned back to the writing, and focus in the name — its
  * first field — selected where the Scene arrived under a provisional name, so the
  * first thing typed replaces it. This is what a Remark opens, what a way on's own
  * mark opens, and what a Scene written from nothing arrives in.
@@ -142,7 +169,8 @@ async function follow(sceneId: string) {
  *
  * It joins nothing, which the way on that makes every other Scene never leaves
  * a Story in. That is the honest cost of naming a Scene into existence, and it
- * is why the Graph draws a Scene nothing leads to as the loose end it is.
+ * is why the rail marks a Scene nothing leads to as the loose end it is and the
+ * document says so under its name.
  */
 async function makeScene(name = t('editor.provisionalSceneName')) {
   let writtenId: string | undefined
@@ -163,37 +191,36 @@ async function makeScene(name = t('editor.provisionalSceneName')) {
 }
 
 /**
- * Whether the gate has been lifted off the Graph, leaving the whole Story on the
- * table with nothing standing on it. The Scene being written is still the one it
- * was — lifting the gate is looking at the Story, not leaving the Scene — so
- * putting it back down needs no address and no read.
+ * What the bench has read out of the whole Story, said beside the document: how
+ * much of a work it is. The Shots and the words are counted across every Scene
+ * rather than the one being written — the Scene's own counts are in its section of
+ * the document — because this is the figure an Author asks of a manuscript. See
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`.
  */
-const lifted = ref(false)
+const counted = computed(() => {
+  const shots = story.value?.scenes.flatMap(scene => scene.shots) ?? []
 
-/** What the control that lifts and lowers the gate says: what pressing it does. */
-const liftSays = computed(() => lifted.value
-  ? t('editor.writingIn', { name: sceneWritten.value?.name ?? '' })
-  : t('editor.wholeStory'))
-
-function lift(event: Event) {
-  lifted.value = !lifted.value
-  ;(event.currentTarget as HTMLElement).focus()
-}
+  return {
+    scenes: countedScenes(story.value?.scenes.length ?? 0, t),
+    shots: countedShots(shots.length, t),
+    words: countedWords(wordsOf(shots), t),
+    exits: countedExits(story.value?.exits.length ?? 0, t),
+  }
+})
 
 /**
- * Which of its two faces the gate is showing: the Scene being written, or the
- * Story read on the engine a Reader runs. One box on the table with two faces,
- * rather than two columns of a bench — a Story is read exactly where it is
- * written, which is what
- * `docs/adr/0030-a-story-is-read-where-it-is-written.md` asked for and what
- * `docs/adr/0042-the-scene-is-written-where-it-stands.md` finally gives it.
+ * Which reading the middle of the bench is showing: the writing, or the Story read
+ * on the engine a Reader runs. The rail and the Remarks do not move between them —
+ * what changes is what the middle is a reading of, never where anything is. See
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`, which keeps `0030`'s
+ * engine rule and supersedes its *beside*.
  */
 const reading = ref(false)
 
 /**
- * What the control that turns the gate over says: what pressing it does, rather
- * than which face is up — so the control and the Command that runs it are one
- * sentence. Focus is kept on the control, because the face that goes takes
+ * What the control that turns the middle over says: what pressing it does, rather
+ * than which reading is up — so the control and the Command that runs it are one
+ * sentence. Focus is kept on the control, because the reading that goes takes
  * whatever was focused inside it with it.
  */
 const faceSays = computed(() =>
@@ -201,7 +228,6 @@ const faceSays = computed(() =>
 
 function turnGate(event: Event) {
   reading.value = !reading.value
-  lifted.value = false
   ;(event.currentTarget as HTMLElement).focus()
 }
 </script>
@@ -216,9 +242,10 @@ function turnGate(event: Event) {
       :write="write"
     >
       <!-- The bench's own acts, on the Story's own edge: the way into every act
-           by naming it, what the bench noticed about the Story, whether the gate
-           is standing on the Graph, and which of its two faces is up. One row,
-           because the table under it is what the screen is for. -->
+           by naming it, and which reading the middle of the bench is showing. Two
+           controls, because the document under them is what the screen is for —
+           the Remarks left this row for a region of their own beside the document,
+           see `docs/adr/0043-a-story-is-written-as-one-document.md`. -->
       <div class="tools">
         <!-- The key does the same thing as the control, drawn on the control where
              somebody who never reads a legend will find it — see
@@ -226,22 +253,6 @@ function turnGate(event: Event) {
         <button type="button" class="commanding" @click="commanding = true">
           {{ $t('editor.commands') }}
           <span class="combination"><kbd>{{ modifier }}</kbd><kbd>K</kbd></span>
-        </button>
-
-        <!-- See `docs/adr/0032-the-bench-reads-the-story-back.md`. -->
-        <Remarks
-          :story="story ?? undefined"
-          :scene-written="sceneWritten?.id"
-          @open="writeScene"
-        />
-
-        <button
-          v-if="sceneWritten"
-          type="button"
-          :data-command="liftSays"
-          @click="lift"
-        >
-          {{ liftSays }}
         </button>
 
         <!-- `data-step` is here rather than on the reading itself: the guided
@@ -261,8 +272,8 @@ function turnGate(event: Event) {
     </StoryHeader>
 
     <!-- What the bench says about itself while there is no Scene to say it
-         against: why the last change was refused. With a Scene on the table the
-         refusal is shown in the gate instead. -->
+         against: why the last change was refused. With a Scene on the bench the
+         refusal is shown in that Scene's own section of the document instead. -->
     <Refusal v-if="!sceneWritten" :problem="problem" />
     <!-- Always in the document, empty between sentences: a live region announces
          a change to what it already holds, never a node that arrives with its
@@ -286,43 +297,68 @@ function turnGate(event: Event) {
       </button>
     </div>
 
-    <!-- The Graph is the bench, and the Scene being written stands on it: one
-         surface, laid out from the Story alone, with the gate in the place of the
-         node of the Scene it holds — see
-         `docs/adr/0042-the-scene-is-written-where-it-stands.md`. -->
-    <Graph
-      :story="story ?? undefined"
-      :scene-written="sceneWritten?.id"
-      :image-of="imageOf"
-      :lifted="lifted"
-      @write-scene="goToScene"
-    >
-      <template v-if="story && sceneWritten">
-        <Panel
-          v-if="!reading"
-          :story="story"
-          :scene-written="sceneWritten"
-          :change="change"
-          :write="write"
-          :ask="ask"
-          :announce="announce"
-          :image-of="imageOf"
-          :problem="problem"
-          @attached="attachedAt[$event] = Date.now()"
-          @open="writeScene"
-        />
+    <!-- The bench: three regions that never trade width — the rail, the document,
+         and the side the bench says what it read back on. Nothing covers anything,
+         nothing is made `inert` and nothing is `display: none`: what folds is the
+         width the Remarks are said in and never their voice. See
+         `docs/adr/0043-a-story-is-written-as-one-document.md`. -->
+    <div v-else-if="story" class="bench">
+      <!-- The Graph drawn small, and it never grows: 120 pixels at every width,
+           narrowing to a strip of dots on a phone. -->
+      <Graph
+        :story="story"
+        :scene-written="sceneWritten?.id"
+        @write-scene="goToScene"
+      />
+
+      <!-- The one thing on the bench that scrolls. Which reading it holds is the
+           page's to say; where it is, is not. -->
+      <div class="document">
         <!-- There is one notion of where the Author is and it is the Path, so a
              way on pressed in the reading moves the writing with it — see
-             `docs/adr/0030-a-story-is-read-where-it-is-written.md`. -->
+             `docs/adr/0030-a-story-is-read-where-it-is-written.md`, whose engine
+             rule `0043` keeps. -->
         <Preview
-          v-else
+          v-if="reading && sceneWritten"
           :story="story"
           :scene-written="sceneWritten.id"
           :change="change"
           @moved="follow"
         />
-      </template>
-    </Graph>
+
+        <!-- The whole Story as one document, with the Scene the caret is in
+             written in the place the order already gave it. -->
+        <Writing v-else :story="story" :scene-written="sceneWritten?.id">
+          <Panel
+            v-if="sceneWritten"
+            :story="story"
+            :scene-written="sceneWritten"
+            :change="change"
+            :write="write"
+            :ask="ask"
+            :announce="announce"
+            :image-of="imageOf"
+            :problem="problem"
+            @attached="attachedAt[$event] = Date.now()"
+            @open="writeScene"
+          />
+        </Writing>
+      </div>
+
+      <!-- What the bench read back out of the Story: how much of a work it is,
+           and then what it noticed about it — see
+           `docs/adr/0032-the-bench-reads-the-story-back.md`. -->
+      <aside class="said">
+        <p class="counts">
+          <span>{{ counted.scenes }}</span>
+          <span>{{ counted.shots }}</span>
+          <span>{{ counted.words }}</span>
+          <span>{{ counted.exits }}</span>
+        </p>
+
+        <Remarks :story="story" :scene-written="sceneWritten?.id" @open="writeScene" />
+      </aside>
+    </div>
 
     <Confirmation :asked="asked" @answer="answer" />
     <!-- Every act the bench is offering, reached by naming it. It reads the
@@ -337,13 +373,93 @@ function turnGate(event: Event) {
 <style scoped>
 @import '~/assets/css/folds.css';
 
-/* The page is a column exactly one window tall, and the Graph is the one thing
-   on it that grows: the edge takes its row and the table takes everything the
+/* The page is a column exactly one window tall, and the bench is the one thing
+   on it that grows: the edge takes its row and the bench takes everything the
    rows above leave. `dvh` because a browser's own chrome comes and goes. */
 main {
   display: flex;
   flex-direction: column;
   block-size: 100dvh;
+}
+
+/* The bench: the rail, the document and what the bench says beside them, and the
+   three never trade width. The rail is as wide as it is at every width, the
+   document takes the rest and the side the Remarks are said on has a ceiling —
+   `minmax(0, …)` on both so that a long word in either cannot push the page wider
+   than the window. See `docs/adr/0043-a-story-is-written-as-one-document.md`. */
+.bench {
+  flex: 1;
+  display: grid;
+  grid-template-areas: 'rail document said';
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 20rem);
+  min-block-size: 0;
+}
+
+.rail {
+  grid-area: rail;
+}
+
+/* The scroller, and the only one on the bench: the document is what the window is
+   for at every width. Wound to the Scene the address names — smoothly when the
+   Author asked for the move, and instantly on the first sight of the bench, which
+   `windOn` says. The answer to `prefers-reduced-motion` is given once, here,
+   rather than at each call. */
+.document {
+  grid-area: document;
+  min-inline-size: 0;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .document {
+    scroll-behavior: auto;
+  }
+}
+
+/* What the bench read back out of the Story. No new noun is coined for this side:
+   *margin* and *gutter* are both already spoken for at the scale of a row, so what
+   stands here is the counts and the Remarks, which are words the glossary already
+   has. */
+.said {
+  grid-area: said;
+  display: grid;
+  align-content: start;
+  gap: var(--s3);
+  min-inline-size: 0;
+  overflow-y: auto;
+  padding: var(--s4);
+}
+
+/* How much of a work the Story is, stencilled in the machine's own data face:
+   this is the bench counting rather than anything the Author wrote. */
+.counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s3);
+  color: var(--muted);
+  font-family: var(--data);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+}
+
+/* The first fold: there is room for the document and the rail but not for what
+   the bench says beside them, so that region goes to the head of the document and
+   the rail spans both rows. Nothing is hidden — what folds is the width the
+   Remarks are said in and never their voice. */
+@media (--two-columns) {
+  .bench {
+    grid-template-areas:
+      'rail said'
+      'rail document';
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .said {
+    overflow-y: visible;
+    padding: var(--s3) var(--s4) 0;
+  }
 }
 
 /* The bench's own acts, on the Story's edge. */
@@ -393,7 +509,7 @@ kbd {
   font-size: 0.6875rem;
 }
 
-/* The bench with nothing on it: a note where the Graph would be, and the one
+/* The bench with nothing on it: a note where the document would be, and the one
    control that writes the first Scene. */
 .empty {
   display: grid;
