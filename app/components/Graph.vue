@@ -76,7 +76,7 @@ function windOn(behavior: ScrollBehavior) {
 onMounted(() => windOn('instant'))
 watch(() => sceneWritten, async () => {
   await nextTick()
-  windOn('smooth')
+  windOn('auto')
 })
 </script>
 
@@ -113,10 +113,11 @@ watch(() => sceneWritten, async () => {
 <style scoped>
 @import '~/assets/css/folds.css';
 
-/* The rail: exactly its own width at every window, on the bench's deepest ground
-   so that the document beside it reads as the lit surface. It scrolls inside
-   itself, because a Story of forty Scenes is a tall rail and the document is what
-   the window is for. */
+/* The rail: exactly its own width at every window, a machined plate beside the
+   document rather than a hole cut through the bench — the same material every
+   control on the bench is drawn in, so the document beside it reads as the lit
+   surface. It scrolls inside itself, because a Story of forty Scenes is a tall
+   rail and the document is what the window is for. */
 .rail {
   /* Twenty-four pixels, which is the smallest a target may be for a finger, at
      both of the widths below: what narrows at the fold is the rail and never what
@@ -131,7 +132,7 @@ watch(() => sceneWritten, async () => {
   overflow-y: auto;
   padding: var(--s2) var(--s1);
   border-inline-end: 1px solid var(--edge);
-  background: color-mix(in oklab, var(--bench) 70%, black);
+  background: var(--steel);
   /* The mark the caret is on is wound into the rail rather than jumped to, and
      the answer to `prefers-reduced-motion` is given once here rather than at each
      call — the same arrangement the document beside it is scrolled under. */
@@ -153,17 +154,21 @@ watch(() => sceneWritten, async () => {
   gap: var(--s1);
 }
 
-/* A Scene, at the size a rail can carry one: a mark and no words. Square rather
-   than shrunk to a dot at this width, so the two things it says — where the Story
-   opens, and what nothing arrives at — have an edge to say them on. */
+/* A Scene, at the size a rail can carry one: a mark and no words, machined into
+   the plate the way a field is machined into the bench. Its edge is the whole of
+   what it says — where the Story opens, and what nothing arrives at — so the edge
+   has to be legible on its own: `--edge` is a hairline meant to be read beside the
+   box it bounds, and at this size, with nothing inside it, it reaches 1.95:1 and
+   says nothing. `--muted` is the palette's quietest readable value and it clears
+   three to one, which is what a control's own boundary is held to. */
 .rail .mark {
   min-inline-size: 0;
   inline-size: var(--mark);
   block-size: var(--mark);
   padding: 0;
-  border: 1px solid var(--edge);
+  border: 1px solid var(--muted);
   border-radius: var(--machined);
-  background: var(--steel);
+  background: var(--bench);
 }
 
 .rail .mark:hover {
@@ -176,7 +181,7 @@ watch(() => sceneWritten, async () => {
    for one. */
 .rail .mark.opens {
   border-color: var(--grease);
-  background: color-mix(in oklab, var(--grease) 22%, var(--steel));
+  background: color-mix(in oklab, var(--grease) 30%, var(--bench));
 }
 
 /* Where the caret is, in the machine's own light: this is the interface saying
@@ -208,11 +213,20 @@ watch(() => sceneWritten, async () => {
   .rail {
     gap: var(--s2);
     inline-size: 32px;
-    padding: var(--s1);
+    /* No side padding: the plate's own edge is one pixel of the thirty-two, and a
+       mark is twenty-four, so the room left over is what centres it. The marks
+       keep the machined corner they have at the wider width — `frameline.css`
+       allows two shapes, and the film gate's curve is the other one. */
+    padding: var(--s1) 0;
+    /* A classic scrollbar is fifteen pixels of a strip that is thirty-two, which
+       is half of every mark under a bar nobody here needs: the rail is
+       `aria-hidden`, out of the tab order, and wound to the caret by the component
+       itself. */
+    scrollbar-width: none;
   }
 
-  .rail .mark {
-    border-radius: 50%;
+  .column {
+    justify-content: center;
   }
 }
 </style>

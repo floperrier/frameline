@@ -119,7 +119,7 @@ function landing(exit: Exit) {
              something: most Scenes set none, and forty empty headings are forty
              lines saying nothing. -->
         <section v-if="held.flags.length" class="held">
-          <h3 class="eyebrow">{{ $t('editor.flagsHeld') }}</h3>
+          <p class="eyebrow">{{ $t('editor.flagsHeld') }}</p>
           <ul class="flags">
             <li v-for="flag in held.flags" :key="flag.name">
               <span class="data">{{ flag.name }}</span>
@@ -138,7 +138,7 @@ function landing(exit: Exit) {
         <!-- The run, each beat in the Place the Scene numbers it at and its text
              in the face it is read in. -->
         <section v-if="held.scene.shots.length" class="held">
-          <h3 class="eyebrow">{{ $t('editor.shotsHeld') }}</h3>
+          <p class="eyebrow">{{ $t('editor.shotsHeld') }}</p>
           <ol class="shots">
             <li v-for="(shot, place) in held.scene.shots" :key="shot.id">
               <span class="numbered">{{ place + 1 }}</span>
@@ -151,7 +151,7 @@ function landing(exit: Exit) {
              each as what the Reader presses and where it lands. Last, because that
              is where the Reader meets them. -->
         <section v-if="held.ways.length" class="held">
-          <h3 class="eyebrow">{{ $t('editor.waysHeld') }}</h3>
+          <p class="eyebrow">{{ $t('editor.waysHeld') }}</p>
           <ol class="ways">
             <li v-for="(exit, place) in held.ways" :key="exit.id">
               <span class="numbered">{{ place + 1 }}</span>
@@ -204,7 +204,7 @@ function landing(exit: Exit) {
   flex: 1 1 12rem;
   min-inline-size: 0;
   font-family: var(--display);
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   letter-spacing: 0.01em;
 }
 

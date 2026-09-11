@@ -204,9 +204,9 @@ function why(conditions: Condition[]) {
 </script>
 
 <template>
-  <!-- The reading and the bench it is cut on, stacked in the gate's other face:
+  <!-- The reading and the bench it is cut on, stacked in the middle of the bench:
        a landmark, because an Author can be sent to it. The guided path points at
-       the control that turns the gate over rather than at this pane — the pane is
+       the control that turns the middle over rather than at this pane — the pane is
        not on screen until they do, and what the Step asks for is the turn. -->
   <section class="preview" aria-labelledby="preview-heading">
     <p id="preview-heading" class="says">
@@ -344,7 +344,8 @@ function why(conditions: Condition[]) {
 </template>
 
 <style scoped>
-/* The gate's other face: the Story read as a Reader will read it, and under it
+/* The other reading the middle of the bench holds: the Story read as a Reader
+   will read it, and under it
    the instrument the Author reads it with. It fills exactly the box the Scene
    being written stands in — a Story is read where it is written, in the very same
    box on the table, see

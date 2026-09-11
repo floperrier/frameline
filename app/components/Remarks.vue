@@ -64,11 +64,13 @@ const open = ref(true)
  * Two of them used to be dropped while the Scene they were about was open,
  * because the reading standing in the column beside the writing was already
  * saying them in the Scene's own words, and two voices for one fact is the
- * objection `0034` raised about an Exit's text. The reading is a face of the gate
- * now rather than a column beside it — see
- * `docs/adr/0042-the-scene-is-written-where-it-stands.md` — so while an Author is
+ * objection `0034` raised about an Exit's text. The reading is one of the readings
+ * the middle of the bench can hold rather than a column beside the writing — see
+ * `docs/adr/0043-a-story-is-written-as-one-document.md` — so while an Author is
  * writing, it is saying nothing to them at all, and a Remark left to it would be
- * a fact said by nobody.
+ * a fact said by nobody. `0043` generalises the rule rather than dropping it: the
+ * nearer voice wins, and these two are dropped exactly while the Preview is the
+ * reading on screen. Issue #254 is where that is written.
  */
 const spoken = computed(() => story ? remarks(story) : [])
 </script>
@@ -157,6 +159,11 @@ ul {
   max-inline-size: 52ch;
   max-block-size: 16rem;
   overflow-y: auto;
+  /* An outline is drawn outside the control and takes no part in a scroller's
+     overflow, so a Remark flush with the edge of this box would be focused behind
+     a clipped ring. Four pixels is what `:focus-visible` asks for — two of line
+     and two of offset. */
+  padding: var(--s1);
 }
 
 /* A Remark reads as the sentence it is, not as a button: the whole line is the
@@ -199,7 +206,7 @@ li button:focus-visible {
    their voice. See `docs/adr/0043-a-story-is-written-as-one-document.md`. */
 @media (--two-columns) {
   ul {
-    max-block-size: 6rem;
+    max-block-size: 12rem;
   }
 }
 </style>

@@ -95,12 +95,23 @@ const sceneWritten = computed(() => story.value?.scenes.find(scene => scene.id =
  * Author reading on, not asking to write. The address is replaced rather than
  * pushed, because a back that walked the Author through every mark they had
  * pressed would never leave the Story.
+ *
+ * `0043` made *Go to* a scroll rather than an opening, and a scroll is a thing the
+ * eye follows and nothing else does: the bar of Commands closes, focus goes back
+ * to the control that opened it, and the caret has moved Scenes with nobody told.
+ * So the bench says where it went, in the words the writing surface is named by.
+ *
+ * `spoken` is off where something nearer is about to speak. `writeScene` sends
+ * focus into the Scene's own name, which announces itself, and every act that
+ * writes a Scene has already said what it did — a second sentence there would
+ * talk over the first.
  */
-async function goToScene(sceneId: string) {
-  if (sceneWritten.value?.id !== sceneId) {
-    await router.replace({ query: { ...route.query, scene: sceneId } })
-    await nextTick()
-  }
+async function goToScene(sceneId: string, spoken = true) {
+  if (sceneWritten.value?.id === sceneId) return
+
+  await router.replace({ query: { ...route.query, scene: sceneId } })
+  await nextTick()
+  if (spoken) announce(t('editor.writingScene', { name: sceneWritten.value?.name ?? '' }))
 }
 
 /**
@@ -117,8 +128,10 @@ async function goToScene(sceneId: string) {
  * first sight of the bench is a reload coming back to an address, and winding the
  * document past the Author before they can read anything says nothing and takes
  * half a second — so the mount is instant. A Scene reached afterwards is a move
- * they made, and the document follows it. `instant` beats the stylesheet's
- * `smooth`; the empty argument leaves it in charge.
+ * they made, and the document follows it — asked for as `auto`, which is the one
+ * value that defers to `scroll-behavior`, so the reduced-motion block below is the
+ * single answer rather than a rule an explicit `smooth` would walk past. `instant`
+ * is the one place this overrides it, on the mount.
  */
 function windOn(behavior: ScrollBehavior) {
   document.getElementById(`scene-${sceneWritten.value?.id}`)
@@ -128,7 +141,7 @@ function windOn(behavior: ScrollBehavior) {
 onMounted(() => windOn('instant'))
 watch(() => sceneWritten.value?.id, async () => {
   await nextTick()
-  windOn('smooth')
+  windOn('auto')
 })
 
 /**
@@ -140,7 +153,7 @@ watch(() => sceneWritten.value?.id, async () => {
  */
 async function writeScene(sceneId: string, naming = false) {
   reading.value = false
-  await goToScene(sceneId)
+  await goToScene(sceneId, false)
   await nextTick()
 
   const named = document.getElementById(`scene-name-${sceneId}`) as HTMLInputElement | null
@@ -480,7 +493,10 @@ main {
     flex-wrap: nowrap;
     min-inline-size: 0;
     overflow-x: auto;
-    padding-block-end: 2px;
+    /* Room for the focus ring, which is drawn outside a control and clipped by a
+       scroller whose content is flush with it: two pixels of line and two of
+       offset. */
+    padding-block-end: var(--s1);
   }
 
   .tools > * {
