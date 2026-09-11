@@ -5,6 +5,7 @@ import {
   exitLine,
   GATE_HEIGHT,
   GATE_WIDTH,
+  inColumns,
   inDocumentOrder,
   laidOut,
   NODE_GAP,
@@ -189,6 +190,70 @@ describe('the line that draws an Exit', () => {
     const { from } = exitLine(gate, node(GATE_WIDTH + DEPTH_GAP, 0))
 
     expect(from.x).toBe(GATE_WIDTH)
+  })
+})
+
+describe('the columns a Story falls into', () => {
+  /** The columns as ids, which is all a column is to the rail that draws it. */
+  const named = (scenes: Scene[], exits: Exit[], opening: string | null) =>
+    inColumns(scenes, exits, opening).map(column => column.map(scene => scene.id))
+
+  /**
+   * The columns the layout itself drew: every box gathered under the x it stands
+   * at, left to right, each column in the order the boxes were placed in it. Held
+   * against this rather than against a list written out by hand, because what has
+   * to stay true is that the rail and the drawing are one reading of one Story —
+   * see `docs/adr/0043-a-story-is-written-as-one-document.md`.
+   */
+  const asDrawn = (scenes: Scene[], exits: Exit[], opening: string | null) => {
+    const columns = new Map<number, string[]>()
+
+    for (const [id, box] of laidOut(scenes, exits, opening).placed) {
+      columns.set(box.x, [...columns.get(box.x) ?? [], id])
+    }
+
+    return [...columns.keys()].sort((one, other) => one - other).map(x => columns.get(x)!)
+  }
+
+  test('are the layout’s own columns, each read top to bottom', () => {
+    // A Story that branches and gathers again, handed over in an order that is
+    // not the answer: a function returning the Scenes as they arrived would fail
+    // here rather than pass by coincidence.
+    const scenes = ['d', 'a', 'e', 'c', 'b'].map(scene)
+    const exits = [
+      exit('a', 'b'), exit('a', 'c', 1), exit('b', 'd'), exit('c', 'd'), exit('d', 'e'),
+    ]
+
+    expect(named(scenes, exits, 'a')).toEqual(asDrawn(scenes, exits, 'a'))
+    expect(named(scenes, exits, 'a')).toEqual([['a'], ['b', 'c'], ['d'], ['e']])
+  })
+
+  test('put a cluster nothing arrives at in the columns after the last the opening reaches', () => {
+    const scenes = ['a', 'b', 'loose', 'looser'].map(scene)
+    const exits = [exit('a', 'b'), exit('loose', 'looser')]
+
+    expect(named(scenes, exits, 'a')).toEqual(asDrawn(scenes, exits, 'a'))
+    expect(named(scenes, exits, 'a')).toEqual([['a'], ['b'], ['loose'], ['looser']])
+  })
+
+  test('flatten to the order the Story is written in', () => {
+    const scenes = ['a', 'b', 'c', 'd', 'e'].map(scene)
+    const exits = [
+      exit('a', 'b'), exit('a', 'c', 1), exit('b', 'd'), exit('c', 'd'), exit('d', 'e'),
+    ]
+    const flattened = inColumns(scenes, exits, 'a').flat()
+
+    expect(flattened).toEqual(inDocumentOrder(scenes, exits, 'a'))
+  })
+
+  test('hand back the Scenes themselves, not their ids', () => {
+    const [only] = inColumns([scene('a')], [], 'a')
+
+    expect(only).toEqual([scene('a')])
+  })
+
+  test('are none at all for a Story with no Scene in it', () => {
+    expect(inColumns([], [], null)).toEqual([])
   })
 })
 

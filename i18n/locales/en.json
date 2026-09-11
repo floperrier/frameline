@@ -130,6 +130,11 @@
     "manyShots": "{count} Shots",
     "oneExit": "{count} Exit",
     "manyExits": "{count} Exits",
+    "oneScene": "{count} Scene",
+    "manyScenes": "{count} Scenes",
+    "oneArrival": "{count} Exit arrives here",
+    "manyArrivals": "{count} Exits arrive here",
+    "noArrival": "Nothing arrives here",
     "confirmDeleteScene": "“{name}” goes, and with it {shots}, {waysOn} leaving it and {waysIn} arriving at it.",
     "sceneName": "Name of this Scene",
     "write": "Write",
@@ -180,13 +185,10 @@
     "exitDrawnToNew": "“{to}” written, and an Exit from {from} to it drawn",
     "oneWord": "{count} word",
     "manyWords": "{count} words",
-    "graph": "Graph",
     "presentation": "Synopsis and Cover",
     "writeShot": "Write Shot {place}",
     "noShotYet": "Nothing is written in this Scene yet. Add the first beat.",
-    "add": "add",
-    "wholeStory": "The whole Story",
-    "writingIn": "Writing in {name}"
+    "add": "add"
   },
   "conditions": {
     "ofCarrier": "of {carrier}",

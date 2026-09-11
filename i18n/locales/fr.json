@@ -130,6 +130,11 @@
     "manyShots": "{count} Plans",
     "oneExit": "{count} Sortie",
     "manyExits": "{count} Sorties",
+    "oneScene": "{count} Scène",
+    "manyScenes": "{count} Scènes",
+    "oneArrival": "{count} Sortie arrive ici",
+    "manyArrivals": "{count} Sorties arrivent ici",
+    "noArrival": "Rien n’arrive ici",
     "confirmDeleteScene": "« {name} » disparaît, et avec elle {shots}, {waysOn} au départ et {waysIn} à l'arrivée.",
     "sceneName": "Nom de cette Scène",
     "write": "Écrire",
@@ -180,13 +185,10 @@
     "exitDrawnToNew": "« {to} » écrite, et une Sortie depuis {from} vers elle tracée",
     "oneWord": "{count} mot",
     "manyWords": "{count} mots",
-    "graph": "Graphe",
     "presentation": "Synopsis et Couverture",
     "writeShot": "Écrire le Plan {place}",
     "noShotYet": "Rien n’est encore écrit dans cette Scène. Ajoutez le premier battement.",
-    "add": "ajouter",
-    "wholeStory": "Le Récit entier",
-    "writingIn": "Écriture dans {name}"
+    "add": "ajouter"
   },
   "conditions": {
     "ofCarrier": "de {carrier}",
