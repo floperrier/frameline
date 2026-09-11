@@ -133,7 +133,10 @@ test('folds the Remarks and then the rail, and hides neither', async ({ page, re
   await live(page)
   const rail = (await page.locator('.rail').boundingBox())!
   const middle = (await page.locator('.document').boundingBox())!
-  const said = (await page.locator('.said').boundingBox())!
+  // `aside.said`, because `p.said` is what a Reader presses on a way on: the
+  // region the bench speaks from and the words an Exit carries are two different
+  // things, each named in its own component's scoped block.
+  const said = (await page.locator('aside.said').boundingBox())!
 
   expect(rail.width).toBe(120)
   expect(middle.x).toBeGreaterThanOrEqual(rail.x + rail.width)
@@ -143,7 +146,7 @@ test('folds the Remarks and then the rail, and hides neither', async ({ page, re
   // The first fold: what the bench says goes to the head of the document, still
   // said in the same voice, with the rail spanning both rows beside them.
   await page.setViewportSize({ width: 900, height: 900 })
-  await expect.poll(async () => (await page.locator('.said').boundingBox())!.y)
+  await expect.poll(async () => (await page.locator('aside.said').boundingBox())!.y)
     .toBeLessThan((await page.locator('.document').boundingBox())!.y)
   await expect(page.locator('.found')).toBeVisible()
   expect((await page.locator('.rail').boundingBox())!.width).toBe(120)
