@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'vitest'
 import type { Exit, Scene } from '../../shared/utils/scenes'
+import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
+import type { Phrase } from '../../shared/utils/phrases'
 import {
+  countedArrivals,
+  countedScenes,
   DEPTH_GAP,
   exitLine,
   GATE_HEIGHT,
@@ -361,6 +365,32 @@ describe('the Scenes an Exit may land on', () => {
     const scenes = ['a', 'b', 'c'].map(scene)
 
     expect(scenesAExitMayLandOn(scenes, [exit('a', 'b')], 'a')).toEqual(new Set(['c']))
+  })
+})
+
+describe('what the bench counts of a Story', () => {
+  /**
+   * The words themselves, read out of the message file the interface reads,
+   * rather than against a stub: what is asserted is the sentence an Author is
+   * shown, which also proves the messages these counts are assembled from.
+   */
+  const says: Phrase = (key, values) => phrase(DEFAULT_LOCALE, key, values)
+
+  test('names one Scene and several apart', () => {
+    expect(countedScenes(1, says)).toBe('1 Scene')
+    expect(countedScenes(40, says)).toBe('40 Scenes')
+  })
+
+  /**
+   * The zero has a sentence of its own rather than a count of none. A Scene
+   * nothing arrives at is a Scene no Reader ever gets to, which is the fact the
+   * rail marks and the document says under a name — and `0 Exits arrive here` is
+   * arithmetic where *Nothing arrives here* is what it means.
+   */
+  test('says what nothing arriving at a Scene means, rather than counting it', () => {
+    expect(countedArrivals(0, says)).toBe('Nothing arrives here')
+    expect(countedArrivals(1, says)).toBe('1 Exit arrives here')
+    expect(countedArrivals(3, says)).toBe('3 Exits arrive here')
   })
 })
 
