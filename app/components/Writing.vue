@@ -101,7 +101,6 @@ function landing(exit: Exit) {
       :key="held.scene.id"
       class="scene"
       :data-scene="held.scene.id"
-      :class="{ written: held.scene.id === sceneWritten }"
     >
       <slot v-if="held.scene.id === sceneWritten" />
 
@@ -109,10 +108,10 @@ function landing(exit: Exit) {
         <!-- The slate: the name, whether the Story opens here, and what arrives.
              What arrives is said in words rather than left to the rail's dashes,
              because this is the surface a Reader of the document is reading. -->
-        <div class="slate">
+        <div class="slate" :class="{ unreached: held.unreached }">
           <h2>{{ held.scene.name }}</h2>
           <p v-if="held.opens" class="eyebrow opens">{{ $t('editor.openingScene') }}</p>
-          <p class="arrivals" :class="{ unreached: held.unreached }">{{ held.arrivals }}</p>
+          <p class="arrivals">{{ held.arrivals }}</p>
         </div>
 
         <!-- What the Scene sets on entry, before its first Shot plays. Drawn only
@@ -125,10 +124,13 @@ function landing(exit: Exit) {
             <li v-for="flag in held.flags" :key="flag.name">
               <span class="data">{{ flag.name }}</span>
               <span class="says">{{ $t('flags.holds') }}</span>
-              <span v-for="(value, at) in flag.values" :key="at">
+              <!-- A `<template>` rather than a wrapper, so every word of the
+                   sentence is a flex item of the row and the gap falls between
+                   all of them rather than only between the values. -->
+              <template v-for="(value, at) in flag.values" :key="at">
                 <span v-if="at" class="says">{{ $t('flags.or') }}</span>
                 <span class="data">{{ value }}</span>
-              </span>
+              </template>
             </li>
           </ul>
         </section>
@@ -186,13 +188,6 @@ function landing(exit: Exit) {
   scroll-margin-block-start: var(--s4);
 }
 
-/* The Scene being written is the one lit surface in the document: what is inside
-   it draws itself — the gate's own materials, in `app/components/Panel.vue` — so
-   this only gives it the room. */
-.scene.written {
-  gap: 0;
-}
-
 /* The slate: the name, whether the Story opens here, and what arrives at it. One
    line where there is room for one, wrapping rather than being cut off — a Scene's
    name is the Author's words and the document has the width the node never had. */
@@ -213,16 +208,15 @@ function landing(exit: Exit) {
   letter-spacing: 0.01em;
 }
 
-/* Where the Story opens, in the grease pencil the Author's own marks are in. */
-.opens {
+/* Where the Story opens, in the grease pencil the Author's own marks are in. Said
+   past the label it is stencilled as, because `.eyebrow` and this both name one
+   colour and neither stylesheet is guaranteed to come after the other. */
+.slate .opens {
   color: var(--grease);
 }
 
 /* What arrives here, said by the bench about the Story rather than written in it,
-   so it is stencilled in the machine's own data face. A Scene nothing arrives at
-   is the one case that carries a colour: the Remarks say the same in a sentence
-   and the rail marks it, and this is where an Author reading the document meets
-   it. */
+   so it is stencilled in the machine's own data face. */
 .arrivals {
   color: var(--muted);
   font-family: var(--data);
@@ -230,8 +224,13 @@ function landing(exit: Exit) {
   letter-spacing: 0.04em;
 }
 
-.arrivals.unreached {
-  color: var(--alarm);
+/* A Scene nothing arrives at, read as the loose end it is: the dashed edge the
+   node wore and the rail's mark still wears. No colour of its own — a Scene no
+   Reader reaches is a Story an Author may be in the middle of, and the alarm is
+   the colour of something having gone wrong. What says it in words is the
+   `countedArrivals` sentence on the line above, which has one for the zero. */
+.slate.unreached {
+  border-block-end-style: dashed;
 }
 
 /* The three parts of a Scene, each headed where it starts, in the same order a
