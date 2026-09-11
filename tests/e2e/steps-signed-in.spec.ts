@@ -6,6 +6,7 @@ import {
   seedExit,
   seedFlags,
   seedPublication,
+  sceneNode,
   seedScene,
   seedScenes,
   seedShotConditions,
@@ -59,7 +60,7 @@ test('the bench asks a new Story for its first Scene', async ({ page, author }) 
   // the next one before the Scene has finished landing. It arrives under a
   // provisional name, which the panel the same gesture opened is where the Author
   // corrects.
-  await expect(page.locator('.graph').getByRole('button', { name: 'Go to A new Scene' })).toHaveCount(1)
+  await expect(page.getByRole('group', { name: 'Writing A new Scene' })).toBeVisible()
   await expect(bubble(page)).toContainText(NEXT_STEP)
 })
 
@@ -189,7 +190,7 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await expect(named).toBeFocused()
   await page.keyboard.type('The arrival')
   await page.keyboard.press('Tab')
-  await expect(page.locator('.graph').getByRole('button', { name: 'Go to The arrival' })).toHaveCount(1)
+  await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
 
   // Written. The sentence carries the whole gesture — a Shot is added and then
   // written — so it is said from the corner until there is a field to say it at.
@@ -207,7 +208,7 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   // nothing is switched to first — the Step before this one left them in this
   // document, and what it points at answers a press from where they stand.
   await expect(bubble(page)).toContainText(/branches between Scenes/)
-  await lights(page, page.locator('.panel .adding'))
+  await lights(page, page.locator('.panel form.adding'))
   const adding = page.getByLabel('An Exit from here')
   await adding.fill('The platform')
   await adding.press('Enter')
@@ -216,7 +217,7 @@ test('the bench walks an Author from a bare Story to a published one', async ({
     .toHaveText('“The platform” written, and an Exit from The arrival to it drawn')
 
   // Born under the name typed, already joined, and drawn on the Graph at once.
-  await expect(page.locator('.graph').getByRole('button', { name: 'Go to The platform' })).toHaveCount(1)
+  await expect(sceneNode(page, 'The platform')).toHaveCount(1)
   const read = await (await page.request.get(`/api/stories/${story.id}`)).json()
   const beside = read.scenes.find((scene: { name: string }) => scene.name === 'The platform')
 
@@ -257,17 +258,21 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await holds.fill('low')
   await holds.blur()
 
-  // The Preview, which is where the Condition stops being an idea about State and
-  // becomes a Shot that does not play — and which is already on screen, beside
-  // the Scene being written, so the Step points at it rather than sending the
-  // Author anywhere. The Condition is read back out of the Story first: the write
-  // goes when the field is left, and a light that arrived before it would be over
-  // a reading of a Story that had not been written yet.
+  // The reading, which is where the Condition stops being an idea about State and
+  // becomes a Shot that does not play. It is the gate's other face, so the Step
+  // points at the control that turns the gate over — the gesture its sentence
+  // asks for — and the reading is behind that press. The Condition is read back
+  // out of the Story first: the write goes when the field is left, and a light
+  // that arrived before it would be over a reading of a Story that had not been
+  // written yet.
   await expect.poll(() => readShotConditions(beside.id))
     .toEqual([[{ flag: 'courage', is: 'low' }]])
   await expect(bubble(page)).toContainText(/Nothing plays that Shot/)
+  const turning = page.getByRole('button', { name: 'Read the Story' })
+  await lights(page, turning)
+  await turning.click()
   const preview = page.getByRole('region', { name: /^Preview/ })
-  await lights(page, preview)
+  await expect(preview).toBeVisible()
 
   // The reading is replayed to the Scene being written, and its bench names the
   // Shot the Reading left out and both sides of the test it failed.
@@ -275,7 +280,9 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await expect(bench.getByText('needs courage to hold low, holds high')).toBeVisible()
 
   // Corrected where it was written, which is all the Step ever asked of the
-  // Story: nowhere is it written that the Preview was read.
+  // Story: nowhere is it written that the reading was read. The gate is turned
+  // back to the Scene to write it, which is the one thing the two faces cost.
+  await page.getByRole('button', { name: 'Write the Scene' }).click()
   await holds.fill('high')
   await holds.blur()
 
@@ -328,7 +335,7 @@ test('the light follows its target as the document grows above it', async ({
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The arrival')
 
-  const adding = page.locator('.panel .adding')
+  const adding = page.locator('.panel form.adding')
   await expect(bubble(page)).toContainText(/An Exit is the way on/)
   await lights(page, adding)
 

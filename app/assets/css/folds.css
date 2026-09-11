@@ -9,17 +9,16 @@
  *
  * A width used by one surface alone would not earn a file of its own: the
  * landing page turns two rooms side by side at sixty rem and nothing else reads
- * that number, so it stays written where it is used. `--phone` is read by the
- * landing page and the list of Stories; `--two-columns` by the bench, whose
- * Preview folds away below it and comes back by a control — all the way down to
- * the phone and onto it, now that the document is a column of the page at every
- * width. See `docs/adr/0037-the-reading-folds-before-the-writing-does.md` and
- * `docs/adr/0041-the-graph-is-drawn-from-the-story.md`.
+ * that number, so it stays written where it is used.
+ *
+ * There is one width left. `--phone` is read by the landing page, by the list of
+ * Stories, and by the bench, where it is the width below which the gate covers
+ * the Graph it stands on instead of standing on it: a gate is a frame and the
+ * words under it, and there is no screen narrower than this that holds one
+ * beside anything else. The bench had a second fold while the reading was a
+ * column of its own; it is a face of the gate now, so the fold went with it —
+ * see `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
  */
 
 /* A screen with no room for two columns of anything: the phone. */
 @custom-media --phone (max-width: 44rem);
-
-/* Wide enough for one column of writing under the Graph, and not for the reading
-   beside it. */
-@custom-media --two-columns (max-width: 78rem);

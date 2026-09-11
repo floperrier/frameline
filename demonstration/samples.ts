@@ -226,7 +226,6 @@ const ENGLISH: Work = {
   scenes: [
     {
       name: 'Where a Story starts',
-      at: [60, 380],
       shots: [
         {
           text: 'This is a Shot: one Image and its text, shown to you as a single beat. '
@@ -256,7 +255,6 @@ const ENGLISH: Work = {
 
     {
       name: 'What an Exit offers',
-      at: [520, 100],
       sets: { exit: 'taken' },
       shots: [
         {
@@ -277,7 +275,6 @@ const ENGLISH: Work = {
 
     {
       name: 'What a Condition tests',
-      at: [520, 700],
       shots: [
         {
           text: 'A Condition is one flat test on State, carried by a Shot or by an Exit. Where '
@@ -333,7 +330,6 @@ const FRENCH: Work = {
   scenes: [
     {
       name: 'Là où un Récit commence',
-      at: [60, 380],
       shots: [
         {
           text: 'Ceci est un Plan : une Image et son texte, montrés comme un seul '
@@ -364,7 +360,6 @@ const FRENCH: Work = {
 
     {
       name: 'Ce qu’offre une Sortie',
-      at: [520, 100],
       sets: { sortie: 'prise' },
       shots: [
         {
@@ -388,7 +383,6 @@ const FRENCH: Work = {
 
     {
       name: 'Ce que teste une Condition',
-      at: [520, 700],
       shots: [
         {
           text: 'Une Condition est un test plat sur l’État, porté par un Plan ou par une '

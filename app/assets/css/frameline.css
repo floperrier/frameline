@@ -176,13 +176,17 @@ textarea {
   color: inherit;
 }
 
+/* A field is a slot machined into the bench, not a hole cut through it: it is
+   lit a shade off whichever surface it stands on — a little raised from the
+   deepest one, a little recessed from a plate laid over it — so a column of them
+   reads as part of the machine rather than as a row of black rectangles. */
 input,
 select,
 textarea {
   padding: var(--s2) var(--s3);
   border: 1px solid var(--edge);
   border-radius: var(--machined);
-  background: color-mix(in oklab, var(--bench) 70%, black);
+  background: color-mix(in oklab, var(--steel) 70%, var(--bench));
   inline-size: 100%;
   min-inline-size: 0;
 }

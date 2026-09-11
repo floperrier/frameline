@@ -186,10 +186,13 @@ test('a name nothing answers to is offered as a Scene to write', async ({ page, 
   // than only put on screen.
   await expect(page.getByRole('textbox', { name: 'Name of this Scene' }))
     .toHaveValue('The quay at dawn')
-  await expect(page.locator('.graph').getByRole('button', { name: 'Go to The quay at dawn' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Writing The quay at dawn' })).toBeVisible()
 
-  // And it is reachable by its name from the bar like every other Scene, which
-  // is what says the Story holds it.
+  // And it is a Scene of the Story like every other, with a node of its own the
+  // moment the gate stands somewhere else: a Scene under the gate has none, and
+  // going to it is an act with nothing left to do — see
+  // `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
+  await writeScene(page, 'The street')
   await open(page)
   await typing(page).fill('The quay')
   await expect(offered(page)).toHaveText(['Go to The quay at dawn'])
@@ -208,8 +211,8 @@ test('the offer to write a Scene stands only where nothing answers', async ({ pa
   // A name that answers: the Scene it reaches — and every act naming it on the
   // Scene being written — and still no offer. An Author halfway through typing a
   // name they already have is not making a second one.
-  await typing(page).fill('The str')
-  await expect(offered(page)).toContainText(['Go to The street'])
+  await typing(page).fill('The b')
+  await expect(offered(page)).toContainText(['Go to The bar'])
   await expect(offered(page).filter({ hasText: 'Write a Scene named' })).toHaveCount(0)
 })
 
@@ -271,7 +274,7 @@ test('a destructive Command asks before it acts, as its own control does', async
   await expect(page.getByRole('dialog')).toContainText('This cannot be undone')
 
   await page.getByRole('button', { name: 'Leave It' }).click()
-  await expect(page.locator('.graph').getByRole('button', { name: 'Go to The bar' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Writing The bar' })).toBeVisible()
 })
 
 test('the bar names every act marked on a Scene being written, and no other', async ({ page, request }) => {
@@ -293,15 +296,22 @@ test('the bar names every act marked on a Scene being written, and no other', as
   // the one the Story opens on — an act with nothing left to do is not offered.
   // The bar cannot offer an act the bench is not drawing, and the spec below
   // holds the mark where the act does have something to do.
+  //
+  // Two of them are new with the gate: whether it stands on the Graph, and which
+  // of its two faces is up. Two are gone with it — *Go to The street*, because
+  // the Scene the gate stands on has no node and going to it would do nothing,
+  // and the Condition on the second beat, because the bench draws the beat in
+  // the gate and no other. See
+  // `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
   await expect(offered(page)).toHaveText([
-    'Publish this Story',
     'Read the Remarks',
-    'Go to The street',
+    'The whole Story',
+    'Read the Story',
+    'Publish this Story',
     'Go to The bar',
     'Delete Scene',
     'Add a Flag',
     'Add a Condition to Shot 1 of The street',
-    'Add a Condition to Shot 2 of The street',
     'Add a Shot',
     'Add a Condition to the Exit 1 to The bar',
     'Add an Exit',
@@ -380,7 +390,7 @@ test('an Author sets a Flag and marks the Opening Scene by naming them', async (
 test('the bar reaches every act of the bench at the width of a phone', async ({ page, request }) => {
   const story = await writeStory(request)
   await page.goto(`/stories/${story.id}`)
-  await expect(page.locator('.graph').getByRole('button', { name: 'Go to The street' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Writing The street' })).toBeVisible()
 
   await page.setViewportSize({ width: 600, height: 800 })
   await writeScene(page, 'The street')

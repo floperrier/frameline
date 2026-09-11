@@ -42,22 +42,6 @@ const { story, sceneWritten } = defineProps<{
 const emit = defineEmits<{ open: [string] }>()
 
 /**
- * The Remarks the bench says out loud, which is every one it found less whatever
- * the Preview beside the writing surface is already saying. Two voices for one
- * fact is the objection `0034` raised about the Exit's text, and the Preview says
- * both of these in the Scene's own words while that Scene is open: that the Story
- * opens on nothing, and that nothing leads to the Scene being written.
- *
- * It says only one of them at a time, though, and that bounds what is dropped.
- * A Story with no opening Scene is the whole of what the Preview reports — there
- * is nowhere to read from, so it never gets as far as the Scene on the surface —
- * and a Remark dropped there would be a fact said by nobody. So the Scene's own
- * sentence is left to the Preview only where the Story opens somewhere.
- *
- * Dropped here rather than in the reading, which knows the Story and has no
- * business knowing the bench.
- */
-/**
  * Whether the list is open, which the disclosure itself settles and this only
  * hears about. Kept because the name the bar offers the summary under has to say
  * what pressing it will do: a `<summary>` toggles, so *Read the Remarks* against
@@ -67,17 +51,20 @@ const emit = defineEmits<{ open: [string] }>()
  */
 const open = ref(false)
 
-const spoken = computed(() => {
-  const found = story ? remarks(story) : []
-  if (!sceneWritten) return found
-
-  return found.filter(remark => !(
-    remark.name === 'noOpening'
-    || (remark.name === 'sceneUnreached'
-      && remark.sceneId === sceneWritten
-      && story?.openingSceneId)
-  ))
-})
+/**
+ * The Remarks the bench says out loud: every one it found, and none of them left
+ * to anybody else.
+ *
+ * Two of them used to be dropped while the Scene they were about was open,
+ * because the reading standing in the column beside the writing was already
+ * saying them in the Scene's own words, and two voices for one fact is the
+ * objection `0034` raised about an Exit's text. The reading is a face of the gate
+ * now rather than a column beside it — see
+ * `docs/adr/0042-the-scene-is-written-where-it-stands.md` — so while an Author is
+ * writing, it is saying nothing to them at all, and a Remark left to it would be
+ * a fact said by nobody.
+ */
+const spoken = computed(() => story ? remarks(story) : [])
 </script>
 
 <template>

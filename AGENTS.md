@@ -36,7 +36,7 @@ The widths the interface folds at are the one thing a token cannot carry, becaus
 a custom property cannot be read inside a media query. They are declared as
 custom media queries in `app/assets/css/folds.css` — names and no rules — and
 reached by name from the scoped block of every surface that folds at one. See
-`docs/adr/0037-the-reading-folds-before-the-writing-does.md` and
+`docs/adr/0042-the-scene-is-written-where-it-stands.md` and
 `docs/adr/0041-the-graph-is-drawn-from-the-story.md`.
 
 ## Git flow

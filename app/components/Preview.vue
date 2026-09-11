@@ -204,17 +204,14 @@ function why(conditions: Condition[]) {
 </script>
 
 <template>
-  <!-- The reading and the bench it is cut on, stacked in a column of the bench:
-       a landmark, because it is one of the three things the bench holds while a
-       Scene is written and an Author can be sent to it. -->
-  <!-- `data-step` is on the whole pane rather than on a control in it: the
-       guided path sends an Author to read why a Shot is not playing, and what it
-       has to point at is the reading itself. -->
-  <section class="preview" data-step="preview" aria-labelledby="preview-heading">
-    <p id="preview-heading" class="eyebrow">
-      {{ $t('preview.reading') }}
-      <span aria-hidden="true">·</span>
-      {{ $t('preview.nobodyElse') }}
+  <!-- The reading and the bench it is cut on, stacked in the gate's other face:
+       a landmark, because an Author can be sent to it. The guided path points at
+       the control that turns the gate over rather than at this pane — the pane is
+       not on screen until they do, and what the Step asks for is the turn. -->
+  <section class="preview" aria-labelledby="preview-heading">
+    <p id="preview-heading" class="says">
+      <span class="eyebrow">{{ $t('preview.reading') }}</span>
+      <span class="aside">{{ $t('preview.nobodyElse') }}</span>
     </p>
 
     <!-- Said plainly to the Author, who can go and mark one. A Reader meeting the
@@ -270,20 +267,18 @@ function why(conditions: Condition[]) {
       <!-- What is on the bench is the Author's own instrument and no part of the
            Story, so it sits under the reading and never in it. -->
       <section class="bench" aria-labelledby="preview-bench">
-        <p id="preview-bench" class="eyebrow">
-          {{ $t('preview.bench') }}
-          <span aria-hidden="true">·</span>
-          {{ $t('preview.benchNote') }}
+        <p id="preview-bench" class="says">
+          <span class="eyebrow">{{ $t('preview.bench') }}</span>
+          <span class="aside">{{ $t('preview.benchNote') }}</span>
         </p>
 
         <!-- The one control on the bench, and no part of the Story: the same
              Reading at the same Path, read against another draw. -->
         <p v-if="draws" class="draw">
-          <button type="button" class="trail" @click="reel?.reroll()">
+          <button type="button" @click="reel?.reroll()">
             {{ $t('preview.reroll') }}
           </button>
-          <span aria-hidden="true">·</span>
-          {{ $t('preview.rerollNote') }}
+          <span class="aside">{{ $t('preview.rerollNote') }}</span>
         </p>
 
         <!-- Why a way on is missing: the Exits out of this Scene the State is
@@ -349,35 +344,71 @@ function why(conditions: Condition[]) {
 </template>
 
 <style scoped>
-/* The third column of the bench: the reading, and the bench it is cut on under
-   it. It is as tall as the other two and scrolls inside itself, so a long Scene
-   is read here rather than down the page. */
+/* The gate's other face: the Story read as a Reader will read it, and under it
+   the instrument the Author reads it with. It fills exactly the box the Scene
+   being written stands in — a Story is read where it is written, in the very same
+   box on the table, see
+   `docs/adr/0030-a-story-is-read-where-it-is-written.md` and
+   `docs/adr/0042-the-scene-is-written-where-it-stands.md`. The reading is at the
+   top because that is what the face is for, and the bench is pushed to the foot
+   of it — a control desk under a screen, rather than a second card floating
+   halfway down an empty pane. */
 .preview {
   flex: 1;
   /* The containing block for what is inside it, for the reason the writing
      surface is one: see `Panel.vue`. */
   position: relative;
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
   gap: var(--s3);
   min-inline-size: 0;
-  max-inline-size: 34rem;
   overflow: auto;
+  padding: var(--s4);
+  border: 1px solid var(--light);
+  border-radius: var(--machined);
+  background: var(--bench);
+  box-shadow: 0 40px 90px -25px rgb(0 0 0 / 0.85);
+}
+
+/* What this column is, and what is true of it: the stencilled name of the
+   surface, and beside it the one thing an Author needs to know about it, said in
+   ordinary words rather than stencilled alongside as though it were a second
+   label. */
+.says {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s1) var(--s2);
+}
+
+.aside {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+/* The reading is given the whole of the column's own width, none of the room the
+   reading room pads itself out with — down here the desk under it is what ends
+   the column — and whatever height is going, with the frame held in the middle of
+   it: a screen hangs in a room rather than resting on the top edge of one. */
+.reading {
+  flex: 1;
+  align-content: center;
+  padding-block-end: 0;
+}
+
+/* The Author's own instrument, at the foot of the column: what this Reading has
+   accumulated, what its Conditions are hiding, and the one control that draws
+   the Story again. In the machine's own voice — mono, small, on the surface an
+   editor works on rather than the one they look at — and pushed down so that a
+   short reading leaves its space above the desk rather than between the two. */
+.bench {
+  display: grid;
+  gap: var(--s4);
+  margin-block-start: auto;
   padding: var(--s3);
   border: 1px solid var(--edge);
   border-radius: var(--machined);
   background: var(--steel);
-}
-
-/* The bench under the reading, in the machine's own voice: mono, small, and on
-   the surface an editor works on rather than the one they look at. */
-.bench {
-  display: grid;
-  gap: var(--s4);
-  padding: var(--s3);
-  border: 1px solid var(--edge);
-  border-radius: var(--machined);
-  background: var(--bench);
   font-family: var(--data);
   font-size: 0.8125rem;
 }
@@ -416,6 +447,16 @@ function why(conditions: Condition[]) {
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
 }
 
+/* What the State holds, read as the pairs they are: the name on the left at the
+   contrast of a label, the value beside it in the machine's own light. */
+.flags li,
+.visits li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  color: var(--muted);
+}
+
 .flags b,
 .visits b {
   color: var(--light);
@@ -427,13 +468,13 @@ function why(conditions: Condition[]) {
   color: var(--muted);
 }
 
-/* The draw, offered the way the bench says everything else: the control first
-   and what it does beside it, in the machine's own small voice. */
+/* The draw: the control first and what it does beside it, on the one line the
+   bench gives anything it offers. */
 .draw {
   display: flex;
-  align-items: baseline;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--s2);
-  color: var(--muted);
 }
 
 /* A Story with nowhere to start, or a Scene nothing leads to: a note where the
@@ -444,9 +485,10 @@ function why(conditions: Condition[]) {
   border: 1px dashed var(--edge);
   border-radius: var(--machined);
   color: var(--muted);
+  font-size: 0.875rem;
 }
 
-/* Nothing to say: out of the pane's grid, so the gap it would open goes too, and
+/* Nothing to say: out of the pane's flow, so the gap it would open goes too, and
    no box — but never `display: none`, which would take the live region out of
    the accessibility tree and bring the silence back. */
 .nothing:empty {

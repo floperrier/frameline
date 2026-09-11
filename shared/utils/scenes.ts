@@ -108,25 +108,45 @@ export const FLAG_VALUES_MAX = 6
  * How wide and how tall a Scene's node is drawn on the Graph, how far apart two
  * nodes of one column stand, and how far apart two columns are. Every node is
  * exactly this size — a node is what an Author recognises a Scene by at a glance,
- * its name and how much is in it, and a Scene is written in the document under
- * the Graph rather than inside its node — so the line that draws an Exit leaves a
- * box the Graph can work out for itself, and nothing is measured after render.
+ * its first frame, its name and how much is in it — so the line that draws an
+ * Exit leaves a box the Graph can work out for itself, and nothing is measured
+ * after render.
  *
  * The columns stand further apart than the nodes in a column do, because that is
  * where the lines run: a way on leaves the flank of one column for the flank of
  * the next, and a gap the length of an arrowhead is a gap nobody can read a line
  * in.
  */
-export const NODE_WIDTH = 168
-export const NODE_HEIGHT = 44
-export const NODE_GAP = 12
-export const DEPTH_GAP = 56
+export const NODE_WIDTH = 176
+export const NODE_HEIGHT = 148
+export const NODE_GAP = 24
+export const DEPTH_GAP = 120
 
 /**
- * A point on the Graph — where a node is drawn. A node's box is this point and the
- * two constants above, so nothing carries a size around with it.
+ * How wide and how tall the Scene being written is drawn — the gate, which
+ * stands on the Graph in the place of the node of the Scene it holds, at the size
+ * a frame and the words under it are actually looked at. See
+ * `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
+ *
+ * In pixels, like the node's own box, and the gate is given this width and this
+ * height on the element itself rather than in a stylesheet: the layout has to
+ * reserve exactly the room the gate takes, and a box measured in one unit and
+ * reserved in another is the same fact written twice. What is inside the gate
+ * scrolls, so the box is what the Author's own text can never grow past.
  */
+export const GATE_WIDTH = 704
+export const GATE_HEIGHT = 720
+
+/** A point on the Graph — a corner of whatever is drawn there. */
 export type Point = { x: number, y: number }
+
+/**
+ * A box on the Graph: where something is drawn and how large it is. Every Scene
+ * gets one, so the line that draws an Exit reads the size off the box it leaves
+ * rather than assuming every box on the Graph is a node — the Scene being written
+ * is a gate, and its lines leave the gate's flank.
+ */
+export type Box = Point & { width: number, height: number }
 
 /**
  * Where every Scene of a Story is drawn, read off the Story and nothing else.
@@ -150,8 +170,22 @@ export type Point = { x: number, y: number }
  * again is drawn as the shape it is rather than hung from one edge. Nothing here
  * is written anywhere: the Graph is a reading of the Story, and it moves when the
  * Story does — see `docs/adr/0041-the-graph-is-drawn-from-the-story.md`.
+ *
+ * `written` is the Scene the gate is standing on, if one is. Its column is as
+ * wide as the gate and its own box as tall, and everything else is pushed apart
+ * to clear it: the Graph opens up around the Scene being written the way a
+ * contact sheet is spread to get at one frame, and closes again when the gate is
+ * lifted off. It is the same layout read at two sizes — the order of the columns
+ * and of the rows is untouched — so nothing about where a Scene stands is decided
+ * by which one is being written. See
+ * `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
  */
-export function laidOut(scenes: Scene[], exits: Exit[], openingSceneId: string | null) {
+export function laidOut(
+  scenes: Scene[],
+  exits: Exit[],
+  openingSceneId: string | null,
+  written?: string,
+) {
   const columns: string[][] = []
   const placedIn = new Map<string, number>()
   const known = new Set(scenes.map(scene => scene.id))
@@ -181,20 +215,39 @@ export function laidOut(scenes: Scene[], exits: Exit[], openingSceneId: string |
   if (openingSceneId && known.has(openingSceneId)) layer(openingSceneId, 0)
   for (const scene of scenes) layer(scene.id, columns.length)
 
-  const tallest = Math.max(0, ...columns.map(column => column.length))
-  const height = tallest * NODE_HEIGHT + Math.max(0, tallest - 1) * NODE_GAP
-  const width = columns.length * NODE_WIDTH + Math.max(0, columns.length - 1) * DEPTH_GAP
-  const placed = new Map<string, Point>()
+  // What each box takes: the gate where the Scene is being written, a node
+  // everywhere else. A column is as wide as the widest box in it, which is the
+  // gate's width in the one column that holds it.
+  const boxWidth = (id: string) => (id === written ? GATE_WIDTH : NODE_WIDTH)
+  const boxHeight = (id: string) => (id === written ? GATE_HEIGHT : NODE_HEIGHT)
+
+  const widths = columns.map(column => Math.max(NODE_WIDTH, ...column.map(boxWidth)))
+  const heights = columns.map(column => column.reduce(
+    (all, id, place) => all + boxHeight(id) + (place ? NODE_GAP : 0), 0))
+
+  const height = Math.max(0, ...heights)
+  const width = widths.reduce((all, wide) => all + wide, 0)
+    + Math.max(0, columns.length - 1) * DEPTH_GAP
+
+  const placed = new Map<string, Box>()
+  let left = 0
 
   columns.forEach((column, depth) => {
-    const columnHeight = column.length * NODE_HEIGHT + (column.length - 1) * NODE_GAP
-    const top = Math.round((height - columnHeight) / 2)
-    column.forEach((id, place) => {
+    let top = Math.round((height - heights[depth]!) / 2)
+
+    for (const id of column) {
+      // A node in a column the gate widened stands in the middle of it, so a
+      // column of nodes is read as a column whatever is standing beside them.
       placed.set(id, {
-        x: depth * (NODE_WIDTH + DEPTH_GAP),
-        y: top + place * (NODE_HEIGHT + NODE_GAP),
+        x: left + Math.round((widths[depth]! - boxWidth(id)) / 2),
+        y: top,
+        width: boxWidth(id),
+        height: boxHeight(id),
       })
-    })
+      top += boxHeight(id) + NODE_GAP
+    }
+
+    left += widths[depth]! + DEPTH_GAP
   })
 
   return { placed, width, height }
@@ -258,22 +311,22 @@ export const EXIT_RIM_STEP = 10
  * card cannot be over them. The end that lands is left alone: a Scene is arrived
  * at once however many Scenes lead to it.
  */
-export function exitLine(from: Point, to: Point, place = 1, ways = 1) {
+export function exitLine(from: Box, to: Box, place = 1, ways = 1) {
   const leaving = middleOf(from)
   const landing = middleOf(to)
   const towards = { x: landing.x - leaving.x, y: landing.y - leaving.y }
 
   return {
-    from: onTheEdge(leaving, towards, place, ways),
-    to: onTheEdge(landing, { x: -towards.x, y: -towards.y }),
+    from: onTheEdge(leaving, from, towards, place, ways),
+    to: onTheEdge(landing, to, { x: -towards.x, y: -towards.y }),
   }
 }
 
 /** The two ends of the line that draws an Exit, as `exitLine` gives them. */
 export type ExitLine = { from: Point, to: Point }
 
-function middleOf(node: Point) {
-  return { x: node.x + NODE_WIDTH / 2, y: node.y + NODE_HEIGHT / 2 }
+function middleOf(box: Box) {
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
 }
 
 /**
@@ -283,9 +336,9 @@ function middleOf(node: Point) {
  * the middle, so what is drawn is a line of no length rather than one shooting off
  * the graph. Rounded, because a line on a screen is not read finer than a pixel.
  */
-function onTheEdge(middle: Point, towards: Point, place = 1, ways = 1) {
-  const byWidth = towards.x ? NODE_WIDTH / 2 / Math.abs(towards.x) : Infinity
-  const byHeight = towards.y ? NODE_HEIGHT / 2 / Math.abs(towards.y) : Infinity
+function onTheEdge(middle: Point, box: Box, towards: Point, place = 1, ways = 1) {
+  const byWidth = towards.x ? box.width / 2 / Math.abs(towards.x) : Infinity
+  const byHeight = towards.y ? box.height / 2 / Math.abs(towards.y) : Infinity
   const reach = Math.min(byWidth, byHeight)
   if (!Number.isFinite(reach)) return { x: Math.round(middle.x), y: Math.round(middle.y) }
 
@@ -296,7 +349,7 @@ function onTheEdge(middle: Point, towards: Point, place = 1, ways = 1) {
   // is to spread them over. A Scene offering more of them than the side has room
   // for closes the step up rather than sending the last of them off the card.
   const flank = byWidth <= byHeight
-  const side = flank ? NODE_HEIGHT : NODE_WIDTH
+  const side = flank ? box.height : box.width
   const centre = flank ? middle.y : middle.x
   const step = Math.min(EXIT_RIM_STEP, (side - EXIT_RIM_STEP) / Math.max(ways - 1, 1))
   const spread = (ways - 1) * step

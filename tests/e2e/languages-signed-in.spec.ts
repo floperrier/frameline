@@ -72,8 +72,9 @@ test.describe('an interface read in French', () => {
     await shot.blur()
     await expect(page.getByText(/^Enregistré à \d{2}:\d{2}$/)).toBeVisible()
 
-    // The Aperçu, beside the Scene being written, where a Story's own words and
-    // the tool's are on screen at once.
+    // The Aperçu, the gate's other face, where a Story's own words and the tool's
+    // are on screen at once.
+    await page.getByRole('button', { name: 'Lire le Récit' }).click()
     await expect(page.getByText('Sur la table de montage')).toBeVisible()
     expect(await everythingShown(page)).not.toMatch(A_RAW_KEY)
 
@@ -124,6 +125,9 @@ test('a Story is announced in its own Language while the chrome stays the Reader
 
   await page.goto(`/stories/${story.id}`)
   await page.getByRole('button', { name: 'Publish this Story', exact: true }).click()
+  // The link the bench draws once the Story is out is what says the Publish
+  // landed: a Reader sent to it before that reads a Story nobody has published.
+  await expect(page.getByRole('link', { name: new RegExp(`/read/${story.id}$`) })).toBeVisible()
 
   const reader = await (await browser.newContext({ locale: 'en-US' })).newPage()
   await reader.goto(`${baseURL}/read/${story.id}`)

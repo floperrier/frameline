@@ -110,17 +110,19 @@ export const STEPS: Step[] = [
     met: story => Boolean(story.openingSceneId),
   },
   // What puts the broken Condition right, and the one Step that asks for nothing
-  // to be written: the Preview is the pane beside the Scene — see
-  // `docs/adr/0030-a-story-is-read-where-it-is-written.md` — so it is already on
-  // screen, and what is asked for is that the Author read it. It says the Shot
-  // was skipped and what the test asked for against what the State holds; the
-  // correction goes back into the Condition. Reading is not tracked — whether the
-  // Author looked is not a property of the Story and nothing here stores anything
-  // — so the predicate is only the end of the gesture, and an Author who fixed
-  // the value without reading a word is not stuck.
+  // to be written: the reading is the other face of the gate the Scene is written
+  // in — see `docs/adr/0030-a-story-is-read-where-it-is-written.md` and
+  // `docs/adr/0042-the-scene-is-written-where-it-stands.md` — so what the Step
+  // points at is the control that turns the gate over, which is the gesture its
+  // sentence asks for. The reading then says the Shot was skipped and what the
+  // test asked for against what the State holds; the correction goes back into
+  // the Condition. Reading is not tracked — whether the Author looked is not a
+  // property of the Story and nothing here stores anything — so the predicate is
+  // only the end of the gesture, and an Author who fixed the value without
+  // reading a word is not stuck.
   {
     name: 'previewCondition',
-    target: 'preview',
+    target: 'reading',
     met: story => Boolean(conditionTaught(story, true)),
   },
   // The reward rather than a lesson: a Story that works, handed out at a link
