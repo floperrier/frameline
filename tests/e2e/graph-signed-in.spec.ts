@@ -1031,7 +1031,7 @@ test('the Graph is drawn from the Story, and redrawn as the Story changes', asyn
 
   // Nothing is placed by hand, so the rail follows the Story: another Opening
   // Scene is another first column.
-  await page.getByRole('radio', { name: 'Opening Scene The bar' }).check()
+  await page.getByRole('button', { name: 'Mark as the Opening Scene The bar' }).click()
   await expect(mark('The bar')).toHaveClass(/opens/)
   await expect.poll(async () => (await at('The arrival')).y > (await at('The bar')).y).toBe(true)
 })

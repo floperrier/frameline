@@ -148,7 +148,7 @@ test('an Author who deleted the Scene their Story opened on is sent to the mark'
 
   await writeScene(page, 'The platform')
   await lights(page, written(page, 'The platform').locator('.opening'))
-  await page.getByRole('radio', { name: 'Opening Scene The platform' }).check()
+  await page.getByRole('button', { name: 'Mark as the Opening Scene The platform' }).click()
 
   // Marked, and the path is back at the step it was on.
   await expect(bubble(page)).toContainText(/That is a Story that works/)

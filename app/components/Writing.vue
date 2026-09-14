@@ -682,23 +682,37 @@ function writeConditions(
           >
         </h2>
 
-        <!-- A Command only where the press does something: the radio already
-             checked answers a press with no `change` at all. -->
+        <!-- Where the Story opens: a word on the Scene that carries it, and on
+             every other the act that moves it. A button and not a radio, although
+             one group across the document is the truer reading of a Story that
+             opens on exactly one Scene. A group's arrows move the focus and check
+             what they land on in the same press, and every commit here is a write
+             to the server — so `ArrowDown` in a document an Author walks with the
+             arrows would re-root their Story under their hands. And only the
+             checked member of a group is a tab stop, which would leave the mark of
+             thirty-nine Scenes out of the tab order `0043` says a control keeps its
+             place in wherever it stands. With `Panel.vue` the group had one member
+             and neither cost existed. A button is a tab stop on every Scene, writes
+             nothing an arrow can reach, and is what the bench already calls this
+             act in the bar of Commands.
+
+             It is also why nothing here has a checked state to fall out of step
+             with: what the Author sees is drawn from the Story the page read back,
+             so a refused write leaves the mark where it was. -->
         <p class="opening" :data-step="held.here ? 'opening-scene' : undefined">
-          <input
-            :id="`opening-${held.scene.id}`"
-            type="radio"
-            name="opening-scene"
-            :checked="held.opens"
-            :data-command="held.here && !held.opens
-              ? $t('editor.markOpeningScene')
-              : undefined"
-            @change="openOn(held.scene)"
-          >
-          <label class="eyebrow" :for="`opening-${held.scene.id}`">
+          <span v-if="held.opens" class="eyebrow">
             {{ $t('editor.openingScene') }}
             <span class="visually-hidden">{{ held.scene.name }}</span>
-          </label>
+          </span>
+          <button
+            v-else
+            type="button"
+            :data-command="held.here ? $t('editor.markOpeningScene') : undefined"
+            @click="openOn(held.scene)"
+          >
+            {{ $t('editor.markOpeningScene') }}
+            <span class="visually-hidden">{{ held.scene.name }}</span>
+          </button>
         </p>
 
         <p class="arrivals">{{ held.arrivals }}</p>
@@ -1183,6 +1197,21 @@ function writeConditions(
   display: flex;
   align-items: center;
   gap: var(--s2);
+}
+
+/* Moving where the Story opens, worn as quietly as taking the Scene away: the
+   Story already opens somewhere, and this is the offer on every Scene it does not
+   open on rather than a thing to do. Full strength once the hand or the keyboard
+   is on it, which is the rule `0043` sets for every act drawn on a row. */
+.opening button {
+  border-color: transparent;
+  background: none;
+  color: var(--muted);
+}
+
+.opening button:hover:not(:disabled),
+.opening button:focus-visible {
+  color: var(--paper);
 }
 
 /* What arrives here, said by the bench about the Story rather than written in it,

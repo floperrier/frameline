@@ -417,28 +417,29 @@ test('an Author sets a Flag and marks the Opening Scene by naming them', async (
   await offered(page).click()
 
   // The act ran on the Story: the Scene on the surface is the one the Story
-  // opens on, and the radio that performs it says so.
+  // opens on, and its slate says so in the one word that stands where the offer
+  // to move the opening stands on every other Scene.
   //
-  // Read back past the page before the reload, because the radio is checked by
-  // the browser the instant it is pressed and the write is still on its way out:
-  // a reload on top of an unfinished request cancels it, and the bench comes back
-  // saying what the Story never heard. The reload is here to prove the mark was
-  // kept rather than drawn, so it has to happen after the keeping.
+  // Read back past the page before the reload, because the write is still on its
+  // way out: a reload on top of an unfinished request cancels it, and the bench
+  // comes back saying what the Story never heard. The reload is here to prove the
+  // mark was kept rather than drawn, so it has to happen after the keeping.
   const bar = await (await page.request.get(`/api/stories/${story.id}`)).json()
     .then((read: { scenes: { id: string, name: string }[] }) =>
       read.scenes.find(scene => scene.name === 'The bar')!)
-  await expect(page.getByRole('radio', { name: 'Opening Scene The bar' })).toBeChecked()
+  const opens = page.getByRole('group', { name: 'Writing The bar' }).locator('.opening')
+  await expect(opens).toHaveText(/^Opening Scene/)
   await expect
     .poll(async () => (await (await page.request.get(`/api/stories/${story.id}`)).json())
       .openingSceneId)
     .toBe(bar.id)
 
   await page.reload()
-  await expect(page.getByRole('radio', { name: 'Opening Scene The bar' })).toBeChecked()
+  await expect(opens).toHaveText(/^Opening Scene/)
 
-  // And the act has left the bar, because there is nothing left for it to do: a
-  // radio already checked answers a press with no change at all, so the row would
-  // press a control and leave the Story exactly as it was.
+  // And the act has left the bar, because there is nothing left for it to do: the
+  // Scene the Story opens on carries the word and not the control, so there is no
+  // press on it to name.
   await open(page)
   await typing(page).fill('Opening')
   await expect(offered(page).filter({ hasText: 'Mark as the Opening Scene' })).toHaveCount(0)

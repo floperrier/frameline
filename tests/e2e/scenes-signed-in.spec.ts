@@ -583,13 +583,59 @@ test('re-rooting the Story leaves the words where the hand left them',
     // above the Author's hands go below them, and the section under the caret is
     // suddenly the first of eight. The document is where all of that happens and
     // the screen is where none of it may.
-    await sectionOf(page, fifth.id).getByRole('radio').check()
+    await sectionOf(page, fifth.id)
+      .getByRole('button', { name: /^Mark as the Opening Scene/ }).click()
     await expect(page.locator('.rail .mark.opens')).toHaveAttribute('data-scene', fifth.id)
     await expect(written(page, 'One')).toBeVisible()
 
     await expect.poll(async () => Math.abs((await writing.boundingBox())!.y - before))
       .toBeLessThanOrEqual(2)
     await expect(writing).toBeInViewport()
+  })
+
+test('the mark that moves where the Story opens is a tab stop on every Scene it stands on',
+  async ({ page, request }) => {
+    const { story, scenes } = await chained(request, ['One', 'Two', 'Three'])
+    await page.goto(`/stories/${story.id}`)
+    await expect(written(page, 'Three')).toBeVisible()
+
+    // The Scene the Story opens on says so in a word and carries no control, since
+    // there is nothing left for one to do; every other carries the act that moves
+    // the opening, and on each of them it is the stop after the name. A radio group
+    // across the document would put only its checked member on the tab order, which
+    // on a Story of forty Scenes is thirty-nine marks a keyboard cannot reach —
+    // against `docs/adr/0043-a-story-is-written-as-one-document.md`, which says a
+    // control keeps its place in the tab order wherever it stands.
+    const marking = (sceneId: string) => sectionOf(page, sceneId)
+      .getByRole('button', { name: /^Mark as the Opening Scene/ })
+
+    await expect(marking(scenes[0]!.id)).toHaveCount(0)
+    await expect(sectionOf(page, scenes[0]!.id).locator('.opening'))
+      .toHaveText(/^Opening Scene/)
+
+    for (const scene of scenes.slice(1)) {
+      await naming(page, scene.id).focus()
+      await page.keyboard.press('Tab')
+      await expect(marking(scene.id)).toBeFocused()
+    }
+
+    // And an arrow on it goes nowhere and writes nothing. In a radio group the one
+    // press moves the focus, checks what it lands on and sends the write in the
+    // same gesture, so an Author walking their document with the arrows would
+    // re-root their Story without having asked for anything.
+    await marking(scenes[1]!.id).focus()
+    await page.keyboard.press('ArrowDown')
+    await expect(marking(scenes[1]!.id)).toBeFocused()
+
+    // Read after a write made later and waited for: the two would leave in the one
+    // queue, so a press the arrow had sent would be back before this one.
+    const named = naming(page, scenes[2]!.id)
+    await named.fill('Third')
+    await named.blur()
+    await expect.poll(() => readSceneName(scenes[2]!.id)).toBe('Third')
+
+    const read = await (await request.get(`/api/stories/${story.id}`)).json()
+    expect(read.openingSceneId).toBe(scenes[0]!.id)
   })
 
 test('a refusal is said against the Scene it is about', async ({ page, request }) => {
