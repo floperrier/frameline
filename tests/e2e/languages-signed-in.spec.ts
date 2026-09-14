@@ -100,6 +100,14 @@ test.describe('an interface read in French', () => {
     await page.goto(`${baseURL}/read/${story.id}`)
     await expect(page).toHaveURL(`${baseURL}/read/${story.id}`)
     await expect(page.getByRole('button', { name: 'Plan suivant' })).toBeVisible()
+    // The two ways off the page are the chrome as much as the words are, and
+    // this is the one route with no localized variant for `localePath` to read a
+    // Locale off — so a French Reader led into English rooms would look exactly
+    // like a green suite anywhere else. Both links are asserted here or nowhere.
+    await expect(page.getByRole('link', { name: 'Trouver des Récits au Catalogue' }))
+      .toHaveAttribute('href', '/fr/catalogue')
+    await expect(page.getByRole('link', { name: 'Frameline' }))
+      .toHaveAttribute('href', '/fr/catalogue')
     // Nothing to switch to here, so nothing is offered.
     await expect(page.getByRole('link', { name: 'English' })).toHaveCount(0)
 
