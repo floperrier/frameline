@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test'
-import type { APIRequestContext, Page } from '@playwright/test'
+import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { live, sceneNode, seedExit, seedScenes, test } from './author'
 
 /**
@@ -12,10 +12,13 @@ import { live, sceneNode, seedExit, seedScenes, test } from './author'
  * document is *made of* — that a Scene reads in the order the Graph draws it, that
  * an Exit names where it leads, that a Remark opens the Scene it is about — is
  * held in the specs those things belong to. What is here is the layout's own
- * promises, and there are four of them: that nothing runs off the side of the page
+ * promises, and there are six of them: that nothing runs off the side of the page
  * at any of five widths, that the count of controls on screen does not grow with
- * the Story, that no tab order runs through the drawing, and that the address
- * still names a Scene and the document is scrolled to it.
+ * the Story, that a row not under the hand carries its marks at the weight of the
+ * words around them and every one of them is still a tab stop where it stands,
+ * that the bar of Commands grows with the Story in *Go to* and in nothing else,
+ * that no tab order runs through the drawing, and that the address still names a
+ * Scene and the document is scrolled to it.
  */
 
 /**
@@ -101,6 +104,27 @@ function controlsOnScreen(page: Page, within = 'body') {
     }).length
   }, within)
 }
+
+/**
+ * How one control is drawn, in the three properties the weight rule is about: what
+ * it stands on, what bounds it, and what it is written in. Read off the rendered
+ * page rather than off the stylesheet, because what `0043` claims is the weight an
+ * Author sees and not the rule that produced it.
+ */
+function drawnAs(control: Locator) {
+  return control.evaluate((one) => {
+    const drawn = getComputedStyle(one)
+
+    return {
+      stands: drawn.backgroundColor,
+      bound: drawn.borderTopColor,
+      written: drawn.color,
+    }
+  })
+}
+
+/** What a browser answers for a colour that is not there at all. */
+const NOTHING = 'rgba(0, 0, 0, 0)'
 
 /**
  * The five widths `0043` names. Nine hundred and seven hundred and sixty-eight are
@@ -222,6 +246,117 @@ test('offers no more controls on a Story of forty Scenes than on one of three',
     // narrower and is the whole of the claim — that a Scene added to the document
     // adds no control to the bench — so it is measured where it is made.
     expect(alsoInTheDocument).toBe(inTheDocument)
+  })
+
+test('draws a row\'s marks at the weight of the words until the hand arrives at the row',
+  async ({ page, request }) => {
+    // The other half of the count above, and the reason the count is allowed to
+    // stand still while the Story grows: the marks are all drawn, all of the time,
+    // and what changes is their weight. Issue #253.
+    const { story, scenes } = await chained(request, 10)
+
+    // A run of three, so that one beat of it has all four of its marks with
+    // something to do: the first of a run has nothing before it to be split from
+    // and nothing above it to be moved past, and `chained` seeds one beat a Scene.
+    for (let more = 0; more < 2; more++) {
+      expect((await request.post(`/api/scenes/${scenes[0]!.id}/shots`)).ok()).toBeTruthy()
+    }
+
+    await page.goto(`/stories/${story.id}`)
+    await live(page)
+
+    const beat = page.locator(`#scene-${scenes[0]!.id} .shots > li`).nth(1)
+    const taking = beat.getByRole('button', { name: 'Delete Shot 2 of Scene 1' })
+
+    // The two weights, taken off the page rather than written down here. The words
+    // a mark stands among are the Place in the margin of its own row — this row's
+    // own and not a Condition's, which is numbered in a gutter of its own further
+    // in; a control at full strength is the one that adds a beat to the end of the
+    // run, a hand's width below and never quiet, because it acts on the Scene
+    // rather than on a row of it.
+    const place = beat.locator('> .numbered')
+    const asWords = {
+      stands: NOTHING,
+      bound: NOTHING,
+      written: (await drawnAs(place)).written,
+    }
+    const asAControl = await drawnAs(page.locator(`#scene-${scenes[0]!.id} .adds button`))
+    expect(asAControl).not.toEqual(asWords)
+
+    // Polled rather than read once: the weight changes over a tenth of a second,
+    // and a value read inside that is a value the mark is on its way through.
+    await expect.poll(() => drawnAs(taking)).toEqual(asWords)
+
+    // The pointer arrives at the row. On the Place, which is no control, so what
+    // answers is the row and not the mark's own hover.
+    await place.hover()
+    await expect.poll(() => drawnAs(taking)).toEqual(asAControl)
+
+    // The hand comes off it, and the keyboard walks in instead: every mark is a
+    // tab stop where it stands, in the order the row draws it, and none of them is
+    // anywhere else in the document — `display: none` was never the mechanism, so
+    // there is nothing to take out and put back.
+    await page.mouse.move(0, 0)
+    await beat.locator('textarea').focus()
+
+    for (const named of [
+      'Add a Condition to Shot 2 of Scene 1',
+      'Split Scene 1 before Shot 2',
+      'Move Earlier Shot 2 of Scene 1',
+      'Move Later Shot 2 of Scene 1',
+      'Delete Shot 2 of Scene 1',
+    ]) {
+      await page.keyboard.press('Tab')
+      await expect(beat.getByRole('button', { name: named })).toBeFocused()
+    }
+
+    // And the caret in the row is the same arrival as the pointer on it: an Author
+    // who never touches a mouse never meets a quiet row.
+    await expect.poll(() => drawnAs(taking)).toEqual(asAControl)
+  })
+
+test('names every Scene in the bar, and the acts of the rows of the Scene the caret is in',
+  async ({ page, request }) => {
+    const ten = await chained(request, 10)
+    await page.goto(`/stories/${ten.story.id}`)
+    await live(page)
+    await page.getByRole('button', { name: 'Commands' }).click()
+
+    const offered = page.locator('dialog.commands li button')
+    await expect(offered.first()).toBeVisible()
+
+    // Every Scene of the Story, named: the rail carries a mark apiece and the bar
+    // reads the rail, so anywhere in a document ten Scenes long is one name away.
+    await expect(offered.filter({ hasText: 'Go to' })).toHaveCount(10)
+
+    // And the acts of the rows of the Scene the caret is in — the beat's offer of
+    // a Condition and the way on's — which is what the weight rule above had to
+    // leave alone. They are still named because weight is not presence: the bar
+    // asks the browser whether a control is drawn, `checkVisibility()`, and that
+    // question does not consult opacity or colour. See
+    // `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`.
+    for (const named of [
+      'Add a Condition to Shot 1 of Scene 1',
+      'Add a Condition to the Exit 1 to Scene 2, out of Scene 1',
+    ]) {
+      await expect(offered.filter({ hasText: named })).toBeVisible()
+    }
+
+    const onTen = await offered.count()
+
+    const forty = await chained(request, 40)
+    await page.goto(`/stories/${forty.story.id}`)
+    await live(page)
+    await page.getByRole('button', { name: 'Commands' }).click()
+    await expect(offered.first()).toBeVisible()
+
+    // Thirty more Scenes are thirty more Commands and not one more than that: a
+    // mark that acts on one row is drawn on every Scene and named in the Scene the
+    // caret stands in, so the thirty-nine Scenes the caret is not in hand the bar
+    // their *Go to* and nothing else. That is `0043`'s own rule — drawn
+    // everywhere, named where the Author is — and it is why a Story of forty
+    // Scenes does not offer forty *Delete Scene*s under one another.
+    expect(await offered.count()).toBe(onTen + 30)
   })
 
 test('keeps the rail out of the accessibility tree and out of the tab order',

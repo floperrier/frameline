@@ -299,6 +299,41 @@ button:disabled {
   line-height: 1.2;
 }
 
+/* A row whose marks arrive with the hand. The document holds every Scene of the
+   Story at once, so a bench drawing every mark at full strength draws forty
+   Scenes' worth of chrome over the one thing the surface is for; a row nobody is
+   working on therefore carries its marks at the weight of the words they stand
+   among, and the row under the pointer or holding the caret carries them as the
+   controls they are. See
+   `docs/adr/0043-a-story-is-written-as-one-document.md`, which is where the rule
+   is written.
+
+   What changes is weight and never presence. Nothing here is taken out of the
+   document, out of the tab order or out of the accessibility tree, so every mark
+   is still reached by `Tab` where it stands and still named in the bar of
+   Commands, which asks the browser whether a control is drawn —
+   `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md` is
+   why `display: none` could not be the mechanism.
+
+   Written as the one state that is not the ordinary one, so that a row under the
+   hand is a row this says nothing at all about: the light a mark takes from its
+   own hover, the alarm a `.danger` takes from its, and the fade a spent one takes
+   from `:disabled` all arrive unrestated. A screen with no pointer needs no rule
+   of its own either — a finger lands the caret in the row it presses, which is
+   the same arrival. */
+.handed .mark {
+  transition:
+    border-color 120ms ease-out,
+    background-color 120ms ease-out,
+    color 120ms ease-out;
+}
+
+.handed:not(:hover, :focus-within) .mark {
+  border-color: transparent;
+  background: none;
+  color: var(--muted);
+}
+
 /* One row of a list read as the sentence it is — "coat holds on", "played when
    Flag coat holds on" — with the mark that acts on the whole row held in a column
    of its own at the trailing edge. Two columns rather than one wrapping line,

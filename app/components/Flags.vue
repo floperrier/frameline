@@ -116,7 +116,18 @@ function flagCalled(place: number) {
          over was what taking the tabs out left behind. -->
     <p v-if="!rows.length" class="eyebrow none">{{ $t('flags.none') }}</p>
 
-    <div v-for="(row, place) in rows" :key="place" class="sets reads" @keydown.enter.prevent="addTyping">
+    <!-- `handed`: what a row is acted on — a value added to the draw, a value
+         struck out of it, the Flag itself taken away — is drawn at the weight of
+         the words of the sentence it stands in until the pointer arrives at the
+         row or the caret lands in it. One Scene of six Flags carries thirteen of
+         these marks, and the document holds every Scene of the Story at once. See
+         `.handed` in `app/assets/css/frameline.css`. -->
+    <div
+      v-for="(row, place) in rows"
+      :key="place"
+      class="sets reads handed"
+      @keydown.enter.prevent="addTyping"
+    >
       <!-- The Flag as the sentence it is, every mark inside it acting on one
            value of the draw, and then the one mark that ends the whole Flag —
            held apart in a column of its own, because taking a Flag away is not a

@@ -19,6 +19,12 @@
  *
  * The list is edited in place, on the Story the page fetched, and written whole
  * on every change: what the endpoint takes is the list, not a row of it.
+ *
+ * Both marks here — the one that strikes a Condition out, and the offer of
+ * another — act on the beat or the way on the list is written on, so their weight
+ * is that row's rather than this component's: the carrier is `handed` and
+ * `.handed` in `app/assets/css/frameline.css` is the whole of the rule, which is
+ * why nothing about it is declared below.
  */
 const { carrier, conditions, scenes, counting, id, named = true } = defineProps<{
   /** The visible words the list opens on: "Offered when", "Played when". */
