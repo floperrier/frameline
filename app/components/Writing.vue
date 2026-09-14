@@ -772,7 +772,24 @@ function writeConditions(
         <p v-if="!held.scene.shots.length" class="none">{{ $t('editor.noShotYet') }}</p>
 
         <ol v-else class="shots">
-          <li v-for="(shot, place) in held.scene.shots" :key="shot.id" :data-shot="shot.id">
+          <!-- `handed`: every mark this beat is acted on by — its own four, the
+               offer of a Condition, and the mark that strikes a Condition already
+               written — is drawn at the weight of the words around it until the
+               pointer arrives at the row or the caret lands in it. That last one
+               is a change of its own: `#246` kept a written Condition's mark at
+               full strength and dimmed only the offer to add one, on the reasoning
+               that what an Author has already written is never faded. The rule
+               `0043` writes is about rows rather than about what is written, and a
+               Condition is a row, so it arrives with the hand like every other.
+               `.handed` in `app/assets/css/frameline.css` is the rule, and it is
+               declared there because a beat, a way on and a Flag's row all carry
+               it. -->
+          <li
+            v-for="(shot, place) in held.scene.shots"
+            :key="shot.id"
+            class="handed"
+            :data-shot="shot.id"
+          >
             <span class="numbered">{{ place + 1 }}</span>
 
             <div class="beat">
@@ -959,7 +976,10 @@ function writeConditions(
 
         <p v-if="!held.ways.length" class="none">{{ $t('editor.noWayOnYet') }}</p>
         <ol v-else>
-          <li v-for="(exit, place) in held.ways" :key="exit.id" :data-way="exit.id">
+          <!-- `handed` again, and it is the row it changes most: an Exit's marks
+               used to take only their colour from a hover, where now the whole
+               box arrives with the hand. -->
+          <li v-for="(exit, place) in held.ways" :key="exit.id" class="handed" :data-way="exit.id">
             <span class="numbered">{{ place + 1 }}</span>
 
             <div class="written">
@@ -1490,40 +1510,6 @@ textarea.shot:hover {
   gap: var(--s1);
 }
 
-/* What is done to a way on rather than written in it — move it, take it away,
-   write a second one to the same Scene, put it under a Condition — waits for the
-   hand or the keyboard to arrive at the row. It is drawn and laid out at every
-   moment, so nothing moves when it appears and nothing is taken out of the tab
-   order or off a screen reader: it is simply not lit until the row is the one
-   being worked on. What the Author has already written — a Condition that exists —
-   is never dimmed; only the offer to add one is.
-
-   A beat's own marks are not quieted here, and deliberately: carrying this to
-   every row of the whole Story is #253, which is where the rule `0043` writes —
-   full strength under the caret or the pointer — is applied at the scale of the
-   document rather than of one Scene. */
-.ways .written .row,
-.ways .beneath .conditions.quiet {
-  opacity: 0;
-  transition: opacity 120ms ease-out;
-}
-
-.ways li:hover .row,
-.ways li:focus-within .row,
-.ways li:hover .conditions.quiet,
-.ways li:focus-within .conditions.quiet {
-  opacity: 1;
-}
-
-/* A screen with no pointer has no hover to reveal anything with, so there the row
-   is simply always lit. */
-@media (hover: none) {
-  .ways .written .row,
-  .ways .beneath .conditions.quiet {
-    opacity: 1;
-  }
-}
-
 /* The beat added by hand, under the run it is added to the end of. */
 .adds {
   display: flex;
@@ -1584,19 +1570,6 @@ textarea.shot:hover {
 .arrival select:hover,
 .arrival select:focus-visible {
   border-color: var(--edge);
-}
-
-/* The way on's own way through: the mark that goes to the Scene at the far end,
-   quiet until the row is under the hand, like everything else that acts on a row. */
-.arrival .mark {
-  border-color: transparent;
-  background: none;
-  color: var(--muted);
-}
-
-li:hover .arrival .mark,
-li:focus-within .arrival .mark {
-  color: var(--paper);
 }
 
 .said {
