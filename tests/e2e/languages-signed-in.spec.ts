@@ -68,7 +68,8 @@ test.describe('an interface read in French', () => {
 
     // What the bench says about its own writing is in the Locale twice over: the
     // words, and the clock read the French way rather than the English one.
-    const shot = page.getByRole('textbox', { name: 'Plan 1' })
+    const shot = page.getByRole('group', { name: 'Écriture de The street' })
+      .getByRole('textbox', { name: 'Plan 1', exact: true })
     await shot.fill('Une porte s\'ouvre.')
     await shot.blur()
     await expect(page.getByText(/^Enregistré à \d{2}:\d{2}$/)).toBeVisible()
