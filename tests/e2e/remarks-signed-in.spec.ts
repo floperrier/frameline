@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test'
 import type { APIRequestContext, Page } from '@playwright/test'
 import {
-  readTheStory, seedExit, seedFlags, seedScene, seedStory, test, writeScene,
+  readTheStory, sceneNode, seedExit, seedFlags, seedScene, seedStory, test, writeScene,
 } from './author'
 
 /**
@@ -98,7 +98,7 @@ test('counts what it finds, and opens the Scene a Remark names', async ({ page, 
   // surface, which is where the Author answers it.
   await found(page).getByRole('button', { name: /sets the Flag coat/ }).click()
   await expect(page).toHaveURL(new RegExp(`scene=${arrival.id}`))
-  await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
+  await expect(sceneNode(page, 'The arrival')).toHaveClass(/here/)
 
   // And the Scene the caret is in keeps its own sentence here, as every Scene does.
   await openRemarks(page)

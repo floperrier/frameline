@@ -57,7 +57,8 @@ test.describe('an interface read in French', () => {
     // The words of the craft, on the Scene the Story opens on: a Shot is a Plan
     // and a Flag is a Marqueur, as `CONTEXT.md` says they are shown.
     await expect(page.getByRole('group', { name: 'Écriture de The street' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Ajouter un Plan' })).toBeVisible()
+    await expect(page.getByRole('group', { name: 'Écriture de The street' })
+      .getByRole('button', { name: 'Ajouter un Plan' })).toBeVisible()
 
     // The three tabs a Scene stands behind are the same three words, and the
     // Marqueurs are read behind theirs.
@@ -67,7 +68,8 @@ test.describe('an interface read in French', () => {
 
     // What the bench says about its own writing is in the Locale twice over: the
     // words, and the clock read the French way rather than the English one.
-    const shot = page.getByRole('textbox', { name: 'Plan 1' })
+    const shot = page.getByRole('group', { name: 'Écriture de The street' })
+      .getByRole('textbox', { name: 'Plan 1 de The street', exact: true })
     await shot.fill('Une porte s\'ouvre.')
     await shot.blur()
     await expect(page.getByText(/^Enregistré à \d{2}:\d{2}$/)).toBeVisible()

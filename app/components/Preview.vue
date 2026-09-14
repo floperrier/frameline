@@ -357,7 +357,7 @@ function why(conditions: Condition[]) {
 .preview {
   flex: 1;
   /* The containing block for what is inside it, for the reason the writing
-     surface is one: see `Panel.vue`. */
+     surface is one: see `Writing.vue`. */
   position: relative;
   display: flex;
   flex-direction: column;

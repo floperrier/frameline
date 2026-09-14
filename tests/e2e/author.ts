@@ -237,23 +237,21 @@ export async function seedScenes(story: Story, names: string[]) {
 
 /**
  * Puts the caret in a Scene, the way an Author would: by pressing its mark on the
- * rail. The whole Story is in the document now, so there is nothing to open and
- * nothing that closes — what a press does is move the caret and wind the document
- * to that Scene's own section, where the writing surface stands. A Scene the caret
- * is already in is left alone, because pressing its mark would be asking to go
- * where the caret already is, and either way the writing surface is waited for.
- * See `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ * rail. Every Scene of the Story is written where it stands since #252, so the
+ * writing surface is up for all of them at once and waiting for it says nothing
+ * about where the caret is. What a press moves is the caret — the rail lights that
+ * Scene's mark, the address names it, and the marks a row carries for the bar of
+ * Commands and for the guided path go with it — so the lit mark is what this waits
+ * for. A Scene whose mark is already lit is left alone, because pressing it would
+ * be asking to go where the caret already is. See
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`.
  */
 export async function writeScene(page: Page, name: string) {
-  const writing = page.getByRole('group', { name: `Writing ${name}` })
+  const mark = sceneNode(page, name)
+  await expect(mark).toBeVisible()
+  if (!(await mark.getAttribute('class'))?.split(' ').includes('here')) await mark.click()
 
-  if (!await writing.isVisible()) {
-    const node = sceneNode(page, name)
-    await expect(node).toBeVisible()
-    await node.click()
-  }
-
-  await expect(writing).toBeVisible()
+  await expect(mark).toHaveClass(/\bhere\b/)
 }
 
 /**
@@ -302,26 +300,6 @@ export async function readTheStory(page: Page) {
   await expect(preview).toBeVisible()
 
   return preview
-}
-
-/**
- * Puts one beat of the Scene being written in the gate, the way an Author does:
- * by pressing its cell on the strip. There is one field for the run — the
- * gate's — so this is how a spec reaches the words of any beat but the one the
- * Scene opened at, and it hands that field back. The gate here is the frame one
- * beat is written in, which `app/components/Panel.vue` still draws unchanged: the
- * gate that stood on the Graph is what
- * `docs/adr/0043-a-story-is-written-as-one-document.md` took away.
- */
-export async function writeShot(page: Page, place: number) {
-  const cell = page.getByRole('button', { name: `Write Shot ${place}` })
-  await expect(cell).toBeVisible()
-  if (await cell.getAttribute('aria-current') !== 'true') await cell.click()
-
-  const field = page.getByRole('textbox', { name: `Shot ${place}`, exact: true })
-  await expect(field).toBeVisible()
-
-  return field
 }
 
 /**

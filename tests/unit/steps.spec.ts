@@ -250,14 +250,14 @@ describe('the Step the bench is showing', () => {
 })
 
 /**
- * The bench with a Scene open for writing: the page, the header over it, the
- * document the Scene is written in and the Preview beside it. Every Step but the
- * first is read in that state, so this is where its target has to be.
+ * The bench with a Story on it: the page, the header over it, the document the
+ * Story is written in and the reading the middle of the bench turns over to. Every
+ * Step but the first is read in that state, so this is where its target has to be.
  */
 const WRITING = [
   'app/pages/stories/[id]/index.vue',
   'app/components/StoryHeader.vue',
-  'app/components/Panel.vue',
+  'app/components/Writing.vue',
   'app/components/Preview.vue',
 ]
 
@@ -267,6 +267,24 @@ const EDITOR = ['app/components/Graph.vue', ...WRITING]
 /** Every file named, read as the one source the editor is drawn from. */
 function drawnFrom(files: string[]) {
   return files.map(file => readFileSync(file, 'utf8')).join('\n')
+}
+
+/**
+ * The targets the editor's own templates name. A target is the whole of the
+ * attribute's value where the element carries it whatever the Story is, and a
+ * quoted name inside that value where it is carried by one Scene of the document
+ * and not by the thirty-nine others: `0043` scopes the five Steps that are about
+ * a Scene to the Scene the caret is in, and a template saying so in an expression
+ * is still the template saying it. Both forms are read here, so the anchor
+ * `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md` asks for holds
+ * whichever way the attribute is written.
+ */
+function targetsIn(source: string) {
+  return [...source.matchAll(/:?data-step="([^"]+)"/g)].flatMap(([, written]) => {
+    const named = [...written.matchAll(/'([\w-]+)'/g)].map(([, target]) => target)
+
+    return named.length ? named : [written]
+  })
 }
 
 describe('every Step', () => {
@@ -288,8 +306,7 @@ describe('every Step', () => {
     // Every file the bench is drawn from, because the editor is the page and the
     // three pieces it is laid out from: a target that moved from one of them to
     // another has moved within the same editor.
-    const drawn = [...drawnFrom(EDITOR).matchAll(/data-step="([^"]+)"/g)]
-      .map(([, target]) => target)
+    const drawn = targetsIn(drawnFrom(EDITOR))
 
     // Held as sets on both sides: the editor draws each target once, and two
     // Steps may ask for two things in the same place.
@@ -313,11 +330,11 @@ describe('every Step', () => {
    * shown in and with nothing closed or switched to first.
    */
   it('points at something the bench answers where the Step is read', () => {
-    const written = drawnFrom(WRITING)
+    const written = targetsIn(drawnFrom(WRITING))
 
     expect(STEPS
       .filter(step => step.name !== 'nameScene')
-      .filter(step => !written.includes(`data-step="${step.target}"`))
+      .filter(step => !written.includes(step.target))
       .map(step => step.name)).toEqual([])
   })
 })

@@ -658,7 +658,7 @@ test('the reading takes the document’s place, at every width', async ({ page, 
     await page.setViewportSize(size)
     await page.goto(`/stories/${story.id}?scene=${scenes[0]!.id}`)
 
-    const named = page.getByRole('textbox', { name: 'Name of this Scene' })
+    const named = page.getByRole('textbox', { name: 'Name of The street' })
     const preview = previewIn(page)
     const boxes = async () => ({
       document: (await page.locator('.document').boundingBox())!,
@@ -715,7 +715,7 @@ test('turning the gate over is an act of the bench, named in the bar', async ({ 
   // And the bar names it for what pressing it will do from the face that is up,
   // the way it names Publish and Unpublish on the one fact.
   await (await named('Write the Scene')).first().click()
-  await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Name of The street' })).toBeVisible()
 })
 
 test('the bench takes the room the window leaves it', async ({ page, request }) => {
@@ -734,7 +734,7 @@ test('the bench takes the room the window leaves it', async ({ page, request }) 
   ]) {
     await page.setViewportSize(size)
     await page.goto(`/stories/${story.id}?scene=${scenes[0]!.id}`)
-    await expect(page.locator('.panel')).toBeVisible()
+    await expect(page.locator('.writing')).toBeVisible()
 
     const read = await page.evaluate(() => {
       const bench = document.querySelector('main > .bench')!.getBoundingClientRect()
@@ -753,3 +753,43 @@ test('the bench takes the room the window leaves it', async ({ page, request }) 
     expect(read.below).toBeLessThanOrEqual(1)
   }
 })
+
+test('a refusal from the reading is said, whatever the writing was refused before it',
+  async ({ page, request }) => {
+    const story = await writeStory(request)
+    const { scenes } = await scenesOf(request, story.id)
+    const street = scenes[0]!
+    const alley = await (await request.post(`/api/stories/${story.id}/scenes`, {
+      data: { name: 'The alley' },
+    })).json() as { id: string }
+    const out = await (await request.post(`/api/scenes/${street.id}/exits`, {
+      data: { toSceneId: alley.id },
+    })).json() as { id: string }
+
+    await page.goto(`/stories/${story.id}?scene=${street.id}`)
+
+    // A write refused in a Scene's own section, which is where that sentence
+    // belongs: the Scene claims the one refusal the page holds. The field is found
+    // on the slate rather than by its label, which says the name it is about to
+    // stop holding.
+    const named = page.locator(`.writing [data-scene="${street.id}"] .named input`)
+    await named.fill('  ')
+    await named.blur()
+    await expect(page.getByRole('alert')).toHaveText('A Scene needs a name.')
+
+    // The reading takes the document's place, so the Scene that claimed the last
+    // sentence is not on screen to say the next one. What the reading is refused
+    // is about the Story and belongs under the Story's own edge, which is where
+    // the page draws what no Scene has claimed.
+    const preview = await readTheStory(page)
+    await preview.getByRole('button', { name: 'Next Shot' }).click()
+    await preview.getByRole('button', { name: 'Next Shot' }).click()
+
+    // Renumbering a list the Story no longer holds, which is what an Exit taken
+    // away behind the page's back leaves the reading holding.
+    await request.delete(`/api/exits/${out.id}`)
+    await preview.getByRole('button', { name: 'Move Earlier the Exit to The alley' }).click()
+
+    await expect(page.locator('main > [role="alert"]'))
+      .toHaveText(/renumbered all at once/)
+  })
