@@ -269,23 +269,45 @@ test('the reading is read by keyboard, and focus goes with each beat',
   async ({ page, request }) => {
     const story = await writeStory(request)
     const { scenes } = await scenesOf(request, story.id)
-    const preview = await writing(page, story.id, scenes[0]!.id)
+    const [street, bar] = scenes
+    const preview = await writing(page, story.id, street!.id)
 
     // Every beat replaces what was on screen, the control that was pressed
     // included, so the Reading has to say where the Reader now is: on the frame
     // while a Scene is playing, and on the first Exit once it has played out.
     // Without it focus falls to the document and the next Shot is a tab from the
     // top of the page.
-    const focused = () => page.evaluate(() => document.activeElement?.className ?? '')
+    //
+    // The move is the one call at the foot of `moveTo` in
+    // `app/components/Reading.vue`, made on the tick the beat is drawn on, so a
+    // beat this can see is a beat focus has already been moved for: waiting for
+    // the beat is waiting for the move, and there is nothing left to poll for. A
+    // poll would also pass on the instant focus passed through the frame and say
+    // nothing about where it was left, which is the whole of what a Reader
+    // tabbing on has.
+    //
+    // What holds focus is named, and named inside the reading, rather than
+    // matched by a word in a class: `frame` is a substring of the `frames` a
+    // Story's header draws, and an assertion that would survive focus landing
+    // there is not an assertion about this Reading.
+    const holds = (what: Locator) => what.evaluate(el => el === document.activeElement)
 
     await preview.getByRole('button', { name: 'Next Shot' }).click()
-    await expect.poll(focused).toContain('frame')
+    await expect(preview.locator('.frame .shot')).toHaveText('She steps out.')
+    expect(await holds(preview.locator('.frame'))).toBe(true)
 
     await preview.getByRole('button', { name: 'Next Shot' }).click()
-    await expect.poll(focused).toContain('splice')
+    await expect(preview.getByRole('button', { name: 'Follow her out' })).toBeVisible()
+    expect(await holds(preview.locator('.exits .splice').first())).toBe(true)
 
+    // Taking the way on moves the writing to the Scene it lands in as well, and
+    // that move is the page's rather than the Reading's. Waited for too, so what
+    // is asserted is where the two of them leave focus and not where it stood
+    // between them.
     await preview.getByRole('button', { name: 'Follow her out' }).click()
-    await expect.poll(focused).toContain('frame')
+    await expect(page).toHaveURL(new RegExp(`scene=${bar!.id}`))
+    await expect(preview.locator('.frame .shot')).toHaveText('Smoke, and no one she knows.')
+    expect(await holds(preview.locator('.frame'))).toBe(true)
   })
 
 /**
