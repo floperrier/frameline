@@ -9,14 +9,16 @@ import {
 const noId = '00000000-0000-4000-8000-000000000000'
 
 /**
- * The field one beat is typed in, found by the Place its Scene numbers it at.
- * Every Scene of the document is written where it stands and every beat of every
- * Scene has a field of its own, so there is nothing to put in a gate before
- * typing in it — see `docs/adr/0043-a-story-is-written-as-one-document.md`, which
- * is what took the gate and the strip that moved it away.
+ * The field one beat is typed in, found by the Place its Scene numbers it at and
+ * by the Scene it is in. Every Scene of the document is written where it stands
+ * and every beat of every Scene has a field of its own, so there is nothing to put
+ * in a gate before typing in it and nothing but the Scene's own name to tell one
+ * Shot 1 from another — see
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`, which is what took the
+ * gate and the strip that moved it away.
  */
-function shot(page: Page, place: number) {
-  return page.getByRole('textbox', { name: `Shot ${place}`, exact: true })
+function shot(page: Page, place: number, scene = 'The arrival') {
+  return page.getByRole('textbox', { name: `Shot ${place} of ${scene}`, exact: true })
 }
 
 /** One Scene's section of the document, which is what its name is heard on. */
@@ -33,6 +35,16 @@ function written(page: Page, scene: string) {
  */
 function sectionOf(page: Page, sceneId: string) {
   return page.locator(`.writing [data-scene="${sceneId}"]`)
+}
+
+/**
+ * The field one Scene's name is written in, reached through the Scene's own id for
+ * the same reason and then by its place on the slate rather than by its label: the
+ * label says which Scene it names, so the first keystroke of a rename takes the
+ * locator out from under a test that asked by it.
+ */
+function naming(page: Page, sceneId: string) {
+  return sectionOf(page, sceneId).locator('.named input')
 }
 
 /** A Story with one Scene in it, which is where every test below starts. */
@@ -125,7 +137,7 @@ test('an Author renames a Scene where it stands in the document', async ({ page,
   await writeScene(page, 'The arival')
 
   // Leaving the field is what writes it, as it is for a Shot and for an Exit.
-  const named = page.getByRole('textbox', { name: 'Name of this Scene' })
+  const named = naming(page, scene.id)
   await named.fill('The arrival')
   await named.blur()
 
@@ -148,7 +160,7 @@ test('a Scene renamed to nothing is left as it was', async ({ page, request }) =
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The arrival')
 
-  const named = page.getByRole('textbox', { name: 'Name of this Scene' })
+  const named = naming(page, scene.id)
   await named.fill('  ')
   await named.blur()
 
@@ -356,7 +368,8 @@ test('everything a Scene holds is on the surface at once, each part counted',
 
     // And all three are on the surface together, which is what taking the tabs
     // out bought: a Condition and the Flags that satisfy it are read at once.
-    await expect(arrival.getByRole('textbox', { name: 'Shot 1', exact: true })).toBeVisible()
+    await expect(arrival.getByRole('textbox', { name: 'Shot 1 of The arrival', exact: true }))
+      .toBeVisible()
     await expect(page.getByLabel('Name of Flag 1 set on entering The arrival')).toHaveValue('coat')
     await expect(arrival.locator('.ways > ol > li > .numbered')).toHaveText('1')
     await expect(page.getByLabel('Where the Exit 1 out of The arrival leads'))
@@ -458,14 +471,14 @@ test('every Scene of the document is written where it stands', async ({ page, re
   // forty Scenes is forty writable Scenes and no gate to move between them. See
   // `docs/adr/0043-a-story-is-written-as-one-document.md`.
   await expect(written(page, 'The arrival')).toBeVisible()
-  const named = sectionOf(page, bar!.id).getByRole('textbox', { name: 'Name of this Scene' })
+  const named = naming(page, bar!.id)
   await named.fill('The late bar')
   await named.blur()
   await expect.poll(() => readSceneName(bar!.id)).toBe('The late bar')
 
   // And so is a beat of the second, in the field that beat has of its own: one
   // field per Shot, over the whole document.
-  const beat = written(page, 'The platform').getByRole('textbox', { name: 'Shot 1', exact: true })
+  const beat = shot(page, 1, 'The platform')
   await beat.fill('The platform is bare.')
   await beat.blur()
   await expect.poll(() => readShots(platform!.id)).toMatchObject([{ text: 'The platform is bare.' }])
@@ -473,14 +486,18 @@ test('every Scene of the document is written where it stands', async ({ page, re
 
 test('the arrows walk the run, and the arrows with Control walk the Story',
   async ({ page, request }) => {
-    const { story, scenes } = await chained(request, ['The arrival', 'The platform'])
-    const [arrival, platform] = scenes
+    // The middle Scene holds no beat at all, which is where the walk used to stop:
+    // the key was listened for on a beat's own field, so a Scene with no field had
+    // nothing to hear it and the Scene after it was unreachable from the keyboard.
+    const { story, scenes } = await chained(
+      request, ['The arrival', 'The platform', 'The bar'])
+    const [arrival, platform, bar] = scenes
     await writeShots(request, arrival!.id, ['She steps off the train.', 'The doors close.'])
-    await writeShots(request, platform!.id, ['The platform is empty.'])
+    await writeShots(request, bar!.id, ['Smoke, and no one she knows.'])
 
     await page.goto(`/stories/${story.id}`)
-    const beat = (place: number) =>
-      written(page, 'The arrival').getByRole('textbox', { name: `Shot ${place}`, exact: true })
+    const beat = (place: number) => shot(page, place)
+    const named = (scene: string) => page.getByRole('textbox', { name: `Name of ${scene}` })
 
     // Alt and the arrows stay inside the Scene: they are how the run is walked,
     // and the run is the Scene's own — see
@@ -496,19 +513,35 @@ test('the arrows walk the run, and the arrows with Control walk the Story',
     // arrives at the head of the next Scene, in its name, and the address goes
     // with it: there is one notion of where the Author is standing.
     await page.keyboard.press('Control+ArrowDown')
-    await expect(written(page, 'The platform')
-      .getByRole('textbox', { name: 'Name of this Scene' })).toBeFocused()
+    await expect(named('The platform')).toBeFocused()
     await expect(page).toHaveURL(new RegExp(`scene=${platform!.id}`))
 
-    // And there is nothing past the last Scene: the arrows walk the Story, they do
-    // not write one.
-    await written(page, 'The platform')
-      .getByRole('textbox', { name: 'Shot 1', exact: true }).click()
+    // And it walks on from where it landed. The caret is in a name and the Scene
+    // it is in holds no beat, and the walk is the same act from either: it is the
+    // Scene's own section that hears the key, not one field of it.
     await page.keyboard.press('Control+ArrowDown')
-    await expect(page).toHaveURL(new RegExp(`scene=${platform!.id}`))
+    await expect(named('The bar')).toBeFocused()
+    await expect(page).toHaveURL(new RegExp(`scene=${bar!.id}`))
+
+    // There is nothing past the last Scene: the arrows walk the Story, they do not
+    // write one.
+    await page.keyboard.press('Control+ArrowDown')
+    await expect(page).toHaveURL(new RegExp(`scene=${bar!.id}`))
+    await expect(named('The bar')).toBeFocused()
+
+    // And back up the Story the same way, to the same end.
+    await page.keyboard.press('Control+ArrowUp')
+    await expect(named('The platform')).toBeFocused()
+    await page.keyboard.press('Control+ArrowUp')
+    await expect(named('The arrival')).toBeFocused()
+    await expect(page).toHaveURL(new RegExp(`scene=${arrival!.id}`))
+
+    await page.keyboard.press('Control+ArrowUp')
+    await expect(page).toHaveURL(new RegExp(`scene=${arrival!.id}`))
+    await expect(named('The arrival')).toBeFocused()
   })
 
-test('a Scene written at the foot of another leaves the document where it was',
+test('a Scene written at the foot of another puts the hand on what the Reader presses',
   async ({ page, request }) => {
     const { story, scenes } = await chained(
       request, ['One', 'Two', 'Three', 'Four', 'Five', 'Six'])
@@ -518,23 +551,45 @@ test('a Scene written at the foot of another leaves the document where it was',
     const writing = written(page, 'Six')
     await expect(writing).toBeInViewport()
 
-    // A Scene named at the foot of another is written and joined in one change,
-    // and it arrives in the document at the place the order puts it — which is not
-    // where the Author is looking. What must not happen is the words under their
-    // hands walking off the screen.
     const adding = writing.getByRole('combobox', { name: 'An Exit from here Six' })
     await adding.fill('Seven')
     await adding.press('Enter')
-
     await expect(written(page, 'Seven')).toBeVisible()
-    await expect(writing).toBeInViewport()
 
     // The hand lands on what the Reader will press, which is the other half of the
     // way on the Author has just said the end of — and it is on screen where they
-    // left off rather than somewhere they have to be scrolled to.
-    const said = writing.getByRole('textbox', { name: 'Exit to Seven' })
+    // left off rather than somewhere they have to be scrolled to. A Scene named at
+    // the foot of another lands one Exit further from the opening, which is under
+    // the Scene it was named in and never above it, so nothing here needs holding
+    // still: see the test below for the act that does move the words.
+    const said = writing.getByLabel('What the Exit 1 out of Six says')
     await expect(said).toBeFocused()
     await expect(said).toBeInViewport()
+  })
+
+test('re-rooting the Story leaves the words where the hand left them',
+  async ({ page, request }) => {
+    const { story, scenes } = await chained(
+      request, ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight'])
+    const fifth = scenes[4]!
+
+    await page.goto(`/stories/${story.id}?scene=${fifth.id}`)
+    const writing = written(page, 'Five')
+    await expect(writing).toBeInViewport()
+    const before = (await writing.boundingBox())!.y
+
+    // Marking a Scene halfway down the document as the one the Story opens on
+    // re-roots the order the whole document is read in: the four Scenes that stood
+    // above the Author's hands go below them, and the section under the caret is
+    // suddenly the first of eight. The document is where all of that happens and
+    // the screen is where none of it may.
+    await sectionOf(page, fifth.id).getByRole('radio').check()
+    await expect(page.locator('.rail .mark.opens')).toHaveAttribute('data-scene', fifth.id)
+    await expect(written(page, 'One')).toBeVisible()
+
+    await expect.poll(async () => Math.abs((await writing.boundingBox())!.y - before))
+      .toBeLessThanOrEqual(2)
+    await expect(writing).toBeInViewport()
   })
 
 test('a refusal is said against the Scene it is about', async ({ page, request }) => {
@@ -548,14 +603,25 @@ test('a refusal is said against the Scene it is about', async ({ page, request }
   // caret happens to stand. See
   // `docs/adr/0016-the-door-is-reopened-beside-the-bench.md`, whose rule is that
   // the work being written survives the refusal.
-  const named = sectionOf(page, platform!.id)
-    .getByRole('textbox', { name: 'Name of this Scene' })
+  const named = naming(page, platform!.id)
   await named.fill('  ')
   await named.blur()
 
   const refused = sectionOf(page, platform!.id).getByRole('alert')
   await expect(refused).toHaveText('A Scene needs a name.')
   await expect(sectionOf(page, arrival!.id).getByRole('alert')).toHaveCount(0)
+
+  // And what the Story's own edge is refused is about no Scene, so it is said
+  // under that edge: the two places a refusal is drawn are the Scene it is about
+  // and the Story, and nothing is drawn in both.
+  await named.fill('The platform is empty')
+  await named.blur()
+  await expect(refused).toHaveCount(0)
+
+  const title = page.getByRole('textbox', { name: 'Title of this Story' })
+  await title.fill('  ')
+  await title.blur()
+  await expect(page.locator('main > [role="alert"]')).toHaveText('A Story needs a title.')
 })
 
 test('an Author writes a Story from the page alone', async ({ page, request }) => {
@@ -567,8 +633,9 @@ test('an Author writes a Story from the page alone', async ({ page, request }) =
   // the first thing typed rather than a step before it existed.
   await page.getByRole('button', { name: 'Write the First Scene' }).click()
   await expect(page.getByText('“A new Scene” created')).toBeVisible()
-  const named = page.getByRole('textbox', { name: 'Name of this Scene' })
+  const named = page.locator('.writing .named input')
   await expect(named).toBeFocused()
+  await expect(named).toHaveValue('A new Scene')
   await named.fill('The arrival')
   await named.blur()
   // A Scene's section of the document is named by the Scene it holds, which is

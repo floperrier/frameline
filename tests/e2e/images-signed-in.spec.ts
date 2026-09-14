@@ -221,7 +221,8 @@ test('the thumbnail is the picker, and an empty one is the outline of an image',
   await picker.focus()
   await expect(picker).toBeFocused()
   await page.keyboard.press('Tab')
-  await expect(street.getByRole('textbox', { name: 'Shot 1', exact: true })).toBeFocused()
+  await expect(street.getByRole('textbox', { name: 'Shot 1 of The street', exact: true }))
+    .toBeFocused()
 
   // What it does not take is room. The browser's own file chrome was the widest
   // thing on the beat's row; clipped away inside the frame it lays nothing out, so
@@ -415,7 +416,8 @@ test('the Author drops a file on a thumbnail, and the image is the one dropped',
   await expect(street.getByLabel('Image of Shot 1', { exact: true })).toBeAttached()
   await street.getByLabel('Image of Shot 1', { exact: true }).focus()
   await page.keyboard.press('Tab')
-  await expect(street.getByRole('textbox', { name: 'Shot 1', exact: true })).toBeFocused()
+  await expect(street.getByRole('textbox', { name: 'Shot 1 of The street', exact: true }))
+    .toBeFocused()
 })
 
 test('a drop of several files takes the first image, and a refused one says why', async ({ page, request }) => {
