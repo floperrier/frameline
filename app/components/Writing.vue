@@ -784,13 +784,19 @@ function writeConditions(
                 <img
                   v-if="shot.image"
                   :src="imageOf(shot)"
-                  :alt="$t('editor.imageOfShot', { place: place + 1 })"
+                  :alt="$t('editor.imageOfShot', {
+                    place: place + 1,
+                    scene: held.scene.name,
+                  })"
                 >
                 <input
                   type="file"
                   class="visually-hidden"
                   :accept="SHOT_IMAGE_TYPES.join(',')"
-                  :aria-label="$t('editor.pickImageOfShot', { place: place + 1 })"
+                  :aria-label="$t('editor.pickImageOfShot', {
+                    place: place + 1,
+                    scene: held.scene.name,
+                  })"
                   @change="attachImage(held.scene, shot, $event)"
                 >
               </label>
@@ -860,7 +866,10 @@ function writeConditions(
                   >
                     <span aria-hidden="true">✂</span>
                     <span class="visually-hidden">
-                      {{ $t('editor.splitBefore', { place: place + 1 }) }}
+                      {{ $t('editor.splitBefore', {
+                        place: place + 1,
+                        scene: held.scene.name,
+                      }) }}
                     </span>
                   </button>
                   <button
@@ -973,7 +982,11 @@ function writeConditions(
                 >
                   <span aria-hidden="true">→</span>
                   <span class="visually-hidden">
-                    {{ $t('editor.goToScene', { name: sceneNames.get(exit.toSceneId) }) }}
+                    {{ $t('editor.goToSceneByExit', {
+                      name: sceneNames.get(exit.toSceneId),
+                      place: place + 1,
+                      scene: held.scene.name,
+                    }) }}
                   </span>
                 </button>
               </p>
@@ -998,6 +1011,7 @@ function writeConditions(
                   :carrier="$t('editor.theWayOnTo', {
                     place: place + 1,
                     scene: sceneNames.get(exit.toSceneId),
+                    from: held.scene.name,
                   })"
                   :conditions="exit.conditions"
                   :scenes="story.scenes"
@@ -1020,6 +1034,7 @@ function writeConditions(
                       {{ $t('editor.theWayOnTo', {
                         place: place + 1,
                         scene: sceneNames.get(exit.toSceneId),
+                        from: held.scene.name,
                       }) }}
                     </span>
                   </button>
@@ -1035,6 +1050,7 @@ function writeConditions(
                       {{ $t('editor.theWayOnTo', {
                         place: place + 1,
                         scene: sceneNames.get(exit.toSceneId),
+                        from: held.scene.name,
                       }) }}
                     </span>
                   </button>
@@ -1043,6 +1059,7 @@ function writeConditions(
                     <span class="visually-hidden">
                       {{ $t('editor.duplicateExitTo', {
                         scene: sceneNames.get(exit.toSceneId),
+                        from: held.scene.name,
                       }) }}
                     </span>
                   </button>
@@ -1057,6 +1074,7 @@ function writeConditions(
                       {{ $t('editor.theWayOnTo', {
                         place: place + 1,
                         scene: sceneNames.get(exit.toSceneId),
+                        from: held.scene.name,
                       }) }}
                     </span>
                   </button>

@@ -573,10 +573,11 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
   await is.press('Enter')
   await expect(page.getByLabel('Flag of Condition 2 of the Exit 1 to The platform'))
     .toBeFocused()
-  // Exactly, because "Condition 2 of the Exit 1 to The platform" is also the tail
-  // of the labels on the fields of that Condition.
+  // Exactly, because "Condition 2 of the Exit 1 to The platform, out of The
+  // arrival" is also the tail of the labels on the fields of that Condition.
   await page
-    .getByLabel('Condition 2 of the Exit 1 to The platform', { exact: true })
+    .getByLabel('Condition 2 of the Exit 1 to The platform, out of The arrival',
+      { exact: true })
     .selectOption('visits')
 
   // Read back past the page, which is what proves all of it landed — and has to
@@ -599,11 +600,15 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
     .toHaveValue('coat')
   await expect(page.getByLabel('Value 1 of Flag 1 set on entering The arrival'))
     .toHaveValue('on')
-  await expect(page.getByLabel('Condition 1 of the Exit 1 to The platform', { exact: true }))
+  await expect(page
+    .getByLabel('Condition 1 of the Exit 1 to The platform, out of The arrival',
+      { exact: true }))
     .toHaveValue('flag')
   await expect(page.getByLabel('Flag of Condition 1 of the Exit 1 to The platform'))
     .toHaveValue('coat')
-  await expect(page.getByLabel('Condition 2 of the Exit 1 to The platform', { exact: true }))
+  await expect(page
+    .getByLabel('Condition 2 of the Exit 1 to The platform, out of The arrival',
+      { exact: true }))
     .toHaveValue('visits')
 
   // And an Exit with every Condition taken off it is offered always again.
@@ -1058,8 +1063,9 @@ test('a Scene is split before one of its Shots, and its ways on move to the seco
     await page.goto(`/stories/${story.id}`)
     // The first beat has nothing before it to be split from, so the mark is not
     // drawn beside it; every beat after it carries its own, on its own row.
-    await expect(page.getByRole('button', { name: 'Split the Scene before Shot 1' })).toHaveCount(0)
-    await page.getByRole('button', { name: 'Split the Scene before Shot 2' }).click()
+    await expect(page.getByRole('button', { name: 'Split The arrival before Shot 1' }))
+      .toHaveCount(0)
+    await page.getByRole('button', { name: 'Split The arrival before Shot 2' }).click()
     await expect(toast(page))
       .toHaveText('“The arrival” split: what followed is now “The arrival, continued”')
 

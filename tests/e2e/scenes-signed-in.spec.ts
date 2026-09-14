@@ -638,6 +638,45 @@ test('the mark that moves where the Story opens is a tab stop on every Scene it 
     expect(read.openingSceneId).toBe(scenes[0]!.id)
   })
 
+test('two Scenes leading to one Scene name their rows apart', async ({ page, request }) => {
+  const { story, scene } = await openScene(request, 'The street')
+  const write = async (name: string) => await (await request.post(
+    `/api/stories/${story.id}/scenes`, { data: { name } })).json()
+  const bar = await write('The bar')
+  const station = await write('La gare')
+  for (const from of [scene, bar]) {
+    await request.post(`/api/scenes/${from.id}/exits`, { data: { toSceneId: station.id } })
+    await writeShots(request, from.id, ['A door opens.', 'She steps out.'])
+  }
+
+  await page.goto(`/stories/${story.id}`)
+  await expect(written(page, 'La gare')).toBeVisible()
+
+  // A Story that converges is the ordinary case, and it is where a name read off
+  // where a row lands stops telling two rows apart: both Scenes offer their Exit 1
+  // to the same Scene, and both number their beats from one. So every control of a
+  // row says which Scene it is in as well as which row it acts on, and each of
+  // these answers to one control on the whole page.
+  for (const said of [
+    'Delete the Exit 1 to La gare, out of The street',
+    'Delete the Exit 1 to La gare, out of The bar',
+    'Duplicate Exit to La gare, out of The street',
+    'Duplicate Exit to La gare, out of The bar',
+    'Go to La gare, by the Exit 1 out of The street',
+    'Go to La gare, by the Exit 1 out of The bar',
+    'Add a Condition to the Exit 1 to La gare, out of The street',
+    'Add a Condition to the Exit 1 to La gare, out of The bar',
+    'Split The street before Shot 2',
+    'Split The bar before Shot 2',
+  ]) {
+    await expect(page.getByRole('button', { name: said, exact: true })).toHaveCount(1)
+  }
+
+  for (const said of ['Image of Shot 1 of The street', 'Image of Shot 1 of The bar']) {
+    await expect(page.getByLabel(said, { exact: true })).toHaveCount(1)
+  }
+})
+
 test('a refusal is said against the Scene it is about', async ({ page, request }) => {
   const { story, scenes } = await chained(request, ['The arrival', 'The platform'])
   const [arrival, platform] = scenes
