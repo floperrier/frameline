@@ -171,14 +171,17 @@ const written = useTemplateRef<HTMLElement>('written')
  * field and the words under it walk up or down the window, which is the one thing
  * a document must never do while somebody is typing in it.
  *
- * Which acts those are is read off `columnsOf`, the walk the order is. Marking the
- * Opening Scene re-roots it, so a Scene thirty sections down becomes the first and
- * everything that stood above it goes below. Renumbering a way on or taking one
- * away moves the columns that way on fed, and a Scene nothing else reaches falls to
- * the tail of the order, which is above the Scene being written as readily as
- * below it. Writing an Exit or leading one elsewhere is not among them: the Scene
- * at the far end is reached from this one, so the order can only ever put it
- * further from the opening than the Scene the Author is standing in.
+ * Which acts those are is read off `columnsOf`, the walk the order is, and there
+ * is exactly one: marking the Opening Scene re-roots it, so a Scene thirty
+ * sections down becomes the first and everything that stood above it goes below.
+ * Nothing else can raise a line above the caret. A column is a Scene's distance
+ * from the opening in Exits taken, so renumbering the ways on out of a Scene
+ * reorders only the columns beyond its own, and taking one away can only ever
+ * lengthen a Scene's distance or leave it unreached — and a Scene nothing reaches
+ * is walked after every column the opening does, which is below. Writing an Exit
+ * or leading one elsewhere is the same argument in reverse: the Scene at the far
+ * end is reached from this one, so the order can only put it further from the
+ * opening than the Scene the Author is standing in.
  *
  * Measured against the section rather than against the scroller's own height: the
  * document may have grown below the caret as well, and only the section says what
@@ -509,8 +512,7 @@ function duplicateExit(scene: Scene, exit: Exit) {
 
 /** No confirmation: the control is named for what it takes, which is not the slip of a hand. */
 function deleteExit(scene: Scene, exit: Exit) {
-  return withoutJumping(
-    scene, () => changing(scene, () => send(`/api/exits/${exit.id}`, { method: 'DELETE' })))
+  return changing(scene, () => send(`/api/exits/${exit.id}`, { method: 'DELETE' }))
 }
 
 /**
@@ -582,8 +584,7 @@ function writeExitText(scene: Scene, exit: Exit) {
 }
 
 function moveExit(held: SceneInDocument, exit: Exit, step: -1 | 1) {
-  return withoutJumping(held.scene, () => renumber(
-    held.scene, 'exits', movedBy(held.ways.map(way => way.id), exit.id, step)))
+  return renumber(held.scene, 'exits', movedBy(held.ways.map(way => way.id), exit.id, step))
 }
 
 /**

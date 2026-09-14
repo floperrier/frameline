@@ -593,6 +593,44 @@ test('re-rooting the Story leaves the words where the hand left them',
     await expect(writing).toBeInViewport()
   })
 
+test('renumbering and taking away a way on leave the words where the hand left them',
+  async ({ page, request }) => {
+    const { story, scenes } = await chained(
+      request, ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight'])
+    const fifth = scenes[4]!
+    for (const landing of [scenes[6]!, scenes[7]!]) {
+      await request.post(`/api/scenes/${fifth.id}/exits`, { data: { toSceneId: landing.id } })
+    }
+
+    await page.goto(`/stories/${story.id}?scene=${fifth.id}`)
+    const writing = written(page, 'Five')
+    await expect(writing).toBeInViewport()
+    const before = (await writing.boundingBox())!.y
+
+    // Neither of these can raise a line above the caret, and the claim is worth a
+    // test because it is the reason they are run without holding the document
+    // still. A column is a Scene's distance from the opening in Exits taken, so
+    // renumbering the ways on out of Five reorders the columns beyond Five's and
+    // nothing else; taking one away can only lengthen a Scene's distance or leave
+    // it unreached, and a Scene nothing reaches is read after every column the
+    // opening does. Both happen under the Author's hands, never over them.
+    await writing
+      .getByRole('button', { name: 'Move Later the Exit 1 to Six, out of Five', exact: true })
+      .click()
+    await expect.poll(async () => (await readExits(fifth.id)).map(way => way.toSceneId))
+      .toEqual([scenes[6]!.id, scenes[5]!.id, scenes[7]!.id])
+    await expect.poll(async () => Math.abs((await writing.boundingBox())!.y - before))
+      .toBeLessThanOrEqual(2)
+
+    await writing
+      .getByRole('button', { name: 'Delete the Exit 1 to Seven, out of Five', exact: true })
+      .click()
+    await expect.poll(async () => (await readExits(fifth.id)).length).toBe(2)
+    await expect.poll(async () => Math.abs((await writing.boundingBox())!.y - before))
+      .toBeLessThanOrEqual(2)
+    await expect(writing).toBeInViewport()
+  })
+
 test('the mark that moves where the Story opens is a tab stop on every Scene it stands on',
   async ({ page, request }) => {
     const { story, scenes } = await chained(request, ['One', 'Two', 'Three'])
