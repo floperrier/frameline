@@ -109,8 +109,13 @@ header.covered {
   column-gap: var(--s4);
 }
 
-/* Tracked wider than any label, as it is at the head of the Catalogue and of a
-   Profile: the three pages anyone browsing moves between wear the same mark. */
+/* Tracked wider than any label, as it is at the head of the Catalogue, of a
+   Profile, of the Lists and of an Author's own Stories: the five pages that wear
+   the mark declare it the same way, because five copies that have drifted are
+   five marks. The margin is the one line the other four have no use for: their
+   headers set their own rows on `--s2` and the wordmark takes that step from the
+   gap, where this header takes `--s1` from `.room > header` — the step the three
+   lines of the title card are read on, and the wordmark is not one of them. */
 .wordmark {
   grid-column: 1 / -1;
   margin-block-end: var(--s2);
