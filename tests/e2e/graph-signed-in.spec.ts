@@ -23,20 +23,6 @@ function written(page: Page, scene: string) {
   return page.getByRole('group', { name: `Writing ${scene}` })
 }
 
-/**
- * Puts the caret in one Scene, by pressing its mark on the rail. `writeScene` no
- * longer moves it: every Scene of the document is written where it stands, so the
- * surface that helper waits for is up for every Scene at once. What still follows
- * the caret is the address and the mark the rail lights — see
- * `docs/adr/0043-a-story-is-written-as-one-document.md`.
- */
-async function caretIn(page: Page, scene: string) {
-  const mark = sceneNode(page, scene)
-  await expect(mark).toBeVisible()
-  await mark.click()
-  await expect(mark).toHaveClass(/here/)
-}
-
 /** Draws an Exit between the two Scenes of a graph, past the gesture that draws one. */
 async function drawExit(request: APIRequestContext, fromSceneId: string, toSceneId: string) {
   const drawn = await request.post(`/api/scenes/${fromSceneId}/exits`, { data: { toSceneId } })
@@ -49,19 +35,6 @@ const noId = '00000000-0000-4000-8000-000000000000'
 /** The Story as the bench reads it, which is what the Graph is drawn from. */
 async function readGraph(request: APIRequestContext, storyId: string) {
   return await (await request.get(`/api/stories/${storyId}`)).json() as StoryInEditor
-}
-
-/**
- * Opens the Scene an Exit leaves and hands back the field its text is written in.
- * An Exit is written in that Scene's own document — beside where it leads and the
- * Conditions it is offered under, see
- * `docs/adr/0034-a-story-is-written-without-the-canvas.md` — so reaching one means
- * opening the Scene it leaves.
- */
-async function writeExit(page: Page, from: string, to: string) {
-  await writeScene(page, from)
-
-  return page.getByRole('textbox', { name: `Exit to ${to}` })
 }
 
 /** A Story with two Scenes, which is the smallest graph an Exit can join. */
@@ -299,7 +272,7 @@ test('a Scene being written has an address, and a stale one is not an error', as
   // A node pressed on the Graph puts its Scene in the address, and replaces the
   // entry rather than adding one: the browser's back leaves the Story rather
   // than walking the Author node by node through everything they opened.
-  await caretIn(page, 'The platform')
+  await writeScene(page, 'The platform')
   await expect(page).toHaveURL(new RegExp(`scene=${scenes[1]!.id}$`))
 
   // What the address carries survives a reload, which is what makes a link to a
@@ -535,7 +508,7 @@ test('an Exit is reached, written and taken away without a pointer',
     const leads = page.getByLabel('Where the Exit 1 out of The arrival leads')
     await expect(leads).toHaveValue(to.id)
 
-    const exitText = page.getByRole('textbox', { name: 'Exit to The platform' })
+    const exitText = page.getByLabel('What the Exit 1 out of The arrival says')
     await exitText.focus()
     await expect(exitText).toBeFocused()
     await exitText.fill('Follow her out')
@@ -924,7 +897,7 @@ test('where a way on leads is a field, and the Exit keeps what it carries',
     // not deleted and drawn again.
     await expect.poll(async () => (await readExits(arrival.id))[0]!.conditions)
       .toMatchObject([{ flag: 'coat', is: 'on' }])
-    await expect(page.getByRole('textbox', { name: 'Exit to The bar' }))
+    await expect(page.getByLabel('What the Exit 1 out of The arrival says'))
       .toHaveValue('Follow her out')
   })
 
@@ -954,7 +927,7 @@ test('a way on is written by naming where it leads, and a name nothing answers t
     await expect.poll(() => readExits(arrival.id))
       .toMatchObject([{ toSceneId: bar.id, position: 0 }])
     await expect(toast(page)).toHaveText('Exit from The arrival to The bar drawn')
-    await expect(page.getByRole('textbox', { name: 'Exit to The bar' })).toBeFocused()
+    await expect(page.getByLabel('What the Exit 1 out of The arrival says')).toBeFocused()
 
     // Named, it forgets: a control that acts must not stand there holding the last
     // thing it did, and the Scene it just landed on is no longer on offer.
@@ -975,7 +948,7 @@ test('a way on is written by naming where it leads, and a name nothing answers t
       { toSceneId: bar.id, position: 0 },
       { toSceneId: written.id, position: 1 },
     ])
-    await expect(page.getByRole('textbox', { name: 'Exit to The buffet' })).toBeFocused()
+    await expect(page.getByLabel('What the Exit 2 out of The arrival says')).toBeFocused()
 
     // `platform` is untouched and still reachable from the field.
     expect(platform.id).toBeTruthy()
@@ -1092,7 +1065,7 @@ test('a Scene is split before one of its Shots, and its ways on move to the seco
 
     // The second half opens for writing under a provisional name made of the
     // first's, selected so the first thing typed replaces it.
-    const naming = written(page, 'The arrival, continued').getByLabel('Name of this Scene')
+    const naming = page.getByLabel('Name of The arrival, continued')
     await expect(naming).toBeFocused()
     await expect(naming).toHaveValue('The arrival, continued')
 

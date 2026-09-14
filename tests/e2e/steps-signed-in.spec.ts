@@ -20,24 +20,6 @@ function written(page: Page, scene: string) {
   return page.getByRole('group', { name: `Writing ${scene}` })
 }
 
-/**
- * Puts the caret in one Scene, by pressing its mark on the rail.
- *
- * `writeScene` is not what does it any more: every Scene of the document is
- * written where it stands, so the surface that helper waits for is up for every
- * Scene of the Story at once and there is nothing for it to open. What still moves
- * with the caret is the address, the mark the rail lights, and — which is why this
- * spec needs it — the Steps and the Commands, which are carried by the Scene the
- * caret is in and by no other. See
- * `docs/adr/0043-a-story-is-written-as-one-document.md`.
- */
-async function caretIn(page: Page, scene: string) {
-  const mark = sceneNode(page, scene)
-  await expect(mark).toBeVisible()
-  await mark.click()
-  await expect(mark).toHaveClass(/here/)
-}
-
 /** The sentence the first Step says, which is how the guidance is recognised. */
 const FIRST_STEP = /Every Story starts with a Scene/
 
@@ -164,7 +146,7 @@ test('an Author who deleted the Scene their Story opened on is sent to the mark'
   // mark instead — on the Scene now on the surface, since there always is one.
   await expect(bubble(page)).toContainText(/nothing marks where this Story does/)
 
-  await caretIn(page, 'The platform')
+  await writeScene(page, 'The platform')
   await lights(page, written(page, 'The platform').locator('.opening'))
   await page.getByRole('radio', { name: 'Opening Scene The platform' }).check()
 
@@ -209,7 +191,7 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   // the surface they are already looking at.
   await lights(page, page.getByRole('button', { name: 'Write the First Scene' }))
   await page.getByRole('button', { name: 'Write the First Scene' }).click()
-  const named = page.getByLabel('Name of this Scene')
+  const named = page.getByLabel('Name of A new Scene')
   await expect(named).toBeFocused()
   await page.keyboard.type('The arrival')
   await page.keyboard.press('Tab')
@@ -248,7 +230,7 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   // back in the panel. The light is on the whole list rather than on a field of
   // it, because a Flag is the row it is added as.
   await expect(bubble(page)).toContainText(/State is what one Reading carries/)
-  await caretIn(page, 'The arrival')
+  await writeScene(page, 'The arrival')
   // The light is on the Flags of the Scene the caret is in, and on no other
   // Scene's: the document holds forty of these lists on a Story of forty Scenes,
   // so what a Step points at is scoped to the Scene it is about — see
@@ -265,12 +247,14 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   // the Shot in the panel and the panel holds whichever Scene the Author put
   // there.
   await expect(bubble(page)).toContainText(/A Condition makes the same Scene play differently/)
-  await caretIn(page, 'The platform')
-  // Reached from the keyboard rather than pressed with a pointer. The guidance is
-  // adrift at this moment — the Scene has no Shot yet, so the Step's own target
+  await writeScene(page, 'The platform')
+  // Reached from the keyboard, because the pointer cannot get at it. The guidance
+  // is adrift at this moment — the Scene holds no Shot, so the Step's own target
   // has no rectangle — and an adrift bubble is a fixed panel in the corner of the
-  // window, which is over the foot of the document. Tab reaches the control either
-  // way, which is the rule `0033` set for every key on this surface.
+  // window, sitting over the foot of the document and over this control with it.
+  // That overlap is the guided path's to answer for and is issue #257's, which
+  // re-anchors every Step to the document; the key reaches the control either way,
+  // which is the rule `0033` set for every key on this surface.
   const adds = written(page, 'The platform').getByRole('button', { name: 'Add a Shot' })
   await adds.focus()
   await page.keyboard.press('Enter')

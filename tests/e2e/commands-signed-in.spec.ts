@@ -1,34 +1,14 @@
 import { expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { sceneNode, seedScenes, test, writeStory } from './author'
+import { sceneNode, seedScenes, test, writeScene, writeStory } from './author'
 
 /**
- * Puts the caret in one Scene, by pressing its mark on the rail.
- *
- * `writeScene` is not what does it any more: every Scene of the document is
- * written where it stands, so the surface that helper waits for is up for every
- * Scene of the Story at once and there is nothing for it to open. What still moves
- * with the caret is the address, the mark the rail lights, and — which is the
- * whole of what this spec is about — the marks a row carries for the bar, which
- * are carried by the Scene the caret is in and by no other. See
- * `docs/adr/0043-a-story-is-written-as-one-document.md`.
- */
-async function writeScene(page: Page, scene: string) {
-  const mark = sceneNode(page, scene)
-  await expect(mark).toBeVisible()
-  await mark.click()
-  await expect(mark).toHaveClass(/here/)
-}
-
-/**
- * The field one Scene's name is written in, in that Scene's own section of the
- * document: every Scene of the Story is writable where it stands, so a field is
- * reached through the Scene it belongs to rather than by its label alone — see
+ * The field one Scene's name is written in. Every Scene of the Story is writable
+ * where it stands, and each field is named for the Scene it names — see
  * `docs/adr/0043-a-story-is-written-as-one-document.md`.
  */
 function naming(page: Page, scene: string) {
-  return page.getByRole('group', { name: `Writing ${scene}` })
-    .getByRole('textbox', { name: 'Name of this Scene' })
+  return page.getByRole('textbox', { name: `Name of ${scene}` })
 }
 
 /**
@@ -277,7 +257,8 @@ test('the bar offers the acts of the Scene being written, and Escape leaves that
   await offered(page).click()
 
   // The act ran on the Story: a third Shot where the Scene had two.
-  await expect(page.getByRole('textbox', { name: 'Shot 3', exact: true })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Shot 3 of The street', exact: true }))
+    .toBeVisible()
 })
 
 test('an Author publishes a Story from the bar', async ({ page, request, baseURL }) => {
