@@ -677,6 +677,25 @@ test('two Scenes leading to one Scene name their rows apart', async ({ page, req
   }
 })
 
+test('the words of a Scene are counted as the beat is typed', async ({ page, request }) => {
+  const { story, scene } = await openScene(request, 'The arrival')
+  await writeShots(request, scene.id, ['A door opens.'])
+
+  await page.goto(`/stories/${story.id}`)
+  const counted = written(page, 'The arrival').locator('.words')
+  await expect(counted).toHaveText('3 words')
+
+  // Counted as the beat is typed and not when the field is left: it is the one
+  // figure on the bench that answers to a keystroke, which is why it is drawn by a
+  // component of its own rather than read straight into the document — see
+  // `app/components/Words.vue`.
+  const field = shot(page, 1, 'The arrival')
+  await field.click()
+  await page.keyboard.press('End')
+  await page.keyboard.type(' She steps out')
+  await expect(counted).toHaveText('6 words')
+})
+
 test('a refusal is said against the Scene it is about', async ({ page, request }) => {
   const { story, scenes } = await chained(request, ['The arrival', 'The platform'])
   const [arrival, platform] = scenes

@@ -159,16 +159,6 @@ const sections = computed<SceneInDocument[]>(() => {
 })
 
 /**
- * How many words each Scene holds, kept out of `sections` on purpose. It is the
- * one figure here that changes on every keystroke, and a count sharing a computed
- * with the order the document is read in would have the whole Story recomputed —
- * the walk, the arrivals, every Scene's ways out — to say one number. See the note
- * on `SceneInDocument` above, which is what that costs.
- */
-const wordsIn = computed(() => new Map(story.scenes.map(
-  scene => [scene.id, countedWords(wordsOf(scene.shots), t)])))
-
-/**
  * The scroller the document stands in, which is the page's and not this
  * component's: `app/pages/stories/[id]/index.vue` puts the writing straight into
  * it, so it is this element's own parent and nothing has to be told a class name.
@@ -481,19 +471,6 @@ function deleteShot(scene: Scene, shot: Shot) {
   return changing(scene, () => send(`/api/shots/${shot.id}`, { method: 'DELETE' }))
 }
 
-/**
- * The Scenes a way on from this Scene may land on: every one bar itself and the
- * ones it already reaches. What the field offers, not what it refuses: the server
- * allows both slips, and a name typed in full is written on purpose. `led` is the
- * Scene a way on already arrives at, which belongs in its own field although a new
- * way on may not land there.
- */
-function mayLandOn(scene: Scene, led?: string) {
-  const landing = scenesAExitMayLandOn(story.scenes, story.exits, scene.id)
-
-  return story.scenes.filter(other => landing.has(other.id) || other.id === led)
-}
-
 /** Where a way on leads, changed in the field that says where it leads: the Exit keeps its text, its Conditions and its Place. */
 function leadExit(scene: Scene, exit: Exit, toSceneId: string) {
   if (!toSceneId || toSceneId === exit.toSceneId) return
@@ -757,7 +734,10 @@ function writeConditions(
         <h3 :id="`shots-of-${held.scene.id}`">
           {{ $t('editor.shotsHeld') }}
           <span class="counted">{{ held.counted.shots }}</span>
-          <span class="counted words">{{ wordsIn.get(held.scene.id) }}</span>
+          <!-- Its own component so that the one number here that changes on every
+               keystroke does not make every keystroke the document's business —
+               see `app/components/Words.vue`. -->
+          <Words class="counted words" :shots="held.scene.shots" />
         </h3>
 
         <p v-if="!held.scene.shots.length" class="none">{{ $t('editor.noShotYet') }}</p>
@@ -967,13 +947,12 @@ function writeConditions(
                   @change="leadExit(
                     held.scene, exit, ($event.target as HTMLSelectElement).value)"
                 >
-                  <option
-                    v-for="landing in mayLandOn(held.scene, exit.toSceneId)"
-                    :key="landing.id"
-                    :value="landing.id"
-                  >
-                    {{ landing.name }}
-                  </option>
+                  <Landing
+                    :scenes="story.scenes"
+                    :exits="story.exits"
+                    :from="held.scene.id"
+                    :led="exit.toSceneId"
+                  />
                 </select>
                 <button
                   type="button"
@@ -1110,11 +1089,7 @@ function writeConditions(
             @change="addExit(held.scene)"
           >
           <datalist :id="`landing-${held.scene.id}`">
-            <option
-              v-for="landing in mayLandOn(held.scene)"
-              :key="landing.id"
-              :value="landing.name"
-            />
+            <Landing by-name :scenes="story.scenes" :exits="story.exits" :from="held.scene.id" />
           </datalist>
         </form>
       </section>
