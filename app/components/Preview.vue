@@ -287,7 +287,7 @@ function why(conditions: Condition[]) {
              for a Reader, and its Place is not moved from a button that is not
              on offer. -->
         <div v-if="hidden.length" class="hidden">
-          <p class="eyebrow">{{ $t('preview.waysOnHidden') }}</p>
+          <p class="eyebrow">{{ $t('preview.exitsHidden') }}</p>
           <ul>
             <li v-for="exit in hidden" :key="exit.id">
               <s class="splice" :lang="story.language">{{ exitNamed(exit, sceneName, t) }}</s>

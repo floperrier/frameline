@@ -247,7 +247,7 @@
     "noOpeningScene": "Ce Récit n'a pas de Scène d'ouverture, il n'y a donc rien à lire pour l'instant. Marquez la Scène par laquelle il commence.",
     "bench": "Sur la table de montage",
     "benchNote": "invisible à la lecture",
-    "waysOnHidden": "Sorties que cette Lecture ne se voit pas offrir",
+    "exitsHidden": "Sorties que cette Lecture ne se voit pas offrir",
     "shotsSkipped": "Plans que cette Lecture ne joue pas",
     "skippedShot": "Plan {place} · {text}",
     "nothingWritten": "rien d'écrit pour l'instant",
