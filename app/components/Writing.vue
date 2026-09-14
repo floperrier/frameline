@@ -682,10 +682,10 @@ function writeConditions(
              arrows would re-root their Story under their hands. And only the
              checked member of a group is a tab stop, which would leave the mark of
              thirty-nine Scenes out of the tab order `0043` says a control keeps its
-             place in wherever it stands. With `Panel.vue` the group had one member
-             and neither cost existed. A button is a tab stop on every Scene, writes
-             nothing an arrow can reach, and is what the bench already calls this
-             act in the bar of Commands.
+             place in wherever it stands. Behind the gate `0042` drew, the group
+             had one member and neither cost existed. A button is a tab stop on
+             every Scene, writes nothing an arrow can reach, and is what the bench
+             already calls this act in the bar of Commands.
 
              It is also why nothing here has a checked state to fall out of step
              with: what the Author sees is drawn from the Story the page read back,
