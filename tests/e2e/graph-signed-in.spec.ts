@@ -1105,8 +1105,8 @@ test('winds the document onto the Scene the address names',
       data: { title: 'A Story' },
     })).json()
 
-    const scenes = await seedScenes(story, Array.from({ length: 11 },
-      (_, place) => `Scene ${place + 1}`))
+    const scenes = await seedScenes(story,
+      Array.from({ length: 11 }, (_, place) => `Scene ${place + 1}`))
     for (const [place, scene] of scenes.slice(0, -1).entries()) {
       await seedExit(scene.id, scenes[place + 1]!.id)
     }

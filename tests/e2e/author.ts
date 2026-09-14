@@ -212,14 +212,10 @@ export async function seedScene(story: Story, name: string) {
  * Writes a whole graph of Scenes at once, for one too large to build a request at
  * a time, and hands them back in the order it was asked for.
  *
- * The ids are drawn here rather than read back out of the insert, and that is the
- * whole point of the shape. Postgres promises no order for the rows `RETURNING`
- * emits — `with ordinality` orders what the insert reads, never what comes back —
- * so a caller taking the fourth Scene of the result took a different Scene on each
- * run, and a chain of Exits built by walking the result was a chain whose depth
- * nobody chose. See issue #261: the same spec measured three different depths
- * before the cause turned up. Drawn here, there is nothing to read back and no
- * plan to be at the mercy of.
+ * The ids are drawn here rather than read back out of the insert, because Postgres
+ * promises no order for the rows `RETURNING` emits — `with ordinality` orders what
+ * the insert reads, never what comes back — so a chain of Exits built by walking
+ * the result was a chain whose depth nobody chose. See issue #261.
  */
 export async function seedScenes(story: Story, names: string[]) {
   const scenes: Pick<Scene, 'id' | 'name'>[] = names.map(name => ({ id: randomUUID(), name }))
@@ -363,14 +359,16 @@ export async function readExits(fromSceneId: string) {
  * opening Scene comes with it — the API refuses to publish a Story without one,
  * and a Scene seeded past the API leaves it unset — so what is seeded is a Story
  * the product would have allowed.
+ *
+ * Which Scene opens is named rather than looked up. The Scenes `seedScenes` writes
+ * share one `created_at` to the microsecond, being one insert, so asking the table
+ * for its earliest asks it to pick, which is issue #261 again one column over.
  */
-export async function seedPublication(story: Story) {
+export async function seedPublication(story: Story, opening?: Pick<Scene, 'id'>) {
   await sql`
     update stories set
       published_at = now(),
-      opening_scene_id = coalesce(
-        opening_scene_id,
-        (select id from scenes where story_id = ${story.id} order by created_at limit 1))
+      opening_scene_id = coalesce(opening_scene_id, ${opening?.id ?? null}::uuid)
     where id = ${story.id}`
 }
 
