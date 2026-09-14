@@ -354,8 +354,8 @@ test('the Story page shows a Scene and the Shots in it', async ({ page, request 
 
   await page.goto(`/stories/${story.id}`)
 
-  // A card carries nothing to type into: what a Scene is made of is read in the
-  // panel, and the graph is read without it.
+  // The Scene is written where it stands, so what it is made of is on the page
+  // the moment the page is: a heading, and the run of Shots under it.
   await expect(page.getByRole('heading', { name: 'The arrival' })).toBeVisible()
   await writeScene(page, 'The arrival')
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('She steps off the train.')
@@ -950,8 +950,8 @@ test('an Author writes a Story from the page alone', async ({ page, request }) =
   await page.goto(`/stories/${story.id}`)
 
   // The one control that makes a Scene out of nothing. It lands under a
-  // provisional name with the panel open on that name, selected, so naming it is
-  // the first thing typed rather than a step before it existed.
+  // provisional name with the caret on that name, selected, so naming it is the
+  // first thing typed rather than a step before it existed.
   await page.getByRole('button', { name: 'Write the First Scene' }).click()
   await expect(page.getByText('“A new Scene” created')).toBeVisible()
   const named = page.locator('.writing .named input')

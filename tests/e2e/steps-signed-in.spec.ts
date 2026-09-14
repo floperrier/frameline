@@ -50,8 +50,8 @@ test('the bench asks a new Story for its first Scene', async ({ page, author }) 
   expect(await page.locator('.spotlight').boundingBox()).toEqual(await field.boundingBox())
 
   // And follows it. The bench moves under the light for all sorts of reasons —
-  // the graph scrolls, the panel opens beside it, the window changes shape — and
-  // the light is on the target rather than where the target was.
+  // the graph scrolls, the document scrolls beside it, the window changes shape —
+  // and the light is on the target rather than where the target was.
   await page.setViewportSize({ width: 900, height: 700 })
   await expect
     .poll(() => page.locator('.spotlight').boundingBox())
@@ -63,8 +63,8 @@ test('the bench asks a new Story for its first Scene', async ({ page, author }) 
 
   // Met by the Author doing the thing, with nothing to confirm: the sentence is
   // the next one before the Scene has finished landing. It arrives under a
-  // provisional name, which the panel the same gesture opened is where the Author
-  // corrects.
+  // provisional name, in a section of the document of its own, which is where the
+  // Author corrects it.
   await expect(page.getByRole('group', { name: 'Writing A new Scene' })).toBeVisible()
   await expect(bubble(page)).toContainText(NEXT_STEP)
 })
@@ -99,9 +99,9 @@ test('a Story that is past every step is guided not at all', async ({ page, auth
 
   await page.goto(`/stories/${story.id}`)
 
-  // Nothing in the panel, and nothing asked for: the panel is opened for the sake
-  // of what is written in it, and this Story is already written. This is what an
-  // Author finds when they open a Sample.
+  // Nothing asked for and nothing lit: the guidance speaks for the sake of what is
+  // still to be written, and this Story is already written. This is what an Author
+  // finds when they open a Sample.
   await expect(page.getByRole('heading', { name: 'The arrival' })).toBeVisible()
   await expect(bubble(page)).toBeHidden()
   await expect(page.locator('.spotlight')).toBeHidden()
@@ -111,7 +111,7 @@ test('a Story that is past every step is guided not at all', async ({ page, auth
  * A Story is allowed to sit with no opening Scene — the Author decides where
  * their Story starts — and the only way to arrive there is to delete the Scene it
  * opened on. The guidance has to follow: the last step is a Publish that would
- * refuse, and what is left to do is the mark in the panel.
+ * refuse, and what is left to do is the mark on a Scene's slate.
  */
 test('an Author who deleted the Scene their Story opened on is sent to the mark', async ({
   page,
@@ -186,9 +186,9 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await page.goto(`/stories/${story.id}`)
 
   // Made, and the light is on the one control that makes a Scene out of nothing.
-  // It opens the panel on the Scene it wrote, with the provisional name selected,
-  // so the Author names it there and is asked for what goes in it rather than for
-  // the surface they are already looking at.
+  // It puts the caret in the Scene it wrote, on the provisional name and selected,
+  // so the Author names it where it stands and is asked for what goes in it rather
+  // than for the surface they are already looking at.
   await lights(page, page.getByRole('button', { name: 'Write the First Scene' }))
   await page.getByRole('button', { name: 'Write the First Scene' }).click()
   const named = page.getByLabel('Name of A new Scene')
@@ -226,8 +226,8 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   const read = await (await page.request.get(`/api/stories/${story.id}`)).json()
   const beside = read.scenes.find((scene: { name: string }) => scene.name === 'The platform')
 
-  // A Flag on the first Scene, in the list the light moves to once the Scene is
-  // back in the panel. The light is on the whole list rather than on a field of
+  // A Flag on the first Scene, in the list the light moves to once the caret is
+  // back in that Scene. The light is on the whole list rather than on a field of
   // it, because a Flag is the row it is added as.
   await expect(bubble(page)).toContainText(/State is what one Reading carries/)
   await writeScene(page, 'The arrival')
@@ -244,8 +244,7 @@ test('the bench walks an Author from a bare Story to a published one', async ({
 
   // And a Condition on the second Scene, which has no Shot in it yet: the
   // sentence carries that whole gesture, because the Step names the Conditions of
-  // the Shot in the panel and the panel holds whichever Scene the Author put
-  // there.
+  // the Shot in the Scene the caret is in, whichever Scene that is.
   await expect(bubble(page)).toContainText(/A Condition makes the same Scene play differently/)
   await writeScene(page, 'The platform')
   // Pressed by hand, under the guidance itself. The bubble is adrift at this
@@ -256,8 +255,8 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   // anchored rather than adrift is still issue #257's.
   await written(page, 'The platform').getByRole('button', { name: 'Add a Shot' }).click()
 
-  // The light is on the Conditions of the Shot in the panel, which is the one the
-  // sentence just asked for.
+  // The light is on the Conditions of the Shot in the Scene the caret is in, which
+  // is the one the sentence just asked for.
   const carrier = 'Shot 1 of The platform'
   await lights(page, written(page, 'The platform').locator('.conditions').first())
   await page.getByRole('button', { name: `Add a Condition to ${carrier}` }).click()
@@ -312,9 +311,9 @@ test('the bench walks an Author from a bare Story to a published one', async ({
 async function lights(page: Page, target: Locator) {
   await expect(target).toBeVisible()
   // The target is read until it holds still before it is read for the comparison,
-  // because the bench moves under it — the panel opens beside it, the graph is
-  // pulled back — and a rectangle read while it is still on its way would be held
-  // against a light that has already arrived.
+  // because the bench moves under it — the document scrolls beside it, the graph
+  // is pulled back — and a rectangle read while it is still on its way would be
+  // held against a light that has already arrived.
   let last: string | undefined
   await expect.poll(async () => {
     const seen = JSON.stringify(await target.boundingBox())
@@ -330,9 +329,9 @@ async function lights(page: Page, target: Locator) {
 
 /**
  * The light is on a rectangle read off the page a frame at a time, so a target
- * carried up the panel by the document growing under it is a target that has
- * moved like any other. Proved on the step whose target is at the foot of the
- * Scene's document — the way on written from here — because everything written
+ * carried down the window by the document growing above it is a target that has
+ * moved like any other. Proved on the step whose target is at the foot of a
+ * Scene's section — the way on written from here — because everything written
  * above it pushes it.
  */
 test('the light follows its target as the document grows above it', async ({
@@ -358,7 +357,7 @@ test('the light follows its target as the document grows above it', async ({
   await expect(page.getByRole('textbox', { name: 'Shot 2' })).toBeVisible()
   await lights(page, adding)
 
-  // And the panel narrowing under a window that changed shape, which moves the
+  // And the document narrowing under a window that changed shape, which moves the
   // line the other way.
   await page.setViewportSize({ width: 900, height: 700 })
   await lights(page, adding)
