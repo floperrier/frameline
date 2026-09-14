@@ -125,7 +125,7 @@
     "writeFirstScene": "Write the First Scene",
     "provisionalSceneName": "A new Scene",
     "sceneCreated": "“{name}” created",
-    "noScenes": "No Scenes yet. Write the first one; every Scene after it is made at the foot of a Scene, by naming where an Exit leads.",
+    "noScenes": "No Scenes yet. Write the first one; a Scene after it is made at the foot of another, by naming where an Exit leads, or out of one, by splitting it before a Shot.",
     "oneShot": "{count} Shot",
     "manyShots": "{count} Shots",
     "oneExit": "{count} Exit",
@@ -247,7 +247,7 @@
     "noOpeningScene": "This Story has no opening Scene, so there is nothing to read yet. Mark the Scene it opens on.",
     "bench": "On the bench",
     "benchNote": "nobody reading this sees it",
-    "waysOnHidden": "Ways on this Reading is not offered",
+    "exitsHidden": "Exits this Reading is not offered",
     "shotsSkipped": "Shots this Reading is not played",
     "skippedShot": "Shot {place} · {text}",
     "nothingWritten": "nothing written yet",
@@ -314,7 +314,7 @@
     },
     "places": {
       "shot": "The Shots of a Scene are renumbered all at once, each one named exactly once.",
-      "exit": "The ways on leaving a Scene are renumbered all at once, each one named exactly once."
+      "exit": "The Exits leaving a Scene are renumbered all at once, each one named exactly once."
     },
     "tooManyConditions": {
       "shot": "A Shot cannot carry more than {max} Conditions.",

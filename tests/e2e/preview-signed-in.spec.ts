@@ -397,9 +397,9 @@ test('the reading says why a way on is missing, and does not offer it',
     const preview = await writing(page, story.id, street)
     const bench = benchIn(page)
 
-    // While a Shot is playing there are no ways on to explain: the Scene has not
+    // While a Shot is playing there are no Exits to explain: the Scene has not
     // asked anything yet.
-    await expect(bench.getByText('Ways on this Reading is not offered')).toBeHidden()
+    await expect(bench.getByText('Exits this Reading is not offered')).toBeHidden()
 
     await preview.getByRole('button', { name: 'Next Shot' }).click()
     await preview.getByRole('button', { name: 'Next Shot' }).click()
