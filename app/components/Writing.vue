@@ -655,8 +655,11 @@ function writeConditions(
            its section rather than in it: the sentence rides with the Scene it is
            about however far down a twenty-beat run the caret is, and it takes no
            room in the document, so a write refused does not move the words under
-           the hands that typed it. -->
-      <div v-if="refusedIn === held.scene.id" class="refused">
+           the hands that typed it. Drawn on the sentence and not on the claim
+           alone: a Scene claims the refusals of every act it runs, and a wrapper
+           standing empty for the length of each of them would take the gap under
+           it back on every keystroke. -->
+      <div v-if="problem && refusedIn === held.scene.id" class="refused">
         <Refusal :problem="problem" />
       </div>
 
