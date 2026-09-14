@@ -1,13 +1,16 @@
 import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test'
-import { readTheStory, sceneNode, test, writeStory } from './author'
+import {
+  live, readTheStory, sceneNode, seedPublication, seedScenes, seedStory, test, writeStory,
+} from './author'
 
 /**
- * The Story read where it is written: the other face of the gate the Scene is
- * written in, in the same box in the same place on the Graph — see
- * `docs/adr/0030-a-story-is-read-where-it-is-written.md` and
- * `docs/adr/0042-the-scene-is-written-where-it-stands.md`. Everything about the
- * Reading is asserted inside it rather than on the page, because the Scene being
- * written says the same words on the other face.
+ * The Story read where it is written: the reading the middle of the bench holds
+ * when the Author asks for it, in the document's own place — see
+ * `docs/adr/0030-a-story-is-read-where-it-is-written.md`, whose engine rule
+ * `docs/adr/0043-a-story-is-written-as-one-document.md` keeps and whose *beside*
+ * it supersedes. Everything about the Reading is asserted inside it rather than
+ * on the page, because the writing says the same words in its own section of the
+ * document.
  */
 function previewIn(page: Page) {
   return page.getByRole('region', { name: /^Preview/ })
@@ -638,6 +641,183 @@ test('a Scene draws one of several values, and the Author draws it again',
     await expect(preview.getByText('Shot 3 of 3')).toBeVisible()
     expect((await played()).toLowerCase()).toContain(await drawn())
   })
+
+/**
+ * A Story whose seed can be read off the screen: the street draws its weather
+ * from three values, so the same Path under a second seed is a Path the bench
+ * says something different about. That difference is the whole of what #247
+ * reported, so it is what the specs below hold the turn against.
+ */
+async function writeDrawingStory(request: APIRequestContext) {
+  const story = await writeStory(request)
+  const { scenes } = await scenesOf(request, story.id)
+  await request.put(`/api/scenes/${scenes[0]!.id}/flags`, {
+    data: { sets: { weather: ['rain', 'sun', 'haze'] } },
+  })
+
+  return { story, scenes }
+}
+
+/** The value the street drew for its weather, as the bench says it. */
+async function drawnIn(page: Page) {
+  const said = await benchIn(page).getByText(/weather = /).innerText()
+
+  return (said.match(/rain|sun|haze/) ?? [])[0]
+}
+
+test('turning the middle of the bench over and back resumes the Reading the Author was in',
+  async ({ page, request }) => {
+    const { story, scenes } = await writeDrawingStory(request)
+    const preview = await writing(page, story.id, scenes[0]!.id)
+
+    // A beat in, so the Path has been walked as well as drawn.
+    await preview.getByRole('button', { name: 'Next Shot' }).click()
+    await expect(preview.getByText('She steps out.')).toBeVisible()
+    const weather = await drawnIn(page)
+
+    // The Path is held above the document, by the bench, so the reading that
+    // comes back is the Reading that went away: the same beat of the same Scene,
+    // under the same draw. Turned over six times rather than once — three values
+    // means a Path redrawn on every turn agrees with the one before it a third of
+    // the time, and #247 was reproduced twelve times over on exactly that.
+    for (let turn = 0; turn < 6; turn++) {
+      await page.getByRole('button', { name: 'Write the Scene' }).click()
+      await expect(preview).toBeHidden()
+      await page.getByRole('button', { name: 'Read the Story' }).click()
+
+      await expect(preview.getByText('She steps out.')).toBeVisible()
+      await expect(preview.getByText('Shot 2 of 2')).toBeVisible()
+      expect(await drawnIn(page)).toBe(weather)
+    }
+
+    // And the State is the one that Path accumulated rather than the one a Path
+    // found afresh would have: a Reading that has taken a way on comes back
+    // having taken it.
+    await preview.getByRole('button', { name: 'Next Shot' }).click()
+    await preview.getByRole('button', { name: 'Follow her out' }).click()
+    await expect(preview.getByText('Smoke, and no one she knows.')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Write the Scene' }).click()
+    await page.getByRole('button', { name: 'Read the Story' }).click()
+    await expect(preview.getByText('Smoke, and no one she knows.')).toBeVisible()
+    await expect(benchIn(page).getByText('The street × 1')).toBeVisible()
+    await expect(benchIn(page).getByText('The bar × 1')).toBeVisible()
+    expect(await drawnIn(page)).toBe(weather)
+  })
+
+test('coming back to the writing puts the caret on the beat it was left on',
+  async ({ page, request }) => {
+    const story = await writeStory(request)
+    const { scenes } = await scenesOf(request, story.id)
+    const street = scenes[0]!
+    await page.goto(`/stories/${story.id}?scene=${street.id}`)
+    await live(page)
+
+    // The caret in the second beat of the Scene and part-way along the line,
+    // which is where an Author who turned to the reading to judge what they had
+    // just typed left it.
+    const beat = page.locator(`#shot-${street.shots[1]!.id}`)
+    await beat.click()
+    await beat.evaluate(field => (field as HTMLTextAreaElement).setSelectionRange(3, 3))
+
+    await page.getByRole('button', { name: 'Read the Story' }).click()
+    await expect(previewIn(page)).toBeVisible()
+
+    // Staying in the document is not standing behind the reading: `display: none`
+    // is what takes the writing off the screen, so it draws nothing over the
+    // reading, offers nothing to the pointer, and is out of the tab order, out of
+    // the accessibility tree and out of what the bar of Commands reads off the
+    // bench — `app/components/Commands.vue` filters by `checkVisibility()`.
+    await expect(beat).toBeHidden()
+    await expect(page.getByRole('textbox', { name: 'Name of The street' })).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Write the Scene' }).click()
+
+    // The writing is never taken out of the document — the reading takes its
+    // place in front of it — so the field still holds its caret and putting the
+    // focus back is the whole of coming back. #247 reported the panel this
+    // document replaced putting the Author on the first beat of the Scene
+    // instead.
+    await expect(beat).toBeFocused()
+    expect(await beat.evaluate(field => (field as HTMLTextAreaElement).selectionStart)).toBe(3)
+    await expect(page.locator(`#shot-${street.shots[0]!.id}`)).not.toBeFocused()
+  })
+
+test('a document turned over from a Scene down the Story comes back wound to it',
+  async ({ page, author }) => {
+    const story = await seedStory(author, 'A long Story')
+    const scenes = await seedScenes(story, Array.from({ length: 12 }, (_, at) => `Scene ${at + 1}`))
+    await seedPublication(story, scenes[0])
+
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto(`/stories/${story.id}?scene=${scenes[10]!.id}`)
+    await live(page)
+
+    // The address wound the document down the Story, and nothing has been typed
+    // into, so there is no beat for the turn back to come back to.
+    const named = page.getByRole('textbox', { name: 'Name of Scene 11' })
+    await expect(named).toBeInViewport()
+
+    await page.getByRole('button', { name: 'Read the Story' }).click()
+    await expect(previewIn(page)).toBeVisible()
+    await page.getByRole('button', { name: 'Write the Scene' }).click()
+
+    // The one scroller on the bench is as tall as whichever reading is in it, so a
+    // reading shorter than the Story takes the writing's scroll down with it. The
+    // turn back winds the document to the Scene the address names, which is the
+    // Scene the Author was in.
+    await expect(named).toBeInViewport()
+  })
+
+test('the bench is answered whole by the server, and the Path opens undrawn',
+  async ({ page, request }) => {
+    const { story, scenes } = await writeDrawingStory(request)
+
+    // Everything the browser says as it takes the page over. A seed drawn on the
+    // server and drawn again here would be two different Stories either side of
+    // hydration, which is the split
+    // `docs/adr/0024-the-seed-belongs-to-the-position.md` is written against — so
+    // the bench carries the rule up with the Path and opens at `UNDRAWN`.
+    const said: string[] = []
+    page.on('console', message => said.push(message.text()))
+    page.on('pageerror', error => said.push(String(error)))
+
+    const answer = await page.goto(`/stories/${story.id}?scene=${scenes[0]!.id}`)
+    const served = await answer!.text()
+    await live(page)
+
+    // The Story arrived written: the document is the server's answer rather than
+    // something the browser assembles afterwards, which is why the rule had to
+    // come up with the Path at all.
+    expect(served).toContain('A door opens.')
+    expect(served).toContain('Smoke, and no one she knows.')
+
+    // And nothing about it was wrong when the browser took it over.
+    await expect(page.getByRole('textbox', { name: 'Name of The street' })).toBeVisible()
+    expect(said.filter(line => /hydrat|mismatch/i.test(line))).toEqual([])
+  })
+
+test('the bench keeps no Reading between sessions', async ({ page, request }) => {
+  const { story, scenes } = await writeDrawingStory(request)
+  const preview = await writing(page, story.id, scenes[0]!.id)
+
+  await preview.getByRole('button', { name: 'Next Shot' }).click()
+  await expect(preview.getByText('She steps out.')).toBeVisible()
+
+  // The Path is held above the document and nowhere else. An Author on the bench
+  // restarts, rerolls and edits between reads, so a Preview that reopened
+  // mid-Story would be a bench remembering what they have stopped meaning — see
+  // `docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md`, which this
+  // leaves exactly where it stood.
+  await page.reload()
+  const again = await readTheStory(page)
+  await expect(again.getByText('A door opens.')).toBeVisible()
+  await expect(again.getByText('Shot 1 of 2')).toBeVisible()
+  await expect(again.getByRole('button', { name: 'Read Again from the Start' })).toHaveCount(0)
+
+  // And nothing was written into the browser for a bench to read back.
+  expect(await page.evaluate(id => localStorage.getItem(`reading-${id}`), story.id)).toBeNull()
+})
 
 test('the reading takes the document’s place, at every width', async ({ page, request }) => {
   const story = await writeStory(request)

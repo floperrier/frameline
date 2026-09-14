@@ -5,9 +5,14 @@
  * meets can go untested by a Preview, and nothing an Author previews can behave
  * differently once it is published.
  *
- * The Path lives here and nowhere else. It never leaves the browser, so
- * every Reading starts with empty State and two Readers of one Story cannot
- * share what they have accumulated — there is no place for them to share it.
+ * The Path is the whole of what one Reading is, and this holds it for whoever is
+ * not holding it already. A Reader's page hands it none, so the Path lives here
+ * for as long as the page does. The bench hands it one, held above the document
+ * so that the middle of the bench can be turned from the writing to the reading
+ * and back without the Reading ending — see #247 and
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`. Either way it never
+ * leaves the browser, so every Reading starts with empty State and two Readers of
+ * one Story cannot share what they have accumulated.
  *
  * `keptFor` is the Story whose Reading this browser keeps between visits: named,
  * the Path is written to local storage on every move and read back when the
@@ -23,35 +28,36 @@ const { story, keptFor } = defineProps<{
 const { t } = useI18n()
 
 /**
- * Where the Reading has got to, said out loud on every move. The whole of what
- * this component offers whoever draws it, and the reason a Preview can put the
- * State on a bench beside it without this knowing who is watching: the Path
- * is all a Preview needs, because everything else is a pure function of it.
- * A Reader's Reading is the same component with nobody listening.
+ * Where the Reading has got to, and the whole of what this component offers
+ * whoever draws it: a Preview can put the State on a bench under it without this
+ * knowing who is watching, because everything else is a pure function of the
+ * Path. Two-way, so that a bench holding the Path above the document reads every
+ * move back and hands the same Reading down again the next time it is looked at.
+ * Left unbound — which is what a Reader's page does — it is a Path of this
+ * component's own, and the default is where every Reading starts before a seed
+ * has been drawn for it.
  */
-const emit = defineEmits<{ at: [Path] }>()
+const at = defineModel<Path>('at', { default: () => UNDRAWN })
 
-const at = ref<Path>(UNDRAWN)
 const shown = computed(() => reading(story, at.value))
 
 /**
- * Every move is said out loud, and kept where the browser will find it again:
- * the whole Path, so what is read back is exactly what replays. Written here
- * rather than in `moveTo` so the opening is kept too — a Reader who has just
- * started over is back at the start next time as well.
+ * Every move is kept where the browser will find it again: the whole Path, so
+ * what is read back is exactly what replays. Watched rather than written at each
+ * move, so the opening is kept too — a Reader who has just started over is back
+ * at the start next time as well — and so is a move made from outside.
  */
 const key = keptFor && `reading-${keptFor}`
 
-function shownAt() {
-  emit('at', at.value)
+watch(at, (now) => {
   if (!key) return
   // A browser that refuses storage, or has none left, refuses quietly: the
   // Reading goes on, it is just not kept.
   try {
-    localStorage.setItem(key, JSON.stringify(at.value))
+    localStorage.setItem(key, JSON.stringify(now))
   }
   catch {}
-}
+})
 
 /**
  * The Path this browser kept from an earlier visit, if it is one to go back to:
@@ -84,18 +90,23 @@ const resumed = ref(false)
 
 /**
  * The seed every draw a Scene makes comes out of, drawn once the Reading is in
- * the browser and said out loud like every other move. Here rather than in the
- * Path this starts at, because the server renders this page too and a seed
- * drawn there and drawn again here would be two Stories either side of
- * hydration. It is the one impure moment in a Reading — see
- * `docs/adr/0024-the-seed-belongs-to-the-position.md`. A Path kept from before
- * carries its seed with it, so a Reading picked up draws what it drew.
+ * the browser it will stay in. Here rather than in the Path this starts at,
+ * because the server renders this page too and a seed drawn there and drawn
+ * again here would be two Stories either side of hydration. It is the one impure
+ * moment in a Reading — see `docs/adr/0024-the-seed-belongs-to-the-position.md`.
+ * A Path kept from before carries its seed with it, so a Reading picked up draws
+ * what it drew.
+ *
+ * Drawn by whoever finds the Path still `UNDRAWN`, which is the one Path both
+ * holders start at: a bench that holds the Path above the document has drawn it
+ * as the bench arrived, and a Reading that drew a second seed on every turn back
+ * to it would be the defect #247 reports.
  */
 onMounted(() => {
   const before = kept()
   resumed.value = before !== undefined
-  at.value = before ?? opening()
-  shownAt()
+  if (before) at.value = before
+  else if (at.value === UNDRAWN) at.value = opening()
 })
 
 /**
@@ -124,36 +135,9 @@ const again = useTemplateRef<HTMLElement>('again')
 async function moveTo(to: Path) {
   at.value = to
   resumed.value = false
-  shownAt()
   await nextTick()
   ;(shown.value.shot ? frame.value : (exits.value?.querySelector('button') ?? again.value))?.focus()
 }
-
-/**
- * The same Path under another draw, which is the one thing about a Reading
- * something outside it may change: the Preview's reroll. Nothing moves, so
- * nothing takes focus — the Author presses the button again and again, and what
- * changes is the Story around it. Exposed rather than taken as a prop, because
- * the Path lives here and a second place to hold it is a second Reading.
- */
-function reroll() {
-  at.value = rerolled(at.value)
-  shownAt()
-}
-
-/**
- * The Reading put at a Path worked out somewhere else: the pane an Author writes
- * beside routes the reading to the Scene they are on, and a Path held in two
- * places would be two Readings. Nothing takes focus, because nobody pressed
- * anything in here — the Author pressed a card in the rail, and the keyboard
- * belongs where they left it.
- */
-function goTo(to: Path) {
-  at.value = to
-  shownAt()
-}
-
-defineExpose({ reroll, goTo })
 
 const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, scene.name])))
 
