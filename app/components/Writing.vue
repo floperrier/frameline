@@ -85,16 +85,28 @@ const { t } = useI18n()
  */
 const refusedIn = defineModel<string>('refusedIn')
 
-function changing(scene: Scene, act: () => Promise<unknown>) {
-  refusedIn.value = scene.id
+/**
+ * One act of one Scene, which is where a refusal of it is said. The Scene is
+ * claimed as the act leaves rather than as it is asked for: a typed write waits
+ * behind the one before it, so an act queued in the Scene the Author has just left
+ * would otherwise draw its refusal in the Scene they moved to. And it is let go of
+ * again the moment the act lands, so a Scene written in once is not left holding
+ * the next sentence the page has to say.
+ */
+function inScene(scene: Scene, act: () => Promise<unknown>) {
+  return async () => {
+    refusedIn.value = scene.id
+    await act()
+    refusedIn.value = undefined
+  }
+}
 
-  return change(act)
+function changing(scene: Scene, act: () => Promise<unknown>) {
+  return change(inScene(scene, act))
 }
 
 function writing(scene: Scene, act: () => Promise<unknown>) {
-  refusedIn.value = scene.id
-
-  return write(act)
+  return write(inScene(scene, act))
 }
 
 /**
@@ -117,7 +129,7 @@ type SceneInDocument = {
   /** The Exits leaving it, in the Places it offers them at. */
   ways: Exit[]
   /** How much of a work the Scene is, said beside each of its headings. */
-  counted: { flags: number, shots: number, words: string }
+  counted: { flags: number, shots: number }
 }
 
 const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, scene.name])))
@@ -141,11 +153,20 @@ const sections = computed<SceneInDocument[]>(() => {
       counted: {
         flags: Object.keys(scene.sets).length,
         shots: scene.shots.length,
-        words: countedWords(wordsOf(scene.shots), t),
       },
     }
   })
 })
+
+/**
+ * How many words each Scene holds, kept out of `sections` on purpose. It is the
+ * one figure here that changes on every keystroke, and a count sharing a computed
+ * with the order the document is read in would have the whole Story recomputed —
+ * the walk, the arrivals, every Scene's ways out — to say one number. See the note
+ * on `SceneInDocument` above, which is what that costs.
+ */
+const wordsIn = computed(() => new Map(story.scenes.map(
+  scene => [scene.id, countedWords(wordsOf(scene.shots), t)])))
 
 /**
  * The scroller the document stands in, which is the page's and not this
@@ -155,17 +176,25 @@ const sections = computed<SceneInDocument[]>(() => {
 const written = useTemplateRef<HTMLElement>('written')
 
 /**
- * Runs an act that may put a Scene into the document above the one being written
- * — naming where an Exit leads writes a Scene, and the order decides where it
- * lands, which may be anywhere — and leaves the Scene it was run from where it was
- * on screen. Without this the caret stays in its field and the words under it walk
- * down the window, which is the one thing a document must never do while somebody
- * is typing in it.
+ * Runs an act that reorders the document above the Scene it was run from, and
+ * leaves that Scene where it was on screen. Without this the caret stays in its
+ * field and the words under it walk up or down the window, which is the one thing
+ * a document must never do while somebody is typing in it.
  *
- * Measured against the section rather than against the scroller's own height: a
- * Scene written above may also have been written below, and only the section says
- * which happened. The correction is instant whatever the page's `scroll-behavior`
- * is, because a smooth one would animate a jump that is meant never to be seen.
+ * Which acts those are is read off `columnsOf`, the walk the order is. Marking the
+ * Opening Scene re-roots it, so a Scene thirty sections down becomes the first and
+ * everything that stood above it goes below. Renumbering a way on or taking one
+ * away moves the columns that way on fed, and a Scene nothing else reaches falls to
+ * the tail of the order, which is above the Scene being written as readily as
+ * below it. Writing an Exit or leading one elsewhere is not among them: the Scene
+ * at the far end is reached from this one, so the order can only ever put it
+ * further from the opening than the Scene the Author is standing in.
+ *
+ * Measured against the section rather than against the scroller's own height: the
+ * document may have grown below the caret as well, and only the section says what
+ * happened above it. The correction is instant whatever the page's
+ * `scroll-behavior` is, because a smooth one would animate a jump that is meant
+ * never to be seen.
  */
 async function withoutJumping(scene: Scene, act: () => Promise<unknown>) {
   const section = () => document.getElementById(`scene-${scene.id}`)
@@ -207,8 +236,10 @@ function renameScene(scene: Scene) {
   }))
 }
 
+/** The Story opens here now, which re-roots the order every Scene is read in. */
 function openOn(scene: Scene) {
-  return changing(scene, () => send(`/api/scenes/${scene.id}/opening`, { method: 'POST' }))
+  return withoutJumping(scene, () => changing(
+    scene, () => send(`/api/scenes/${scene.id}/opening`, { method: 'POST' })))
 }
 
 /**
@@ -227,15 +258,11 @@ async function addShot(scene: Scene) {
 /**
  * The run of beats is typed as one document although it stays one field per Shot:
  * `Enter` at the end of a beat opens the next, `Backspace` at the head of an empty
- * one joins it to the one before, `Alt+↑`/`Alt+↓` walk the caret along the run and
- * `Ctrl`/`Cmd` with the same two arrows walk it Scene to Scene. See
- * `docs/adr/0033-a-scene-is-written-as-one-document.md` for the first three, which
- * this leaves as they were, and `0043` for the fourth, which is what a document
- * holding the whole Story needs and a document holding one Scene did not.
- *
- * Every one of them is a control on the surface too — a key nobody can see is not
- * the only way in — bar the walk between Scenes, whose control is the rail beside
- * the document and the bar of Commands' own *Go to*.
+ * one joins it to the one before, and `Alt+↑`/`Alt+↓` walk the caret along the
+ * run. All three are `docs/adr/0033-a-scene-is-written-as-one-document.md`
+ * unchanged, and all three are a control on the surface too — a key nobody can see
+ * is not the only way in. The walk between Scenes is `walkScenes`, which the
+ * Scene's own section hears rather than a beat's field.
  */
 function typeOn(held: SceneInDocument, shot: Shot, place: number, event: KeyboardEvent) {
   const field = event.target as HTMLTextAreaElement
@@ -255,24 +282,40 @@ function typeOn(held: SceneInDocument, shot: Shot, place: number, event: Keyboar
   const stepped = { ArrowUp: -1, ArrowDown: 1 }[event.key]
   if (!stepped) return
 
-  if (event.metaKey || event.ctrlKey) {
-    // Found by the Scene's own id rather than by the object handed to the
-    // handler: `sections` is recomputed on every write, so the row the template
-    // rendered with is not the row the list holds by the time a key arrives.
-    const at = sections.value.findIndex(other => other.scene.id === held.scene.id)
-    const walked = at === -1 ? undefined : sections.value[at + stepped]
-    if (!walked) return
-    event.preventDefault()
-
-    return emit('open', walked.scene.id)
-  }
-
-  if (!event.altKey) return
+  if (event.metaKey || event.ctrlKey || !event.altKey) return
 
   const walked = held.scene.shots[place + stepped]
   if (!walked) return
   event.preventDefault()
   typeInShot(walked.id, true)
+}
+
+/**
+ * `Ctrl`/`Cmd` with the arrows, which walks Scene to Scene. Heard by the Scene's
+ * own section rather than by a beat's field: the caret lands in a name, in a beat,
+ * in what a way on says and in the field a way on is named into, and the walk is
+ * one act from all of them — including from a Scene holding no beat at all, which
+ * has no field for a handler to be hung on. The caret arrives at the head of the
+ * neighbour, in its name, with the address following it.
+ *
+ * Its control is the rail beside the document and the bar of Commands' own *Go
+ * to*, which is the one key on this surface that is not also a control on it.
+ */
+function walkScenes(held: SceneInDocument, event: KeyboardEvent) {
+  if (!event.metaKey && !event.ctrlKey) return
+
+  const stepped = { ArrowUp: -1, ArrowDown: 1 }[event.key]
+  if (!stepped) return
+
+  // Found by the Scene's own id rather than by the row handed to the handler:
+  // `sections` is recomputed on every write, so the row the template rendered
+  // with is not the row the list holds by the time a key arrives.
+  const at = sections.value.findIndex(other => other.scene.id === held.scene.id)
+  const walked = at === -1 ? undefined : sections.value[at + stepped]
+  if (!walked) return
+
+  event.preventDefault()
+  emit('open', walked.scene.id)
 }
 
 /**
@@ -455,10 +498,10 @@ function mayLandOn(scene: Scene, led?: string) {
 function leadExit(scene: Scene, exit: Exit, toSceneId: string) {
   if (!toSceneId || toSceneId === exit.toSceneId) return
 
-  return withoutJumping(scene, () => changing(scene, () => send(`/api/exits/${exit.id}/scene`, {
+  return changing(scene, () => send(`/api/exits/${exit.id}/scene`, {
     method: 'PUT',
     body: { toSceneId },
-  })))
+  }))
 }
 
 /**
@@ -489,7 +532,8 @@ function duplicateExit(scene: Scene, exit: Exit) {
 
 /** No confirmation: the control is named for what it takes, which is not the slip of a hand. */
 function deleteExit(scene: Scene, exit: Exit) {
-  return changing(scene, () => send(`/api/exits/${exit.id}`, { method: 'DELETE' }))
+  return withoutJumping(
+    scene, () => changing(scene, () => send(`/api/exits/${exit.id}`, { method: 'DELETE' })))
 }
 
 /**
@@ -516,9 +560,10 @@ const adding = reactive<Record<string, string>>({})
  * fires the one and a name typed and entered fires the other — and sometimes both,
  * which is why the field is emptied before anything waits.
  *
- * The Scene it writes appears in the document at the place the order puts it,
- * which on a Story that branches may well be above the Scene the Author is
- * standing in: `withoutJumping` is what keeps the words under their hands.
+ * The Scene it writes is reached from this one, so the order can only put it
+ * further from the opening than the Scene it was named in: it lands below the
+ * Author's hands and never above them, which is why nothing here holds the
+ * document still — see `withoutJumping` for the acts that do.
  */
 async function addExit(scene: Scene) {
   const name = (adding[scene.id] ?? '').trim()
@@ -528,7 +573,7 @@ async function addExit(scene: Scene) {
   const found = story.scenes.find(other => plainly(other.name) === plainly(name))
   let writtenId: string | undefined
 
-  await withoutJumping(scene, () => changing(scene, async () => {
+  await changing(scene, async () => {
     const toSceneId = found?.id ?? (await send(`/api/stories/${story.id}/scenes`, {
       method: 'POST',
       body: { name },
@@ -544,7 +589,7 @@ async function addExit(scene: Scene) {
       from: scene.name,
       to: found?.name ?? name,
     }))
-  }))
+  })
 
   if (!writtenId) return
   await nextTick()
@@ -560,8 +605,8 @@ function writeExitText(scene: Scene, exit: Exit) {
 }
 
 function moveExit(held: SceneInDocument, exit: Exit, step: -1 | 1) {
-  return renumber(
-    held.scene, 'exits', movedBy(held.ways.map(way => way.id), exit.id, step))
+  return withoutJumping(held.scene, () => renumber(
+    held.scene, 'exits', movedBy(held.ways.map(way => way.id), exit.id, step)))
 }
 
 /**
@@ -604,13 +649,21 @@ function writeConditions(
       role="group"
       :data-scene="held.scene.id"
       :aria-label="$t('editor.writingScene', { name: held.scene.name })"
+      @keydown="walkScenes(held, $event)"
     >
-      <Refusal v-if="refusedIn === held.scene.id" :problem="problem" />
+      <!-- Why the last change in this Scene was refused, drawn over the head of
+           its section rather than in it: the sentence rides with the Scene it is
+           about however far down a twenty-beat run the caret is, and it takes no
+           room in the document, so a write refused does not move the words under
+           the hands that typed it. -->
+      <div v-if="refusedIn === held.scene.id" class="refused">
+        <Refusal :problem="problem" />
+      </div>
 
       <!-- The name is the heading and the heading is written in: a bare field, the
            same idiom as a Shot's text, with no mode to enter first. -->
       <label class="visually-hidden" :for="`scene-name-${held.scene.id}`">
-        {{ $t('editor.sceneName') }}
+        {{ $t('editor.sceneName', { name: held.scene.name }) }}
       </label>
       <!-- The slate: the name, whether the Story opens here, what arrives at it,
            and the one act that takes it away. What arrives is said in words rather
@@ -687,7 +740,7 @@ function writeConditions(
         <h3 :id="`shots-of-${held.scene.id}`">
           {{ $t('editor.shotsHeld') }}
           <span class="counted">{{ held.counted.shots }}</span>
-          <span class="counted words">{{ held.counted.words }}</span>
+          <span class="counted words">{{ wordsIn.get(held.scene.id) }}</span>
         </h3>
 
         <p v-if="!held.scene.shots.length" class="none">{{ $t('editor.noShotYet') }}</p>
@@ -726,7 +779,7 @@ function writeConditions(
               </label>
 
               <label class="visually-hidden" :for="`shot-${shot.id}`">
-                {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                {{ $t('editor.shotOfScene', { place: place + 1, scene: held.scene.name }) }}
               </label>
               <textarea
                 :id="`shot-${shot.id}`"
@@ -746,7 +799,10 @@ function writeConditions(
                 <label class="eyebrow" :for="`description-${shot.id}`">
                   {{ $t('editor.description') }}
                   <span class="visually-hidden">
-                    {{ $t('editor.descriptionOfShot', { place: place + 1 }) }}
+                    {{ $t('editor.descriptionOfShot', {
+                      place: place + 1,
+                      scene: held.scene.name,
+                    }) }}
                   </span>
                 </label>
                 <input
@@ -799,7 +855,10 @@ function writeConditions(
                     <span aria-hidden="true">↑</span>
                     <span class="visually-hidden">
                       {{ $t('common.moveEarlier') }}
-                      {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                      {{ $t('editor.shotOfScene', {
+                        place: place + 1,
+                        scene: held.scene.name,
+                      }) }}
                     </span>
                   </button>
                   <button
@@ -811,7 +870,10 @@ function writeConditions(
                     <span aria-hidden="true">↓</span>
                     <span class="visually-hidden">
                       {{ $t('common.moveLater') }}
-                      {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                      {{ $t('editor.shotOfScene', {
+                        place: place + 1,
+                        scene: held.scene.name,
+                      }) }}
                     </span>
                   </button>
                   <button
@@ -822,7 +884,10 @@ function writeConditions(
                     <span aria-hidden="true">×</span>
                     <span class="visually-hidden">
                       {{ $t('common.delete') }}
-                      {{ $t('editor.shotNumber', { place: place + 1 }) }}
+                      {{ $t('editor.shotOfScene', {
+                        place: place + 1,
+                        scene: held.scene.name,
+                      }) }}
                     </span>
                   </button>
                 </div>
@@ -899,7 +964,7 @@ function writeConditions(
               <!-- The words the Reader reads on the button. -->
               <p class="said">
                 <label class="visually-hidden" :for="`exit-${exit.id}`">
-                  {{ $t('exit.to', { scene: sceneNames.get(exit.toSceneId) }) }}
+                  {{ $t('editor.wayOnSays', { place: place + 1, name: held.scene.name }) }}
                 </label>
                 <input
                   :id="`exit-${exit.id}`"
@@ -1055,6 +1120,25 @@ function writeConditions(
   /* The address names a Scene and the document is scrolled to it, so a Scene
      arrives under the head of the scroller rather than jammed against it. */
   scroll-margin-block-start: var(--s4);
+}
+
+/* The sentence a refusal is said in, over the head of the Scene it is about. It
+   sticks to the head of the scroller while any part of that Scene is on screen, so
+   an Exit refused at the foot of a long Scene is answered where the Author is
+   looking; and it holds no room of its own — the row it stands in is nothing and
+   the gap under it is taken back — so drawing it moves nothing that is being
+   typed in. */
+.refused {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  block-size: 0;
+  margin-block-end: calc(-1 * var(--s3));
+}
+
+/* Opaque, because it is drawn over the writing rather than above it. */
+.refused :deep([role='alert']) {
+  background: color-mix(in oklab, var(--alarm) 12%, var(--bench));
 }
 
 /* The slate: the Scene's name, whether the Story opens on it, what arrives at it

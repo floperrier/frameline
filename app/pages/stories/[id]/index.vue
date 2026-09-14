@@ -370,7 +370,7 @@ function turnOver(event: Event) {
           v-if="reading && sceneWritten"
           :story="story"
           :scene-written="sceneWritten.id"
-          :change="change"
+          :change="changeStory"
           @moved="follow"
         />
 
