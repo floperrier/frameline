@@ -642,18 +642,6 @@ function writeConditions(
       :aria-label="$t('editor.writingScene', { name: held.scene.name })"
       @keydown="walkScenes(held, $event)"
     >
-      <!-- Why the last change in this Scene was refused, drawn over the head of
-           its section rather than in it: the sentence rides with the Scene it is
-           about however far down a twenty-beat run the caret is, and it takes no
-           room in the document, so a write refused does not move the words under
-           the hands that typed it. Drawn on the sentence and not on the claim
-           alone: a Scene claims the refusals of every act it runs, and a wrapper
-           standing empty for the length of each of them would take the gap under
-           it back on every keystroke. -->
-      <div v-if="problem && refusedIn === held.scene.id" class="refused">
-        <Refusal :problem="problem" />
-      </div>
-
       <!-- The name is the heading and the heading is written in: a bare field, the
            same idiom as a Shot's text, with no mode to enter first. -->
       <label class="visually-hidden" :for="`scene-name-${held.scene.id}`">
@@ -718,6 +706,17 @@ function writeConditions(
           <span class="visually-hidden">{{ held.scene.name }}</span>
         </button>
       </div>
+
+      <!-- Why the last change in this Scene was refused, said at the foot of the
+           slate of the Scene it is about: beside the name, which is what the
+           commonest refusal on a Scene — *A Scene needs a name.* — is about, and
+           under it rather than over it, so the field the Author goes back to
+           correct is neither covered nor taken away from the pointer. It holds its
+           own room and is laid over nothing. What that costs is a push on what
+           stands below it, which the browser's scroll anchoring absorbs wherever
+           there is scroller above to absorb it; `tests/e2e/scenes-signed-in.spec.ts`
+           drives both halves — what the sentence covers, and what it moves. -->
+      <Refusal v-if="refusedIn === held.scene.id" :problem="problem" />
 
       <!-- The Flags the Scene sets, at the head of its section where they happen:
            set on entry, before the first Shot plays. On one line with its heading
@@ -1155,25 +1154,6 @@ function writeConditions(
   /* The address names a Scene and the document is scrolled to it, so a Scene
      arrives under the head of the scroller rather than jammed against it. */
   scroll-margin-block-start: var(--s4);
-}
-
-/* The sentence a refusal is said in, over the head of the Scene it is about. It
-   sticks to the head of the scroller while any part of that Scene is on screen, so
-   an Exit refused at the foot of a long Scene is answered where the Author is
-   looking; and it holds no room of its own — the row it stands in is nothing and
-   the gap under it is taken back — so drawing it moves nothing that is being
-   typed in. */
-.refused {
-  position: sticky;
-  inset-block-start: 0;
-  z-index: 1;
-  block-size: 0;
-  margin-block-end: calc(-1 * var(--s3));
-}
-
-/* Opaque, because it is drawn over the writing rather than above it. */
-.refused :deep([role='alert']) {
-  background: color-mix(in oklab, var(--alarm) 12%, var(--bench));
 }
 
 /* The slate: the Scene's name, whether the Story opens on it, what arrives at it

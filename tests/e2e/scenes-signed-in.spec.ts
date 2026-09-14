@@ -1,4 +1,4 @@
-import type { APIRequestContext, Page } from '@playwright/test'
+import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 import { CONDITIONS_MAX, SCENE_NAME_MAX_LENGTH, VISITS_MAX } from '../../shared/utils/scenes'
 import {
@@ -45,6 +45,24 @@ function sectionOf(page: Page, sceneId: string) {
  */
 function naming(page: Page, sceneId: string) {
   return sectionOf(page, sceneId).locator('.named input')
+}
+
+/**
+ * What the browser would hand a click aimed at the middle of an element: the
+ * element itself, or whatever is laid over it, said as its markup so a failure
+ * names the thing that took the pointer. Nothing about the tree can settle this —
+ * a layer over a field leaves the field exactly where the markup says it is, with
+ * the right role and the right name, and takes the click all the same.
+ */
+function under(locator: Locator) {
+  return locator.evaluate((element) => {
+    const box = element.getBoundingClientRect()
+    const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+
+    if (element.contains(hit)) return 'itself'
+
+    return hit?.outerHTML.slice(0, 60) ?? 'nothing'
+  })
 }
 
 /** A Story with one Scene in it, which is where every test below starts. */
@@ -765,6 +783,80 @@ test('a refusal is said against the Scene it is about', async ({ page, request }
   await title.blur()
   await expect(page.locator('main > [role="alert"]')).toHaveText('A Story needs a title.')
 })
+
+test('a refusal takes its own room under the slate, covering nothing and moving nothing',
+  async ({ page, request }) => {
+    const { story, scenes } = await chained(request, ['The arrival', 'The platform'])
+    const [arrival, platform] = scenes
+    // A run long enough to carry the window past the Scene above it, so the
+    // scroller has something above to give back: that is what absorbs the room a
+    // refusal takes as it arrives.
+    await writeShots(
+      request, platform!.id, Array.from({ length: 20 }, (_, beat) => `Beat ${beat + 1}.`))
+
+    await page.goto(`/stories/${story.id}`)
+
+    // The rename is held at the door so that both measurements are of one screen:
+    // what moves the beat has to be the sentence landing, never the network
+    // landing between the two readings.
+    let land = () => {}
+    const landing = new Promise<void>((resolve) => { land = resolve })
+    await page.route(`**/api/scenes/${arrival!.id}`, async (route) => {
+      await landing
+      await route.continue()
+    })
+
+    // A Scene emptied of its name up at the head of the document, while the Author
+    // is typing twenty beats down in the Scene under it. The sentence takes its
+    // room where nobody is looking, and the browser's scroll anchoring gives that
+    // room back out of the scroller: the beat under the hands does not move.
+    await naming(page, arrival!.id).fill('  ')
+    const beat = shot(page, 15, 'The platform')
+    await beat.click()
+    await page.keyboard.type(' She waits.')
+    const typedAt = (await beat.boundingBox())!.y
+
+    land()
+    await expect(sectionOf(page, arrival!.id).getByRole('alert'))
+      .toHaveText('A Scene needs a name.')
+    // Not held to the pixel: the scroller gives its room back in device pixels and
+    // what is left of a band forty-odd pixels tall is the rounding. A band that
+    // stopped being given back would move the beat by its whole height.
+    expect(Math.abs((await beat.boundingBox())!.y - typedAt)).toBeLessThan(1)
+
+    // And the sentence is not laid over the field the Author has to answer it in.
+    // A Scene needs a name is the commonest refusal there is on a Scene, and a
+    // zero-height sticky band carrying it read as the element under the middle of
+    // the name, of the mark that moves where the Story opens and of the act that
+    // takes the Scene away — three controls a pointer could no longer reach.
+    const named = naming(page, platform!.id)
+    await named.fill('  ')
+    await named.blur()
+
+    const section = sectionOf(page, platform!.id)
+    const refused = section.getByRole('alert')
+    await expect(refused).toHaveText('A Scene needs a name.')
+
+    // Wound to the slate the sentence stands on: what is under a point is a
+    // question about the window, and the caret is twenty beats past it.
+    const slate = section.locator('.slate')
+    await slate.scrollIntoViewIfNeeded()
+
+    expect(await under(named)).toBe('itself')
+    expect(await under(section.getByRole('button', { name: /^Mark as the Opening Scene/ })))
+      .toBe('itself')
+    expect(await under(section.getByRole('button', { name: /^Delete Scene/ }))).toBe('itself')
+    // Readable in its turn: nothing of the writing is over the sentence either.
+    expect(await under(refused)).toBe('itself')
+    // The click an Author makes next lands in the field and not in the sentence
+    // about it, which is the one thing `pointer-events: none` would also have
+    // bought — and it would have left the field under an opaque band.
+    await named.click()
+    await expect(named).toBeFocused()
+
+    const over = (await slate.boundingBox())!
+    expect((await refused.boundingBox())!.y).toBeGreaterThanOrEqual(over.y + over.height)
+  })
 
 test('an Author writes a Story from the page alone', async ({ page, request }) => {
   const story = await (await request.post('/api/stories', { data: { title: 'A Story' } })).json()
