@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test'
 import type { APIRequestContext, Page } from '@playwright/test'
 import {
-  readTheStory, sceneNode, seedExit, seedFlags, seedScene, seedStory, test,
+  readTheStory, sceneNode, seedExit, seedFlags, seedScene, seedStory, test, writeScene,
 } from './author'
 
 /**
@@ -87,12 +87,7 @@ test('counts what it finds, and opens the Scene a Remark names', async ({ page, 
   // saying any of them — see
   // `docs/adr/0043-a-story-is-written-as-one-document.md`.
   await page.goto(`/stories/${story.id}`)
-  // By the rail's own mark, which is what moves the caret now: every Scene of the
-  // document is written where it stands, so there is nothing to open — see
-  // `docs/adr/0043-a-story-is-written-as-one-document.md`.
-  const platformMark = sceneNode(page, 'The platform')
-  await platformMark.click()
-  await expect(platformMark).toHaveClass(/here/)
+  await writeScene(page, 'The platform')
   await expect(found(page)).toContainText('3')
 
   await openRemarks(page)
