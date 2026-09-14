@@ -1095,11 +1095,9 @@ test('a Scene is split before one of its Shots, and its ways on move to the seco
  * claim that replaces the one about the gate standing off the edge of a table:
  * the table is gone, and the same fact is now a scroller with one axis.
  *
- * The Scenes are chained by name and the Opening Scene is marked through its own
- * route. Neither is fussiness: `RETURNING` promises no order, so a chain built on
- * the order an insert hands back is a chain of a different depth on every run —
- * see issue #261 — and a Scene seeded past the API never becomes the Opening
- * Scene, so the layout would be rooted somewhere else entirely.
+ * The Opening Scene is marked through its own route, which is not fussiness: a
+ * Scene seeded past the API never becomes the Opening Scene, so the layout would
+ * be rooted somewhere else entirely.
  */
 test('winds the document onto the Scene the address names',
   async ({ page, request }) => {
@@ -1107,10 +1105,8 @@ test('winds the document onto the Scene the address names',
       data: { title: 'A Story' },
     })).json()
 
-    const seeded = await seedScenes(story, Array.from({ length: 11 },
+    const scenes = await seedScenes(story, Array.from({ length: 11 },
       (_, place) => `Scene ${place + 1}`))
-    const scenes = Array.from({ length: 11 },
-      (_, place) => seeded.find(scene => scene.name === `Scene ${place + 1}`)!)
     for (const [place, scene] of scenes.slice(0, -1).entries()) {
       await seedExit(scene.id, scenes[place + 1]!.id)
     }

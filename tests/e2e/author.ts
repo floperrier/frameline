@@ -210,14 +210,24 @@ export async function seedScene(story: Story, name: string) {
 
 /**
  * Writes a whole graph of Scenes at once, for one too large to build a request at
- * a time, laid out in the columns the API would have laid them out in.
+ * a time, and hands them back in the order it was asked for.
+ *
+ * The ids are drawn here rather than read back out of the insert, and that is the
+ * whole point of the shape. Postgres promises no order for the rows `RETURNING`
+ * emits — `with ordinality` orders what the insert reads, never what comes back —
+ * so a caller taking the fourth Scene of the result took a different Scene on each
+ * run, and a chain of Exits built by walking the result was a chain whose depth
+ * nobody chose. See issue #261: the same spec measured three different depths
+ * before the cause turned up. Drawn here, there is nothing to read back and no
+ * plan to be at the mercy of.
  */
 export async function seedScenes(story: Story, names: string[]) {
-  const scenes = await sql`
-    insert into scenes (story_id, name)
-    select ${story.id}, name
-    from unnest(${names}::text[]) with ordinality as named (name, place)
-    returning id, name` as Pick<Scene, 'id' | 'name'>[]
+  const scenes: Pick<Scene, 'id' | 'name'>[] = names.map(name => ({ id: randomUUID(), name }))
+
+  await sql`
+    insert into scenes (id, story_id, name)
+    select id, ${story.id}, name
+    from unnest(${scenes.map(scene => scene.id)}::uuid[], ${names}::text[]) as seeded (id, name)`
 
   // A Shot apiece, written rather than empty, because a Scene the API made
   // arrives with none and an Author's first move inside one is to write a Shot:

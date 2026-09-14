@@ -30,19 +30,16 @@ import { live, sceneNode, seedExit, seedScenes, test } from './author'
  * more controls as the Story grows, so what it is measured on is a Story that
  * holds together at both sizes.
  *
- * The Scenes are found by name rather than taken in the order the insert handed
- * back, because `RETURNING` promises no order — see issue #261 — and the Opening
- * Scene is marked through its own route, because a Scene seeded past the API never
- * becomes one.
+ * The Opening Scene is marked through its own route, because a Scene seeded past
+ * the API never becomes one.
  */
 async function chained(request: APIRequestContext, many: number) {
   const story = await (await request.post('/api/stories', {
     data: { title: 'A Story' },
   })).json() as { id: string, title: string }
 
-  const names = Array.from({ length: many }, (_, place) => `Scene ${place + 1}`)
-  const seeded = await seedScenes(story, names)
-  const scenes = names.map(name => seeded.find(scene => scene.name === name)!)
+  const scenes = await seedScenes(story,
+    Array.from({ length: many }, (_, place) => `Scene ${place + 1}`))
 
   for (const [place, scene] of scenes.slice(0, -1).entries()) {
     await seedExit(scene.id, scenes[place + 1]!.id)
