@@ -125,7 +125,7 @@
     "writeFirstScene": "Write the First Scene",
     "provisionalSceneName": "A new Scene",
     "sceneCreated": "“{name}” created",
-    "noScenes": "No Scenes yet. Write the first one; every Scene after it is made at the foot of a Scene, by naming where an Exit leads.",
+    "noScenes": "No Scenes yet. Write the first one; a Scene after it is made at the foot of another, by naming where an Exit leads, or out of one, by splitting it before a Shot.",
     "oneShot": "{count} Shot",
     "manyShots": "{count} Shots",
     "oneExit": "{count} Exit",

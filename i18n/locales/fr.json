@@ -125,7 +125,7 @@
     "writeFirstScene": "Écrire la première Scène",
     "provisionalSceneName": "Une nouvelle Scène",
     "sceneCreated": "« {name} » créée",
-    "noScenes": "Aucune Scène pour l’instant. Écrivez la première : ensuite, chaque Scène naît au bas d’une Scène, en nommant où mène une Sortie.",
+    "noScenes": "Aucune Scène pour l’instant. Écrivez la première : ensuite, une Scène naît au bas d’une autre, en nommant où mène une Sortie, ou d’une Scène scindée avant un de ses Plans.",
     "oneShot": "{count} Plan",
     "manyShots": "{count} Plans",
     "oneExit": "{count} Sortie",
