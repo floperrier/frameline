@@ -772,9 +772,15 @@ function writeConditions(
         <p v-if="!held.scene.shots.length" class="none">{{ $t('editor.noShotYet') }}</p>
 
         <ol v-else class="shots">
-          <!-- `handed`: the marks this beat is acted on by — its own four, and the
-               offer of a Condition — are drawn at the weight of the words around
-               them until the pointer arrives at the row or the caret lands in it.
+          <!-- `handed`: every mark this beat is acted on by — its own four, the
+               offer of a Condition, and the mark that strikes a Condition already
+               written — is drawn at the weight of the words around it until the
+               pointer arrives at the row or the caret lands in it. That last one
+               is a change of its own: `#246` kept a written Condition's mark at
+               full strength and dimmed only the offer to add one, on the reasoning
+               that what an Author has already written is never faded. The rule
+               `0043` writes is about rows rather than about what is written, and a
+               Condition is a row, so it arrives with the hand like every other.
                `.handed` in `app/assets/css/frameline.css` is the rule, and it is
                declared there because a beat, a way on and a Flag's row all carry
                it. -->
@@ -970,6 +976,9 @@ function writeConditions(
 
         <p v-if="!held.ways.length" class="none">{{ $t('editor.noWayOnYet') }}</p>
         <ol v-else>
+          <!-- `handed` again, and it is the row it changes most: an Exit's marks
+               used to take only their colour from a hover, where now the whole
+               box arrives with the hand. -->
           <li v-for="(exit, place) in held.ways" :key="exit.id" class="handed" :data-way="exit.id">
             <span class="numbered">{{ place + 1 }}</span>
 
