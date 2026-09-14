@@ -249,6 +249,18 @@ function walk(story: StoryToRead, { seed, taken }: Path) {
 }
 
 /**
+ * Whether a Reading has moved at all. Two surfaces have to agree on it — what a
+ * kept Path is resumed from, and whether reading again from the start is offered
+ * — so the rule is written once and named the way
+ * `docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md` names it. A Path
+ * that has taken no Exit and is still on the Shot it opened on is a Reading that
+ * has not begun.
+ */
+export function moved(at: Path) {
+  return at.taken.length > 0 || at.shot > 0
+}
+
+/**
  * Whether a Path kept from an earlier visit is one to put the Reader back at.
  * It is not where nothing has been read yet — there is nothing to come back to
  * — nor at an ending, which is a place to leave from rather than be returned to.
@@ -259,7 +271,7 @@ function walk(story: StoryToRead, { seed, taken }: Path) {
  * instead. See `docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md`.
  */
 export function resumes(story: StoryToRead, at: Path) {
-  if (at.taken.length === 0 && at.shot === 0) return false
+  if (!moved(at)) return false
   if (walk(story, at).walked < at.taken.length) return false
 
   const { run, ended } = reading(story, at)
