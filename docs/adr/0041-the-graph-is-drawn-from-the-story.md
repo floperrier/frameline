@@ -23,8 +23,9 @@ An Exit is written by naming where it leads. The field at the foot of a Scene's
 ways on offers the Scenes a way on from here may land on and takes any name at
 all: a name the Story answers to — compared the way the bar of Commands compares
 names, so *cafe* finds *Le café* — joins the two Scenes, and a name nothing
-answers to writes a Scene under it and joins that. This is how every Scene after
-the first is born, and the hand lands on the words the Reader will press.
+answers to writes a Scene under it and joins that. This is one of the two ways a
+Scene after the first is born, and the hand lands on the words the Reader will
+press.
 
 A Scene is split before one of its Shots. `POST /api/scenes/:id/split` takes the
 Shot and a name: the Shots from that one on become a Scene of their own,
