@@ -167,7 +167,7 @@ test('folds the Remarks and then the rail, and hides neither', async ({ page, re
 })
 
 test('offers no more controls on a Story of forty Scenes than on one of three',
-  async ({ page, request }) => {
+  async ({ page, request }, testInfo) => {
     // The claim the whole record stands on, and the one number it was written
     // against: ninety-two controls, measured on the gate this replaces.
     //
@@ -196,17 +196,23 @@ test('offers no more controls on a Story of forty Scenes than on one of three',
     const many = await controlsOnScreen(page)
     const alsoInTheDocument = await controlsOnScreen(page, '.writing')
 
-    // Said out loud into the run's own log, which is the one place a green run
-    // leaves anything behind: `0043` asks for the number and not only for the
-    // comparison — ninety-two is what it is answering — and a number that is only
-    // ever compared is a number nobody can quote.
-    console.log(`controls on screen at 1440 — three Scenes: ${few} on the page, `
-      + `${inTheDocument} in the document; forty Scenes: ${many} on the page, `
-      + `${alsoInTheDocument} in the document`)
+    // Kept with the run rather than printed by it: `0043` asks for the number and
+    // not only for the comparison — ninety-two is what it is answering — and a
+    // number that is only ever compared is a number nobody can quote. Attached, so
+    // it is in the report a green run leaves behind without a line of standard
+    // output nothing else in this suite writes.
+    await testInfo.attach('controls on screen at 1440', {
+      contentType: 'text/plain',
+      body: `three Scenes: ${few} on the page, ${inTheDocument} in the document; `
+        + `forty Scenes: ${many} on the page, ${alsoInTheDocument} in the document`,
+    })
 
-    // The Story really did grow, and the screen really did not.
+    // The Story really did grow, and the screen really did not. Equality and not a
+    // ceiling: the claim `0043` stands on is that the layout hands the screen the
+    // same controls at either size, and a ceiling is satisfied by a bench drawing
+    // none at all.
     expect(few).toBeGreaterThan(0)
-    expect(many).toBeLessThanOrEqual(few)
+    expect(many).toBe(few)
 
     // And the document is why, said on its own rather than read out of a total.
     // A total is the page's, and the page holds things that answer to something
@@ -215,7 +221,7 @@ test('offers no more controls on a Story of forty Scenes than on one of three',
     // together at both sizes has none of either way. What the layout promises is
     // narrower and is the whole of the claim — that a Scene added to the document
     // adds no control to the bench — so it is measured where it is made.
-    expect(alsoInTheDocument).toBeLessThanOrEqual(inTheDocument)
+    expect(alsoInTheDocument).toBe(inTheDocument)
   })
 
 test('keeps the rail out of the accessibility tree and out of the tab order',
@@ -282,7 +288,7 @@ test('scrolls the document to the Scene the address names', async ({ page, reque
 
   // And the Scene it wound to is the one the caret is in, with its mark lit on the
   // rail: one notion of where the Author is, said in both places.
-  await expect(section.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
+  await expect(section.getByRole('textbox', { name: 'Name of Scene 8' })).toBeVisible()
   await expect(page.locator('.rail .here')).toHaveAttribute('data-scene', eighth.id)
 })
 
