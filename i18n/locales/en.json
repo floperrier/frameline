@@ -314,7 +314,7 @@
     },
     "places": {
       "shot": "The Shots of a Scene are renumbered all at once, each one named exactly once.",
-      "exit": "The ways on leaving a Scene are renumbered all at once, each one named exactly once."
+      "exit": "The Exits leaving a Scene are renumbered all at once, each one named exactly once."
     },
     "tooManyConditions": {
       "shot": "A Shot cannot carry more than {max} Conditions.",
