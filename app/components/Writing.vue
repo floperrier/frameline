@@ -11,9 +11,10 @@
  * to be opened and nothing closes, and **every Scene is written where it stands**:
  * there is no one Scene the Author has to put on a bench first, because the bench
  * is the document. That is the whole of issue #252, and it is what took the gate
- * `app/components/Panel.vue` drew — one beat at a time behind a strip — out of the
- * product: a gate per Scene would be forty frames, and a gate for one Scene would
- * leave thirty-nine Scenes readable and unwritable.
+ * of `docs/adr/0042-the-scene-is-written-where-it-stands.md` — one Scene behind a
+ * frame, one beat at a time behind a strip — out of the product: a gate per Scene
+ * would be forty frames, and a gate for one Scene would leave thirty-nine Scenes
+ * readable and unwritable.
  *
  * Typing is `docs/adr/0033-a-scene-is-written-as-one-document.md` unchanged, over
  * a longer document. One field per Shot, nothing parsed, no beat losing the id its
@@ -365,7 +366,7 @@ async function joinBeat(scene: Scene, shot: Shot, place: number) {
  * Puts the caret in a Shot's field, once the read the change asks for has rendered
  * it. There is a field per beat of every Scene now, so the field is simply there
  * to be found: the gate that had to be moved to the beat first went with
- * `Panel.vue`.
+ * `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
  */
 async function typeInShot(shotId: string, atTheEnd = false) {
   await nextTick()
@@ -521,8 +522,20 @@ function deleteExit(scene: Scene, exit: Exit) {
  * and one string between them would put what is typed at the foot of one Scene
  * into the foot of all of them. The field acts and then forgets, so none of them
  * ever stands holding the last thing it did.
+ *
+ * And a Scene that goes takes its entry with it. The string belongs to the Scene
+ * rather than to the page, so a Story read back without that Scene is where it
+ * stops being anything — otherwise a bench left open for an afternoon keeps a
+ * half-typed name for every Scene ever deleted, which is not a field that forgets.
  */
 const adding = reactive<Record<string, string>>({})
+
+watch(() => story.scenes, (scenes) => {
+  const standing = new Set(scenes.map(scene => scene.id))
+  for (const id of Object.keys(adding)) {
+    if (!standing.has(id)) delete adding[id]
+  }
+})
 
 /**
  * A way on written by naming where it leads. A name that answers to a Scene of the
