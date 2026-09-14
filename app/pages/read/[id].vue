@@ -38,8 +38,7 @@ if (error.value) throw createError({ ...error.value, fatal: true })
     <header :class="{ covered: story?.cover }">
       <!-- The product's own name, leading where the Catalogue's own header leads
            home: a Reader who was sent a link and nothing else is one press from
-           the room where Stories are found. It says Frameline once, so the line
-           under it says what this is and no longer whose it is. -->
+           the room where Stories are found. -->
       <NuxtLink class="wordmark trail" :to="localePath('/catalogue')">Frameline</NuxtLink>
 
       <!-- The frame the Story was presented by on the shelf, beside the title as
