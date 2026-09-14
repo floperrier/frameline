@@ -93,12 +93,19 @@ const refusedIn = defineModel<string>('refusedIn')
  * would otherwise draw its refusal in the Scene they moved to. And it is let go of
  * again the moment the act lands, so a Scene written in once is not left holding
  * the next sentence the page has to say.
+ *
+ * Let go of only while the claim is still this act's, because the claim belongs to
+ * an act and not to the page. A clicked write goes out at once and a typed one
+ * waits its turn in the queue, so two acts in two Scenes are commonly in flight
+ * together now that the document holds every Scene; the one that lands first would
+ * otherwise clear the other's Scene out from under it, and the refusal that
+ * followed would have nowhere to be said but under the Story's edge.
  */
 function inScene(scene: Scene, act: () => Promise<unknown>) {
   return async () => {
     refusedIn.value = scene.id
     await act()
-    refusedIn.value = undefined
+    if (refusedIn.value === scene.id) refusedIn.value = undefined
   }
 }
 

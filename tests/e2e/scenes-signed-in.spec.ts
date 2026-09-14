@@ -784,6 +784,52 @@ test('a refusal is said against the Scene it is about', async ({ page, request }
   await expect(page.locator('main > [role="alert"]')).toHaveText('A Story needs a title.')
 })
 
+test('a write that lands in one Scene leaves the Scene another write is waiting on',
+  async ({ page, request }) => {
+    const { story, scenes } = await chained(request, ['The arrival', 'The platform'])
+    const [arrival, platform] = scenes
+
+    await page.goto(`/stories/${story.id}`)
+
+    // Both are held at the door, so the order they land in is the test's to say
+    // rather than the network's: the clicked write lands while the typed one is
+    // still on its way, which is the ordinary case — a click goes out at once and
+    // what was typed waits its turn in the queue behind the write before it.
+    let landShot = () => {}
+    let landRename = () => {}
+    const shotLanding = new Promise<void>((resolve) => { landShot = resolve })
+    const renameLanding = new Promise<void>((resolve) => { landRename = resolve })
+    await page.route(`**/api/scenes/${platform!.id}/shots`, async (route) => {
+      await shotLanding
+      await route.continue()
+    })
+    await page.route(`**/api/scenes/${arrival!.id}`, async (route) => {
+      await renameLanding
+      await route.continue()
+    })
+
+    // A beat added to one Scene, and then the other Scene emptied of its name
+    // while that beat is still in the air: two acts in two Scenes, in flight
+    // together.
+    await sectionOf(page, platform!.id).getByRole('button', { name: /^Add a Shot/ }).click()
+    const named = naming(page, arrival!.id)
+    await named.fill('  ')
+    await named.blur()
+
+    // The beat lands, and what it lets go of has to be its own claim: the Scene
+    // the page is holding is the one the rename is waiting on, and a Shot added in
+    // the Scene under it has no business clearing it.
+    landShot()
+    await expect(shot(page, 1, 'The platform')).toBeVisible()
+
+    landRename()
+    await expect(sectionOf(page, arrival!.id).getByRole('alert'))
+      .toHaveText('A Scene needs a name.')
+    // Not under the Story's edge, which is where a refusal goes that is about no
+    // Scene at all — and this one is about a Scene.
+    await expect(page.locator('main > [role="alert"]')).toHaveCount(0)
+  })
+
 test('a refusal takes its own room under the slate, covering nothing and moving nothing',
   async ({ page, request }) => {
     const { story, scenes } = await chained(request, ['The arrival', 'The platform'])
