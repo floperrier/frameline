@@ -186,9 +186,7 @@
     "oneWord": "{count} mot",
     "manyWords": "{count} mots",
     "presentation": "Synopsis et Couverture",
-    "writeShot": "Écrire le Plan {place}",
-    "noShotYet": "Rien n’est encore écrit dans cette Scène. Ajoutez le premier battement.",
-    "add": "ajouter"
+    "noShotYet": "Rien n’est encore écrit dans cette Scène. Ajoutez le premier battement."
   },
   "conditions": {
     "ofCarrier": "de {carrier}",

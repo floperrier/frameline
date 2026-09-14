@@ -18,6 +18,33 @@ const { data: story, refresh } = await useAsyncData(
 )
 const { t } = useI18n()
 const { problem, keptAt, change, write } = useEditing(refresh)
+
+/**
+ * Which Scene's section of the document the refusal on screen is drawn in, and
+ * nothing where it belongs to the Story rather than to a Scene. The document holds
+ * every Scene now, so a sentence about a Shot has a Scene to be said against and
+ * the writing surface says which one; what the Story's own edge is refused — a
+ * title, a Publish — belongs under that edge, where this page draws it.
+ */
+const refusedIn = ref<string>()
+
+/**
+ * The two holders the Story's own edge writes through, which are the page's own
+ * with the Scene the last refusal was drawn in cleared on the way past: an act
+ * about the whole Story cannot be refused in somebody's section of the document.
+ */
+const changeStory: Change = (act) => {
+  refusedIn.value = undefined
+
+  return change(act)
+}
+
+const writeStory: Write = (act) => {
+  refusedIn.value = undefined
+
+  return write(act)
+}
+
 const { asked, ask, answer } = useConfirming()
 
 /**
@@ -195,7 +222,7 @@ async function follow(sceneId: string) {
 async function makeScene(name = t('editor.provisionalSceneName')) {
   let writtenId: string | undefined
 
-  await change(async () => {
+  await changeStory(async () => {
     const written = await send(`/api/stories/${id}/scenes`, {
       method: 'POST',
       body: { name },
@@ -258,8 +285,8 @@ function turnOver(event: Event) {
       :id="id"
       :story="story ?? undefined"
       :kept-at="keptAt"
-      :change="change"
-      :write="write"
+      :change="changeStory"
+      :write="writeStory"
     >
       <!-- The bench's own acts, on the Story's own edge: the way into every act
            by naming it, and which reading the middle of the bench is showing. Two
@@ -291,10 +318,11 @@ function turnOver(event: Event) {
       </div>
     </StoryHeader>
 
-    <!-- What the bench says about itself while there is no Scene to say it
-         against: why the last change was refused. With a Scene on the bench the
-         refusal is shown in that Scene's own section of the document instead. -->
-    <Refusal v-if="!sceneWritten" :problem="problem" />
+    <!-- Why the last change was refused, where it is about the Story rather than
+         about a Scene of it. A refusal a Scene can be named for is drawn in that
+         Scene's own section of the document instead, which is where the Author was
+         typing when it arrived. -->
+    <Refusal v-if="!refusedIn" :problem="problem" />
     <!-- Always in the document, empty between sentences: a live region announces
          a change to what it already holds, never a node that arrives with its
          sentence inside it. -->
@@ -346,23 +374,23 @@ function turnOver(event: Event) {
           @moved="follow"
         />
 
-        <!-- The whole Story as one document, with the Scene the caret is in
-             written in the place the order already gave it. -->
-        <Writing v-else :story="story" :scene-written="sceneWritten?.id">
-          <Panel
-            v-if="sceneWritten"
-            :story="story"
-            :scene-written="sceneWritten"
-            :change="change"
-            :write="write"
-            :ask="ask"
-            :announce="announce"
-            :image-of="imageOf"
-            :problem="problem"
-            @attached="attachedAt[$event] = Date.now()"
-            @open="writeScene"
-          />
-        </Writing>
+        <!-- The whole Story as one document, every Scene of it written where it
+             stands: there is no one Scene to put on a bench first, because the
+             bench is the document. -->
+        <Writing
+          v-else
+          v-model:refused-in="refusedIn"
+          :story="story"
+          :scene-written="sceneWritten?.id"
+          :change="change"
+          :write="write"
+          :ask="ask"
+          :announce="announce"
+          :image-of="imageOf"
+          :problem="problem"
+          @attached="attachedAt[$event] = Date.now()"
+          @open="writeScene"
+        />
       </div>
 
       <!-- What the bench read back out of the Story: how much of a work it is,

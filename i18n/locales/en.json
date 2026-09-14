@@ -186,9 +186,7 @@
     "oneWord": "{count} word",
     "manyWords": "{count} words",
     "presentation": "Synopsis and Cover",
-    "writeShot": "Write Shot {place}",
-    "noShotYet": "Nothing is written in this Scene yet. Add the first beat.",
-    "add": "add"
+    "noShotYet": "Nothing is written in this Scene yet. Add the first beat."
   },
   "conditions": {
     "ofCarrier": "of {carrier}",

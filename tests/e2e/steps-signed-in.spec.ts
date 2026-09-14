@@ -15,6 +15,29 @@ import {
   toast,
 } from './author'
 
+/** One Scene's own section of the document, which is where that Scene is written. */
+function written(page: Page, scene: string) {
+  return page.getByRole('group', { name: `Writing ${scene}` })
+}
+
+/**
+ * Puts the caret in one Scene, by pressing its mark on the rail.
+ *
+ * `writeScene` is not what does it any more: every Scene of the document is
+ * written where it stands, so the surface that helper waits for is up for every
+ * Scene of the Story at once and there is nothing for it to open. What still moves
+ * with the caret is the address, the mark the rail lights, and — which is why this
+ * spec needs it — the Steps and the Commands, which are carried by the Scene the
+ * caret is in and by no other. See
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ */
+async function caretIn(page: Page, scene: string) {
+  const mark = sceneNode(page, scene)
+  await expect(mark).toBeVisible()
+  await mark.click()
+  await expect(mark).toHaveClass(/here/)
+}
+
 /** The sentence the first Step says, which is how the guidance is recognised. */
 const FIRST_STEP = /Every Story starts with a Scene/
 
@@ -141,8 +164,8 @@ test('an Author who deleted the Scene their Story opened on is sent to the mark'
   // mark instead — on the Scene now on the surface, since there always is one.
   await expect(bubble(page)).toContainText(/nothing marks where this Story does/)
 
-  await writeScene(page, 'The platform')
-  await lights(page, page.locator('.panel .opening'))
+  await caretIn(page, 'The platform')
+  await lights(page, written(page, 'The platform').locator('.opening'))
   await page.getByRole('radio', { name: 'Opening Scene The platform' }).check()
 
   // Marked, and the path is back at the step it was on.
@@ -208,8 +231,8 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   // nothing is switched to first — the Step before this one left them in this
   // document, and what it points at answers a press from where they stand.
   await expect(bubble(page)).toContainText(/branches between Scenes/)
-  await lights(page, page.locator('.panel form.adding'))
-  const adding = page.getByLabel('An Exit from here')
+  await lights(page, written(page, 'The arrival').locator('form.adding'))
+  const adding = page.getByLabel('An Exit from here The arrival')
   await adding.fill('The platform')
   await adding.press('Enter')
 
@@ -225,12 +248,12 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   // back in the panel. The light is on the whole list rather than on a field of
   // it, because a Flag is the row it is added as.
   await expect(bubble(page)).toContainText(/State is what one Reading carries/)
-  await writeScene(page, 'The arrival')
-  // The Flags stand behind a tab, so the Author presses it before the light has a
-  // rectangle to sit on. The path itself gained no Step naming the tab — the
-  // sentence is the same one either way, and until the tab is pressed the bubble
-  // carries it adrift rather than pointing at nothing.
-  await lights(page, page.locator('.panel .flags'))
+  await caretIn(page, 'The arrival')
+  // The light is on the Flags of the Scene the caret is in, and on no other
+  // Scene's: the document holds forty of these lists on a Story of forty Scenes,
+  // so what a Step points at is scoped to the Scene it is about — see
+  // `docs/adr/0043-a-story-is-written-as-one-document.md`.
+  await lights(page, written(page, 'The arrival').locator('.flags'))
   await page.getByRole('button', { name: 'Add a Flag to The arrival' }).click()
   await page.getByLabel('Name of Flag 1 set on entering The arrival').fill('courage')
   const value = page.getByLabel('Value 1 of Flag 1 set on entering The arrival')
@@ -242,13 +265,13 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   // the Shot in the panel and the panel holds whichever Scene the Author put
   // there.
   await expect(bubble(page)).toContainText(/A Condition makes the same Scene play differently/)
-  await writeScene(page, 'The platform')
+  await caretIn(page, 'The platform')
   await page.getByRole('button', { name: 'Add a Shot to The platform' }).click()
 
   // The light is on the Conditions of the Shot in the panel, which is the one the
   // sentence just asked for.
   const carrier = 'Shot 1 of The platform'
-  await lights(page, page.locator('.panel .conditions').first())
+  await lights(page, written(page, 'The platform').locator('.conditions').first())
   await page.getByRole('button', { name: `Add a Condition to ${carrier}` }).click()
 
   // Written against a value the Flag does not hold, which is what the sentence
@@ -335,7 +358,7 @@ test('the light follows its target as the document grows above it', async ({
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The arrival')
 
-  const adding = page.locator('.panel form.adding')
+  const adding = written(page, 'The arrival').locator('form.adding')
   await expect(bubble(page)).toContainText(/An Exit is the way on/)
   await lights(page, adding)
 

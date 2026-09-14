@@ -30,6 +30,13 @@ import { live, sceneNode, seedExit, seedScenes, test } from './author'
  * more controls as the Story grows, so what it is measured on is a Story that
  * holds together at both sizes.
  *
+ * The chain closes on itself — the last Scene leads back to the first — so that
+ * every Scene of it is the same shape: one Exit leaving, one arriving, one beat.
+ * With a loose end the last Scene of a Story of three carries no way on at all
+ * while the third Scene of a Story of forty does, and the two counts would then
+ * differ by the Story's ragged edge rather than by the layout, which is the thing
+ * under test.
+ *
  * The Opening Scene is marked through its own route, because a Scene seeded past
  * the API never becomes one.
  */
@@ -41,8 +48,8 @@ async function chained(request: APIRequestContext, many: number) {
   const scenes = await seedScenes(story,
     Array.from({ length: many }, (_, place) => `Scene ${place + 1}`))
 
-  for (const [place, scene] of scenes.slice(0, -1).entries()) {
-    await seedExit(scene.id, scenes[place + 1]!.id)
+  for (const [place, scene] of scenes.entries()) {
+    await seedExit(scene.id, scenes[(place + 1) % many]!.id)
   }
   expect((await request.post(`/api/scenes/${scenes[0]!.id}/opening`)).ok()).toBeTruthy()
 
@@ -163,23 +170,39 @@ test('offers no more controls on a Story of forty Scenes than on one of three',
   async ({ page, request }) => {
     // The claim the whole record stands on, and the one number it was written
     // against: ninety-two controls, measured on the gate this replaces.
+    //
+    // It is a sharper claim since #252 than it was before it. Until then every
+    // Scene of the document but one was read, and reading takes no controls, so
+    // what the count proved was that thirty-nine read Scenes cost nothing. Now
+    // every Scene of the document is written where it stands and carries a full
+    // set of its own marks, and what holds the number down is the window: a
+    // control is counted where its box meets the viewport, and a document is as
+    // tall as the Story however many Scenes are in it. Three Scenes fill the
+    // window and so do forty.
     await page.setViewportSize({ width: 1440, height: 900 })
 
     const small = await chained(request, 3)
     await page.goto(`/stories/${small.story.id}`)
     await live(page)
-    await expect(page.locator('.panel')).toBeVisible()
+    await expect(page.locator('.writing')).toBeVisible()
     const few = await controlsOnScreen(page)
     const inTheDocument = await controlsOnScreen(page, '.writing')
-    const written = await controlsOnScreen(page, '.panel')
 
     const large = await chained(request, 40)
     await page.goto(`/stories/${large.story.id}`)
     await live(page)
-    await expect(page.locator('.panel')).toBeVisible()
+    await expect(page.locator('.writing')).toBeVisible()
     await expect(page.locator('.rail .mark')).toHaveCount(40)
     const many = await controlsOnScreen(page)
     const alsoInTheDocument = await controlsOnScreen(page, '.writing')
+
+    // Said out loud into the run's own log, which is the one place a green run
+    // leaves anything behind: `0043` asks for the number and not only for the
+    // comparison — ninety-two is what it is answering — and a number that is only
+    // ever compared is a number nobody can quote.
+    console.log(`controls on screen at 1440 — three Scenes: ${few} on the page, `
+      + `${inTheDocument} in the document; forty Scenes: ${many} on the page, `
+      + `${alsoInTheDocument} in the document`)
 
     // The Story really did grow, and the screen really did not.
     expect(few).toBeGreaterThan(0)
@@ -191,17 +214,13 @@ test('offers no more controls on a Story of forty Scenes than on one of three',
     // the Remarks are sentences about what is still to do, which a Story held
     // together at both sizes has none of either way. What the layout promises is
     // narrower and is the whole of the claim — that a Scene added to the document
-    // adds no control to the bench — so it is measured where it is made. Every
-    // Scene but the one the caret is in is read, and reading takes no controls;
-    // the writing surface is the one section that has any, and #252 is where the
-    // rest of the document becomes writable in its turn.
-    expect(written).toBe(inTheDocument)
-    expect(inTheDocument).toBe(alsoInTheDocument)
+    // adds no control to the bench — so it is measured where it is made.
+    expect(alsoInTheDocument).toBeLessThanOrEqual(inTheDocument)
   })
 
 test('keeps the rail out of the accessibility tree and out of the tab order',
   async ({ page, request }) => {
-    const { story } = await chained(request, 10)
+    const { story, scenes } = await chained(request, 10)
 
     await page.goto(`/stories/${story.id}`)
     await live(page)
@@ -233,7 +252,7 @@ test('keeps the rail out of the accessibility tree and out of the tab order',
     await page.getByRole('textbox', { name: 'Type a name' }).fill('Go to Scene 7')
     await page.getByRole('button', { name: 'Go to Scene 7' }).click()
     await expect(page).toHaveURL(/scene=/)
-    await expect(page.getByRole('group', { name: 'Writing Scene 7' })).toBeVisible()
+    await expect(page.locator('.rail .here')).toHaveAttribute('data-scene', scenes[6]!.id)
   })
 
 test('scrolls the document to the Scene the address names', async ({ page, request }) => {
@@ -258,9 +277,9 @@ test('scrolls the document to the Scene the address names', async ({ page, reque
   expect(at.y).toBeGreaterThanOrEqual(showing.y)
   expect(at.y).toBeLessThan(showing.y + showing.height)
 
-  // And the Scene it wound to is the one being written, with its mark lit on the
+  // And the Scene it wound to is the one the caret is in, with its mark lit on the
   // rail: one notion of where the Author is, said in both places.
-  await expect(page.getByRole('group', { name: `Writing ${eighth.name}` })).toBeVisible()
+  await expect(section.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
   await expect(page.locator('.rail .here')).toHaveAttribute('data-scene', eighth.id)
 })
 
@@ -279,7 +298,7 @@ test('winds the document back to the Scene the caret is already in', async ({ pa
   // move because nothing about which Scene that is has changed.
   await scroller.evaluate(one => one.scrollTo({ top: 0, behavior: 'instant' }))
   await expect.poll(() => scroller.evaluate(one => one.scrollTop)).toBe(0)
-  await expect(page.getByRole('group', { name: `Writing ${eighth.name}` })).toBeAttached()
+  await expect(page.locator('.rail .here')).toHaveAttribute('data-scene', eighth.id)
 
   // So asking for that Scene again is asking to be taken back to it, which is the
   // whole of what *Go to* can still mean there. An act with nothing left to do is
@@ -314,6 +333,6 @@ test('opens a Story whose address names a Scene that is gone where a Reading wou
 
     // The Opening Scene, which is where a Reading starts. The stale address is not
     // an error and says nothing: the Story opens, and the Author carries on.
-    await expect(page.getByRole('group', { name: 'Writing Scene 1' })).toBeVisible()
+    await expect(page.locator('.rail .here')).toHaveAttribute('data-scene', scenes[0]!.id)
     await expect(page.locator('.writing .scene')).toHaveCount(2)
   })

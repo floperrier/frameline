@@ -6,7 +6,6 @@ import {
   ONE_PIXEL,
   sceneNode,
   writeScene,
-  writeShot,
   readExits,
   readFlags,
   readSceneName,
@@ -18,6 +17,11 @@ import {
   test,
   toast,
 } from './author'
+
+/** One Scene's own section of the document, which is where that Scene is written. */
+function written(page: Page, scene: string) {
+  return page.getByRole('group', { name: `Writing ${scene}` })
+}
 
 /** Draws an Exit between the two Scenes of a graph, past the gesture that draws one. */
 async function drawExit(request: APIRequestContext, fromSceneId: string, toSceneId: string) {
@@ -445,11 +449,11 @@ test('an Author orders the ways on from the page alone', async ({ page, request 
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The platform')
 
-  // In the strip beside the Scene, which is not the only place a way on is
+  // At the foot of the Scene the ways on leave, which is not the only place one is
   // renumbered any more: the reading offers the same pair of controls on the
   // choice buttons as they are read — see
   // `docs/adr/0030-a-story-is-read-where-it-is-written.md`.
-  const ways = page.locator('.panel .ways')
+  const ways = written(page, 'The platform').locator('.ways')
 
   await ways.getByRole('button', { name: 'Move Earlier the Exit 2 to The tunnel' }).click()
   await expect(async () => {
@@ -494,8 +498,9 @@ test('a way on’s four controls are marks, as a Shot’s are', async ({ page, r
   // or a sentence, and nothing else would notice them going back.
   const control = (await earlier.boundingBox())!
   expect(control.width).toBeLessThan(control.height * 2)
-  const strip = (await page.locator('.panel .ways .written .row').first().boundingBox())!
-  expect(strip.height).toBeLessThan(control.height * 2)
+  const row = (await written(page, 'The platform')
+    .locator('.ways .written .row').first().boundingBox())!
+  expect(row.height).toBeLessThan(control.height * 2)
 })
 
 test('an Exit is reached, written and taken away without a pointer',
@@ -717,7 +722,7 @@ test('the mark that ends a Flag stands beside it at the width of a phone',
     // The sentence has wrapped at this width — that is the case being held, not an
     // incidental — and the mark still shares its lines rather than falling under
     // them.
-    const row = page.locator('.panel .flags .sets').first()
+    const row = written(page, 'The arrival').locator('.flags .sets').first()
     const sentence = (await row.locator('> .sentence').boundingBox())!
     const field = (await page.getByLabel(`Value 1 of ${called}`).boundingBox())!
     expect(sentence.height).toBeGreaterThan(field.height * 1.5)
@@ -832,7 +837,8 @@ test('a second way on to the same Scene is written by duplicating the first',
      * Conditions are written: beside the Scene the two ways on leave, and told
      * apart by the Place each carries.
      */
-    const wayOnAt = (place: number) => page.locator('.panel .ways > ol > li').nth(place - 1)
+    const wayOnAt = (place: number) =>
+      written(page, 'The arrival').locator('.ways > ol > li').nth(place - 1)
 
     await expect(wayOnAt(2).locator('> .numbered')).toHaveText('2')
 
@@ -918,8 +924,11 @@ test('a way on is written by naming where it leads, and a name nothing answers t
 
     // The field at the foot of the ways on offers the Scenes a way on out of here
     // may land on — never the Scene it leaves — and takes any name at all.
-    const adding = page.getByLabel('An Exit from here')
-    const offered = () => page.locator('.adding datalist option')
+    // Named for the Scene it leaves as well as for what it does: the document
+    // holds one of these at the foot of every Scene, so the label says which foot.
+    const arrivalSection = page.getByRole('group', { name: 'Writing The arrival' })
+    const adding = arrivalSection.getByLabel('An Exit from here The arrival')
+    const offered = () => arrivalSection.locator('.adding datalist option')
       .evaluateAll(options => options.map(option => (option as HTMLOptionElement).value))
     await expect.poll(offered).toEqual(['The platform', 'The bar'])
 
@@ -1059,16 +1068,15 @@ test('a Scene is split before one of its Shots, and its ways on move to the seco
 
     await page.goto(`/stories/${story.id}`)
     // The first beat has nothing before it to be split from, so the mark is not
-    // drawn beside it; the second is put in the gate, where the mark acts.
+    // drawn beside it; every beat after it carries its own, on its own row.
     await expect(page.getByRole('button', { name: 'Split the Scene before Shot 1' })).toHaveCount(0)
-    await writeShot(page, 2)
     await page.getByRole('button', { name: 'Split the Scene before Shot 2' }).click()
     await expect(toast(page))
       .toHaveText('“The arrival” split: what followed is now “The arrival, continued”')
 
     // The second half opens for writing under a provisional name made of the
     // first's, selected so the first thing typed replaces it.
-    const naming = page.getByLabel('Name of this Scene')
+    const naming = written(page, 'The arrival, continued').getByLabel('Name of this Scene')
     await expect(naming).toBeFocused()
     await expect(naming).toHaveValue('The arrival, continued')
 

@@ -20,7 +20,7 @@
  * The list is edited in place, on the Story the page fetched, and written whole
  * on every change: what the endpoint takes is the list, not a row of it.
  */
-const { carrier, conditions, scenes, counting, id } = defineProps<{
+const { carrier, conditions, scenes, counting, id, named = true } = defineProps<{
   /** The visible words the list opens on: "Offered when", "Played when". */
   lead: string
   /** What carries the list, as a label ends it: "the Exit to The House", "Shot 3". */
@@ -33,6 +33,14 @@ const { carrier, conditions, scenes, counting, id } = defineProps<{
   counting: string
   /** The id of the Exit or Shot carrying the list, which every field's own id is built from. */
   id: string
+  /**
+   * Whether the act of adding one carries its name into the bar of Commands. The
+   * document holds every Scene of the Story, and a Story of forty Scenes draws one
+   * of these lists per Shot and per way on of every one of them: the mark is drawn
+   * on every row and named in the Scene the caret stands in — see
+   * `docs/adr/0043-a-story-is-written-as-one-document.md`.
+   */
+  named?: boolean
 }>()
 
 /** Written whenever a row changes, and left to the page to send. */
@@ -247,7 +255,7 @@ function conditionCalled(place: number) {
       v-if="conditions.length < CONDITIONS_MAX"
       type="button"
       class="mark add"
-      :data-command="addNamed"
+      :data-command="named ? addNamed : undefined"
       @click="add"
     >
       {{ $t('conditions.add') }}
