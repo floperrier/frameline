@@ -858,6 +858,47 @@ test('a refusal takes its own room under the slate, covering nothing and moving 
     expect((await refused.boundingBox())!.y).toBeGreaterThanOrEqual(over.y + over.height)
   })
 
+test('a refusal at the foot of a long Scene is read without leaving the foot of it',
+  async ({ page, request }) => {
+    await page.setViewportSize({ width: 1280, height: 720 })
+    const { story, scenes } = await chained(request, ['The arrival', 'The platform', 'The bar'])
+    const [arrival, platform] = scenes
+    // A second way on, so the first has somewhere to be moved to, under a run of
+    // twenty beats: the ways out are the last part of a Scene's section, and this
+    // is what puts them two thousand pixels below the slate the sentence hangs on.
+    await request.post(`/api/scenes/${platform!.id}/exits`, { data: { toSceneId: arrival!.id } })
+    await writeShots(
+      request, platform!.id, Array.from({ length: 20 }, (_, beat) => `Beat ${beat + 1}.`))
+
+    await page.goto(`/stories/${story.id}`)
+
+    // The Author is at the foot of the Scene, which is where the act is: the
+    // window holds the ways on and nothing of the slate above them.
+    const says = page.getByRole('textbox', { name: 'What the Exit 1 out of The platform says' })
+    await says.click()
+    const section = sectionOf(page, platform!.id)
+    await expect(section.locator('.slate')).not.toBeInViewport()
+
+    // The ordinary worst case, and the one with the most to read: the session has
+    // expired, so the sentence carries the way back in beside it.
+    await page.route(`**/api/scenes/${platform!.id}/exits/places`, route => route.fulfill({
+      status: 401,
+      json: { message: 'Please sign in again.' },
+    }))
+    await section
+      .getByRole('button', { name: 'Move Later the Exit 1 to The bar, out of The platform' })
+      .click()
+
+    // Said where the hands are. Held to the flow at the foot of the slate and
+    // nothing else, this landed at y = −2374 on a window 720 tall: the whole of
+    // what the screen showed was the list of Exits going from two to one.
+    const refused = section.getByRole('alert')
+    await expect(refused).toContainText('Please sign in again.')
+    // Whole, and not a sliver of it: the door is inside the sentence.
+    await expect(refused).toBeInViewport({ ratio: 1 })
+    expect((await refused.boundingBox())!.y).toBeGreaterThanOrEqual(0)
+  })
+
 test('an Author writes a Story from the page alone', async ({ page, request }) => {
   const story = await (await request.post('/api/stories', { data: { title: 'A Story' } })).json()
   await page.goto(`/stories/${story.id}`)

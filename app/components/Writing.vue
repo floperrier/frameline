@@ -711,12 +711,10 @@ function writeConditions(
            slate of the Scene it is about: beside the name, which is what the
            commonest refusal on a Scene — *A Scene needs a name.* — is about, and
            under it rather than over it, so the field the Author goes back to
-           correct is neither covered nor taken away from the pointer. It holds its
-           own room and is laid over nothing. What that costs is a push on what
-           stands below it, which the browser's scroll anchoring absorbs wherever
-           there is scroller above to absorb it; `tests/e2e/scenes-signed-in.spec.ts`
-           drives both halves — what the sentence covers, and what it moves. -->
-      <Refusal v-if="refusedIn === held.scene.id" :problem="problem" />
+           correct is neither covered nor taken away from the pointer. It keeps its
+           own room and it follows the head of the scroller, which are not the two
+           halves of a choice: `.refused` says how. -->
+      <Refusal v-if="refusedIn === held.scene.id" class="refused" :problem="problem" />
 
       <!-- The Flags the Scene sets, at the head of its section where they happen:
            set on entry, before the first Shot plays. On one line with its heading
@@ -1154,6 +1152,31 @@ function writeConditions(
   /* The address names a Scene and the document is scrolled to it, so a Scene
      arrives under the head of the scroller rather than jammed against it. */
   scroll-margin-block-start: var(--s4);
+}
+
+/* The sentence a refusal is said in, at the foot of the slate of the Scene it is
+   about — and in the flow and on the scroller both, which the two rounds before
+   this one took for a choice. It keeps its own height, so it stands in the column
+   like any other line and covers nothing: the name, the mark that moves where the
+   Story opens and the act that takes the Scene away are all still under the
+   pointer. And it sticks to the head of the scroller for as long as any part of
+   its Scene is on screen, so an Exit refused twenty beats below the slate is
+   answered where the Author is looking rather than two thousand pixels above the
+   window. The travel is the Scene's own: `position: sticky` is held to the
+   containing block, which is the section, so the sentence lets go at the foot of
+   the Scene it is about and never rides into the next one.
+
+   What it costs is a push on what stands below it as it arrives, which the
+   browser's scroll anchoring absorbs wherever there is scroller above to absorb
+   it. `tests/e2e/scenes-signed-in.spec.ts` drives all three — what the sentence
+   covers, what it moves, and that it is on screen from the foot of a long Scene. */
+.refused {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  /* Opaque, because while it is stuck the writing runs under it rather than
+     beside it. */
+  background: color-mix(in oklab, var(--alarm) 12%, var(--bench));
 }
 
 /* The slate: the Scene's name, whether the Story opens on it, what arrives at it
