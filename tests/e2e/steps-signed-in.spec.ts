@@ -266,7 +266,14 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   // there.
   await expect(bubble(page)).toContainText(/A Condition makes the same Scene play differently/)
   await caretIn(page, 'The platform')
-  await page.getByRole('button', { name: 'Add a Shot to The platform' }).click()
+  // Reached from the keyboard rather than pressed with a pointer. The guidance is
+  // adrift at this moment — the Scene has no Shot yet, so the Step's own target
+  // has no rectangle — and an adrift bubble is a fixed panel in the corner of the
+  // window, which is over the foot of the document. Tab reaches the control either
+  // way, which is the rule `0033` set for every key on this surface.
+  const adds = written(page, 'The platform').getByRole('button', { name: 'Add a Shot' })
+  await adds.focus()
+  await page.keyboard.press('Enter')
 
   // The light is on the Conditions of the Shot in the panel, which is the one the
   // sentence just asked for.

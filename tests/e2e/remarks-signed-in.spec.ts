@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test'
 import type { APIRequestContext, Page } from '@playwright/test'
 import {
-  readTheStory, seedExit, seedFlags, seedScene, seedStory, test, writeScene,
+  readTheStory, sceneNode, seedExit, seedFlags, seedScene, seedStory, test,
 } from './author'
 
 /**
@@ -87,7 +87,12 @@ test('counts what it finds, and opens the Scene a Remark names', async ({ page, 
   // saying any of them — see
   // `docs/adr/0043-a-story-is-written-as-one-document.md`.
   await page.goto(`/stories/${story.id}`)
-  await writeScene(page, 'The platform')
+  // By the rail's own mark, which is what moves the caret now: every Scene of the
+  // document is written where it stands, so there is nothing to open — see
+  // `docs/adr/0043-a-story-is-written-as-one-document.md`.
+  const platformMark = sceneNode(page, 'The platform')
+  await platformMark.click()
+  await expect(platformMark).toHaveClass(/here/)
   await expect(found(page)).toContainText('3')
 
   await openRemarks(page)
@@ -98,7 +103,7 @@ test('counts what it finds, and opens the Scene a Remark names', async ({ page, 
   // surface, which is where the Author answers it.
   await found(page).getByRole('button', { name: /sets the Flag coat/ }).click()
   await expect(page).toHaveURL(new RegExp(`scene=${arrival.id}`))
-  await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
+  await expect(sceneNode(page, 'The arrival')).toHaveClass(/here/)
 
   // And the Scene the caret is in keeps its own sentence here, as every Scene does.
   await openRemarks(page)

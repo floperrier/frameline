@@ -57,7 +57,8 @@ test.describe('an interface read in French', () => {
     // The words of the craft, on the Scene the Story opens on: a Shot is a Plan
     // and a Flag is a Marqueur, as `CONTEXT.md` says they are shown.
     await expect(page.getByRole('group', { name: 'Écriture de The street' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Ajouter un Plan' })).toBeVisible()
+    await expect(page.getByRole('group', { name: 'Écriture de The street' })
+      .getByRole('button', { name: 'Ajouter un Plan' })).toBeVisible()
 
     // The three tabs a Scene stands behind are the same three words, and the
     // Marqueurs are read behind theirs.

@@ -24,6 +24,17 @@ function written(page: Page, scene: string) {
   return page.getByRole('group', { name: `Writing ${scene}` })
 }
 
+/**
+ * The same section, found by the Scene's own id. Which one to reach for is not a
+ * preference: a Scene's section is named by the Scene, and the name is a field
+ * typed in place, so a test that changes the name has its locator go out from
+ * under it on the first keystroke. Where the name is what is being written, the
+ * id is what the section answers to.
+ */
+function sectionOf(page: Page, sceneId: string) {
+  return page.locator(`.writing [data-scene="${sceneId}"]`)
+}
+
 /** A Story with one Scene in it, which is where every test below starts. */
 async function openScene(request: APIRequestContext, name = 'A Scene') {
   const story = await (await request.post('/api/stories', { data: { title: 'A Story' } })).json()
@@ -447,7 +458,7 @@ test('every Scene of the document is written where it stands', async ({ page, re
   // forty Scenes is forty writable Scenes and no gate to move between them. See
   // `docs/adr/0043-a-story-is-written-as-one-document.md`.
   await expect(written(page, 'The arrival')).toBeVisible()
-  const named = written(page, 'The bar').getByRole('textbox', { name: 'Name of this Scene' })
+  const named = sectionOf(page, bar!.id).getByRole('textbox', { name: 'Name of this Scene' })
   await named.fill('The late bar')
   await named.blur()
   await expect.poll(() => readSceneName(bar!.id)).toBe('The late bar')
@@ -527,7 +538,8 @@ test('a Scene written at the foot of another leaves the document where it was',
   })
 
 test('a refusal is said against the Scene it is about', async ({ page, request }) => {
-  const { story } = await chained(request, ['The arrival', 'The platform'])
+  const { story, scenes } = await chained(request, ['The arrival', 'The platform'])
+  const [arrival, platform] = scenes
 
   await page.goto(`/stories/${story.id}`)
 
@@ -536,13 +548,14 @@ test('a refusal is said against the Scene it is about', async ({ page, request }
   // caret happens to stand. See
   // `docs/adr/0016-the-door-is-reopened-beside-the-bench.md`, whose rule is that
   // the work being written survives the refusal.
-  const named = written(page, 'The platform').getByRole('textbox', { name: 'Name of this Scene' })
+  const named = sectionOf(page, platform!.id)
+    .getByRole('textbox', { name: 'Name of this Scene' })
   await named.fill('  ')
   await named.blur()
 
-  const refused = written(page, 'The platform').getByRole('alert')
+  const refused = sectionOf(page, platform!.id).getByRole('alert')
   await expect(refused).toHaveText('A Scene needs a name.')
-  await expect(written(page, 'The arrival').getByRole('alert')).toHaveCount(0)
+  await expect(sectionOf(page, arrival!.id).getByRole('alert')).toHaveCount(0)
 })
 
 test('an Author writes a Story from the page alone', async ({ page, request }) => {

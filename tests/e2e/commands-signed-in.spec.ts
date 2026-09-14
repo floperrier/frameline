@@ -31,6 +31,16 @@ function naming(page: Page, scene: string) {
     .getByRole('textbox', { name: 'Name of this Scene' })
 }
 
+/**
+ * Where the caret ended up. *Go to* winds the document to a Scene rather than
+ * opening one — there is nothing to open — so what says the act ran is the mark
+ * the rail lights and the address under it, and not a field taking focus. See
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ */
+async function caretIn(page: Page, scene: string) {
+  await expect(sceneNode(page, scene)).toHaveClass(/here/)
+}
+
 /** The field the bar is typed into, which is the bar's own accessible name. */
 function typing(page: Page) {
   return page.getByRole('textbox', { name: 'Type a name' })
@@ -124,9 +134,8 @@ test('an Author goes to a Scene by naming it, accents or none', async ({ page, r
   await expect(offered(page)).toHaveText(['Go to Le café'])
   await offered(page).click()
 
-  // The caret is in that Scene, at the head of its section of the document, and
-  // the bar has gone.
-  await expect(naming(page, 'Le café')).toBeFocused()
+  // The caret is in that Scene, and the bar has gone.
+  await caretIn(page, 'Le café')
   await expect(page.locator('dialog.commands')).toBeHidden()
 })
 
@@ -162,7 +171,7 @@ test('the bar opens and closes on the key, and Enter runs the first Command', as
   await typing(page).fill('Le café')
   await typing(page).press('Enter')
 
-  await expect(naming(page, 'Le café')).toBeFocused()
+  await caretIn(page, 'Le café')
 })
 
 test('the keyboard walks the Commands the typed name reaches', async ({ page, request }) => {
@@ -194,7 +203,7 @@ test('the keyboard walks the Commands the typed name reaches', async ({ page, re
   await typing(page).press('ArrowDown')
   await page.keyboard.press('ArrowDown')
   await page.keyboard.press('Enter')
-  await expect(naming(page, second)).toBeFocused()
+  await caretIn(page, second)
 })
 
 test('a name nothing answers to is offered as a Scene to write', async ({ page, request }) => {
@@ -474,7 +483,7 @@ test('the bar reaches every act of the bench at the width of a phone', async ({ 
   await typing(page).fill('Go to The bar')
   await expect(offered(page)).toHaveText(['Go to The bar'])
   await offered(page).click()
-  await expect(naming(page, 'The bar')).toBeFocused()
+  await caretIn(page, 'The bar')
 
   // And Publish, which is drawn in the header.
   await openByKey(page)

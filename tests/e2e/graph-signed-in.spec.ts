@@ -23,6 +23,20 @@ function written(page: Page, scene: string) {
   return page.getByRole('group', { name: `Writing ${scene}` })
 }
 
+/**
+ * Puts the caret in one Scene, by pressing its mark on the rail. `writeScene` no
+ * longer moves it: every Scene of the document is written where it stands, so the
+ * surface that helper waits for is up for every Scene at once. What still follows
+ * the caret is the address and the mark the rail lights — see
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ */
+async function caretIn(page: Page, scene: string) {
+  const mark = sceneNode(page, scene)
+  await expect(mark).toBeVisible()
+  await mark.click()
+  await expect(mark).toHaveClass(/here/)
+}
+
 /** Draws an Exit between the two Scenes of a graph, past the gesture that draws one. */
 async function drawExit(request: APIRequestContext, fromSceneId: string, toSceneId: string) {
   const drawn = await request.post(`/api/scenes/${fromSceneId}/exits`, { data: { toSceneId } })
@@ -285,7 +299,7 @@ test('a Scene being written has an address, and a stale one is not an error', as
   // A node pressed on the Graph puts its Scene in the address, and replaces the
   // entry rather than adding one: the browser's back leaves the Story rather
   // than walking the Author node by node through everything they opened.
-  await writeScene(page, 'The platform')
+  await caretIn(page, 'The platform')
   await expect(page).toHaveURL(new RegExp(`scene=${scenes[1]!.id}$`))
 
   // What the address carries survives a reload, which is what makes a link to a
@@ -1141,6 +1155,6 @@ test('winds the document onto the Scene the address names',
       // the writing surface in it — the Scene the address names is the Scene the
       // caret is in.
       await expect(section).toBeInViewport()
-      await expect(section.getByRole('group', { name: `Writing ${last.name}` })).toBeVisible()
+      await expect(section).toHaveAttribute('aria-label', `Writing ${last.name}`)
     }
   })
