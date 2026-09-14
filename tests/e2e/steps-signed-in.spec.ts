@@ -248,16 +248,13 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   // there.
   await expect(bubble(page)).toContainText(/A Condition makes the same Scene play differently/)
   await writeScene(page, 'The platform')
-  // Reached from the keyboard, because the pointer cannot get at it. The guidance
-  // is adrift at this moment — the Scene holds no Shot, so the Step's own target
-  // has no rectangle — and an adrift bubble is a fixed panel in the corner of the
-  // window, sitting over the foot of the document and over this control with it.
-  // That overlap is the guided path's to answer for and is issue #257's, which
-  // re-anchors every Step to the document; the key reaches the control either way,
-  // which is the rule `0033` set for every key on this surface.
-  const adds = written(page, 'The platform').getByRole('button', { name: 'Add a Shot' })
-  await adds.focus()
-  await page.keyboard.press('Enter')
+  // Pressed by hand, under the guidance itself. The bubble is adrift at this
+  // moment — the Scene holds no Shot, so the Step's own target has no rectangle —
+  // and an adrift bubble is a fixed panel in the corner of the window, standing
+  // over the foot of the document and over this control with it. It takes no
+  // pointer, so the control under it is pressed through it; where it should be
+  // anchored rather than adrift is still issue #257's.
+  await written(page, 'The platform').getByRole('button', { name: 'Add a Shot' }).click()
 
   // The light is on the Conditions of the Shot in the panel, which is the one the
   // sentence just asked for.

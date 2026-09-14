@@ -186,10 +186,21 @@ const wide = { inlineSize: `min(${BUBBLE_WIDTH}px, calc(100vw - 2 * var(--s4)))`
   box-shadow: var(--lifted);
 }
 
-/* Pointing at nothing: the same sentence, put where it can always be read. */
+/* Pointing at nothing: the same sentence, put where it can always be read. It
+   takes no pointer there, for the reason the spotlight takes none: the corner it
+   stands in is where the document ends, and on the bench that is a Scene's own
+   last controls — a panel over them would be guidance that made the thing it is
+   guiding unreachable. Its own control takes the pointer back, so the sentence can
+   still be waved away by hand. Where the bubble should be anchored instead of
+   adrift is issue #257's. */
 .bubble.adrift {
   inset-block-end: var(--s4);
   inset-inline-start: var(--s4);
+  pointer-events: none;
+}
+
+.bubble.adrift button {
+  pointer-events: auto;
 }
 
 .asked {
