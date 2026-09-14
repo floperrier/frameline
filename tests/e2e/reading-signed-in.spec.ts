@@ -124,8 +124,8 @@ test('a Reader who finishes a Story is led on to its Author and to the Catalogue
   await expect(reading.getByRole('link', { name: 'Frameline' }))
     .toHaveAttribute('href', '/catalogue')
 
-  // Nothing that leads away is drawn in the reel: the work is not interrupted,
-  // and a Reader still reading is offered the Story and nothing beside it.
+  // Nothing that leads away is drawn in the reel: what the frame offers is the
+  // Story and nothing beside it, and everything else waits under the Exits.
   await expect(reading.locator('.reading').getByRole('link')).toHaveCount(0)
 
   // Signed as an entry on a shelf is, and the Name is the way to the Author.

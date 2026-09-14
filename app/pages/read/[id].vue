@@ -71,10 +71,12 @@ if (error.value) throw createError({ ...error.value, fatal: true })
          because a Preview is the same component and an Author testing their own
          Story is not somebody to send to the Catalogue. Under the reel and under
          the way back to its start, so nothing stands between a frame and the
-         ways out of it: a Reader is led on once the work has finished with them,
-         which is also the moment they are likeliest to want another. Offered to
-         whoever turns up — finding something to read needs an account no more
-         than reading does. -->
+         ways out of it. In the document from the first Shot, as the Comments
+         under it are: a Story is signed where it is named and not where it ends,
+         and the way on is the one the wordmark already offers overhead, so
+         holding it back until the path runs out would hide a signature without
+         closing a door. Offered to whoever turns up — finding something to read
+         needs an account no more than reading does. -->
     <p v-if="story" class="onward">
       <!-- The Name leads to the Author, as it does from an entry on a shelf: one
            page, two ways out of it. An Author who has never written a Name signs
@@ -149,8 +151,8 @@ h1 {
 
 /* Held to the column the Reading and the Comments are held to, so the page reads
    as one strip of film and not three. At the leading edge, under the way back to
-   the start rather than beside it, because a credit is read after the work and
-   not offered during it. */
+   the start rather than beside it, so the ways out of a frame keep the line they
+   are read on to themselves. */
 .onward {
   display: flex;
   flex-wrap: wrap;
