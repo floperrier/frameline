@@ -247,7 +247,7 @@
     "noOpeningScene": "This Story has no opening Scene, so there is nothing to read yet. Mark the Scene it opens on.",
     "bench": "On the bench",
     "benchNote": "nobody reading this sees it",
-    "waysOnHidden": "Ways on this Reading is not offered",
+    "exitsHidden": "Exits this Reading is not offered",
     "shotsSkipped": "Shots this Reading is not played",
     "skippedShot": "Shot {place} · {text}",
     "nothingWritten": "nothing written yet",
