@@ -110,6 +110,12 @@ onMounted(() => {
  * what has just arrived. At the end of the Story there is neither a Shot nor a
  * way on, and the press that got there took its own button away, so the one
  * control left — reading again from the start — takes the focus it held.
+ *
+ * Starting over is the one move that can land on nothing: it puts the Reading
+ * back where reading again is not offered, so a Story whose Opening Scene plays
+ * no Shot and offers no way on has no control to hand the keyboard to and none
+ * is invented. Focus goes to the document because on that screen there is
+ * nothing to put it on.
  */
 const frame = useTemplateRef<HTMLElement>('frame')
 const exits = useTemplateRef<HTMLElement>('exits')
@@ -269,7 +275,14 @@ function offered(exit: Exit) {
          sentence inside it. -->
     <p class="ended trail" role="status">{{ shown.ended ? $t('reading.ended') : '' }}</p>
 
-    <p class="again">
+    <!-- Offered once the Reading has moved and not before: on the first beat of
+         the Opening Scene there is nothing to read again, and the press would
+         draw a new seed and throw the same frame the Reader is already looking
+         at. It is a stop the keyboard is spared too, on the one screen whose
+         whole tab order is otherwise the next beat — and the Author who does
+         want that frame drawn again has the reroll on the bench, which is a
+         control of the Preview rather than one of the Reading. -->
+    <p v-if="moved(at)" class="again">
       <button ref="again" type="button" class="trail" @click="moveTo(opening())">
         {{ $t('reading.again') }}
       </button>

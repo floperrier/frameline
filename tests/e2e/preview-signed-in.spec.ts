@@ -310,6 +310,94 @@ test('the reading is read by keyboard, and focus goes with each beat',
     expect(await holds(preview.locator('.frame'))).toBe(true)
   })
 
+test('reading again is offered only once the Reading has moved',
+  async ({ page, request }) => {
+    const story = await writeStory(request)
+    const { scenes } = await scenesOf(request, story.id)
+    const street = scenes[0]!
+
+    // The street draws its weather, which is the whole of what the bench's one
+    // control changes — and the only way an Author redraws the opening frame now
+    // that the reading itself does not offer one.
+    await request.put(`/api/scenes/${street.id}/flags`, {
+      data: { sets: { weather: ['rain', 'sun'] } },
+    })
+
+    const preview = await writing(page, story.id, street.id)
+    const bench = benchIn(page)
+    const again = preview.getByRole('button', { name: 'Read Again from the Start' })
+    const next = preview.getByRole('button', { name: 'Next Shot' })
+
+    // Nothing has been read, so there is nothing to read again and the offer is
+    // out of the document rather than sitting under the first frame drawing it
+    // over. Out of the tab order with it: the beat the Reader lands on leads to
+    // the one control the Reading has, and from there straight out to the bench.
+    await expect(preview.getByText('A door opens.')).toBeVisible()
+    await expect(again).toHaveCount(0)
+    await next.focus()
+    await page.keyboard.press('Tab')
+    await expect(bench.getByRole('button', { name: 'Draw Again' })).toBeFocused()
+
+    // The draw an Author wanted the first frame redrawn for still redraws it,
+    // with the offer absent: a reroll is another seed and not a move, so what it
+    // leaves behind is the same first beat and the same tab order.
+    const drawn = async () =>
+      ((await bench.getByText(/weather = /).innerText()).match(/rain|sun/) ?? [])[0]
+    const first = await drawn()
+    await expect.poll(async () => {
+      await bench.getByRole('button', { name: 'Draw Again' }).click()
+      return await drawn()
+    }).not.toBe(first)
+    await expect(preview.getByText('Shot 1 of 2')).toBeVisible()
+    await expect(again).toBeHidden()
+
+    // One press, and there is a Reading to go back to the start of: the offer
+    // arrives, and arrives after the control that is still the next thing to do,
+    // so a Reader tabbing on meets the beat before the way out of it.
+    await next.click()
+    await expect(preview.getByText('She steps out.')).toBeVisible()
+    await expect(again).toBeVisible()
+    await next.focus()
+    await page.keyboard.press('Tab')
+    await expect(again).toBeFocused()
+
+    // And taken back to the start it is gone again, until the Reading moves once
+    // more: what the offer says about the Reading is read off the Reading.
+    await again.click()
+    await expect(preview.getByText('A door opens.')).toBeVisible()
+    await expect(again).toHaveCount(0)
+    await next.click()
+    await expect(again).toBeVisible()
+  })
+
+test('a Story that ends where it opens offers reading it again with the ending',
+  async ({ page, request }) => {
+    const story = await (await request.post('/api/stories', {
+      data: { title: 'A Story of one beat', language: 'en' },
+    })).json()
+    const street = await (await request.post(`/api/stories/${story.id}/scenes`, {
+      data: { name: 'The street' },
+    })).json()
+    const shot = await (await request.post(`/api/scenes/${street.id}/shots`)).json()
+    await request.patch(`/api/shots/${shot.id}`, {
+      data: { text: 'A door opens.', description: '' },
+    })
+
+    const preview = await writing(page, story.id, street.id)
+    const again = preview.getByRole('button', { name: 'Read Again from the Start' })
+
+    // One Shot and no way out, so the first press is the whole Story: the offer
+    // is not there to be pressed before it and is there the moment the path ends,
+    // taking the focus the press took away with its own button — #221 unchanged
+    // on the Story that reaches the ending soonest.
+    await expect(again).toHaveCount(0)
+    await preview.getByRole('button', { name: 'Next Shot' }).click()
+    await expect(preview.getByRole('status').and(preview.locator('.ended')))
+      .toHaveText('The path ends here.')
+    await expect(again).toBeVisible()
+    await expect(again).toBeFocused()
+  })
+
 /**
  * A Story whose ways on ask for things: the street puts a coat on, one way out
  * wants it off, and another wants the street entered twice. Neither is offered
