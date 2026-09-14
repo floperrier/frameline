@@ -149,48 +149,36 @@ export type Point = { x: number, y: number }
 export type Box = Point & { width: number, height: number }
 
 /**
- * Where every Scene of a Story is drawn, read off the Story and nothing else.
+ * The columns a Story falls into, as the ids in each, which is the one walk the
+ * whole of this file's reading of a Story is made of.
  *
- * The Graph is layered left to right: the Opening Scene stands alone in the first
- * column, the Scenes its ways on lead to make the column after it, theirs the
- * column after that, each Scene in the first column it is reached in — its
- * distance from the opening, in Exits taken. Within a column the Scenes stand in
- * the order they were reached: by the Scene offering them first, then in the
- * Place that Scene offers them at. So a Story read from its opening is read
- * across the Graph the way film runs, and two ways on out of one Scene are read
- * top to bottom beside it in the order the Reader is offered them.
+ * The Opening Scene stands alone in the first column, the Scenes its ways on lead
+ * to make the column after it, theirs the column after that, each Scene in the
+ * first column it is reached in — its distance from the opening, in Exits taken.
+ * Within a column the Scenes stand in the order they were reached: by the Scene
+ * offering them first, then in the Place that Scene offers them at. So a Story
+ * read from its opening is read across the Graph the way film runs, and two ways
+ * on out of one Scene are read top to bottom beside it in the order the Reader is
+ * offered them.
  *
  * A Scene no Exit reaches — one the Author has just written, or one whose only
- * way in was taken away — is drawn too, in the columns after the last one the
- * opening reaches, each cluster of them laid out from its own first Scene the
- * same way. A Story with no Opening Scene is laid out from its first Scene, so a
- * Graph is drawn for every Story that has a Scene in it.
+ * way in was taken away — is walked too, in the columns after the last one the
+ * opening reaches, each cluster of them read from its own first Scene the same
+ * way. A Story with no Opening Scene is read from its first Scene, so every Story
+ * that has a Scene in it has columns.
  *
- * Each column is centred on the tallest, so a Story that branches and gathers
- * again is drawn as the shape it is rather than hung from one edge. Nothing here
- * is written anywhere: the Graph is a reading of the Story, and it moves when the
- * Story does — see `docs/adr/0041-the-graph-is-drawn-from-the-story.md`.
- *
- * `written` is the Scene the gate is standing on, if one is. Its column is as
- * wide as the gate and its own box as tall, and everything else is pushed apart
- * to clear it: the Graph opens up around the Scene being written the way a
- * contact sheet is spread to get at one frame, and closes again when the gate is
- * lifted off. It is the same layout read at two sizes — the order of the columns
- * and of the rows is untouched — so nothing about where a Scene stands is decided
- * by which one is being written. See
- * `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
+ * Private, and the two exports below are the two things it answers: where a Scene
+ * is drawn, and the order a Story is written in. One walk rather than two, because
+ * two walks are two facts, and the day they disagree the order a Story reads in
+ * and the shape it is drawn as are saying different things about one Story — see
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`.
  */
-export function laidOut(
-  scenes: Scene[],
-  exits: Exit[],
-  openingSceneId: string | null,
-  written?: string,
-) {
+function columnsOf(scenes: Scene[], exits: Exit[], openingSceneId: string | null) {
   const columns: string[][] = []
   const placedIn = new Map<string, number>()
   const known = new Set(scenes.map(scene => scene.id))
 
-  // Lays out everything reachable from one Scene, breadth first, from the column
+  // Walks everything reachable from one Scene, breadth first, from the column
   // given. A Scene already placed — by an earlier cluster, or by a way on that
   // comes back on itself — stays in the column it was first reached in.
   function layer(from: string, depth: number) {
@@ -214,6 +202,56 @@ export function laidOut(
 
   if (openingSceneId && known.has(openingSceneId)) layer(openingSceneId, 0)
   for (const scene of scenes) layer(scene.id, columns.length)
+
+  return columns
+}
+
+/**
+ * The Scenes of a Story column by column, which is how the rail down the side of
+ * the bench draws it: the columns run down the page and the Scenes of a column run
+ * across it — see `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ *
+ * The same walk `laidOut` is drawn from and the same walk `inDocumentOrder` is
+ * flattened out of, handed back as Scenes rather than as ids because what the rail
+ * puts on screen is a Scene's name and what the document does with it is its
+ * whole body. A Story with no Scene in it has no columns, not one empty one.
+ */
+export function inColumns(scenes: Scene[], exits: Exit[], openingSceneId: string | null) {
+  const named = new Map(scenes.map(scene => [scene.id, scene]))
+
+  return columnsOf(scenes, exits, openingSceneId)
+    .map(column => column.map(id => named.get(id)!))
+}
+
+/**
+ * Where every Scene of a Story is drawn, read off the Story and nothing else.
+ *
+ * The columns are `columnsOf` above, which is also the order the Story is written
+ * in: the Graph is a reading of the Story and so is the document, and the two
+ * cannot disagree because there is one walk under both. What this adds is the
+ * geometry — how wide each column is, how tall, and where in it each box stands.
+ *
+ * Each column is centred on the tallest, so a Story that branches and gathers
+ * again is drawn as the shape it is rather than hung from one edge. Nothing here
+ * is written anywhere: the Graph is a reading of the Story, and it moves when the
+ * Story does — see `docs/adr/0041-the-graph-is-drawn-from-the-story.md`.
+ *
+ * `written` is the Scene the gate is standing on, if one is. Its column is as
+ * wide as the gate and its own box as tall, and everything else is pushed apart
+ * to clear it: the Graph opens up around the Scene being written the way a
+ * contact sheet is spread to get at one frame, and closes again when the gate is
+ * lifted off. It is the same layout read at two sizes — the order of the columns
+ * and of the rows is untouched — so nothing about where a Scene stands is decided
+ * by which one is being written. See
+ * `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
+ */
+export function laidOut(
+  scenes: Scene[],
+  exits: Exit[],
+  openingSceneId: string | null,
+  written?: string,
+) {
+  const columns = columnsOf(scenes, exits, openingSceneId)
 
   // What each box takes: the gate where the Scene is being written, a node
   // everywhere else. A column is as wide as the widest box in it, which is the
@@ -258,23 +296,19 @@ export function laidOut(
  * each Scene in the first column it is reached in, and within a column in the
  * order the Reader is offered it, then the Scenes nothing arrives at.
  *
- * It is the Graph's own layout read as a sequence rather than as a picture, and
- * it is read off `laidOut` rather than walking the Story a second time. Two walks
- * are two facts, and the day they disagree the order a Story reads in and the
- * shape it is drawn as are saying different things about one Story — see
+ * The columns read one after another, which is the Graph's own layout taken as a
+ * sequence rather than as a picture. The order a Story is written in and the shape
+ * it is drawn as are one walk here rather than one reading the other's output:
+ * neither is derived from the other, both are `columnsOf`, and there is no
+ * arrangement of the two that can drift apart — see
  * `docs/adr/0043-a-story-is-written-as-one-document.md`.
  *
- * What that rests on is that `laidOut` fills its map column by column and, within
- * a column, row by row, so its keys are already the sequence. That is a fact
- * about the function and not about this one, so the spec holds it against the
- * points themselves: the order here is the order of the boxes, read left to right
- * and then down.
+ * The spec holds it against the boxes themselves all the same — the order here is
+ * the order of the boxes, read left to right and then down — because that is the
+ * claim an Author can check, and a shared walk is only the reason it holds.
  */
 export function inDocumentOrder(scenes: Scene[], exits: Exit[], openingSceneId: string | null) {
-  const { placed } = laidOut(scenes, exits, openingSceneId)
-  const named = new Map(scenes.map(scene => [scene.id, scene]))
-
-  return [...placed.keys()].map(id => named.get(id)!)
+  return inColumns(scenes, exits, openingSceneId).flat()
 }
 
 /**
@@ -525,6 +559,30 @@ export function countedShots(many: number, say: Phrase) {
 
 export function countedExits(many: number, say: Phrase) {
   return say(many === 1 ? 'editor.oneExit' : 'editor.manyExits', { count: many })
+}
+
+/**
+ * `1 Scene` and `40 Scenes`, which the bench says of the Story beside the
+ * document — see `docs/adr/0043-a-story-is-written-as-one-document.md`. Beside the
+ * other three rather than spelled out where it is said, because a count of the
+ * work is a count of the work in whichever language the interface is read in.
+ */
+export function countedScenes(many: number, say: Phrase) {
+  return say(many === 1 ? 'editor.oneScene' : 'editor.manyScenes', { count: many })
+}
+
+/**
+ * How many Exits arrive at one Scene, which its slate in the document says under
+ * its name. The zero has a sentence of its own rather than a count of none: a
+ * Scene nothing arrives at is a Scene no Reader ever gets to, which is a thing the
+ * bench says in words — the rail marks it, a Remark says it, and the document says
+ * it where the Author is reading. `0 Exits arrive here` is arithmetic; *Nothing
+ * arrives here* is what it means.
+ */
+export function countedArrivals(many: number, say: Phrase) {
+  if (!many) return say('editor.noArrival')
+
+  return say(many === 1 ? 'editor.oneArrival' : 'editor.manyArrivals', { count: many })
 }
 
 /** `1 word` and `120 words`, which the heading over a Scene's Shots reads — see `wordsOf`. */

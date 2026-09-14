@@ -1,10 +1,15 @@
 import { describe, expect, test } from 'vitest'
 import type { Exit, Scene } from '../../shared/utils/scenes'
+import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
+import type { Phrase } from '../../shared/utils/phrases'
 import {
+  countedArrivals,
+  countedScenes,
   DEPTH_GAP,
   exitLine,
   GATE_HEIGHT,
   GATE_WIDTH,
+  inColumns,
   inDocumentOrder,
   laidOut,
   NODE_GAP,
@@ -192,6 +197,70 @@ describe('the line that draws an Exit', () => {
   })
 })
 
+describe('the columns a Story falls into', () => {
+  /** The columns as ids, which is all a column is to the rail that draws it. */
+  const named = (scenes: Scene[], exits: Exit[], opening: string | null) =>
+    inColumns(scenes, exits, opening).map(column => column.map(scene => scene.id))
+
+  /**
+   * The columns the layout itself drew: every box gathered under the x it stands
+   * at, left to right, each column in the order the boxes were placed in it. Held
+   * against this rather than against a list written out by hand, because what has
+   * to stay true is that the rail and the drawing are one reading of one Story —
+   * see `docs/adr/0043-a-story-is-written-as-one-document.md`.
+   */
+  const asDrawn = (scenes: Scene[], exits: Exit[], opening: string | null) => {
+    const columns = new Map<number, string[]>()
+
+    for (const [id, box] of laidOut(scenes, exits, opening).placed) {
+      columns.set(box.x, [...columns.get(box.x) ?? [], id])
+    }
+
+    return [...columns.keys()].sort((one, other) => one - other).map(x => columns.get(x)!)
+  }
+
+  test('are the layout’s own columns, each read top to bottom', () => {
+    // A Story that branches and gathers again, handed over in an order that is
+    // not the answer: a function returning the Scenes as they arrived would fail
+    // here rather than pass by coincidence.
+    const scenes = ['d', 'a', 'e', 'c', 'b'].map(scene)
+    const exits = [
+      exit('a', 'b'), exit('a', 'c', 1), exit('b', 'd'), exit('c', 'd'), exit('d', 'e'),
+    ]
+
+    expect(named(scenes, exits, 'a')).toEqual(asDrawn(scenes, exits, 'a'))
+    expect(named(scenes, exits, 'a')).toEqual([['a'], ['b', 'c'], ['d'], ['e']])
+  })
+
+  test('put a cluster nothing arrives at in the columns after the last the opening reaches', () => {
+    const scenes = ['a', 'b', 'loose', 'looser'].map(scene)
+    const exits = [exit('a', 'b'), exit('loose', 'looser')]
+
+    expect(named(scenes, exits, 'a')).toEqual(asDrawn(scenes, exits, 'a'))
+    expect(named(scenes, exits, 'a')).toEqual([['a'], ['b'], ['loose'], ['looser']])
+  })
+
+  test('flatten to the order the Story is written in', () => {
+    const scenes = ['a', 'b', 'c', 'd', 'e'].map(scene)
+    const exits = [
+      exit('a', 'b'), exit('a', 'c', 1), exit('b', 'd'), exit('c', 'd'), exit('d', 'e'),
+    ]
+    const flattened = inColumns(scenes, exits, 'a').flat()
+
+    expect(flattened).toEqual(inDocumentOrder(scenes, exits, 'a'))
+  })
+
+  test('hand back the Scenes themselves, not their ids', () => {
+    const [only] = inColumns([scene('a')], [], 'a')
+
+    expect(only).toEqual([scene('a')])
+  })
+
+  test('are none at all for a Story with no Scene in it', () => {
+    expect(inColumns([], [], null)).toEqual([])
+  })
+})
+
 describe('the order a Story is written in', () => {
   /** The names in the sequence, which is all the order is. */
   const named = (scenes: Scene[], exits: Exit[], opening: string | null) =>
@@ -296,6 +365,32 @@ describe('the Scenes an Exit may land on', () => {
     const scenes = ['a', 'b', 'c'].map(scene)
 
     expect(scenesAExitMayLandOn(scenes, [exit('a', 'b')], 'a')).toEqual(new Set(['c']))
+  })
+})
+
+describe('what the bench counts of a Story', () => {
+  /**
+   * The words themselves, read out of the message file the interface reads,
+   * rather than against a stub: what is asserted is the sentence an Author is
+   * shown, which also proves the messages these counts are assembled from.
+   */
+  const says: Phrase = (key, values) => phrase(DEFAULT_LOCALE, key, values)
+
+  test('names one Scene and several apart', () => {
+    expect(countedScenes(1, says)).toBe('1 Scene')
+    expect(countedScenes(40, says)).toBe('40 Scenes')
+  })
+
+  /**
+   * The zero has a sentence of its own rather than a count of none. A Scene
+   * nothing arrives at is a Scene no Reader ever gets to, which is the fact the
+   * rail marks and the document says under a name — and `0 Exits arrive here` is
+   * arithmetic where *Nothing arrives here* is what it means.
+   */
+  test('says what nothing arriving at a Scene means, rather than counting it', () => {
+    expect(countedArrivals(0, says)).toBe('Nothing arrives here')
+    expect(countedArrivals(1, says)).toBe('1 Exit arrives here')
+    expect(countedArrivals(3, says)).toBe('3 Exits arrive here')
   })
 })
 

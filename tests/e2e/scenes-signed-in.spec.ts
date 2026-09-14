@@ -288,15 +288,22 @@ test.describe('dragging a Shot', () => {
     await page.goto(`/stories/${story.id}`)
     await writeScene(page, 'The arrival')
 
-    // Let go of over the bare Graph rather than over a Place: one strip holds one
-    // Scene's run, so anywhere that is not a cell of it is nowhere the drop could
-    // mean anything. The hit-test asks the whole page, and what it comes back
-    // with is held against the run before a Place is written.
+    // Let go of over the head of the document rather than over a Place: one strip
+    // holds one Scene's run, so anywhere that is not a cell of it is nowhere the
+    // drop could mean anything. The corner the drag ends in is the top of the
+    // scroller the whole Story is written in — the Scene's own name, above the
+    // frame and a long way above the strip — which is the nearest thing the new
+    // layout has to the bare table the gesture used to end on. The hit-test asks
+    // the whole page, so the point is held against a cell before the drop rather
+    // than assumed to miss one.
     const held = await pointOn(cell(first!))
-    const table = (await page.locator('.graph').boundingBox())!
+    const scroller = (await page.locator('.document').boundingBox())!
+    const onto = { x: scroller.x + 8, y: scroller.y + 8 }
+    expect(await page.evaluate(
+      ({ x, y }) => !document.elementFromPoint(x, y)?.closest('.cell'), onto)).toBe(true)
     await page.mouse.move(held.x, held.y)
     await page.mouse.down()
-    await page.mouse.move(table.x + 8, table.y + 8, { steps: 5 })
+    await page.mouse.move(onto.x, onto.y, { steps: 5 })
     await page.mouse.up()
 
     // Nothing was renumbered: the drop said nothing rather than something else.
@@ -349,7 +356,7 @@ test.describe('dragging a Shot', () => {
         const wound = () => strip.evaluate(scroller => scroller.scrollLeft)
         const elsewhere = () => page.evaluate(() => [
           window.scrollY,
-          document.querySelector('.graph')!.scrollLeft,
+          document.querySelector('.document')!.scrollTop,
           document.querySelector('.panel')!.scrollTop,
         ])
         const before = await elsewhere()
@@ -375,8 +382,10 @@ test.describe('dragging a Shot', () => {
         ).toBeLessThan(2)
         await expect(cell(last)).toBeInViewport()
 
-        // Neither the table nor the gate nor the window went anywhere while it
-        // ran: the only thing the run winds is the strip the drag is inside.
+        // Neither the document nor the gate nor the window went anywhere while it
+        // ran: the only thing the run winds is the strip the drag is inside, and
+        // the document is the one other scroller on the bench that could have
+        // moved under it.
         expect(await elsewhere()).toEqual(before)
 
         // Onto the Shot that stood last, which is the Place the Author aimed at,

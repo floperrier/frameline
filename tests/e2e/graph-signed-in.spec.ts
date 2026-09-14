@@ -5,7 +5,6 @@ import { CONDITIONS_MAX, FLAGS_PER_SCENE, VISITS_MAX } from '../../shared/utils/
 import {
   ONE_PIXEL,
   sceneNode,
-  wholeStory,
   writeScene,
   writeShot,
   readExits,
@@ -16,7 +15,6 @@ import {
   seedScene,
   seedScenes,
   seedStory,
-  stillDrawing,
   test,
   toast,
 } from './author'
@@ -960,13 +958,16 @@ test('a way on is written by naming where it leads, and a name nothing answers t
     expect(platform.id).toBeTruthy()
     await expect.poll(offered).toEqual(['The platform'])
 
-    // The Graph has drawn the new Scene one column on from the one it leaves, with
-    // nothing placed by anybody. Read with the gate lifted off, because the Scene
-    // it stands on has no node of its own.
-    await wholeStory(page)
-    const arrivalNode = sceneNode(page, 'The arrival')
-    const buffetNode = sceneNode(page, 'The buffet')
-    expect((await buffetNode.boundingBox())!.x).toBeGreaterThan((await arrivalNode.boundingBox())!.x)
+    // The rail has drawn the new Scene one column on from the one it leaves, with
+    // nothing placed by anybody. The rail runs the Story's columns down the page
+    // and the Scenes of a column across it — see
+    // `docs/adr/0043-a-story-is-written-as-one-document.md` — so a Scene one Exit
+    // further from the opening stands lower rather than further along. Nothing has
+    // to be lifted off to read it: the rail draws every Scene of the Story, the
+    // one the caret is in included.
+    const arrivalMark = sceneNode(page, 'The arrival')
+    const buffetMark = sceneNode(page, 'The buffet')
+    expect((await buffetMark.boundingBox())!.y).toBeGreaterThan((await arrivalMark.boundingBox())!.y)
   })
 
 test('the Graph is drawn from the Story, and redrawn as the Story changes', async ({ page, request }) => {
@@ -979,45 +980,62 @@ test('the Graph is drawn from the Story, and redrawn as the Story changes', asyn
 
   await page.goto(`/stories/${story.id}`)
 
-  // Every Scene is a node, named for what pressing it does, and every Exit but
-  // one to the Scene itself is a line. Read with the gate lifted off: the Scene
-  // being written stands on the Graph in the place of its own node, so the whole
-  // drawing is what the whole Story looks like — see
-  // `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
-  const graph = page.getByRole('navigation', { name: 'Graph' })
-  const node = (name: string) => sceneNode(page, name)
-  const at = async (name: string) => (await node(name).boundingBox())!
-  await wholeStory(page)
-  await expect(graph.getByRole('button')).toHaveCount(5)
-  await expect(graph.locator('line')).toHaveCount(3)
+  // Every Scene is a mark on the rail, the one the caret is in included: there is
+  // no gate standing in the place of a node any more, so the drawing is the whole
+  // Story at every moment. And the drawing is a drawing and nothing else — no
+  // image, no line, no name, not a word of text — because
+  // `docs/adr/0043-a-story-is-written-as-one-document.md` made the Graph a locator
+  // a hundred and twenty pixels wide rather than a workspace, and a line across a
+  // rail this narrow would say less than the column a Scene stands in already
+  // does. Where an Exit lands is read in the document of the Scene it leaves.
+  const rail = page.locator('.rail')
+  const mark = (name: string) => sceneNode(page, name)
+  const at = async (name: string) => (await mark(name).boundingBox())!
+  await expect(rail.locator('.mark')).toHaveCount(5)
+  await expect(rail.locator('svg, line, img')).toHaveCount(0)
+  await expect(rail).toHaveText('')
 
-  // Laid out left to right by distance from the opening, in Exits taken; the two
-  // ways on out of one Scene read top to bottom in the order they are offered;
-  // and a Scene nothing reaches stands after the last column the opening does,
-  // drawn as the loose end it is.
-  expect((await at('The platform')).x).toBeGreaterThan((await at('The arrival')).x)
-  expect((await at('The bar')).x).toBe((await at('The platform')).x)
-  expect((await at('The bar')).y).toBeGreaterThan((await at('The platform')).y)
-  expect((await at('The tunnel')).x).toBeGreaterThan((await at('The bar')).x)
-  expect((await at('The loose end')).x).toBeGreaterThan((await at('The tunnel')).x)
-  await expect(node('The arrival')).toHaveClass(/opens/)
-  await expect(node('The loose end')).toHaveClass(/unreached/)
-  await expect(node('The arrival')).toContainText('0 Shots')
+  // And nothing in it is announced or tabbed to, which is what lets the document
+  // say every one of these facts in words without saying them twice. *The tunnel*
+  // rather than a Scene the caret's own Scene leads to: a way on's row carries a
+  // control named *Go to* where it lands, and that one is a real button.
+  await expect(rail).toHaveAttribute('aria-hidden', 'true')
+  await expect(page.getByRole('button', { name: 'Go to The tunnel' })).toHaveCount(0)
 
-  // A press on a node puts that Scene under the gate, and the gate takes the
-  // place of its node: which Scene is being written is said by the gate rather
-  // than by a mark on a node, because the node is not there.
-  await node('The bar').click()
+  // The columns run down the rail and the Scenes of a column run across it, laid
+  // out by distance from the opening in Exits taken: a Scene one Exit further on
+  // stands lower than the one it leaves, the two ways on out of one Scene read
+  // across in the order they are offered, and a Scene nothing reaches stands under
+  // the last column the opening does, drawn as the loose end it is.
+  expect((await at('The platform')).y).toBeGreaterThan((await at('The arrival')).y)
+  expect((await at('The bar')).y).toBe((await at('The platform')).y)
+  expect((await at('The bar')).x).toBeGreaterThan((await at('The platform')).x)
+  expect((await at('The tunnel')).y).toBeGreaterThan((await at('The bar')).y)
+  expect((await at('The loose end')).y).toBeGreaterThan((await at('The tunnel')).y)
+  await expect(mark('The arrival')).toHaveClass(/opens/)
+  await expect(mark('The loose end')).toHaveClass(/unreached/)
+
+  // What the rail says with an edge, the document says in a sentence under the
+  // Scene's own name — which is the whole reason the rail can be left out of the
+  // accessibility tree. This is the fact that used to be a dashed border and
+  // nothing else.
+  await expect(page.locator(`#scene-${scenes[4]!.id}`)).toContainText('Nothing arrives here')
+
+  // A press on a mark puts the caret in that Scene, which is what *Go to* means
+  // now that the whole Story is in the document: the writing surface moves to that
+  // Scene's own section, and the mark that says where the caret is moves with it.
+  // Both Scenes keep their mark either way — the rail draws them all.
+  await expect(mark('The arrival')).toHaveClass(/here/)
+  await mark('The bar').click()
   await expect(page.getByRole('group', { name: 'Writing The bar' })).toBeVisible()
-  await expect(node('The bar')).toHaveCount(0)
-  await expect(node('The arrival')).toBeVisible()
+  await expect(mark('The bar')).toHaveClass(/here/)
+  await expect(mark('The arrival')).not.toHaveClass(/here/)
 
-  // Nothing is placed by hand, so the Graph follows the Story: another Opening
+  // Nothing is placed by hand, so the rail follows the Story: another Opening
   // Scene is another first column.
   await page.getByRole('radio', { name: 'Opening Scene The bar' }).check()
-  await wholeStory(page)
-  await expect(node('The bar')).toHaveClass(/opens/)
-  await expect.poll(async () => (await at('The arrival')).x > (await at('The bar')).x).toBe(true)
+  await expect(mark('The bar')).toHaveClass(/opens/)
+  await expect.poll(async () => (await at('The arrival')).y > (await at('The bar')).y).toBe(true)
 })
 
 test('a Scene is split before one of its Shots, and its ways on move to the second half',
@@ -1068,11 +1086,14 @@ test('a Scene is split before one of its Shots, and its ways on move to the seco
 
 /**
  * The one thing the layout cannot do for the Author.
- * `docs/adr/0042-the-scene-is-written-where-it-stands.md` says the gate is
- * scrolled to whenever it moves, and nothing held it to that: measured over a
- * chain of eleven Scenes opened one at a time, the gate stood entirely off the
- * edge for thirty of the fifty-five pairs of Scene and width, with the table's
- * own `scrollLeft` at zero in every one of them.
+ * `docs/adr/0043-a-story-is-written-as-one-document.md` keeps a Scene's address as
+ * a query on the Story's own page and says the document is scrolled to it — which
+ * is also what *Go to* means now that nothing opens and nothing closes. A Story of
+ * eleven chained Scenes is a document eleven Scenes long, so an address that
+ * arrived without winding it would open the bench on the top of the Story and
+ * leave the Author to find the Scene they sent themselves a link to. This is the
+ * claim that replaces the one about the gate standing off the edge of a table:
+ * the table is gone, and the same fact is now a scroller with one axis.
  *
  * The Scenes are chained by name and the Opening Scene is marked through its own
  * route. Neither is fussiness: `RETURNING` promises no order, so a chain built on
@@ -1080,7 +1101,7 @@ test('a Scene is split before one of its Shots, and its ways on move to the seco
  * see issue #261 — and a Scene seeded past the API never becomes the Opening
  * Scene, so the layout would be rooted somewhere else entirely.
  */
-test('winds the gate onto the screen when the table is wider than the window',
+test('winds the document onto the Scene the address names',
   async ({ page, request }) => {
     const story = await (await request.post('/api/stories', {
       data: { title: 'A Story' },
@@ -1095,24 +1116,25 @@ test('winds the gate onto the screen when the table is wider than the window',
     }
     expect((await request.post(`/api/scenes/${scenes[0]!.id}/opening`)).ok()).toBeTruthy()
 
-    const gate = page.locator('.gate')
-    const table = page.locator('.graph')
+    const last = scenes.at(-1)!
+    const scroller = page.locator('.document')
+    const section = page.locator(`#scene-${last.id}`)
 
-    // The far corner of the table at a wide window and at a narrow one, because
-    // what changes with the width is how much of the table is off the edge.
+    // At a wide window and at a narrow one: 768 is inside the fold where what the
+    // bench says beside the document goes to the head of it, and the document is
+    // still the one thing on the bench that scrolls either side of that.
     for (const width of [1440, 768]) {
       await page.setViewportSize({ width, height: 900 })
-      await page.goto(`/stories/${story.id}?scene=${scenes.at(-1)!.id}`)
-      await stillDrawing(page)
+      await page.goto(`/stories/${story.id}?scene=${last.id}`)
 
-      // The table really did scroll, which is the fact the arithmetic cannot
-      // give: every box is where the layout put it either way.
-      await expect.poll(() => table.evaluate(one => one.scrollLeft))
-        .toBeGreaterThan(0)
+      // The document really did scroll, which is the fact a bounding box cannot
+      // give on its own: the section is where the order put it either way.
+      await expect.poll(() => scroller.evaluate(one => one.scrollTop)).toBeGreaterThan(0)
 
-      const box = (await gate.boundingBox())!
-      expect(box.x).toBeGreaterThanOrEqual(0)
-      expect(box.x).toBeLessThan(width)
-      expect(box.y).toBeLessThan(900)
+      // And it arrived on the screen rather than merely somewhere above it, with
+      // the writing surface in it — the Scene the address names is the Scene the
+      // caret is in.
+      await expect(section).toBeInViewport()
+      await expect(section.getByRole('group', { name: `Writing ${last.name}` })).toBeVisible()
     }
   })

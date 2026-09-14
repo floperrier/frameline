@@ -1,16 +1,15 @@
 <script setup lang="ts">
 /**
- * What the bench found in the Story, said in the row above the bench and beside
- * the bar every act is named in. The reading itself is `app/utils/remarks.ts`;
+ * What the bench found in the Story, said beside the document on the side the
+ * bench talks about the Story from. The reading itself is `app/utils/remarks.ts`;
  * this is the one place it is shown.
  *
- * It stands here rather than on the graph because
- * `docs/adr/0034-a-story-is-written-without-the-canvas.md` took the canvas off
- * the critical path: a Story is now written, corrected and published without the
- * graph ever being unfolded, so anything said only on the drawing is said to
- * nobody. This row is on the screen in both of the bench's states — it is where
- * `0035` put the way into the Commands — and a count in it is a count an Author
- * passes their eyes over on the way to everything else.
+ * It stands in a region of its own rather than in the row above the bench because
+ * `docs/adr/0043-a-story-is-written-as-one-document.md` gave it one: three regions
+ * that never trade width, and this is the third of them. No new noun is coined for
+ * that side — *margin* and *gutter* are both already spoken for at the scale of a
+ * row — so what stands there is the Remarks, which is a word the glossary already
+ * has.
  *
  * A disclosure rather than a panel or a badge on a card: the count is what an
  * Author glances at, and the sentences are what they open when they mean to act
@@ -18,12 +17,15 @@
  * only on a Story with something wrong would be a thing an Author had to notice
  * the absence of; standing there at nothing, it is somewhere they can look.
  *
- * The line and its count are in the flow of the row, always the same height; the
- * list it opens into is laid over the head of the bench. The zoom controls beside
- * it argue the opposite way and both are right: those are always there, so a card
- * scrolled under them is a card that cannot be pressed, while this is open only
- * for as long as an Author is reading it and covers the one thing they are not
- * looking at meanwhile.
+ * Open by default, which is new. The list used to be laid over the head of the
+ * bench, so leaving it open would have covered the table; it now flows in the
+ * column it stands in, and at the fold it flows at the head of the document. There
+ * is room for it, so the Remarks say what they found without being asked. What
+ * folds is the width they are said in and never their voice.
+ *
+ * The list is still held to its own height and scrolls inside itself: a Story of
+ * forty Remarks is forty sentences in one region rather than a region as tall as
+ * the Story.
  */
 const { story, sceneWritten } = defineProps<{
   /** The Story on the bench, which is the whole of what a Remark is read from. */
@@ -48,8 +50,12 @@ const emit = defineEmits<{ open: [string] }>()
  * an open list would close it, and a Command whose name and act disagree is the
  * one thing `0035` marks a control to prevent. Named by the state, the way the
  * header names Publish and Unpublish on the same fact.
+ *
+ * It starts where the element itself starts, which is open: the two would
+ * otherwise disagree until the first toggle, and the bar would offer *Read the
+ * Remarks* over a list already open.
  */
-const open = ref(false)
+const open = ref(true)
 
 /**
  * The Remarks the bench says out loud: every one it found, and none of them left
@@ -58,17 +64,19 @@ const open = ref(false)
  * Two of them used to be dropped while the Scene they were about was open,
  * because the reading standing in the column beside the writing was already
  * saying them in the Scene's own words, and two voices for one fact is the
- * objection `0034` raised about an Exit's text. The reading is a face of the gate
- * now rather than a column beside it — see
- * `docs/adr/0042-the-scene-is-written-where-it-stands.md` — so while an Author is
+ * objection `0034` raised about an Exit's text. The reading is one of the readings
+ * the middle of the bench can hold rather than a column beside the writing — see
+ * `docs/adr/0043-a-story-is-written-as-one-document.md` — so while an Author is
  * writing, it is saying nothing to them at all, and a Remark left to it would be
- * a fact said by nobody.
+ * a fact said by nobody. `0043` generalises the rule rather than dropping it: the
+ * nearer voice wins, and these two are dropped exactly while the Preview is the
+ * reading on screen. Issue #254 is where that is written.
  */
 const spoken = computed(() => story ? remarks(story) : [])
 </script>
 
 <template>
-  <details class="found" @toggle="open = ($event.target as HTMLDetailsElement).open">
+  <details open class="found" @toggle="open = ($event.target as HTMLDetailsElement).open">
     <!-- Marked as a Command, because reading what the bench found is an act of it
          like the fit and the Publish — see
          `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`. A
@@ -98,11 +106,12 @@ const spoken = computed(() => story ? remarks(story) : [])
 </template>
 
 <style scoped>
-/* Drawn in the machine's own materials, like the control beside it: this is the
-   bench talking about the Story rather than any part of the Story. */
+@import '~/assets/css/folds.css';
+
+/* Drawn in the machine's own materials: this is the bench talking about the Story
+   rather than any part of the Story. It flows in the region it stands in — it
+   covers nothing, because there is nothing beside it to cover. */
 .found {
-  position: relative;
-  align-self: end;
   min-inline-size: 0;
   padding: var(--s1) var(--s2);
   border: 1px solid var(--edge);
@@ -110,19 +119,11 @@ const spoken = computed(() => story ? remarks(story) : [])
   background: var(--steel);
 }
 
-/* What the disclosure opens into: under its own line and over the head of the
-   bench, drawn in the same materials so that it reads as the rest of that line
-   rather than as something the bench put on top of itself. */
+/* What the disclosure opens into, under its own line and in the same materials,
+   so that it reads as the rest of that line rather than as something laid over
+   the bench. */
 .found > :not(summary) {
-  position: absolute;
-  inset-block-start: calc(100% + var(--s1));
-  inset-inline-start: 0;
-  z-index: 2;
-  padding: var(--s2);
-  border: 1px solid var(--edge);
-  border-radius: var(--machined);
-  background: var(--steel);
-  box-shadow: var(--lifted);
+  padding-block-start: var(--s2);
 }
 
 /* A closed disclosure is one line and its count; open, it is a list under the
@@ -152,13 +153,17 @@ summary {
 ul {
   display: grid;
   gap: var(--s1);
-  /* As wide as a sentence and no wider, and never taller than the head of the
-     bench: a Story of forty Remarks scrolls inside its own disclosure rather
-     than running off the foot of the bench. */
-  inline-size: max-content;
-  max-inline-size: min(52ch, 90vw);
+  /* As wide as the region it stands in, and never taller than a screenful of it:
+     a Story of forty Remarks scrolls inside its own disclosure rather than making
+     the region as tall as the Story. */
+  max-inline-size: 52ch;
   max-block-size: 16rem;
   overflow-y: auto;
+  /* An outline is drawn outside the control and takes no part in a scroller's
+     overflow, so a Remark flush with the edge of this box would be focused behind
+     a clipped ring. Four pixels is what `:focus-visible` asks for — two of line
+     and two of offset. */
+  padding: var(--s1);
 }
 
 /* A Remark reads as the sentence it is, not as a button: the whole line is the
@@ -189,8 +194,19 @@ li button:focus-visible {
 }
 
 .none {
-  max-inline-size: min(46ch, 90vw);
+  max-inline-size: 46ch;
   color: var(--muted);
   font-size: 0.875rem;
+}
+
+/* At the fold the Remarks stand at the head of the document rather than beside
+   it, and the document is what the window is for: the list is held to a couple of
+   sentences there and goes on scrolling inside itself. It is still open and still
+   says what it found — what folds is the width the Remarks are said in and never
+   their voice. See `docs/adr/0043-a-story-is-written-as-one-document.md`. */
+@media (--two-columns) {
+  ul {
+    max-block-size: 12rem;
+  }
 }
 </style>

@@ -1,13 +1,17 @@
 <script setup lang="ts">
 /**
- * Where a Scene is written: the gate, standing on the Graph in the place of the
- * node of the Scene it holds — see
- * `docs/adr/0042-the-scene-is-written-where-it-stands.md`. Everything a Scene is
- * is written here — its name, the Flags it sets, the run of its Shots, and the
+ * Where a Scene is written: the one Scene of the document that is written rather
+ * than read, standing in the place the order already gave it — see
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`, which took the gate off
+ * the Graph and put the whole Story on the bench around this. Everything a Scene
+ * is is written here — its name, the Flags it sets, the run of its Shots, and the
  * Exits leaving it, each named by where it leads — because a Story is written
  * without the canvas: `docs/adr/0034-a-story-is-written-without-the-canvas.md`,
- * and the Graph under it is a reading of the Story rather than a surface anything
+ * and the rail beside it is a reading of the Story rather than a surface anything
  * is written on: `docs/adr/0041-the-graph-is-drawn-from-the-story.md`.
+ *
+ * Issue #252 is what makes the rest of the document writable in turn; until it
+ * lands, this is the whole of where an Author types.
  *
  * The run of beats is one beat at a time in the gate — the frame at the size a
  * Reader meets it, and the words under it in the face they are read in — with the
@@ -15,9 +19,9 @@
  * three parts stay in the order a Reader meets them, and the run is still typed
  * as one text, `Enter` at the end of a beat opening the next.
  *
- * Which Scene it holds is the page's to say, because the Graph asks for it from
- * under the gate. Everything typed here is written into the Story the page
- * fetched, in place, and sent through the one holder the page keeps.
+ * Which Scene it holds is the page's to say, because the rail and the bar of
+ * Commands both ask for it. Everything typed here is written into the Story the
+ * page fetched, in place, and sent through the one holder the page keeps.
  */
 const {
   story, sceneWritten, change, write, ask, announce, imageOf,
@@ -45,9 +49,10 @@ const {
 
 /**
  * What the document asks of the page: `attached` the moment an image landed,
- * which the page holds because the node on the Graph draws the image too; `open`
- * the Scene it wants on the surface next — where a way on leads, or the half a
- * split has just made — and whether its name is to be selected for typing over.
+ * which the page holds because the address an image is served at is the Shot's own
+ * and replacing one would otherwise leave the browser drawing the image it had;
+ * `open` the Scene it wants the caret in next — where a way on leads, or the half
+ * a split has just made — and whether its name is to be selected for typing over.
  */
 const emit = defineEmits<{ attached: [string], open: [string, boolean?] }>()
 
@@ -88,7 +93,8 @@ function gateShot(place: number) {
  * How many Flags, Shots and words the Scene holds, said beside each heading of
  * the document. The words are the one count an Author writing prose asks for,
  * and no tool this one stands beside gives it; the Shots are the count the
- * node on the Graph gives, so the two cannot say two things.
+ * count the bench says of the whole Story beside the document, so the two cannot
+ * be counting different things.
  */
 const counted = computed(() => ({
   flags: Object.keys(sceneWritten.sets).length,
@@ -677,8 +683,9 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
          frame, and the words under it in the face they are read in — and the
          whole run along the foot as the strip it is. Still typed as one text, and
          still one field per Shot: the field is the gate's, and walking the run
-         moves the gate with the caret. Counted twice: in Shots, which is what the
-         node says, and in words, which is what a writer asks. -->
+         moves the gate with the caret. Counted twice: in Shots, which is the
+         count the bench gives of the whole Story beside the document, and in
+         words, which is what a writer asks. -->
     <section class="held run" :aria-labelledby="`shots-of-${sceneWritten.id}`">
       <h3 :id="`shots-of-${sceneWritten.id}`">
         {{ $t('editor.shotsHeld') }}
@@ -1040,24 +1047,23 @@ function writeConditions(where: 'exits' | 'shots', carrierId: string, carried: C
 <style scoped>
 @import '~/assets/css/folds.css';
 
-/* The gate: the Scene being written, standing on the Graph in the place of its
-   own node — see `docs/adr/0042-the-scene-is-written-where-it-stands.md`. It
-   fills exactly the box the layout reserved for it and scrolls inside itself, so
-   a Scene of twenty beats and six ways on is read here rather than pushing the
-   Story it stands on about. It is the one thing on the table drawn in the
-   machine's own light: everything else there is a reading of the Story, and this
-   is where the Story is written.
+/* The Scene being written, standing in the document in the place the order gave
+   it — see `docs/adr/0043-a-story-is-written-as-one-document.md`. It takes the
+   room its own content needs and the document is what scrolls, so a Scene of
+   twenty beats and six ways on is a long section of a long document rather than a
+   box with a scrollbar inside another one. It is the one thing in the document
+   drawn in the machine's own light: every other Scene there is read, and this is
+   where the Story is written.
 
    It is the containing block for what is inside it, so a visually hidden label at
-   the foot of a long Scene is clipped by the gate and not by the page. */
+   the foot of a long Scene is positioned against this Scene rather than against
+   the whole page. */
 .panel {
-  flex: 1;
   position: relative;
   display: grid;
   gap: var(--s3);
   align-content: start;
   min-inline-size: 0;
-  overflow: auto;
   padding: var(--s4);
   border: 1px solid var(--light);
   border-radius: var(--machined);

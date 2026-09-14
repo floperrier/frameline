@@ -6,9 +6,11 @@ import {
 
 /**
  * What the bench reads back to the Author: the Remarks it finds in the Story,
- * counted in the row above the bench and opening into a list each line of which
- * presses to the Scene it is about — see
- * `docs/adr/0032-the-bench-reads-the-story-back.md`.
+ * counted beside the document and opening into a list each line of which presses
+ * to the Scene it is about — see
+ * `docs/adr/0032-the-bench-reads-the-story-back.md`, whose row above the bench
+ * `docs/adr/0043-a-story-is-written-as-one-document.md` replaced with a region of
+ * its own.
  *
  * The reading itself is held to a literal in `tests/unit/remarks.spec.ts`. What
  * is proved here is the other half: that the count is on the screen, that it is
@@ -27,8 +29,17 @@ function found(page: Page) {
   return page.locator('.found')
 }
 
-function openRemarks(page: Page) {
-  return page.locator('.found summary').click()
+/**
+ * Makes sure the list is open, which since `0043` it already is: the Remarks stand
+ * in a region of their own beside the document rather than laid over the head of
+ * the bench, so there is room to leave them open and they say what they found
+ * without being asked. Asked rather than pressed, because a `<summary>` toggles
+ * and a press on an open list would close it.
+ */
+async function openRemarks(page: Page) {
+  if (await found(page).evaluate(one => (one as HTMLDetailsElement).open)) return
+
+  await page.locator('.found summary').click()
 }
 
 /** A Story of two Scenes joined by an Exit, which the bench has nothing to say about. */
@@ -70,10 +81,11 @@ test('counts what it finds, and opens the Scene a Remark names', async ({ page, 
   await seedExit(arrival.id, platform.id)
   await seedFlags(arrival.id, { coat: 'on' })
 
-  // Read with The platform in the gate. All three are said here: the reading is
-  // the gate's other face rather than a column beside it, so while an Author is
-  // writing there is nothing else on screen saying any of them — see
-  // `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
+  // Read with the caret in The platform. All three are said here: the Preview is
+  // the other reading the middle of the bench can hold rather than a column beside
+  // the writing, so while an Author is writing there is nothing else on screen
+  // saying any of them — see
+  // `docs/adr/0043-a-story-is-written-as-one-document.md`.
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The platform')
   await expect(found(page)).toContainText('3')
@@ -88,29 +100,35 @@ test('counts what it finds, and opens the Scene a Remark names', async ({ page, 
   await expect(page).toHaveURL(new RegExp(`scene=${arrival.id}`))
   await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
 
-  // And the Scene in the gate keeps its own sentence here, as every Scene does.
+  // And the Scene the caret is in keeps its own sentence here, as every Scene does.
   await openRemarks(page)
   await expect(found(page)).toContainText('No Exit arrives at The arrival')
 })
 
-test('is opened by naming it, like every other act of the bench', async ({ page, request }) => {
-  const { story } = await whole(request)
+test('is opened and closed by naming it, like every other act of the bench',
+  async ({ page, request }) => {
+    const { story } = await whole(request)
+    const naming = async (typed: string) => {
+      await page.getByRole('button', { name: 'Commands' }).click()
+      await page.getByRole('textbox', { name: 'Type a name' }).fill(typed)
+    }
 
-  await page.goto(`/stories/${story.id}`)
-  await page.getByRole('button', { name: 'Commands' }).click()
-  await page.getByRole('textbox', { name: 'Type a name' }).fill('Remarks')
-  await page.getByRole('button', { name: 'Read the Remarks' }).click()
+    await page.goto(`/stories/${story.id}`)
 
-  await expect(found(page)).toContainText('Nothing to report')
+    // The list is open where there is room for it, so the act the bar offers is
+    // the one that closes it: a summary toggles, and a Command whose name and act
+    // disagree is the one thing `0035` marks a control to prevent.
+    await naming('Remarks')
+    await page.getByRole('button', { name: 'Close the Remarks' }).click()
+    await expect(found(page).locator('.none')).toBeHidden()
 
-  // And the bar names it for what pressing it will do from where the list now
-  // stands: a summary toggles, so the act on an open list is to close it.
-  await page.getByRole('button', { name: 'Commands' }).click()
-  await page.getByRole('textbox', { name: 'Type a name' }).fill('Remarks')
-  await expect(page.getByRole('button', { name: 'Close the Remarks' })).toBeVisible()
-})
+    // And named again for what pressing it will do from where the list now stands.
+    await naming('Remarks')
+    await page.getByRole('button', { name: 'Read the Remarks' }).click()
+    await expect(found(page)).toContainText('Nothing to report')
+  })
 
-test('says what it found whichever face the gate is showing', async ({ page, request }) => {
+test('says what it found whichever reading the bench is showing', async ({ page, request }) => {
   // Written through the API rather than seeded, because the first Scene it writes
   // becomes the one the Story opens on.
   const story = await (await request.post('/api/stories', { data: { title: 'A Story' } })).json()
@@ -124,11 +142,11 @@ test('says what it found whichever face the gate is showing', async ({ page, req
   await expect(found(page).getByRole('button', { name: /No Exit arrives at The platform/ }))
     .toBeVisible()
 
-  // And it goes on saying so with that Scene in the gate. The reading says it too
-  // in the Scene's own words, but only on the face an Author has turned to: two
+  // And it goes on saying so with the caret in that Scene. The Preview says it too
+  // in the Scene's own words, but only while it is the reading on screen: two
   // voices for one fact was the objection while the reading was a column beside
-  // the writing, and it is a face of the same box now — see
-  // `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
+  // the writing, and it takes the middle of the bench now — see
+  // `docs/adr/0043-a-story-is-written-as-one-document.md`.
   await page.goto(`/stories/${story.id}?scene=${platform.id}`)
   await openRemarks(page)
   await expect(found(page)).toContainText('No Exit arrives at The platform')

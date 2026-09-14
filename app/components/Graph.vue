@@ -1,266 +1,111 @@
 <script setup lang="ts">
 /**
- * The Graph: the whole Story seen at once, as its Scenes and the Exits between
- * them, drawn from the Story and nothing else. Every Scene is a node laid out by
- * how far it stands from the Opening Scene and in what order it is offered —
- * `laidOut` in `shared/utils/scenes.ts` — so nothing here is placed by hand,
- * nothing is dragged, and nothing is written back: the Graph is a reading of the
- * Story, and it moves when the Story does. See
- * `docs/adr/0041-the-graph-is-drawn-from-the-story.md`.
+ * The Graph, drawn small down the side of the document: the rail —
+ * `docs/adr/0030-a-story-is-read-where-it-is-written.md`,
+ * `docs/adr/0032-the-bench-reads-the-story-back.md` and
+ * `docs/adr/0034-a-story-is-written-without-the-canvas.md` already call the folded
+ * Graph that, and this is the word in that sense rather than a new one. The
+ * columns run down the page and the Scenes of a column run across it, read off
+ * `inColumns` in `shared/utils/scenes.ts` — the same walk the document's own order
+ * is flattened out of, so the picture and the writing cannot disagree. See
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`.
  *
- * It is the whole surface of the bench rather than a band across the top of it,
- * and the Scene being written stands on it: the gate takes the place of that
- * Scene's node, at the size a frame and the words under it are looked at, and the
- * Graph opens up around it — the column widens, the Scenes under it are pushed
- * down — then closes again when the gate is lifted off. Which Scene the gate
- * holds is not decided here: a node says which Scene the bench should be writing
- * and asks the page to change it, so one surface answers to one page. See
- * `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
+ * It is a locator and not a workspace. It says where in the Story the caret is, it
+ * takes a press to go somewhere, and it marks a Scene nothing arrives at. It never
+ * grows: every layout before this one gave the drawing a share of the width that
+ * the writing then had to win back, and one hundred and twenty pixels is the whole
+ * of what this one takes at any width.
  *
- * The Scene being written has no node while the gate stands on it. There is
- * nothing a press on it could do — it is already the Scene on the bench — and an
- * act with nothing left to do is not one the bar of Commands offers either:
+ * Nothing is placed by hand and nothing is written here. There are no lines
+ * either: an Exit is read in the document of the Scene it leaves, where it is
+ * named by where it leads, and a line drawn across a rail this narrow would say
+ * less than the column a Scene stands in already does.
+ *
+ * `aria-hidden` with `tabindex="-1"` is the point of the rail rather than an
+ * oversight. Every fact the rail draws — where a Scene stands in the Story,
+ * whether the Story opens on it, whether anything arrives at it — is said in words
+ * in the document's own markup, so a rail in the accessibility tree would be the
+ * whole Story announced twice and a tab order running through a drawing. What
+ * still reaches it is the bar of Commands: `app/components/Commands.vue` reads
+ * `[data-command]` and filters by `checkVisibility()`, which does not consult
+ * `aria-hidden`, so *Go to* every Scene is offered there exactly as before — and
+ * that bar is the keyboard's way to a Scene. See
  * `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`.
  */
-const { story, sceneWritten, imageOf, lifted } = defineProps<{
+const { story, sceneWritten } = defineProps<{
   /** The Story on the bench, or nothing where the read was refused. */
   story?: StoryInEditor
-  /** The Scene the gate is standing on, which the Graph opens up around. */
+  /** The Scene the caret is in, which the rail marks. */
   sceneWritten?: string
-  /** Where a Shot's image is asked for, under the time it was last attached. */
-  imageOf: (shot: Shot) => string
-  /**
-   * Whether the gate has been lifted off, leaving the whole Story on the table
-   * with nothing standing on it. The Scene being written is still the one it was:
-   * lifting the gate is looking at the Story, not leaving the Scene.
-   */
-  lifted?: boolean
 }>()
 
 const emit = defineEmits<{ writeScene: [string] }>()
 
-const { t } = useI18n()
-
-/** The Scene the gate is drawn on, if it is drawn at all. */
-const standing = computed(() => lifted ? undefined : sceneWritten)
-
-/** Where every box stands, and how much room the whole drawing takes. */
-const laid = computed(() => laidOut(
-  story?.scenes ?? [], story?.exits ?? [], story?.openingSceneId ?? null, standing.value))
+/** The Story's columns, which is the whole of what the rail draws. */
+const columns = computed(() => inColumns(
+  story?.scenes ?? [], story?.exits ?? [], story?.openingSceneId ?? null))
 
 /**
- * How much room the whole drawing takes, as custom properties rather than as a
- * width and a height of its own: the fold below gives the surface back to the
- * gate on a phone, and a rule cannot argue with an inline style.
+ * Every Scene an Exit arrives at. A Scene that is neither this nor the Opening
+ * Scene is one no Reader ever gets to, and the rail marks it as the loose end it
+ * is — the document says the same in words under its name, and a Remark says it
+ * in a sentence.
  */
-const surfaceSize = computed(() => ({
-  '--surface-width': `${laid.value.width}px`,
-  '--surface-height': `${laid.value.height}px`,
-}))
+const arrivedAt = computed(() => new Set((story?.exits ?? []).map(exit => exit.toSceneId)))
 
 /**
- * A Scene's box. Every Scene of the Story is placed, so a Scene nothing finds
- * here is one the Graph was asked about before the Story it belongs to was read
- * back — drawn from the corner rather than from nowhere.
- */
-function boxOf(sceneId: string): Box {
-  return laid.value.placed.get(sceneId)
-    ?? { x: 0, y: 0, width: NODE_WIDTH, height: NODE_HEIGHT }
-}
-
-/** Every Scene with a node: all of them, bar the one the gate is standing on. */
-const nodes = computed(() =>
-  (story?.scenes ?? []).filter(scene => scene.id !== standing.value))
-
-/** Where the gate can go from here, which is what the Graph keeps lit. */
-const reached = computed(() => new Set(
-  exitsFrom(story?.exits ?? [], sceneWritten ?? '').map(exit => exit.toSceneId)))
-
-/**
- * Every Exit, as the line that draws it. Every box is known from the Story
- * alone — a node's size, or the gate's on the one Scene being written — so the
- * lines are right in the very first frame, on the server as in the browser, with
- * nothing measured after render.
+ * The mark the caret is on, brought into the rail. The rail scrolls inside itself,
+ * and a Story long enough puts the Scene being written past its foot: a locator
+ * that cannot show where the Author is standing has stopped being one, which is
+ * the condition `0043` says to reopen the whole layout on.
  *
- * A line that touches the Scene being written is drawn at full strength and the
- * rest of the Story a little back: with the gate down, the Graph says where the
- * gate can travel without saying anything less true about the Story. An Exit from
- * a Scene to itself is not drawn — a line of no length says nothing, and a Scene
- * that re-enters itself is read in its own document, where the way on names the
- * Scene it leaves.
+ * `nearest` is what keeps it quiet — a mark already in the rail is not moved, so
+ * the rail does not lurch every time the caret moves a Scene — and the document
+ * beside it is scrolled by the page rather than by this, so the two cannot argue.
+ * The mount is instant for the reason the document's own wind is: the first sight
+ * of the bench is a reload coming back to an address, and a rail winding past the
+ * Author before they can read it says nothing.
  */
-const exitLines = computed(() => (story?.exits ?? [])
-  .filter(exit => exit.fromSceneId !== exit.toSceneId)
-  .map((exit) => {
-    // The Place, counted from one the way the document numbers it, and how many
-    // ways on the Scene offers, which the departures are spread over.
-    const waysOn = exitsFrom(story?.exits ?? [], exit.fromSceneId)
-    const place = waysOn.indexOf(exit) + 1
-
-    return {
-      id: exit.id,
-      near: Boolean(standing.value)
-        && (exit.fromSceneId === sceneWritten || exit.toSceneId === sceneWritten),
-      ...exitLine(boxOf(exit.fromSceneId), boxOf(exit.toSceneId), place, waysOn.length),
-    }
-  }))
-
-/**
- * What a node says under the Scene's name: how many Shots are in it, and how
- * many ways on it offers. Where they land is what the lines are for.
- */
-function atAGlance(scene: Scene) {
-  const ways = exitsFrom(story?.exits ?? [], scene.id).length
-
-  return {
-    shots: countedShots(scene.shots.length, t),
-    ways: countedExits(ways, t),
-  }
-}
-
-function press(scene: Scene) {
-  emit('writeScene', scene.id)
-}
-
-/**
- * The gate brought onto the screen. The table is wider than a window as soon as
- * a Story has a few columns, and nothing until now scrolled it: measured on a
- * chain of eleven Scenes, the gate stood entirely off the edge for six of them
- * at 1440 and for more at every narrower width, with the table's own
- * `scrollLeft` at zero in every case. `docs/adr/0042-the-scene-is-written-where-it-stands.md`
- * says the gate is scrolled to whenever it moves, and this is what says it.
- *
- * `scrollIntoView` rather than arithmetic on the box. The room to leave around
- * the gate is the table's own padding, and reading that back into script would
- * be the same number written twice; `scroll-margin` says it once, in the units
- * the padding is already written in. `nearest` is what keeps it quiet: a gate
- * already on screen is not moved, so the table does not lurch when an Author
- * presses a node they can already see. Smoothness is the stylesheet's, where
- * the reduced-motion question is answered once.
- */
-const gate = useTemplateRef('gate')
+const rail = useTemplateRef<HTMLElement>('rail')
 
 function windOn(behavior: ScrollBehavior) {
-  gate.value?.scrollIntoView({ behavior, block: 'nearest', inline: 'nearest' })
+  rail.value?.querySelector('.mark.here')
+    ?.scrollIntoView({ behavior, block: 'nearest', inline: 'nearest' })
 }
 
-// Two callers rather than one immediate watch: an immediate watch runs at setup,
-// where the ref is still empty and, on the server, where there is nothing to
-// scroll at all. The first sight of the bench is the case that matters — a
-// reload comes back to an address — so it is the mount that owns it.
-//
-// And the two arrive differently. A bench opened on a Scene is already there:
-// winding the whole table past the Author before they can read anything says
-// nothing and takes half a second. A gate that moves because they pressed a
-// node is a move they made, and the table follows it. `instant` beats the
-// stylesheet's `smooth`; the empty argument leaves it in charge.
 onMounted(() => windOn('instant'))
-watch(() => standing.value, async () => {
+watch(() => sceneWritten, async () => {
   await nextTick()
-  windOn('smooth')
+  windOn('auto')
 })
 </script>
 
 <template>
-  <!-- The Graph, the whole surface of the bench. It scrolls both ways inside
-       itself and is never scaled: a node is read at one size wherever it stands,
-       and a Story wider than the window is scrolled to, the way a reel is wound
-       on. -->
-  <div v-if="story?.scenes.length" class="graph">
-    <div class="surface" :style="surfaceSize">
-      <!-- The drawing is the landmark, and the gate is not part of it: what is on
-           the table to be navigated is the Story's own shape, and the Scene being
-           written is a document standing on it. The lines are the pointer's way
-           to nothing, because nothing about an Exit is written here — what is
-           read out of a line is read off a Scene's own document instead. -->
-      <nav class="drawing" :aria-label="$t('editor.graph')">
-      <svg aria-hidden="true">
-        <defs>
-          <marker
-            id="exit-head" viewBox="0 0 8 8" refX="7" refY="4"
-            markerWidth="8" markerHeight="8" orient="auto-start-reverse"
-          >
-            <path d="M 0 0 L 8 4 L 0 8 z" />
-          </marker>
-        </defs>
-        <line
-          v-for="line in exitLines"
-          :key="line.id"
-          :data-exit="line.id"
-          :class="{ near: line.near }"
-          :x1="line.from.x"
-          :y1="line.from.y"
-          :x2="line.to.x"
-          :y2="line.to.y"
-          marker-end="url(#exit-head)"
-        />
-      </svg>
-
-      <!-- A Scene's node: what an Author needs to recognise the Scene at a
-           glance, and nothing to type into. One button, named for what pressing
-           it does, so the bar of Commands offers every Scene under the same
-           words the node answers to. -->
+  <!-- One element per column, the Scenes of a column running across it. Nothing
+       inside is announced and nothing inside is tabbed to: the document is where
+       all of this is said in words. -->
+  <div v-if="story?.scenes.length" ref="rail" class="rail" aria-hidden="true">
+    <div v-for="(column, depth) in columns" :key="depth" class="column">
+      <!-- Named for what pressing it does, so the bar of Commands offers every
+           Scene under the same words the mark answers to. The name is also the
+           mark's `title`, because a rail this narrow carries no words of its own
+           and a locator nobody can read is not one. -->
       <button
-        v-for="scene in nodes"
+        v-for="scene in column"
         :key="scene.id"
         type="button"
-        class="node"
+        class="mark"
+        tabindex="-1"
         :data-scene="scene.id"
         :data-command="$t('editor.goToScene', { name: scene.name })"
-        :aria-label="$t('editor.goToScene', { name: scene.name })"
+        :title="$t('editor.goToScene', { name: scene.name })"
         :class="{
           opens: story.openingSceneId === scene.id,
-          next: !lifted && reached.has(scene.id),
-          back: !lifted && !reached.has(scene.id),
-          unreached: scene.id !== story.openingSceneId
-            && !story.exits.some(exit => exit.toSceneId === scene.id),
+          here: scene.id === sceneWritten,
+          unreached: scene.id !== story.openingSceneId && !arrivedAt.has(scene.id),
         }"
-        :style="{
-          translate: `${boxOf(scene.id).x}px ${boxOf(scene.id).y}px`,
-          inlineSize: `${NODE_WIDTH}px`,
-          blockSize: `${NODE_HEIGHT}px`,
-        }"
-        @click="press(scene)"
-      >
-        <!-- The image of the first Shot, at the size a node can carry it: what
-             the Author recognises a Scene by before they read a word of it. A
-             Scene whose first Shot has none shows the outline of the frame it
-             would be. -->
-        <span class="frame" aria-hidden="true">
-          <img
-            v-if="scene.shots[0]?.image"
-            :src="imageOf(scene.shots[0])"
-            alt=""
-            draggable="false"
-          >
-        </span>
-        <span class="slate" aria-hidden="true">
-          <span class="name">{{ scene.name }}</span>
-          <span class="glance">
-            <span>{{ atAGlance(scene).shots }}</span>
-            <span class="out">{{ atAGlance(scene).ways }}</span>
-          </span>
-        </span>
-      </button>
-      </nav>
-
-      <!-- The gate, standing in the place of the node of the Scene it holds. The
-           page puts the writing surface in it, or the reading of the Story: one
-           box on the table with two faces — see
-           `docs/adr/0042-the-scene-is-written-where-it-stands.md`. -->
-      <div
-        v-if="standing"
-        ref="gate"
-        class="gate"
-        :style="{
-          '--at-x': `${boxOf(standing).x}px`,
-          '--at-y': `${boxOf(standing).y}px`,
-          '--gate-width': `${GATE_WIDTH}px`,
-          '--gate-height': `${GATE_HEIGHT}px`,
-        }"
-      >
-        <slot />
-      </div>
+        @click="emit('writeScene', scene.id)"
+      />
     </div>
   </div>
 </template>
@@ -268,240 +113,120 @@ watch(() => standing.value, async () => {
 <style scoped>
 @import '~/assets/css/folds.css';
 
-/* The table the Story is laid out on: the whole of the bench under its own
-   header, on the bench's deepest ground, scrolling both ways and centring what
-   is on it while that fits. */
-.graph {
-  flex: 1;
-  /* The containing block the gate covers on a phone. */
-  position: relative;
+/* The rail: exactly its own width at every window, a machined plate beside the
+   document rather than a hole cut through the bench — the same material every
+   control on the bench is drawn in, so the document beside it reads as the lit
+   surface. It scrolls inside itself, because a Story of forty Scenes is a tall
+   rail and the document is what the window is for. */
+.rail {
+  /* Twenty-four pixels, which is the smallest a target may be for a finger, at
+     both of the widths below: what narrows at the fold is the rail and never what
+     can be pressed. Four to a row at this width, and one to a row at the strip's. */
+  --mark: 24px;
+  flex: none;
   display: grid;
-  /* Centred while the drawing fits, and hung from the corner the moment it does
-     not: content centred in a scroller that overflows both ways puts what spills
-     past the start edge somewhere nothing can scroll to, which on a short window
-     is the head of the gate. `safe` is the one-word answer, and the line before
-     it is what a browser without it does. */
-  place-content: center;
-  place-content: safe center;
+  align-content: start;
+  gap: var(--s3);
+  inline-size: 120px;
   min-block-size: 0;
-  overflow: auto;
-  padding: var(--s5) var(--s4);
-  /* The gate is wound onto the screen rather than jumped to, because the nodes
-     glide to their new columns at the same moment and a table that arrived
-     before them would have moved for no reason an eye can follow. Asked of the
-     scroller in CSS rather than of `scrollIntoView` at each call, so the answer
-     to `prefers-reduced-motion` is given once. */
+  overflow-y: auto;
+  padding: var(--s2) var(--s1);
+  border-inline-end: 1px solid var(--edge);
+  background: var(--steel);
+  /* The mark the caret is on is wound into the rail rather than jumped to, and
+     the answer to `prefers-reduced-motion` is given once here rather than at each
+     call — the same arrangement the document beside it is scrolled under. */
   scroll-behavior: smooth;
-  background: color-mix(in oklab, var(--bench) 70%, black);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .graph {
+  .rail {
     scroll-behavior: auto;
   }
 }
 
-/* The surface the nodes are laid out on, exactly as large as the drawing: the
-   table scrolls to its edges and no further. */
-.surface {
-  position: relative;
-  inline-size: var(--surface-width);
-  block-size: var(--surface-height);
+/* A column of the Graph, read across the rail rather than down it: the page runs
+   the columns down, so what an eye follows downwards is the Story's own depth in
+   Exits taken. */
+.column {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
 }
 
-/* The drawing fills the surface, and the gate stands on it as a sibling: what is
-   navigated is the Story's shape, and the document is not part of it. */
-.drawing {
-  position: absolute;
-  inset: 0;
-}
-
-/* The drawing fills the surface. An SVG is a replaced element, so `inset` alone
-   leaves it at the three hundred by a hundred and fifty a browser gives one with
-   no size of its own: the size is asked for, and the lines inside it are in the
-   surface's own pixels. */
-svg {
-  position: absolute;
-  inset: 0;
-  inline-size: 100%;
-  block-size: 100%;
-  /* The drawing takes no presses: a node is pressed, a line is read. */
-  pointer-events: none;
-}
-
-/* An Exit is a mark the Author made, drawn in the grease pencil rather than in
-   the interface's own colour. The whole Story is drawn; the lines the gate could
-   travel are the ones drawn at full strength. */
-svg line {
-  stroke: color-mix(in oklab, var(--grease) 70%, transparent);
-  stroke-width: 1.5;
-}
-
-svg path {
-  fill: var(--grease);
-}
-
-.surface:has(.gate) svg line {
-  stroke: color-mix(in oklab, var(--grease) 22%, transparent);
-}
-
-.surface:has(.gate) svg line.near {
-  stroke: color-mix(in oklab, var(--grease) 85%, transparent);
-}
-
-/* A node: a frame and a slate side by side in a box every Scene shares, so the
-   line that draws an Exit can be drawn against geometry nobody has to measure.
-   Positioned by translate rather than by inset, because the Graph is read left to
-   right whatever direction the interface's text runs in. */
-.node {
-  position: absolute;
-  inset-block-start: 0;
-  inset-inline-start: 0;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 0;
+/* A Scene, at the size a rail can carry one: a mark and no words, machined into
+   the plate the way a field is machined into the bench. Its edge is the whole of
+   what it says — where the Story opens, and what nothing arrives at — so the edge
+   has to be legible on its own: `--edge` is a hairline meant to be read beside the
+   box it bounds, and at this size, with nothing inside it, it reaches 1.95:1 and
+   says nothing. `--muted` is the palette's quietest readable value and it clears
+   three to one, which is what a control's own boundary is held to. */
+.rail .mark {
+  min-inline-size: 0;
+  inline-size: var(--mark);
+  block-size: var(--mark);
   padding: 0;
-  overflow: hidden;
-  /* The strip down the leading edge, which the Opening Scene wears in grease
-     pencil: where the Story opens is read without reading a word. */
-  border-inline-start: 3px solid var(--edge);
-  text-align: start;
-  box-shadow: var(--lifted);
-  transition: translate 240ms ease-out, opacity 160ms ease-out;
-}
-
-.node.opens {
-  border-inline-start-color: var(--grease);
-}
-
-/* With the gate down, the Scenes its ways on lead to are where it can travel and
-   stay lit; the rest of the Story goes back — still drawn, still true, not being
-   worked on. */
-.node.back {
-  opacity: 0.4;
-}
-
-.node.next {
-  border-color: color-mix(in oklab, var(--light) 35%, var(--edge));
-}
-
-.node.next.opens {
-  border-inline-start-color: var(--grease);
-}
-
-/* A Scene nothing leads to is on the Graph like every other, and read as the loose
-   end it is: a Remark says the same in words, for whoever is not reading the
-   dashes. */
-.node.unreached {
-  border-style: dashed;
-  border-inline-start-style: solid;
-}
-
-/* The image of the first Shot, drawn whether or not there is one to put in it:
-   an empty one is the outline of the image nobody attached, which is how an
-   unfinished Scene reads as unfinished. */
-.frame {
-  display: block;
-  aspect-ratio: 16 / 9;
-  border-block-end: 1px solid var(--edge);
+  border: 1px solid var(--muted);
+  border-radius: var(--machined);
   background: var(--bench);
 }
 
-.frame img {
-  display: block;
-  -webkit-user-drag: none;
-  inline-size: 100%;
-  block-size: 100%;
-  object-fit: cover;
+.rail .mark:hover {
+  border-color: color-mix(in oklab, var(--light) 55%, var(--edge));
+  background: var(--steel-lit);
 }
 
-/* The slate: the Scene's name on one line, and how much is in it under. A long
-   name is cut off rather than making the node taller than every other. */
-.slate {
-  display: grid;
-  align-content: center;
-  gap: 1px;
-  min-inline-size: 0;
-  padding: var(--s1) var(--s2);
+/* Where the Story opens, in the grease pencil the Author's own marks are written
+   in — the strip the node wore down its leading edge, at the size a rail leaves
+   for one. */
+.rail .mark.opens {
+  border-color: var(--grease);
+  background: color-mix(in oklab, var(--grease) 30%, var(--bench));
 }
 
-.name {
-  overflow: hidden;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+/* Where the caret is, in the machine's own light: this is the interface saying
+   where in the Story the Author is standing, not anything the Author wrote. */
+.rail .mark.here {
+  border-color: var(--light);
+  background: var(--light);
 }
 
-.glance {
-  display: flex;
-  gap: var(--s2);
-  color: var(--muted);
-  font-family: var(--data);
-  font-size: 0.625rem;
-  letter-spacing: 0.04em;
+/* Both at once — the Story opens on the Scene being written — keeps the grease
+   pencil on the edge and the light inside, so neither fact is lost to the other. */
+.rail .mark.opens.here {
+  border-color: var(--grease);
 }
 
-.glance .out {
-  margin-inline-start: auto;
-  color: var(--grease);
+/* A Scene nothing leads to, read as the loose end it is. The document says the
+   same under its name and a Remark says it in a sentence; this is for whoever is
+   looking rather than reading. */
+.rail .mark.unreached {
+  border-style: dashed;
 }
 
-/* The gate: the box the Scene being written is drawn in, exactly the room the
-   layout reserved for it. The two numbers arrive as custom properties rather
-   than as a width and a translate of their own, so the fold below can put the
-   gate over the whole window without an inline style to beat. */
-.gate {
-  position: absolute;
-  z-index: 1;
-  inset-block-start: 0;
-  inset-inline-start: 0;
-  /* What the table leaves around the gate when it winds it onto the screen: its
-     own padding, so the gate arrives sitting where a gate sits rather than
-     wedged against the edge. */
-  scroll-margin: var(--s5) var(--s4);
-  display: flex;
-  inline-size: var(--gate-width);
-  block-size: var(--gate-height);
-  translate: var(--at-x) var(--at-y);
-}
-
-/* On a phone the bench holds one Scene. There is no width at which a table and
-   a gate stand side by side — the gate is a frame and the words under it — so
-   below the width the gate itself needs, the gate takes the whole table and
-   lifting it off is what shows the Story. It stays under the Story's own edge:
-   the acts that lift it, name it and publish it are read there, and a surface
-   that covered them would be a surface with no way out. See
-   `docs/adr/0042-the-scene-is-written-where-it-stands.md`. */
+/* On a phone the rail is a strip of dots and the document keeps the window —
+   the fold that hides nothing, which is the whole of what
+   `docs/adr/0043-a-story-is-written-as-one-document.md` asks of the layout. The
+   dots are smaller and still a finger's target: one per row, at the full width of
+   the strip, so what narrows is the rail and never what can be pressed. */
 @media (--phone) {
-  .graph {
-    padding: var(--s3);
+  .rail {
+    gap: var(--s2);
+    inline-size: 32px;
+    /* No side padding: the plate's own edge is one pixel of the thirty-two, and a
+       mark is twenty-four, so the room left over is what centres it. The marks
+       keep the machined corner they have at the wider width — `frameline.css`
+       allows two shapes, and the film gate's curve is the other one. */
+    padding: var(--s1) 0;
+    /* A classic scrollbar is fifteen pixels of a strip that is thirty-two, which
+       is half of every mark under a bar nobody here needs: the rail is
+       `aria-hidden`, out of the tab order, and wound to the caret by the component
+       itself. */
+    scrollbar-width: none;
   }
 
-  /* The gate covers the drawing rather than replacing it. Every node is still
-     drawn, so every Scene is still an act the bar of Commands offers — the bar
-     offers what the bench draws, and a bench that drew nothing under the gate
-     would put the Story out of reach of the one surface that reaches everything.
-     See `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`. */
-  .graph:has(.gate) {
-    place-content: stretch;
-    overflow: hidden;
-  }
-
-  .surface:has(.gate) {
-    position: static;
-  }
-
-  .surface:has(.gate) > .drawing {
-    position: static;
-  }
-
-  .gate {
-    position: absolute;
-    inset: 0;
-    inline-size: auto;
-    block-size: auto;
-    translate: none;
+  .column {
+    justify-content: center;
   }
 }
 </style>

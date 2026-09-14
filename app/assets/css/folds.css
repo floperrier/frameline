@@ -11,14 +11,18 @@
  * landing page turns two rooms side by side at sixty rem and nothing else reads
  * that number, so it stays written where it is used.
  *
- * There is one width left. `--phone` is read by the landing page, by the list of
- * Stories, and by the bench, where it is the width below which the gate covers
- * the Graph it stands on instead of standing on it: a gate is a frame and the
- * words under it, and there is no screen narrower than this that holds one
- * beside anything else. The bench had a second fold while the reading was a
- * column of its own; it is a face of the gate now, so the fold went with it —
- * see `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
+ * `--phone` is read by the landing page, by the list of Stories, and by the
+ * bench, where it is the width below which the rail narrows to a strip of dots.
+ * `--two-columns` is the bench's alone so far: a screen with room for the
+ * document and the rail but not for what the bench says beside them. The two
+ * together are the whole of the bench's folding, and they hide nothing — the
+ * Remarks fold first, then the rail narrows, and the document keeps the window at
+ * every width. See `docs/adr/0043-a-story-is-written-as-one-document.md`.
  */
 
 /* A screen with no room for two columns of anything: the phone. */
 @custom-media --phone (max-width: 44rem);
+
+/* Room for the document and the rail, and not for what the bench says beside
+   them. */
+@custom-media --two-columns (max-width: 64rem);
