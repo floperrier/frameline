@@ -45,9 +45,11 @@ const box = ref<DOMRect>()
 /**
  * What the Step showing is pointing at, as a selector.
  *
- * Nothing has to be scoped to a Scene by id: the one target the canvas carries is
- * drawn on a Story with no Scene in it, and every other Step points into the
- * panel, which holds one Scene by construction.
+ * Nothing has to be scoped to a Scene by id, although the document holds every
+ * Scene of the Story at once: a Step that points into the writing is marked on the
+ * Scene the caret is in and on no other — `app/components/Writing.vue` writes
+ * `data-step` under `held.here` — so the selector finds one element however long
+ * the Story is. The rest are drawn once, outside the document.
  */
 const pointing = computed(() => step.value && `[data-step="${step.value.target}"]`)
 
@@ -59,10 +61,11 @@ function dismiss() {
 /**
  * The target's rectangle, read every frame for as long as a Step is showing.
  *
- * A frame at a time rather than on a list of the things that move it: the graph
- * scrolls, the panel opens and pushes it narrower, the window resizes, a Refusal
- * appears above the bench and pushes everything down, and a spotlight that lags
- * one of those is a defect an Author sees immediately. Nothing is written unless
+ * A frame at a time rather than on a list of the things that move it: the
+ * document scrolls, the caret moves to another Scene and the marks move with it,
+ * the window resizes, a Refusal is drawn — against a Scene, or above the bench —
+ * and pushes what is under it down, and a spotlight that lags one of those is a
+ * defect an Author sees immediately. Nothing is written unless
  * the rectangle actually changed, so a bench nobody is touching costs a read and
  * no render, and the loop stops the moment the Step is met — which is the point of
  * the Step.
@@ -70,11 +73,10 @@ function dismiss() {
 function look() {
   const target = pointing.value ? document.querySelector(pointing.value) : null
   const seen = target?.getBoundingClientRect()
-  // A target scrolled out of the panel it is in is in the document and has no
-  // rectangle worth pointing at: an element that draws nothing measures nothing,
-  // and a light on a rectangle of no size would be a dot in the corner of the
-  // bench. Read as absent, so the bubble goes adrift rather than being wrong
-  // about the screen.
+  // An element that is in the document and draws nothing measures nothing, and a
+  // light on a rectangle of no size would be a dot in the corner of the bench
+  // rather than on the control the sentence names. Read as absent, so the bubble
+  // goes adrift rather than being wrong about the screen.
   const reachable = seen?.width && seen.height
   const found = reachable ? seen : undefined
   if (!alike(box.value, found)) box.value = found
@@ -142,10 +144,12 @@ const wide = { inlineSize: `min(${BUBBLE_WIDTH}px, calc(100vw - 2 * var(--s4)))`
 <template>
   <template v-if="step">
     <div v-if="lit" class="spotlight" :style="lit" />
-    <!-- Drawn whether or not there is anything to point at. The Author can close
-         the panel or scroll the target off the bench at any moment, and a bubble
-         pointing at nothing would be the guidance being wrong about the screen;
-         adrift, it carries the same sentence from a corner. -->
+    <!-- Drawn whether or not there is anything to point at. The Author can turn
+         the middle of the bench over to the reading, move the caret to another
+         Scene and take the marks with it, or scroll the target out of the document
+         at any moment, and a bubble pointing at nothing would be the guidance being
+         wrong about the screen; adrift, it carries the same sentence from a
+         corner. -->
     <aside
       class="bubble"
       :class="{ adrift: !said }"

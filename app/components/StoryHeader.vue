@@ -173,7 +173,7 @@ function unlist() {
         {{ $t('editor.allStories') }}
       </NuxtLink>
       <!-- The title is the heading and the heading is written in, the same idiom
-           as a Scene's name in the panel: a bare field with no mode to enter
+           as a Scene's name in the document: a bare field with no mode to enter
            first. The label sits outside the heading rather than in it, or it
            would be read out ahead of the title the Author is correcting. -->
       <label class="visually-hidden" for="story-title">{{ $t('editor.storyTitle') }}</label>
@@ -366,7 +366,7 @@ header {
 
 /* A Story's title is the Author's own words, so nothing here recases them. The
    field is the heading and wears the heading's face, the way a Scene's name does
-   in the panel: the frame it draws is held off the pointer rather than restated
+   in the document: the frame it draws is held off the pointer rather than restated
    here, so the two fields cannot drift apart. */
 .named {
   min-inline-size: 0;
@@ -430,9 +430,9 @@ header {
 }
 
 /* The Cover beside the Synopsis: a strip of the Story's own frames, each one a
-   thumbnail the size the panel draws a Shot's, so the same Image reads as the same
-   thing on the two surfaces. The fieldset draws no box of its own — the legend is
-   the label the other fields wear. */
+   thumbnail the size the document draws a Shot's, so the same Image reads as the
+   same thing on the two surfaces. The fieldset draws no box of its own — the
+   legend is the label the other fields wear. */
 .cover {
   display: grid;
   gap: var(--s1);
