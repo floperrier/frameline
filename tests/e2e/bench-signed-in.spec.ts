@@ -250,7 +250,10 @@ test('keeps the rail out of the accessibility tree and out of the tab order',
     // `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`.
     await page.getByRole('button', { name: 'Commands' }).click()
     await page.getByRole('textbox', { name: 'Type a name' }).fill('Go to Scene 7')
-    await page.getByRole('button', { name: 'Go to Scene 7' }).click()
+    // In the bar, because the document has one of these of its own: the way on at
+    // the foot of Scene 6 lands on Scene 7 and its row carries a control named for
+    // exactly that.
+    await page.locator('dialog.commands').getByRole('button', { name: 'Go to Scene 7' }).click()
     await expect(page).toHaveURL(/scene=/)
     await expect(page.locator('.rail .here')).toHaveAttribute('data-scene', scenes[6]!.id)
   })

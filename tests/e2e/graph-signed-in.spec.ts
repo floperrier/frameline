@@ -1005,11 +1005,13 @@ test('the Graph is drawn from the Story, and redrawn as the Story changes', asyn
   await expect(rail).toHaveText('')
 
   // And nothing in it is announced or tabbed to, which is what lets the document
-  // say every one of these facts in words without saying them twice. *The tunnel*
-  // rather than a Scene the caret's own Scene leads to: a way on's row carries a
-  // control named *Go to* where it lands, and that one is a real button.
+  // say every one of these facts in words without saying them twice. *The arrival*
+  // rather than any other Scene: a way on's row carries a control named *Go to*
+  // where it lands, every Scene of the document draws its own rows since #252, and
+  // the Opening Scene is the one Scene here that no way on arrives at — so the only
+  // thing that could answer to this name is the rail's own mark.
   await expect(rail).toHaveAttribute('aria-hidden', 'true')
-  await expect(page.getByRole('button', { name: 'Go to The tunnel' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Go to The arrival' })).toHaveCount(0)
 
   // The columns run down the rail and the Scenes of a column run across it, laid
   // out by distance from the opening in Exits taken: a Scene one Exit further on
