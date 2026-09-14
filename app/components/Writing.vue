@@ -721,9 +721,20 @@ function writeConditions(
 
       <!-- The Flags the Scene sets, at the head of its section where they happen:
            set on entry, before the first Shot plays. On one line with its heading
-           while the Scene sets none, which is most Scenes. -->
-      <section class="held set" :aria-labelledby="`flags-of-${held.scene.id}`">
-        <h3 :id="`flags-of-${held.scene.id}`">
+           while the Scene sets none, which is most Scenes.
+
+           A heading and no landmark, here and in the two sections under it. A
+           named `<section>` is a region, and a Story of forty Scenes written where
+           they stand would put a hundred and twenty of them in a screen reader's
+           rotor — *Flags*, *Shots*, *Exits*, forty times over. Naming each one for
+           its Scene, the way every control of a row is named, would make them
+           distinct without making them fewer, and a list of a hundred and twenty
+           is not a way to get anywhere: what an Author moves by is the Scene, and
+           the rail, the address and the bar of Commands each reach one. The
+           headings stay, so the outline still reads the Scene and then its Flags,
+           Shots and Exits under it, which is what the document is walked by. -->
+      <section class="held set">
+        <h3>
           {{ $t('editor.flagsHeld') }}
           <span class="counted">{{ held.counted.flags }}</span>
         </h3>
@@ -744,8 +755,8 @@ function writeConditions(
            marks that move and take it away — `0033`'s row, over the whole Story.
            Counted twice: in Shots, which is the count the bench gives of the whole
            Story beside the document, and in words, which is what a writer asks. -->
-      <section class="held run" :aria-labelledby="`shots-of-${held.scene.id}`">
-        <h3 :id="`shots-of-${held.scene.id}`">
+      <section class="held run">
+        <h3>
           {{ $t('editor.shotsHeld') }}
           <span class="counted">{{ held.counted.shots }}</span>
           <!-- Its own component so that the one number here that changes on every
@@ -936,14 +947,14 @@ function writeConditions(
       <!-- The foot of the Scene: the ways out, in the Places it offers them at,
            each with the Conditions it is offered under. Last because that is where
            the Reader meets them. -->
-      <section class="held ways" :aria-labelledby="`ways-of-${held.scene.id}`">
-        <h3 :id="`ways-of-${held.scene.id}`">
+      <section class="held ways">
+        <h3>
           {{ $t('editor.waysHeld') }}
           <span class="counted">{{ held.ways.length }}</span>
         </h3>
 
         <p v-if="!held.ways.length" class="none">{{ $t('editor.noWayOnYet') }}</p>
-        <ol v-else :aria-labelledby="`ways-of-${held.scene.id}`">
+        <ol v-else>
           <li v-for="(exit, place) in held.ways" :key="exit.id" :data-way="exit.id">
             <span class="numbered">{{ place + 1 }}</span>
 
