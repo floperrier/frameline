@@ -1,6 +1,6 @@
 import type { Browser, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { test, writeStory } from './author'
+import { forgetName, test, writeStory } from './author'
 
 /**
  * A Reader with no account, in a browser of their own: no session, no cookie and
@@ -93,4 +93,61 @@ test('a Reader is not put back where the Story has moved from under them', async
   await reading.reload()
   await expect(reading.getByText('A door opens.')).toBeVisible()
   await expect(pickedUp(reading)).toHaveCount(0)
+})
+
+test('a Reader who finishes a Story is led on to its Author and to the Catalogue', async ({
+  page,
+  request,
+  browser,
+  baseURL,
+  author,
+}) => {
+  const story = await writeStory(request)
+  const link = `${baseURL}/read/${story.id}`
+
+  await page.goto(`/stories/${story.id}`)
+  await page.getByRole('button', { name: 'Publish this Story', exact: true }).click()
+  await expect(page.getByRole('link', { name: link })).toBeVisible()
+
+  // Read by somebody with no account at all, which is the whole claim: the
+  // sealed session this suite hands every context travels in a header, so it is
+  // emptied here as the Catalogue's own specs empty it, and the address and the
+  // language are given by hand because a context opened this way takes neither.
+  const context = await browser.newContext({ baseURL, locale: 'en-US', extraHTTPHeaders: {} })
+  const reading = await context.newPage()
+  await reading.goto(link)
+
+  await expect(reading.getByText('Favourites and Lists are kept per account')).toBeVisible()
+
+  // The header wears the wordmark every other public page wears, and it leads
+  // where a Profile's leads: the room a Story is found in rather than sent from.
+  await expect(reading.getByRole('link', { name: 'Frameline' }))
+    .toHaveAttribute('href', '/catalogue')
+
+  // Nothing that leads away is drawn in the reel: the work is not interrupted,
+  // and a Reader still reading is offered the Story and nothing beside it.
+  await expect(reading.locator('.reading').getByRole('link')).toHaveCount(0)
+
+  // Signed as an entry on a shelf is, and the Name is the way to the Author.
+  await expect(reading.getByRole('link', { name: author.name! }))
+    .toHaveAttribute('href', `/profile/${author.id}`)
+
+  // The Story played to its end, and from the ending the Catalogue is one press.
+  await reading.getByRole('button', { name: 'Next Shot' }).click()
+  await reading.getByRole('button', { name: 'Next Shot' }).click()
+  await reading.getByRole('button', { name: 'Follow her out' }).click()
+  await reading.getByRole('button', { name: 'Next Shot' }).click()
+  await expect(reading.getByRole('status')).toHaveText('The path ends here.')
+
+  await reading.getByRole('link', { name: 'Find Stories in the Catalogue' }).click()
+  await expect(reading).toHaveURL(`${baseURL}/catalogue`)
+
+  // An Author who has never written a Name signs nothing, which is what a shelf
+  // does: no byline, and never the one thing an account always has. The way on
+  // to the Catalogue is unmoved — it was never the Author's to offer.
+  await forgetName(author)
+  await reading.goto(link)
+  await expect(reading.getByRole('link', { name: 'Find Stories in the Catalogue' })).toBeVisible()
+  await expect(reading.locator('.onward').getByRole('link', { name: author.name! })).toHaveCount(0)
+  await expect(reading.getByText(author.email)).toHaveCount(0)
 })
