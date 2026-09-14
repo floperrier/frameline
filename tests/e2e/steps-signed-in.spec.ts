@@ -90,7 +90,7 @@ test('a Story that is past every step is guided not at all', async ({ page, auth
   // The Condition names the value the Flag holds, which is the step the Preview
   // teaches, and the Story is out at its link, which is the last one.
   await seedShotConditions(platform.shots[0]!.id, [{ flag: 'courage', is: 'high' }])
-  await seedPublication(story)
+  await seedPublication(story, arrival)
 
   await page.goto(`/stories/${story.id}`)
 
