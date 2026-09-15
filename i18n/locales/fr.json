@@ -178,7 +178,7 @@
     "readRemarks": "Lire les Remarques",
     "closeRemarks": "Fermer les Remarques",
     "noRemarks": "Rien à signaler : chaque Scène est atteinte, chaque Plan est écrit, chaque Marqueur est relié.",
-    "remarkAbout": "— ouvrir {scene}",
+    "remarkAbout": "— aller à {scene}",
     "splitBefore": "Scinder {scene} avant le Plan {place}",
     "splitSceneName": "{name}, suite",
     "sceneSplit": "« {name} » scindée : ce qui suivait est désormais « {to} »",

@@ -178,7 +178,7 @@
     "readRemarks": "Read the Remarks",
     "closeRemarks": "Close the Remarks",
     "noRemarks": "Nothing to report: every Scene is reached, every Shot is written, every Flag is joined up.",
-    "remarkAbout": "— open {scene}",
+    "remarkAbout": "— go to {scene}",
     "splitBefore": "Split {scene} before Shot {place}",
     "splitSceneName": "{name}, continued",
     "sceneSplit": "“{name}” split: what followed is now “{to}”",

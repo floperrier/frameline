@@ -17,29 +17,38 @@
  * only on a Story with something wrong would be a thing an Author had to notice
  * the absence of; standing there at nothing, it is somewhere they can look.
  *
- * Open by default, which is new. The list used to be laid over the head of the
- * bench, so leaving it open would have covered the table; it now flows in the
- * column it stands in, and at the fold it flows at the head of the document. There
- * is room for it, so the Remarks say what they found without being asked. What
- * folds is the width they are said in and never their voice.
+ * Open where there is room for it, which is new. The list used to be laid over the
+ * head of the bench, so leaving it open would have covered the table; it now flows
+ * in the column it stands in, so the Remarks say what they found without being
+ * asked. At the fold they go to the head of the document, where the document is
+ * what the window is for, and there they are the line and its count until the
+ * Author opens them. What folds is the width they are said in and never their
+ * voice: the line is still on the screen, and the act that opens it is still named
+ * in the bar.
  *
  * The list is still held to its own height and scrolls inside itself: a Story of
  * forty Remarks is forty sentences in one region rather than a region as tall as
  * the Story.
  */
-const { story, sceneWritten } = defineProps<{
+const { story, sceneWritten, previewed } = defineProps<{
   /** The Story on the bench, which is the whole of what a Remark is read from. */
   story?: StoryInEditor
   /** The Scene on the writing surface, if one is — see `spoken`. */
   sceneWritten?: string
+  /** Whether the Preview is the reading the middle of the bench is showing — see `spoken`. */
+  previewed?: boolean
 }>()
 
 /**
- * Which Scene the Author asked to be taken to. The same act the card's own
- * control and the bar's *Go to X* perform, by the same route: the page owns
- * which Scene is being written, and a list that routed there itself would be a
- * second navigation of the bench able to disagree with the first two about where
- * a Scene is.
+ * Which Scene the Author asked to be taken to, which is the rail's own press and
+ * nothing else: the page owns which Scene the caret is in, and a list that routed
+ * there itself would be a second navigation of the bench able to disagree with the
+ * rail and with the bar's *Go to X* about where a Scene is.
+ *
+ * It leaves the middle of the bench on the reading it was showing, for the reason
+ * the rail's press does: the Remarks stand beside every reading, so a Remark
+ * pressed while the Story is being read is the Author reading on rather than
+ * asking to write.
  */
 const emit = defineEmits<{ open: [string] }>()
 
@@ -53,30 +62,99 @@ const emit = defineEmits<{ open: [string] }>()
  *
  * It starts where the element itself starts, which is open: the two would
  * otherwise disagree until the first toggle, and the bar would offer *Read the
- * Remarks* over a list already open.
+ * Remarks* over a list already open. Open is also the only answer a server can
+ * give, since the bench is rendered whole before anything has measured a window,
+ * and it is the right one at the width there is room at. The fold closes it below.
  */
 const open = ref(true)
 
 /**
- * The Remarks the bench says out loud: every one it found, and none of them left
- * to anybody else.
+ * The fold, asked of the stylesheet rather than measured here. `--two-columns` is
+ * a custom media query and script cannot read one, and the width it stands for is
+ * not a number this component may hold a second copy of — `app/assets/css/folds.css`
+ * is where a fold is named — so the stylesheet says which side of it the Remarks
+ * are on in a value that can be read back off the element.
  *
- * Two of them used to be dropped while the Scene they were about was open,
- * because the reading standing in the column beside the writing was already
- * saying them in the Scene's own words, and two voices for one fact is the
- * objection `0034` raised about an Exit's text. The reading is one of the readings
- * the middle of the bench can hold rather than a column beside the writing — see
- * `docs/adr/0043-a-story-is-written-as-one-document.md` — so while an Author is
- * writing, it is saying nothing to them at all, and a Remark left to it would be
- * a fact said by nobody. `0043` generalises the rule rather than dropping it: the
- * nearer voice wins, and these two are dropped exactly while the Preview is the
- * reading on screen. Issue #254 is where that is written.
+ * The disclosure is opened and closed on the element rather than through a bound
+ * attribute, because the element is where that state lives and a second copy of it
+ * drifts: a `<details>` coalesces its `toggle` events, so a template that renders
+ * `open` from a `ref` can be left holding the opposite of what the browser has, and
+ * the next write of the same value patches nothing. Measured rather than reasoned
+ * about — driven at 1280 and then at 390, the bound version left the list open one
+ * run in four.
+ *
+ * The name the bar offers is written here as well as left to the `toggle` that
+ * follows, for the same reason: an event that may be coalesced away is not
+ * something a Command's name can be left waiting on.
+ *
+ * Only a crossing moves it. What the fold decides is where the Remarks stand and
+ * whether they are said without being asked; what the Author decides after that is
+ * theirs until the layout changes under them again.
  */
-const spoken = computed(() => story ? remarks(story) : [])
+const region = useTemplateRef<HTMLDetailsElement>('region')
+let folded: boolean | undefined
+
+function settle() {
+  if (!region.value) return
+
+  const now = getComputedStyle(region.value).getPropertyValue('--folded').trim() === '1'
+  if (now === folded) return
+
+  folded = now
+  region.value.open = !now
+  open.value = !now
+}
+
+onMounted(() => {
+  settle()
+  window.addEventListener('resize', settle)
+})
+
+onUnmounted(() => window.removeEventListener('resize', settle))
+
+/**
+ * The Remarks the bench says out loud: every one it found, less whatever the
+ * reading in the middle of the bench is already saying in the Scene's own words.
+ * Two voices for one fact is the objection `0034` raised about an Exit's text, and
+ * the answer is the same here: the nearer voice wins.
+ *
+ * The Preview says two of them — that the Story opens on nothing, and that nothing
+ * leads to the Scene being written — so those two are dropped exactly while it is
+ * the reading on screen, and said again the moment the Author turns back to the
+ * writing, where nothing else is saying them. See
+ * `docs/adr/0032-the-bench-reads-the-story-back.md`, which
+ * `docs/adr/0043-a-story-is-written-as-one-document.md` generalises from one Scene
+ * to every reading.
+ *
+ * It says only one of the two at a time, though, and that bounds what is dropped.
+ * A Story with no opening Scene is the whole of what the Preview reports — there
+ * is nowhere to read from, so it never gets as far as the Scene on the surface —
+ * and a Remark dropped there would be a fact said by nobody. So the Scene's own
+ * sentence is left to the Preview only where the Story opens somewhere.
+ *
+ * Dropped here rather than in the reading, which knows the Story and has no
+ * business knowing the bench.
+ */
+const spoken = computed(() => {
+  const found = story ? remarks(story) : []
+  if (!previewed || !sceneWritten) return found
+
+  return found.filter(remark => !(
+    remark.name === 'noOpening'
+    || (remark.name === 'sceneUnreached'
+      && remark.sceneId === sceneWritten
+      && story?.openingSceneId)
+  ))
+})
 </script>
 
 <template>
-  <details open class="found" @toggle="open = ($event.target as HTMLDetailsElement).open">
+  <details
+    ref="region"
+    open
+    class="found"
+    @toggle="open = ($event.target as HTMLDetailsElement).open"
+  >
     <!-- Marked as a Command, because reading what the bench found is an act of it
          like the fit and the Publish — see
          `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`. A
@@ -112,6 +190,9 @@ const spoken = computed(() => story ? remarks(story) : [])
    rather than any part of the Story. It flows in the region it stands in — it
    covers nothing, because there is nothing beside it to cover. */
 .found {
+  /* Which side of the fold the Remarks are on, said where the fold is reached by
+     name so that the script has no second copy of the width — see `settle`. */
+  --folded: 0;
   min-inline-size: 0;
   padding: var(--s1) var(--s2);
   border: 1px solid var(--edge);
@@ -199,12 +280,18 @@ li button:focus-visible {
   font-size: 0.875rem;
 }
 
-/* At the fold the Remarks stand at the head of the document rather than beside
-   it, and the document is what the window is for: the list is held to a couple of
-   sentences there and goes on scrolling inside itself. It is still open and still
-   says what it found — what folds is the width the Remarks are said in and never
-   their voice. See `docs/adr/0043-a-story-is-written-as-one-document.md`. */
+/* At the fold the Remarks stand at the head of the document rather than beside it,
+   and the document is what the window is for: they are the line and its count
+   there, which opens them, and the list it opens into is held to a couple of
+   sentences and goes on scrolling inside itself. What folds is the width the
+   Remarks are said in and never their voice — the line is on the screen at the
+   head of the document, and the bar still names the act that opens it. See
+   `docs/adr/0043-a-story-is-written-as-one-document.md`. */
 @media (--two-columns) {
+  .found {
+    --folded: 1;
+  }
+
   ul {
     max-block-size: 12rem;
   }
