@@ -27,6 +27,13 @@ a target is lit on the half that is there, and none of a target is no target —
 the case that degrades is the end of a range rather than a rule of its own.
 Nothing else here moves.
 
+Amended in issue #278, which took one paragraph out: the one under **Scoped to a
+Scene again** that said the Scene a Step lights and the Scene it reads can
+disagree. They no longer can. The Condition Step read the second Scene in the
+order the API returned it; it now reads every Scene, so a Condition written where
+the light is meets it wherever the caret stands, and the predicate is a fact about
+the Story alone as `docs/adr/0020-progress-is-the-story.md` asks.
+
 Read *Repère* as *Step* and `data-cue` as `data-step` in everything below: both
 were renamed with the vocabulary and neither survives anywhere in the code. The
 body is left in the words the decision was taken in, which is what a record is
@@ -168,15 +175,6 @@ therefore the Scene the Author is standing in, which is what most of the sentenc
 say — *this Scene* — and getting to another is the rail, the address or the bar,
 which is the rule below about bringing a target on screen rather than a gap in
 this one.
-
-Which Scene a Step *reads* is not the mark's to say, and for one of the eight it is
-not the Scene the caret is in. A Step is met by a predicate over the Story, and the
-Condition Step's reads the second Scene in the order the API returns it — measured
-as *Scene 26* on a chain of forty whose caret stood in *Scene 01* — so an Author
-who writes the Condition where the light is has not met it. That disagreement is
-older than this amendment and is issue #278; it is written here rather than left
-for the next reader to find, because the paragraph above is exactly where somebody
-would look for it.
 
 **A Step names the control that writes the row it is about, as well as the row.**
 A Scene arrives with no Shot in it, deliberately, so the Step that asks for a Shot

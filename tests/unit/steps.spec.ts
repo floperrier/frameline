@@ -27,7 +27,7 @@ function onTheBench(scenes: [name: string, shot?: string][] = []): StoryInEditor
       id: name,
       name,
       sets: {},
-      shots: shot === undefined ? [] : [{ id: `${name}-1`, text: shot }],
+      shots: shot === undefined ? [] : [{ id: `${name}-1`, text: shot, conditions: [] }],
     })) as StoryInEditor['scenes'],
     exits: [],
   }
@@ -134,7 +134,7 @@ describe('the Step the bench is showing', () => {
     expect(asking(story)).toBe('openingScene')
   })
 
-  it('asks for the Preview once a Shot of the second Scene tests that Flag', () => {
+  it('asks for the Preview once a Shot tests that Flag', () => {
     const story = joined()
     sets(story, 0, { courage: 'high' })
     playedWhen(story, 1, { flag: 'courage', is: 'low' })
@@ -202,7 +202,7 @@ describe('the Step the bench is showing', () => {
     expect(asking(story)).toBeUndefined()
   })
 
-  it('goes on asking while the Condition on the second Scene names no Flag that is set', () => {
+  it('goes on asking while the Condition names no Flag that is set', () => {
     const story = joined()
     sets(story, 0, { courage: 'high' })
     playedWhen(story, 1, { flag: 'coat', is: 'on' })
@@ -223,16 +223,32 @@ describe('the Step the bench is showing', () => {
   })
 
   /**
-   * The Condition is asked for on the second Scene, where a Flag the first sets
-   * is already in State. One on the first Scene's own Shot is a Condition the
-   * Author wrote somewhere else, and the step is still waiting.
+   * The light is on the Scene the caret is in, and after the way on that is still
+   * the first Scene, so a Condition written where the light is lands on the first
+   * Scene's own Shot. The Flag it sets on entry is in State by the time that Shot
+   * plays, so the lesson holds there, and the Step is met — issue #278.
    */
-  it('does not take a Condition on the first Scene as the one it asked for', () => {
+  it('takes a Condition on the first Scene as the one it asked for', () => {
     const story = joined()
     sets(story, 0, { courage: 'high' })
     playedWhen(story, 0, { flag: 'courage', is: 'low' })
 
-    expect(asking(story)).toBe('putCondition')
+    expect(asking(story)).toBe('previewCondition')
+  })
+
+  /**
+   * The Scenes arrive in whatever order the API hands them back, which is not an
+   * order the Story has, and the caret is not the Story's either. So the answer
+   * is the same whichever way the Scenes are listed: a predicate over the Story
+   * alone — `docs/adr/0020-progress-is-the-story.md`.
+   */
+  it('gives the same answer whatever order the Scenes are listed in', () => {
+    const story = joined()
+    sets(story, 0, { courage: 'high' })
+    playedWhen(story, 1, { flag: 'courage', is: 'low' })
+    const reversed = { ...story, scenes: [...story.scenes].reverse() }
+
+    expect(asking(reversed)).toBe(asking(story))
   })
 
   /**
