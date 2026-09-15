@@ -175,7 +175,6 @@ test('the Author picks a file in the editor, and a refused one says why', async 
   await page.goto(`/stories/${story.id}`)
 
   await writeScene(page, 'The street')
-  const street = writing(page)
   const picker = picking(page, 1)
   await picker.setInputFiles({ name: 'image.png', mimeType: 'image/png', buffer: ONE_PIXEL })
   await expect(shown(page, 1)).toBeVisible()
@@ -187,11 +186,15 @@ test('the Author picks a file in the editor, and a refused one says why', async 
     mimeType: 'image/png',
     buffer: Buffer.from('Not an image at all'),
   })
-  // Against the Scene it concerns rather than above the whole bench: the document
-  // holds every Scene, so the sentence is said in the section of the one the write
-  // was made in — see `docs/adr/0043-a-story-is-written-as-one-document.md`.
-  await expect(street.getByRole('alert')).toContainText('a JPEG, a PNG or a WebP image')
-  await expect(writing(page, 'The bar').getByRole('alert')).toHaveCount(0)
+  // Against the Scene it concerns rather than about the Story: the document holds
+  // every Scene, so the sentence names the one the write was made in — see
+  // `docs/adr/0043-a-story-is-written-as-one-document.md`. It names it rather than
+  // standing in its section, because a band drawn inside the document covers a row
+  // of the writing wherever it is put — `.refused` in
+  // `app/pages/stories/[id]/index.vue`.
+  await expect(page.getByRole('alert')).toHaveText(
+    'In “The street”: A Shot carries a JPEG, a PNG or a WebP image, and nothing else.')
+  await expect(page.locator('.writing [role="alert"]')).toHaveCount(0)
   await expect(shown(page, 1)).toBeVisible()
 })
 
