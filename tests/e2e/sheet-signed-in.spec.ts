@@ -470,10 +470,13 @@ async function seeded(
   }
   await request.post(`/api/scenes/${written[0]!.id}/opening`)
 
-  for (const scene of written.slice(0, images)) {
+  // Together rather than one after the other: forty Images are forty round trips
+  // to the database and back, and in a row they are what puts the test that draws
+  // them at the edge of its budget on a loaded runner.
+  await Promise.all(written.slice(0, images).map(async scene => {
     const [shot] = await readShots(scene.id)
     await request.put(`/api/shots/${shot!.id}/image`, { data: ONE_PIXEL })
-  }
+  }))
 
   return story
 }
@@ -556,3 +559,53 @@ test('draws a Story of forty Scenes whole without handing the screen more of it'
       }))).toEqual({ root: false, body: false })
     }
   })
+
+test('hands the window nothing to scroll on a Story whose Remarks run past the fold',
+  async ({ page, request, author }) => {
+    // The bench is a window tall by construction, and on a Story of forty Scenes
+    // with an Image on every Shot the window scrolled anyway: 2390 pixels at
+    // 1440 × 900 — #285. What handed it the room was the Remarks: one visually
+    // hidden span per Remark, positioned against the viewport because nothing
+    // nearer was positioned, laid down the page at the rows the list scrolls them
+    // to, 79 pixels a row from 206 down. Twelve Images is twelve *has no
+    // Description* Remarks and a twelfth row at 1075, past the fold with room to
+    // spare — the smallest Story that crossed it, rather than the forty the
+    // defect was read on. One width, because it is the one the Remarks stand open
+    // beside the document at: folded to the head of the document they are closed,
+    // and a closed list lays nothing down.
+    const story = await seeded(request, author, 12, 12)
+
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto(`/stories/${story.id}`)
+    await live(page)
+    await expect(page.locator('.writing')).toBeVisible()
+    await page.waitForLoadState('networkidle')
+    // The cause first, in the form that is true at any count, any row height and
+    // any width: every one of those spans is laid out against the list and not
+    // against the page. `offsetParent` is the nearest positioned ancestor, and
+    // `body` there is the viewport. The page total alone is two rows of margin
+    // from going green on a broken build — nine Remarks, or rows a fifth shorter,
+    // and the twelfth span stops reaching the fold.
+    expect(await page.locator('.found .visually-hidden').evaluateAll(spans =>
+      spans.map(span => (span as HTMLElement).offsetParent?.tagName))).toEqual(Array(12).fill('UL'))
+
+    // Then the symptom, which is what an Author would notice and what #285 is
+    // written in terms of.
+    expect(await scrollsDown(page)).toEqual({ root: 0, body: 0 })
+
+    await seeTheSheet(page)
+    await expect(frames(page)).toHaveCount(12)
+    expect(await scrollsDown(page)).toEqual({ root: 0, body: 0 })
+  })
+
+/**
+ * How far the page itself could scroll, on the document element and on the body
+ * both — the same two the sideways claim asks, because which of them the overflow
+ * escapes to depends on what handed it out.
+ */
+function scrollsDown(page: Page) {
+  return page.evaluate(() => ({
+    root: Math.max(0, document.documentElement.scrollHeight - document.documentElement.clientHeight),
+    body: Math.max(0, document.body.scrollHeight - document.body.clientHeight),
+  }))
+}
