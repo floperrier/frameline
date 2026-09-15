@@ -986,14 +986,14 @@ test('a refusal from the reading is said, whatever the writing was refused befor
 
     await page.goto(`/stories/${story.id}?scene=${street.id}`)
 
-    // A write refused in a Scene's own section, which is where that sentence
-    // belongs: the Scene claims the one refusal the page holds. The field is found
-    // on the slate rather than by its label, which says the name it is about to
-    // stop holding.
+    // A write refused in one Scene, which the sentence names: the Scene claims the
+    // one refusal the page holds. The field is found on the slate rather than by
+    // its label, which says the name it is about to stop holding.
     const named = page.locator(`.writing [data-scene="${street.id}"] .named input`)
     await named.fill('  ')
     await named.blur()
-    await expect(page.getByRole('alert')).toHaveText('A Scene needs a name.')
+    await expect(page.getByRole('alert'))
+      .toHaveText('In “The street”: A Scene needs a name.')
 
     // The reading takes the document's place, so the Scene that claimed the last
     // sentence is not on screen to say the next one. What the reading is refused

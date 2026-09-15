@@ -29,6 +29,23 @@ const { problem, keptAt, change, write } = useEditing(refresh)
 const refusedIn = ref<string>()
 
 /**
+ * The name of the Scene the refusal on screen is about, which is how the sentence
+ * says which Scene it concerns now that it is not drawn against it. Nothing while
+ * the refusal belongs to the Story's own edge, and nothing while the Scene it was
+ * about has gone from under it.
+ *
+ * Nothing either while the name is blank, which is the one reading where naming it
+ * would be worse than not: the field writes through the Story as it is typed, so a
+ * name emptied and left is a Scene the sentence would introduce as “ ”. Unnamed,
+ * the sentence falls back to what an act about the whole Story says, and the
+ * Author is looking at the empty field anyway. A name typed but refused is said as
+ * typed on purpose — that is the word under their hand, and the Scene the old name
+ * belongs to is not the one they are looking at.
+ */
+const refusedScene = computed(() =>
+  story.value?.scenes.find(scene => scene.id === refusedIn.value)?.name.trim() || undefined)
+
+/**
  * The two holders the Story's own edge writes through, which are the page's own
  * with the Scene the last refusal was drawn in cleared on the way past: an act
  * about the whole Story cannot be refused in somebody's section of the document.
@@ -250,6 +267,35 @@ onMounted(() => windOn('instant'))
 watch(() => sceneWritten.value?.id, async () => {
   await nextTick()
   windOn('auto')
+})
+
+/**
+ * The writing left where the hands are when the sentence a refusal is said in takes
+ * its room. The band stands in the column's furniture rather than in the document,
+ * which is what keeps it off the writing — and the price of standing there is that
+ * the head of the scroller moves down as it arrives and every row of the document
+ * goes down with it. The browser's own scroll anchoring answers for what changes
+ * inside a scroller and never for the scroller's own box, so the distance the head
+ * moved is wound back on here: the same correction, made by hand.
+ *
+ * Measured off the head of the scroller rather than off the band, because the room
+ * the band takes is not its height alone — a Scene renamed under its own refusal
+ * rewrites the sentence that names it, and the sentence rewraps — and the head is
+ * the one number that says how far the writing was pushed whatever pushed it. What
+ * it does not answer for is a window resized while the sentence is up, which
+ * rewraps it with no render to watch; that is a resize and not a typing hand.
+ *
+ * `instant` because the scroller is smooth by stylesheet, and a correction the
+ * Author can watch travel is the movement this exists to prevent.
+ */
+const scroller = useTemplateRef('scroller')
+
+watch(() => [refusedIn.value, refusedScene.value, problem.value], async () => {
+  const head = scroller.value?.getBoundingClientRect().top
+  await nextTick()
+  const moved = (scroller.value?.getBoundingClientRect().top ?? 0) - (head ?? 0)
+
+  if (moved) scroller.value?.scrollBy({ top: moved, behavior: 'instant' })
 })
 
 /**
@@ -534,61 +580,76 @@ async function turnTo(turn: Reading, event: Event) {
         @write-scene="goToScene"
       />
 
-      <!-- The middle of the bench, and the one of its three regions that scrolls.
-           Which reading it holds is the page's to say; where it is, is not. The
-           Contact Sheet fills it and scrolls its bands inside itself, so the
-           column's own scrollbar belongs to the writing and to the Preview. -->
-      <div class="document" @focusin="focusedIn">
-        <!-- There is one notion of where the Author is and it is the Path, so a
-             way on pressed in the reading moves the writing with it — see
-             `docs/adr/0030-a-story-is-read-where-it-is-written.md`, whose engine
-             rule `0043` keeps. -->
-        <Preview
-          v-if="reading === 'preview' && sceneWritten"
-          v-model:at="at"
-          :story="story"
-          :scene-written="sceneWritten.id"
-          :change="changeStory"
-          @moved="follow"
-        />
-
-        <!-- The Story seen rather than read: every Shot of every Scene as the
-             Image it carries. Taken out of the document when it is not the
-             reading on screen rather than left dark like the writing, because
-             every frame of it is an image the browser would go and fetch: a Story
-             of forty Scenes drawn whole is the heaviest thing this product
-             renders, and nothing on the sheet is a caret that has to be found
-             again. -->
-        <ContactSheet
-          v-else-if="reading === 'sheet'"
-          :story="story"
-          v-model:chosen="chosenFrame"
-          :scene-written="sceneWritten?.id"
-          :write="writeStory"
-          :image-of="imageOf"
-          @open="goToScene"
-        />
-
-        <!-- The whole Story as one document, every Scene of it written where it
-             stands: there is no one Scene to put on a bench first, because the
-             bench is the document. It goes dark while one of the other two
-             readings is up rather than out of the document, so the beat the caret
-             was left on is still the beat it is on when the Author turns back —
-             see `turnTo`. -->
-        <Writing
-          v-show="reading === 'writing'"
-          v-model:refused-in="refusedIn"
-          :story="story"
-          :scene-written="sceneWritten?.id"
-          :change="change"
-          :write="write"
-          :ask="ask"
-          :announce="announce"
-          :image-of="imageOf"
+      <!-- The middle of the bench: what the bench has to say about the reading in
+           it, and under that the reading. The name is the page's own word for this
+           region — `.column` is the Graph's, for the columns it draws a Story in. -->
+      <div class="middle">
+        <!-- Why the last change in one Scene of the document was refused. Said
+             above the reading rather than inside it, and naming the Scene it is
+             about rather than standing on it — `.refused` says why that is not a
+             choice. -->
+        <Refusal
+          v-if="refusedIn"
+          class="refused"
           :problem="problem"
-          @attached="attachedAt[$event] = Date.now()"
-          @open="writeScene"
+          :scene="refusedScene"
         />
+
+        <!-- The one of the three regions that scrolls. Which reading it holds is
+             the page's to say; where it is, is not. The Contact Sheet fills it and
+             scrolls its bands inside itself, so this scrollbar belongs to the
+             writing and to the Preview. -->
+        <div ref="scroller" class="document" @focusin="focusedIn">
+          <!-- There is one notion of where the Author is and it is the Path, so a
+               way on pressed in the reading moves the writing with it — see
+               `docs/adr/0030-a-story-is-read-where-it-is-written.md`, whose engine
+               rule `0043` keeps. -->
+          <Preview
+            v-if="reading === 'preview' && sceneWritten"
+            v-model:at="at"
+            :story="story"
+            :scene-written="sceneWritten.id"
+            :change="changeStory"
+            @moved="follow"
+          />
+
+          <!-- The Story seen rather than read: every Shot of every Scene as the
+               Image it carries. Taken out of the document when it is not the
+               reading on screen rather than left dark like the writing, because
+               every frame of it is an image the browser would go and fetch: a Story
+               of forty Scenes drawn whole is the heaviest thing this product
+               renders, and nothing on the sheet is a caret that has to be found
+               again. -->
+          <ContactSheet
+            v-else-if="reading === 'sheet'"
+            :story="story"
+            v-model:chosen="chosenFrame"
+            :scene-written="sceneWritten?.id"
+            :write="writeStory"
+            :image-of="imageOf"
+            @open="goToScene"
+          />
+
+          <!-- The whole Story as one document, every Scene of it written where it
+               stands: there is no one Scene to put on a bench first, because the
+               bench is the document. It goes dark while one of the other two
+               readings is up rather than out of the document, so the beat the caret
+               was left on is still the beat it is on when the Author turns back —
+               see `turnTo`. -->
+          <Writing
+            v-show="reading === 'writing'"
+            v-model:refused-in="refusedIn"
+            :story="story"
+            :scene-written="sceneWritten?.id"
+            :change="change"
+            :write="write"
+            :ask="ask"
+            :announce="announce"
+            :image-of="imageOf"
+            @attached="attachedAt[$event] = Date.now()"
+            @open="writeScene"
+          />
+        </div>
       </div>
 
       <!-- What the bench read back out of the Story: how much of a work it is,
@@ -656,16 +717,67 @@ main {
   grid-area: rail;
 }
 
-/* The scroller the middle of the bench stands in, and the only one the layout has:
-   the document is what the window is for at every width. The Contact Sheet takes
-   the whole of it and scrolls its own bands inside itself, which leaves this one
-   with nothing to do while that reading is up. Wound to the Scene the address
-   names — smoothly when the Author asked for the move, and instantly on the first
-   sight of the bench, which `windOn` says. The answer to `prefers-reduced-motion`
-   is given once, here, rather than at each call. */
-.document {
+/* The middle of the bench: the scroller, and above it the furniture the bench puts
+   over the reading rather than in it. It takes the grid's room and hands the
+   scroller everything the furniture leaves. */
+.middle {
   grid-area: document;
+  display: flex;
+  flex-direction: column;
   min-inline-size: 0;
+  min-block-size: 0;
+}
+
+/* The sentence a refusal about one Scene is said in, and the whole of what that
+   furniture is. Five things were asked of it, and four rounds of this branch spent
+   themselves discovering that a band inside the scroller can hold four: readable
+   wherever in the Scene the Author is working, over no control, taking the pointer
+   like anything else on the bench, never outside the window, and moving nothing
+   under a typing hand.
+
+   Inside the scroller the first and the second are the two halves of a choice. In
+   the flow at the foot of its slate the sentence is wound off the screen the moment
+   the Author is a row below it; stuck to the head of the scroller it is read
+   everywhere and it is drawn over whatever row the head of the scroller holds,
+   which at the wind the issue names is the row of Flags the refusal is about. No
+   inset moves it off the writing, because every inset lands it on the row an inset
+   further down. Letting the press through is not a third way out: an opaque band
+   that answers no pointer hands the press to the row it is hiding, which is how the
+   round before this one deleted a Flag from a click on the door.
+
+   Out here it covers nothing, because there is nothing under it to cover: the
+   scroller starts where the sentence ends. Which is what costs the geometry the
+   one thing it was carrying — *against the Scene it concerns* — and what the words
+   take back, `error.inScene` naming the Scene the way every other sentence on the
+   bench names one. The Story's own edge refuses above the bench, about no Scene and
+   naming none.
+
+   `tests/e2e/scenes-signed-in.spec.ts` drives all five, over the range rather than
+   at the wind and the width the defect was read at: what the sentence stands on,
+   what the door does under a real mouse press, whether the band is whole in the
+   window, and what moves under the hands. */
+/* Out of the scroller, so it covers nothing — and capped, because what it stopped
+   taking from the length of the document it would otherwise take from its height.
+   Measured before the cap: a Scene named to the two hundred characters the API
+   allows left a document of sixty-four pixels at 320 wide and of none at all at
+   390 × 400, where the band then ran past the foot of the window. Six lines is more
+   than any refusal this product writes needs, and a seventh scrolls. */
+.refused {
+  margin: var(--s4) var(--s4) 0;
+  max-block-size: 6lh;
+  overflow-y: auto;
+}
+
+/* The scroller the middle of the bench holds, and the only one the layout has: the
+   document is what the window is for at every width. The Contact Sheet takes the
+   whole of it and scrolls its own bands inside itself, which leaves this one with
+   nothing to do while that reading is up. Wound to the Scene the address names —
+   smoothly when the Author asked for the move, and instantly on the first sight of
+   the bench, which `windOn` says. The answer to `prefers-reduced-motion` is given
+   once, here, rather than at each call. */
+.document {
+  flex: 1;
+  min-block-size: 0;
   overflow-y: auto;
   scroll-behavior: smooth;
 }

@@ -294,7 +294,8 @@
     "refused": "Cela n'a pas fonctionné. Réessayez.",
     "wentWrong": "Quelque chose s'est mal passé.",
     "home": "Retour à Frameline",
-    "signInAgain": "Se reconnecter dans un nouvel onglet"
+    "signInAgain": "Se reconnecter dans un nouvel onglet",
+    "inScene": "Dans « {scene} » :"
   },
   "refusals": {
     "noSuch": {
