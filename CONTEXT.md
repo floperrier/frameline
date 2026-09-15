@@ -86,17 +86,19 @@ _Avoid_: choice, option, link, branch, edge, transition, cut, coupe, raccord,
 montage
 
 **Graph**:
-A whole Story seen at once, as its Scenes and the Exits between them. A Scene is
-drawn in it as a node and an Exit as an edge — words for the drawing, never for the
-Scene or the Exit itself. Where every node stands is read off the Story — how far the Scene is from the
+A whole Story seen at once, as its Scenes and the Exits that order them. A Scene
+is drawn in it as a node — a word for the drawing, never for the Scene itself.
+Where every node stands is read off the Story — how far the Scene is from the
 Opening Scene in Exits taken, and in what order it is offered — and never placed
 by hand: the Graph is a reading of the Story and moves when the Story does — see
-`docs/adr/0041-the-graph-is-drawn-from-the-story.md`. It is the whole surface of
-the bench rather than a band across it, and the Scene being written stands on it:
-the gate takes the place of that Scene's node, and the Graph opens up around it —
-see `docs/adr/0042-the-scene-is-written-where-it-stands.md`. Nothing is written in
-the drawing: an Exit is written in the document of the Scene it leaves, by naming
-the Scene it leads to, and a press on a node puts that Scene under the gate — see
+`docs/adr/0041-the-graph-is-drawn-from-the-story.md`. It is drawn small down the
+side of the document, as the rail: the columns run down the page and the Scenes of
+a column run across it, a node carries no words, and no Exit is drawn at all — an
+Exit is read in the document of the Scene it leaves, which is where it is written,
+by naming the Scene it leads to. The rail is a locator and not a workspace: it
+says where in the Story the caret is, it marks a Scene nothing arrives at, and a
+press on a node winds the document to that Scene — see
+`docs/adr/0043-a-story-is-written-as-one-document.md` and
 `docs/adr/0034-a-story-is-written-without-the-canvas.md`.
 _Affiché_: Graphe
 _Avoid_: map, tree, flowchart, board, canvas
@@ -235,10 +237,11 @@ _Avoid_: user, player, viewer, visitor, audience
 **Preview**:
 An Author reading their own Story on the same engine a Reader runs, which replays
 the Path the Author is on with the State it has accumulated and stops on the Scene
-they are writing. It is the other face of the gate that Scene is written in — the
-same box in the same place on the Graph, turned over by a control — so a Story is
-read exactly where it is written, at every width: see
-`docs/adr/0042-the-scene-is-written-where-it-stands.md`. Not a
+they are writing. It is the third of the readings the bench turns the same
+document over to — the writing, the Contact Sheet and the Preview — chosen by a
+control, and it takes the document's own place rather than a box beside it, so a
+Story is read exactly where it is written, at every width: see
+`docs/adr/0043-a-story-is-written-as-one-document.md`. Not a
 Publish: nobody else can reach it. It is the one screen where the order the ways
 on are offered in is set, on the choice buttons as they are read, so a Preview is
 no longer without consequence for the Story — see
