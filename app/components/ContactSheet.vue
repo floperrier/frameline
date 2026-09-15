@@ -52,8 +52,9 @@ type Frame = { shot: Shot, scene: Scene, place: number, named: string }
 /**
  * What the bench calls each Scene, which is what every band and every frame is
  * named by. Read from `namesOnTheBench` rather than off the Scene, so that two
- * Scenes an Author called the same are told apart here exactly as they are in the
- * writing and in the Remarks — see issue #284.
+ * Scenes an Author called the same are told apart here exactly as they are
+ * everywhere else the bench names one — see
+ * `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
  */
 const names = computed(() => namesOnTheBench(story, t))
 
@@ -78,8 +79,8 @@ function sceneName(sceneId: string) {
  * name twice, and *Shot 3 of The bar* is the one pair of facts that tells two
  * frames carrying the same image apart. It tells them apart as far as the bench
  * tells the Scenes apart, which is what `namesOnTheBench` now answers for: an
- * Author may call two Scenes *The bar*, and the bench draws the second one *The
- * bar (2)* wherever it names it, here as in the writing — issue #284.
+ * Author may call two Scenes *The bar*, and the bench numbers them wherever it
+ * names one, here as in every other reading — issue #284.
  */
 const bands = computed(() =>
   inDocumentOrder(story.scenes, story.exits, story.openingSceneId).map((scene) => {

@@ -400,30 +400,22 @@ export function countedWords(many: number, say: Phrase) {
 /**
  * What the bench calls each Scene of a Story: its id to the name every control
  * naming that Scene is named by. The Author's own name where one Scene carries
- * it, and that name followed by its number among the Scenes carrying it where
- * several do.
+ * it, and that name with a number after it where several do.
  *
- * Nothing stops an Author calling two Scenes *The bar*, and nothing should. The
- * name is theirs, the API takes any of them, and the bench writes collisions
- * itself: a Scene split twice leaves two called *{name}, continued*. A Story that
- * refused the second one would be the bench correcting the work, which is the one
- * thing nothing here does — a Remark reports and never refuses. So the number is
- * drawn where a control is named and never written back: what the Story holds is
- * still what the Author typed, and a Scene named where it is written, offered or
- * typed into by name reads as they typed it.
- *
- * Numbered in the order the Story is written in, so the first *The bar* an Author
- * meets reading down is *The bar (1)*, and the document's sections and the sheet's
- * bands — laid out by that same walk — agree about which is which.
- *
- * One function, because a Scene numbered in the writing and left plain on the
- * Contact Sheet would be two products: the argument `sceneNamed` below is already
- * made of, and what issue #284 asks be settled once rather than once per reading.
+ * The number is drawn here and never written back — what the Story holds is
+ * still what the Author typed — in the order the Story is written in, and past
+ * any name a Scene of the Story already answers to, so no two names this hands
+ * back are alike. Why the bench numbers a name rather than refusing it, and how
+ * far the rule reaches, is
+ * `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
  */
 export function namesOnTheBench(story: StoryInEditor, say: Phrase) {
   const alike = new Map<string, number>()
   for (const scene of story.scenes) alike.set(scene.name, (alike.get(scene.name) ?? 0) + 1)
 
+  // The names already spoken for: a name one Scene alone carries is drawn as the
+  // Author typed it, so no number may ever land on it.
+  const taken = new Set([...alike].filter(([, many]) => many === 1).map(([name]) => name))
   const counted = new Map<string, number>()
   const names = new Map<string, string>()
   for (const scene of inDocumentOrder(story.scenes, story.exits, story.openingSceneId)) {
@@ -432,9 +424,15 @@ export function namesOnTheBench(story: StoryInEditor, say: Phrase) {
       continue
     }
 
-    const place = (counted.get(scene.name) ?? 0) + 1
-    counted.set(scene.name, place)
-    names.set(scene.id, say('editor.namedAlike', { name: scene.name, place }))
+    let number = (counted.get(scene.name) ?? 0) + 1
+    let drawn = say('editor.namedAlike', { name: scene.name, number })
+    while (taken.has(drawn)) {
+      drawn = say('editor.namedAlike', { name: scene.name, number: ++number })
+    }
+
+    counted.set(scene.name, number)
+    taken.add(drawn)
+    names.set(scene.id, drawn)
   }
 
   return names

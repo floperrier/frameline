@@ -151,8 +151,9 @@ type SceneInDocument = {
 /**
  * What the bench calls each Scene, which is what every control naming one is named
  * by here. Two Scenes an Author called the same are numbered by `namesOnTheBench`
- * and by nothing in this file, so the document, the Contact Sheet and the Remarks
- * cannot disagree about which *The bar* a control acts on — see issue #284. What
+ * and by nothing in this file, so no reading of the document, and neither the rail
+ * nor the Remarks beside them, can disagree about which *The bar* a control acts
+ * on — see `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`. What
  * the Author typed is what the field below holds and what a write sends; the
  * number is drawn and never written.
  */

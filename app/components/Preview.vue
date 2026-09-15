@@ -112,11 +112,20 @@ watch(() => story, route, { deep: true })
 const draws = computed(() =>
   story.scenes.some(scene => Object.values(scene.sets).some(Array.isArray)))
 
-/** Scenes are read by name here as everywhere else an Author reads them. */
-const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, scene.name])))
+/**
+ * What the bench calls each Scene, which is what everything this pane says names
+ * one by: the two marks that renumber a way on, the Scene the reading has not
+ * reached, the visits the State counts, and the Exits a Condition is hiding. This
+ * pane is the bench around the reading and never the reading itself — the frames
+ * and the buttons a Reader would press are drawn by `Reading.vue`, in the words
+ * the Author wrote — so two Scenes an Author called the same are numbered here
+ * exactly as they are in the writing and on the Contact Sheet. See
+ * `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
+ */
+const names = computed(() => namesOnTheBench(story, t))
 
 function sceneName(sceneId: string) {
-  return sceneNamed(sceneNames.value, sceneId, t)
+  return sceneNamed(names.value, sceneId, t)
 }
 
 /**
@@ -131,6 +140,13 @@ const ways = computed(() => (standing.value ? exitsFrom(story.exits, standing.va
 function placeOf(exit: Exit) {
   return ways.value.findIndex(way => way.id === exit.id)
 }
+
+/**
+ * What the bench calls the Scene the reading stands in, which is the Scene the
+ * two marks beside every way on renumber a row out of. Nothing where the reading
+ * stands nowhere at all, which is a reading with no way on to renumber.
+ */
+const standsIn = computed(() => (standing.value ? sceneName(standing.value) : ''))
 
 /**
  * The order the ways on are offered in, set here because this is the one screen
@@ -231,7 +247,10 @@ function why(conditions: Condition[]) {
              can only be set with a pointer is an order some Authors cannot set. -->
         <!-- The marks the Scene being written is renumbered by, because this pane
              stands beside that surface and the Place of a way on is the same act
-             here as it is there — see `.mark` in `frameline.css`. -->
+             here as it is there — see `.mark` in `frameline.css`. Named the way
+             they are there too: the act, and then the way on it is done to, by
+             its Place, which is the only thing that tells two ways on to one
+             Scene apart — see issue #276. -->
         <template #ordering="{ exit }">
           <button
             type="button"
@@ -242,7 +261,11 @@ function why(conditions: Condition[]) {
             <span aria-hidden="true">↑</span>
             <span class="visually-hidden">
               {{ $t('common.moveEarlier') }}
-              {{ $t('editor.theExitTo', { scene: sceneName(exit.toSceneId) }) }}
+              {{ $t('editor.theWayOnTo', {
+                place: placeOf(exit) + 1,
+                scene: sceneName(exit.toSceneId),
+                from: standsIn,
+              }) }}
             </span>
           </button>
           <button
@@ -254,7 +277,11 @@ function why(conditions: Condition[]) {
             <span aria-hidden="true">↓</span>
             <span class="visually-hidden">
               {{ $t('common.moveLater') }}
-              {{ $t('editor.theExitTo', { scene: sceneName(exit.toSceneId) }) }}
+              {{ $t('editor.theWayOnTo', {
+                place: placeOf(exit) + 1,
+                scene: sceneName(exit.toSceneId),
+                from: standsIn,
+              }) }}
             </span>
           </button>
         </template>
