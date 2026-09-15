@@ -93,13 +93,19 @@ const bands = computed(() =>
 const frames = computed(() => bands.value.flatMap(band => band.frames))
 
 /**
- * Which frame the Author chose, and the frame that is actually under the hand —
+ * Which frame the Author chose, held by the page so that it goes when the reading
+ * is wound rather than only when the address changes — asking for the Scene the
+ * caret is already in winds and renames nothing, and a detail left thirty bands
+ * away would be the sheet saying two things about where the Author is. See
+ * `windOn` in `app/pages/stories/[id]/index.vue`.
+ *
+ * And the frame that is actually under the hand —
  * theirs where it is still in the Story, the first of the Scene the caret is in
  * otherwise, and the first of the Story where that Scene has no Shot yet. Read
  * back off the Story rather than kept, so a Shot deleted from another window
  * cannot leave the sheet describing something that is gone.
  */
-const chosen = ref<string>()
+const chosen = defineModel<string>('chosen')
 
 const shown = computed(() => frames.value.find(frame => frame.shot.id === chosen.value)
   ?? frames.value.find(frame => frame.scene.id === sceneWritten)
@@ -115,22 +121,6 @@ function choose(shotId: string) {
  * settles is which band's marks are in the tab order — see the marks themselves.
  */
 const banded = computed(() => shown.value?.scene.id ?? sceneWritten)
-
-/**
- * The frame under the hand follows the caret: an Author who asked for a Scene
- * asked for that Scene, and leaving the detail on a frame thirty bands away would
- * be the sheet saying two things about where they are. Letting the choice go is
- * the whole of it — `shown` then falls back to the first frame of the Scene the
- * address names.
- *
- * Winding the bands to that Scene is the page's, not the sheet's: the middle of
- * the bench holds three readings and lays out one of them at a time, so there is
- * one winder and it addresses whichever is on screen. See `windOn` in
- * `app/pages/stories/[id]/index.vue`.
- */
-watch(() => sceneWritten, () => {
-  chosen.value = undefined
-})
 
 /**
  * The arrows across the sheet. The frames wrap into as many rows as the width
@@ -151,12 +141,12 @@ function walk(event: KeyboardEvent) {
   if (!here) return
 
   const stepped = { ArrowRight: 1, ArrowLeft: -1 }[event.key]
-  const banded = { ArrowDown: 1, ArrowUp: -1 }[event.key]
+  const stepping = { ArrowDown: 1, ArrowUp: -1 }[event.key]
   let to = stepped ? all[at + stepped] : undefined
 
-  if (banded) {
+  if (stepping) {
     const band = bands.value.findIndex(other => other.scene.id === here.scene.id)
-    for (let next = band + banded; next >= 0 && next < bands.value.length; next += banded) {
+    for (let next = band + stepping; next >= 0 && next < bands.value.length; next += stepping) {
       const walked = bands.value[next]!
       if (!walked.frames.length) continue
 

@@ -365,9 +365,23 @@ test('winds to the Scene the caret is already in, from the rail and from the bar
     await toTheFoot()
     expect(await wound()).toBeGreaterThan(0)
 
+    // A frame chosen far down the Story, so that what the sheet says about where
+    // the Author is has somewhere wrong to stay.
+    await page.getByRole('button', { name: 'Shot 2 of Scene 7' }).click()
+    await expect(page.locator('#shown-heading')).toHaveText(/Shot 2 of Scene 7/)
+
     // The rail's own mark for that same Scene: the Author has read their way down
     // and asked to be taken back to what they are writing.
     await sceneNode(page, 'Scene 1').click()
+    await expect.poll(wound).toBe(0)
+
+    // The bands are not the whole of the sheet. The detail, the one tab stop among
+    // the frames and the marks in the tab order all answer to the same address, or
+    // the first `Tab` takes the frame that is off screen and the browser undoes the
+    // wind on the way to it.
+    await expect(page.locator('#shown-heading')).toHaveText(/Shot 1 of Scene 1/)
+    await expect(page.locator('.sheet .print[tabindex="0"]'))
+      .toHaveAccessibleName(/Shot 1 of Scene 1/)
     await expect.poll(wound).toBe(0)
 
     // And the bar of Commands, which is the same act named rather than pressed.

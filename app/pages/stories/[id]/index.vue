@@ -207,8 +207,9 @@ async function goToScene(sceneId: string, spoken = true) {
  * the bench is a window tall by construction and overflows one anyway on a long
  * Story — a defect of its own, #285 — so a wind would take the Story's own edge
  * off the top of the screen on the way to a Scene. A wind scrolls the surface the
- * reading is read in and not the window, so the window is put back where the Author
- * left it.
+ * reading is read in and not the window, which is put back where it was. That is
+ * all this can promise: the gestures that call it move focus too, and a browser
+ * brings what it focuses into view.
  *
  * Callers rather than one immediate watch, and they arrive differently. The first
  * sight of a reading is a reload coming back to an address, or a turn onto a
@@ -220,9 +221,21 @@ async function goToScene(sceneId: string, spoken = true) {
  * a rule an explicit `smooth` would walk past. `instant` is where this overrides
  * it.
  */
+/** The frame the Author chose on the Contact Sheet, which `windOn` lets go of. */
+const chosenFrame = ref<string>()
+
 function windOn(behavior: ScrollBehavior) {
   const scene = sceneWritten.value?.id
-  if (!scene || reading.value === 'preview') return
+  if (!scene) return
+
+  // The sheet lets its chosen frame go here rather than on a change of address,
+  // because asking for the Scene the caret is already in winds without changing
+  // one. Left to the sheet, the bands would scroll to the Scene asked for while
+  // the detail, the one tab stop among the frames and the marks in the tab order
+  // all stayed on a band thirty down — and the first `Tab` would undo the wind.
+  chosenFrame.value = undefined
+
+  if (reading.value === 'preview') return
 
   const stands = reading.value === 'sheet'
     ? document.querySelector(`[data-band="${CSS.escape(scene)}"]`)
@@ -549,6 +562,7 @@ async function turnTo(turn: Reading, event: Event) {
         <ContactSheet
           v-else-if="reading === 'sheet'"
           :story="story"
+          v-model:chosen="chosenFrame"
           :scene-written="sceneWritten?.id"
           :write="writeStory"
           :image-of="imageOf"
