@@ -227,7 +227,7 @@
     "setFlag": "L’État est ce qu’une Lecture emporte avec elle. Posez un Marqueur sur cette Scène — « courage = élevé » — et il est posé pour tout Lecteur qui y entre.",
     "openingScene": "Une Lecture doit commencer quelque part, et rien n’indique où commence ce Récit. Écrivez une Scène et marquez-la comme celle par laquelle il s’ouvre — n’importe laquelle fera l’affaire, et vous pourrez en désigner une autre quand vous voudrez.",
     "putCondition": "Une Condition fait jouer la même Scène différemment selon le Lecteur, sans bifurquer. Écrivez la deuxième Scène, ajoutez-y un Plan, et faites-le jouer quand ce Marqueur vaut autre chose — « faible » fera l’affaire. Rien ne le joue encore, et c’est tout l’intérêt.",
-    "previewCondition": "Rien ne joue ce Plan, et la lecture dit pourquoi : retournez le couloir et il lit le Récit sur le moteur d’une Lecture, en montrant pour chaque Plan qu’il a écarté ce que son test demandait, en face de ce que l’État contient vraiment. Lisez cela, puis corrigez la valeur.",
+    "previewCondition": "Rien ne joue ce Plan, et la lecture dit pourquoi : lisez le Récit sur le moteur d’une Lecture, et il montre pour chaque Plan qu’il a écarté ce que son test demandait, en face de ce que l’État contient vraiment. Lisez cela, puis corrigez la valeur.",
     "publish": "Voilà un Récit qui fonctionne. Publiez-le : n’importe qui peut alors le lire à son propre lien — celui que cette page affiche ensuite, à donner à qui vous l’avez écrit."
   },
   "remark": {

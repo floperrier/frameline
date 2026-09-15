@@ -310,7 +310,7 @@ describe('every Step', () => {
 
     // Held as sets on both sides: the editor draws each target once, and two
     // Steps may ask for two things in the same place.
-    expect(drawn.sort()).toEqual([...new Set(STEPS.map(step => step.target))].sort())
+    expect(drawn.sort()).toEqual([...new Set(STEPS.flatMap(step => step.targets))].sort())
   })
 
   /**
@@ -334,7 +334,7 @@ describe('every Step', () => {
 
     expect(STEPS
       .filter(step => step.name !== 'nameScene')
-      .filter(step => !written.includes(step.target))
+      .filter(step => step.targets.some(target => !written.includes(target)))
       .map(step => step.name)).toEqual([])
   })
 })

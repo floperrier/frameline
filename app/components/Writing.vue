@@ -950,10 +950,18 @@ function writeConditions(
 
         <!-- A beat added by hand rather than by key: what an Author who has just
              written a Scene with nothing in it gets, since there is no beat to
-             press Enter at the end of. -->
+             press Enter at the end of.
+
+             `data-step` while the Scene has no beat, because that is exactly when
+             the two Steps that ask for one have no row of their own to point at: a
+             Scene arrives with no Shot in it. Drawn here or on the beat's own
+             field, never both, so the Step that names the two of them in order
+             finds one — see `app/utils/steps.ts` and
+             `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md`. -->
         <p class="adds">
           <button
             type="button"
+            :data-step="held.here && !held.scene.shots.length ? 'add-shot' : undefined"
             :data-command="held.here ? $t('editor.addShot') : undefined"
             @click="addShot(held.scene)"
           >

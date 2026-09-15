@@ -3,6 +3,8 @@ import {
   writeScene,
   readShotConditions,
   readShots,
+  readTheStory,
+  seedChain,
   seedExit,
   seedFlags,
   seedPublication,
@@ -198,10 +200,15 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
 
   // Written. The sentence carries the whole gesture — a Shot is added and then
-  // written — so it is said from the corner until there is a field to say it at.
+  // written — and so does the light: a Scene arrives with no beat in it, so the
+  // Step points at the control that writes one until there is a field to point at.
+  // Nothing is said from the corner, which is where a Step pointing at nothing
+  // stands over the very control its sentence asks for.
   await expect(bubble(page)).toContainText(NEXT_STEP)
-  await expect(bubble(page)).toHaveClass(/adrift/)
-  await page.getByRole('button', { name: 'Add a Shot' }).click()
+  await expect(bubble(page)).not.toHaveClass(/adrift/)
+  const adds = written(page, 'The arrival').getByRole('button', { name: 'Add a Shot' })
+  await lights(page, adds)
+  await adds.click()
   const shot = page.getByRole('textbox', { name: 'Shot 1' })
   await lights(page, shot)
   await shot.fill('She steps off the train.')
@@ -247,13 +254,13 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   // the Shot in the Scene the caret is in, whichever Scene that is.
   await expect(bubble(page)).toContainText(/A Condition makes the same Scene play differently/)
   await writeScene(page, 'The platform')
-  // Pressed by hand, under the guidance itself. The bubble is adrift at this
-  // moment — the Scene holds no Shot, so the Step's own target has no rectangle —
-  // and an adrift bubble is a fixed panel in the corner of the window, standing
-  // over the foot of the document and over this control with it. It takes no
-  // pointer, so the control under it is pressed through it; where it should be
-  // anchored rather than adrift is still issue #257's.
-  await written(page, 'The platform').getByRole('button', { name: 'Add a Shot' }).click()
+  // The Scene the way on wrote holds no beat either, so the Step asks for one
+  // where the control that writes it stands, in the Scene the caret is in. Pressed
+  // at the light rather than through a panel that had drifted over it, which is
+  // what this moment was until #257.
+  const beat = written(page, 'The platform').getByRole('button', { name: 'Add a Shot' })
+  await lights(page, beat)
+  await beat.click()
 
   // The light is on the Conditions of the Shot in the Scene the caret is in, which
   // is the one the sentence just asked for.
@@ -391,12 +398,31 @@ test('the guidance reaches every part of the bench at the width of a phone', asy
   await lights(page, page.locator('[data-step="scene-flags"]'))
 
   // And the bubble carrying the sentence is on top of the bench rather than
-  // under anything.
+  // under anything. Read by hit-testing its own middle, which asks the browser
+  // where a pointer would land rather than reading a stacking order out of the
+  // stylesheet — so the bubble is given a pointer for the length of the read and
+  // has it taken away again inside the same frame. It answers none of its own:
+  // wherever it is placed it stands over the document, and a panel that swallowed
+  // a press would make the very control its sentence names unreachable.
   expect(await page.evaluate(() => {
-    const said = document.querySelector('.bubble')!.getBoundingClientRect()
+    const bubble = document.querySelector<HTMLElement>('.bubble')!
+    const said = bubble.getBoundingClientRect()
+    bubble.style.pointerEvents = 'auto'
     const over = document.elementFromPoint(said.x + said.width / 2, said.y + said.height / 2)
+    bubble.style.pointerEvents = ''
 
     return said.width > 0 && !!over?.closest('.bubble')
+  })).toBe(true)
+
+  // What it does not do is take that press: the guidance answers a pointer on its
+  // own control and nowhere else, so what is under the sentence is worked at
+  // normally — the defect the corner placement was plugged against, held here for
+  // the placement that points at something.
+  expect(await page.evaluate(() => {
+    const said = document.querySelector('.bubble')!.getBoundingClientRect()
+    const under = document.elementFromPoint(said.x + said.width / 2, said.y + said.height / 2)
+
+    return !under?.closest('.bubble')
   })).toBe(true)
 
   // A Flag set, and what is asked for next is a Condition — also in the document.
@@ -412,4 +438,66 @@ test('the guidance reaches every part of the bench at the width of a phone', asy
   await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
   await expect(bubble(page)).toContainText(/That is a Story that works/)
   await lights(page, page.getByRole('button', { name: 'Publish this Story' }))
+})
+
+/**
+ * The document holds every Scene of the Story at once, so five of the eight Steps
+ * have a field per Scene to choose between and a selector over the document would
+ * take the first — the Scene the Story opens on, however far the Author has walked
+ * from it. What settles it is the mark and not the selector: a target inside the
+ * document is written on the Scene the caret is in and on no other, so the light
+ * is where the Author is standing. See
+ * `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md`.
+ */
+test('the Step lights the Scene the caret is in, not the first of ten', async ({
+  page,
+  author,
+}) => {
+  const story = await seedStory(author, 'A Story')
+  const scenes = await seedChain(story, [
+    'The arrival', 'The platform', 'The bar', 'The alley', 'The quay',
+    'The market', 'The bridge', 'The rooftop', 'The garden', 'The last train',
+  ])
+
+  await page.goto(`/stories/${story.id}`)
+  // Every Scene is written and joined and none of them sets a Flag, so what the
+  // bench asks for is the Flag — which is set in the document, once per Scene.
+  await expect(bubble(page)).toContainText(/State is what one Reading carries/)
+
+  // The fifth of the ten, halfway down a Story that reads in the order it was
+  // chained in.
+  await writeScene(page, scenes[4]!.name)
+  await lights(page, written(page, scenes[4]!.name).locator('.flags'))
+
+  // And nothing at all is marked in the Scene the document opens with, which is
+  // where a selector over the whole document would have put the light.
+  await expect(written(page, scenes[0]!.name).locator('[data-step]')).toHaveCount(0)
+})
+
+/**
+ * The one thing left that takes a Step's target off the screen: the middle of the
+ * bench turned over to the reading, which is the document and every mark in it
+ * gone. The sentence does not go with them — it is carried from the corner, which
+ * is the degradation
+ * `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md` asks for — and it
+ * comes back to the control it was on when the writing does.
+ */
+test('a Step whose target the reading took away says the same thing from the corner', async ({
+  page,
+  author,
+}) => {
+  const story = await seedStory(author, 'A Story')
+  await seedChain(story, ['The arrival', 'The platform'])
+
+  await page.goto(`/stories/${story.id}`)
+  await expect(bubble(page)).toContainText(/State is what one Reading carries/)
+  await lights(page, written(page, 'The arrival').locator('.flags'))
+
+  await readTheStory(page)
+  await expect(bubble(page)).toHaveClass(/adrift/)
+  await expect(page.locator('.spotlight')).toBeHidden()
+  await expect(bubble(page)).toContainText(/State is what one Reading carries/)
+
+  await page.getByRole('button', { name: 'Write the Scene' }).click()
+  await lights(page, written(page, 'The arrival').locator('.flags'))
 })

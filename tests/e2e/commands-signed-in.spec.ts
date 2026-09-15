@@ -1,6 +1,8 @@
 import { expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { sceneNode, seedScenes, test, writeScene, writeStory } from './author'
+import {
+  sceneNode, seedChain, seedScenes, seedStory, test, writeScene, writeStory,
+} from './author'
 
 /**
  * The field one Scene's name is written in. Every Scene of the Story is writable
@@ -9,6 +11,11 @@ import { sceneNode, seedScenes, test, writeScene, writeStory } from './author'
  */
 function naming(page: Page, scene: string) {
   return page.getByRole('textbox', { name: `Name of ${scene}` })
+}
+
+/** One Scene's own section of the document, which is where that Scene is written. */
+function written(page: Page, scene: string) {
+  return page.getByRole('group', { name: `Writing ${scene}` })
 }
 
 /**
@@ -362,6 +369,57 @@ test('the bar names every act marked on a Scene being written, and no other', as
     'Add an Exit',
     'Close the Remarks',
   ])
+})
+
+/**
+ * The bar over a Story long enough to scroll. *Go to* is the one thing in it that
+ * grows with the Story: a mark that acts on one row carries its Command name only
+ * in the Scene the caret stands in, so the bar is the Story's own acts, the acts
+ * of the one Scene the Author is in, and a way to every Scene — see
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`. And *Go to* winds the
+ * document rather than opening anything, so what it means on a Story of ten is
+ * that the Scene named is the one on the screen.
+ */
+test('the bar goes halfway down a Story of ten, and names the rows of that Scene alone', async ({
+  page,
+  author,
+}) => {
+  const story = await seedStory(author, 'A Story')
+  const scenes = await seedChain(story, [
+    'The arrival', 'The platform', 'The bar', 'The alley', 'The quay',
+    'The market', 'The bridge', 'The rooftop', 'The garden', 'The last train',
+  ])
+  await page.goto(`/stories/${story.id}`)
+  await expect(written(page, 'The arrival')).toBeInViewport()
+
+  // Every Scene of the Story is a way in, and nothing else in the bar is counted
+  // per Scene.
+  await open(page)
+  await typing(page).fill('Go to')
+  await expect(offered(page)).toHaveCount(scenes.length)
+
+  // The fifth of the ten, named in full and pressed.
+  await typing(page).fill('Go to The quay')
+  await expect(offered(page)).toHaveText(['Go to The quay'])
+  await offered(page).click()
+
+  // Landed: the caret is in that Scene and the document is wound to it, which is
+  // the whole of what the act does now — the Scene the Story opens on has gone off
+  // the screen above it rather than being closed.
+  await caretIn(page, 'The quay')
+  await expect(written(page, 'The quay')).toBeInViewport()
+  await expect(written(page, 'The arrival')).not.toBeInViewport()
+
+  // And the acts of a row are named in that Scene and in no other. Each of the ten
+  // Scenes draws a beat with a Condition to add; one of the ten answers.
+  await open(page)
+  await typing(page).fill('Add a Condition to Shot 1 of')
+  await expect(offered(page)).toHaveText(['Add a Condition to Shot 1 of The quay'])
+
+  // Asked for by the name it carries in the Scene the caret is not in: nothing
+  // answers, and what the bar offers instead is a Scene to write under that name.
+  await typing(page).fill('Add a Condition to Shot 1 of The last train')
+  await expect(page.locator('dialog.commands')).toContainText('Nothing here answers to that.')
 })
 
 test('an Author writes a way on by naming the act, and the hand lands on the field', async ({ page, request }) => {
