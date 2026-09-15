@@ -4,12 +4,12 @@
  * asking about.
  *
  * Which Step is showing is a question asked of the Story — `app/utils/steps.ts` —
- * so this draws it and nothing else. Two elements: a spotlight sitting on the
- * target's own rectangle, and a bubble beside it carrying the sentence. Neither
- * is a `<dialog>`, and nothing here is modal: the Author has to be able to type
- * into the very field being pointed at, so the guidance makes nothing inert, takes
- * nothing out of the top layer's way, and answers no pointer anywhere but on its
- * own control.
+ * so this draws it and nothing else. Two elements: a spotlight sitting on as much
+ * of the target as anybody can see, and a bubble beside it carrying the sentence.
+ * Neither is a `<dialog>`, and nothing here is modal: the Author has to be able to
+ * type into the very field being pointed at, so the guidance makes nothing inert,
+ * takes nothing out of the top layer's way, and answers no pointer anywhere but on
+ * its own control.
  *
  * The bubble is an `<aside>` rather than a live region. It is on screen from the
  * moment the page is, and a live region firing every time a step is met would
@@ -40,7 +40,10 @@ const dismissed = ref(true)
 
 const step = computed(() => !dismissed.value && story ? stepShowing(story) : undefined)
 
-/** Where the target is on screen, or nothing when the target is not on screen at all. */
+/**
+ * As much of the target as is on screen, or nothing when none of it is — which is
+ * what `drawn` below reads and the whole of what the two elements are placed from.
+ */
 const box = ref<DOMRect>()
 
 /** The bubble itself, whose own height the placement is bounded by. */
@@ -108,48 +111,66 @@ function look() {
 }
 
 /**
- * The rectangle of the element a selector reaches, and nothing where it reaches
- * none — or reaches one the editor is not drawing, or one nobody can see. An
- * element that is in the document and draws nothing measures nothing, and a light
- * on a rectangle of no size would be a dot in the corner of the bench rather than
- * on the control the sentence names; a target scrolled past measures a rectangle
- * nobody is looking at, and both the light and the sentence placed against it are
+ * As much of the element a selector reaches as anybody can see, and nothing where
+ * it reaches none — or reaches one the editor is not drawing, or one nothing is
+ * left of. An element that is in the document and draws nothing measures nothing,
+ * and a light on a rectangle of no size would be a dot in the corner of the bench
+ * rather than on the control the sentence names; a target scrolled past leaves
+ * nothing at all, and both the light and the sentence placed against it would be
  * somewhere else entirely. Read as absent, so the Step falls to its next target
  * and then to the corner rather than being wrong about the screen.
  *
- * Scrolled past what: every scroller standing between the target and the window,
- * and then the window. The document is one of them — `overflow-y: auto`, under the
- * Story's own edge — so a mark wound above its top edge is clipped and invisible
- * while its rectangle still meets the window. Driven at 1280 × 900 on a Story of
- * forty against the window alone: seventy-seven pixels of scroll, which is the
- * document's own top offset, with the light on the Story's `h1` and then on the
- * `header` and the sentence placed against them. Every clipping ancestor rather
- * than the document by name, because the bench has more than one scroller and the
- * last Step's target stands in another: the strip the acts wind sideways in at the
- * width of a phone. A target half inside one is still seen, on a scroller exactly
- * as on the window.
+ * Seen against what: every scroller standing between the target and the window,
+ * and then the window. The document is one of them — `overflow-y: auto`, starting
+ * under the Story's own edge — so a mark wound above that edge is clipped, and
+ * what is left of it is what the light is drawn on.
+ *
+ * Cut down rather than only tested, because half a target is the case a test
+ * cannot answer. A mark the document had half swallowed measured a whole rectangle
+ * that still met every clip, and the light drawn on the whole of it hung over the
+ * bench: at 900 tall on a Story of forty at the Flags Step, wound two pixels at a
+ * time, fifty-eight pixels of scroll with the light outside the document at every
+ * width, and at 1280 thirty of them with `elementFromPoint` at the light's own
+ * centre answering the `header` — twenty-eight answering the Remarks' own summary
+ * at the widths where the bench folds what it says into a band over the document —
+ * with fifty-seven of the worst frame's fifty-nine pixels above the edge. Cut down,
+ * the two cases are one: a half-clipped target is lit on the half that is there and
+ * a wholly clipped one on nothing, and the sentence, which is placed from these
+ * edges, goes with it.
+ *
+ * Every clipping ancestor rather than the document by name, because the bench has
+ * more than one scroller and the last Step's target stands in another: the strip
+ * the acts wind sideways in at the width of a phone.
  */
 function drawn(selector: string) {
   const found = document.querySelector(selector)
   if (!found) return undefined
 
-  const seen = found.getBoundingClientRect()
+  let seen = found.getBoundingClientRect()
   if (!seen.width || !seen.height) return undefined
 
   for (let over = found.parentElement; over; over = over.parentElement) {
-    if (getComputedStyle(over).overflow !== 'visible'
-      && !meets(seen, over.getBoundingClientRect())) return undefined
+    if (getComputedStyle(over).overflow !== 'visible') {
+      seen = within(seen, over.getBoundingClientRect())
+    }
   }
+  seen = within(seen, new DOMRect(0, 0, window.innerWidth, window.innerHeight))
 
-  return meets(seen, new DOMRect(0, 0, window.innerWidth, window.innerHeight))
-    ? seen
-    : undefined
+  return seen.width && seen.height ? seen : undefined
 }
 
-/** Whether a rectangle is over another at all, which is the whole of being seen. */
-function meets(seen: DOMRect, clip: DOMRect) {
-  return seen.bottom > clip.top && seen.top < clip.bottom
-    && seen.right > clip.left && seen.left < clip.right
+/**
+ * What is left of a rectangle inside another, and a rectangle of no size where
+ * they do not meet at all — which is the same answer as a target that draws
+ * nothing, and is read as absent by the one test above.
+ */
+function within(seen: DOMRect, clip: DOMRect) {
+  const top = Math.max(seen.top, clip.top)
+  const left = Math.max(seen.left, clip.left)
+
+  return new DOMRect(left, top,
+    Math.max(0, Math.min(seen.right, clip.right) - left),
+    Math.max(0, Math.min(seen.bottom, clip.bottom) - top))
 }
 
 function alike(was: DOMRect | undefined, is: DOMRect | undefined) {
@@ -174,10 +195,14 @@ onMounted(() => {
 onBeforeUnmount(() => cancelAnimationFrame(looking))
 
 /**
- * The spotlight, on the target's own rectangle. It is one element with an
- * enormous spread shadow, so what surrounds the target is dimmed by the shadow
- * and the target itself is never covered — no stacking order has to be arranged
- * and the corner the light is cut with is the target's own.
+ * The spotlight, on as much of the target's rectangle as anybody can see. It is
+ * one element with an enormous spread shadow, so what surrounds the target is
+ * dimmed by the shadow and the target itself is never covered — no stacking order
+ * has to be arranged and the light is cut to the shape of what it is on.
+ *
+ * What a half-clipped target costs is the machined corner drawn along an edge the
+ * scroller cuts straight. Weighed against the light hanging over the bench at that
+ * edge, which is what it is instead of.
  */
 const lit = computed(() => box.value && {
   top: `${box.value.top}px`,
@@ -198,6 +223,11 @@ const lit = computed(() => box.value && {
  * Sideways it is slid rather than flipped, because a sentence moved along the
  * window still stands against the control it is about: a target near the right
  * edge would otherwise send it off the screen.
+ *
+ * The edges it is measured from are the ones `drawn` read, which are the seen
+ * part of the target rather than the whole of it. That is what puts the sentence
+ * against a half-clipped mark instead of against the part of it standing under a
+ * scroller's edge, where the mark is not and nor is the light.
  *
  * With no room on either side of the target — and with no rectangle at all — there
  * is no placement, and the bubble falls back to a fixed panel: see `adrift` below.

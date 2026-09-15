@@ -17,6 +17,16 @@ what is modal, because the bubble takes no pointer event any more than the light
 does, and the one on a target taken off the screen, because a target the document
 scrolled past is one of those.
 
+Amended again in issue #280, and the second of those two paragraphs is the whole
+of it. What it said was that a target off the screen is read as no target, which
+left the target's own rectangle as what the light is drawn on; a mark the document
+had half swallowed was therefore lit over the whole of that rectangle and the
+overhang landed on the bench. It now says that the light is drawn on what is left
+of the target once every scroller between it and the window has had its cut — half
+a target is lit on the half that is there, and none of a target is no target — so
+the case that degrades is the end of a range rather than a rule of its own.
+Nothing else here moves.
+
 Read *Repère* as *Step* and `data-cue` as `data-step` in everything below: both
 were renamed with the vocabulary and neither survives anywhere in the code. The
 body is left in the words the decision was taken in, which is what a record is
@@ -112,13 +122,16 @@ A target can be taken off the screen at any moment — the middle of the bench
 turned over to the reading takes the document and every mark in it, and a document
 of forty Scenes scrolls its own marks out of the window under an Author's hand —
 so the bubble degrades rather than pointing at nothing: with no rectangle to work
-from it becomes a fixed panel carrying the same sentence. A rectangle nobody can
-see is read as no rectangle at all, which is the case that degrades: nowhere on
-the window, and nowhere on any scroller standing between the target and it. The
-document is one of those, and until #280 it was not asked — a mark wound above
-the document's own top edge is clipped and invisible while its rectangle still
-meets the window, which was seventy-seven pixels of light on the Story's `h1` and
-then on the `header` at 1280 × 900. Room is a separate question and is answered
+from it becomes a fixed panel carrying the same sentence. What the light is drawn
+on is not the target's own rectangle but what is left of it once every scroller
+standing between the target and the window has had its cut, and then the window
+itself: a target half under a scroller's edge is lit on the half that is there, and
+a target wholly under one leaves nothing, which is the case that degrades. The
+document is one of those scrollers and until #280 it was not asked at all — a mark
+wound above the document's own top edge is clipped while its rectangle goes on
+meeting the window, which #280 measured as seventy-seven pixels of light on the
+Story's `h1` and then on the `header` at 1280 × 900, the depth of the Story's edge
+on the bench as it stood then. Room is a separate question and is answered
 separately, because the light and the sentence can be parted: the sentence is
 placed from the target's bottom edge where it fits under it and from its top edge
 where it does not, and where it fits on neither side it goes to the corner while
