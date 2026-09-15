@@ -38,12 +38,23 @@ const refusedIn = ref<string>()
  * would be worse than not: the field writes through the Story as it is typed, so a
  * name emptied and left is a Scene the sentence would introduce as “ ”. Unnamed,
  * the sentence falls back to what an act about the whole Story says, and the
- * Author is looking at the empty field anyway. A name typed but refused is said as
- * typed on purpose — that is the word under their hand, and the Scene the old name
- * belongs to is not the one they are looking at.
+ * Author is looking at the empty field anyway.
+ *
+ * Otherwise the name is the one the bench calls the Scene by, `namesOnTheBench`,
+ * because the sentence is a control of the bench naming a Scene and every one of
+ * those is named off that map — see
+ * `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`. That map reads
+ * the Story as the field wrote it, so a name typed and refused is still the word
+ * under the Author's hand; it is numbered only where another Scene already carries
+ * it, and then the number is what says which of the two was refused.
  */
-const refusedScene = computed(() =>
-  story.value?.scenes.find(scene => scene.id === refusedIn.value)?.name.trim() || undefined)
+const names = computed(() =>
+  (story.value ? namesOnTheBench(story.value, t) : new Map<string, string>()))
+const refusedScene = computed(() => {
+  const scene = story.value?.scenes.find(scene => scene.id === refusedIn.value)
+
+  return scene?.name.trim() ? names.value.get(scene.id) : undefined
+})
 
 /**
  * The two holders the Story's own edge writes through, which are the page's own
@@ -244,7 +255,7 @@ async function goToScene(sceneId: string) {
   typing?.blur()
   lands?.focus({ preventScroll: landing !== named })
   if (moving && !landing) {
-    announce(t('editor.writingScene', { name: sceneWritten.value?.name ?? '' }))
+    announce(t('editor.writingScene', { name: names.value.get(sceneId) ?? '' }))
   }
 
   return named

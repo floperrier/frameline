@@ -149,7 +149,8 @@ function flagRemarks(story: StoryInEditor, names: Map<string, string>): Remark[]
  * Said of the row and not of the Scene alone. Two Shots of one Scene conditioned
  * on the same pair — two beats waiting on `ticket = "lost"` — are two findings an
  * Author has to go to separately, and a sentence naming only the Scene is the same
- * sentence twice and the same control named twice with it: see issue #276.
+ * sentence twice and the same control named twice with it — which is the property
+ * issue #268 settled for a row, told of the Remarks.
  */
 function deadRemarks(story: StoryInEditor, names: Map<string, string>): Remark[] {
   const values = new Map<string, Set<string>>()
@@ -192,7 +193,10 @@ type Carried = [Condition, Scene, string, number]
  * Shot's Conditions belong to the Scene holding it; an Exit's belong to the Scene
  * it leaves, which is where they are written and where the Flags they test are
  * set — so the ways on are walked Scene by Scene here, which is also the walk
- * that numbers them the way the document does.
+ * that numbers them the way the document does. The same walk settles which Scene
+ * a Flag's first tester is read in: the first Scene, in the Story's order, that
+ * tests it on a Shot or on a way on, rather than any Shot of the Story before any
+ * Exit of it.
  */
 function conditionsOf(story: StoryInEditor): Carried[] {
   const from = (carried: Condition[], scene: Scene, name: string, place: number) =>

@@ -26,15 +26,21 @@
  * `.handed` in `app/assets/css/frameline.css` is the whole of the rule, which is
  * why nothing about it is declared below.
  */
-const { carrier, conditions, scenes, counting, id, named = true } = defineProps<{
+const { carrier, conditions, names, counting, id, named = true } = defineProps<{
   /** The visible words the list opens on: "Offered when", "Played when". */
   lead: string
   /** What carries the list, as a label ends it: "the Exit to The House", "Shot 3". */
   carrier: string
   /** The list itself, edited in place. */
   conditions: Condition[]
-  /** The Scenes a visit count may name — the Story's own, and no other's. */
-  scenes: Scene[]
+  /**
+   * The Scenes a visit count may name — the Story's own, and no other's — each
+   * under the name the bench calls it by, `namesOnTheBench`, in the order the
+   * Story is written in. The option is read back rather than typed, so two Scenes
+   * an Author called the same are numbered here as on every other control — see
+   * `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
+   */
+  names: Map<string, string>
   /** The Scene a freshly chosen visit count starts on. */
   counting: string
   /** The id of the Exit or Shot carrying the list, which every field's own id is built from. */
@@ -60,8 +66,6 @@ type ConditionKind = 'flag' | 'visits'
 function conditionKind(condition: Condition): ConditionKind {
   return 'flag' in condition ? 'flag' : 'visits'
 }
-
-const sceneNames = computed(() => new Map(scenes.map(scene => [scene.id, scene.name])))
 
 /**
  * The name the bar of Commands shows the act of adding a Condition under: the
@@ -211,11 +215,11 @@ function conditionCalled(place: number) {
             <!-- A Scene deleted since the Condition was written is still what it
                  counts, and saying so beats showing the Author a Scene they never
                  chose. -->
-            <option v-if="!sceneNames.get(condition.scene)" :value="condition.scene">
+            <option v-if="!names.has(condition.scene)" :value="condition.scene">
               {{ $t('scene.goneOption') }}
             </option>
-            <option v-for="counted in scenes" :key="counted.id" :value="counted.id">
-              {{ counted.name }}
+            <option v-for="[counted, name] in names" :key="counted" :value="counted">
+              {{ name }}
             </option>
           </select>
           <span class="says" aria-hidden="true">{{ $t('conditions.entered') }}</span>

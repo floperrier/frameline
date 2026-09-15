@@ -899,7 +899,7 @@ function writeConditions(
                     scene: held.name,
                   })"
                   :conditions="shot.conditions"
-                  :scenes="story.scenes"
+                  :names="named"
                   :counting="held.scene.id"
                   :id="shot.id"
                   :named="held.here"
@@ -1035,6 +1035,7 @@ function writeConditions(
                     :exits="story.exits"
                     :from="held.scene.id"
                     :led="exit.toSceneId"
+                    :names="named"
                   />
                 </select>
                 <button
@@ -1076,7 +1077,7 @@ function writeConditions(
                     from: held.name,
                   })"
                   :conditions="exit.conditions"
-                  :scenes="story.scenes"
+                  :names="named"
                   :counting="held.scene.id"
                   :id="exit.id"
                   :named="held.here"
@@ -1180,7 +1181,7 @@ function writeConditions(
             @change="addExit(held.scene)"
           >
           <datalist :id="`landing-${held.scene.id}`">
-            <Landing by-name :scenes="story.scenes" :exits="story.exits" :from="held.scene.id" />
+            <Landing :scenes="story.scenes" :exits="story.exits" :from="held.scene.id" />
           </datalist>
         </form>
       </section>

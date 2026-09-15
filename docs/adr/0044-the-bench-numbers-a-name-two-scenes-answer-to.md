@@ -35,9 +35,12 @@ bar* twice.
 of Scene id to the name the bench calls that Scene. The Author's own name where one
 Scene carries it, and *{name} ({number})* — `editor.namedAlike` — where several do.
 Every surface that names a Scene *as the bench* reads that map and nothing else, so
-none of them can disagree about which *The bar* a control acts on: the writing, the
-Contact Sheet, the Remarks, the rail's marks — and so the bar of Commands, which
-reads its names off those marks — and the Preview's own controls.
+none of them can disagree about which *The bar* a control acts on: the writing,
+with the field that says where a way on leads and the Scenes a visit Condition
+counts, the Contact Sheet, the Remarks, the rail's marks — and so the bar of
+Commands, which reads its names off those marks — the Preview's own controls, the
+frames the Cover is named from on the Story's edge, the sentence a refusal is
+placed in and what the bench announces on arriving in a Scene.
 
 Three things settle how the number is drawn.
 
@@ -116,7 +119,8 @@ name the bench gives it and that name is a message rather than a column.
 The property is held as a property rather than as the cases that found it.
 `tests/e2e/bench-signed-in.spec.ts` builds a Story that collides every way at once
 and asserts that nothing the bench offers answers to a name another thing it offers
-answers to — over the three readings, the Remarks and the bar of Commands, in both
-languages, at each of the five widths the layout folds at. A spec naming the
-strings issues #276 and #284 produced would go on passing the day a seventh key
-leaves a fact out.
+answers to — over the three readings, the Remarks, the bar of Commands and the
+Story's own edge, where the Cover is named from — and that no field choosing a
+Scene offers two options alike, in both languages, at each of the five widths the
+layout folds at. A spec naming the strings issues #276 and #284 produced would go
+on passing the day a seventh key leaves a fact out.
