@@ -55,8 +55,6 @@ const {
   announce: (said: string) => void
   /** Where a Shot's image is asked for, under the time it was last attached. */
   imageOf: (shot: Shot) => string
-  /** Why the last change was refused, shown against the Scene it concerns. */
-  problem?: Problem
 }>()
 
 /**
@@ -80,9 +78,13 @@ const { t } = useI18n()
  * write leaves on `change`, which is to say on blur, by which time the caret may
  * be somewhere else entirely.
  *
- * Said back to the page, because the page has refusals of its own: what the Story's
- * own edge is refused is about no Scene, and is drawn under that edge only while
- * nothing here has claimed the sentence.
+ * Said back to the page, which is where every refusal is drawn. A band inside the
+ * document stands on the writing wherever it is put — in the flow it is wound off
+ * the screen, and stuck to the head of the scroller it is over the row the Author
+ * came back to correct — so the sentence stands above the scroller, in the document
+ * column's own furniture, and carries the Scene's name rather than its position.
+ * What the Story's own edge is refused is about no Scene and names none. See
+ * `.refused` in `app/pages/stories/[id]/index.vue`.
  */
 const refusedIn = defineModel<string>('refusedIn')
 
@@ -726,15 +728,6 @@ function writeConditions(
         </button>
       </div>
 
-      <!-- Why the last change in this Scene was refused, said at the foot of the
-           slate of the Scene it is about: beside the name, which is what the
-           commonest refusal on a Scene — *A Scene needs a name.* — is about, and
-           under it rather than over it, so the field the Author goes back to
-           correct is neither covered nor taken away from the pointer. It keeps its
-           own room and it follows the head of the scroller, which are not the two
-           halves of a choice: `.refused` says how. -->
-      <Refusal v-if="refusedIn === held.scene.id" class="refused" :problem="problem" />
-
       <!-- The Flags the Scene sets, at the head of its section where they happen:
            set on entry, before the first Shot plays. On one line with its heading
            while the Scene sets none, which is most Scenes.
@@ -1199,31 +1192,6 @@ function writeConditions(
   /* The address names a Scene and the document is scrolled to it, so a Scene
      arrives under the head of the scroller rather than jammed against it. */
   scroll-margin-block-start: var(--s4);
-}
-
-/* The sentence a refusal is said in, at the foot of the slate of the Scene it is
-   about — and in the flow and on the scroller both, which the two rounds before
-   this one took for a choice. It keeps its own height, so it stands in the column
-   like any other line and covers nothing: the name, the mark that moves where the
-   Story opens and the act that takes the Scene away are all still under the
-   pointer. And it sticks to the head of the scroller for as long as any part of
-   its Scene is on screen, so an Exit refused twenty beats below the slate is
-   answered where the Author is looking rather than two thousand pixels above the
-   window. The travel is the Scene's own: `position: sticky` is held to the
-   containing block, which is the section, so the sentence lets go at the foot of
-   the Scene it is about and never rides into the next one.
-
-   What it costs is a push on what stands below it as it arrives, which the
-   browser's scroll anchoring absorbs wherever there is scroller above to absorb
-   it. `tests/e2e/scenes-signed-in.spec.ts` drives all three — what the sentence
-   covers, what it moves, and that it is on screen from the foot of a long Scene. */
-.refused {
-  position: sticky;
-  inset-block-start: 0;
-  z-index: 1;
-  /* Opaque, because while it is stuck the writing runs under it rather than
-     beside it. */
-  background: color-mix(in oklab, var(--alarm) 12%, var(--bench));
 }
 
 /* The slate: the Scene's name, whether the Story opens on it, what arrives at it

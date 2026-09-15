@@ -48,22 +48,189 @@ function naming(page: Page, sceneId: string) {
 }
 
 /**
- * What the browser would hand a click aimed at the middle of an element: the
- * element itself, or whatever is laid over it, said as its markup so a failure
- * names the thing that took the pointer. Nothing about the tree can settle this —
- * a layer over a field leaves the field exactly where the markup says it is, with
- * the right role and the right name, and takes the click all the same.
+ * The sentence a refusal about one Scene of the document is said in. It stands in
+ * the document column's own furniture rather than in that Scene's section — a band
+ * inside the scroller covers a row of the writing wherever it is put — so what
+ * holds it against the Scene it concerns is the Scene's name inside it. There is
+ * one refusal on the bench at a time, so the role is address enough. See `.refused`
+ * in `app/pages/stories/[id]/index.vue`.
  */
-function under(locator: Locator) {
-  return locator.evaluate((element) => {
-    const box = element.getBoundingClientRect()
-    const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+function refusal(page: Page) {
+  return page.getByRole('alert')
+}
 
-    if (element.contains(hit)) return 'itself'
+/**
+ * Winds the document until one Scene's first row — the first of the Flags it sets
+ * on entry, `.sets`, and not the section around it — sits at the very head of the
+ * scroller, which is the wind the issue was measured at and the one a band stuck to
+ * that head stood on. Instantly, over the scroller's own smooth behaviour, so that
+ * what is measured after it is where the wind ended rather than where it was
+ * passing through.
+ */
+async function windToFirstRow(page: Page, sceneId: string) {
+  await page.evaluate((scene) => {
+    const scroller = document.querySelector('.document')!
+    const row = document.querySelector(`.writing [data-scene="${scene}"] .sets`)!
+    const by = row.getBoundingClientRect().top - scroller.getBoundingClientRect().top
 
-    return hit?.outerHTML.slice(0, 60) ?? 'nothing'
+    scroller.scrollTo({ top: scroller.scrollTop + by, behavior: 'instant' })
+  }, sceneId)
+}
+
+/**
+ * The widths the sentence is driven at. Five of them — 1440, 1180, 900, 768 and
+ * 390 — are the widths `0043` names, which `bench-signed-in.spec.ts` draws the
+ * whole bench at; 1280 is the window the issue measured in; 1024 and 704 are the
+ * two the interface folds at, which a reading of one screen never crosses; and 640
+ * and 520 stand between them. Four rounds of this were read at one width, fixed at
+ * that width and found again one step to the side, so what the fifth is posed at is
+ * the range: a spec posed where its fix was measured cannot fail, and guards
+ * nothing.
+ */
+const widths = [1440, 1280, 1180, 1024, 900, 768, 704, 640, 520, 390]
+
+/**
+ * Winds one Scene's section up past the head of the scroller, a step at a time from
+ * the wind that puts its first row there, and hands back five readings of the
+ * sentence standing over it. The rounds before this one each posed one of them,
+ * fixed what it said, and were undone by another:
+ *
+ * - `taken`: every control of the Scene that a point at its own middle did not
+ *   answer for, said as the markup that took the point instead.
+ * - `reached`: what a press taken anywhere inside the sentence's own box arrives
+ *   at, where that is not the sentence. This is the reading nobody posed, and the
+ *   one a Scene's Flag was deleted at: a band that answers no pointer passes
+ *   `taken` and fails this, because an opaque band hands the press to the row it is
+ *   hiding. Only a band standing over nothing passes the two together.
+ * - `shut`: every wind at which the way back in did not answer for its own middle,
+ *   which is the door being a door.
+ * - `over`: how far the sentence ever reached into the scroller, which is the same
+ *   property said as geometry rather than as a hit.
+ * - `outside`: how far the sentence ever stood outside the window.
+ *
+ * The winding and the measuring both happen in the page: six hundred winds is six
+ * hundred round trips to ask the browser for a geometry it already has.
+ */
+async function sweptUnder(page: Page, sceneId: string, winds = 60, step = 8) {
+  return page.evaluate(({ sceneId, winds, step }) => {
+    const scroller = document.querySelector('.document')!
+    // Through `.writing`, because the Graph marks its own nodes with the Scene
+    // they draw and one of those stands earlier in the document than the section.
+    const section = document.querySelector(`.writing [data-scene="${sceneId}"]`)!
+    const sentence = document.querySelector('[role="alert"]')!
+    const door = sentence.querySelector('a')!
+    const port = scroller.getBoundingClientRect()
+    const from = scroller.scrollTop
+      + section.querySelector('.sets')!.getBoundingClientRect().top - port.top
+
+    const taken = new Set<string>()
+    const reached = new Set<string>()
+    const shut = new Set<number>()
+    let over = 0
+    let outside = 0
+
+    const answers = (element: Element, at: DOMRect) =>
+      element.contains(document.elementFromPoint(at.x + at.width / 2, at.y + at.height / 2))
+
+    for (let wind = 0; wind < winds; wind++) {
+      scroller.scrollTo({ top: from + wind * step, behavior: 'instant' })
+
+      const said = sentence.getBoundingClientRect()
+      over = Math.max(over, said.bottom - port.top)
+      outside = Math.max(
+        outside, -said.top, said.bottom - innerHeight, -said.left, said.right - innerWidth)
+      // Line by line rather than at the middle of the rectangle around the whole
+      // of it: the way back in is an inline run, and where it is drawn on two lines
+      // the middle of that rectangle falls in the gap at the end of the first.
+      if (![...door.getClientRects()].every(line => answers(door, line))) shut.add(wind)
+
+      // What a press taken anywhere in the band arrives at: a grid over the whole
+      // of its rectangle, edges in, a pixel inside so that the point is in the band
+      // and not on the line around it.
+      for (let across = 0; across <= 8; across++) {
+        for (let down = 0; down <= 4; down++) {
+          const hit = document.elementFromPoint(
+            said.left + 1 + (said.width - 2) * across / 8,
+            said.top + 1 + (said.height - 2) * down / 4)
+
+          if (!sentence.contains(hit)) reached.add(hit?.outerHTML.slice(0, 40) ?? 'nothing')
+        }
+      }
+
+      for (const control of section.querySelectorAll('input, textarea, button, select, a')) {
+        // A control the interface hides from the eye — the field an Image is
+        // chosen in, which its own label is drawn in place of — is not a control
+        // a pointer is aimed at, and the point at its middle is a point in
+        // whatever stands over it.
+        if (control.classList.contains('visually-hidden')) continue
+
+        const box = control.getBoundingClientRect()
+        const middle = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+        // Only what a hand could actually aim at: a control wound off the
+        // scroller, or one a fold has carried across the foot of the window, is
+        // not a question about what covers it. A pixel inside the window rather
+        // than on its edge, because a control lying half over the edge has its
+        // middle in the last fraction of a pixel of it, where `elementFromPoint`
+        // answers nothing at all.
+        if (middle.x < port.left || middle.x > Math.min(port.right, innerWidth) - 1) continue
+        if (middle.y < port.top || middle.y > Math.min(port.bottom, innerHeight) - 1) continue
+        if (answers(control, box)) continue
+
+        taken.add(`${document.elementFromPoint(middle.x, middle.y)?.outerHTML.slice(0, 40)
+          ?? 'nothing'} over ${control.outerHTML.slice(0, 40)}`)
+      }
+    }
+
+    // Rounded, because what the scroller gives back it gives back in device pixels
+    // and a band drawn flush against its head stands a rounding off it.
+    return {
+      taken: [...taken],
+      reached: [...reached],
+      shut: [...shut],
+      over: Math.round(Math.max(0, over)),
+      outside: Math.round(Math.max(0, outside)),
+    }
+  }, { sceneId, winds, step })
+}
+
+/** The same sweep at every width, said so that a failure names the width it is at. */
+async function sweptAtEveryWidth(page: Page, sceneId: string) {
+  const swept = []
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 844 })
+    await expect(refusal(page)).toBeVisible()
+    swept.push({ width, ...await sweptUnder(page, sceneId) })
+  }
+
+  return swept
+}
+
+/** What the server says when the session has shut, which is the sentence with a door in it. */
+const SIGNED_OUT = 'You are no longer signed in, so nothing was written.'
+
+/**
+ * Where the three things a sentence arriving above the document can move stand: the
+ * beat under the Author's hands, the head of the scroller, and the head of the
+ * column the scroller stands in. Read in one pass, because two round trips are two
+ * frames and the second could be a different screen.
+ */
+function where(beat: Locator) {
+  return beat.evaluate((field) => {
+    const said = document.querySelector('.refused')?.getBoundingClientRect()
+
+    return {
+      beat: field.getBoundingClientRect().top,
+      head: document.querySelector('.document')!.getBoundingClientRect().top,
+      column: document.querySelector('.middle')!.getBoundingClientRect().top,
+      tall: said?.height ?? 0,
+      ends: said?.bottom ?? 0,
+    }
   })
 }
+
+/** What a sweep of a sentence standing over nothing says, at every width. */
+const standsOverNothing = widths.map(width =>
+  ({ width, taken: [], reached: [], shut: [], over: 0, outside: 0 }))
 
 /** A Story with one Scene in it, which is where every test below starts. */
 async function openScene(request: APIRequestContext, name = 'A Scene') {
@@ -182,7 +349,7 @@ test('a Scene renamed to nothing is left as it was', async ({ page, request }) =
   await named.fill('  ')
   await named.blur()
 
-  await expect(page.getByRole('alert')).toHaveText('A Scene needs a name.')
+  await expect(refusal(page)).toHaveText('In “The arrival”: A Scene needs a name.')
   // The refusal reads the Story back, so the field says what the Scene is
   // really called rather than the nothing that was refused.
   await expect(named).toHaveValue('The arrival')
@@ -791,21 +958,24 @@ test('a refusal is said against the Scene it is about', async ({ page, request }
   await page.goto(`/stories/${story.id}`)
 
   // The caret opens in the Opening Scene, and what is refused is a write made in
-  // the other one: the sentence belongs where the Author was typing, not where the
-  // caret happens to stand. See
+  // the other one: the sentence is about where the Author was typing, not about
+  // where the caret happens to stand. See
   // `docs/adr/0016-the-door-is-reopened-beside-the-bench.md`, whose rule is that
   // the work being written survives the refusal.
   const named = naming(page, platform!.id)
   await named.fill('  ')
   await named.blur()
 
-  const refused = sectionOf(page, platform!.id).getByRole('alert')
-  await expect(refused).toHaveText('A Scene needs a name.')
-  await expect(sectionOf(page, arrival!.id).getByRole('alert')).toHaveCount(0)
+  // Said in the words, because it is not said by the geometry: the sentence stands
+  // above the document rather than in the section of the Scene it is about, which
+  // is the one place on the bench it covers no row of the writing.
+  const refused = refusal(page)
+  await expect(refused).toHaveText('In “The platform”: A Scene needs a name.')
+  await expect(page.locator('.writing [role="alert"]')).toHaveCount(0)
 
-  // And what the Story's own edge is refused is about no Scene, so it is said
-  // under that edge: the two places a refusal is drawn are the Scene it is about
-  // and the Story, and nothing is drawn in both.
+  // And what the Story's own edge is refused is about no Scene, so it names none
+  // and is said under that edge: the two things a refusal is about are a Scene of
+  // the Story and the Story, and nothing is said as both.
   await named.fill('The platform is empty')
   await named.blur()
   await expect(refused).toHaveCount(0)
@@ -855,85 +1025,90 @@ test('a write that lands in one Scene leaves the Scene another write is waiting 
     await expect(shot(page, 1, 'The platform')).toBeVisible()
 
     landRename()
-    await expect(sectionOf(page, arrival!.id).getByRole('alert'))
-      .toHaveText('A Scene needs a name.')
+    await expect(refusal(page)).toHaveText('In “The arrival”: A Scene needs a name.')
     // Not under the Story's edge, which is where a refusal goes that is about no
     // Scene at all — and this one is about a Scene.
     await expect(page.locator('main > [role="alert"]')).toHaveCount(0)
   })
 
-test('a refusal takes its own room under the slate, covering nothing and moving nothing',
+test('a refusal takes its room out of the document and moves nothing under the hands',
   async ({ page, request }) => {
     const { story, scenes } = await chained(request, ['The arrival', 'The platform'])
-    const [arrival, platform] = scenes
+    const [, platform] = scenes
     // A run long enough to carry the window past the Scene above it, so the
-    // scroller has something above to give back: that is what absorbs the room a
-    // refusal takes as it arrives.
-    await writeShots(
+    // scroller has room above the hands to give back: that is what the correction
+    // winds on, and what a document standing at its own head has none of.
+    const beats = await writeShots(
       request, platform!.id, Array.from({ length: 20 }, (_, beat) => `Beat ${beat + 1}.`))
 
     await page.goto(`/stories/${story.id}`)
 
-    // The rename is held at the door so that both measurements are of one screen:
-    // what moves the beat has to be the sentence landing, never the network
-    // landing between the two readings.
-    let land = () => {}
-    const landing = new Promise<void>((resolve) => { land = resolve })
-    await page.route(`**/api/scenes/${arrival!.id}`, async (route) => {
-      await landing
-      await route.continue()
-    })
+    // The beat under the hands is the one whose write is refused, which is the
+    // worst case for a sentence that takes its room above the document: the Author
+    // is looking at the field, and the whole document is about to be pushed down by
+    // the height of a band they did not ask for.
+    let refusing = true
+    await page.route(`**/api/shots/${beats[14]!.id}`, route => refusing
+      ? route.fulfill({ status: 401, json: { message: SIGNED_OUT } })
+      : route.continue())
 
-    // A Scene emptied of its name up at the head of the document, while the Author
-    // is typing twenty beats down in the Scene under it. The sentence takes its
-    // room where nobody is looking, and the browser's scroll anchoring gives that
-    // room back out of the scroller: the beat under the hands does not move.
-    await naming(page, arrival!.id).fill('  ')
     const beat = shot(page, 15, 'The platform')
-    await beat.click()
-    await page.keyboard.type(' She waits.')
-    const typedAt = (await beat.boundingBox())!.y
+    const held = []
 
-    land()
-    await expect(sectionOf(page, arrival!.id).getByRole('alert'))
-      .toHaveText('A Scene needs a name.')
-    // Not held to the pixel: the scroller gives its room back in device pixels and
-    // what is left of a band forty-odd pixels tall is the rounding. A band that
-    // stopped being given back would move the beat by its whole height.
-    expect(Math.abs((await beat.boundingBox())!.y - typedAt)).toBeLessThan(1)
+    // Posed across the range, because the room the sentence takes is not one
+    // number: at 1440 it is a line and at 390 in either language it is three or
+    // four, and a correction that answered for one line would pass the width it was
+    // written at and move the writing by three at the width under it.
+    for (const width of widths) {
+      await page.setViewportSize({ width, height: 844 })
 
-    // And the sentence is not laid over the field the Author has to answer it in.
-    // A Scene needs a name is the commonest refusal there is on a Scene, and a
-    // zero-height sticky band carrying it read as the element under the middle of
-    // the name, of the mark that moves where the Story opens and of the act that
-    // takes the Scene away — three controls a pointer could no longer reach.
-    const named = naming(page, platform!.id)
-    await named.fill('  ')
-    await named.blur()
+      // Cleared first, so that what the next reading measures is the sentence
+      // arriving rather than one sentence replaced by another.
+      refusing = false
+      await beat.click()
+      await page.keyboard.type('.')
+      // Waited for, because the next write is only refused if it goes out after the
+      // route has been turned round: a clearing write still in the air would be
+      // refused itself and the reading would be of no arrival at all.
+      const kept = page.waitForResponse(`**/api/shots/${beats[14]!.id}`)
+      await beat.blur()
+      await kept
+      await expect(refusal(page)).toBeHidden()
+      // The mark that says the write was kept arrives with it and grows the Story's
+      // own edge, which moves the bench under it: a reading taken before it lands
+      // would read that as the sentence moving the writing.
+      await expect(page.getByText(/^Kept at /)).toBeVisible()
 
-    const section = sectionOf(page, platform!.id)
-    const refused = section.getByRole('alert')
-    await expect(refused).toHaveText('A Scene needs a name.')
+      refusing = true
+      await beat.click()
+      await page.keyboard.type(' She waits.')
+      const before = await where(beat)
 
-    // Wound to the slate the sentence stands on: what is under a point is a
-    // question about the window, and the caret is twenty beats past it.
-    const slate = section.locator('.slate')
-    await slate.scrollIntoViewIfNeeded()
+      await beat.blur()
+      await expect(refusal(page)).toContainText(SIGNED_OUT)
+      const after = await where(beat)
 
-    expect(await under(named)).toBe('itself')
-    expect(await under(section.getByRole('button', { name: /^Mark as the Opening Scene/ })))
-      .toBe('itself')
-    expect(await under(section.getByRole('button', { name: /^Delete Scene/ }))).toBe('itself')
-    // Readable in its turn: nothing of the writing is over the sentence either.
-    expect(await under(refused)).toBe('itself')
-    // The click an Author makes next lands in the field and not in the sentence
-    // about it, which is the one thing `pointer-events: none` would also have
-    // bought — and it would have left the field under an opaque band.
-    await named.click()
-    await expect(named).toBeFocused()
+      held.push({
+        width,
+        // Rounded rather than held to the pixel: the scroller is wound back in
+        // device pixels and what is left of a correction of forty-odd is the
+        // rounding. A correction that stopped being made would move the beat by the
+        // whole room the sentence took.
+        moved: Math.round(after.beat - before.beat) || 0,
+        // Nothing above the scroller before, a sentence of its own height above it
+        // after, and the scroller beginning exactly where that sentence ends: it
+        // keeps its own height out here as it kept it in the flow, and what it took
+        // it took out of the document rather than off the top of it.
+        room: Math.round(before.head - before.column) === 0
+          && after.tall > 0 && Math.round(after.head - after.ends) === 0
+          ? 'its own'
+          : `${before.head - before.column} above the scroller before, `
+            + `${after.head - after.column} after, for a sentence `
+            + `${after.tall} tall ending at ${after.ends}`,
+      })
+    }
 
-    const over = (await slate.boundingBox())!
-    expect((await refused.boundingBox())!.y).toBeGreaterThanOrEqual(over.y + over.height)
+    expect(held).toEqual(widths.map(width => ({ width, moved: 0, room: 'its own' })))
   })
 
 test('a refusal at the foot of a long Scene is read without leaving the foot of it',
@@ -970,12 +1145,126 @@ test('a refusal at the foot of a long Scene is read without leaving the foot of 
     // Said where the hands are. Held to the flow at the foot of the slate and
     // nothing else, this landed at y = −2374 on a window 720 tall: the whole of
     // what the screen showed was the list of Exits going from two to one.
-    const refused = section.getByRole('alert')
+    const refused = refusal(page)
     await expect(refused).toContainText('Please sign in again.')
     // Whole, and not a sliver of it: the door is inside the sentence.
     await expect(refused).toBeInViewport({ ratio: 1 })
     expect((await refused.boundingBox())!.y).toBeGreaterThanOrEqual(0)
   })
+
+/**
+ * Stands a refusal carrying the way back in against the second Scene of a Story,
+ * and hands back the Scene it is about. The gesture is a rename and the field it is
+ * made in is found by its place on the slate rather than by its label: this is
+ * driven in two languages, and the label is one of the things that change.
+ */
+async function refusedWithADoor(page: Page, request: APIRequestContext, said: string) {
+  const { story, scenes } = await chained(request, ['The arrival', 'The platform'])
+  const [, platform] = scenes
+  // A Flag drawn from two values, so the Scene's first row carries every kind of
+  // control a row of Flags has: the name, both values, the mark that adds a third
+  // and the three that take a value or the Flag away. It is the row a band stuck to
+  // the head of the scroller stood on, and the row a press on the door deleted the
+  // Flag out of.
+  await seedFlags(platform!.id, { coat: ['on', 'off'] })
+  // Long enough for the slate to leave the window with the Scene still in it, which
+  // is the wind a band held to the scroller was read at.
+  await writeShots(
+    request, platform!.id, Array.from({ length: 20 }, (_, beat) => `Beat ${beat + 1}.`))
+
+  await page.goto(`/stories/${story.id}`)
+
+  // The worst of the sentences, and the widest: the session has shut, so the way
+  // back in stands inside it — a control of its own, and the one thing the band
+  // carries that a press is meant to arrive at.
+  await page.route(`**/api/scenes/${platform!.id}`, route => route.request().method() === 'PATCH'
+    ? route.fulfill({ status: 401, json: { message: said } })
+    : route.continue())
+
+  const named = naming(page, platform!.id)
+  await named.fill('The platform again')
+  await named.blur()
+
+  await expect(refusal(page)).toContainText(said)
+
+  return { section: sectionOf(page, platform!.id), scene: platform!.id }
+}
+
+test('a refusal standing over the document reaches no row of it, at every width',
+  async ({ page, request }) => {
+    const { section, scene } = await refusedWithADoor(page, request, SIGNED_OUT)
+
+    // Against the Scene it concerns, said by the words: the sentence is not drawn
+    // in that Scene's section any more, because there is no place in the section it
+    // can be drawn without standing on a row of it.
+    await expect(refusal(page)).toContainText('In “The platform again”:')
+
+    // The row the issue measured on, and every kind of control it carries: the
+    // name, two values, the mark that adds a third and the three that take a value
+    // or the Flag away. Seven — the eighth a round of this counted was *Add a
+    // Flag*, which stands under the row and not on it.
+    await expect(section.locator('.sets').locator('input, button')).toHaveCount(7)
+
+    // Posed where the fix could fail rather than where it was measured: every
+    // width, and sixty winds of eight pixels from the one the issue names — the
+    // slate just above the window, the Scene's first row at the head of the
+    // scroller, which is where a band held to that head stood. Five readings at
+    // each, because every round of this won one of them and lost another: no
+    // control of the Scene loses a point at its own middle, no press taken inside
+    // the sentence arrives anywhere but in the sentence, the door answers for its
+    // own middle, the sentence reaches no part of the scroller, and it never stands
+    // outside the window.
+    expect(await sweptAtEveryWidth(page, scene)).toEqual(standsOverNothing)
+
+    // And the gesture the hit test is about, at the narrowest width and the wind
+    // the issue made it at: a press in the middle of the Flag's own name puts the
+    // caret there. Driven as a click rather than a point, because a click is what
+    // deleted the Flag.
+    await page.setViewportSize({ width: 390, height: 844 })
+    await windToFirstRow(page, scene)
+    await expect(section.locator('.slate')).not.toBeInViewport()
+    const flag = section.locator('.sets input').first()
+    await flag.click()
+    await expect(flag).toBeFocused()
+
+    // And the door is a door: a real mouse press on it opens the way back in beside
+    // this tab, which is the whole offer of the refusal — see
+    // `docs/adr/0016-the-door-is-reopened-beside-the-bench.md`. Driven at the
+    // narrowest width and at the widest, because a band that answered no press
+    // answered none at either.
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 844 })
+      const opening = page.waitForEvent('popup')
+      await refusal(page).getByRole('link', { name: 'Sign In Again in a New Tab' }).click()
+      const beside = await opening
+
+      await expect(beside).toHaveURL(/\/stories$|\/$/)
+      await beside.close()
+      // And the tab holding the Story was never navigated: the Scene being written
+      // is still on screen, with what was typed into it still in the field.
+      await expect(page).toHaveURL(new RegExp(`/stories/`))
+      await expect(naming(page, scene)).toHaveValue('The platform again')
+    }
+  })
+
+test.describe('the same sentence read in French', () => {
+  test.use({ locale: 'fr-FR' })
+
+  // The way back in is *Se reconnecter dans un nouvel onglet* against *Sign In
+  // Again in a New Tab*, and the sentence around it is longer too, so the band is
+  // taller and wraps at widths where the English one does not: the length of a
+  // label is part of this geometry, and the language a spec is read in is part of
+  // the measurement. The reading that found the defect saw it as far up the range
+  // as 760 in French and 650 in English, which one language alone would not say.
+  test('reaches no row of the document either, at every width',
+    async ({ page, request }) => {
+      const { scene } = await refusedWithADoor(
+        page, request, 'La connexion n\'est plus ouverte, donc rien n\'a été écrit.')
+
+      await expect(refusal(page)).toContainText('Dans « The platform again » :')
+      expect(await sweptAtEveryWidth(page, scene)).toEqual(standsOverNothing)
+    })
+})
 
 test('an Author writes a Story from the page alone', async ({ page, request }) => {
   const story = await (await request.post('/api/stories', { data: { title: 'A Story' } })).json()

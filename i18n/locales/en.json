@@ -294,7 +294,8 @@
     "refused": "That did not work. Please try again.",
     "wentWrong": "Something went wrong.",
     "home": "Back to Frameline",
-    "signInAgain": "Sign In Again in a New Tab"
+    "signInAgain": "Sign In Again in a New Tab",
+    "inScene": "In “{scene}”:"
   },
   "refusals": {
     "noSuch": {
