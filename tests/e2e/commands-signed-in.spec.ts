@@ -355,7 +355,14 @@ test('the bar names every act marked on a Scene being written, and no other', as
   // they flow in a region of their own now instead of covering the table, so
   // there is room to say what they found without being asked, and a Command is
   // named for what pressing it does.
+  //
+  // Two acts turn the middle of the bench over rather than one, because the
+  // document is read three ways since #256: the writing, the Contact Sheet and the
+  // Preview. Each is named for what pressing it does — the reading on screen is
+  // the one the bar does not offer — so the bar carries the two the Author is not
+  // on. See `docs/adr/0043-a-story-is-written-as-one-document.md`.
   await expect(offered(page)).toHaveText([
+    'See the Contact Sheet',
     'Read the Story',
     'Publish this Story',
     'Go to The street',
