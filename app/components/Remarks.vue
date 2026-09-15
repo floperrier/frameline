@@ -39,6 +39,8 @@ const { story, sceneWritten, previewed } = defineProps<{
   previewed?: boolean
 }>()
 
+const { t } = useI18n()
+
 /**
  * Which Scene the Author asked to be taken to, which is the rail's own press and
  * nothing else: the page owns which Scene the caret is in, and a list that routed
@@ -141,7 +143,7 @@ onUnmounted(() => window.removeEventListener('resize', settle))
  * business knowing the bench.
  */
 const spoken = computed(() => {
-  const found = story ? remarks(story) : []
+  const found = story ? remarks(story, t) : []
   if (!previewed || !sceneWritten) return found
 
   return found.filter(remark => !(

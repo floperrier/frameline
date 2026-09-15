@@ -49,7 +49,13 @@ const { t } = useI18n()
 /** One frame of the sheet: a Shot, where it comes, and what it answers to. */
 type Frame = { shot: Shot, scene: Scene, place: number, named: string }
 
-const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, scene.name])))
+/**
+ * What the bench calls each Scene, which is what every band and every frame is
+ * named by. Read from `namesOnTheBench` rather than off the Scene, so that two
+ * Scenes an Author called the same are told apart here exactly as they are in the
+ * writing and in the Remarks — see issue #284.
+ */
+const names = computed(() => namesOnTheBench(story, t))
 
 /**
  * A Scene read by name where something else names it: the far side of an Exit, the
@@ -57,7 +63,7 @@ const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, s
  * deleted is said to be gone rather than shown as the id it holds.
  */
 function sceneName(sceneId: string) {
-  return sceneNamed(sceneNames.value, sceneId, t)
+  return sceneNamed(names.value, sceneId, t)
 }
 
 /**
@@ -70,24 +76,29 @@ function sceneName(sceneId: string) {
  * A frame's name is the Scene and the Place and never the file: a sheet drawing
  * every Shot of a Story of forty Scenes is the surface most likely to say one
  * name twice, and *Shot 3 of The bar* is the one pair of facts that tells two
- * frames carrying the same image apart. It tells them apart as far as the names of
- * the Scenes do: nothing stops an Author calling two Scenes *The bar*, and two
- * frames then answer to *Shot 1 of The bar* alike. The writing names a beat by the
- * same keys, so the sheet is not where that is settled — see #284.
+ * frames carrying the same image apart. It tells them apart as far as the bench
+ * tells the Scenes apart, which is what `namesOnTheBench` now answers for: an
+ * Author may call two Scenes *The bar*, and the bench draws the second one *The
+ * bar (2)* wherever it names it, here as in the writing — issue #284.
  */
 const bands = computed(() =>
-  inDocumentOrder(story.scenes, story.exits, story.openingSceneId).map(scene => ({
-    scene,
-    opens: scene.id === story.openingSceneId,
-    flags: flagRows(scene.sets),
-    ways: exitsFrom(story.exits, scene.id),
-    frames: scene.shots.map((shot, place): Frame => ({
-      shot,
+  inDocumentOrder(story.scenes, story.exits, story.openingSceneId).map((scene) => {
+    const named = sceneName(scene.id)
+
+    return {
       scene,
-      place,
-      named: t('editor.shotOfScene', { place: place + 1, scene: scene.name }),
-    })),
-  })))
+      name: named,
+      opens: scene.id === story.openingSceneId,
+      flags: flagRows(scene.sets),
+      ways: exitsFrom(story.exits, scene.id),
+      frames: scene.shots.map((shot, place): Frame => ({
+        shot,
+        scene,
+        place,
+        named: t('editor.shotOfScene', { place: place + 1, scene: named }),
+      })),
+    }
+  }))
 
 /** Every frame of the sheet, in the order they are drawn: what the arrows walk. */
 const frames = computed(() => bands.value.flatMap(band => band.frames))
@@ -200,7 +211,7 @@ function describe(shot: Shot) {
         :data-band="band.scene.id"
       >
         <header>
-          <h2>{{ band.scene.name }}</h2>
+          <h2>{{ band.name }}</h2>
           <p v-if="band.opens" class="eyebrow opens">{{ $t('editor.openingScene') }}</p>
 
           <!-- The Flags the Scene sets on entry, said as the sentence they are
@@ -247,7 +258,7 @@ function describe(shot: Shot) {
               :aria-label="$t('editor.goToSceneByExit', {
                 name: sceneName(way.toSceneId),
                 place: place + 1,
-                scene: band.scene.name,
+                scene: band.name,
               })"
               @click="emit('open', way.toSceneId)"
             >
@@ -306,7 +317,7 @@ function describe(shot: Shot) {
       <p class="print big" :class="{ bare: !shown.shot.image }">
         <img v-if="shown.shot.image" :src="imageOf(shown.shot)" :alt="$t('editor.imageOfShot', {
           place: shown.place + 1,
-          scene: shown.scene.name,
+          scene: sceneName(shown.scene.id),
         })">
       </p>
 
@@ -337,7 +348,7 @@ function describe(shot: Shot) {
             <span class="visually-hidden">
               {{ $t('editor.descriptionOfShot', {
                 place: shown.place + 1,
-                scene: shown.scene.name,
+                scene: sceneName(shown.scene.id),
               }) }}
             </span>
           </label>

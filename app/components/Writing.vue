@@ -128,6 +128,12 @@ function writing(scene: Scene, act: () => Promise<unknown>) {
  */
 type SceneInDocument = {
   scene: Scene
+  /**
+   * What the bench calls it, which every control of the section is named by — the
+   * Author's own name, numbered where they gave it to more than one Scene. Never
+   * what the field holds or what a rename sends, which are the name itself.
+   */
+  name: string
   /** Whether the Story opens on it. */
   opens: boolean
   /** Whether the caret is in it, which is what carries a mark's name. */
@@ -142,7 +148,20 @@ type SceneInDocument = {
   counted: { flags: number, shots: number }
 }
 
-const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, scene.name])))
+/**
+ * What the bench calls each Scene, which is what every control naming one is named
+ * by here. Two Scenes an Author called the same are numbered by `namesOnTheBench`
+ * and by nothing in this file, so the document, the Contact Sheet and the Remarks
+ * cannot disagree about which *The bar* a control acts on — see issue #284. What
+ * the Author typed is what the field below holds and what a write sends; the
+ * number is drawn and never written.
+ */
+const named = computed(() => namesOnTheBench(story, t))
+
+/** The name the bench gives one Scene, which is the map above read for it. */
+function nameOf(sceneId: string) {
+  return sceneNamed(named.value, sceneId, t)
+}
 
 const sections = computed<SceneInDocument[]>(() => {
   const arriving = new Map<string, number>()
@@ -155,6 +174,7 @@ const sections = computed<SceneInDocument[]>(() => {
 
     return {
       scene,
+      name: nameOf(scene.id),
       opens: scene.id === story.openingSceneId,
       here: scene.id === sceneWritten,
       arrivals: countedArrivals(arrivals, t),
@@ -233,13 +253,13 @@ function exitsInto(sceneId: string) {
  * `docs/adr/0017-a-confirmation-is-drawn-on-the-bench.md`.
  */
 async function deleteScene(scene: Scene) {
-  const named = {
-    name: scene.name,
+  const asked = {
+    name: nameOf(scene.id),
     shots: countedShots(scene.shots.length, t),
     waysOn: countedExits(exitsFrom(story.exits, scene.id).length, t),
     waysIn: countedExits(exitsInto(scene.id).length, t),
   }
-  if (!await ask(t('editor.confirmDeleteScene', named), t('editor.deleteScene'))) return
+  if (!await ask(t('editor.confirmDeleteScene', asked), t('editor.deleteScene'))) return
 
   return changing(scene, () => send(`/api/scenes/${scene.id}`, { method: 'DELETE' }))
 }
@@ -442,7 +462,7 @@ async function splitBefore(scene: Scene, shot: Shot) {
     }) as Pick<Scene, 'id' | 'name'>
 
     writtenId = split.id
-    announce(t('editor.sceneSplit', { name: scene.name, to: name }))
+    announce(t('editor.sceneSplit', { name: nameOf(scene.id), to: name }))
   })
 
   if (writtenId) emit('open', writtenId, true)
@@ -526,8 +546,8 @@ function duplicateExit(scene: Scene, exit: Exit) {
     }
 
     announce(t('editor.exitDuplicated', {
-      from: scene.name,
-      to: sceneNamed(sceneNames.value, exit.toSceneId, t),
+      from: nameOf(scene.id),
+      to: nameOf(exit.toSceneId),
     }))
   })
 }
@@ -599,8 +619,8 @@ async function addExit(scene: Scene) {
 
     writtenId = written.id
     announce(t(found ? 'editor.exitDrawn' : 'editor.exitDrawnToNew', {
-      from: scene.name,
-      to: found?.name ?? name,
+      from: nameOf(scene.id),
+      to: found ? nameOf(found.id) : name,
     }))
   })
 
@@ -660,13 +680,13 @@ function writeConditions(
       class="scene"
       role="group"
       :data-scene="held.scene.id"
-      :aria-label="$t('editor.writingScene', { name: held.scene.name })"
+      :aria-label="$t('editor.writingScene', { name: held.name })"
       @keydown="walkScenes(held, $event)"
     >
       <!-- The name is the heading and the heading is written in: a bare field, the
            same idiom as a Shot's text, with no mode to enter first. -->
       <label class="visually-hidden" :for="`scene-name-${held.scene.id}`">
-        {{ $t('editor.sceneName', { name: held.scene.name }) }}
+        {{ $t('editor.sceneName', { name: held.name }) }}
       </label>
       <!-- The slate: the name, whether the Story opens here, what arrives at it,
            and the one act that takes it away. What arrives is said in words rather
@@ -702,7 +722,7 @@ function writeConditions(
         <p class="opening" :data-step="held.here ? 'opening-scene' : undefined">
           <span v-if="held.opens" class="eyebrow">
             {{ $t('editor.openingScene') }}
-            <span class="visually-hidden">{{ held.scene.name }}</span>
+            <span class="visually-hidden">{{ held.name }}</span>
           </span>
           <button
             v-else
@@ -711,7 +731,7 @@ function writeConditions(
             @click="openOn(held.scene)"
           >
             {{ $t('editor.markOpeningScene') }}
-            <span class="visually-hidden">{{ held.scene.name }}</span>
+            <span class="visually-hidden">{{ held.name }}</span>
           </button>
         </p>
 
@@ -724,7 +744,7 @@ function writeConditions(
           @click="deleteScene(held.scene)"
         >
           {{ $t('editor.deleteScene') }}
-          <span class="visually-hidden">{{ held.scene.name }}</span>
+          <span class="visually-hidden">{{ held.name }}</span>
         </button>
       </div>
 
@@ -751,7 +771,7 @@ function writeConditions(
         <Flags
           :data-step="held.here ? 'scene-flags' : undefined"
           :sets="held.scene.sets"
-          :scene="held.scene.name"
+          :scene="held.name"
           :id="held.scene.id"
           :named="held.here"
           @write="writeFlags(held.scene, $event)"
@@ -817,7 +837,7 @@ function writeConditions(
                   :src="imageOf(shot)"
                   :alt="$t('editor.imageOfShot', {
                     place: place + 1,
-                    scene: held.scene.name,
+                    scene: held.name,
                   })"
                 >
                 <input
@@ -826,14 +846,14 @@ function writeConditions(
                   :accept="SHOT_IMAGE_TYPES.join(',')"
                   :aria-label="$t('editor.pickImageOfShot', {
                     place: place + 1,
-                    scene: held.scene.name,
+                    scene: held.name,
                   })"
                   @change="attachImage(held.scene, shot, $event)"
                 >
               </label>
 
               <label class="visually-hidden" :for="`shot-${shot.id}`">
-                {{ $t('editor.shotOfScene', { place: place + 1, scene: held.scene.name }) }}
+                {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
               </label>
               <textarea
                 :id="`shot-${shot.id}`"
@@ -855,7 +875,7 @@ function writeConditions(
                   <span class="visually-hidden">
                     {{ $t('editor.descriptionOfShot', {
                       place: place + 1,
-                      scene: held.scene.name,
+                      scene: held.name,
                     }) }}
                   </span>
                 </label>
@@ -875,7 +895,7 @@ function writeConditions(
                   :lead="$t('editor.playedWhen')"
                   :carrier="$t('editor.shotOfScene', {
                     place: place + 1,
-                    scene: held.scene.name,
+                    scene: held.name,
                   })"
                   :conditions="shot.conditions"
                   :scenes="story.scenes"
@@ -899,7 +919,7 @@ function writeConditions(
                     <span class="visually-hidden">
                       {{ $t('editor.splitBefore', {
                         place: place + 1,
-                        scene: held.scene.name,
+                        scene: held.name,
                       }) }}
                     </span>
                   </button>
@@ -914,7 +934,7 @@ function writeConditions(
                       {{ $t('common.moveEarlier') }}
                       {{ $t('editor.shotOfScene', {
                         place: place + 1,
-                        scene: held.scene.name,
+                        scene: held.name,
                       }) }}
                     </span>
                   </button>
@@ -929,7 +949,7 @@ function writeConditions(
                       {{ $t('common.moveLater') }}
                       {{ $t('editor.shotOfScene', {
                         place: place + 1,
-                        scene: held.scene.name,
+                        scene: held.name,
                       }) }}
                     </span>
                   </button>
@@ -943,7 +963,7 @@ function writeConditions(
                       {{ $t('common.delete') }}
                       {{ $t('editor.shotOfScene', {
                         place: place + 1,
-                        scene: held.scene.name,
+                        scene: held.name,
                       }) }}
                     </span>
                   </button>
@@ -972,7 +992,7 @@ function writeConditions(
           >
             {{ $t('editor.addShot') }}
             <span class="visually-hidden">
-              {{ $t('editor.toScene', { name: held.scene.name }) }}
+              {{ $t('editor.toScene', { name: held.name }) }}
             </span>
           </button>
         </p>
@@ -1001,7 +1021,7 @@ function writeConditions(
                    away from the section that names it. -->
               <p class="arrival">
                 <label class="visually-hidden" :for="`leads-${exit.id}`">
-                  {{ $t('editor.wayOnLeadsTo', { place: place + 1, name: held.scene.name }) }}
+                  {{ $t('editor.wayOnLeadsTo', { place: place + 1, name: held.name }) }}
                 </label>
                 <select
                   :id="`leads-${exit.id}`"
@@ -1024,9 +1044,9 @@ function writeConditions(
                   <span aria-hidden="true">→</span>
                   <span class="visually-hidden">
                     {{ $t('editor.goToSceneByExit', {
-                      name: sceneNames.get(exit.toSceneId),
+                      name: nameOf(exit.toSceneId),
                       place: place + 1,
-                      scene: held.scene.name,
+                      scene: held.name,
                     }) }}
                   </span>
                 </button>
@@ -1035,7 +1055,7 @@ function writeConditions(
               <!-- The words the Reader reads on the button. -->
               <p class="said">
                 <label class="visually-hidden" :for="`exit-${exit.id}`">
-                  {{ $t('editor.wayOnSays', { place: place + 1, name: held.scene.name }) }}
+                  {{ $t('editor.wayOnSays', { place: place + 1, name: held.name }) }}
                 </label>
                 <input
                   :id="`exit-${exit.id}`"
@@ -1051,8 +1071,8 @@ function writeConditions(
                   :lead="$t('editor.offeredWhen')"
                   :carrier="$t('editor.theWayOnTo', {
                     place: place + 1,
-                    scene: sceneNames.get(exit.toSceneId),
-                    from: held.scene.name,
+                    scene: nameOf(exit.toSceneId),
+                    from: held.name,
                   })"
                   :conditions="exit.conditions"
                   :scenes="story.scenes"
@@ -1074,8 +1094,8 @@ function writeConditions(
                       {{ $t('common.moveEarlier') }}
                       {{ $t('editor.theWayOnTo', {
                         place: place + 1,
-                        scene: sceneNames.get(exit.toSceneId),
-                        from: held.scene.name,
+                        scene: nameOf(exit.toSceneId),
+                        from: held.name,
                       }) }}
                     </span>
                   </button>
@@ -1090,17 +1110,25 @@ function writeConditions(
                       {{ $t('common.moveLater') }}
                       {{ $t('editor.theWayOnTo', {
                         place: place + 1,
-                        scene: sceneNames.get(exit.toSceneId),
-                        from: held.scene.name,
+                        scene: nameOf(exit.toSceneId),
+                        from: held.name,
                       }) }}
                     </span>
                   </button>
+                  <!-- Named the way the three marks beside it are — the act, and
+                       then the way on it is done to — rather than by a key of its
+                       own that left the Place out. Two Exits of one Scene leading
+                       to one Scene made two of these answer to the same words, and
+                       the Place is the only thing that tells the rows apart: see
+                       issue #276. -->
                   <button type="button" class="mark" @click="duplicateExit(held.scene, exit)">
                     <span aria-hidden="true">⧉</span>
                     <span class="visually-hidden">
-                      {{ $t('editor.duplicateExitTo', {
-                        scene: sceneNames.get(exit.toSceneId),
-                        from: held.scene.name,
+                      {{ $t('common.duplicate') }}
+                      {{ $t('editor.theWayOnTo', {
+                        place: place + 1,
+                        scene: nameOf(exit.toSceneId),
+                        from: held.name,
                       }) }}
                     </span>
                   </button>
@@ -1114,8 +1142,8 @@ function writeConditions(
                       {{ $t('common.delete') }}
                       {{ $t('editor.theWayOnTo', {
                         place: place + 1,
-                        scene: sceneNames.get(exit.toSceneId),
-                        from: held.scene.name,
+                        scene: nameOf(exit.toSceneId),
+                        from: held.name,
                       }) }}
                     </span>
                   </button>
@@ -1138,7 +1166,7 @@ function writeConditions(
         >
           <label class="eyebrow" :for="`add-way-${held.scene.id}`">
             {{ $t('editor.addWayOn') }}
-            <span class="visually-hidden">{{ held.scene.name }}</span>
+            <span class="visually-hidden">{{ held.name }}</span>
           </label>
           <input
             :id="`add-way-${held.scene.id}`"

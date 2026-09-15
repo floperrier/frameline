@@ -398,6 +398,49 @@ export function countedWords(many: number, say: Phrase) {
 }
 
 /**
+ * What the bench calls each Scene of a Story: its id to the name every control
+ * naming that Scene is named by. The Author's own name where one Scene carries
+ * it, and that name followed by its number among the Scenes carrying it where
+ * several do.
+ *
+ * Nothing stops an Author calling two Scenes *The bar*, and nothing should. The
+ * name is theirs, the API takes any of them, and the bench writes collisions
+ * itself: a Scene split twice leaves two called *{name}, continued*. A Story that
+ * refused the second one would be the bench correcting the work, which is the one
+ * thing nothing here does — a Remark reports and never refuses. So the number is
+ * drawn where a control is named and never written back: what the Story holds is
+ * still what the Author typed, and a Scene named where it is written, offered or
+ * typed into by name reads as they typed it.
+ *
+ * Numbered in the order the Story is written in, so the first *The bar* an Author
+ * meets reading down is *The bar (1)*, and the document's sections and the sheet's
+ * bands — laid out by that same walk — agree about which is which.
+ *
+ * One function, because a Scene numbered in the writing and left plain on the
+ * Contact Sheet would be two products: the argument `sceneNamed` below is already
+ * made of, and what issue #284 asks be settled once rather than once per reading.
+ */
+export function namesOnTheBench(story: StoryInEditor, say: Phrase) {
+  const alike = new Map<string, number>()
+  for (const scene of story.scenes) alike.set(scene.name, (alike.get(scene.name) ?? 0) + 1)
+
+  const counted = new Map<string, number>()
+  const names = new Map<string, string>()
+  for (const scene of inDocumentOrder(story.scenes, story.exits, story.openingSceneId)) {
+    if (alike.get(scene.name) === 1) {
+      names.set(scene.id, scene.name)
+      continue
+    }
+
+    const place = (counted.get(scene.name) ?? 0) + 1
+    counted.set(scene.name, place)
+    names.set(scene.id, say('editor.namedAlike', { name: scene.name, place }))
+  }
+
+  return names
+}
+
+/**
  * A Scene read by name where something else names it — the far side of an Exit, the
  * count a Condition asks for. A Condition still names a Scene deleted since it
  * was written, and saying so beats showing the Author the id it holds. One

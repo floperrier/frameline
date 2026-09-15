@@ -12,7 +12,8 @@
   "common": {
     "delete": "Supprimer",
     "moveEarlier": "Déplacer avant",
-    "moveLater": "Déplacer après"
+    "moveLater": "Déplacer après",
+    "duplicate": "Dupliquer"
   },
   "confirmation": {
     "heading": "C'est sans retour",
@@ -137,6 +138,7 @@
     "noArrival": "Rien n’arrive ici",
     "confirmDeleteScene": "« {name} » disparaît, et avec elle {shots}, {waysOn} au départ et {waysIn} à l'arrivée.",
     "sceneName": "Nom de {name}",
+    "namedAlike": "{name} ({place})",
     "write": "Écrire",
     "openingScene": "Scène d'ouverture",
     "markOpeningScene": "Marquer comme Scène d'ouverture",
@@ -159,7 +161,6 @@
     "writingScene": "Écriture de {name}",
     "theWayOnTo": "la Sortie {place} vers {scene}, depuis {from}",
     "theExitTo": "la Sortie vers {scene}",
-    "duplicateExitTo": "Dupliquer la Sortie vers {scene}, depuis {from}",
     "exitDrawn": "Sortie depuis {from} vers {to} tracée",
     "exitDuplicated": "Une autre Sortie depuis {from} vers {to} écrite",
     "commandKey": "⌘",
@@ -242,8 +243,8 @@
     "imageUndescribed": "L’Image du Plan {place} de {scene} n’a pas de Description : un Lecteur qui ne la voit pas n’en apprend rien.",
     "flagUntested": "{scene} pose le Marqueur {flag}, et aucune Condition ne le teste nulle part.",
     "flagUnset": "Une Condition de {scene} teste le Marqueur {flag}, et aucune Scène ne le pose.",
-    "exitUnofferable": "Une Sortie depuis {scene} n’est offerte que si {flag} vaut « {is} », valeur qu’aucune Scène ne lui donne.",
-    "shotUnplayable": "Un Plan de {scene} ne joue que si {flag} vaut « {is} », valeur qu’aucune Scène ne lui donne."
+    "exitUnofferable": "La Sortie {place} depuis {scene} n’est offerte que si {flag} vaut « {is} », valeur qu’aucune Scène ne lui donne.",
+    "shotUnplayable": "Le Plan {place} de {scene} ne joue que si {flag} vaut « {is} », valeur qu’aucune Scène ne lui donne."
   },
   "preview": {
     "nobodyElse": "Personne d'autre ne peut voir ceci",
