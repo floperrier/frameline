@@ -203,7 +203,8 @@ function unlist() {
     <!-- The acts of the bench, which belong to the page and not to the Story:
          the way into every act by naming it, and which reading the middle of the
          bench is showing. Two of them, since the Remarks left this row for a
-         region beside the document and there is no gate to open — see
+         region beside the document and nothing here opens a Scene any more: the
+         whole Story is in the document — see
          `docs/adr/0043-a-story-is-written-as-one-document.md`. -->
     <slot />
 

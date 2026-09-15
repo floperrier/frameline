@@ -102,9 +102,9 @@ test('a way on pressed in the reading moves the writing with it', async ({ page,
 
   // There is one notion of where the Author is and it is the Path, so taking the
   // way on hands the writing the Scene it leads to — and the address carrying the
-  // Scene says so too. The face stays as it was: taking a way on is reading on,
-  // and the Scene is there on the other face of the gate when the Author turns
-  // back to it.
+  // Scene says so too. The reading stays the reading on screen: taking a way on is
+  // reading on, and the Scene is written where it stood when the Author turns the
+  // middle back to the writing.
   await preview.getByRole('button', { name: 'Next Shot' }).click()
   await preview.getByRole('button', { name: 'Next Shot' }).click()
   await preview.getByRole('button', { name: 'Follow her out' }).click()
@@ -912,7 +912,7 @@ test('the reading takes the document’s place, at every width', async ({ page, 
   }
 })
 
-test('turning the gate over is an act of the bench, named in the bar', async ({ page, request }) => {
+test('turning the middle over is an act of the bench, named in the bar', async ({ page, request }) => {
   const story = await writeStory(request)
   const { scenes } = await scenesOf(request, story.id)
 

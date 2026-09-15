@@ -11,8 +11,10 @@
  * landing page turns two rooms side by side at sixty rem and nothing else reads
  * that number, so it stays written where it is used.
  *
- * `--phone` is read by the landing page, by the list of Stories, and by the
- * bench, where it is the width below which the rail narrows to a strip of dots.
+ * `--phone` is read by `app/components/Entry.vue` — and through it by the
+ * Catalogue, by a List and by a Profile, which are the shelves a Story is met
+ * on — by the list of Stories, and by the bench, where it is the width below
+ * which the rail narrows to a strip of dots.
  * `--two-columns` is the bench's alone so far: a screen with room for the
  * document and the rail but not for what the bench says beside them. The two
  * together are the whole of the bench's folding, and they hide nothing — the

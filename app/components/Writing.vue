@@ -175,9 +175,9 @@ const written = useTemplateRef<HTMLElement>('written')
 
 /**
  * Runs an act that reorders the document above the Scene it was run from, and
- * leaves that Scene where it was on screen. Without this the caret stays in its
- * field and the words under it walk up or down the window, which is the one thing
- * a document must never do while somebody is typing in it.
+ * gives the scroller back what opened up there. Without this the caret stays in
+ * its field and the words under it walk up or down the window, which is the one
+ * thing a document must never do while somebody is typing in it.
  *
  * Which acts those are is read off `columnsOf`, the walk the order is, and there
  * is exactly one: marking the Opening Scene re-roots it, so a Scene thirty
@@ -190,6 +190,18 @@ const written = useTemplateRef<HTMLElement>('written')
  * or leading one elsewhere is the same argument in reverse: the Scene at the far
  * end is reached from this one, so the order can only put it further from the
  * opening than the Scene the Author is standing in.
+ *
+ * What it can give back is the room the scroller holds above the caret, and not a
+ * pixel more — so the claim is a bound and not a promise. The act that reorders
+ * most is the one that reorders everything: when the marked Scene becomes the
+ * first of the document there is nothing left standing above it, and a correction
+ * of a few thousand pixels stops at the top of the scroller with the words that
+ * much higher than the hand left them. Measured on eight chained Scenes with the
+ * last of them marked: 3384 pixels asked back, 171 of them not there to give.
+ * Where the room is there the Scene does not move at all; where it is not, the
+ * scroller is at its top and the Scene the caret is in is at the head of the
+ * document, which is the nearest to where it stood that the page can be.
+ * `tests/e2e/scenes-signed-in.spec.ts` holds both ends.
  *
  * Measured against the section rather than against the scroller's own height: the
  * document may have grown below the caret as well, and only the section says what

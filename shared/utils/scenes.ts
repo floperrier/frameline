@@ -105,50 +105,6 @@ export const VISITS_MAX = 100
 export const FLAG_VALUES_MAX = 6
 
 /**
- * How wide and how tall a Scene's node is drawn on the Graph, how far apart two
- * nodes of one column stand, and how far apart two columns are. Every node is
- * exactly this size — a node is what an Author recognises a Scene by at a glance,
- * its first frame, its name and how much is in it — so the line that draws an
- * Exit leaves a box the Graph can work out for itself, and nothing is measured
- * after render.
- *
- * The columns stand further apart than the nodes in a column do, because that is
- * where the lines run: a way on leaves the flank of one column for the flank of
- * the next, and a gap the length of an arrowhead is a gap nobody can read a line
- * in.
- */
-export const NODE_WIDTH = 176
-export const NODE_HEIGHT = 148
-export const NODE_GAP = 24
-export const DEPTH_GAP = 120
-
-/**
- * How wide and how tall the Scene being written is drawn — the gate, which
- * stands on the Graph in the place of the node of the Scene it holds, at the size
- * a frame and the words under it are actually looked at. See
- * `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
- *
- * In pixels, like the node's own box, and the gate is given this width and this
- * height on the element itself rather than in a stylesheet: the layout has to
- * reserve exactly the room the gate takes, and a box measured in one unit and
- * reserved in another is the same fact written twice. What is inside the gate
- * scrolls, so the box is what the Author's own text can never grow past.
- */
-export const GATE_WIDTH = 704
-export const GATE_HEIGHT = 720
-
-/** A point on the Graph — a corner of whatever is drawn there. */
-export type Point = { x: number, y: number }
-
-/**
- * A box on the Graph: where something is drawn and how large it is. Every Scene
- * gets one, so the line that draws an Exit reads the size off the box it leaves
- * rather than assuming every box on the Graph is a node — the Scene being written
- * is a gate, and its lines leave the gate's flank.
- */
-export type Box = Point & { width: number, height: number }
-
-/**
  * The columns a Story falls into, as the ids in each, which is the one walk the
  * whole of this file's reading of a Story is made of.
  *
@@ -157,8 +113,8 @@ export type Box = Point & { width: number, height: number }
  * first column it is reached in — its distance from the opening, in Exits taken.
  * Within a column the Scenes stand in the order they were reached: by the Scene
  * offering them first, then in the Place that Scene offers them at. So a Story
- * read from its opening is read across the Graph the way film runs, and two ways
- * on out of one Scene are read top to bottom beside it in the order the Reader is
+ * read from its opening is read one column at a time, and two ways on out of one
+ * Scene stand side by side in the column after it, in the order the Reader is
  * offered them.
  *
  * A Scene no Exit reaches — one the Author has just written, or one whose only
@@ -167,11 +123,11 @@ export type Box = Point & { width: number, height: number }
  * way. A Story with no Opening Scene is read from its first Scene, so every Story
  * that has a Scene in it has columns.
  *
- * Private, and the two exports below are the two things it answers: where a Scene
- * is drawn, and the order a Story is written in. One walk rather than two, because
- * two walks are two facts, and the day they disagree the order a Story reads in
- * and the shape it is drawn as are saying different things about one Story — see
- * `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ * Private, and the two exports below are the two things it answers: the shape the
+ * Graph is drawn as, and the order a Story is written in. One walk rather than
+ * two, because two walks are two facts, and the day they disagree the order a
+ * Story reads in and the shape it is drawn as are saying different things about
+ * one Story — see `docs/adr/0043-a-story-is-written-as-one-document.md`.
  */
 function columnsOf(scenes: Scene[], exits: Exit[], openingSceneId: string | null) {
   const columns: string[][] = []
@@ -211,10 +167,10 @@ function columnsOf(scenes: Scene[], exits: Exit[], openingSceneId: string | null
  * the bench draws it: the columns run down the page and the Scenes of a column run
  * across it — see `docs/adr/0043-a-story-is-written-as-one-document.md`.
  *
- * The same walk `laidOut` is drawn from and the same walk `inDocumentOrder` is
- * flattened out of, handed back as Scenes rather than as ids because what the rail
- * puts on screen is a Scene's name and what the document does with it is its
- * whole body. A Story with no Scene in it has no columns, not one empty one.
+ * The same walk `inDocumentOrder` is flattened out of, handed back as Scenes
+ * rather than as ids because what the rail puts on screen is a Scene's name and
+ * what the document does with it is its whole body. A Story with no Scene in it
+ * has no columns, not one empty one.
  */
 export function inColumns(scenes: Scene[], exits: Exit[], openingSceneId: string | null) {
   const named = new Map(scenes.map(scene => [scene.id, scene]))
@@ -224,88 +180,18 @@ export function inColumns(scenes: Scene[], exits: Exit[], openingSceneId: string
 }
 
 /**
- * Where every Scene of a Story is drawn, read off the Story and nothing else.
- *
- * The columns are `columnsOf` above, which is also the order the Story is written
- * in: the Graph is a reading of the Story and so is the document, and the two
- * cannot disagree because there is one walk under both. What this adds is the
- * geometry — how wide each column is, how tall, and where in it each box stands.
- *
- * Each column is centred on the tallest, so a Story that branches and gathers
- * again is drawn as the shape it is rather than hung from one edge. Nothing here
- * is written anywhere: the Graph is a reading of the Story, and it moves when the
- * Story does — see `docs/adr/0041-the-graph-is-drawn-from-the-story.md`.
- *
- * `written` is the Scene the gate is standing on, if one is. Its column is as
- * wide as the gate and its own box as tall, and everything else is pushed apart
- * to clear it: the Graph opens up around the Scene being written the way a
- * contact sheet is spread to get at one frame, and closes again when the gate is
- * lifted off. It is the same layout read at two sizes — the order of the columns
- * and of the rows is untouched — so nothing about where a Scene stands is decided
- * by which one is being written. See
- * `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
- */
-export function laidOut(
-  scenes: Scene[],
-  exits: Exit[],
-  openingSceneId: string | null,
-  written?: string,
-) {
-  const columns = columnsOf(scenes, exits, openingSceneId)
-
-  // What each box takes: the gate where the Scene is being written, a node
-  // everywhere else. A column is as wide as the widest box in it, which is the
-  // gate's width in the one column that holds it.
-  const boxWidth = (id: string) => (id === written ? GATE_WIDTH : NODE_WIDTH)
-  const boxHeight = (id: string) => (id === written ? GATE_HEIGHT : NODE_HEIGHT)
-
-  const widths = columns.map(column => Math.max(NODE_WIDTH, ...column.map(boxWidth)))
-  const heights = columns.map(column => column.reduce(
-    (all, id, place) => all + boxHeight(id) + (place ? NODE_GAP : 0), 0))
-
-  const height = Math.max(0, ...heights)
-  const width = widths.reduce((all, wide) => all + wide, 0)
-    + Math.max(0, columns.length - 1) * DEPTH_GAP
-
-  const placed = new Map<string, Box>()
-  let left = 0
-
-  columns.forEach((column, depth) => {
-    let top = Math.round((height - heights[depth]!) / 2)
-
-    for (const id of column) {
-      // A node in a column the gate widened stands in the middle of it, so a
-      // column of nodes is read as a column whatever is standing beside them.
-      placed.set(id, {
-        x: left + Math.round((widths[depth]! - boxWidth(id)) / 2),
-        y: top,
-        width: boxWidth(id),
-        height: boxHeight(id),
-      })
-      top += boxHeight(id) + NODE_GAP
-    }
-
-    left += widths[depth]! + DEPTH_GAP
-  })
-
-  return { placed, width, height }
-}
-
-/**
  * The Scenes of a Story in the order they are written in: the Opening Scene, then
  * each Scene in the first column it is reached in, and within a column in the
  * order the Reader is offered it, then the Scenes nothing arrives at.
  *
- * The columns read one after another, which is the Graph's own layout taken as a
- * sequence rather than as a picture. The order a Story is written in and the shape
- * it is drawn as are one walk here rather than one reading the other's output:
- * neither is derived from the other, both are `columnsOf`, and there is no
- * arrangement of the two that can drift apart — see
+ * The columns read one after another, which is the rail's own drawing taken as a
+ * sequence rather than as a picture: the columns run down the rail and the Scenes
+ * of a column run across it, so reading the document from the top is reading the
+ * rail the way it is drawn. The order a Story is written in and the shape it is
+ * drawn as are one walk here rather than one reading the other's output: neither
+ * is derived from the other, both are `columnsOf`, and there is no arrangement of
+ * the two that can drift apart — see
  * `docs/adr/0043-a-story-is-written-as-one-document.md`.
- *
- * The spec holds it against the boxes themselves all the same — the order here is
- * the order of the boxes, read left to right and then down — because that is the
- * claim an Author can check, and a shared walk is only the reason it holds.
  */
 export function inDocumentOrder(scenes: Scene[], exits: Exit[], openingSceneId: string | null) {
   return inColumns(scenes, exits, openingSceneId).flat()
@@ -322,85 +208,6 @@ export function inDocumentOrder(scenes: Scene[], exits: Exit[], openingSceneId: 
  */
 export function wordsOf(shots: Shot[]) {
   return shots.reduce((words, shot) => words + (shot.text.match(/\S+/g)?.length ?? 0), 0)
-}
-
-/**
- * How far apart two ways on out of one Scene leave its edge. Two lines out of one
- * node towards the same column would otherwise leave from one point and run as
- * one, with nothing to say which was which; a step wider than a line is a step an
- * eye reads, and four ways on at this step still leave by the node's own flank.
- */
-export const EXIT_RIM_STEP = 10
-
-/**
- * Where the line that draws an Exit meets the two nodes: on the edge of the box it
- * leaves, and on the edge of the box it lands on. A line between two points fixed
- * inside the nodes crossed whatever sat between them and arrived under the node it
- * arrived at; a line between edges says which Scene leads to which at a glance.
- *
- * The Place and how many ways on the Scene offers spread the departures along the
- * side each line leaves by, in the order they are offered in, about the point the
- * one way on of a Scene leaves from. A Scene with one way on is drawn exactly as
- * it was; two are told apart at the moment they leave, which is the one place a
- * card cannot be over them. The end that lands is left alone: a Scene is arrived
- * at once however many Scenes lead to it.
- */
-export function exitLine(from: Box, to: Box, place = 1, ways = 1) {
-  const leaving = middleOf(from)
-  const landing = middleOf(to)
-  const towards = { x: landing.x - leaving.x, y: landing.y - leaving.y }
-
-  return {
-    from: onTheEdge(leaving, from, towards, place, ways),
-    to: onTheEdge(landing, to, { x: -towards.x, y: -towards.y }),
-  }
-}
-
-/** The two ends of the line that draws an Exit, as `exitLine` gives them. */
-export type ExitLine = { from: Point, to: Point }
-
-function middleOf(box: Box) {
-  return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
-}
-
-/**
- * Where a line out of the middle of a box, headed `towards` the other one, crosses
- * its edge: whichever of the two half-extents it reaches first is the side it
- * leaves by. Headed nowhere — two nodes dropped on the same spot — it leaves at
- * the middle, so what is drawn is a line of no length rather than one shooting off
- * the graph. Rounded, because a line on a screen is not read finer than a pixel.
- */
-function onTheEdge(middle: Point, box: Box, towards: Point, place = 1, ways = 1) {
-  const byWidth = towards.x ? box.width / 2 / Math.abs(towards.x) : Infinity
-  const byHeight = towards.y ? box.height / 2 / Math.abs(towards.y) : Infinity
-  const reach = Math.min(byWidth, byHeight)
-  if (!Number.isFinite(reach)) return { x: Math.round(middle.x), y: Math.round(middle.y) }
-
-  const reached = { x: middle.x + towards.x * reach, y: middle.y + towards.y * reach }
-
-  // A flank where the width is reached first, the head or the foot otherwise —
-  // which is also the side the ways on are spread along, and how much of it there
-  // is to spread them over. A Scene offering more of them than the side has room
-  // for closes the step up rather than sending the last of them off the card.
-  const flank = byWidth <= byHeight
-  const side = flank ? box.height : box.width
-  const centre = flank ? middle.y : middle.x
-  const step = Math.min(EXIT_RIM_STEP, (side - EXIT_RIM_STEP) / Math.max(ways - 1, 1))
-  const spread = (ways - 1) * step
-
-  // The ways on are spread about the point the line crosses the rim at, and that
-  // point is anywhere along the side: a line leaving by a corner is already at the
-  // end of it. So the whole spread is slid back onto the side rather than each
-  // line being held to it one at a time, which would pile them at the corner.
-  // A Scene with one way on has no spread at all, and is drawn where it always was.
-  const held = Math.min(Math.max(flank ? reached.y : reached.x, centre - (side - spread) / 2),
-    centre + (side - spread) / 2)
-  const at = held + (place - 1 - (ways - 1) / 2) * step
-
-  return {
-    x: Math.round(flank ? reached.x : at),
-    y: Math.round(flank ? at : reached.y),
-  }
 }
 
 /**

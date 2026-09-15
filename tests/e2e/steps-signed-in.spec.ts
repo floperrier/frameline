@@ -282,12 +282,12 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await holds.blur()
 
   // The reading, which is where the Condition stops being an idea about State and
-  // becomes a Shot that does not play. It is the gate's other face, so the Step
-  // points at the control that turns the gate over — the gesture its sentence
-  // asks for — and the reading is behind that press. The Condition is read back
-  // out of the Story first: the write goes when the field is left, and a light
-  // that arrived before it would be over a reading of a Story that had not been
-  // written yet.
+  // becomes a Shot that does not play. It is one of the three readings the middle
+  // of the bench turns to, so the Step points at the control that turns it there —
+  // the gesture its sentence asks for — and the reading is behind that press. The
+  // Condition is read back out of the Story first: the write goes when the field
+  // is left, and a light that arrived before it would be over a reading of a Story
+  // that had not been written yet.
   await expect.poll(() => readShotConditions(beside.id))
     .toEqual([[{ flag: 'courage', is: 'low' }]])
   await expect(bubble(page)).toContainText(/Nothing plays that Shot/)
@@ -303,8 +303,8 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await expect(bench.getByText('needs courage to hold low, holds high')).toBeVisible()
 
   // Corrected where it was written, which is all the Step ever asked of the
-  // Story: nowhere is it written that the reading was read. The gate is turned
-  // back to the Scene to write it, which is the one thing the two faces cost.
+  // Story: nowhere is it written that the reading was read. The middle is turned
+  // back to the writing to write it, which is the one thing the readings cost.
   await page.getByRole('button', { name: 'Write the Scene' }).click()
   await holds.fill('high')
   await holds.blur()

@@ -10,8 +10,11 @@ Scenes its ways on lead to in the next, each Scene in the first column it is
 reached in and, within a column, in the order the Reader is offered it; a Scene
 nothing reaches in the columns after — and the drawing moves when the Story does.
 Nothing is placed by hand, nothing is dragged, nothing is zoomed, and nothing is
-written back: `x` and `y` leave the API, and `laidOut` in `shared/utils/scenes.ts`
-is the whole of the layout.
+written back: `x` and `y` leave the API, and one walk of the Story in
+`shared/utils/scenes.ts` is the whole of the layout. That walk was `laidOut`,
+which also placed boxes; `0043` took the boxes away and kept the walk, which is
+now `columnsOf` and the two exports that read it, `inColumns` and
+`inDocumentOrder`.
 
 The bench has one state. There is always a Scene on it — the one the address
 names, or the Opening Scene, or the first written — and the Graph is a band across

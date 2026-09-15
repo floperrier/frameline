@@ -600,7 +600,9 @@ test('re-rooting the Story leaves the words where the hand left them',
     // re-roots the order the whole document is read in: the four Scenes that stood
     // above the Author's hands go below them, and the section under the caret is
     // suddenly the first of eight. The document is where all of that happens and
-    // the screen is where none of it may.
+    // the screen is where none of it may. Halfway down is the case with the room
+    // to do it in: the scroller holds the four Scenes the correction asks it for,
+    // so the words do not move at all. The test below is the case with none.
     await sectionOf(page, fifth.id)
       .getByRole('button', { name: /^Mark as the Opening Scene/ }).click()
     await expect(page.locator('.rail .mark.opens')).toHaveAttribute('data-scene', fifth.id)
@@ -609,6 +611,36 @@ test('re-rooting the Story leaves the words where the hand left them',
     await expect.poll(async () => Math.abs((await writing.boundingBox())!.y - before))
       .toBeLessThanOrEqual(2)
     await expect(writing).toBeInViewport()
+  })
+
+test('re-rooting from the foot of the document gives back the room there is',
+  async ({ page, request }) => {
+    const { story, scenes } = await chained(
+      request, ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight'])
+    const last = scenes.at(-1)!
+
+    await page.goto(`/stories/${story.id}?scene=${last.id}`)
+    const writing = written(page, 'Eight')
+    await expect(writing).toBeInViewport()
+    const before = (await writing.boundingBox())!.y
+
+    // The same act at the one place it cannot be paid for. Marking the last Scene
+    // of the document as the opening puts it first, so the seven sections the
+    // scroller was standing below are suddenly under it and the correction asks
+    // for room that is no longer there: a few thousand pixels back, against a
+    // scroller that has some three thousand to give. It stops at its top, which is
+    // as near as the page can be to where the hand left the words — and the Scene
+    // the caret is in is the head of the document, so it is still on screen and it
+    // is never further down the window than it was. That bound is the claim
+    // `withoutJumping` makes; staying put is what the claim buys where there is
+    // room, and it is the test above.
+    await sectionOf(page, last.id)
+      .getByRole('button', { name: /^Mark as the Opening Scene/ }).click()
+    await expect(page.locator('.rail .mark.opens')).toHaveAttribute('data-scene', last.id)
+
+    await expect.poll(() => page.locator('.document').evaluate(box => box.scrollTop)).toBe(0)
+    await expect(writing).toBeInViewport()
+    expect((await writing.boundingBox())!.y).toBeLessThanOrEqual(before)
   })
 
 test('renumbering and taking away a way on leave the words where the hand left them',

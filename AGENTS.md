@@ -106,8 +106,8 @@ outright: the migration snapshots are the generator's to write.
 `pnpm test` runs the Vitest suite over the modules that are pure functions: the
 Reading engine, what a Shot's image is read to be, the Conditions a request is
 allowed to write, the sequence of Places it renumbers a Scene by, the Scenes a
-Exit may land on, where every Scene of a Story is drawn on the Graph and the geometry of the lines
-between them, the two message
+Exit may land on, the columns a Story falls into and the order it is written in,
+the two message
 files held against each other, the language a refusal is phrased in, the Steps the
 bench asks a Story for — whose targets are held against the editor's template
 read as source — the Remarks the bench reads back out of a Story, and the two

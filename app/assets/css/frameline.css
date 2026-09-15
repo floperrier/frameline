@@ -66,9 +66,8 @@
      whatever the hardware is standing in.
 
      Beside the scale rather than written where they are used, because they are
-     the same fact for every full-bleed surface and there is going to be more
-     than one: the writing surface covering the bench on a phone is the first,
-     and the reading room is the next.
+     the same fact for every full-bleed surface and the reading room will not be
+     the only one.
 
      Physical names, because that is what `env()` answers in: the four insets are
      top, right, bottom and left of the screen whichever way the text runs, and a

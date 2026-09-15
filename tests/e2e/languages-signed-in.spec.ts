@@ -60,8 +60,8 @@ test.describe('an interface read in French', () => {
     await expect(page.getByRole('group', { name: 'Écriture de The street' })
       .getByRole('button', { name: 'Ajouter un Plan' })).toBeVisible()
 
-    // The three tabs a Scene stands behind are the same three words, and the
-    // Marqueurs are read behind theirs.
+    // The three parts a Scene is written in are three headings in its own section
+    // of the document, and the Marqueurs are read under theirs.
     await expect(page.getByRole('button', { name: 'Ajouter un Marqueur à The street' }))
       .toBeVisible()
     expect(await everythingShown(page)).not.toMatch(A_RAW_KEY)
@@ -74,8 +74,8 @@ test.describe('an interface read in French', () => {
     await shot.blur()
     await expect(page.getByText(/^Enregistré à \d{2}:\d{2}$/)).toBeVisible()
 
-    // The Aperçu, the gate's other face, where a Story's own words and the tool's
-    // are on screen at once.
+    // The Aperçu, the reading the middle of the bench turns to, where a Story's
+    // own words and the tool's are on screen at once.
     await page.getByRole('button', { name: 'Lire le Récit' }).click()
     await expect(page.getByText('Sur la table de montage')).toBeVisible()
     expect(await everythingShown(page)).not.toMatch(A_RAW_KEY)
