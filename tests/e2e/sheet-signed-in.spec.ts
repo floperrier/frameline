@@ -367,7 +367,7 @@ test('winds to the Scene the caret is already in, from the rail and from the bar
 
     // A frame chosen far down the Story, so that what the sheet says about where
     // the Author is has somewhere wrong to stay.
-    await page.getByRole('button', { name: 'Shot 2 of Scene 7' }).click()
+    await bands.getByRole('button', { name: 'Shot 2 of Scene 7' }).click()
     await expect(page.locator('#shown-heading')).toHaveText(/Shot 2 of Scene 7/)
 
     // The rail's own mark for that same Scene: the Author has read their way down
