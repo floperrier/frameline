@@ -101,12 +101,20 @@ const resumed = ref(false)
  * holders start at: a bench that holds the Path above the document has drawn it
  * as the bench arrived, and a Reading that drew a second seed on every turn back
  * to it would be the defect #247 reports.
+ *
+ * Held against the value rather than against the constant itself. A Path handed
+ * down through the model arrives as a reactive proxy of whatever the holder above
+ * keeps, never as the object, so an identity test would read false on every bench
+ * and true on a Reader's page only because `defineModel` hands out that very
+ * object when nobody binds it — which is a rule holding by an accident it does not
+ * name. An undrawn Path has taken nothing, is on the Shot it opened on, and
+ * carries the seed of none, and those are the three things `UNDRAWN` is.
  */
 onMounted(() => {
   const before = kept()
   resumed.value = before !== undefined
   if (before) at.value = before
-  else if (at.value === UNDRAWN) at.value = opening()
+  else if (!moved(at.value) && at.value.seed === UNDRAWN.seed) at.value = opening()
 })
 
 /**
