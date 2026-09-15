@@ -297,10 +297,10 @@ const faceSays = computed(() =>
   reading.value ? t('editor.writeTheScene') : t('editor.readTheStory'))
 
 /**
- * The field the caret was last in, which is the beat the Author is on. Recorded
- * as focus moves through the document rather than read when the turn is asked
- * for, because the turn is an act of the bar of Commands as well as a control,
- * and focus stands on the bar while the bar is up.
+ * Whatever in the writing last took focus: a beat, a Scene's own name, one of the
+ * marks a row carries. Recorded as focus moves through the document rather than
+ * read when the turn is asked for, because the turn is an act of the bar of
+ * Commands as well as a control, and focus stands on the bar while the bar is up.
  */
 let caret: HTMLElement | undefined
 
@@ -309,17 +309,35 @@ function typedIn(event: FocusEvent) {
 }
 
 /**
+ * Whether the caret is one to put back rather than a note the address has moved
+ * out from under: still in the document, and in the section of the Scene the
+ * address names. Read off the document by the `data-scene` each section carries,
+ * so there is nothing kept here to fall out of step with where the Author is.
+ */
+function inSceneWritten(held: HTMLElement) {
+  return held.isConnected
+    && held.closest<HTMLElement>('[data-scene]')?.dataset.scene === sceneWritten.value?.id
+}
+
+/**
  * The middle of the bench turned onto the other reading. Focus stays on the
  * control on the way to the reading, because the writing that goes dark takes
  * whatever was focused inside it with it and the reading has nothing that has
  * just arrived.
  *
- * Coming back, it goes to the beat the Author left. The writing is never taken
- * out of the document — the reading takes its place in front of it — so the
- * field still holds the caret it held, and the focus the browser dropped when
- * the field went dark is the whole of what has to be put back. A Story opened
- * and turned over without a word typed into it has no beat to come back to, and
- * the document is wound to the Scene the address names instead.
+ * Coming back, it goes to the beat the Author left — where that beat is still in
+ * the Scene the address names. The caret is a variable of this page and the
+ * address is moved by the rail, by the bar of Commands and by the reading itself,
+ * none of which touches focus in the document: a caret put back after one of those
+ * would put the Author, and the next word they type, in the Scene they left. There
+ * is one notion of where the Author is and it is the Path, so anything the address
+ * does not answer to is wound to instead — as is a Story opened and turned over
+ * without a word typed into it, which has no beat to come back to at all.
+ *
+ * The writing is never taken out of the document — the reading takes its place in
+ * front of it — so a beat that is still the right one holds the caret it held, and
+ * the focus the browser dropped when the field went dark is the whole of what has
+ * to be put back.
  */
 async function turnOver(event: Event) {
   reading.value = !reading.value
@@ -327,7 +345,7 @@ async function turnOver(event: Event) {
   if (reading.value) return
 
   await nextTick()
-  if (caret?.isConnected) caret.focus()
+  if (caret && inSceneWritten(caret)) caret.focus()
   else windOn('instant')
 }
 </script>

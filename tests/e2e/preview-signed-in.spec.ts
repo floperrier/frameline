@@ -769,6 +769,42 @@ test('a document turned over from a Scene down the Story comes back wound to it'
     await expect(named).toBeInViewport()
   })
 
+test('the turn back answers to the address rather than to where the caret was left',
+  async ({ page, author }) => {
+    const story = await seedStory(author, 'A long Story')
+    const scenes = await seedScenes(story, Array.from({ length: 12 }, (_, at) => `Scene ${at + 1}`))
+    await seedPublication(story, scenes[0])
+
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto(`/stories/${story.id}?scene=${scenes[0]!.id}`)
+    await live(page)
+
+    // The caret put in a beat, and then the address moved by the rail — a gesture
+    // that winds the document and never touches focus inside it, so the caret is
+    // left standing eleven sections above the Scene the Author is now in. The bar
+    // of Commands and a way on pressed in the reading leave it in exactly the same
+    // place.
+    const beat = page.getByRole('textbox', { name: 'Shot 1 of Scene 1', exact: true })
+    await beat.click()
+    await sceneNode(page, 'Scene 12').click()
+    await expect(page.locator('.rail .here')).toHaveAttribute('data-scene', scenes[11]!.id)
+
+    await page.getByRole('button', { name: 'Read the Story' }).click()
+    await expect(previewIn(page)).toBeVisible()
+    await page.getByRole('button', { name: 'Write the Scene' }).click()
+
+    // There is one notion of where the Author is and it is the Path, so the turn
+    // back answers to the address and not to a mark the page kept: the document
+    // comes back wound to the Scene the address names and the stale beat takes
+    // nothing. Put back, it would have taken the Author — and the next word they
+    // typed — into the Scene they left, with the address and the rail both saying
+    // they were somewhere else.
+    await expect(beat).not.toBeFocused()
+    await expect(page.getByRole('textbox', { name: 'Name of Scene 12' })).toBeInViewport()
+    await expect.poll(() => page.locator('.document').evaluate(one => one.scrollTop))
+      .toBeGreaterThan(0)
+  })
+
 test('the bench is answered whole by the server, and the Path opens undrawn',
   async ({ page, request }) => {
     const { story, scenes } = await writeDrawingStory(request)
