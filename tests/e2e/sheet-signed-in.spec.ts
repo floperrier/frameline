@@ -470,10 +470,13 @@ async function seeded(
   }
   await request.post(`/api/scenes/${written[0]!.id}/opening`)
 
-  for (const scene of written.slice(0, images)) {
+  // Together rather than one after the other: forty Images are forty round trips
+  // to the database and back, and in a row they are what puts the test that draws
+  // them at the edge of its budget on a loaded runner.
+  await Promise.all(written.slice(0, images).map(async scene => {
     const [shot] = await readShots(scene.id)
     await request.put(`/api/shots/${shot!.id}/image`, { data: ONE_PIXEL })
-  }
+  }))
 
   return story
 }
@@ -557,34 +560,31 @@ test('draws a Story of forty Scenes whole without handing the screen more of it'
     }
   })
 
-test('hands the window nothing to scroll on a Story of forty Scenes with an Image on every Shot',
+test('hands the window nothing to scroll on a Story whose Remarks run past the fold',
   async ({ page, request, author }) => {
-    // The bench is a window tall by construction, and on this Story the window
-    // scrolled by 2390 pixels anyway at 1440 × 900 — #285. What handed it the room
-    // was the Remarks: one visually hidden span per Remark, positioned against the
-    // viewport because nothing nearer was positioned, laid down the page at the
-    // rows the list scrolls them to. Forty Images is forty Remarks, which is why
-    // the room came with the Images and went with them. Held on the writing, where
-    // the defect was read, and on the sheet, at the widths the bench folds through.
-    const story = await seeded(request, author, 40, 40)
+    // The bench is a window tall by construction, and on a Story of forty Scenes
+    // with an Image on every Shot the window scrolled anyway: 2390 pixels at
+    // 1440 × 900 — #285. What handed it the room was the Remarks: one visually
+    // hidden span per Remark, positioned against the viewport because nothing
+    // nearer was positioned, laid down the page at the rows the list scrolls them
+    // to, 79 pixels a row from 206 down. Twelve Images is twelve *has no
+    // Description* Remarks and a twelfth row at 1075, past the fold with room to
+    // spare — the smallest Story that crossed it, rather than the forty the
+    // defect was read on. One width, because it is the one the Remarks stand open
+    // beside the document at: folded to the head of the document they are closed,
+    // and a closed list lays nothing down.
+    const story = await seeded(request, author, 12, 12)
 
-    for (const size of [
-      { width: 1440, height: 900 },
-      { width: 1024, height: 768 },
-      { width: 390, height: 844 },
-    ]) {
-      await page.setViewportSize(size)
-      await page.goto(`/stories/${story.id}`)
-      await live(page)
-      await expect(page.locator('.writing')).toBeVisible()
-      await page.waitForLoadState('networkidle')
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto(`/stories/${story.id}`)
+    await live(page)
+    await expect(page.locator('.writing')).toBeVisible()
+    await page.waitForLoadState('networkidle')
+    expect(await scrollsDown(page)).toEqual({ root: 0, body: 0 })
 
-      expect({ ...size, ...await scrollsDown(page) }).toEqual({ ...size, root: 0, body: 0 })
-
-      await seeTheSheet(page)
-      await expect(frames(page)).toHaveCount(40)
-      expect({ ...size, ...await scrollsDown(page) }).toEqual({ ...size, root: 0, body: 0 })
-    }
+    await seeTheSheet(page)
+    await expect(frames(page)).toHaveCount(12)
+    expect(await scrollsDown(page)).toEqual({ root: 0, body: 0 })
   })
 
 /**
