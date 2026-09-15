@@ -112,14 +112,18 @@ A target can be taken off the screen at any moment — the middle of the bench
 turned over to the reading takes the document and every mark in it, and a document
 of forty Scenes scrolls its own marks out of the window under an Author's hand —
 so the bubble degrades rather than pointing at nothing: with no rectangle to work
-from it becomes a fixed panel carrying the same sentence. A rectangle that is
-nowhere on the window is read as no rectangle at all, which is the case that
-degrades. Room is a separate question and is answered separately, because the
-light and the sentence can be parted: the sentence is placed from the target's
-bottom edge where it fits under it and from its top edge where it does not, and
-where it fits on neither side it goes to the corner while the light stays on the
-target. What the guidance must never do is follow its target off the screen and
-say nothing anywhere.
+from it becomes a fixed panel carrying the same sentence. A rectangle nobody can
+see is read as no rectangle at all, which is the case that degrades: nowhere on
+the window, and nowhere on any scroller standing between the target and it. The
+document is one of those, and until #280 it was not asked — a mark wound above
+the document's own top edge is clipped and invisible while its rectangle still
+meets the window, which was seventy-seven pixels of light on the Story's `h1` and
+then on the `header` at 1280 × 900. Room is a separate question and is answered
+separately, because the light and the sentence can be parted: the sentence is
+placed from the target's bottom edge where it fits under it and from its top edge
+where it does not, and where it fits on neither side it goes to the corner while
+the light stays on the target. What the guidance must never do is follow its
+target off the screen and say nothing anywhere.
 
 Nothing about the guidance is modal. The Author has to type into the very field
 being pointed at, so the page is never made inert, and neither the spotlight nor

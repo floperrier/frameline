@@ -556,6 +556,68 @@ test('a Step whose target the document scrolled past says the same thing from th
 })
 
 /**
+ * The band the window could not see, which is the one the document opened: the
+ * document is a scroller of its own and it starts under the Story's edge, so a
+ * mark wound above its top edge is clipped and invisible while its rectangle still
+ * meets the window. Driven at 1280 × 900 on a Story of forty before this was
+ * closed: seventy-seven pixels of scroll — the document's own top offset — with
+ * the light on the Story's `h1` and then on the `header`, and the sentence placed
+ * against them. The whole of the band is here, in four-pixel steps, because what
+ * was wrong with it was every frame of it and not its far end.
+ */
+test('a Step whose target the document clipped is lit on nothing at all', async ({
+  page,
+  author,
+}) => {
+  const story = await seedStory(author, 'A Story')
+  const scenes = await seedChain(story, [
+    'The arrival', 'The platform', 'The bar', 'The alley', 'The quay',
+    'The market', 'The bridge', 'The rooftop', 'The garden', 'The last train',
+  ])
+
+  // The document is wound by hand, and a wind that animates would be read halfway
+  // through.
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto(`/stories/${story.id}`)
+  await expect(bubble(page)).toContainText(/State is what one Reading carries/)
+  const flags = written(page, scenes[0]!.name).locator('.flags')
+  await lights(page, flags)
+
+  // Wound a pixel past the point where the mark's own foot meets the document's
+  // top edge — a scroll offset is fractional, and a rectangle landing exactly on
+  // the edge is a rounding away from either answer. From here on nobody can see
+  // the mark, and its rectangle meets the window for as long as the edge is below
+  // the top of the screen.
+  await page.evaluate(() => {
+    const scroller = document.querySelector('.document')!
+    const target = document.querySelector('[data-step="scene-flags"]')!
+
+    scroller.scrollTop
+      += target.getBoundingClientRect().bottom - scroller.getBoundingClientRect().top + 1
+  })
+
+  for (let past = 0; past < 72; past += 4) {
+    // Nothing is lit, which is the whole of not being lit on the wrong control:
+    // the Step falls to the corner and says the same thing from there.
+    await expect(page.locator('.spotlight')).toBeHidden()
+    await expect(bubble(page)).toHaveClass(/adrift/)
+    await expect(bubble(page)).toContainText(/State is what one Reading carries/)
+    await readable(page)
+
+    await page.locator('.document').evaluate((scroller) => {
+      scroller.scrollTop += 4
+    })
+  }
+
+  // And back on its target the moment the document is wound back to it.
+  await page.locator('.document').evaluate((scroller) => {
+    scroller.scrollTop = 0
+  })
+  await lights(page, flags)
+})
+
+/**
  * The other placement against a target, and the third thing that leaves a Step with
  * nowhere to stand. A window the target sits near the foot of is an ordinary
  * window — a phone held sideways is under four hundred pixels tall and the panel is
@@ -587,14 +649,21 @@ test('a Step whose sentence will not fit under its target says it above', async 
   await lights(page, flags)
   expect(await placed(page, flags)).toBe('above')
 
-  // And the target wound near the head of a window shorter still, where there is
-  // room on neither side of it.
+  // And the target wound to the head of the document in a window shorter still,
+  // where it is whole on the screen and there is room for the sentence on neither
+  // side of it. To the document's own top edge rather than to a line of the
+  // window: the document starts under the Story's edge — a hundred and
+  // eighty-four pixels down at this width — so winding the mark to the window's
+  // hundred and twentieth pixel put it above that edge, where it is clipped and
+  // nobody can see it, and the light this was holding it against was the one
+  // #280 took away.
   await page.setViewportSize({ width: 800, height: 340 })
   await page.evaluate(() => {
     const scroller = document.querySelector('.document')!
     const target = document.querySelector('[data-step="scene-flags"]')!
 
-    scroller.scrollTop += target.getBoundingClientRect().top - 120
+    scroller.scrollTop
+      += target.getBoundingClientRect().top - scroller.getBoundingClientRect().top
   })
   await expect(bubble(page)).toHaveClass(/adrift/)
   await lights(page, flags)

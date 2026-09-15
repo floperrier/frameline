@@ -109,21 +109,47 @@ function look() {
 
 /**
  * The rectangle of the element a selector reaches, and nothing where it reaches
- * none — or reaches one the editor is not drawing, or one the document has carried
- * off the window. An element that is in the document and draws nothing measures
- * nothing, and a light on a rectangle of no size would be a dot in the corner of
- * the bench rather than on the control the sentence names; a target scrolled past
- * measures a rectangle that is nowhere on the screen, and both the light and the
- * sentence placed against it go off the screen with it. Read as absent, so the
- * Step falls to its next target and then to the corner rather than being wrong
- * about the screen.
+ * none — or reaches one the editor is not drawing, or one nobody can see. An
+ * element that is in the document and draws nothing measures nothing, and a light
+ * on a rectangle of no size would be a dot in the corner of the bench rather than
+ * on the control the sentence names; a target scrolled past measures a rectangle
+ * nobody is looking at, and both the light and the sentence placed against it are
+ * somewhere else entirely. Read as absent, so the Step falls to its next target
+ * and then to the corner rather than being wrong about the screen.
+ *
+ * Scrolled past what: every scroller standing between the target and the window,
+ * and then the window. The document is one of them — `overflow-y: auto`, under the
+ * Story's own edge — so a mark wound above its top edge is clipped and invisible
+ * while its rectangle still meets the window. Driven at 1280 × 900 on a Story of
+ * forty against the window alone: seventy-seven pixels of scroll, which is the
+ * document's own top offset, with the light on the Story's `h1` and then on the
+ * `header` and the sentence placed against them. Every clipping ancestor rather
+ * than the document by name, because the bench has more than one scroller and the
+ * last Step's target stands in another: the strip the acts wind sideways in at the
+ * width of a phone. A target half inside one is still seen, on a scroller exactly
+ * as on the window.
  */
 function drawn(selector: string) {
-  const seen = document.querySelector(selector)?.getBoundingClientRect()
-  if (!seen?.width || !seen.height) return undefined
+  const found = document.querySelector(selector)
+  if (!found) return undefined
 
-  return seen.bottom > 0 && seen.top < window.innerHeight
-    && seen.right > 0 && seen.left < window.innerWidth ? seen : undefined
+  const seen = found.getBoundingClientRect()
+  if (!seen.width || !seen.height) return undefined
+
+  for (let over = found.parentElement; over; over = over.parentElement) {
+    if (getComputedStyle(over).overflow !== 'visible'
+      && !meets(seen, over.getBoundingClientRect())) return undefined
+  }
+
+  return meets(seen, new DOMRect(0, 0, window.innerWidth, window.innerHeight))
+    ? seen
+    : undefined
+}
+
+/** Whether a rectangle is over another at all, which is the whole of being seen. */
+function meets(seen: DOMRect, clip: DOMRect) {
+  return seen.bottom > clip.top && seen.top < clip.bottom
+    && seen.right > clip.left && seen.left < clip.right
 }
 
 function alike(was: DOMRect | undefined, is: DOMRect | undefined) {
@@ -273,11 +299,12 @@ const wide = { inlineSize: `min(${BUBBLE_WIDTH}px, calc(100vw - 2 * var(--s4)))`
 /* Said from a corner rather than against a control: the same sentence, put where
    it can always be read. Three things leave a Step with nowhere to stand — the
    middle of the bench turned over to the reading, which takes the document and
-   every mark in it off the screen; the target scrolled out of the window, which is
-   a document of forty Scenes moving under a mark on the Scene the caret is in; and
-   a window with room for the sentence neither under the target nor over it. A Step
-   is otherwise pointed at a control that is drawn whatever the Scene holds, or at
-   the one that writes the row it is about. */
+   every mark in it off the screen; the target wound out of the scroller it stands
+   in or off the window altogether, which is a document of forty Scenes moving
+   under a mark on the Scene the caret is in; and a window with room for the
+   sentence neither under the target nor over it. A Step is otherwise pointed at a
+   control that is drawn whatever the Scene holds, or at the one that writes the
+   row it is about. */
 .bubble.adrift {
   inset-block-end: var(--s4);
   inset-inline-start: var(--s4);
