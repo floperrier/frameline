@@ -33,7 +33,8 @@ Where there is room for it, the bench says what it has read back out of the Stor
 beside the document, on the other side. No new word is coined for that side.
 Both of the words a printer would reach for are already spoken for in this
 repository, at the scale of a row rather than of a page: *margin* is the column a
-Shot's Place stands in (`app/components/Panel.vue`), and *gutter* is the column a
+Shot's Place stands in (`app/components/Writing.vue`, where `Panel.vue`'s writing
+went), and *gutter* is the column a
 Condition's or a Flag's own number stands in (`app/components/Conditions.vue`,
 `app/components/Flags.vue`). One word each, neither free, and a word at two scales
 is the thing `docs/adr/0014-the-glossary-is-the-codes-language.md` exists to
@@ -193,6 +194,15 @@ stay two. An ADR that deleted the declaration would break surfaces it does not
 touch. The file's own comment names the landing page among its readers and is
 wrong — `app/pages/index.vue` does not import it — which #258 corrects where it
 is written rather than here.
+
+The bench's use of it did not go either, and this Consequence is what #258 found
+to be wrong about the code rather than the other way round. `--phone` is read by
+`app/components/Graph.vue`, where the rail narrows to the strip of dots this same
+record asks for, and by `app/components/StoryHeader.vue`,
+`app/components/Writing.vue`, where a Shot falls to one column, and
+`app/pages/stories/[id]/index.vue`, where the row of tools becomes a scroller.
+What went was the surface that covered the bench at that width, which is a
+different thing from the width itself.
 
 **The guided path is scoped to a Scene again, and `0019` is amended.**
 `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md` dropped per-Scene

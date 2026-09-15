@@ -86,7 +86,7 @@ _Avoid_: choice, option, link, branch, edge, transition, cut, coupe, raccord,
 montage
 
 **Graph**:
-A whole Story seen at once, as its Scenes and the Exits that order them. A Scene
+A whole Story seen at once, as its Scenes in the order its Exits put them in. A Scene
 is drawn in it as a node — a word for the drawing, never for the Scene itself.
 Where every node stands is read off the Story — how far the Scene is from the
 Opening Scene in Exits taken, and in what order it is offered — and never placed
