@@ -255,7 +255,7 @@
     "noFlags": "Aucune Scène n'en a encore posé",
     "scenesEntered": "Scènes entrées",
     "reroll": "Tirer à nouveau",
-    "rerollNote": "la même Position, un autre tirage",
+    "rerollNote": "le même Parcours, un autre tirage",
     "needsFlag": "demande que {flag} vaille {is}, vaut {holds}",
     "nothing": "rien",
     "needsVisits": "demande {how} {count} dans {scene}, {entered}",

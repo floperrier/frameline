@@ -304,7 +304,7 @@ const faceSays = computed(() =>
  */
 let caret: HTMLElement | undefined
 
-function typedIn(event: FocusEvent) {
+function focusedIn(event: FocusEvent) {
   if (!reading.value) caret = event.target as HTMLElement
 }
 
@@ -417,9 +417,12 @@ async function turnOver(event: Event) {
     </div>
 
     <!-- The bench: three regions that never trade width — the rail, the document,
-         and the side the bench says what it read back on. Nothing covers anything,
-         nothing is made `inert` and nothing is `display: none`: what folds is the
-         width the Remarks are said in and never their voice. See
+         and the side the bench says what it read back on. Nothing covers anything
+         and nothing is made `inert`: what folds is the width the Remarks are said
+         in and never their voice. The one thing here that is `display: none` is
+         the face of the document that is not being read, which is not a fold at
+         all — the writing and the reading are two faces of one column and only one
+         of them is on at a time. See
          `docs/adr/0043-a-story-is-written-as-one-document.md`. -->
     <div v-else-if="story" class="bench">
       <!-- The Graph drawn small, and it never grows: 120 pixels at every width,
@@ -432,7 +435,7 @@ async function turnOver(event: Event) {
 
       <!-- The one thing on the bench that scrolls. Which reading it holds is the
            page's to say; where it is, is not. -->
-      <div class="document" @focusin="typedIn">
+      <div class="document" @focusin="focusedIn">
         <!-- There is one notion of where the Author is and it is the Path, so a
              way on pressed in the reading moves the writing with it — see
              `docs/adr/0030-a-story-is-read-where-it-is-written.md`, whose engine
