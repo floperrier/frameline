@@ -994,6 +994,16 @@ test('a refusal from the reading is said, whatever the writing was refused befor
     await named.blur()
     await expect(page.getByRole('alert'))
       .toHaveText('In “The street”: A Scene needs a name.')
+    // The refusal is said before the read it asks for has landed, and that read is
+    // the one thing that can redraw the reading below: landing after the Exit is
+    // taken away, it carried the control off from under the press (#287). The
+    // field holding the name the Story kept is that read landed — `0008`'s
+    // read-back is what puts it back — and from here to the press nothing on the
+    // page reads the Story again: the turn and the beats are moves of the Path,
+    // made in the browser. The sentence above happens to wait for the same read,
+    // since it names the Scene only once the name is back, but that is its wording
+    // and not its promise.
+    await expect(named).toHaveValue('The street')
 
     // The reading takes the document's place, so the Scene that claimed the last
     // sentence is not on screen to say the next one. What the reading is refused
