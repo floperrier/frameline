@@ -31,6 +31,17 @@
  * `aria-hidden`, so *Go to* every Scene is offered there exactly as before — and
  * that bar is the keyboard's way to a Scene. See
  * `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`.
+ *
+ * Neither of the two keeps a pointer out, and that is what #265 cost: a `<button>`
+ * at `tabindex="-1"` still takes the focus on a mouse press in Chrome and in
+ * Firefox, so a mark pressed left the caret inside the very subtree `aria-hidden`
+ * takes out of the accessibility tree and the next `Tab` resumed from a place
+ * nothing had announced. So the press is refused its own focus — `preventDefault`
+ * on `mousedown` is what a browser reads as *do not put the caret here*, and the
+ * click it precedes is untouched. Where the caret goes instead belongs to the page
+ * rather than to the drawing: it is settled once in the handler this emits to, so
+ * that the bar of Commands, which reaches the same act by pressing the same mark,
+ * lands it in the same place.
  */
 const { story, sceneWritten } = defineProps<{
   /** The Story on the bench, or nothing where the read was refused. */
@@ -104,6 +115,7 @@ watch(() => sceneWritten, async () => {
           here: scene.id === sceneWritten,
           unreached: scene.id !== story.openingSceneId && !arrivedAt.has(scene.id),
         }"
+        @mousedown.prevent
         @click="emit('writeScene', scene.id)"
       />
     </div>

@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test'
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
-import { live, sceneNode, seedExit, seedScenes, test } from './author'
+import { ONE_PIXEL, live, sceneNode, seedExit, seedScenes, test, toast } from './author'
+import type { StoryInEditor } from '../../shared/utils/scenes'
 
 /**
  * The bench as one document: the rail, the writing and what the bench says beside
@@ -12,13 +13,14 @@ import { live, sceneNode, seedExit, seedScenes, test } from './author'
  * document is *made of* — that a Scene reads in the order the Graph draws it, that
  * an Exit names where it leads, that a Remark opens the Scene it is about — is
  * held in the specs those things belong to. What is here is the layout's own
- * promises, and there are six of them: that nothing runs off the side of the page
- * at any of five widths, that the count of controls on screen does not grow with
- * the Story, that a row not under the hand carries its marks at the weight of the
- * words around them and every one of them is still a tab stop where it stands,
+ * promises, and there are seven of them: that nothing runs off the side of the
+ * page at any of five widths, that the count of controls on screen does not grow
+ * with the Story, that a row not under the hand carries its marks at the weight of
+ * the words around them and every one of them is still a tab stop where it stands,
  * that the bar of Commands grows with the Story in *Go to* and in nothing else,
- * that no tab order runs through the drawing, and that the address still names a
- * Scene and the document is scrolled to it.
+ * that neither a tab order nor a press leaves anything in the drawing, that a
+ * press on the drawing ends the typing it interrupted, and that the address still
+ * names a Scene and the document is scrolled to it.
  */
 
 /**
@@ -413,6 +415,184 @@ test('keeps the rail out of the accessibility tree and out of the tab order',
     await page.locator('dialog.commands').getByRole('button', { name: 'Go to Scene 7' }).click()
     await expect(page).toHaveURL(/scene=/)
     await expect(page.locator('.rail .here')).toHaveAttribute('data-scene', scenes[6]!.id)
+
+    // And it lands the caret where a press on the mark itself does, because it is
+    // that mark it presses: one answer to where the focus goes, given in the page's
+    // own handler — see the spec below and #265.
+    await expect(page.getByRole('textbox', { name: 'Name of Scene 7' })).toBeFocused()
+  })
+
+test('leaves no caret in the rail when a mark is pressed, at either width and on every reading',
+  async ({ page, request }) => {
+    const { story, scenes } = await chained(request, 10)
+
+    await page.goto(`/stories/${story.id}`)
+    await live(page)
+
+    // The pointer half of the walk above, which neither a `Tab` nor an axe run
+    // reaches: a mark is a `<button>` at `tabindex="-1"` inside an `aria-hidden`
+    // drawing, and that pair keeps a keyboard out while letting a mouse press
+    // straight through — a button still takes the focus on one, and the caret was
+    // ending up in a subtree the accessibility tree does not have.
+    //
+    // Pressed at the width the rail is a plate of a hundred and twenty pixels and
+    // at the width it folds to a strip of dots, because what the fold narrows is
+    // the drawing and never what can be pressed.
+    for (const [width, height, place] of [[1440, 900, 7], [390, 844, 3]] as const) {
+      await page.setViewportSize({ width, height })
+      await sceneNode(page, `Scene ${place}`).click()
+
+      // The caret is where the document was wound, in the field the Author is about
+      // to type in: the Scene's own name, the first of its section.
+      await expect(page.getByRole('textbox', { name: `Name of Scene ${place}` })).toBeFocused()
+    }
+
+    // The other two readings, where the writing is `display: none` and no field of
+    // that Scene is laid out for the caret to follow the wind into. Nothing the page
+    // does can move it there, so what has to hold is the drawing refusing the press
+    // its own focus — and a mark pressed with the focus already on `<body>` could
+    // not tell that apart from the defect, so the caret is put on a control of the
+    // bench first and read back off it after.
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const commanding = page.getByRole('button', { name: 'Commands' })
+
+    for (const [turn, drawn, place] of [
+      ['See the Contact Sheet', '.sheet', 5],
+      ['Read the Story', '.preview', 2],
+    ] as const) {
+      await page.getByRole('button', { name: turn }).click()
+      await expect(page.locator(drawn)).toBeVisible()
+      await commanding.focus()
+
+      await sceneNode(page, `Scene ${place}`).click()
+
+      // The press was answered — the rail lights the Scene it went to — and the
+      // hand that made it took nothing away from the keyboard.
+      await expect(page.locator('.rail .here'))
+        .toHaveAttribute('data-scene', scenes[place - 1]!.id)
+      await expect(commanding).toBeFocused()
+
+      // And because nothing took the caret, the bench says where it went: these
+      // two readings are the only place that sentence is left to say, the writing
+      // answering with a field that announces the Scene under its own name.
+      await expect(toast(page)).toHaveText(`Writing Scene ${place}`)
+    }
+  })
+
+test('lands the caret on the frame the sheet turned to when a mark ends typing in its field',
+  async ({ page, request }) => {
+    // Ten bands of three, so the sheet has something to wind, and an Image on one
+    // Shot of the first Scene, so the one field this reading has is laid out for
+    // the caret to be typing in. Nothing in Scene 5 has one: the general case, and
+    // the one where the field the caret was in is not there to be put back into.
+    const { story, scenes } = await chained(request, 10)
+    for (const [place, scene] of scenes.entries()) {
+      const second = await (await request.post(`/api/scenes/${scene.id}/shots`)).json() as { id: string }
+      if (place === 0) {
+        expect((await request.put(`/api/shots/${second.id}/image`, { data: ONE_PIXEL })).ok()).toBeTruthy()
+      }
+      expect((await request.post(`/api/scenes/${scene.id}/shots`)).ok()).toBeTruthy()
+    }
+
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto(`/stories/${story.id}`)
+    await live(page)
+    await page.getByRole('button', { name: 'See the Contact Sheet' }).click()
+    const sheet = page.getByRole('region', { name: 'Contact Sheet' })
+    await expect(sheet).toBeVisible()
+
+    // The caret in the sheet's own field, with a Description half typed in it. The
+    // press on a mark refuses its own focus, so nothing about it ends this typing;
+    // the act does, by hand, and then owes the caret a landing.
+    await sheet.getByRole('button', { name: 'Shot 2 of Scene 1', exact: true }).click()
+    const described = sheet.getByLabel('Description of the image of Shot 2 of Scene 1')
+    await described.click()
+    await described.pressSequentially('A door onto a wet street.')
+
+    await sceneNode(page, 'Scene 5').click()
+    await expect(page.locator('.rail .here')).toHaveAttribute('data-scene', scenes[4]!.id)
+
+    // The writing lays out no name of Scene 5 while it is dark behind the sheet,
+    // and the wind has turned the detail to Scene 5, taking the field the caret
+    // was in with it. So the caret is on the first frame of the band the sheet was
+    // wound to — laid out, named by the Scene, and the frame the detail is now
+    // showing. Not the rail, and not `<body>`: a blur with no landing after it is a
+    // caret left nowhere, and the next `Tab` starting over from the top of the page.
+    await expect(sheet.getByRole('button', { name: /^Shot 1 of Scene 5/ })).toBeFocused()
+    await expect(page.locator('#shown-heading')).toHaveText(/Shot 1 of Scene 5/)
+
+    // Landed with the scroll held: the wind has just stood the band of Scene 5 at
+    // the head of the sheet — the room it keeps above itself and no more — and it
+    // is still there once the caret is down.
+    const bands = page.locator('.sheet .bands')
+    const headOfBand = () => page.evaluate((id) => {
+      const scroller = document.querySelector('.sheet .bands')!.getBoundingClientRect()
+      const band = document.querySelector<HTMLElement>(`[data-band="${id}"]`)!
+      const room = parseFloat(getComputedStyle(band).scrollMarginBlockStart)
+      return Math.round(band.getBoundingClientRect().top - scroller.top - room)
+    }, scenes[4]!.id)
+    await expect.poll(headOfBand).toBe(0)
+    await expect.poll(() => bands.evaluate(one => one.scrollTop)).toBeGreaterThan(0)
+
+    // The typing that press ended is written, and the bench said nothing over the
+    // frame: it names the Scene it stands in as it takes the focus.
+    await expect.poll(async () => (await (await request.get(`/api/stories/${story.id}`)).json() as
+      { scenes: { id: string, shots: { description: string | null }[] }[] })
+      .scenes.find(scene => scene.id === scenes[0]!.id)?.shots[1]?.description)
+      .toBe('A door onto a wet street.')
+    await expect(toast(page)).toBeEmpty()
+  })
+
+test('writes the name under the caret when that Scene’s own mark is what ends the typing',
+  async ({ page, request }) => {
+    const { story, scenes } = await chained(request, 10)
+
+    await page.goto(`/stories/${story.id}`)
+    await live(page)
+
+    // A field of the document writes what was typed in it when it loses the caret,
+    // and a mark refuses a press its own focus — so a mark pressed while the Scene
+    // it names is the one under the caret takes no caret away and ends nothing. The
+    // press gives the field that ending itself, or the Author watches a name they
+    // typed stand on the screen, and on the mark, over a Story that never held it.
+    //
+    // Made at both widths, because what the fold narrows is the drawing and never
+    // what a press means.
+    for (const [width, height, place, renamed] of [
+      [1440, 900, 7, 'The quay at dawn'],
+      [390, 844, 3, 'Le café'],
+    ] as const) {
+      await page.setViewportSize({ width, height })
+
+      // Another Scene's mark first, which is the press that moves the address, and
+      // the one that lands the caret in the name it goes to.
+      await sceneNode(page, `Scene ${place}`).click()
+      const named = page.getByRole('textbox', { name: `Name of Scene ${place}` })
+      await expect(named).toBeFocused()
+
+      // Typed over the old name rather than filled: what a field commits on is the
+      // caret leaving it after a hand changed the value, and a value set any other
+      // way has nothing to commit.
+      await named.press('ControlOrMeta+a')
+      await named.pressSequentially(renamed)
+
+      // And now that same Scene's own mark, which the typed name has already
+      // renamed — the drawing reads the Story the field is writing through.
+      await sceneNode(page, renamed).click()
+
+      // The caret stayed where the Author left it: asking for the Scene it is
+      // already in winds the document and takes nothing else. And the Story holds
+      // the name, read back from the API rather than off the screen that never lost
+      // it.
+      await expect(page.getByRole('textbox', { name: `Name of ${renamed}` })).toBeFocused()
+      await expect.poll(async () => ((await (await request.get(`/api/stories/${story.id}`))
+        .json()) as StoryInEditor).scenes.find(scene => scene.id === scenes[place - 1]!.id)?.name)
+        .toBe(renamed)
+
+      // Nothing was said out loud over it either: arriving where you already were
+      // is not news, and the sentence would land on an Author mid-word.
+      await expect(toast(page)).toBeEmpty()
+    }
   })
 
 test('scrolls the document to the Scene the address names', async ({ page, request }) => {
@@ -447,11 +627,24 @@ test('winds the document back to the Scene the caret is already in', async ({ pa
   const { story, scenes } = await chained(request, 10)
   const eighth = scenes[7]!
 
+  // That Scene written down to a length worth winding to: a section of one beat
+  // stands whole on the screen wherever its head is put, so a wind to its head and
+  // a scroll to the beat under the caret are the same pixel and the claim below
+  // would be one nothing could break.
+  for (let beats = 0; beats < 8; beats++) {
+    expect((await request.post(`/api/scenes/${eighth.id}/shots`)).ok()).toBeTruthy()
+  }
+
   await page.goto(`/stories/${story.id}?scene=${eighth.id}`)
   await live(page)
 
   const scroller = page.locator('.document')
   await expect.poll(() => scroller.evaluate(one => one.scrollTop)).toBeGreaterThan(0)
+
+  // The caret put in the last beat of that Scene, which is where an Author who has
+  // written their way down it and then read back up has left it.
+  const beat = page.getByRole('textbox', { name: 'Shot 9 of Scene 8', exact: true })
+  await beat.click()
 
   // The document scrolls under the caret: an Author reads their way back up the
   // Story without leaving the Scene they are writing, and the address does not
@@ -477,6 +670,13 @@ test('winds the document back to the Scene the caret is already in', async ({ pa
 
     return at.y >= showing.y && at.y < showing.y + showing.height
   }).toBe(true)
+
+  // And the caret is still in the beat, which is the other half of what the wind
+  // is for: an Author who asked to be taken back to the Scene they are writing did
+  // not ask to be lifted out of the word they were typing and put in its name. The
+  // wind is what the press moves, so it is also the wind that has to survive the
+  // caret being put back where it already was.
+  await expect(beat).toBeFocused()
 
   // And the address did not move, because which Scene the caret is in did not.
   await expect(page).toHaveURL(new RegExp(`scene=${eighth.id}$`))

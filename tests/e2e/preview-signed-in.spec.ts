@@ -779,18 +779,24 @@ test('the turn back answers to the address rather than to where the caret was le
     await page.goto(`/stories/${story.id}?scene=${scenes[0]!.id}`)
     await live(page)
 
-    // The caret put in a beat, and then the address moved by the rail — a gesture
-    // that winds the document and never touches focus inside it, so the caret is
-    // left standing eleven sections above the Scene the Author is now in. The bar
-    // of Commands and a way on pressed in the reading leave it in exactly the same
-    // place.
+    // The caret put in a beat, and then the address moved from the reading, where
+    // no field of the Scene it goes to is laid out for the caret to follow the wind
+    // into — the writing is dark behind the Preview, and behind the Contact Sheet
+    // as well. So the caret is left standing eleven sections above the Scene the
+    // Author is now in. The rail's mark is what moves the address here; the bar of
+    // Commands, a Remark and a mark on a band of the sheet are the same act by the
+    // same route and leave the caret in exactly the same place. Made from the
+    // writing instead, that press takes the caret into the Scene it goes to — see
+    // #265 — so the stale beat this turn has to ignore is one a move made from
+    // either of the other two readings left behind.
     const beat = page.getByRole('textbox', { name: 'Shot 1 of Scene 1', exact: true })
     await beat.click()
-    await sceneNode(page, 'Scene 12').click()
-    await expect(page.locator('.rail .here')).toHaveAttribute('data-scene', scenes[11]!.id)
 
     await page.getByRole('button', { name: 'Read the Story' }).click()
     await expect(previewIn(page)).toBeVisible()
+    await sceneNode(page, 'Scene 12').click()
+    await expect(page.locator('.rail .here')).toHaveAttribute('data-scene', scenes[11]!.id)
+
     await page.getByRole('button', { name: 'Write the Scene' }).click()
 
     // There is one notion of where the Author is and it is the Path, so the turn
