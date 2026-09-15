@@ -609,3 +609,28 @@ function scrollsDown(page: Page) {
     body: Math.max(0, document.body.scrollHeight - document.body.clientHeight),
   }))
 }
+
+test('lays the hidden span of the Shot under the hand out inside the pane that scrolls it',
+  async ({ page, request }) => {
+    // The last scroller on the bench a `.visually-hidden` span escaped from — #293,
+    // found by the measurement that found the Remarks. The pane the Shot under the
+    // hand is drawn in is `overflow-y: auto`, and the span in its Description's
+    // label was positioned against the viewport because nothing nearer was
+    // positioned: its lowest edge stood at 361 on a Story of forty Scenes at
+    // 1440 × 900. That is above the fold, which is why it cost the window nothing
+    // yet, and why a page total would stay green with the cause still there. So
+    // the claim is the cause, in the form #285 holds the Remarks in: every hidden
+    // span of the pane has the pane for `offsetParent`. One Shot with an Image is
+    // the smallest Story that draws the pane with the field in it.
+    const { story, scenes } = await sheetStory(request, [['The street', 1]])
+    await request.put(`/api/shots/${scenes[0]!.shots[0]!.id}/image`, { data: ONE_PIXEL })
+
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto(`/stories/${story.id}`)
+    await live(page)
+    await seeTheSheet(page)
+    await expect(page.locator('.sheet .shown input')).toBeVisible()
+
+    expect(await page.locator('.sheet .shown .visually-hidden').evaluateAll(spans =>
+      spans.map(span => (span as HTMLElement).offsetParent?.className))).toEqual(['shown'])
+  })
