@@ -223,11 +223,7 @@ fixed panel carrying the same sentence.
 None of that mechanism was built. A Step names no Scene and nothing is scoped to a
 section: #257 found a cheaper answer once the document existed, and it is `0019`'s
 own amendment — the mark is on the Scene the caret is in and on no other, so the
-guidance still names a `data-step` and builds no selector at all. What the cheaper
-answer settles is where the light lands and not what meets the Step: the Condition
-Step's predicate reads the second Scene of the Story in the order the API returns
-it, which is not the Scene the caret is in and not the Scene it lights. `0019`
-carries the measurement; issue #278 is where the two are brought back together.
+guidance still names a `data-step` and builds no selector at all.
 
 **The nearest voice still wins.** `0032` drops two Remarks while the reading is
 saying them in the Scene's own words. That rule is kept and generalised: the

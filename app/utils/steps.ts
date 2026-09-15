@@ -41,11 +41,12 @@
  * Author moves between Scenes by the rail, the address and the bar of Commands,
  * and the guidance follows them rather than taking them anywhere.
  *
- * Which Scene a Step *reads* is the predicate's own, and for the Condition below
- * the two disagree: it reads the second Scene of the Story in the order the API
- * returns it, so an Author who writes the Condition where the light is has not met
- * it. That is older than the document — see issue #278 and
- * `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md`.
+ * Which is why no predicate here reads a particular Scene. The light is wherever
+ * the caret is and the caret is not the Story's, so a Step that read one Scene
+ * would be met somewhere the light is not — an Author who wrote the Condition
+ * where they were pointed would not have met it, which was issue #278. Every
+ * predicate asks whether the Story holds the thing at all, in any Scene, and is
+ * therefore the same answer from every Scene the Author stands in.
  */
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
@@ -109,15 +110,15 @@ export const STEPS: Step[] = [
     met: story => story.scenes.some(scene => Object.keys(scene.sets).length > 0),
   },
   // The thesis the product exists for: a Scene plays differently without
-  // branching. Met on the second Scene, where a Flag the first sets is already in
-  // State, and asked for broken on purpose — the sentence names a value the Flag
-  // does not hold, so the Preview has something to explain. What puts it right is
-  // the next Step.
-  //
-  // Met there and lit wherever the caret is, which is the one place the two answers
-  // come apart: issue #278. A Scene written by naming where a way on leads arrives
-  // with no Shot in it either, so the light asks for one the same way the Step
-  // above does before it asks what the beat plays under.
+  // branching. Met by a Condition on any Shot of any Scene testing a Flag some
+  // Scene sets, and asked for broken on purpose — the sentence names a value the
+  // Flag does not hold, so the Preview has something to explain. What puts it
+  // right is the next Step. Lit in the Scene the caret is in, which after the way
+  // on is still the first: the Flag it sets on entry is in State by the time its
+  // own Shots play, so a Condition there is skipped the same as one further on.
+  // A Scene written by naming where a way on leads arrives with no Shot in it, so
+  // the light asks for one the same way the Step above does before it asks what
+  // the beat plays under.
   {
     name: 'putCondition',
     targets: ['shot-condition', 'add-shot'],
@@ -165,13 +166,14 @@ function written(story: StoryInEditor) {
 }
 
 /**
- * The Condition the guided path asked for: one on a Shot of the second Scene —
- * the second in the order the API returns the Scenes, which is neither the order
- * the document is read in nor where the caret is standing, and is issue #278 —
- * testing a Flag that some Scene of this Story actually sets. A Condition naming
- * a Flag nothing sets is not the one that was asked for — it would test the
- * absence of a Flag, which is a thing an Author can mean but is not this lesson —
- * and neither is a visit count, which the Sample teaches instead.
+ * The Condition the guided path asked for: one on a Shot of any Scene, testing a
+ * Flag that some Scene of this Story actually sets. Any Scene rather than the one
+ * the light is on, because the light is on the Scene the caret is in and the
+ * caret is not a fact about the Story: the same Story has to give the same answer
+ * from every Scene the Author stands in. A Condition naming a Flag nothing sets
+ * is not the one that was asked for — it would test the absence of a Flag, which
+ * is a thing an Author can mean but is not this lesson — and neither is a visit
+ * count, which the Sample teaches instead.
  *
  * `holding` asks the same question of the value as well: not merely a Flag that
  * is set, but the value it is set to, which is the Condition the Author corrected
@@ -179,10 +181,10 @@ function written(story: StoryInEditor) {
  *
  * Any Scene setting it to that value counts, the same way any Scene setting a
  * Flag at all meets the Step before this one. Asking whether the value is the one
- * the second Scene actually arrives holding would mean running the Reading engine
+ * the tested Scene actually arrives holding would mean running the Reading engine
  * from the opening Scene — which is what the Preview is for, and far more than a
  * predicate over the Story on the bench. The cost of the lenient reading is a
- * Story whose fourth Scene sets the same Flag to the value its second tests: the
+ * Story whose fourth Scene sets the same Flag to the value another tests: the
  * Step reads as met while a Reader still never plays that Shot. The cost of the
  * strict one is the whole engine in here, and an Author told they are wrong when
  * they are not.
@@ -193,7 +195,8 @@ function conditionTaught(story: StoryInEditor, holding = false) {
   // A Flag the Scene draws from several values counts where any one of them is
   // the value tested, for the same lenient reading: which one a Reading is shown
   // is the engine's answer and not a predicate's.
-  return story.scenes[1]?.shots
+  return story.scenes
+    .flatMap(scene => scene.shots)
     .flatMap(shot => shot.conditions)
     .find(condition => 'flag' in condition && flagsSet.some(([flag, held]) =>
       flag === condition.flag && (!holding || [held].flat().includes(condition.is))))

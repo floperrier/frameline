@@ -235,7 +235,7 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   // Born under the name typed, already joined, and drawn on the Graph at once.
   await expect(sceneNode(page, 'The platform')).toHaveCount(1)
   const read = await (await page.request.get(`/api/stories/${story.id}`)).json()
-  const beside = read.scenes.find((scene: { name: string }) => scene.name === 'The platform')
+  const arrival = read.scenes.find((scene: { name: string }) => scene.name === 'The arrival')
 
   // A Flag on the first Scene, in the list the light moves to once the caret is
   // back in that Scene. The light is on the whole list rather than on a field of
@@ -253,29 +253,15 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await value.fill('high')
   await value.blur()
 
-  // And a Condition on the second Scene, which has no Shot in it yet: the
-  // sentence carries that whole gesture, because the Step names the Conditions of
-  // the Shot in the Scene the caret is in, whichever Scene that is.
+  // And a Condition, on the Shot of the Scene the caret is in. Writing a way on
+  // leaves the caret in the Scene it was named in, so that is still the first
+  // Scene, and the light is on the Conditions of the Shot written there. Nothing
+  // moves the caret: the Step is met wherever the Condition is written — issue
+  // #278 — and the Flag this Scene sets on entry is in State by the time its own
+  // Shot plays, so the lesson holds here.
   await expect(bubble(page)).toContainText(/A Condition makes the same Scene play differently/)
-  // The one move in this walk the guidance does not ask for. Writing a way on
-  // leaves the caret in the Scene it was named in, so the light is still on the
-  // first Scene here — and this Step is the one whose predicate reads a Scene of
-  // the Story rather than the Scene it lights, which is issue #278. Until that is
-  // settled the walk has to stand where the Step is met, and it says so rather
-  // than reading as something an Author would have done.
-  await writeScene(page, 'The platform')
-  // The Scene the way on wrote holds no beat either, so the Step asks for one
-  // where the control that writes it stands, in the Scene the caret is in. Pressed
-  // at the light rather than through a panel that had drifted over it, which is
-  // what this moment was until #257.
-  const beat = written(page, 'The platform').getByRole('button', { name: 'Add a Shot' })
-  await lights(page, beat)
-  await beat.click()
-
-  // The light is on the Conditions of the Shot in the Scene the caret is in, which
-  // is the one the sentence just asked for.
-  const carrier = 'Shot 1 of The platform'
-  await lights(page, written(page, 'The platform').locator('.conditions').first())
+  const carrier = 'Shot 1 of The arrival'
+  await lights(page, written(page, 'The arrival').locator('.conditions').first())
   await page.getByRole('button', { name: `Add a Condition to ${carrier}` }).click()
 
   // Written against a value the Flag does not hold, which is what the sentence
@@ -292,7 +278,7 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   // Condition is read back out of the Story first: the write goes when the field
   // is left, and a light that arrived before it would be over a reading of a Story
   // that had not been written yet.
-  await expect.poll(() => readShotConditions(beside.id))
+  await expect.poll(() => readShotConditions(arrival.id))
     .toEqual([[{ flag: 'courage', is: 'low' }]])
   await expect(bubble(page)).toContainText(/Nothing plays that Shot/)
   const turning = page.getByRole('button', { name: 'Read the Story' })
@@ -423,9 +409,6 @@ test('the guidance reaches every part of the bench at the width of a phone', asy
   author,
 }) => {
   const story = await seedStory(author, 'A Story')
-  // One statement apiece, because the second Scene has to be the second one the
-  // bench reads back: the Condition the path teaches is asked of that Scene, and
-  // two Scenes written in one insert share a moment and are ordered by their ids.
   const arrival = await seedScene(story, 'The arrival')
   const platform = await seedScene(story, 'The platform')
   await seedExit(arrival.id, platform.id)
