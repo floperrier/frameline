@@ -35,11 +35,17 @@
  * holds the two sides against each other; see
  * `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md`.
  *
- * Which Scene a Step is about is the template's answer too: a target inside the
+ * Which Scene a Step is *lit* on is the template's answer: a target inside the
  * writing is marked on the Scene the caret is in and on no other, so nothing here
- * builds a selector out of an id and the sentences say *this Scene*. The Author
- * moves between Scenes by the rail, the address and the bar of Commands, and the
- * guidance follows them rather than taking them anywhere.
+ * builds a selector out of an id and most of the sentences say *this Scene*. The
+ * Author moves between Scenes by the rail, the address and the bar of Commands,
+ * and the guidance follows them rather than taking them anywhere.
+ *
+ * Which Scene a Step *reads* is the predicate's own, and for the Condition below
+ * the two disagree: it reads the second Scene of the Story in the order the API
+ * returns it, so an Author who writes the Condition where the light is has not met
+ * it. That is older than the document — see issue #278 and
+ * `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md`.
  */
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
@@ -103,14 +109,15 @@ export const STEPS: Step[] = [
     met: story => story.scenes.some(scene => Object.keys(scene.sets).length > 0),
   },
   // The thesis the product exists for: a Scene plays differently without
-  // branching. Asked for on the second Scene, where a Flag the first sets is
-  // already in State, and asked for broken on purpose — the sentence names a
-  // value the Flag does not hold, so the Preview has something to explain. What
-  // puts it right is the next Step.
+  // branching. Met on the second Scene, where a Flag the first sets is already in
+  // State, and asked for broken on purpose — the sentence names a value the Flag
+  // does not hold, so the Preview has something to explain. What puts it right is
+  // the next Step.
   //
-  // The second Scene is written by naming where a way on leads, so it arrives with
-  // no Shot in it either, and the light asks for one the same way the Step above
-  // does before it asks what the beat plays under.
+  // Met there and lit wherever the caret is, which is the one place the two answers
+  // come apart: issue #278. A Scene written by naming where a way on leads arrives
+  // with no Shot in it either, so the light asks for one the same way the Step
+  // above does before it asks what the beat plays under.
   {
     name: 'putCondition',
     targets: ['shot-condition', 'add-shot'],
@@ -160,7 +167,9 @@ function written(story: StoryInEditor) {
 }
 
 /**
- * The Condition the guided path asked for: one on a Shot of the second Scene
+ * The Condition the guided path asked for: one on a Shot of the second Scene —
+ * the second in the order the API returns the Scenes, which is neither the order
+ * the document is read in nor where the caret is standing, and is issue #278 —
  * testing a Flag that some Scene of this Story actually sets. A Condition naming
  * a Flag nothing sets is not the one that was asked for — it would test the
  * absence of a Flag, which is a thing an Author can mean but is not this lesson —

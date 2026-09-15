@@ -208,11 +208,16 @@ is about, because it is a predicate on the Story —
 `docs/adr/0020-progress-is-the-story.md` — so nothing is stored to make this work.
 Everything else in `0019` stands: nothing modal, no page made inert, no spotlight
 taking pointer events, and a target that is absent or unreachable degrading to a
-fixed panel carrying the same sentence. How the scoping is done is `0019`'s own
-amendment, written in #257 once the document existed: the mark is on the Scene the
-caret is in and on no other, so the guidance still names a `data-step` and builds
-no selector at all, and the Scene a Step is about is the Scene the Author is
-standing in.
+fixed panel carrying the same sentence.
+
+None of that mechanism was built. A Step names no Scene and nothing is scoped to a
+section: #257 found a cheaper answer once the document existed, and it is `0019`'s
+own amendment — the mark is on the Scene the caret is in and on no other, so the
+guidance still names a `data-step` and builds no selector at all. What the cheaper
+answer settles is where the light lands and not what meets the Step: the Condition
+Step's predicate reads the second Scene of the Story in the order the API returns
+it, which is not the Scene the caret is in and not the Scene it lights. `0019`
+carries the measurement; issue #278 is where the two are brought back together.
 
 **The nearest voice still wins.** `0032` drops two Remarks while the reading is
 saying them in the Scene's own words. That rule is kept and generalised: the
