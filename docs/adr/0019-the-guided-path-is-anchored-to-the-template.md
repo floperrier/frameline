@@ -15,7 +15,12 @@ Step points at while the row its sentence names is still unwritten. Everything
 else here stands, and two paragraphs are widened rather than changed: the one on
 what is modal, because the bubble takes no pointer event any more than the light
 does, and the one on a target taken off the screen, because a target the document
-scrolled past is one of those and so is one with no room beside it.
+scrolled past is one of those.
+
+Read *Repère* as *Step* and `data-cue` as `data-step` in everything below: both
+were renamed with the vocabulary and neither survives anywhere in the code. The
+body is left in the words the decision was taken in, which is what a record is
+for.
 
 A Repère points at a real element of `app/pages/stories/[id]/index.vue`, found by
 a `data-cue` attribute written on that element. The guidance holds the name of
@@ -30,8 +35,8 @@ considered at length was a decoupled rail: each step carrying a sentence and a
 phrase naming its target — "the field a new Scene is named in" — with the bubble
 placed by hand near where that is. It couples nothing, and it is wrong the first
 time somebody moves the field, because nothing anywhere fails. Pointing at a real
-element makes the coupling visible: `tests/unit/cues.spec.ts` reads the template
-as source and holds the `data-cue` attributes in it against the targets the Cues
+element makes the coupling visible: `tests/unit/steps.spec.ts` reads the template
+as source and holds the `data-step` attributes in it against the targets the Steps
 declare, so a target renamed on one side and forgotten on the other fails the
 suite rather than an Author.
 
@@ -108,10 +113,13 @@ turned over to the reading takes the document and every mark in it, and a docume
 of forty Scenes scrolls its own marks out of the window under an Author's hand —
 so the bubble degrades rather than pointing at nothing: with no rectangle to work
 from it becomes a fixed panel carrying the same sentence. A rectangle that is
-nowhere on the window is read as no rectangle at all, and so is one with no room
-under it for the sentence, because the bubble is placed from the target's own
-bottom edge: either way what the guidance must never do is follow its target off
-the screen and say nothing anywhere.
+nowhere on the window is read as no rectangle at all, which is the case that
+degrades. Room is a separate question and is answered separately, because the
+light and the sentence can be parted: the sentence is placed from the target's
+bottom edge where it fits under it and from its top edge where it does not, and
+where it fits on neither side it goes to the corner while the light stays on the
+target. What the guidance must never do is follow its target off the screen and
+say nothing anywhere.
 
 Nothing about the guidance is modal. The Author has to type into the very field
 being pointed at, so the page is never made inert, and neither the spotlight nor

@@ -124,15 +124,13 @@ export const STEPS: Step[] = [
     met: story => Boolean(conditionTaught(story)),
   },
   // A Story is allowed to sit with no opening Scene — the Author decides where
-  // their Story starts, which is why the act that marks it is drawn on every
-  // Scene the Story does not open on — and the
-  // one way to arrive there is to delete the Scene the Story opened on. Asked
-  // for here because this is where the path stops being about writing and starts
-  // being about reading: the two steps left send the Author to the Preview and to
-  // Publish, and both of them refuse a Story that has nowhere to
-  // start. Met
-  // by every Story that never lost its opening, so the ordinary path never sees
-  // it. The sentence carries the whole gesture the way the Condition's does: the
+  // their Story starts, which is why the act that marks it is drawn on every Scene
+  // the Story does not open on — and the one way to arrive there is to delete the
+  // Scene the Story opened on. Asked for here because this is where the path stops
+  // being about writing and starts being about reading: the two steps left send the
+  // Author to the Preview and to Publish, and both of them refuse a Story that has
+  // nowhere to start. Met by every Story that never lost its opening, so the
+  // ordinary path never sees it. The sentence carries the whole gesture the way the Condition's does: the
   // mark is set in the Scene's own slate, and this is the one Step that can be
   // arrived at with no Scene in it, so it may not say "here".
   {
