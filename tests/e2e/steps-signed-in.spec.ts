@@ -253,6 +253,12 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   // sentence carries that whole gesture, because the Step names the Conditions of
   // the Shot in the Scene the caret is in, whichever Scene that is.
   await expect(bubble(page)).toContainText(/A Condition makes the same Scene play differently/)
+  // The one move in this walk the guidance does not ask for. Writing a way on
+  // leaves the caret in the Scene it was named in, so the light is still on the
+  // first Scene here — and this Step is the one whose predicate reads a Scene of
+  // the Story rather than the Scene it lights, which is issue #278. Until that is
+  // settled the walk has to stand where the Step is met, and it says so rather
+  // than reading as something an Author would have done.
   await writeScene(page, 'The platform')
   // The Scene the way on wrote holds no beat either, so the Step asks for one
   // where the control that writes it stands, in the Scene the caret is in. Pressed
@@ -365,8 +371,11 @@ test('the light follows its target as the document grows above it', async ({
   await lights(page, adding)
 
   // And the document narrowing under a window that changed shape, which moves the
-  // line the other way.
+  // line the other way — far enough down a shorter window to leave it, so the
+  // document is wound back to it first: a target off the window is not lit at all,
+  // which is its own spec below.
   await page.setViewportSize({ width: 900, height: 700 })
+  await adding.scrollIntoViewIfNeeded()
   await lights(page, adding)
 })
 
@@ -417,7 +426,9 @@ test('the guidance reaches every part of the bench at the width of a phone', asy
   // What it does not do is take that press: the guidance answers a pointer on its
   // own control and nowhere else, so what is under the sentence is worked at
   // normally — the defect the corner placement was plugged against, held here for
-  // the placement that points at something.
+  // every placement: the panel stands on controls of the Scene being written
+  // wherever it is put — three of them at 1280 by 720 — and each is still pressed
+  // through it.
   expect(await page.evaluate(() => {
     const said = document.querySelector('.bubble')!.getBoundingClientRect()
     const under = document.elementFromPoint(said.x + said.width / 2, said.y + said.height / 2)
@@ -475,9 +486,9 @@ test('the Step lights the Scene the caret is in, not the first of ten', async ({
 })
 
 /**
- * The one thing left that takes a Step's target off the screen: the middle of the
- * bench turned over to the reading, which is the document and every mark in it
- * gone. The sentence does not go with them — it is carried from the corner, which
+ * The first of the three things that leave a Step with nowhere to stand: the middle
+ * of the bench turned over to the reading, which is the document and every mark in
+ * it gone. The sentence does not go with them — it is carried from the corner, which
  * is the degradation
  * `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md` asks for — and it
  * comes back to the control it was on when the writing does.
@@ -501,3 +512,116 @@ test('a Step whose target the reading took away says the same thing from the cor
   await page.getByRole('button', { name: 'Write the Scene' }).click()
   await lights(page, written(page, 'The arrival').locator('.flags'))
 })
+
+/**
+ * The second, and the one the document made likelier: every Scene of the Story is
+ * written at once, so an Author reading down a Story carries the mark on the Scene
+ * the caret is in a whole document away from the window. The sentence is placed
+ * from that mark's own bottom edge and nothing above it was bounded, so anchored
+ * to a target nobody can see it was said nowhere at all — measured at a top of
+ * -16444px on a Story of forty in a window nine hundred tall, with the light
+ * seventy pixels above that.
+ */
+test('a Step whose target the document scrolled past says the same thing from the corner', async ({
+  page,
+  author,
+}) => {
+  const story = await seedStory(author, 'A Story')
+  const scenes = await seedChain(story, [
+    'The arrival', 'The platform', 'The bar', 'The alley', 'The quay',
+    'The market', 'The bridge', 'The rooftop', 'The garden', 'The last train',
+  ])
+
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto(`/stories/${story.id}`)
+  await expect(bubble(page)).toContainText(/State is what one Reading carries/)
+  await lights(page, written(page, scenes[0]!.name).locator('.flags'))
+
+  // Wound to the foot of the document, nine Scenes below the one the caret is in
+  // and still standing in it: scrolling moves nothing but the window.
+  await page.locator('.document').evaluate((scroller) => {
+    scroller.scrollTop = scroller.scrollHeight
+  })
+
+  await expect(bubble(page)).toHaveClass(/adrift/)
+  await expect(page.locator('.spotlight')).toBeHidden()
+  await expect(bubble(page)).toContainText(/State is what one Reading carries/)
+  await readable(page)
+
+  // And back on its target the moment the document is wound back to it.
+  await page.locator('.document').evaluate((scroller) => {
+    scroller.scrollTop = 0
+  })
+  await lights(page, written(page, scenes[0]!.name).locator('.flags'))
+})
+
+/**
+ * The other placement against a target, and the third thing that leaves a Step with
+ * nowhere to stand. A window the target sits near the foot of is an ordinary
+ * window — a phone held sideways is under four hundred pixels tall and the panel is
+ * a good half of that — and a sentence placed twelve pixels under the target there
+ * would run off the bottom of the screen. It is said above the target instead,
+ * which is still against the control it names; only a target with room on neither
+ * side sends it to the corner, and the light stays on it throughout, which is what
+ * tells that apart from a target that has left the window.
+ */
+test('a Step whose sentence will not fit under its target says it above', async ({
+  page,
+  author,
+}) => {
+  const story = await seedStory(author, 'A Story')
+  await seedChain(story, ['The arrival', 'The platform'])
+  // The document is wound by hand here, and a wind that animates would be read
+  // halfway through.
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.setViewportSize({ width: 800, height: 700 })
+  await page.goto(`/stories/${story.id}`)
+  await expect(bubble(page)).toContainText(/State is what one Reading carries/)
+
+  const flags = written(page, 'The arrival').locator('.flags')
+  await lights(page, flags)
+  expect(await placed(page, flags)).toBe('under')
+
+  // The same bench in a window too short under the target for the sentence.
+  await page.setViewportSize({ width: 800, height: 420 })
+  await lights(page, flags)
+  expect(await placed(page, flags)).toBe('above')
+
+  // And the target wound near the head of a window shorter still, where there is
+  // room on neither side of it.
+  await page.setViewportSize({ width: 800, height: 340 })
+  await page.evaluate(() => {
+    const scroller = document.querySelector('.document')!
+    const target = document.querySelector('[data-step="scene-flags"]')!
+
+    scroller.scrollTop += target.getBoundingClientRect().top - 120
+  })
+  await expect(bubble(page)).toHaveClass(/adrift/)
+  await lights(page, flags)
+  expect(await placed(page, flags)).toBe('adrift')
+})
+
+/**
+ * Where the sentence ended up: under the control it is about, above it, or in the
+ * corner. Whole on the screen in every one of the three, which is what they are
+ * all for.
+ */
+async function placed(page: Page, target: Locator) {
+  await readable(page)
+  if (/\badrift\b/.test(await bubble(page).getAttribute('class') ?? '')) return 'adrift'
+
+  const said = (await bubble(page).boundingBox())!
+
+  return said.y > (await target.boundingBox())!.y ? 'under' : 'above'
+}
+
+/** That the whole of the sentence is somewhere a person can read it. */
+async function readable(page: Page) {
+  const said = (await bubble(page).boundingBox())!
+  const window = page.viewportSize()!
+
+  expect(said.x).toBeGreaterThanOrEqual(0)
+  expect(said.y).toBeGreaterThanOrEqual(0)
+  expect(said.x + said.width).toBeLessThanOrEqual(window.width)
+  expect(said.y + said.height).toBeLessThanOrEqual(window.height)
+}
