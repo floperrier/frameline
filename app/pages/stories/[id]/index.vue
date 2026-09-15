@@ -123,6 +123,24 @@ const sceneWritten = computed(() => story.value?.scenes.find(scene => scene.id =
   ?? story.value?.scenes[0])
 
 /**
+ * The three readings of the one document, in the order an Author moves through
+ * them: the writing, where a Story is written; the Contact Sheet, where it is
+ * seen rather than read; and the Preview, where it is read on the engine a Reader
+ * runs. The rail and the Remarks do not move between them — what changes is what
+ * the middle is a reading of, never where anything is. See
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`, which keeps `0030`'s
+ * engine rule and supersedes its *beside*.
+ */
+type Reading = 'writing' | 'sheet' | 'preview'
+
+/**
+ * Which of the three the middle of the bench is showing. The writing is what the
+ * server renders, so the bench arrives on the reading it is for and neither of the
+ * other two costs a byte until it is asked for.
+ */
+const reading = ref<Reading>('writing')
+
+/**
  * Puts the caret in one Scene, leaving the middle of the bench on the reading it
  * was showing: a mark pressed on the rail while the Story is being read is the
  * Author reading on, not asking to write. A Remark is the same press — it stands
@@ -141,12 +159,12 @@ const sceneWritten = computed(() => story.value?.scenes.find(scene => scene.id =
  * writes a Scene has already said what it did — a second sentence there would
  * talk over the first.
  *
- * Asking for the Scene the caret is already in still winds the document to it,
- * and that is the whole of what the act means there: the document scrolls under
- * the caret, so an Author who read their way down the Story and then asked for
- * the Scene they are writing has asked to be taken back to it. The address does
- * not change, so nothing is said out loud either — arriving where you already
- * were is not news.
+ * Asking for the Scene the caret is already in still winds the reading on screen
+ * to it, and that is the whole of what the act means there: the surface scrolls
+ * under the caret, so an Author who read their way down the Story and then asked
+ * for the Scene they are writing has asked to be taken back to it. The address
+ * does not change, so nothing is said out loud either — arriving where you
+ * already were is not news.
  */
 async function goToScene(sceneId: string, spoken = true) {
   if (sceneWritten.value?.id === sceneId) return windOn('auto')
@@ -157,27 +175,62 @@ async function goToScene(sceneId: string, spoken = true) {
 }
 
 /**
- * The document wound to the Scene the address names. The whole Story is on the
- * bench, so going to a Scene is a scroll rather than an opening — which is what
- * `docs/adr/0043-a-story-is-written-as-one-document.md` says *Go to* now means.
+ * The reading on screen wound to the Scene the address names. The whole Story is
+ * on the bench, so going to a Scene is a scroll rather than an opening — which is
+ * what `docs/adr/0043-a-story-is-written-as-one-document.md` says *Go to* now
+ * means.
  *
- * `scrollIntoView` rather than arithmetic on the section's offset: the room to
- * leave above it is `scroll-margin-block-start` on the section itself, said once
- * in the units the document's own padding is written in. Smoothness is the
- * stylesheet's, where the answer to `prefers-reduced-motion` is given once.
+ * Which surface is scrolled is asked of `reading` and not assumed, because the
+ * middle of the bench holds three readings of the one document and lays out
+ * exactly one of them at a time: the writing goes `display: none` behind the other
+ * two, and `scrollIntoView` on a box that is not laid out moves nothing and says
+ * nothing. A winder that always addressed the document was therefore wrong by
+ * construction wherever the Author was not in the document — so it asks the
+ * reading that is up where that Scene stands in it: the document's own section, or
+ * the sheet's band.
  *
- * Two callers rather than one immediate watch, and they arrive differently. The
- * first sight of the bench is a reload coming back to an address, and winding the
- * document past the Author before they can read anything says nothing and takes
- * half a second — so the mount is instant. A Scene reached afterwards is a move
- * they made, and the document follows it — asked for as `auto`, which is the one
- * value that defers to `scroll-behavior`, so the reduced-motion block below is the
- * single answer rather than a rule an explicit `smooth` would walk past. `instant`
- * is the one place this overrides it, on the mount.
+ * Every way of going to a Scene routes through here — the rail's mark, the bar of
+ * Commands, a Remark, a way on pressed in the Preview and a band's own mark — so
+ * there is one answer to *where is that Scene on this surface* rather than one per
+ * reading to keep in step.
+ *
+ * The Preview is the reading with no box to wind to: it draws the Scene the Reading
+ * is standing on and nothing else, so arriving at a Scene there is the Reading
+ * moving and never a scroll. Nothing is looked for and nothing happens.
+ *
+ * `scrollIntoView` rather than arithmetic on the box's offset: the room to leave
+ * above it is `scroll-margin-block-start` on the box itself, said once in the units
+ * that surface's own padding is written in. Smoothness is the stylesheet's, where
+ * the answer to `prefers-reduced-motion` is given once, per scroller.
+ *
+ * What it does too much of is the window: it walks every scrollable ancestor, and
+ * the bench is a window tall by construction and overflows one anyway on a long
+ * Story — a defect of its own, #285 — so a wind would take the Story's own edge
+ * off the top of the screen on the way to a Scene. A wind scrolls the surface the
+ * reading is read in and not the window, so the window is put back where the Author
+ * left it.
+ *
+ * Callers rather than one immediate watch, and they arrive differently. The first
+ * sight of a reading is a reload coming back to an address, or a turn onto a
+ * surface that was not there a moment ago, and winding it past the Author before
+ * they can read anything says nothing and takes half a second — so those are
+ * instant. A Scene reached afterwards is a move they made, and the reading follows
+ * it — asked for as `auto`, which is the one value that defers to
+ * `scroll-behavior`, so the reduced-motion blocks are the single answer rather than
+ * a rule an explicit `smooth` would walk past. `instant` is where this overrides
+ * it.
  */
 function windOn(behavior: ScrollBehavior) {
-  document.getElementById(`scene-${sceneWritten.value?.id}`)
-    ?.scrollIntoView({ behavior, block: 'start' })
+  const scene = sceneWritten.value?.id
+  if (!scene || reading.value === 'preview') return
+
+  const stands = reading.value === 'sheet'
+    ? document.querySelector(`[data-band="${CSS.escape(scene)}"]`)
+    : document.getElementById(`scene-${scene}`)
+  const { scrollX, scrollY } = window
+
+  stands?.scrollIntoView({ behavior, block: 'start' })
+  window.scrollTo(scrollX, scrollY)
 }
 
 onMounted(() => windOn('instant'))
@@ -264,24 +317,6 @@ const counted = computed(() => {
 })
 
 /**
- * The three readings of the one document, in the order an Author moves through
- * them: the writing, where a Story is written; the Contact Sheet, where it is
- * seen rather than read; and the Preview, where it is read on the engine a Reader
- * runs. The rail and the Remarks do not move between them — what changes is what
- * the middle is a reading of, never where anything is. See
- * `docs/adr/0043-a-story-is-written-as-one-document.md`, which keeps `0030`'s
- * engine rule and supersedes its *beside*.
- */
-type Reading = 'writing' | 'sheet' | 'preview'
-
-/**
- * Which of the three the middle of the bench is showing. The writing is what the
- * server renders, so the bench arrives on the reading it is for and neither of the
- * other two costs a byte until it is asked for.
- */
-const reading = ref<Reading>('writing')
-
-/**
  * Where the Reading the Preview replays has got to. The bench holds it, above
  * the document, because the middle of the bench holds one reading at a time: a
  * Path held inside the reading would be drawn afresh every time the Author
@@ -344,14 +379,20 @@ function inSceneWritten(held: HTMLElement) {
  * takes whatever was focused inside it with it and the reading that arrives has
  * nothing that has just been left.
  *
- * Coming back to the writing, it goes to the beat the Author left — where that beat
- * is still in the Scene the address names. The caret is a variable of this page and
- * the address is moved by the rail, by the bar of Commands, by the reading itself
- * and by a mark on a band of the Contact Sheet, none of which touches focus in the
- * document: a caret put back after one of those would put the Author, and the next
- * word they type, in the Scene they left. There is one notion of where the Author
- * is and it is the Path, so anything the address does not answer to is wound to
- * instead — as is a Story opened and turned over without a word typed into it,
+ * Whichever reading arrives, it arrives wound to the Scene the address names: a
+ * surface that was not laid out a moment ago has never been scrolled, and an Author
+ * turning the bench over has not moved in the Story. That is one act for the three
+ * of them rather than a winder of its own inside each, which is what left the
+ * Contact Sheet holding the only copy that worked.
+ *
+ * Coming back to the writing, it goes to the beat the Author left instead — where
+ * that beat is still in the Scene the address names. The caret is a variable of this
+ * page and the address is moved by the rail, by the bar of Commands, by the reading
+ * itself and by a mark on a band of the Contact Sheet, none of which touches focus
+ * in the document: a caret put back after one of those would put the Author, and the
+ * next word they type, in the Scene they left. There is one notion of where the
+ * Author is and it is the Path, so anything the address does not answer to is wound
+ * to instead — as is a Story opened and turned over without a word typed into it,
  * which has no beat to come back to at all.
  *
  * The writing is never taken out of the document — the reading takes its place in
@@ -362,10 +403,9 @@ function inSceneWritten(held: HTMLElement) {
 async function turnTo(turn: Reading, event: Event) {
   reading.value = turn
   ;(event.currentTarget as HTMLElement).focus()
-  if (turn !== 'writing') return
 
   await nextTick()
-  if (caret && inSceneWritten(caret)) caret.focus()
+  if (turn === 'writing' && caret && inSceneWritten(caret)) caret.focus()
   else windOn('instant')
 }
 </script>

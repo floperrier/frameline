@@ -94,6 +94,22 @@ function named(page: Page) {
   return frames(page).locator('.visually-hidden').allTextContents()
 }
 
+/**
+ * How many presses of a key it takes to put focus on the element with `id`, up to
+ * a ceiling. Counted rather than waited for: a `Tab` that arrives eventually
+ * arrives on a Story of forty Scenes too, and how many presses it took getting
+ * there is the whole of the claim. A walk that has not arrived by the ceiling is
+ * the defect, and counting past it says nothing the ceiling does not.
+ */
+async function pressesTo(page: Page, key: string, id: string, ceiling = 50) {
+  for (let presses = 1; presses <= ceiling; presses++) {
+    await page.keyboard.press(key)
+    if (await page.evaluate(() => document.activeElement?.id) === id) return presses
+  }
+
+  return Infinity
+}
+
 /** Reads a Story back past the page, to see what a field written on the sheet left behind. */
 async function reread(request: APIRequestContext, storyId: string) {
   return await (await request.get(`/api/stories/${storyId}`)).json() as StoryInEditor
@@ -170,7 +186,14 @@ test('writes a Description on the sheet into the field the writing holds',
 
 test('walks the sheet by Tab and by the arrows, naming a frame by its Scene and its Place',
   async ({ page, request }) => {
-    const { story, scenes } = await sheetStory(request, [['The street', 3], ['The bar', 3]])
+    // Four bands, and every band but the last carries a mark out of it. Those marks
+    // stand in a band's header, ahead of that band's frames, so a sheet that left
+    // them all tabbable puts one of them between the chosen frame and the field
+    // beside it for every Exit of the rest of the Story — which is the whole of
+    // what the roving tabindex is here to prevent, and which a Story of two bands
+    // whose second has no Exit cannot show.
+    const { story, scenes } = await sheetStory(
+      request, [['The street', 3], ['The bar', 3], ['The alley', 2], ['The room', 2]])
     // An Image apiece, so that every frame answers to the Scene and the Place
     // alone: a Shot carrying none says so in its name as well, which is the claim
     // the spec under this one is for.
@@ -184,17 +207,22 @@ test('walks the sheet by Tab and by the arrows, naming a frame by its Scene and 
     await live(page)
     const sheet = await seeTheSheet(page)
 
-    // One tab stop for the whole sheet, which is what makes the reading usable at
-    // the size it is for: a Story of forty Scenes is some hundreds of frames, and
-    // a `Tab` that walked every one of them would put the Description field of the
-    // frame just chosen hundreds of presses away. `Tab` reaches the sheet and
-    // leaves it for that field; the arrows walk the frames.
+    // One tab stop for the frames of the whole sheet, which is what makes the
+    // reading usable at the size it is for: a Story of forty Scenes is some
+    // hundreds of frames, and a `Tab` that walked every one of them would put the
+    // Description field of the frame just chosen hundreds of presses away. `Tab`
+    // reaches the chosen frame and leaves it for that field; the arrows walk the
+    // frames. The marks in a band's header rove with them, so a band that is not
+    // the one under the hand adds nothing to the walk either.
     await expect(page.locator('.sheet .frames button[tabindex="0"]')).toHaveCount(1)
 
     const first = frame(page, 'Shot 1 of The street')
     await first.focus()
-    await page.keyboard.press('Tab')
-    await expect(sheet.getByLabel('Description of the image of Shot 1')).toBeFocused()
+    // Counted rather than taken on trust: three bands of marks lie between this
+    // frame and the field in the source, and *one press* is the claim — an
+    // assertion that focus arrives in the end would hold at forty presses too.
+    const describing = `sheet-description-${scenes[0]!.shots[0]!.id}`
+    expect(await pressesTo(page, 'Tab', describing)).toBe(1)
     await page.keyboard.press('Shift+Tab')
     await expect(first).toBeFocused()
 
@@ -311,6 +339,46 @@ test('follows the caret, and moves it by a band\'s own marks', async ({ page, re
   await expect(sheet.getByRole('heading', { name: 'Shot 1 of The street' })).toBeVisible()
 })
 
+test('winds to the Scene the caret is already in, from the rail and from the bar',
+  async ({ page, request }) => {
+    // Twelve bands of three: enough that the sheet has something to scroll, which
+    // is the whole of what asking for the Scene the caret is already in means.
+    // The address does not move on that press, so a reading that does not wind
+    // itself does nothing at all — and the bench is not the document: the writing
+    // is `display: none` behind this reading, and `scrollIntoView` on a box that is
+    // not laid out moves nothing.
+    const { story } = await sheetStory(
+      request, Array.from({ length: 12 }, (_, at): [string, number] => [`Scene ${at + 1}`, 3]))
+
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto(`/stories/${story.id}`)
+    await live(page)
+    await seeTheSheet(page)
+
+    const bands = page.locator('.sheet .bands')
+    const wound = () => bands.evaluate(scroller => scroller.scrollTop)
+    const toTheFoot = () => bands.evaluate(
+      scroller => scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'instant' }))
+
+    // The caret is in the Scene the Story opens on, and the sheet is read to the
+    // foot of the Story.
+    await toTheFoot()
+    expect(await wound()).toBeGreaterThan(0)
+
+    // The rail's own mark for that same Scene: the Author has read their way down
+    // and asked to be taken back to what they are writing.
+    await sceneNode(page, 'Scene 1').click()
+    await expect.poll(wound).toBe(0)
+
+    // And the bar of Commands, which is the same act named rather than pressed.
+    await toTheFoot()
+    expect(await wound()).toBeGreaterThan(0)
+    await page.getByRole('button', { name: 'Commands' }).click()
+    await page.getByRole('textbox', { name: 'Type a name' }).fill('Go to Scene 1')
+    await page.locator('dialog.commands li button').first().click()
+    await expect.poll(wound).toBe(0)
+  })
+
 test('says what the Preview was drowning out, because the sheet is not saying it',
   async ({ page, request }) => {
     // A Scene nothing arrives at and nothing is written in: two Remarks, and the
@@ -416,10 +484,15 @@ test('draws a Story of forty Scenes whole without handing the screen more of it'
 
     await page.goto(`/stories/${many.id}`)
     await live(page)
-    // What the document has already gone and asked the network for, before the
-    // sheet has drawn a frame: one address per Shot, which is what a thumbnail on
-    // every beat of every Scene costs the writing.
-    await expect.poll(() => fetched(page)).toBe(40)
+
+    // What the page asks the server for between the press of the turn and the
+    // fortieth frame being drawn, which is the property the stopwatch here was
+    // standing in for: the Story is already in hand, so the turn is a render and
+    // not a fetch. Images are out of the count on purpose — what the browser has
+    // already gone and got for the writing's thumbnails is a claim about the
+    // writing, and this is the sheet's spec.
+    const asked: string[] = []
+    page.on('request', ask => asked.push(ask.url()))
 
     const drawing = Date.now()
     await seeTheSheet(page)
@@ -442,11 +515,21 @@ test('draws a Story of forty Scenes whole without handing the screen more of it'
     expect(onTen).toBeGreaterThan(0)
     expect(onForty).toBe(onTen)
 
-    // And the heaviest reading in the product is drawn in the time a press takes
-    // to answer. A bound rather than a stopwatch: what would break this is a sheet
-    // that went back to the network or laid itself out twice, and either is
-    // seconds rather than milliseconds.
-    expect(drawn).toBeLessThan(2000)
+    // And the heaviest reading in the product is drawn out of the Story the page is
+    // already holding: not one request left the browser for it. The wall clock this
+    // replaces bounded how loaded the machine was rather than anything about the
+    // sheet, and a run under load reddened it with nothing having changed.
+    expect(asked.filter(url => url.includes('/api/') && !url.endsWith('/image'))).toEqual([])
+
+    // Forty frames off forty addresses, each the Shot's own image asked for plainly:
+    // a long Story costs the network the Shots it holds and never a second address
+    // for one of them. Read off the frames rather than counted out of the browser's
+    // resource log, which counts what the writing fetched eagerly and would redden
+    // the day the writing stops.
+    const addresses = await page.locator('.sheet .frames img').evaluateAll(
+      images => images.map(image => image.getAttribute('src')))
+    expect(addresses).toHaveLength(40)
+    expect([...new Set(addresses)]).toHaveLength(40)
 
     // Nor does it run off the side of the page, at the width the bands have a
     // column beside them or at the width they do not.

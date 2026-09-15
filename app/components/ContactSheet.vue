@@ -70,7 +70,10 @@ function sceneName(sceneId: string) {
  * A frame's name is the Scene and the Place and never the file: a sheet drawing
  * every Shot of a Story of forty Scenes is the surface most likely to say one
  * name twice, and *Shot 3 of The bar* is the one pair of facts that tells two
- * frames carrying the same image apart.
+ * frames carrying the same image apart. It tells them apart as far as the names of
+ * the Scenes do: nothing stops an Author calling two Scenes *The bar*, and two
+ * frames then answer to *Shot 1 of The bar* alike. The writing names a beat by the
+ * same keys, so the sheet is not where that is settled — see #284.
  */
 const bands = computed(() =>
   inDocumentOrder(story.scenes, story.exits, story.openingSceneId).map(scene => ({
@@ -107,33 +110,26 @@ function choose(shotId: string) {
 }
 
 /**
- * The sheet wound to the Scene the address names, which is the same act the
- * document's own wind is: the rail, the bar's *Go to* and a band's own marks all
- * move the caret and nothing else, so every reading of the document has to follow
- * it by itself. Without this a press on the rail while the sheet is up would
- * move the caret behind a surface that stayed where it was.
- *
- * The frame under the hand goes with it: an Author who asked for a Scene asked
- * for that Scene, and leaving the detail on a frame thirty bands away would be
- * the sheet saying two things about where they are. Instant on the mount, for the
- * reason the document's is — the first sight of a reading is not a move anybody
- * made — and left to `scroll-behavior` afterwards, which is where the answer to
- * `prefers-reduced-motion` is given once.
+ * The band under the hand: the one the chosen frame stands in, and the Scene the
+ * caret is in where there is no frame in the whole sheet to choose. What it
+ * settles is which band's marks are in the tab order — see the marks themselves.
  */
-const sheet = useTemplateRef<HTMLElement>('sheet')
+const banded = computed(() => shown.value?.scene.id ?? sceneWritten)
 
-function windOn(behavior: ScrollBehavior) {
-  if (!sceneWritten) return
-
-  sheet.value?.querySelector(`[data-band="${CSS.escape(sceneWritten)}"]`)
-    ?.scrollIntoView({ behavior, block: 'start' })
-}
-
-onMounted(() => windOn('instant'))
-watch(() => sceneWritten, async () => {
+/**
+ * The frame under the hand follows the caret: an Author who asked for a Scene
+ * asked for that Scene, and leaving the detail on a frame thirty bands away would
+ * be the sheet saying two things about where they are. Letting the choice go is
+ * the whole of it — `shown` then falls back to the first frame of the Scene the
+ * address names.
+ *
+ * Winding the bands to that Scene is the page's, not the sheet's: the middle of
+ * the bench holds three readings and lays out one of them at a time, so there is
+ * one winder and it addresses whichever is on screen. See `windOn` in
+ * `app/pages/stories/[id]/index.vue`.
+ */
+watch(() => sceneWritten, () => {
   chosen.value = undefined
-  await nextTick()
-  windOn('auto')
 })
 
 /**
@@ -193,7 +189,7 @@ function describe(shot: Shot) {
   <!-- A landmark, because an Author can be sent to it and because the middle of
        the bench is three different things depending on which reading is up: the
        region says which one it is holding. -->
-  <section ref="sheet" class="sheet" aria-labelledby="sheet-heading">
+  <section class="sheet" aria-labelledby="sheet-heading">
     <p id="sheet-heading" class="eyebrow">{{ $t('editor.contactSheet') }}</p>
 
     <!-- The bands, which are what a long Story scrolls: the Shot under the hand
@@ -238,13 +234,26 @@ function describe(shot: Shot) {
                `data-command`: the rail already offers *Go to* every Scene of the
                Story, and a second copy per Exit is the bar growing with the Story
                in something other than *Go to* — see
-               `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`. -->
+               `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`.
+
+               In the tab order in the band under the hand and nowhere else, which
+               is the same roving the frames are walked by and is here for the same
+               reason. These marks stand in a band's header, ahead of that band's
+               frames, so every band's own marks left tabbable would put the
+               Description field of the frame just chosen one press per Exit of the
+               rest of the Story away — forty presses on the Story this reading is
+               built for, which is precisely the defect the frames' roving tabindex
+               exists to prevent. The marks of the other bands are reached by going
+               to the band; and every Scene of the Story is a *Go to* in the bar of
+               Commands and a mark on the rail besides, so nothing here is the only
+               way to anywhere. -->
           <p v-if="band.ways.length" class="ways">
             <button
               v-for="(way, place) in band.ways"
               :key="way.id"
               type="button"
               class="way"
+              :tabindex="band.scene.id === banded ? 0 : -1"
               :aria-label="$t('editor.goToSceneByExit', {
                 name: sceneName(way.toSceneId),
                 place: place + 1,
@@ -259,12 +268,14 @@ function describe(shot: Shot) {
 
         <p v-if="!band.frames.length" class="none">{{ $t('editor.noShotYet') }}</p>
 
-        <!-- One tab stop for the whole sheet and the arrows inside it, which is
-             what makes the reading usable at the size it is for: a Story of forty
-             Scenes is some hundreds of frames, and a `Tab` that walked every one
-             of them would put the Description field of the frame just chosen
-             hundreds of presses away. `Tab` reaches the sheet and leaves it for
-             the field beside it; the arrows walk the frames. -->
+        <!-- One tab stop for the frames of the whole sheet and the arrows inside
+             it, which is what makes the reading usable at the size it is for: a
+             Story of forty Scenes is some hundreds of frames, and a `Tab` that
+             walked every one of them would put the Description field of the frame
+             just chosen hundreds of presses away. `Tab` reaches the chosen frame
+             and leaves it for the field beside it; the arrows walk the frames. The
+             marks in a band's header rove with them, for the same reason — see
+             them. -->
         <ol v-else class="frames">
           <li v-for="frame in band.frames" :key="frame.shot.id">
             <button
@@ -316,9 +327,16 @@ function describe(shot: Shot) {
         <!-- The Shot's words, in the face a Shot's text is set in everywhere. Not
              at the reading measure, which this column is not wide enough to be and
              which the writing and the Preview are both for: what these words are
-             here is what the frame beside them is a frame of. -->
+             here is what the frame beside them is a frame of.
+
+             A Shot carrying none says so in its own words and not in the Scene's:
+             the sentence a band with no frame in it wears — *Nothing is written in
+             this Scene yet. Add the first beat.* — is false said here, where the
+             Shot exists and its Scene may hold five more, and it offers an act this
+             reading does not carry. Beats are added where they stand, in the
+             writing. -->
         <p v-if="shown.shot.text" class="shot" :lang="story.language">{{ shown.shot.text }}</p>
-        <p v-else class="none">{{ $t('editor.noShotYet') }}</p>
+        <p v-else class="none">{{ $t('editor.noWordsYet') }}</p>
 
         <!-- What the image shows, for a Reader who cannot see it. The one field on
              this reading, and the reason the reading has one: an Author writes a
