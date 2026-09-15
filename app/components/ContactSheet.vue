@@ -577,6 +577,11 @@ function describe(shot: Shot) {
    actually looked at, and everything the sheet knows about it under that. */
 .shown {
   grid-area: shown;
+  /* The containing block for what is inside it, for the reason the writing
+     surface and the Remarks list are one: see `Writing.vue` and `Remarks.vue`.
+     This pane scrolls, and the hidden span in its Description's label was laid
+     out against the viewport instead, at its row down the page (#293). */
+  position: relative;
   display: grid;
   align-content: start;
   gap: var(--s3);
