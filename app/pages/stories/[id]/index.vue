@@ -33,9 +33,17 @@ const refusedIn = ref<string>()
  * says which Scene it concerns now that it is not drawn against it. Nothing while
  * the refusal belongs to the Story's own edge, and nothing while the Scene it was
  * about has gone from under it.
+ *
+ * Nothing either while the name is blank, which is the one reading where naming it
+ * would be worse than not: the field writes through the Story as it is typed, so a
+ * name emptied and left is a Scene the sentence would introduce as “ ”. Unnamed,
+ * the sentence falls back to what an act about the whole Story says, and the
+ * Author is looking at the empty field anyway. A name typed but refused is said as
+ * typed on purpose — that is the word under their hand, and the Scene the old name
+ * belongs to is not the one they are looking at.
  */
 const refusedScene = computed(() =>
-  story.value?.scenes.find(scene => scene.id === refusedIn.value)?.name)
+  story.value?.scenes.find(scene => scene.id === refusedIn.value)?.name.trim() || undefined)
 
 /**
  * The two holders the Story's own edge writes through, which are the page's own
@@ -748,8 +756,16 @@ main {
    at the wind and the width the defect was read at: what the sentence stands on,
    what the door does under a real mouse press, whether the band is whole in the
    window, and what moves under the hands. */
+/* Out of the scroller, so it covers nothing — and capped, because what it stopped
+   taking from the length of the document it would otherwise take from its height.
+   Measured before the cap: a Scene named to the two hundred characters the API
+   allows left a document of sixty-four pixels at 320 wide and of none at all at
+   390 × 400, where the band then ran past the foot of the window. Six lines is more
+   than any refusal this product writes needs, and a seventh scrolls. */
 .refused {
   margin: var(--s4) var(--s4) 0;
+  max-block-size: 6lh;
+  overflow-y: auto;
 }
 
 /* The scroller the middle of the bench holds, and the only one the layout has: the
