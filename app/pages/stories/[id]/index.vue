@@ -279,13 +279,11 @@ async function goToScene(sceneId: string) {
  * that surface's own padding is written in. Smoothness is the stylesheet's, where
  * the answer to `prefers-reduced-motion` is given once, per scroller.
  *
- * What it does too much of is the window: it walks every scrollable ancestor, and
- * the bench is a window tall by construction and overflows one anyway on a long
- * Story — a defect of its own, #285 — so a wind would take the Story's own edge
- * off the top of the screen on the way to a Scene. A wind scrolls the surface the
- * reading is read in and not the window, which is put back where it was. That is
- * all this can promise: the gestures that call it move focus too, and a browser
- * brings what it focuses into view.
+ * It walks every scrollable ancestor, so a wind moves only what is there to move:
+ * the bench is a window tall and the window has nothing to scroll, which
+ * `tests/e2e/sheet-signed-in.spec.ts` holds it to. That is all this can promise:
+ * the gestures that call it move focus too, and a browser brings what it focuses
+ * into view.
  *
  * Callers rather than one immediate watch, and they arrive differently. The first
  * sight of a reading is a reload coming back to an address, or a turn onto a
@@ -316,10 +314,8 @@ function windOn(behavior: ScrollBehavior) {
   const stands = reading.value === 'sheet'
     ? document.querySelector(`[data-band="${CSS.escape(scene)}"]`)
     : document.getElementById(`scene-${scene}`)
-  const { scrollX, scrollY } = window
 
   stands?.scrollIntoView({ behavior, block: 'start' })
-  window.scrollTo(scrollX, scrollY)
 }
 
 onMounted(() => windOn('instant'))

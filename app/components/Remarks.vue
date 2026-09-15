@@ -236,6 +236,15 @@ summary {
 }
 
 ul {
+  /* The containing block of the `.visually-hidden` span in every Remark. That span
+     is `position: absolute` and, with no positioned ancestor, was positioned
+     against the viewport: a scroller clips nothing whose containing block is
+     outside it, so forty Remarks laid forty one-pixel boxes down the page at the
+     rows they would have stood at in the list — the last of them 3290 pixels down
+     on a Story of forty Scenes at 900 tall — and the window scrolled by exactly
+     that (#285). Positioned, the list is what they are laid out against, and what
+     it scrolls is the whole of them. */
+  position: relative;
   display: grid;
   gap: var(--s1);
   /* As wide as the region it stands in, and never taller than a screenful of it:
