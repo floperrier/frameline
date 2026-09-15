@@ -173,12 +173,15 @@ const reading = ref<Reading>('writing')
  * section, and the word an Author who has just gone somewhere is about to type,
  * which is the answer `writeScene` already gave for the one gesture that had one.
  *
- * The other two readings lay out no field of that Scene to land it in: the writing
- * is `display: none` behind them, and focus cannot be sent into a box nothing laid
- * out. What keeps the caret out of the drawing there is the drawing itself, which
- * refuses a press its own focus — see `app/components/Graph.vue` and #265, where a
- * mark pressed on the rail was leaving the caret inside the subtree `aria-hidden`
- * takes out of the accessibility tree.
+ * The other two readings lay out no name of that Scene to land it in. The writing
+ * is `display: none` behind them, and its name field is still in the document
+ * there — mounted and not laid out — so it is asked for only while the writing is
+ * up: focus sent into a box nothing laid out moves nothing and says nothing, and a
+ * caret blurred below and then sent there would be a caret left on `<body>`. What
+ * keeps the caret out of the drawing on those readings is the drawing itself,
+ * which refuses a press its own focus — see `app/components/Graph.vue` and #265,
+ * where a mark pressed on the rail was leaving the caret inside the subtree
+ * `aria-hidden` takes out of the accessibility tree.
  *
  * So the bench says where it went where nothing took the caret, and stays quiet
  * where something did. `0043` made *Go to* a scroll rather than an opening, and a
@@ -204,16 +207,23 @@ const reading = ref<Reading>('writing')
  * for from somewhere else, would each leave a name standing on the screen and on
  * the mark over a Story that never held it. The field is given that blur by hand,
  * which is what the press would have done had it been allowed to land in a drawing
- * nothing announces, and the caret put straight back wherever this act has nowhere
- * else to put it: the address unmoved, or moved onto a reading that lays out no
- * name of that Scene to land in. A field and nothing wider: focus stands on a
- * control as often as in a field — a frame of the Contact Sheet is a button that
- * chooses itself as it takes it — and a control has nothing typed in it to end.
+ * nothing announces, and the caret then owed a landing. Where the address does
+ * not move it is put straight back. Where it moves on the Contact Sheet, the field
+ * it was in is the sheet's one field, the Description of the Shot under the hand —
+ * and the wind has just turned that detail to the Scene gone to, so the box the
+ * caret left is either gone or describing another Shot. The caret goes onto the
+ * first frame of the band the sheet was wound to, which is what the sheet lays out
+ * of that Scene, is named by it, and chooses itself as it takes the focus — so the
+ * detail and the caret agree. A field and nothing wider: focus stands on a control
+ * as often as in a field — a frame is such a button — and a control has nothing
+ * typed in it to end, so a caret on one is left there and told where the address
+ * went.
  *
- * Put back without scrolling where the address does not move: the wind above has
- * just said where the surface is to stand, and a browser brings what it focuses
- * into view — which on a Scene longer than the screen would scroll the wind
- * straight back off it.
+ * Only the name is let scroll into view as it takes the focus, because the wind is
+ * on its way there anyway. Everything else is focused with the scroll held: the
+ * wind above has just said where the surface is to stand, and a browser brings
+ * what it focuses into view — which on a Scene longer than the screen would scroll
+ * the wind straight back off it.
  */
 async function goToScene(sceneId: string) {
   const moving = sceneWritten.value?.id !== sceneId
@@ -221,13 +231,19 @@ async function goToScene(sceneId: string) {
   else windOn('auto')
 
   await nextTick()
-  const named = document.getElementById(`scene-name-${sceneId}`) as HTMLInputElement | null
+  const named = reading.value === 'writing'
+    ? document.getElementById(`scene-name-${sceneId}`) as HTMLInputElement | null
+    : null
+  const framed = reading.value === 'sheet'
+    ? document.querySelector<HTMLElement>(`[data-band="${CSS.escape(sceneId)}"] .frames button`)
+    : null
   const typing = document.querySelector<HTMLElement>('input:focus, textarea:focus')
-  const lands = (moving ? named : null) ?? typing
+  const landing = moving ? named ?? (typing && framed) : null
+  const lands = landing ?? typing
 
   typing?.blur()
-  lands?.focus({ preventScroll: !moving })
-  if (moving && document.activeElement !== named) {
+  lands?.focus({ preventScroll: landing !== named })
+  if (moving && !landing) {
     announce(t('editor.writingScene', { name: sceneWritten.value?.name ?? '' }))
   }
 

@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test'
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
-import { live, sceneNode, seedExit, seedScenes, test, toast } from './author'
+import { ONE_PIXEL, live, sceneNode, seedExit, seedScenes, test, toast } from './author'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
 /**
@@ -477,6 +477,70 @@ test('leaves no caret in the rail when a mark is pressed, at either width and on
       // answering with a field that announces the Scene under its own name.
       await expect(toast(page)).toHaveText(`Writing Scene ${place}`)
     }
+  })
+
+test('lands the caret on the frame the sheet turned to when a mark ends typing in its field',
+  async ({ page, request }) => {
+    // Ten bands of three, so the sheet has something to wind, and an Image on one
+    // Shot of the first Scene, so the one field this reading has is laid out for
+    // the caret to be typing in. Nothing in Scene 5 has one: the general case, and
+    // the one where the field the caret was in is not there to be put back into.
+    const { story, scenes } = await chained(request, 10)
+    for (const [place, scene] of scenes.entries()) {
+      const second = await (await request.post(`/api/scenes/${scene.id}/shots`)).json() as { id: string }
+      if (place === 0) {
+        expect((await request.put(`/api/shots/${second.id}/image`, { data: ONE_PIXEL })).ok()).toBeTruthy()
+      }
+      expect((await request.post(`/api/scenes/${scene.id}/shots`)).ok()).toBeTruthy()
+    }
+
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto(`/stories/${story.id}`)
+    await live(page)
+    await page.getByRole('button', { name: 'See the Contact Sheet' }).click()
+    const sheet = page.getByRole('region', { name: 'Contact Sheet' })
+    await expect(sheet).toBeVisible()
+
+    // The caret in the sheet's own field, with a Description half typed in it. The
+    // press on a mark refuses its own focus, so nothing about it ends this typing;
+    // the act does, by hand, and then owes the caret a landing.
+    await sheet.getByRole('button', { name: 'Shot 2 of Scene 1', exact: true }).click()
+    const described = sheet.getByLabel('Description of the image of Shot 2 of Scene 1')
+    await described.click()
+    await described.pressSequentially('A door onto a wet street.')
+
+    await sceneNode(page, 'Scene 5').click()
+    await expect(page.locator('.rail .here')).toHaveAttribute('data-scene', scenes[4]!.id)
+
+    // The writing lays out no name of Scene 5 while it is dark behind the sheet,
+    // and the wind has turned the detail to Scene 5, taking the field the caret
+    // was in with it. So the caret is on the first frame of the band the sheet was
+    // wound to — laid out, named by the Scene, and the frame the detail is now
+    // showing. Not the rail, and not `<body>`: a blur with no landing after it is a
+    // caret left nowhere, and the next `Tab` starting over from the top of the page.
+    await expect(sheet.getByRole('button', { name: /^Shot 1 of Scene 5/ })).toBeFocused()
+    await expect(page.locator('#shown-heading')).toHaveText(/Shot 1 of Scene 5/)
+
+    // Landed with the scroll held: the wind has just stood the band of Scene 5 at
+    // the head of the sheet — the room it keeps above itself and no more — and it
+    // is still there once the caret is down.
+    const bands = page.locator('.sheet .bands')
+    const headOfBand = () => page.evaluate((id) => {
+      const scroller = document.querySelector('.sheet .bands')!.getBoundingClientRect()
+      const band = document.querySelector<HTMLElement>(`[data-band="${id}"]`)!
+      const room = parseFloat(getComputedStyle(band).scrollMarginBlockStart)
+      return Math.round(band.getBoundingClientRect().top - scroller.top - room)
+    }, scenes[4]!.id)
+    await expect.poll(headOfBand).toBe(0)
+    await expect.poll(() => bands.evaluate(one => one.scrollTop)).toBeGreaterThan(0)
+
+    // The typing that press ended is written, and the bench said nothing over the
+    // frame: it names the Scene it stands in as it takes the focus.
+    await expect.poll(async () => (await (await request.get(`/api/stories/${story.id}`)).json() as
+      { scenes: { id: string, shots: { description: string | null }[] }[] })
+      .scenes.find(scene => scene.id === scenes[0]!.id)?.shots[1]?.description)
+      .toBe('A door onto a wet street.')
+    await expect(toast(page)).toBeEmpty()
   })
 
 test('writes the name under the caret when that Scene’s own mark is what ends the typing',
