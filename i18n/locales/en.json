@@ -255,7 +255,7 @@
     "noFlags": "No Scene has set one yet",
     "scenesEntered": "Scenes entered",
     "reroll": "Draw Again",
-    "rerollNote": "the same Position, another draw",
+    "rerollNote": "the same Path, another draw",
     "needsFlag": "needs {flag} to hold {is}, holds {holds}",
     "nothing": "nothing",
     "needsVisits": "needs {how} {count} to {scene}, {entered}",

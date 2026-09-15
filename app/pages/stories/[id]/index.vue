@@ -265,17 +265,88 @@ const counted = computed(() => {
 const reading = ref(false)
 
 /**
+ * Where the Reading the Preview replays has got to. The bench holds it, above
+ * the document, because the middle of the bench holds one reading at a time: a
+ * Path held inside the reading would be drawn afresh every time the Author
+ * turned back to it, and a Preview that redraws its seed each time it is looked
+ * at is not replaying a Path — see #247 and
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ *
+ * It opens at `UNDRAWN` and the seed is drawn once the bench is in the browser
+ * it will stay in. The server renders the bench whole, and a seed drawn there
+ * and drawn again here would be two different Stories either side of hydration —
+ * `docs/adr/0024-the-seed-belongs-to-the-position.md`.
+ *
+ * A `ref` and nothing more: the bench keeps no Reading across sessions, so a
+ * reload starts the Story over. An Author is testing rather than reading, and a
+ * Preview that reopened mid-Story would be a bench remembering what they have
+ * stopped meaning — `docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md`.
+ */
+const at = ref<Path>(UNDRAWN)
+
+onMounted(() => {
+  at.value = opening()
+})
+
+/**
  * What the control that turns the middle over says: what pressing it does, rather
  * than which reading is up — so the control and the Command that runs it are one
- * sentence. Focus is kept on the control, because the reading that goes takes
- * whatever was focused inside it with it.
+ * sentence.
  */
 const faceSays = computed(() =>
   reading.value ? t('editor.writeTheScene') : t('editor.readTheStory'))
 
-function turnOver(event: Event) {
+/**
+ * Whatever in the writing last took focus: a beat, a Scene's own name, one of the
+ * marks a row carries. Recorded as focus moves through the document rather than
+ * read when the turn is asked for, because the turn is an act of the bar of
+ * Commands as well as a control, and focus stands on the bar while the bar is up.
+ */
+let caret: HTMLElement | undefined
+
+function focusedIn(event: FocusEvent) {
+  if (!reading.value) caret = event.target as HTMLElement
+}
+
+/**
+ * Whether the caret is one to put back rather than a note the address has moved
+ * out from under: still in the document, and in the section of the Scene the
+ * address names. Read off the document by the `data-scene` each section carries,
+ * so there is nothing kept here to fall out of step with where the Author is.
+ */
+function inSceneWritten(held: HTMLElement) {
+  return held.isConnected
+    && held.closest<HTMLElement>('[data-scene]')?.dataset.scene === sceneWritten.value?.id
+}
+
+/**
+ * The middle of the bench turned onto the other reading. Focus stays on the
+ * control on the way to the reading, because the writing that goes dark takes
+ * whatever was focused inside it with it and the reading has nothing that has
+ * just arrived.
+ *
+ * Coming back, it goes to the beat the Author left — where that beat is still in
+ * the Scene the address names. The caret is a variable of this page and the
+ * address is moved by the rail, by the bar of Commands and by the reading itself,
+ * none of which touches focus in the document: a caret put back after one of those
+ * would put the Author, and the next word they type, in the Scene they left. There
+ * is one notion of where the Author is and it is the Path, so anything the address
+ * does not answer to is wound to instead — as is a Story opened and turned over
+ * without a word typed into it, which has no beat to come back to at all.
+ *
+ * The writing is never taken out of the document — the reading takes its place in
+ * front of it — so a beat that is still the right one holds the caret it held, and
+ * the focus the browser dropped when the field went dark is the whole of what has
+ * to be put back.
+ */
+async function turnOver(event: Event) {
   reading.value = !reading.value
   ;(event.currentTarget as HTMLElement).focus()
+  if (reading.value) return
+
+  await nextTick()
+  if (caret && inSceneWritten(caret)) caret.focus()
+  else windOn('instant')
 }
 </script>
 
@@ -346,9 +417,12 @@ function turnOver(event: Event) {
     </div>
 
     <!-- The bench: three regions that never trade width — the rail, the document,
-         and the side the bench says what it read back on. Nothing covers anything,
-         nothing is made `inert` and nothing is `display: none`: what folds is the
-         width the Remarks are said in and never their voice. See
+         and the side the bench says what it read back on. Nothing covers anything
+         and nothing is made `inert`: what folds is the width the Remarks are said
+         in and never their voice. The one thing here that is `display: none` is
+         the face of the document that is not being read, which is not a fold at
+         all — the writing and the reading are two faces of one column and only one
+         of them is on at a time. See
          `docs/adr/0043-a-story-is-written-as-one-document.md`. -->
     <div v-else-if="story" class="bench">
       <!-- The Graph drawn small, and it never grows: 120 pixels at every width,
@@ -361,13 +435,14 @@ function turnOver(event: Event) {
 
       <!-- The one thing on the bench that scrolls. Which reading it holds is the
            page's to say; where it is, is not. -->
-      <div class="document">
+      <div class="document" @focusin="focusedIn">
         <!-- There is one notion of where the Author is and it is the Path, so a
              way on pressed in the reading moves the writing with it — see
              `docs/adr/0030-a-story-is-read-where-it-is-written.md`, whose engine
              rule `0043` keeps. -->
         <Preview
           v-if="reading && sceneWritten"
+          v-model:at="at"
           :story="story"
           :scene-written="sceneWritten.id"
           :change="changeStory"
@@ -376,9 +451,11 @@ function turnOver(event: Event) {
 
         <!-- The whole Story as one document, every Scene of it written where it
              stands: there is no one Scene to put on a bench first, because the
-             bench is the document. -->
+             bench is the document. It goes dark while the reading is up rather
+             than out of the document, so the beat the caret was left on is still
+             the beat it is on when the Author turns back — see `turnOver`. -->
         <Writing
-          v-else
+          v-show="!reading"
           v-model:refused-in="refusedIn"
           :story="story"
           :scene-written="sceneWritten?.id"

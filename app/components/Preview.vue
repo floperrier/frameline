@@ -1,13 +1,18 @@
 <script setup lang="ts">
 /**
- * The Story read beside the Scene being written, on the engine a Reader runs —
- * see `docs/adr/0030-a-story-is-read-where-it-is-written.md`. It replays the
- * Path the Author is on, with the State that Path has accumulated, and stops on
- * the Scene they are writing.
+ * The Story read in the middle of the bench, on the engine a Reader runs — see
+ * `docs/adr/0030-a-story-is-read-where-it-is-written.md`, whose engine rule
+ * `docs/adr/0043-a-story-is-written-as-one-document.md` keeps and whose *beside*
+ * it supersedes. It replays the Path the Author is on, with the State that Path
+ * has accumulated, and stops on the Scene they are writing.
+ *
+ * The Path is the bench's, held above the document and handed down, so this pane
+ * is turned to and away from without the Reading it is a face of ever ending —
+ * see #247.
  *
  * There is one notion of where the Author is and it is the Path, so the two
  * halves answer to each other: pressing a way on here moves the writing to the
- * Scene it leads to, and pressing a card in the rail routes the reading to that
+ * Scene it leads to, and pressing a mark on the rail routes the reading to that
  * Scene. Neither holds a cursor of its own.
  *
  * Under the reading is the bench: the State it has accumulated, the ways on its
@@ -35,18 +40,14 @@ const emit = defineEmits<{ moved: [string] }>()
 const { t } = useI18n()
 
 /**
- * Where the Reading below has got to, and the only thing it tells this pane. The
- * engine is a pure function of it, so reading it a second time here costs a walk
- * of the Exits taken and buys a State nobody had to hand out.
+ * The Reading, which is its Path and nothing else. It belongs to the bench and
+ * is passed straight through to the reel below, so that neither this pane nor
+ * the reel holds a Reading of its own: the seed goes on being the seed the
+ * Author has been reading under however often the middle of the bench is turned
+ * over. The engine is a pure function of it, so everything on the bench under
+ * the reading is worked out from it again here and nothing has to be handed out.
  */
-const at = ref<Path>(UNDRAWN)
-
-/**
- * The reel beside the writing, which holds the Path and is the only thing that
- * may move it. All this asks of it is another draw, and the Path that stops on a
- * given Scene — a Path held here as well would be a second Reading.
- */
-const reel = useTemplateRef<{ reroll: () => void, goTo: (to: Path) => void }>('reel')
+const at = defineModel<Path>('at', { required: true })
 
 const shown = computed(() => reading(story, at.value))
 
@@ -63,17 +64,10 @@ const standing = computed(() => shown.value.sceneId)
 const reached = ref(true)
 
 /**
- * Whether what the Reading says about itself should move the writing. The Reading
- * draws its own seed as it mounts and says so, which happens before this pane has
- * routed it anywhere: heard then, the opening Scene would take the writing off
- * the Scene the Author asked for.
- */
-let following = false
-
-/**
  * The reading routed to the Scene being written: on from where it stands, so an
  * Author three Scenes in keeps what those Scenes set, and from the opening when
- * the Scene cannot be reached from where they are.
+ * the Scene cannot be reached from where they are. The seed is carried into that
+ * second search, because a Path found under another one would be another Reading.
  */
 function route() {
   if (standing.value === sceneWritten) {
@@ -84,19 +78,21 @@ function route() {
   const found = pathTo(story, at.value, sceneWritten)
     ?? pathTo(story, opening(at.value.seed), sceneWritten)
   reached.value = !!found
-  if (found) reel.value?.goTo(found)
+  if (found) at.value = found
 }
 
-/** Where the Reading has got to, and the writing moved to meet it. */
-function heard(to: Path) {
-  at.value = to
-  if (following && standing.value && standing.value !== sceneWritten) emit('moved', standing.value)
-}
-
-onMounted(() => {
-  route()
-  following = true
+/**
+ * The Reading moved somewhere the writing is not, and the writing asked to
+ * follow it. Read off where the Reading stands rather than off the move that got
+ * there, so the pane cannot answer its own question: every Path this routes
+ * arrives at the Scene being written, and a Scene it could not reach leaves the
+ * Reading where it was.
+ */
+watch(standing, (now) => {
+  if (now && now !== sceneWritten) emit('moved', now)
 })
+
+onMounted(route)
 
 watch(() => sceneWritten, route)
 
@@ -229,7 +225,7 @@ function why(conditions: Condition[]) {
            arrives with its sentence inside it. -->
       <p class="nothing" role="status">{{ reached ? '' : $t('preview.notReached', { scene: sceneName(sceneWritten) }) }}</p>
 
-      <Reading ref="reel" :story="story" @at="heard">
+      <Reading v-model:at="at" :story="story">
         <!-- The order the ways on are offered in, set on the buttons as they are
              read. A pair of controls rather than a drag, because an order that
              can only be set with a pointer is an order some Authors cannot set. -->
@@ -273,9 +269,11 @@ function why(conditions: Condition[]) {
         </p>
 
         <!-- The one control on the bench, and no part of the Story: the same
-             Reading at the same Path, read against another draw. -->
+             Reading at the same Path, read against another draw. Nothing moves,
+             so nothing takes focus — the Author presses it again and again, and
+             what changes is the Story around it. -->
         <p v-if="draws" class="draw">
-          <button type="button" @click="reel?.reroll()">
+          <button type="button" @click="at = rerolled(at)">
             {{ $t('preview.reroll') }}
           </button>
           <span class="aside">{{ $t('preview.rerollNote') }}</span>
@@ -345,12 +343,10 @@ function why(conditions: Condition[]) {
 
 <style scoped>
 /* The other reading the middle of the bench holds: the Story read as a Reader
-   will read it, and under it
-   the instrument the Author reads it with. It fills exactly the box the Scene
-   being written stands in — a Story is read where it is written, in the very same
-   box on the table, see
-   `docs/adr/0030-a-story-is-read-where-it-is-written.md` and
-   `docs/adr/0042-the-scene-is-written-where-it-stands.md`. The reading is at the
+   will read it, and under it the instrument the Author reads it with. It takes
+   the document's own place rather than a box beside it — a Story is read where it
+   is written, see `docs/adr/0030-a-story-is-read-where-it-is-written.md` and
+   `docs/adr/0043-a-story-is-written-as-one-document.md`. The reading is at the
    top because that is what the face is for, and the bench is pushed to the foot
    of it — a control desk under a screen, rather than a second card floating
    halfway down an empty pane. */
