@@ -40,7 +40,7 @@ const { id, story, keptAt, change, write } = defineProps<{
   write: Write
 }>()
 
-const { locale } = useI18n()
+const { t, locale } = useI18n()
 const localePath = useLocalePath()
 const { languageNamed } = useEntries()
 const { user: author, fetch: refreshAuthor } = useUserSession()
@@ -93,10 +93,17 @@ function present() {
  * named or standing in. The bench runs the same rule the server does, so the
  * frame marked here is the frame a Reader meets. See
  * `docs/adr/0040-a-story-is-presented-by-one-of-its-own-frames.md`.
+ *
+ * Each frame is a radio named by the Shot's Place and the Scene, so the Scene is
+ * named the way every control of the bench names one — by `namesOnTheBench`, which
+ * numbers two Scenes an Author called the same. Read off the Scene instead, two
+ * Scenes called *The bar* with an Image apiece put two radios under one name — see
+ * `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
  */
+const names = computed(() => (story ? namesOnTheBench(story, t) : new Map<string, string>()))
 const frames = computed(() => (story?.scenes ?? []).flatMap(scene => scene.shots
   .filter(shot => shot.image)
-  .map(shot => ({ shot, place: shot.position + 1, scene: scene.name }))))
+  .map(shot => ({ shot, place: shot.position + 1, scene: names.value.get(scene.id)! }))))
 const presented = computed(() => story && coverOf(story))
 
 /**

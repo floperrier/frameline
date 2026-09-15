@@ -52,6 +52,17 @@ const { story, sceneWritten } = defineProps<{
 
 const emit = defineEmits<{ writeScene: [string] }>()
 
+const { t } = useI18n()
+
+/**
+ * What the bench calls each Scene, which is what a mark is named by and so what
+ * the bar of Commands offers *Go to* under. Read from `namesOnTheBench` rather
+ * than off the Scene, because two Scenes an Author called the same would
+ * otherwise put the same act in the bar twice with nothing to choose between
+ * them — see `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
+ */
+const names = computed(() => (story ? namesOnTheBench(story, t) : new Map<string, string>()))
+
 /** The Story's columns, which is the whole of what the rail draws. */
 const columns = computed(() => inColumns(
   story?.scenes ?? [], story?.exits ?? [], story?.openingSceneId ?? null))
@@ -98,9 +109,11 @@ watch(() => sceneWritten, async () => {
   <div v-if="story?.scenes.length" ref="rail" class="rail" aria-hidden="true">
     <div v-for="(column, depth) in columns" :key="depth" class="column">
       <!-- Named for what pressing it does, so the bar of Commands offers every
-           Scene under the same words the mark answers to. The name is also the
-           mark's `title`, because a rail this narrow carries no words of its own
-           and a locator nobody can read is not one. -->
+           Scene under the same words the mark answers to — and by the name the
+           bench calls the Scene, so two Scenes of one name are two acts there and
+           not one act offered twice. The name is also the mark's `title`, because
+           a rail this narrow carries no words of its own and a locator nobody can
+           read is not one. -->
       <button
         v-for="scene in column"
         :key="scene.id"
@@ -108,8 +121,8 @@ watch(() => sceneWritten, async () => {
         class="mark"
         tabindex="-1"
         :data-scene="scene.id"
-        :data-command="$t('editor.goToScene', { name: scene.name })"
-        :title="$t('editor.goToScene', { name: scene.name })"
+        :data-command="$t('editor.goToScene', { name: names.get(scene.id) })"
+        :title="$t('editor.goToScene', { name: names.get(scene.id) })"
         :class="{
           opens: story.openingSceneId === scene.id,
           here: scene.id === sceneWritten,

@@ -474,7 +474,8 @@ test('a way on’s four controls are marks, as a Shot’s are', async ({ page, r
   await expect(earlier).toBeVisible()
   await expect(page.getByRole('button', { name: 'Move Later the Exit 1 to The buffet' }))
     .toBeVisible()
-  await expect(page.getByRole('button', { name: 'Duplicate Exit to The buffet' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Duplicate the Exit 1 to The buffet' }))
+    .toBeVisible()
   await expect(page.getByRole('button', { name: 'Delete the Exit 1 to The buffet' }))
     .toBeVisible()
 
@@ -814,7 +815,7 @@ test('a second way on to the same Scene is written by duplicating the first',
     // for and never slipped into. The bench says so out loud, because the copy
     // lands at the foot of a list the Author may have scrolled past.
     await writeScene(page, 'The arrival')
-    const duplicate = page.getByRole('button', { name: 'Duplicate Exit to The platform' })
+    const duplicate = page.getByRole('button', { name: 'Duplicate the Exit 1 to The platform' })
       .first()
     await duplicate.click()
     await expect(toast(page))

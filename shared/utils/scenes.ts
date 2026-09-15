@@ -398,6 +398,47 @@ export function countedWords(many: number, say: Phrase) {
 }
 
 /**
+ * What the bench calls each Scene of a Story: its id to the name every control
+ * naming that Scene is named by. The Author's own name where one Scene carries
+ * it, and that name with a number after it where several do.
+ *
+ * The number is drawn here and never written back — what the Story holds is
+ * still what the Author typed — in the order the Story is written in, and past
+ * any name a Scene of the Story already answers to, so no two names this hands
+ * back are alike. Why the bench numbers a name rather than refusing it, and how
+ * far the rule reaches, is
+ * `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
+ */
+export function namesOnTheBench(story: StoryInEditor, say: Phrase) {
+  const alike = new Map<string, number>()
+  for (const scene of story.scenes) alike.set(scene.name, (alike.get(scene.name) ?? 0) + 1)
+
+  // The names already spoken for: a name one Scene alone carries is drawn as the
+  // Author typed it, so no number may ever land on it.
+  const taken = new Set([...alike].filter(([, many]) => many === 1).map(([name]) => name))
+  const counted = new Map<string, number>()
+  const names = new Map<string, string>()
+  for (const scene of inDocumentOrder(story.scenes, story.exits, story.openingSceneId)) {
+    if (alike.get(scene.name) === 1) {
+      names.set(scene.id, scene.name)
+      continue
+    }
+
+    let number = (counted.get(scene.name) ?? 0) + 1
+    let drawn = say('editor.namedAlike', { name: scene.name, number })
+    while (taken.has(drawn)) {
+      drawn = say('editor.namedAlike', { name: scene.name, number: ++number })
+    }
+
+    counted.set(scene.name, number)
+    taken.add(drawn)
+    names.set(scene.id, drawn)
+  }
+
+  return names
+}
+
+/**
  * A Scene read by name where something else names it — the far side of an Exit, the
  * count a Condition asks for. A Condition still names a Scene deleted since it
  * was written, and saying so beats showing the Author the id it holds. One

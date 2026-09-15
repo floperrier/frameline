@@ -253,8 +253,12 @@ test('the order the ways on are offered in is set on the buttons as they are rea
     await expect(ways).toHaveText(['Follow her out', 'Stay outside'])
 
     // The pair of controls beside each button is the order, so it is set without a
-    // pointer gesture: the second way on moved earlier is the first way on.
-    await preview.getByRole('button', { name: 'Move Earlier the Exit to The alley' }).click()
+    // pointer gesture: the second way on moved earlier is the first way on. Each
+    // mark is named by the Place of the row it renumbers, the way the same mark is
+    // in the writing, so the two rows are told apart where both lead to one Scene.
+    await preview.getByRole('button', {
+      name: 'Move Earlier the Exit 2 to The alley, out of The street',
+    }).click()
     await expect(ways).toHaveText(['Stay outside', 'Follow her out'])
 
     // And it is written on the Story rather than held on the screen: the Places
@@ -263,9 +267,11 @@ test('the order the ways on are offered in is set on the buttons as they are rea
     expect(exits.filter(exit => exit.text).map(exit => exit.text))
       .toEqual(['Stay outside', 'Follow her out'])
 
-    // The controls stop at the ends of the list they renumber.
-    await expect(preview.getByRole('button', { name: 'Move Earlier the Exit to The alley' }))
-      .toBeDisabled()
+    // The controls stop at the ends of the list they renumber — and the mark the
+    // Author just pressed answers to the Place it moved the row to.
+    await expect(preview.getByRole('button', {
+      name: 'Move Earlier the Exit 1 to The alley, out of The street',
+    })).toBeDisabled()
   })
 
 test('the reading is read by keyboard, and focus goes with each beat',
@@ -1022,7 +1028,9 @@ test('a refusal from the reading is said, whatever the writing was refused befor
     // Renumbering a list the Story no longer holds, which is what an Exit taken
     // away behind the page's back leaves the reading holding.
     await request.delete(`/api/exits/${out.id}`)
-    await preview.getByRole('button', { name: 'Move Earlier the Exit to The alley' }).click()
+    await preview.getByRole('button', {
+      name: 'Move Earlier the Exit 2 to The alley, out of The street',
+    }).click()
 
     await expect(page.locator('main > [role="alert"]'))
       .toHaveText(/renumbered all at once/)

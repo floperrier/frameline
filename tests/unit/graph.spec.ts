@@ -2,11 +2,13 @@ import { describe, expect, test } from 'vitest'
 import type { Exit, Scene } from '../../shared/utils/scenes'
 import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
 import type { Phrase } from '../../shared/utils/phrases'
+import type { StoryInEditor } from '../../shared/utils/scenes'
 import {
   countedArrivals,
   countedScenes,
   inColumns,
   inDocumentOrder,
+  namesOnTheBench,
   scenesAExitMayLandOn,
   wordsOf,
 } from '../../shared/utils/scenes'
@@ -20,6 +22,13 @@ function scene(id: string): Scene {
 function exit(from: string, to: string, position = 0): Exit {
   return { id: `${from}>${to}`, fromSceneId: from, toSceneId: to, text: '', position, conditions: [] }
 }
+
+/**
+ * The words themselves, read out of the message file the interface reads, rather
+ * than against a stub: what is asserted is the sentence an Author is shown, which
+ * also proves the messages these are assembled from.
+ */
+const says: Phrase = (key, values) => phrase(DEFAULT_LOCALE, key, values)
 
 describe('the columns a Story falls into', () => {
   /** The columns as ids, which is all a column is to the rail that draws it. */
@@ -177,6 +186,65 @@ describe('the order a Story is written in', () => {
   })
 })
 
+describe('the names the bench calls a Story’s Scenes by', () => {
+  /** A Scene under a name of its own, which is what the numbering is about. */
+  const called = (id: string, name: string): Scene => ({ ...scene(id), name })
+
+  /** A Story in the shape the bench holds it, of which this reads the Scenes alone. */
+  const written = (scenes: Scene[], exits: Exit[]): StoryInEditor => ({
+    id: 'a-story',
+    title: 'A Story',
+    language: 'en',
+    synopsis: '',
+    openingSceneId: scenes[0]?.id ?? null,
+    coverShotId: null,
+    publishedAt: null,
+    listed: false,
+    scenes,
+    exits,
+  })
+
+  /** The names in the order the Story is written in, which is the order they are drawn in. */
+  const drawn = (scenes: Scene[], exits: Exit[] = []) => {
+    const names = namesOnTheBench(written(scenes, exits), says)
+
+    return inDocumentOrder(scenes, exits, scenes[0]?.id ?? null).map(one => names.get(one.id))
+  }
+
+  test('leave a name one Scene alone carries exactly as the Author typed it', () => {
+    expect(drawn([called('a', 'The bar'), called('b', 'La gare')], [exit('a', 'b')]))
+      .toEqual(['The bar', 'La gare'])
+  })
+
+  test('number two Scenes of one name in the order the Story is written in', () => {
+    // Handed over in an order that is not the answer: the Scene the Story opens
+    // on is written second, and it is the one numbered first.
+    const scenes = [called('later', 'The bar'), called('opening', 'The bar')]
+
+    expect(drawn(scenes, [exit('opening', 'later')]))
+      .toEqual(['The bar (1)', 'The bar (2)'])
+  })
+
+  /**
+   * The number is drawn against the names it draws and not against the names it
+   * read, because a number that collides tells nobody anything. An Author reaches
+   * this by hand rather than by accident: the bench draws *The bar (2)*, and the
+   * field that names where a way on leads takes whatever is typed into it — so a
+   * Story really can hold a Scene called *The bar (2)* beside two called *The
+   * bar*. See `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
+   *
+   * The Scene really called *The bar (2)* is written last, after both the Scenes
+   * it collides with: the number has to walk past a name the walk has not reached
+   * yet, so the names taken are read off the whole Story before it starts.
+   */
+  test('walk a number on past a name a Scene of the Story already answers to', () => {
+    const scenes = [called('a', 'The bar'), called('b', 'The bar'), called('c', 'The bar (2)')]
+
+    expect(drawn(scenes, [exit('a', 'b'), exit('b', 'c')]))
+      .toEqual(['The bar (1)', 'The bar (3)', 'The bar (2)'])
+  })
+})
+
 describe('the Scenes an Exit may land on', () => {
   test('are every Scene but the one it leaves and the ones it already reaches', () => {
     const scenes = ['a', 'b', 'c'].map(scene)
@@ -186,13 +254,6 @@ describe('the Scenes an Exit may land on', () => {
 })
 
 describe('what the bench counts of a Story', () => {
-  /**
-   * The words themselves, read out of the message file the interface reads,
-   * rather than against a stub: what is asserted is the sentence an Author is
-   * shown, which also proves the messages these counts are assembled from.
-   */
-  const says: Phrase = (key, values) => phrase(DEFAULT_LOCALE, key, values)
-
   test('names one Scene and several apart', () => {
     expect(countedScenes(1, says)).toBe('1 Scene')
     expect(countedScenes(40, says)).toBe('40 Scenes')

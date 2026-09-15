@@ -915,8 +915,8 @@ test('two Scenes leading to one Scene name their rows apart', async ({ page, req
   for (const said of [
     'Delete the Exit 1 to La gare, out of The street',
     'Delete the Exit 1 to La gare, out of The bar',
-    'Duplicate Exit to La gare, out of The street',
-    'Duplicate Exit to La gare, out of The bar',
+    'Duplicate the Exit 1 to La gare, out of The street',
+    'Duplicate the Exit 1 to La gare, out of The bar',
     'Go to La gare, by the Exit 1 out of The street',
     'Go to La gare, by the Exit 1 out of The bar',
     'Add a Condition to the Exit 1 to La gare, out of The street',

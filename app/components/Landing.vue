@@ -12,7 +12,7 @@
  * A component whose props have not changed is not re-rendered at all, and a
  * keystroke changes none of these, so a keystroke rebuilds none of them.
  */
-const { scenes, exits, from, led, byName = false } = defineProps<{
+const { scenes, exits, from, led, names } = defineProps<{
   /** Every Scene of the Story, which is what a way on chooses among. */
   scenes: Scene[]
   /** Every Exit of the Story, which is what says what this Scene already reaches. */
@@ -24,8 +24,15 @@ const { scenes, exits, from, led, byName = false } = defineProps<{
    * a new way on may not land there.
    */
   led?: string
-  /** The list a name is typed from, where an option is a name rather than an id. */
-  byName?: boolean
+  /**
+   * What the bench calls each Scene, `namesOnTheBench`, where the field chooses a
+   * Scene by id and shows it under that name: two Scenes an Author called the same
+   * are told apart there the way every other control tells them apart. Left out
+   * where the list is one a name is typed from — there an option is the Author's
+   * own name, because a name typed there is the name the Scene is written under.
+   * See `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
+   */
+  names?: Map<string, string>
 }>()
 
 const landings = computed(() => {
@@ -37,7 +44,7 @@ const landings = computed(() => {
 
 <template>
   <template v-for="landing in landings" :key="landing.id">
-    <option v-if="byName" :value="landing.name" />
-    <option v-else :value="landing.id">{{ landing.name }}</option>
+    <option v-if="names" :value="landing.id">{{ names.get(landing.id) }}</option>
+    <option v-else :value="landing.name" />
   </template>
 </template>
