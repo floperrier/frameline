@@ -236,6 +236,26 @@ export async function seedScenes(story: Story, names: string[]) {
 }
 
 /**
+ * A Story long enough to read down, in one known order: the Scenes named, each
+ * joined to the one after it, and the first marked as the Scene the Story opens
+ * on. The order a Story is written in is read off the Story — how far each Scene
+ * stands from the opening, in Exits taken — so a chain is the one shape whose
+ * document runs in the order it was asked for, and the opening has to be named or
+ * the walk starts from whichever Scene the insert happened to hand back first,
+ * which is issue #261 one column over. See
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ */
+export async function seedChain(story: Story, names: string[]) {
+  const scenes = await seedScenes(story, names)
+  for (const [place, scene] of scenes.entries()) {
+    if (place) await seedExit(scenes[place - 1]!.id, scene.id)
+  }
+  await sql`update stories set opening_scene_id = ${scenes[0]!.id} where id = ${story.id}`
+
+  return scenes
+}
+
+/**
  * Puts the caret in a Scene, the way an Author would: by pressing its mark on the
  * rail. Every Scene of the Story is written where it stands since #252, so the
  * writing surface is up for all of them at once and waiting for it says nothing

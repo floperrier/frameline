@@ -5,10 +5,11 @@
  *
  * Which Step is showing is a question asked of the Story — `app/utils/steps.ts` —
  * so this draws it and nothing else. Two elements: a spotlight sitting on the
- * target's own rectangle, and a bubble beneath it carrying the sentence. Neither
+ * target's own rectangle, and a bubble beside it carrying the sentence. Neither
  * is a `<dialog>`, and nothing here is modal: the Author has to be able to type
- * into the very field being pointed at, so the guidance makes nothing inert and
- * takes nothing out of the top layer's way.
+ * into the very field being pointed at, so the guidance makes nothing inert, takes
+ * nothing out of the top layer's way, and answers no pointer anywhere but on its
+ * own control.
  *
  * The bubble is an `<aside>` rather than a live region. It is on screen from the
  * moment the page is, and a live region firing every time a step is met would
@@ -42,16 +43,36 @@ const step = computed(() => !dismissed.value && story ? stepShowing(story) : und
 /** Where the target is on screen, or nothing when the target is not on screen at all. */
 const box = ref<DOMRect>()
 
+/** The bubble itself, whose own height the placement is bounded by. */
+const bubble = useTemplateRef<HTMLElement>('bubble')
+
 /**
- * What the Step showing is pointing at, as a selector.
+ * The three numbers the placement is arithmetic on besides the target: how tall
+ * the panel is, and how wide and how tall the window is. All three are read in the
+ * loop below, with the target's own rectangle, because none of them is reactive on
+ * its own — a window made shorter moves nothing in a document that already fits
+ * across it, so a placement reading `window.innerHeight` where it stands would be
+ * computed once and never asked again.
+ */
+const measured = ref({ panel: 0, across: 0, down: 0 })
+
+/**
+ * What the Step showing is pointing at, as selectors in the order they are tried.
  *
  * Nothing has to be scoped to a Scene by id, although the document holds every
  * Scene of the Story at once: a Step that points into the writing is marked on the
  * Scene the caret is in and on no other — `app/components/Writing.vue` writes
- * `data-step` under `held.here` — so the selector finds one element however long
+ * `data-step` under `held.here` — so a selector finds one element however long
  * the Story is. The rest are drawn once, outside the document.
+ *
+ * More than one because a Step is about a row the Scene may not have written yet:
+ * the Scene a Step asks for a Shot in arrives with none, so the same Step points at
+ * the control that adds one until there is a beat to point at. Which of the two the
+ * editor is drawing is the template's to say, and it draws exactly one of them —
+ * see `app/utils/steps.ts`.
  */
-const pointing = computed(() => step.value && `[data-step="${step.value.target}"]`)
+const pointing = computed(() =>
+  step.value?.targets.map(target => `[data-step="${target}"]`))
 
 function dismiss() {
   localStorage.setItem(dismissalOf(story!.id), '1')
@@ -71,17 +92,38 @@ function dismiss() {
  * the Step.
  */
 function look() {
-  const target = pointing.value ? document.querySelector(pointing.value) : null
-  const seen = target?.getBoundingClientRect()
-  // An element that is in the document and draws nothing measures nothing, and a
-  // light on a rectangle of no size would be a dot in the corner of the bench
-  // rather than on the control the sentence names. Read as absent, so the bubble
-  // goes adrift rather than being wrong about the screen.
-  const reachable = seen?.width && seen.height
-  const found = reachable ? seen : undefined
+  const found = pointing.value?.map(drawn).find(Boolean)
   if (!alike(box.value, found)) box.value = found
 
+  // The panel and the window belong to the same read: what they say is whether the
+  // sentence fits under the target, and the sentence is as long as whichever Step
+  // is showing in whichever language.
+  const panel = bubble.value?.getBoundingClientRect().height ?? 0
+  if (panel !== measured.value.panel || window.innerWidth !== measured.value.across
+    || window.innerHeight !== measured.value.down) {
+    measured.value = { panel, across: window.innerWidth, down: window.innerHeight }
+  }
+
   looking = step.value ? requestAnimationFrame(look) : 0
+}
+
+/**
+ * The rectangle of the element a selector reaches, and nothing where it reaches
+ * none — or reaches one the editor is not drawing, or one the document has carried
+ * off the window. An element that is in the document and draws nothing measures
+ * nothing, and a light on a rectangle of no size would be a dot in the corner of
+ * the bench rather than on the control the sentence names; a target scrolled past
+ * measures a rectangle that is nowhere on the screen, and both the light and the
+ * sentence placed against it go off the screen with it. Read as absent, so the
+ * Step falls to its next target and then to the corner rather than being wrong
+ * about the screen.
+ */
+function drawn(selector: string) {
+  const seen = document.querySelector(selector)?.getBoundingClientRect()
+  if (!seen?.width || !seen.height) return undefined
+
+  return seen.bottom > 0 && seen.top < window.innerHeight
+    && seen.right > 0 && seen.left < window.innerWidth ? seen : undefined
 }
 
 function alike(was: DOMRect | undefined, is: DOMRect | undefined) {
@@ -119,17 +161,34 @@ const lit = computed(() => box.value && {
 })
 
 /**
- * The bubble, under the control it points at and kept on screen: a target near
- * the right edge of the window would otherwise send the sentence off it. With no
- * rectangle to work from there is no placement either, and the bubble falls back
- * to a fixed panel — see `adrift` below.
+ * The bubble, against the control it points at and kept whole on the screen.
+ *
+ * Under the target where the sentence fits under it, and above it where it does
+ * not: a window a Shot's field sits near the foot of is an ordinary window, and a
+ * sentence placed below it would run off the bottom of the screen. Never over it,
+ * which is the one placement ruled out — the light is on that control and the
+ * Author is being asked to press it.
+ *
+ * Sideways it is slid rather than flipped, because a sentence moved along the
+ * window still stands against the control it is about: a target near the right
+ * edge would otherwise send it off the screen.
+ *
+ * With no room on either side of the target — and with no rectangle at all — there
+ * is no placement, and the bubble falls back to a fixed panel: see `adrift` below.
  */
-const said = computed(() => box.value && {
-  top: `${box.value.bottom + BUBBLE_GAP}px`,
-  left: `${Math.max(
-    BUBBLE_GAP,
-    Math.min(box.value.left, window.innerWidth - BUBBLE_WIDTH - BUBBLE_GAP),
-  )}px`,
+const said = computed(() => {
+  const seen = box.value
+  if (!seen) return undefined
+
+  const { panel, across, down } = measured.value
+  const under = seen.bottom + BUBBLE_GAP
+  const top = under + panel <= down ? under : seen.top - BUBBLE_GAP - panel
+  if (top < 0) return undefined
+
+  return {
+    top: `${top}px`,
+    left: `${Math.max(BUBBLE_GAP, Math.min(seen.left, across - BUBBLE_WIDTH - BUBBLE_GAP))}px`,
+  }
 })
 
 /**
@@ -145,12 +204,13 @@ const wide = { inlineSize: `min(${BUBBLE_WIDTH}px, calc(100vw - 2 * var(--s4)))`
   <template v-if="step">
     <div v-if="lit" class="spotlight" :style="lit" />
     <!-- Drawn whether or not there is anything to point at. The Author can turn
-         the middle of the bench over to the reading, move the caret to another
-         Scene and take the marks with it, or scroll the target out of the document
+         the middle of the bench over to the reading, which takes the document and
+         every mark in it off the screen, or scroll the target out of the document
          at any moment, and a bubble pointing at nothing would be the guidance being
          wrong about the screen; adrift, it carries the same sentence from a
          corner. -->
     <aside
+      ref="bubble"
       class="bubble"
       :class="{ adrift: !said }"
       :style="{ ...wide, ...said }"
@@ -176,7 +236,22 @@ const wide = { inlineSize: `min(${BUBBLE_WIDTH}px, calc(100vw - 2 * var(--s4)))`
 }
 
 /* The bench's own materials, the way the confirmation is: this is the machine
-   talking, so it is drawn in the machine's light rather than in a tooltip. */
+   talking, so it is drawn in the machine's light rather than in a tooltip.
+
+   It takes no pointer, for the reason the spotlight takes none. Wherever it
+   stands it stands over the document — under the control it points at, or in the
+   corner where the document ends, which on the bench is a Scene's own last
+   controls — and a panel that swallowed a press would be guidance making the
+   thing it guides unreachable. Its own control takes the pointer back, so the
+   sentence can still be waved away by hand.
+
+   The sentence itself does not, and that is a real loss: a Step that names a Flag
+   and the value to give it — *courage = high* — is naming words an Author would
+   otherwise take out of it with the mouse and put in the field the light is on.
+   Driven at 1280 by 720, which is an ordinary window, the panel stands on three
+   controls of the Scene being written — the Shot's Image, *Add a Condition to Shot
+   1* and *Add a Shot* — so words that answered a pointer would cost three presses
+   that silently do nothing. The retyping is the cheaper of the two. */
 .bubble {
   position: fixed;
   z-index: 5;
@@ -188,23 +263,24 @@ const wide = { inlineSize: `min(${BUBBLE_WIDTH}px, calc(100vw - 2 * var(--s4)))`
   border-radius: var(--machined);
   background: var(--steel);
   box-shadow: var(--lifted);
-}
-
-/* Pointing at nothing: the same sentence, put where it can always be read. It
-   takes no pointer there, for the reason the spotlight takes none: the corner it
-   stands in is where the document ends, and on the bench that is a Scene's own
-   last controls — a panel over them would be guidance that made the thing it is
-   guiding unreachable. Its own control takes the pointer back, so the sentence can
-   still be waved away by hand. Where the bubble should be anchored instead of
-   adrift is issue #257's. */
-.bubble.adrift {
-  inset-block-end: var(--s4);
-  inset-inline-start: var(--s4);
   pointer-events: none;
 }
 
-.bubble.adrift button {
+.bubble button {
   pointer-events: auto;
+}
+
+/* Said from a corner rather than against a control: the same sentence, put where
+   it can always be read. Three things leave a Step with nowhere to stand — the
+   middle of the bench turned over to the reading, which takes the document and
+   every mark in it off the screen; the target scrolled out of the window, which is
+   a document of forty Scenes moving under a mark on the Scene the caret is in; and
+   a window with room for the sentence neither under the target nor over it. A Step
+   is otherwise pointed at a control that is drawn whatever the Scene holds, or at
+   the one that writes the row it is about. */
+.bubble.adrift {
+  inset-block-end: var(--s4);
+  inset-inline-start: var(--s4);
 }
 
 .asked {

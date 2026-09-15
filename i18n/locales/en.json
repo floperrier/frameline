@@ -223,11 +223,11 @@
     "dismiss": "I can take it from here",
     "nameScene": "Every Story starts with a Scene. Write the first one here: it opens for writing with its name selected, so “The arrival” is the first thing you type.",
     "writeShot": "A Shot is an Image and its text, as much as the Reader is shown at once. Add one, and write the first thing they read.",
-    "wayOn": "An Exit is the way on, and a Story branches between Scenes rather than inside one. At the foot of this Scene, name the Scene the Exit leads to — a name nothing answers to writes that second Scene, already joined. The Graph above draws the two as soon as they are.",
+    "wayOn": "An Exit is the way on, and a Story branches between Scenes rather than inside one. At the foot of this Scene, name the Scene the Exit leads to — a name nothing answers to writes that second Scene, already joined. The Graph draws the two as soon as they are.",
     "setFlag": "State is what one Reading carries with it. Give this Scene a Flag — “courage = high” — and it is set on every Reader who enters.",
     "openingScene": "A Reading has to start somewhere, and nothing marks where this Story does. Write a Scene and mark it as the one to start on — any of them will do, and you can name another whenever you like.",
     "putCondition": "A Condition makes the same Scene play differently to different Readers, without branching. Write the second Scene, add a Shot, and have it played when that Flag holds something else — “low” will do. Nothing plays it yet, which is the point.",
-    "previewCondition": "Nothing plays that Shot, and the reading says why: turn the gate over and it reads the Story on the engine a Reader runs, showing what each Shot it skipped asked for beside what the State actually holds. Read that, then put the value right.",
+    "previewCondition": "Nothing plays that Shot, and the reading says why: read the Story on the engine a Reader runs, and it shows what each Shot it skipped asked for beside what the State actually holds. Read that, then put the value right.",
     "publish": "That is a Story that works. Publish it, and anybody can read it at a link of its own — the one this page then shows, to hand to whoever you wrote it for."
   },
   "remark": {
