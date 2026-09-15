@@ -36,9 +36,13 @@ const NEXT_STEP = /A Shot is an Image and its text/
 // away, the way an Author who knows their way around the bench does.
 test.use({ guided: true })
 
-/** The bubble, whichever of its two placements it is in. */
-function bubble(page: Page) {
-  return page.getByRole('complementary', { name: 'Next' })
+/**
+ * The bubble, whichever of its two placements it is in. Named by its heading,
+ * which is a displayed string and so is not *Next* in the one spec below that
+ * reads the bench in French.
+ */
+function bubble(page: Page, heading = 'Next') {
+  return page.getByRole('complementary', { name: heading })
 }
 
 test('the bench asks a new Story for its first Scene', async ({ page, author }) => {
@@ -320,7 +324,14 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await expect(page.locator('.spotlight')).toBeHidden()
 })
 
-/** That the light is on this control, and on nothing else. */
+/**
+ * That the light is on this control, and on nothing else — on as much of it as
+ * anybody can see, which is the whole of it wherever the control is whole on the
+ * screen. A control standing over the edge of a scroller or of the window is lit
+ * to that edge and no further, so what the light is held against is the control's
+ * rectangle cut the same way; that the cutting itself is right is the sweep's
+ * question further down, and this one is which control.
+ */
 async function lights(page: Page, target: Locator) {
   await expect(target).toBeVisible()
   // The target is read until it holds still before it is read for the comparison,
@@ -336,8 +347,30 @@ async function lights(page: Page, target: Locator) {
     return held
   }).toBe(true)
 
-  await expect.poll(() => page.locator('.spotlight').boundingBox())
-    .toEqual(await target.boundingBox())
+  await expect.poll(() => page.locator('.spotlight').boundingBox()).toEqual(await cut(target))
+}
+
+/** What is left of an element inside every scroller over it, and inside the window. */
+function cut(target: Locator) {
+  return target.evaluate((of) => {
+    const seen = of.getBoundingClientRect()
+    let [top, left, right, bottom] = [seen.top, seen.left, seen.right, seen.bottom]
+
+    for (let over = of.parentElement; over; over = over.parentElement) {
+      if (getComputedStyle(over).overflow === 'visible') continue
+
+      const clip = over.getBoundingClientRect()
+      top = Math.max(top, clip.top)
+      left = Math.max(left, clip.left)
+      right = Math.min(right, clip.right)
+      bottom = Math.min(bottom, clip.bottom)
+    }
+
+    const x = Math.max(left, 0)
+    const y = Math.max(top, 0)
+
+    return { x, y, width: Math.min(right, innerWidth) - x, height: Math.min(bottom, innerHeight) - y }
+  })
 }
 
 /**
@@ -556,6 +589,184 @@ test('a Step whose target the document scrolled past says the same thing from th
 })
 
 /**
+ * The band the window could not see, which is the one the document opened: the
+ * document is a scroller of its own and it starts under the Story's edge, so a
+ * mark wound above that edge is clipped while its rectangle goes on meeting the
+ * window. The whole of the band is walked here rather than its far end, because
+ * what was wrong with it was every frame of it: a mark the document had only half
+ * swallowed was lit over the whole of its rectangle, and the overhang landed on
+ * the bench. Measured at 900 tall on a Story of forty at the Flags Step, wound two
+ * pixels at a time: fifty-eight pixels of scroll with the light outside the
+ * document at every one of the six widths below, thirty of them with the `header`
+ * under the middle of it at 1280 and twenty-eight with the Remarks' own summary at
+ * the widths the bench folds what it says over the document at, and fifty-seven of
+ * the worst frame's fifty-nine pixels above the edge.
+ *
+ * So the sweep starts with the mark whole inside the document, ends with it wholly
+ * past the edge, and at every frame in between says three things: the light is
+ * exactly what is left of the mark inside the document and the window — which is
+ * nothing at all once nothing is left — nothing outside the document stands under
+ * the middle of it, and the sentence is whole on the screen, still the same
+ * sentence, and never over the light.
+ *
+ * Six widths, which is both sides of both folds `app/assets/css/folds.css` names,
+ * and both languages, because how tall the sentence is decides where it is placed
+ * and the French one is not the length of the English.
+ */
+for (const spoken of [
+  { locale: 'en-US', at: '', heading: 'Next',
+    asked: /State is what one Reading carries/ },
+  { locale: 'fr-FR', at: '/fr', heading: 'Ensuite',
+    asked: /L’État est ce qu’une Lecture emporte/ },
+]) {
+  test.describe(`a bench read in ${spoken.locale}`, () => {
+    test.use({ locale: spoken.locale })
+    // Six widths of sweeping, at some forty frames each, is longer than a spec
+    // that presses two controls.
+    test.slow()
+
+    test('a Step whose target the document is clipping is lit on what is left of it', async ({
+      page,
+      author,
+    }) => {
+      const story = await seedStory(author, 'A Story')
+      await seedChain(story, [
+        'The arrival', 'The platform', 'The bar', 'The alley', 'The quay',
+        'The market', 'The bridge', 'The rooftop', 'The garden', 'The last train',
+      ])
+
+      // The document is wound by hand, and a wind that animates would be read
+      // halfway through.
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await page.goto(`${spoken.at}/stories/${story.id}`)
+      await expect(bubble(page, spoken.heading)).toContainText(spoken.asked)
+
+      // The mark itself rather than the Scene's own section of the document,
+      // because a section is addressed by a name the Locale writes and which Scene
+      // carries the mark is another spec's question: it is written on the Scene the
+      // caret is in and on no other, so this reaches one element.
+      const flags = page.locator('[data-step="scene-flags"]')
+
+      for (const across of [1280, 1025, 1024, 705, 704, 390]) {
+        // Wound back to the head of the document first, so that the light is on
+        // the whole of its target before the width changes under it — which is
+        // also the other end of what this asserts, at every one of the six.
+        await page.locator('.document').evaluate((scroller) => {
+          scroller.scrollTop = 0
+        })
+        await page.setViewportSize({ width: across, height: 900 })
+        await lights(page, flags)
+
+        // Then to twelve pixels inside the document's own top edge, which is the
+        // last frame the whole of the mark is on the screen, and down from there
+        // past the mark's own length.
+        await page.evaluate(() => {
+          const scroller = document.querySelector('.document')!
+          const target = document.querySelector('[data-step="scene-flags"]')!
+
+          scroller.scrollTop
+            += target.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 12
+        })
+
+        const tall = (await flags.boundingBox())!.height
+        for (let past = 0; past < tall + 24; past += 2) {
+          const frame = await wound(page, past ? 2 : 0)
+          const where = `${across} wide, wound to ${frame.at.toFixed(0)}`
+
+          // The light is exactly what is left of the mark once the document and
+          // the window have each had their cut of it, and nothing at all where
+          // nothing is left — which is the half-clipped case and the wholly
+          // clipped one as one case.
+          same(frame.lit, frame.rest, where)
+
+          // And nothing outside the document is under the middle of it. The
+          // rectangle could be inside the document and the light still be drawn
+          // over the bench if anything stood between the two, so this is asked of
+          // the page rather than of the arithmetic — and it is what answered the
+          // `header` and then the Story's own title field before #280.
+          expect(frame.on ?? true, where).toBe(true)
+
+          // The sentence is the same sentence wherever it is placed, whole on the
+          // screen, and never over the light: the Author is being asked to press
+          // the very control it is on.
+          expect(frame.sentence, where).toMatch(spoken.asked)
+          expect(frame.said.top, where).toBeGreaterThanOrEqual(0)
+          expect(frame.said.left, where).toBeGreaterThanOrEqual(0)
+          expect(frame.said.bottom, where).toBeLessThanOrEqual(900)
+          expect(frame.said.right, where).toBeLessThanOrEqual(across)
+          if (frame.lit) {
+            const beside = frame.said.bottom <= frame.lit.top
+              || frame.said.top >= frame.lit.bottom
+            expect(beside, where).toBe(true)
+          }
+        }
+      }
+    })
+  })
+}
+
+/** A rectangle on its way out of the browser, which is a plain object. */
+type Seen = { top: number, left: number, width: number, height: number,
+  right: number, bottom: number }
+
+/**
+ * One frame of a wind: the document moved, two animation frames given to the loop
+ * that follows the target, and then everything an assertion is made of read at
+ * once. One round trip rather than six, because the sweep is hundreds of frames
+ * long and six reads a frame would be six hundred.
+ *
+ * What is left of the mark is worked out here too, from the mark's own rectangle
+ * and the document's and the window's, which is three readings of the page rather
+ * than the arithmetic the component does.
+ */
+async function wound(page: Page, by: number) {
+  return page.evaluate(async (by) => {
+    const scroller = document.querySelector('.document')!
+    scroller.scrollTop += by
+    await new Promise(requestAnimationFrame)
+    await new Promise(requestAnimationFrame)
+
+    const box = (of: Element | null): Seen | undefined => of?.getBoundingClientRect().toJSON()
+    const lit = box(document.querySelector('.spotlight'))
+    const mark = box(document.querySelector('[data-step="scene-flags"]'))!
+    const cut = box(scroller)!
+    const said = document.querySelector('.bubble')!
+
+    const top = Math.max(mark.top, cut.top, 0)
+    const left = Math.max(mark.left, cut.left, 0)
+    const width = Math.min(mark.right, cut.right, innerWidth) - left
+    const height = Math.min(mark.bottom, cut.bottom, innerHeight) - top
+    const over = lit && document.elementFromPoint(
+      lit.left + lit.width / 2, lit.top + lit.height / 2)
+
+    return {
+      at: scroller.scrollTop,
+      lit,
+      rest: width > 0 && height > 0
+        ? { top, left, width, height, right: left + width, bottom: top + height }
+        : undefined,
+      on: over ? scroller.contains(over) : undefined,
+      said: box(said)!,
+      sentence: said.querySelector('.asked')!.textContent ?? '',
+    }
+  }, by)
+}
+
+/**
+ * Two rectangles the same, to the pixel the browser lays out in: the light is a
+ * style written in `px` and read back off the page, so what is asked of the two is
+ * that they are equal rather than that they are the same object.
+ */
+function same(seen: Seen | undefined, want: Seen | undefined, where: string) {
+  expect(Boolean(seen), where).toBe(Boolean(want))
+  if (!seen || !want) return
+
+  for (const edge of ['top', 'left', 'width', 'height'] as const) {
+    expect(seen[edge], `${where}, ${edge}`).toBeCloseTo(want[edge], 0)
+  }
+}
+
+/**
  * The other placement against a target, and the third thing that leaves a Step with
  * nowhere to stand. A window the target sits near the foot of is an ordinary
  * window — a phone held sideways is under four hundred pixels tall and the panel is
@@ -587,14 +798,28 @@ test('a Step whose sentence will not fit under its target says it above', async 
   await lights(page, flags)
   expect(await placed(page, flags)).toBe('above')
 
-  // And the target wound near the head of a window shorter still, where there is
-  // room on neither side of it.
-  await page.setViewportSize({ width: 800, height: 340 })
+  // And the target wound to the head of the document, where it is whole on the
+  // screen and there is room for the sentence on neither side of it. To the
+  // document's own top edge rather than to a line of the window: the document
+  // starts under the Story's edge, so winding the mark to the window's hundred and
+  // twentieth pixel put it above that edge, where it is clipped and nobody can see
+  // it, and the light this was holding it against was the one #280 took away.
+  //
+  // A window short enough to leave no room under the mark, and wide enough to
+  // leave none over it. Wide because the sentence is placed from the mark's own top
+  // edge and the mark can stand no higher than the document does, so what decides
+  // whether it fits above is how deep the Story's edge is — a question of width and
+  // not of height. 77 pixels of edge here against a panel of 204; at 800 the bench
+  // folds what it says into a band over the document and the edge is 184, which is
+  // near enough the panel that a machine whose fonts run a line taller answers the
+  // other way. That is a pose, not a spec.
+  await page.setViewportSize({ width: 1440, height: 300 })
   await page.evaluate(() => {
     const scroller = document.querySelector('.document')!
     const target = document.querySelector('[data-step="scene-flags"]')!
 
-    scroller.scrollTop += target.getBoundingClientRect().top - 120
+    scroller.scrollTop
+      += target.getBoundingClientRect().top - scroller.getBoundingClientRect().top
   })
   await expect(bubble(page)).toHaveClass(/adrift/)
   await lights(page, flags)
