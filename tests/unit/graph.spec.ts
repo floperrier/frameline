@@ -232,12 +232,16 @@ describe('the names the bench calls a Story’s Scenes by', () => {
    * field that names where a way on leads takes whatever is typed into it — so a
    * Story really can hold a Scene called *The bar (2)* beside two called *The
    * bar*. See `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
+   *
+   * The Scene really called *The bar (2)* is written last, after both the Scenes
+   * it collides with: the number has to walk past a name the walk has not reached
+   * yet, so the names taken are read off the whole Story before it starts.
    */
   test('walk a number on past a name a Scene of the Story already answers to', () => {
-    const scenes = [called('a', 'The bar'), called('b', 'The bar (2)'), called('c', 'The bar')]
+    const scenes = [called('a', 'The bar'), called('b', 'The bar'), called('c', 'The bar (2)')]
 
     expect(drawn(scenes, [exit('a', 'b'), exit('b', 'c')]))
-      .toEqual(['The bar (1)', 'The bar (2)', 'The bar (3)'])
+      .toEqual(['The bar (1)', 'The bar (3)', 'The bar (2)'])
   })
 })
 

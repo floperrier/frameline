@@ -691,10 +691,11 @@ test('winds the document back to the Scene the caret is already in', async ({ pa
  * A heading is left out on purpose and not by oversight: every Scene's section
  * carries the same three — *Flags*, *Shots*, *Exits* — which
  * `docs/adr/0043-a-story-is-written-as-one-document.md` chose over a hundred and
- * twenty named regions, so they repeat by design. So is an option: an option is a
- * value inside a combobox rather than a control of its own, and the list a way on
- * is named from offers the Author's own names, because a name typed there is the
- * name the Scene is written under.
+ * twenty named regions, so they repeat by design. So is an option, for the other
+ * reason: an option is a value inside one field rather than a control of the
+ * bench, and two fields offer the same values by design — every Condition that
+ * counts visits offers every Scene of the Story. What is asked of an option is
+ * asked field by field instead, by `offeredTwiceOn` below.
  */
 const NAMED = [
   'button', 'link', 'textbox', 'searchbox', 'combobox', 'checkbox', 'radio',
@@ -715,11 +716,32 @@ async function namesOn(surface: Locator) {
     .map(([, role, name]) => `${role} ${name!.replace(/\\(.)/g, '$1')}`)
 }
 
+/**
+ * The options one field of a surface offers twice: two the Author cannot choose
+ * between, because nothing but the words tells them apart. Where a way on leads and
+ * which Scene a Condition counts are both chosen by id from a list the bench names,
+ * so both are named the way every other control naming a Scene is. The list a way
+ * on is named from is a datalist and not a field, and is left alone on purpose:
+ * its options are the Author's own names, because a name typed there is the name
+ * the Scene is written under.
+ */
+async function offeredTwiceOn(surface: Locator) {
+  return surface.locator('select').evaluateAll(fields => fields.flatMap((field) => {
+    const offered = [...field.options].map(option => option.label)
+
+    return [...new Set(offered.filter((name, at) => offered.indexOf(name) !== at))]
+      .map(name => `option ${name} in ${field.id}`)
+  }))
+}
+
 /** The names a surface says twice, which is the whole of what is asserted below. */
 async function saidTwiceOn(surface: Locator) {
   const said = await namesOn(surface)
 
-  return [...new Set(said.filter((name, at) => said.indexOf(name) !== at))].sort()
+  return [
+    ...new Set(said.filter((name, at) => said.indexOf(name) !== at)),
+    ...await offeredTwiceOn(surface),
+  ].sort()
 }
 
 /**
@@ -739,6 +761,12 @@ async function saidTwiceOn(surface: Locator) {
  *   draws and by nothing else.
  * - two Shots of one Scene waiting on one dead pair, and two Exits of another
  *   waiting on the same, so the Remarks have two findings apiece to say.
+ * - a Shot counting visits to one of the two Scenes called *The bar*, so the field
+ *   that says which Scene is counted is drawn, and offers both of them.
+ * - a fourth Scene nothing arrives at, with one way on to the first *The bar*: the
+ *   field saying where it leads offers the Scenes it does not reach yet, which are
+ *   both Scenes called *The bar*. Out of the three others every such field offers
+ *   one Scene alone, because each of them already reaches every other.
  *
  * `ticket` is set to *found* and nothing else, so *lost* is a value no Scene ever
  * sets: the Conditions written on it are the dead ones. Every beat of the two
@@ -752,7 +780,7 @@ async function collides(request: APIRequestContext) {
   })).json() as { id: string }
 
   const scenes = []
-  for (const name of ['The bar', 'La gare', 'The bar']) {
+  for (const name of ['The bar', 'La gare', 'The bar', 'Le quai']) {
     const scene = await (await request.post(`/api/stories/${story.id}/scenes`, {
       data: { name },
     })).json() as { id: string, name: string }
@@ -766,13 +794,16 @@ async function collides(request: APIRequestContext) {
     await request.put(`/api/shots/${shots[0]!.id}/image`, { data: ONE_PIXEL })
     scenes.push({ ...scene, shots })
   }
-  const [bar, station, other] = scenes
+  const [bar, station, other, quay] = scenes
 
   const lost = [{ flag: 'ticket', is: 'lost' }]
   for (const shot of [...bar!.shots, ...station!.shots]) {
     await request.put(`/api/shots/${shot.id}/conditions`, { data: { conditions: lost } })
   }
   await request.put(`/api/scenes/${station!.id}/flags`, { data: { sets: { ticket: 'found' } } })
+  await request.put(`/api/shots/${other!.shots[0]!.id}/conditions`, {
+    data: { conditions: [{ scene: bar!.id, visits: 'at least', times: 1 }] },
+  })
 
   /** A way on, phrased where a Reader is meant to be offered it. */
   const way = async (from: string, to: string, says?: string) => {
@@ -799,6 +830,7 @@ async function collides(request: APIRequestContext) {
   await way(station!.id, bar!.id, 'Back to the bar')
   await way(station!.id, other!.id, 'On to the other bar')
   await way(station!.id, other!.id, 'Through the door')
+  await way(quay!.id, bar!.id)
   expect((await request.post(`/api/scenes/${bar!.id}/opening`)).ok()).toBeTruthy()
 
   return { story, bar: bar!, station: station!, other: other! }
@@ -814,9 +846,11 @@ async function collides(request: APIRequestContext) {
  * fixed would go on passing the day a fourth key leaves a fact out. What is swept
  * is the whole bench — the three readings the middle turns the document over to,
  * the Remarks beside them, which are controls too since pressing one opens the
- * Scene it is about, and the bar of Commands, which is the one surface that reads
+ * Scene it is about, the bar of Commands, which is the one surface that reads
  * every name the bench is offering side by side and the one an Author reaches a
- * Scene by.
+ * Scene by, and the Story's own edge, where the Cover is named from among every
+ * Image the Story carries — a radio apiece, named by the Shot's Place and its
+ * Scene, and the one surface no other spec opens.
  *
  * At each of the five widths the layout folds at, because what is offered is not
  * the same set at all five: the bar reads the controls the bench is drawing right
@@ -841,6 +875,7 @@ for (const spoken of [
     sheet: { turn: 'See the Contact Sheet', named: 'Contact Sheet' },
     preview: { turn: 'Read the Story', named: /^Preview/ },
     writing: 'Write the Scene',
+    edge: { open: 'Synopsis and Cover', goTo: /^Go to / },
   },
   {
     locale: 'fr-FR',
@@ -848,6 +883,7 @@ for (const spoken of [
     sheet: { turn: 'Voir la Planche-contact', named: 'Planche-contact' },
     preview: { turn: 'Lire le Récit', named: /^Aperçu/ },
     writing: 'Écrire la Scène',
+    edge: { open: 'Synopsis et Couverture', goTo: /^Aller à / },
   },
 ]) {
   test.describe(`a bench read in ${spoken.locale}`, () => {
@@ -863,34 +899,44 @@ for (const spoken of [
         for (const width of widths) {
           await page.setViewportSize({ width, height: 900 })
 
-          await expect(page.locator('.writing .scene')).toHaveCount(3)
+          await expect(page.locator('.writing .scene')).toHaveCount(4)
           expect({ width, twice: await saidTwiceOn(page.locator('.writing')) })
             .toEqual({ width, twice: [] })
 
-          // Twelve sentences on this Story: a beat nobody wrote and an Image nobody
-          // described in each of the three Scenes, the four beats waiting on a dead
-          // pair, and the two ways on waiting on the same. Opened only where the
-          // fold left it closed: a `<summary>` toggles, and above the fold the list
-          // is already open beside the document.
+          // Fifteen sentences on this Story: a beat nobody wrote and an Image nobody
+          // described in each of the four Scenes, the one Scene nothing arrives at,
+          // the four beats waiting on a dead pair, and the two ways on waiting on the
+          // same. Opened only where the fold left it closed: a `<summary>` toggles,
+          // and above the fold the list is already open beside the document.
           const found = page.locator('.found')
           if (!await found.evaluate(one => (one as HTMLDetailsElement).open)) {
             await found.locator('summary').click()
           }
-          await expect(found.getByRole('listitem')).toHaveCount(12)
+          await expect(found.getByRole('listitem')).toHaveCount(15)
           expect({ width, twice: await saidTwiceOn(found) }).toEqual({ width, twice: [] })
 
+          // The Story's edge, with the Cover's frames opened over the table and
+          // closed again so nothing below is pressed through them: four Images
+          // on this Story, one on the first beat of each Scene.
+          const edge = page.locator('main > header')
+          await edge.getByText(spoken.edge.open).click()
+          await expect(edge.getByRole('radio')).toHaveCount(4)
+          expect({ width, twice: await saidTwiceOn(edge) }).toEqual({ width, twice: [] })
+          await edge.getByText(spoken.edge.open).click()
+
           // The bar of Commands, opened by its key because the control that opens
-          // it is itself one of the things a fold moves.
+          // it is itself one of the things a fold moves. Four Scenes, so four
+          // ways of going to one.
           const bar = page.locator('dialog.commands')
           await page.keyboard.press('ControlOrMeta+k')
-          await expect(bar).toBeVisible()
+          await expect(bar.getByRole('button', { name: spoken.edge.goTo })).toHaveCount(4)
           expect({ width, twice: await saidTwiceOn(bar) }).toEqual({ width, twice: [] })
           await page.keyboard.press('Escape')
           await expect(bar).toBeHidden()
 
           await page.getByRole('button', { name: spoken.sheet.turn }).click()
           const sheet = page.getByRole('region', { name: spoken.sheet.named })
-          await expect(sheet).toBeVisible()
+          await expect(sheet.locator('.band')).toHaveCount(4)
           expect({ width, twice: await saidTwiceOn(sheet) }).toEqual({ width, twice: [] })
 
           // The Preview, where the Author renumbers the ways on the Reading is
