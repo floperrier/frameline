@@ -805,15 +805,17 @@ test('the turn back answers to the address rather than to where the caret was le
       .toBeGreaterThan(0)
   })
 
-test('the bench is answered whole by the server, and the Path opens undrawn',
+test('the bench is answered whole by the server, and the browser takes it over as it stands',
   async ({ page, request }) => {
     const { story, scenes } = await writeDrawingStory(request)
 
-    // Everything the browser says as it takes the page over. A seed drawn on the
-    // server and drawn again here would be two different Stories either side of
-    // hydration, which is the split
-    // `docs/adr/0024-the-seed-belongs-to-the-position.md` is written against — so
-    // the bench carries the rule up with the Path and opens at `UNDRAWN`.
+    // Everything the browser says as it takes the page over. What the bench opens
+    // its Path at is not among it: the reading stands behind a `v-if` that is false
+    // on the server, so nothing drawn from the Path is in the answer and a seed
+    // drawn twice would show up nowhere for this to read. The rule the bench keeps
+    // by opening at `UNDRAWN` — see
+    // `docs/adr/0024-the-seed-belongs-to-the-position.md` — is held by the code and
+    // by nothing here, which is what this spec is named for.
     const said: string[] = []
     page.on('console', message => said.push(message.text()))
     page.on('pageerror', error => said.push(String(error)))
@@ -823,8 +825,8 @@ test('the bench is answered whole by the server, and the Path opens undrawn',
     await live(page)
 
     // The Story arrived written: the document is the server's answer rather than
-    // something the browser assembles afterwards, which is why the rule had to
-    // come up with the Path at all.
+    // something the browser assembles afterwards, which is why the Path is opened
+    // undrawn at all.
     expect(served).toContain('A door opens.')
     expect(served).toContain('Smoke, and no one she knows.')
 
