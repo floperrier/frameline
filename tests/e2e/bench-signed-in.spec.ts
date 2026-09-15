@@ -413,6 +413,63 @@ test('keeps the rail out of the accessibility tree and out of the tab order',
     await page.locator('dialog.commands').getByRole('button', { name: 'Go to Scene 7' }).click()
     await expect(page).toHaveURL(/scene=/)
     await expect(page.locator('.rail .here')).toHaveAttribute('data-scene', scenes[6]!.id)
+
+    // And it lands the caret where a press on the mark itself does, because it is
+    // that mark it presses: one answer to where the focus goes, given in the page's
+    // own handler — see the spec below and #265.
+    await expect(page.getByRole('textbox', { name: 'Name of Scene 7' })).toBeFocused()
+  })
+
+test('leaves no caret in the rail when a mark is pressed, at either width and on every reading',
+  async ({ page, request }) => {
+    const { story, scenes } = await chained(request, 10)
+
+    await page.goto(`/stories/${story.id}`)
+    await live(page)
+
+    // The pointer half of the walk above, which neither a `Tab` nor an axe run
+    // reaches: a mark is a `<button>` at `tabindex="-1"` inside an `aria-hidden`
+    // drawing, and that pair keeps a keyboard out while letting a mouse press
+    // straight through — a button still takes the focus on one, and the caret was
+    // ending up in a subtree the accessibility tree does not have.
+    //
+    // Pressed at the width the rail is a plate of a hundred and twenty pixels and
+    // at the width it folds to a strip of dots, because what the fold narrows is
+    // the drawing and never what can be pressed.
+    for (const [width, height, place] of [[1440, 900, 7], [390, 844, 3]] as const) {
+      await page.setViewportSize({ width, height })
+      await sceneNode(page, `Scene ${place}`).click()
+
+      // The caret is where the document was wound, in the field the Author is about
+      // to type in: the Scene's own name, the first of its section.
+      await expect(page.getByRole('textbox', { name: `Name of Scene ${place}` })).toBeFocused()
+    }
+
+    // The other two readings, where the writing is `display: none` and no field of
+    // that Scene is laid out for the caret to follow the wind into. Nothing the page
+    // does can move it there, so what has to hold is the drawing refusing the press
+    // its own focus — and a mark pressed with the focus already on `<body>` could
+    // not tell that apart from the defect, so the caret is put on a control of the
+    // bench first and read back off it after.
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const commanding = page.getByRole('button', { name: 'Commands' })
+
+    for (const [turn, drawn, place] of [
+      ['See the Contact Sheet', '.sheet', 5],
+      ['Read the Story', '.preview', 2],
+    ] as const) {
+      await page.getByRole('button', { name: turn }).click()
+      await expect(page.locator(drawn)).toBeVisible()
+      await commanding.focus()
+
+      await sceneNode(page, `Scene ${place}`).click()
+
+      // The press was answered — the rail lights the Scene it went to — and the
+      // hand that made it took nothing away from the keyboard.
+      await expect(page.locator('.rail .here'))
+        .toHaveAttribute('data-scene', scenes[place - 1]!.id)
+      await expect(commanding).toBeFocused()
+    }
   })
 
 test('scrolls the document to the Scene the address names', async ({ page, request }) => {

@@ -20,12 +20,20 @@ function written(page: Page, scene: string) {
 
 /**
  * Where the caret ended up. *Go to* winds the document to a Scene rather than
- * opening one — there is nothing to open — so what says the act ran is the mark
- * the rail lights and the address under it, and not a field taking focus. See
+ * opening one — there is nothing to open — so the mark the rail lights and the
+ * address under it are what say the act ran. See
  * `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ *
+ * The focus goes with them, into the Scene's own name: the first field of its
+ * section, and the word an Author who has just gone somewhere is about to type.
+ * It lands there wherever the reading lays that field out, which is the writing —
+ * the reading the bench opens on and the one every use of this is made from. The
+ * page settles it in the handler both the bar and the rail's mark reach, so the
+ * bar cannot land the caret anywhere the mark it presses would not. See #265.
  */
 async function caretIn(page: Page, scene: string) {
   await expect(sceneNode(page, scene)).toHaveClass(/here/)
+  await expect(naming(page, scene)).toBeFocused()
 }
 
 /** The field the bar is typed into, which is the bar's own accessible name. */
