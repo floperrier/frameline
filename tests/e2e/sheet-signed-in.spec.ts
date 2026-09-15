@@ -580,6 +580,17 @@ test('hands the window nothing to scroll on a Story whose Remarks run past the f
     await live(page)
     await expect(page.locator('.writing')).toBeVisible()
     await page.waitForLoadState('networkidle')
+    // The cause first, in the form that is true at any count, any row height and
+    // any width: every one of those spans is laid out against the list and not
+    // against the page. `offsetParent` is the nearest positioned ancestor, and
+    // `body` there is the viewport. The page total alone is two rows of margin
+    // from going green on a broken build — nine Remarks, or rows a fifth shorter,
+    // and the twelfth span stops reaching the fold.
+    expect(await page.locator('.found .visually-hidden').evaluateAll(spans =>
+      spans.map(span => (span as HTMLElement).offsetParent?.tagName))).toEqual(Array(12).fill('UL'))
+
+    // Then the symptom, which is what an Author would notice and what #285 is
+    // written in terms of.
     expect(await scrollsDown(page)).toEqual({ root: 0, body: 0 })
 
     await seeTheSheet(page)
