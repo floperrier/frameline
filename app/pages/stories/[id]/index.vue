@@ -119,9 +119,11 @@ const sceneWritten = computed(() => story.value?.scenes.find(scene => scene.id =
 /**
  * Puts the caret in one Scene, leaving the middle of the bench on the reading it
  * was showing: a mark pressed on the rail while the Story is being read is the
- * Author reading on, not asking to write. The address is replaced rather than
- * pushed, because a back that walked the Author through every mark they had
- * pressed would never leave the Story.
+ * Author reading on, not asking to write. A Remark is the same press — it stands
+ * beside every reading too, so it leads to its Scene by this act rather than by a
+ * second navigation of the bench. The address is replaced rather than pushed,
+ * because a back that walked the Author through every mark they had pressed would
+ * never leave the Story.
  *
  * `0043` made *Go to* a scroll rather than an opening, and a scroll is a thing the
  * eye follows and nothing else does: the bar of Commands closes, focus goes back
@@ -182,8 +184,8 @@ watch(() => sceneWritten.value?.id, async () => {
  * Puts the caret in one Scene to write it: the same as going there, with the
  * middle of the bench turned back to the writing, and focus in the name — its
  * first field — selected where the Scene arrived under a provisional name, so the
- * first thing typed replaces it. This is what a Remark opens, what a way on's own
- * mark opens, and what a Scene written from nothing arrives in.
+ * first thing typed replaces it. This is what a way on's own mark opens, and what
+ * a Scene written from nothing arrives in.
  */
 async function writeScene(sceneId: string, naming = false) {
   reading.value = false
@@ -481,7 +483,18 @@ async function turnOver(event: Event) {
           <span>{{ counted.exits }}</span>
         </p>
 
-        <Remarks :story="story" :scene-written="sceneWritten?.id" @open="writeScene" />
+        <!-- What the bench noticed, less whatever the reading in the middle is
+             already saying in the Scene's own words: the nearer voice wins, which
+             is why the Remarks are told which reading is up. A Remark leads to its
+             Scene by the rail's own press — the act that already exists — so the
+             reading the Author is on stays up. See
+             `docs/adr/0032-the-bench-reads-the-story-back.md`. -->
+        <Remarks
+          :story="story"
+          :scene-written="sceneWritten?.id"
+          :previewed="reading"
+          @open="goToScene"
+        />
       </aside>
     </div>
 

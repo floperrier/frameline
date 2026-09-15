@@ -1000,10 +1000,15 @@ test('the Graph is drawn from the Story, and redrawn as the Story changes', asyn
   // say every one of these facts in words without saying them twice. *The arrival*
   // rather than any other Scene: a way on's row carries a control named *Go to*
   // where it lands, every Scene of the document draws its own rows since #252, and
-  // the Opening Scene is the one Scene here that no way on arrives at — so the only
-  // thing that could answer to this name is the rail's own mark.
+  // the Opening Scene is the one Scene here that no way on arrives at.
+  //
+  // Asked for exactly, because a Remark about that Scene says what pressing it does
+  // at the end of its own sentence — *go to The arrival* — and a name matched as a
+  // substring would find it. The rail's mark is named that and nothing more, so an
+  // exact name is the whole of what this is about: see #254.
   await expect(rail).toHaveAttribute('aria-hidden', 'true')
-  await expect(page.getByRole('button', { name: 'Go to The arrival' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Go to The arrival', exact: true }))
+    .toHaveCount(0)
 
   // The columns run down the rail and the Scenes of a column run across it, laid
   // out by distance from the opening in Exits taken: a Scene one Exit further on

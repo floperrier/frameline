@@ -171,23 +171,39 @@ test('folds the Remarks and then the rail, and hides neither', async ({ page, re
   expect(said.x).toBeGreaterThanOrEqual(middle.x + middle.width)
   await expect(page.locator('.found')).toHaveJSProperty('open', true)
 
-  // The first fold: what the bench says goes to the head of the document, still
-  // said in the same voice, with the rail spanning both rows beside them.
+  // The first fold: what the bench says goes to the head of the document, where
+  // the document is what the window is for, so the Remarks are the line and their
+  // count until they are asked for. What folds is the width they are said in and
+  // never their voice — the rail spans both rows beside them, and the count is on
+  // the screen.
   await page.setViewportSize({ width: 900, height: 900 })
   await expect.poll(async () => (await page.locator('aside.said').boundingBox())!.y)
     .toBeLessThan((await page.locator('.document').boundingBox())!.y)
-  await expect(page.locator('.found')).toBeVisible()
+  await expect(page.locator('.found')).toHaveJSProperty('open', false)
+  await expect(page.locator('.found summary')).toContainText('0')
   expect((await page.locator('.rail').boundingBox())!.width).toBe(120)
 
   // The second: the rail narrows to a strip of dots and the document keeps the
   // window. Nothing is covered and nothing is taken away — every Scene still has
-  // its mark, and the Remarks are still on the screen saying what they found.
+  // its mark, and the line that opens the Remarks is still there to be pressed.
   await page.setViewportSize({ width: 390, height: 844 })
   await expect.poll(async () => (await page.locator('.rail').boundingBox())!.width)
     .toBeLessThan(48)
   await expect(page.locator('.rail .mark')).toHaveCount(10)
-  await expect(page.locator('.found')).toBeVisible()
+  await expect(page.locator('.found summary')).toBeVisible()
   await expect(page.locator('.writing')).toBeVisible()
+
+  // And pressing it says what the bench found, at the width the record folds them
+  // at: the fold took their width and never their voice — see
+  // `docs/adr/0043-a-story-is-written-as-one-document.md`.
+  await page.locator('.found summary').click()
+  await expect(page.locator('.found')).toContainText('Nothing to report')
+
+  // Which leaves the writing where it was, rather than under anything: the list
+  // flows at the head of the document and the document keeps the rest.
+  const document = (await page.locator('.document').boundingBox())!
+  const remarks = (await page.locator('.found').boundingBox())!
+  expect(remarks.y + remarks.height).toBeLessThanOrEqual(document.y + 1)
 })
 
 test('offers no more controls on a Story of forty Scenes than on one of three',
