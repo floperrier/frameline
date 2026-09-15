@@ -26,10 +26,12 @@ function written(page: Page, scene: string) {
  *
  * The focus goes with them, into the Scene's own name: the first field of its
  * section, and the word an Author who has just gone somewhere is about to type.
- * It lands there wherever the reading lays that field out, which is the writing —
- * the reading the bench opens on and the one every use of this is made from. The
- * page settles it in the handler both the bar and the rail's mark reach, so the
- * bar cannot land the caret anywhere the mark it presses would not. See #265.
+ * It lands there wherever the address moves and the reading lays that field out,
+ * which is the writing — the reading the bench opens on, and the one every use of
+ * this is made from, each of them naming a Scene other than the one the caret is
+ * already in. The page settles it in the handler both the bar and the rail's mark
+ * reach, so the bar cannot land the caret anywhere the mark it presses would not.
+ * See #265.
  */
 async function caretIn(page: Page, scene: string) {
   await expect(sceneNode(page, scene)).toHaveClass(/here/)

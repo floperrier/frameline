@@ -166,12 +166,12 @@ const reading = ref<Reading>('writing')
  * because a back that walked the Author through every mark they had pressed would
  * never leave the Story.
  *
- * Where the caret lands is settled here and in no caller, so that every surface
- * reaching this act agrees on it: the rail's mark, the bar of Commands pressing
- * that mark by name, a Remark, a mark on a band of the Contact Sheet. It lands in
- * the Scene's own name — the first field of its section, and the word an Author
- * who has just gone somewhere is about to type, which is the answer `writeScene`
- * already gave for the one gesture that had one.
+ * Where the caret lands when the address moves is settled here and in none of the
+ * surfaces that reach this act, so that all of them agree on it: the rail's mark,
+ * the bar of Commands pressing that mark by name, a Remark, a mark on a band of
+ * the Contact Sheet. It lands in the Scene's own name — the first field of its
+ * section, and the word an Author who has just gone somewhere is about to type,
+ * which is the answer `writeScene` already gave for the one gesture that had one.
  *
  * The other two readings lay out no field of that Scene to land it in: the writing
  * is `display: none` behind them, and focus cannot be sent into a box nothing laid
@@ -189,12 +189,31 @@ const reading = ref<Reading>('writing')
  * Scene under its own name, and a second sentence over that is the bench talking
  * over itself.
  *
- * Asking for the Scene the caret is already in still winds the reading on screen
- * to it, and that is the whole of what the act means there: the surface scrolls
- * under the caret, so an Author who read their way down the Story and then asked
- * for the Scene they are writing has asked to be taken back to it. The address
- * does not change, so nothing is said out loud either — arriving where you
+ * Asking for the Scene the caret is already in winds the reading on screen to it
+ * and takes the caret nowhere: the surface scrolls under it, so an Author who read
+ * their way down the Story and then asked for the Scene they are writing has asked
+ * to be taken back to it — and one who asked from halfway through a beat has not
+ * asked to be lifted out of the word they were typing and put in the name. The
+ * address does not change, so nothing is said out loud either: arriving where you
  * already were is not news.
+ *
+ * What a press does either way is end the typing it interrupted. A field writes
+ * what is in it when the caret leaves it, and the mark refuses a press its own
+ * focus (#265) — so the two gestures that take no caret away, the Scene under the
+ * caret asked for by its own mark and a Scene whose name is being typed in asked
+ * for from somewhere else, would each leave a name standing on the screen and on
+ * the mark over a Story that never held it. The field is given that blur by hand,
+ * which is what the press would have done had it been allowed to land in a drawing
+ * nothing announces, and the caret put straight back wherever this act has nowhere
+ * else to put it: the address unmoved, or moved onto a reading that lays out no
+ * name of that Scene to land in. A field and nothing wider: focus stands on a
+ * control as often as in a field — a frame of the Contact Sheet is a button that
+ * chooses itself as it takes it — and a control has nothing typed in it to end.
+ *
+ * Put back without scrolling where the address does not move: the wind above has
+ * just said where the surface is to stand, and a browser brings what it focuses
+ * into view — which on a Scene longer than the screen would scroll the wind
+ * straight back off it.
  */
 async function goToScene(sceneId: string) {
   const moving = sceneWritten.value?.id !== sceneId
@@ -203,7 +222,11 @@ async function goToScene(sceneId: string) {
 
   await nextTick()
   const named = document.getElementById(`scene-name-${sceneId}`) as HTMLInputElement | null
-  named?.focus()
+  const typing = document.querySelector<HTMLElement>('input:focus, textarea:focus')
+  const lands = (moving ? named : null) ?? typing
+
+  typing?.blur()
+  lands?.focus({ preventScroll: !moving })
   if (moving && document.activeElement !== named) {
     announce(t('editor.writingScene', { name: sceneWritten.value?.name ?? '' }))
   }
@@ -321,15 +344,21 @@ watch(() => [refusedIn.value, refusedScene.value, problem.value], async () => {
 /**
  * Puts the caret in one Scene to write it: the same as going there, with the
  * middle of the bench turned back to the writing first — which is what lays the
- * Scene's name out for `goToScene` to land the caret in — and the name selected
- * where the Scene arrived under a provisional name, so the first thing typed
- * replaces it. This is what a way on's own mark opens, and what a Scene written
- * from nothing arrives in.
+ * Scene's name out to be focused at all — and the name selected where the Scene
+ * arrived under a provisional name, so the first thing typed replaces it. This is
+ * what a way on's own mark opens, and what a Scene written from nothing arrives
+ * in.
+ *
+ * The name is focused here rather than left to the act above, which lands the
+ * caret where the address moved and nowhere else: the first Scene of a Story is
+ * the one the address already names as it arrives, and writing it is the whole of
+ * what was asked for.
  */
 async function writeScene(sceneId: string, naming = false) {
   reading.value = 'writing'
 
   const named = await goToScene(sceneId)
+  named?.focus()
   if (naming) named?.select()
 }
 
