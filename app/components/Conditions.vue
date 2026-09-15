@@ -19,20 +19,40 @@
  *
  * The list is edited in place, on the Story the page fetched, and written whole
  * on every change: what the endpoint takes is the list, not a row of it.
+ *
+ * Both marks here — the one that strikes a Condition out, and the offer of
+ * another — act on the beat or the way on the list is written on, so their weight
+ * is that row's rather than this component's: the carrier is `handed` and
+ * `.handed` in `app/assets/css/frameline.css` is the whole of the rule, which is
+ * why nothing about it is declared below.
  */
-const { carrier, conditions, scenes, counting, id } = defineProps<{
+const { carrier, conditions, names, counting, id, named = true } = defineProps<{
   /** The visible words the list opens on: "Offered when", "Played when". */
   lead: string
   /** What carries the list, as a label ends it: "the Exit to The House", "Shot 3". */
   carrier: string
   /** The list itself, edited in place. */
   conditions: Condition[]
-  /** The Scenes a visit count may name — the Story's own, and no other's. */
-  scenes: Scene[]
+  /**
+   * The Scenes a visit count may name — the Story's own, and no other's — each
+   * under the name the bench calls it by, `namesOnTheBench`, in the order the
+   * Story is written in. The option is read back rather than typed, so two Scenes
+   * an Author called the same are numbered here as on every other control — see
+   * `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
+   */
+  names: Map<string, string>
   /** The Scene a freshly chosen visit count starts on. */
   counting: string
   /** The id of the Exit or Shot carrying the list, which every field's own id is built from. */
   id: string
+  /**
+   * Whether the act of adding one carries its name into the bar of Commands. The
+   * document holds every Scene of the Story, and a Story of forty Scenes draws one
+   * of these lists per Shot and per way on of every one of them: the mark is drawn
+   * on every row and named in the Scene the caret stands in — see
+   * `docs/adr/0043-a-story-is-written-as-one-document.md`.
+   */
+  named?: boolean
 }>()
 
 /** Written whenever a row changes, and left to the page to send. */
@@ -46,8 +66,6 @@ type ConditionKind = 'flag' | 'visits'
 function conditionKind(condition: Condition): ConditionKind {
   return 'flag' in condition ? 'flag' : 'visits'
 }
-
-const sceneNames = computed(() => new Map(scenes.map(scene => [scene.id, scene.name])))
 
 /**
  * The name the bar of Commands shows the act of adding a Condition under: the
@@ -123,10 +141,12 @@ function conditionCalled(place: number) {
 
 <template>
   <div class="conditions" :class="{ quiet: !conditions.length }">
-    <p class="eyebrow">
+    <!-- The words the list opens on, only where there is a list: a Shot carrying
+         no Conditions — most of them — is the ordinary Shot, and the one control
+         that puts a Condition on it is all the row says about it. -->
+    <p v-if="conditions.length" class="eyebrow">
       {{ lead }}
       <span class="visually-hidden">— {{ carrier }}</span>
-      <template v-if="!conditions.length">{{ $t('conditions.always') }}</template>
     </p>
 
     <div
@@ -195,11 +215,11 @@ function conditionCalled(place: number) {
             <!-- A Scene deleted since the Condition was written is still what it
                  counts, and saying so beats showing the Author a Scene they never
                  chose. -->
-            <option v-if="!sceneNames.get(condition.scene)" :value="condition.scene">
+            <option v-if="!names.has(condition.scene)" :value="condition.scene">
               {{ $t('scene.goneOption') }}
             </option>
-            <option v-for="counted in scenes" :key="counted.id" :value="counted.id">
-              {{ counted.name }}
+            <option v-for="[counted, name] in names" :key="counted" :value="counted">
+              {{ name }}
             </option>
           </select>
           <span class="says" aria-hidden="true">{{ $t('conditions.entered') }}</span>
@@ -244,8 +264,8 @@ function conditionCalled(place: number) {
     <button
       v-if="conditions.length < CONDITIONS_MAX"
       type="button"
-      class="add"
-      :data-command="addNamed"
+      class="mark add"
+      :data-command="named ? addNamed : undefined"
       @click="add"
     >
       {{ $t('conditions.add') }}

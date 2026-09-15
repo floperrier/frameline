@@ -55,6 +55,17 @@ it, and a Story has one Synopsis where it has as many Descriptions as Images.
 _Affiché_: Synopsis
 _Avoid_: description, blurb, summary, pitch, résumé, présentation
 
+**Cover**:
+The one Image a Story is presented by wherever it is met before it is opened — the
+Catalogue, a Profile, a List, the title card of the reading page — named by the
+Author from among the Images its Shots already carry, never uploaded on its own.
+A Story nobody named one for is presented by the first Image of its Opening
+Scene, and a Story with no Image at all by its words alone. A plain word rather
+than a cinematic one, because a cover is what this is — see
+`docs/adr/0040-a-story-is-presented-by-one-of-its-own-frames.md`.
+_Affiché_: Couverture
+_Avoid_: poster, still, key art, thumbnail, hero image, affiche, vignette
+
 **Place**:
 Where a Shot comes in its Scene's run, or an Exit in the ways on offered at the end
 of the Scene it leaves — the Author's own numbering, counted from the first, with
@@ -75,18 +86,38 @@ _Avoid_: choice, option, link, branch, edge, transition, cut, coupe, raccord,
 montage
 
 **Graph**:
-A whole Story seen at once, as its Scenes and the Exits between them. A Scene is
-drawn in it as a node and an Exit as an edge — words for the drawing, never for the
-Scene or the Exit itself. A node is drawn as a card, which is a word for that
-drawing on the same terms: the Scene it stands for is never a card, and where a
-Scene is written is the surface the bench folds open for it, with the Graph beside
-it as a rail — see
-`docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`. Nothing is written in
-the drawing: an Exit is written in the document of the Scene it leaves, and a
-press on its line opens that Scene — see
+A whole Story seen at once, as its Scenes in the order its Exits put them in. A Scene
+is drawn in it as a node — a word for the drawing, never for the Scene itself.
+Where every node stands is read off the Story — how far the Scene is from the
+Opening Scene in Exits taken, and in what order it is offered — and never placed
+by hand: the Graph is a reading of the Story and moves when the Story does — see
+`docs/adr/0041-the-graph-is-drawn-from-the-story.md`. It is drawn small down the
+side of the document, as the rail: the columns run down the page and the Scenes of
+a column run across it, a node carries no words, and no Exit is drawn at all — an
+Exit is read in the document of the Scene it leaves, which is where it is written,
+by naming the Scene it leads to. The rail is a locator and not a workspace: it
+says where in the Story the caret is, it marks a Scene nothing arrives at, and a
+press on a node winds the document to that Scene — see
+`docs/adr/0043-a-story-is-written-as-one-document.md` and
 `docs/adr/0034-a-story-is-written-without-the-canvas.md`.
 _Affiché_: Graphe
 _Avoid_: map, tree, flowchart, board, canvas
+
+**Contact Sheet**:
+A whole Story seen rather than read: every Shot of every Scene as the Image it
+carries, in bands, one band a Scene, in the order the Story is written in. One of
+the three readings the bench turns the same document over to — the writing, the
+Contact Sheet and the Preview — and the one an Author judges by looking instead
+of by reading: a Shot with no Image is drawn as a Shot with no Image, so what is
+still a grey rectangle is countable at a glance. It is where a Description is
+written, because it is where the Author is looking at the Image. Out of the
+grammar of cinema, which
+`docs/adr/0022-the-metaphor-stops-at-the-edge-of-the-work.md` reserves for the
+work, because a reading is a way of looking at the work rather than a tool of the
+bench — see `docs/adr/0043-a-story-is-written-as-one-document.md`.
+_Affiché_: Planche-contact
+_Avoid_: grid, gallery, board, mosaic, storyboard, thumbnails, overview,
+mosaïque, vignettes, story-board, aperçu
 
 **Opening Scene**:
 The one Scene a Reading starts on, named by the Story itself. The first Scene an
@@ -204,12 +235,13 @@ _Affiché_: Lecteur
 _Avoid_: user, player, viewer, visitor, audience
 
 **Preview**:
-An Author reading their own Story on the same engine a Reader runs — a pane
-inside the editor, beside the Scene being written, which replays the Path the
-Author is on with the State it has accumulated and stops on that Scene. Beside
-the Scene where the bench can hold both, and in the Scene's own place where it
-cannot — see
-`docs/adr/0037-the-reading-folds-before-the-writing-does.md`. Not a
+An Author reading their own Story on the same engine a Reader runs, which replays
+the Path the Author is on with the State it has accumulated and stops on the Scene
+they are writing. It is the third of the readings the bench turns the same
+document over to — the writing, the Contact Sheet and the Preview — chosen by a
+control, and it takes the document's own place rather than a box beside it, so a
+Story is read exactly where it is written, at every width: see
+`docs/adr/0043-a-story-is-written-as-one-document.md`. Not a
 Publish: nobody else can reach it. It is the one screen where the order the ways
 on are offered in is set, on the choice buttons as they are read, so a Preview is
 no longer without consequence for the Story — see

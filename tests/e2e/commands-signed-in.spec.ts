@@ -1,6 +1,42 @@
 import { expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { seedScenes, test, writeScene, writeStory } from './author'
+import {
+  sceneNode, seedChain, seedScenes, seedStory, test, writeScene, writeStory,
+} from './author'
+
+/**
+ * The field one Scene's name is written in. Every Scene of the Story is writable
+ * where it stands, and each field is named for the Scene it names — see
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ */
+function naming(page: Page, scene: string) {
+  return page.getByRole('textbox', { name: `Name of ${scene}` })
+}
+
+/** One Scene's own section of the document, which is where that Scene is written. */
+function written(page: Page, scene: string) {
+  return page.getByRole('group', { name: `Writing ${scene}` })
+}
+
+/**
+ * Where the caret ended up. *Go to* winds the document to a Scene rather than
+ * opening one — there is nothing to open — so the mark the rail lights and the
+ * address under it are what say the act ran. See
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ *
+ * The focus goes with them, into the Scene's own name: the first field of its
+ * section, and the word an Author who has just gone somewhere is about to type.
+ * It lands there wherever the address moves and the reading lays that field out,
+ * which is the writing — the reading the bench opens on, and the one every use of
+ * this is made from, each of them naming a Scene other than the one the caret is
+ * already in. The page settles it in the handler both the bar and the rail's mark
+ * reach, so the bar cannot land the caret anywhere the mark it presses would not.
+ * See #265.
+ */
+async function caretIn(page: Page, scene: string) {
+  await expect(sceneNode(page, scene)).toHaveClass(/here/)
+  await expect(naming(page, scene)).toBeFocused()
+}
 
 /** The field the bar is typed into, which is the bar's own accessible name. */
 function typing(page: Page) {
@@ -74,15 +110,17 @@ test('an Author goes to a Scene by naming it, accents or none', async ({ page, r
   await open(page)
 
   // Everything the bench can do, before a letter is typed: the four Scenes, the
-  // fit above them and the Publish beside it. A bar that started empty would be
-  // a search.
-  await expect(offered(page)).toHaveCount(7)
+  // Publish above them and every act of the Scene the caret is in. A bar that
+  // started empty would be a search. The Remarks are named *Close* because they
+  // stand open — they flow in a region of their own now rather than covering the
+  // table, so there is room to say what they found without being asked, and a
+  // Command is named for what pressing it does. See
+  // `docs/adr/0043-a-story-is-written-as-one-document.md`.
   for (const named of [
     'Go to Le café',
     'Go to The alley',
-    'Fit the Graph',
     'Publish this Story',
-    'Read the Remarks',
+    'Close the Remarks',
   ]) {
     await expect(offered(page).filter({ hasText: named })).toBeVisible()
   }
@@ -93,9 +131,8 @@ test('an Author goes to a Scene by naming it, accents or none', async ({ page, r
   await expect(offered(page)).toHaveText(['Go to Le café'])
   await offered(page).click()
 
-  // The Scene is on the writing surface, and the bar has gone.
-  await expect(page.getByRole('textbox', { name: 'Name of this Scene' }))
-    .toHaveValue('Le café')
+  // The caret is in that Scene, and the bar has gone.
+  await caretIn(page, 'Le café')
   await expect(page.locator('dialog.commands')).toBeHidden()
 })
 
@@ -131,8 +168,7 @@ test('the bar opens and closes on the key, and Enter runs the first Command', as
   await typing(page).fill('Le café')
   await typing(page).press('Enter')
 
-  await expect(page.getByRole('textbox', { name: 'Name of this Scene' }))
-    .toHaveValue('Le café')
+  await caretIn(page, 'Le café')
 })
 
 test('the keyboard walks the Commands the typed name reaches', async ({ page, request }) => {
@@ -164,8 +200,7 @@ test('the keyboard walks the Commands the typed name reaches', async ({ page, re
   await typing(page).press('ArrowDown')
   await page.keyboard.press('ArrowDown')
   await page.keyboard.press('Enter')
-  await expect(page.getByRole('textbox', { name: 'Name of this Scene' }))
-    .toHaveValue(second)
+  await caretIn(page, second)
 })
 
 test('a name nothing answers to is offered as a Scene to write', async ({ page, request }) => {
@@ -183,15 +218,17 @@ test('a name nothing answers to is offered as a Scene to write', async ({ page, 
   await typing(page).press('Enter')
 
   // The Scene arrives under the name that was typed rather than a provisional
-  // one, and it is the Scene on the writing surface. The name is on the card as
-  // well as in the field, so it was written to the Story and read back rather
-  // than only put on screen.
-  await expect(page.getByRole('textbox', { name: 'Name of this Scene' }))
-    .toHaveValue('The quay at dawn')
-  await expect(page.getByRole('article', { name: 'The quay at dawn' })).toBeVisible()
+  // one, and the caret is in it. Its section of the document is named by the
+  // Scene, so the name was written to the Story and read back rather than only
+  // put on screen.
+  await expect(naming(page, 'The quay at dawn')).toBeFocused()
+  await expect(page.getByRole('group', { name: 'Writing The quay at dawn' })).toBeVisible()
 
-  // And it is reachable by its name from the bar like every other Scene, which
-  // is what says the Story holds it.
+  // And it is a Scene of the Story like every other, with a mark of its own on the
+  // rail: *Go to* winds the document to a Scene rather than opening it, so it is
+  // an act every Scene of the Story still has — see
+  // `docs/adr/0043-a-story-is-written-as-one-document.md`.
+  await writeScene(page, 'The street')
   await open(page)
   await typing(page).fill('The quay')
   await expect(offered(page)).toHaveText(['Go to The quay at dawn'])
@@ -207,17 +244,19 @@ test('the offer to write a Scene stands only where nothing answers', async ({ pa
   // name to write it under.
   await expect(offered(page).filter({ hasText: 'Write a Scene named' })).toHaveCount(0)
 
-  // A name that answers: the Scene it reaches, and still no offer. An Author
-  // halfway through typing a name they already have is not making a second one.
-  await typing(page).fill('The str')
-  await expect(offered(page)).toHaveText(['Go to The street'])
+  // A name that answers: the Scene it reaches — and every act naming it on the
+  // Scene being written — and still no offer. An Author halfway through typing a
+  // name they already have is not making a second one.
+  await typing(page).fill('The b')
+  await expect(offered(page)).toContainText(['Go to The bar'])
+  await expect(offered(page).filter({ hasText: 'Write a Scene named' })).toHaveCount(0)
 })
 
 test('the bar offers the acts of the Scene being written, and Escape leaves that Scene open', async ({ page, request }) => {
   const story = await writeStory(request)
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The street')
-  await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
+  await expect(page.locator('.writing')).toBeVisible()
 
   await open(page)
   // The acts inside the writing surface are on offer because the surface is
@@ -228,14 +267,15 @@ test('the bar offers the acts of the Scene being written, and Escape leaves that
   // key to close the writing surface, and the Scene has to still be there after.
   await page.keyboard.press('Escape')
   await expect(page.locator('dialog.commands')).toBeHidden()
-  await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
+  await expect(page.locator('.writing')).toBeVisible()
 
   await open(page)
   await typing(page).fill('Add a Shot')
   await offered(page).click()
 
   // The act ran on the Story: a third Shot where the Scene had two.
-  await expect(page.getByRole('textbox', { name: 'Shot 3', exact: true })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Shot 3 of The street', exact: true }))
+    .toBeVisible()
 })
 
 test('an Author publishes a Story from the bar', async ({ page, request, baseURL }) => {
@@ -255,43 +295,11 @@ test('an Author publishes a Story from the bar', async ({ page, request, baseURL
   await expect(offered(page)).toHaveText(['Unpublish this Story'])
 })
 
-test('on a phone the writing surface carries its own way into the bar', async ({ page, request }) => {
-  const story = await writeStory(request)
-  await page.goto(`/stories/${story.id}`)
-  await expect(page.getByRole('article', { name: 'The street' })).toBeVisible()
-
-  await writeScene(page, 'The street')
-  const surface = page.getByRole('group', { name: 'Writing The street' })
-  await expect(surface).toBeVisible()
-
-  // Wide, the row above the graph is beside the surface and carries the one
-  // control: the surface draws none, so no screen shows the act twice.
-  await expect(commanding(page)).toHaveCount(1)
-  await expect(surface.getByRole('button', { name: 'Commands' })).toBeHidden()
-
-  // Narrow, the surface covers that row, and the way in is the surface's own —
-  // a press, where the key would ask for a keyboard a phone does not have.
-  await page.setViewportSize({ width: 600, height: 800 })
-  const within = surface.getByRole('button', { name: 'Commands' })
-  await expect(within).toBeVisible()
-  await within.click()
-  await expect(typing(page)).toBeFocused()
-
-  // And it reaches the bench the surface is covering, without the surface
-  // having been closed. Named in full: *bar* alone would also answer with the
-  // Condition on the way on from *The street* to *The bar*, which is on the bar
-  // too and rightly, so the spec asks for the one act it is about to press.
-  await typing(page).fill('Go to The bar')
-  await expect(offered(page)).toHaveText(['Go to The bar'])
-  await offered(page).click()
-  await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toHaveValue('The bar')
-})
-
 test('a destructive Command asks before it acts, as its own control does', async ({ page, request }) => {
   const story = await writeStory(request)
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The bar')
-  await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
+  await expect(page.locator('.writing')).toBeVisible()
 
   await open(page)
   await typing(page).fill('Delete Scene')
@@ -303,14 +311,14 @@ test('a destructive Command asks before it acts, as its own control does', async
   await expect(page.getByRole('dialog')).toContainText('This cannot be undone')
 
   await page.getByRole('button', { name: 'Leave It' }).click()
-  await expect(page.getByRole('article', { name: 'The bar' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Writing The bar' })).toBeVisible()
 })
 
 test('the bar names every act marked on a Scene being written, and no other', async ({ page, request }) => {
   const story = await writeStory(request)
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The street')
-  await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
+  await expect(page.locator('.writing')).toBeVisible()
 
   await open(page)
 
@@ -321,48 +329,138 @@ test('the bar names every act marked on a Scene being written, and no other', as
   // run rather than be noticed by an Author who went looking for it. The record
   // is `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`.
   //
-  // Two acts are not among them, and rightly. The fit is gone because a Scene
-  // being written folds the graph into a rail and takes the whole dial with it,
-  // and marking the Opening Scene is gone because *The street* is already the one
-  // the Story opens on — an act with nothing left to do is not offered. The bar
-  // cannot offer an act the bench is not drawing, and the spec below holds the
-  // mark where the act does have something to do.
+  // Marking the Opening Scene is not among them, because *The street* is already
+  // the one the Story opens on — an act with nothing left to do is not offered.
+  // The bar cannot offer an act the bench is not drawing, and the spec below
+  // holds the mark where the act does have something to do.
+  //
+  // The Condition on the second beat *is* among them, and that is new with #252:
+  // the run is one field per beat and every beat carries its own marks, where the
+  // gate drew one beat and no other. What keeps the bar from growing with the
+  // Story instead of with the Scene is the other half of the same rule — a mark
+  // that acts on one row carries its Command name only in the Scene the caret
+  // stands in, so *The bar* below contributes nothing at all. See
+  // `docs/adr/0043-a-story-is-written-as-one-document.md`, which is where the rule
+  // is written, and the spec under this one, which holds the silence.
+  //
+  // Four things did change, with
+  // `docs/adr/0043-a-story-is-written-as-one-document.md`, and the order is one of
+  // them: the bar reads the bench in document order, and the bench is now the
+  // Story's own edge, then the rail, then the document, then what the bench says
+  // beside it — so the Remarks, which used to be first because they were laid over
+  // the head of the table, are last.
+  //
+  // *The whole Story* is gone with the gate: there is no gate to lift off a
+  // drawing any more, because the drawing is a rail beside the document and the
+  // whole Story is in the document at every moment.
+  //
+  // And *Go to The street* is back. It went when the Scene the gate stood on lost
+  // its node; the rail draws every Scene of the Story, the one the caret is in
+  // included, so every one of them is an act the bench is offering — and the act
+  // has something left to do, because *Go to* now winds the document to a Scene
+  // rather than opening it. The rail is `aria-hidden`, which the bar does not
+  // consult: it filters by `checkVisibility()`.
+  //
+  // The Remarks are named *Close* rather than *Read* because they stand open:
+  // they flow in a region of their own now instead of covering the table, so
+  // there is room to say what they found without being asked, and a Command is
+  // named for what pressing it does.
+  //
+  // Two acts turn the middle of the bench over rather than one, because the
+  // document is read three ways since #256: the writing, the Contact Sheet and the
+  // Preview. Each is named for what pressing it does — the reading on screen is
+  // the one the bar does not offer — so the bar carries the two the Author is not
+  // on. See `docs/adr/0043-a-story-is-written-as-one-document.md`.
   await expect(offered(page)).toHaveText([
+    'See the Contact Sheet',
+    'Read the Story',
     'Publish this Story',
-    'Read the Remarks',
     'Go to The street',
     'Go to The bar',
-    'Close this Panel',
     'Delete Scene',
     'Add a Flag',
     'Add a Condition to Shot 1 of The street',
     'Add a Condition to Shot 2 of The street',
     'Add a Shot',
-    'Add a Condition to the Exit 1 to The bar',
+    'Add a Condition to the Exit 1 to The bar, out of The street',
     'Add an Exit',
+    'Close the Remarks',
   ])
 })
 
-test('an Author writes a way on by naming the act, and the hand lands on the select', async ({ page, request }) => {
+/**
+ * The bar over a Story long enough to scroll. *Go to* is the one thing in it that
+ * grows with the Story: a mark that acts on one row carries its Command name only
+ * in the Scene the caret stands in, so the bar is the Story's own acts, the acts
+ * of the one Scene the Author is in, and a way to every Scene — see
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`. And *Go to* winds the
+ * document rather than opening anything, so what it means on a Story of ten is
+ * that the Scene named is the one on the screen.
+ */
+test('the bar goes halfway down a Story of ten, and names the rows of that Scene alone', async ({
+  page,
+  author,
+}) => {
+  const story = await seedStory(author, 'A Story')
+  const scenes = await seedChain(story, [
+    'The arrival', 'The platform', 'The bar', 'The alley', 'The quay',
+    'The market', 'The bridge', 'The rooftop', 'The garden', 'The last train',
+  ])
+  await page.goto(`/stories/${story.id}`)
+  await expect(written(page, 'The arrival')).toBeInViewport()
+
+  // Every Scene of the Story is a way in, and nothing else in the bar is counted
+  // per Scene.
+  await open(page)
+  await typing(page).fill('Go to')
+  await expect(offered(page)).toHaveCount(scenes.length)
+
+  // The fifth of the ten, named in full and pressed.
+  await typing(page).fill('Go to The quay')
+  await expect(offered(page)).toHaveText(['Go to The quay'])
+  await offered(page).click()
+
+  // Landed: the caret is in that Scene and the document is wound to it, which is
+  // the whole of what the act does now — the Scene the Story opens on has gone off
+  // the screen above it rather than being closed.
+  await caretIn(page, 'The quay')
+  await expect(written(page, 'The quay')).toBeInViewport()
+  await expect(written(page, 'The arrival')).not.toBeInViewport()
+
+  // And the acts of a row are named in that Scene and in no other. Each of the ten
+  // Scenes draws a beat with a Condition to add; one of the ten answers.
+  await open(page)
+  await typing(page).fill('Add a Condition to Shot 1 of')
+  await expect(offered(page)).toHaveText(['Add a Condition to Shot 1 of The quay'])
+
+  // Asked for by the name it carries in the Scene the caret is not in: nothing
+  // answers, and what the bar offers instead is a Scene to write under that name.
+  await typing(page).fill('Add a Condition to Shot 1 of The last train')
+  await expect(page.locator('dialog.commands')).toContainText('Nothing here answers to that.')
+})
+
+test('an Author writes a way on by naming the act, and the hand lands on the field', async ({ page, request }) => {
   const story = await writeStory(request)
   await page.goto(`/stories/${story.id}`)
   // The bar, which nothing leads out of yet: the way on written here is its first.
   await writeScene(page, 'The bar')
-  await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
+  await expect(page.locator('.writing')).toBeVisible()
 
   await open(page)
   await typing(page).fill('exit')
   await expect(offered(page)).toHaveText(['Add an Exit'])
   await typing(page).press('Enter')
 
-  // A select cannot be pressed, so the bar puts the hand on it: the bar is gone
-  // and focus is on the field at the foot of the document, where one press opens
-  // the list. Whether a browser opens it unasked is the browser's own, so the
-  // spec holds focus and then chooses the way a keyboard would.
+  // A field cannot be pressed, so the bar puts the hand on it: the bar is gone
+  // and focus is at the foot of the document, where the Scene the way on leads
+  // to is named.
   await expect(page.locator('dialog.commands')).toBeHidden()
-  const adding = page.getByRole('combobox', { name: 'An Exit from here' })
+  // Named for the Scene it leaves as well as for what it does: the document holds
+  // one of these at the foot of every Scene, so the label says which foot.
+  const adding = page.getByRole('combobox', { name: 'An Exit from here The bar' })
   await expect(adding).toBeFocused()
-  await adding.selectOption({ label: 'The street' })
+  await adding.fill('The street')
+  await adding.press('Enter')
 
   // The act ran on the Story: The bar now has a way on to The street. Where a way
   // on already written leads is a row's own, and the exhaustive spec above holds
@@ -377,7 +475,7 @@ test('an Author sets a Flag and marks the Opening Scene by naming them', async (
   // The second Scene written, so the Story already opens on the other one: what
   // marking does here is move the role rather than fill an empty seat.
   await writeScene(page, 'The bar')
-  await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toBeVisible()
+  await expect(page.locator('.writing')).toBeVisible()
 
   await open(page)
   await typing(page).fill('Add a Flag')
@@ -394,49 +492,57 @@ test('an Author sets a Flag and marks the Opening Scene by naming them', async (
   await offered(page).click()
 
   // The act ran on the Story: the Scene on the surface is the one the Story
-  // opens on, and the radio that performs it says so.
-  await expect(page.getByRole('radio', { name: 'Opening Scene The bar' })).toBeChecked()
-  await page.reload()
-  await expect(page.getByRole('radio', { name: 'Opening Scene The bar' })).toBeChecked()
+  // opens on, and its slate says so in the one word that stands where the offer
+  // to move the opening stands on every other Scene.
+  //
+  // Read back past the page before the reload, because the write is still on its
+  // way out: a reload on top of an unfinished request cancels it, and the bench
+  // comes back saying what the Story never heard. The reload is here to prove the
+  // mark was kept rather than drawn, so it has to happen after the keeping.
+  const bar = await (await page.request.get(`/api/stories/${story.id}`)).json()
+    .then((read: { scenes: { id: string, name: string }[] }) =>
+      read.scenes.find(scene => scene.name === 'The bar')!)
+  const opens = page.getByRole('group', { name: 'Writing The bar' }).locator('.opening')
+  await expect(opens).toHaveText(/^Opening Scene/)
+  await expect
+    .poll(async () => (await (await page.request.get(`/api/stories/${story.id}`)).json())
+      .openingSceneId)
+    .toBe(bar.id)
 
-  // And the act has left the bar, because there is nothing left for it to do: a
-  // radio already checked answers a press with no change at all, so the row would
-  // press a control and leave the Story exactly as it was.
+  await page.reload()
+  await expect(opens).toHaveText(/^Opening Scene/)
+
+  // And the act has left the bar, because there is nothing left for it to do: the
+  // Scene the Story opens on carries the word and not the control, so there is no
+  // press on it to name.
   await open(page)
   await typing(page).fill('Opening')
   await expect(offered(page).filter({ hasText: 'Mark as the Opening Scene' })).toHaveCount(0)
 })
 
 /**
- * The bar and the surface that covers the bench. Below 44rem the writing surface
- * is the whole window and everything behind it is `inert`, and the bar still
- * reaches every one of those acts — which is why the bench is made unreachable
- * by `inert` rather than taken out of the page. A control that is merely out of
- * the keyboard's way is still a control the bar can press, and a bench that was
- * not drawn would be a bar with nothing left to offer: it reads the acts off the
- * controls themselves. See
- * `docs/adr/0036-the-surface-that-covers-the-bench-is-not-a-dialog.md`.
+ * The bar at the width of a phone, where the bench is one column: the Graph, the
+ * document and the header are all still drawn, so the bar reaches every one of
+ * their acts — it reads the acts off the controls themselves.
  */
-test('the bar reaches the bench the writing surface is covering', async ({ page, request }) => {
+test('the bar reaches every act of the bench at the width of a phone', async ({ page, request }) => {
   const story = await writeStory(request)
   await page.goto(`/stories/${story.id}`)
-  await expect(page.getByRole('article', { name: 'The street' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Writing The street' })).toBeVisible()
 
   await page.setViewportSize({ width: 600, height: 800 })
   await writeScene(page, 'The street')
   await expect(page.getByRole('group', { name: 'Writing The street' })).toBeVisible()
 
-  // Opened by the key rather than by the control above the graph, which the
-  // surface covers: what the bar is asked to reach here is the bench behind it,
-  // and the surface's own way in is held by the spec above. Named in full,
-  // because *bar* alone answers with the Condition on the Exit to The bar too.
+  // Opened by the key. Named in full, because *bar* alone answers with the
+  // Condition on the Exit to The bar too.
   await openByKey(page)
   await typing(page).fill('Go to The bar')
   await expect(offered(page)).toHaveText(['Go to The bar'])
   await offered(page).click()
-  await expect(page.getByRole('textbox', { name: 'Name of this Scene' })).toHaveValue('The bar')
+  await caretIn(page, 'The bar')
 
-  // And Publish, which is drawn in the header the surface covers.
+  // And Publish, which is drawn in the header.
   await openByKey(page)
   await typing(page).fill('Publish')
   await offered(page).click()

@@ -9,18 +9,22 @@
  *
  * A width used by one surface alone would not earn a file of its own: the
  * landing page turns two rooms side by side at sixty rem and nothing else reads
- * that number, so it stays written where it is used. These two are here because
- * they are read together — the band the bench folds the reading in runs from one
- * to the other, so a copy of either is a copy that can drift out of the band.
+ * that number, so it stays written where it is used.
  *
- * Both are read off the writing column rather than chosen — see
- * `docs/adr/0037-the-reading-folds-before-the-writing-does.md`.
+ * `--phone` is read by `app/components/Entry.vue` — and through it by the
+ * Catalogue, by a List and by a Profile, which are the shelves a Story is met
+ * on — by the list of Stories, and by the bench, where it is the width below
+ * which the rail narrows to a strip of dots.
+ * `--two-columns` is the bench's alone so far: a screen with room for the
+ * document and the rail but not for what the bench says beside them. The two
+ * together are the whole of the bench's folding, and they hide nothing — the
+ * Remarks fold first, then the rail narrows, and the document keeps the window at
+ * every width. See `docs/adr/0043-a-story-is-written-as-one-document.md`.
  */
 
 /* A screen with no room for two columns of anything: the phone. */
 @custom-media --phone (max-width: 44rem);
 
-/* Wide enough for the graph and one column of writing, and not for the reading
-   beside it. Composed with `--phone` where the band is what matters, so the
-   band's lower edge is the phone's own width and not a second copy of it. */
-@custom-media --two-columns (max-width: 78rem);
+/* Room for the document and the rail, and not for what the bench says beside
+   them. */
+@custom-media --two-columns (max-width: 64rem);

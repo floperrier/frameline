@@ -1,16 +1,32 @@
 import { expect } from '@playwright/test'
-import { ONE_PIXEL, writeScene, seedScene, seedStory, test, writeStory } from './author'
+import {
+  ONE_PIXEL, readTheStory, seedScene, seedStory, test, writeScene, writeStory,
+} from './author'
 import { SHOT_DESCRIPTION_MAX_LENGTH, SHOT_IMAGE_MAX_BYTES } from '../../shared/utils/scenes'
 import type { APIRequestContext, Page } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
 /**
- * The panel one Scene is written in. The Shots of both Scenes of this Story
- * number from one, so a Shot's own controls are found through the panel holding
- * the Scene rather than by their labels alone.
+ * One Scene's own section of the document, which is where that Scene is written:
+ * every Scene of the Story is, since
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`. Used where the claim is
+ * about the section itself — that a refusal is said in the Scene it was made in —
+ * and not to tell two Shots apart: every control of a beat is named for the Scene
+ * it is in as well as for the Place it stands at, so the Shots of both Scenes of
+ * this Story numbering from one names nothing twice.
  */
-function writing(page: Page) {
-  return page.locator('.panel')
+function writing(page: Page, scene = 'The street') {
+  return page.getByRole('group', { name: `Writing ${scene}` })
+}
+
+/** The image a beat carries, named for the Shot and the Scene both. */
+function shown(page: Page, place: number, scene = 'The street') {
+  return page.getByAltText(`The image of Shot ${place} of ${scene}`)
+}
+
+/** The picker behind a beat's thumbnail, named the same way. */
+function picking(page: Page, place: number, scene = 'The street') {
+  return page.getByLabel(`Image of Shot ${place} of ${scene}`, { exact: true })
 }
 
 /** The Shots of the first Scene of a Story written the way an Author writes one. */
@@ -65,30 +81,37 @@ test('a Shot keeps the image attached last, and shows it', async ({ page, reques
   // would otherwise leave the browser drawing the image it already had.
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The street')
-  const street = writing(page)
-  const shown = () => street.locator('img').getAttribute('src')
+  const drawn = () => shown(page, 1).getAttribute('src')
 
-  const first = await shown()
-  await street.getByLabel('Image of Shot 1', { exact: true })
+  const first = await drawn()
+  await picking(page, 1)
     .setInputFiles({ name: 'other.png', mimeType: 'image/png', buffer: ONE_PIXEL })
-  await expect.poll(shown).not.toBe(first)
+  await expect.poll(drawn).not.toBe(first)
 })
 
-test('a card shows the image of the Scene\u2019s first Shot', async ({ page, request }) => {
+test('the run shows the image of every Shot that carries one', async ({ page, request }) => {
   const { story, shots } = await openShots(request)
   await request.put(`/api/shots/${shots[0]!.id}/image`, { data: ONE_PIXEL })
 
   await page.goto(`/stories/${story.id}`)
+  await writeScene(page, 'The street')
 
-  // What an Author recognises a Scene by before they have read a word of it, read
-  // off the card with nothing opened.
-  await expect(page.getByRole('article', { name: 'The street' })
-    .getByRole('img', { name: 'The image of Shot 1' }))
+  // This claim used to be made of a node: the Graph drew the image of a Scene's
+  // first Shot, and that was what an Author recognised the Scene by before they
+  // had read a word of it. The Graph is the rail now — a hundred and twenty pixels
+  // down the side of the document, drawing no image, no line and no name, see
+  // `docs/adr/0043-a-story-is-written-as-one-document.md` — so the claim moves to
+  // where an image is still drawn small: the beat's own row, where the thumbnail
+  // stands beside the words. It is what is left on the bench of reading the work
+  // by looking rather than by reading, which is the question an Author judging how
+  // much of it is still a grey rectangle is asking; the contact sheet of `0043` is
+  // where that question is answered of the whole Story at once.
+  await expect(shown(page, 1))
     .toHaveAttribute('src', `/api/shots/${shots[0]!.id}/image`)
 
-  // The other Scene's first Shot carries none, so its card is the outline of the
-  // image nobody has attached — the same way an unfinished Shot reads in the panel.
-  await expect(page.getByRole('article', { name: 'The bar' }).locator('img')).toHaveCount(0)
+  // The second beat carries none, so its thumbnail is the outline of the image
+  // nobody has attached, which is how an unfinished beat reads as unfinished.
+  await expect(shown(page, 2)).toHaveCount(0)
 })
 
 test('an upload of the wrong kind, or too heavy, is refused by its reason', async ({ request }) => {
@@ -152,10 +175,9 @@ test('the Author picks a file in the editor, and a refused one says why', async 
   await page.goto(`/stories/${story.id}`)
 
   await writeScene(page, 'The street')
-  const street = writing(page)
-  const picker = street.getByLabel('Image of Shot 1', { exact: true })
+  const picker = picking(page, 1)
   await picker.setInputFiles({ name: 'image.png', mimeType: 'image/png', buffer: ONE_PIXEL })
-  await expect(street.locator('img')).toBeVisible()
+  await expect(shown(page, 1)).toBeVisible()
 
   // A file that is not one of the three says so, and the image already attached
   // is still the one the Shot carries.
@@ -164,12 +186,16 @@ test('the Author picks a file in the editor, and a refused one says why', async 
     mimeType: 'image/png',
     buffer: Buffer.from('Not an image at all'),
   })
-  // Against the Scene it concerns rather than above the whole bench: one Scene is
-  // written at a time and the surface it is written on is where the server has to
-  // complain about a Shot — see
-  // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`.
-  await expect(street.getByRole('alert')).toContainText('a JPEG, a PNG or a WebP image')
-  await expect(street.locator('img')).toBeVisible()
+  // Against the Scene it concerns rather than about the Story: the document holds
+  // every Scene, so the sentence names the one the write was made in — see
+  // `docs/adr/0043-a-story-is-written-as-one-document.md`. It names it rather than
+  // standing in its section, because a band drawn inside the document covers a row
+  // of the writing wherever it is put — `.refused` in
+  // `app/pages/stories/[id]/index.vue`.
+  await expect(page.getByRole('alert')).toHaveText(
+    'In “The street”: A Shot carries a JPEG, a PNG or a WebP image, and nothing else.')
+  await expect(page.locator('.writing [role="alert"]')).toHaveCount(0)
+  await expect(shown(page, 1)).toBeVisible()
 })
 
 test('the thumbnail is the picker, and an empty one is the outline of an image', async ({ page, request }) => {
@@ -178,14 +204,16 @@ test('the thumbnail is the picker, and an empty one is the outline of an image',
 
   await writeScene(page, 'The street')
   const street = writing(page)
-  const thumbnail = street.locator('.image > label').first()
+  const thumbnail = street.locator('.image').first()
 
-  // The Shot carries no image yet and is drawn as the box one would fill, at the
-  // size a thumbnail is: an unfinished Shot is legible as one.
-  expect(await thumbnail.boundingBox()).toMatchObject({ width: 72, height: 48 })
+  // The Shot carries no image yet and is drawn as the frame one would fill, at
+  // the shape a frame is thrown at: an unfinished beat is legible as one.
+  const empty = (await thumbnail.boundingBox())!
+  expect(empty.width / empty.height).toBeGreaterThan(1.5)
+  expect(empty.width / empty.height).toBeLessThan(2)
   await expect(thumbnail.locator('img')).toBeHidden()
 
-  // Pressing the thumbnail is the way in, and the only one: the browser's own file
+  // Pressing the frame is the way in, and the only one: the browser's own file
   // chrome is behind it rather than beside it, so it is the picker that opens.
   const opened = page.waitForEvent('filechooser')
   await thumbnail.click()
@@ -195,33 +223,35 @@ test('the thumbnail is the picker, and an empty one is the outline of an image',
   await expect.poll(async () => (await reread(request, story.id))[0]!.image)
     .toBe(`/api/shots/${shots[0]!.id}/image`)
 
-  // And the input is still the named control it was, reached from the Shot's text
-  // by the next Tab: hidden behind the thumbnail is not hidden from the keyboard.
-  const picker = street.getByLabel('Image of Shot 1', { exact: true })
-  await street.getByRole('textbox', { name: 'Shot 1', exact: true }).focus()
-  await page.keyboard.press('Tab')
+  // And the input is still the named control it was, and the Tab before the
+  // beat's own field: hidden behind the frame is not hidden from the keyboard,
+  // and the frame stands over the words it belongs to.
+  const picker = picking(page, 1)
+  await picker.focus()
   await expect(picker).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(street.getByRole('textbox', { name: 'Shot 1 of The street', exact: true }))
+    .toBeFocused()
 
   // What it does not take is room. The browser's own file chrome was the widest
-  // thing in the panel; clipped away inside the thumbnail it lays nothing out, so
-  // what is left of it sits within the thumbnail's own box.
+  // thing on the beat's row; clipped away inside the frame it lays nothing out, so
+  // what is left of it sits within the frame's own box.
   const thumb = (await thumbnail.boundingBox())!
   const behind = (await picker.boundingBox())!
   expect(behind.x).toBeGreaterThanOrEqual(thumb.x)
   expect(behind.x + behind.width).toBeLessThanOrEqual(thumb.x + thumb.width)
 
-  // The Description takes the line under the image it describes, across the width
-  // of the beat, and keeps its own label rather than borrowing the thumbnail's
-  // box: the thumbnail stands beside the beat's own text now — see
-  // `docs/adr/0033-a-scene-is-written-as-one-document.md`.
+  // The Description stands beside the thumbnail with the words, and keeps its own
+  // label rather than borrowing the frame's box: the frame holds the work and
+  // nothing else — see
+  // `docs/adr/0033-a-scene-is-written-as-one-document.md`, whose row this is.
   const described = (await street.getByLabel('Description of the image of Shot 1')
     .boundingBox())!
-  expect(described.y).toBeGreaterThanOrEqual(thumb.y + thumb.height)
-  expect(described.x).toBeLessThan(thumb.x)
+  expect(described.x).toBeGreaterThanOrEqual(thumb.x + thumb.width)
   expect(described.height).toBeLessThan(thumb.height)
 
-  // And the word above it is a label and not a second thumbnail: it is the size of
-  // the line it is, which is what the thumbnail's own rule must not reach past it to
+  // And the word above it is a label and not a second frame: it is the size of
+  // the line it is, which is what the frame's own rule must not reach past it to
   // decide.
   const eyebrow = (await street.locator('.described label').first().boundingBox())!
   expect(eyebrow.height).toBeLessThan(thumb.height)
@@ -231,11 +261,10 @@ test('the image and the text of a Shot are one beat on screen', async ({ browser
   const { story, scene, shots } = await openShots(request)
   await request.put(`/api/shots/${shots[0]!.id}/image`, { data: ONE_PIXEL })
 
-  // Read where it is written, beside the Scene: the same image is a thumbnail in
-  // the writing surface and a frame in the reading, so the frame is asked for
-  // inside the reading rather than on the page.
+  // Read where it is written — in the very same box on the Graph, turned over —
+  // so the frame is asked for inside the reading rather than on the page.
   await page.goto(`/stories/${story.id}?scene=${scene}`)
-  const preview = page.getByRole('region', { name: /^Preview/ })
+  const preview = await readTheStory(page)
 
   // Both at once: the Shot the Reading opens on shows its image beside its text.
   const image = preview.locator(`img[src="/api/shots/${shots[0]!.id}/image"]`)
@@ -249,11 +278,14 @@ test('the image and the text of a Shot are one beat on screen', async ({ browser
 
   // And the Reader meets at the public link exactly what the Preview showed —
   // the same component on the same engine, so it could hardly be otherwise, but
-  // the image is fetched over a door with no session behind it.
+  // the image is fetched over a door with no session behind it. The same frame
+  // also stands in the title card as the Story's Cover, so the one asked for is
+  // the one inside the Shot's figure, beside its text.
   await request.post(`/api/stories/${story.id}/publish`)
   const reader = await (await browser.newContext({ extraHTTPHeaders: {} })).newPage()
   await reader.goto(`/read/${story.id}`)
-  await expect(reader.locator(`img[src^="/api/shots/${shots[0]!.id}/image"]`)).toBeVisible()
+  const frame = reader.getByRole('figure').locator(`img[src^="/api/shots/${shots[0]!.id}/image"]`)
+  await expect(frame).toBeVisible()
   await expect(reader.getByText('A door opens.')).toBeVisible()
 })
 
@@ -360,7 +392,7 @@ test('the Author drops a file on a thumbnail, and the image is the one dropped',
 
   await writeScene(page, 'The street')
   const street = writing(page)
-  const thumbnail = street.locator('.image > label').first()
+  const thumbnail = street.locator('.image').first()
 
   // While the file is over it the thumbnail says it will take the drop, in the
   // grease pencil the other gestures on the bench are marked in.
@@ -390,10 +422,11 @@ test('the Author drops a file on a thumbnail, and the image is the one dropped',
   const opened = page.waitForEvent('filechooser')
   await thumbnail.click()
   await (await opened).setFiles({ name: 'picked.png', mimeType: 'image/png', buffer: ONE_PIXEL })
-  await expect(street.getByLabel('Image of Shot 1', { exact: true })).toBeAttached()
-  await street.getByRole('textbox', { name: 'Shot 1', exact: true }).focus()
+  await expect(picking(page, 1)).toBeAttached()
+  await picking(page, 1).focus()
   await page.keyboard.press('Tab')
-  await expect(street.getByLabel('Image of Shot 1', { exact: true })).toBeFocused()
+  await expect(street.getByRole('textbox', { name: 'Shot 1 of The street', exact: true }))
+    .toBeFocused()
 })
 
 test('a drop of several files takes the first image, and a refused one says why', async ({ page, request }) => {
@@ -402,7 +435,7 @@ test('a drop of several files takes the first image, and a refused one says why'
 
   await writeScene(page, 'The street')
   const street = writing(page)
-  const thumbnail = street.locator('.image > label').first()
+  const thumbnail = street.locator('.image').first()
 
   // Notes and two images: the first image is attached, and nothing is said about
   // the rest of what the hand was holding.

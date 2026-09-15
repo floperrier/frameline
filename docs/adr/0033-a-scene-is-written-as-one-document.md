@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by 0043
 ---
 
 # A Scene is written as one document

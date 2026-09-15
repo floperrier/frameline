@@ -1,9 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { neon } from '@neondatabase/serverless'
-import { test as base, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test'
+import { expect, test as base, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test'
 import { DISMISSED } from '../../app/utils/steps'
 import type { Condition, Exit, Scene, Sets, Shot } from '../../shared/utils/scenes'
-import { NODE_GAP, NODE_SPACING, NODE_WIDTH, NODES_PER_COLUMN } from '../../shared/utils/scenes'
 import { sealSession, type H3Event } from 'h3'
 
 const sql = neon(process.env.DATABASE_URL!)
@@ -211,18 +210,20 @@ export async function seedScene(story: Story, name: string) {
 
 /**
  * Writes a whole graph of Scenes at once, for one too large to build a request at
- * a time, laid out in the columns the API would have laid them out in.
+ * a time, and hands them back in the order it was asked for.
+ *
+ * The ids are drawn here rather than read back out of the insert, because Postgres
+ * promises no order for the rows `RETURNING` emits — `with ordinality` orders what
+ * the insert reads, never what comes back — so a chain of Exits built by walking
+ * the result was a chain whose depth nobody chose. See issue #261.
  */
 export async function seedScenes(story: Story, names: string[]) {
-  const scenes = await sql`
-    insert into scenes (story_id, name, x, y)
-    select
-      ${story.id},
-      name,
-      ((place - 1) / ${NODES_PER_COLUMN}) * ${NODE_WIDTH + NODE_GAP},
-      ((place - 1) % ${NODES_PER_COLUMN}) * ${NODE_SPACING}
-    from unnest(${names}::text[]) with ordinality as named (name, place)
-    returning id, name` as Pick<Scene, 'id' | 'name'>[]
+  const scenes: Pick<Scene, 'id' | 'name'>[] = names.map(name => ({ id: randomUUID(), name }))
+
+  await sql`
+    insert into scenes (id, story_id, name)
+    select id, ${story.id}, name
+    from unnest(${scenes.map(scene => scene.id)}::uuid[], ${names}::text[]) as seeded (id, name)`
 
   // A Shot apiece, written rather than empty, because a Scene the API made
   // arrives with none and an Author's first move inside one is to write a Shot:
@@ -235,21 +236,90 @@ export async function seedScenes(story: Story, names: string[]) {
 }
 
 /**
- * Puts a Scene on the surface it is written on, the way the Author would. A
- * card carries nothing to type into — the Scene's name, the image of its first
- * Shot, its Shot count and where its ways on land — so a test that writes
- * anything about a Scene from the page opens its panel first.
+ * A Story long enough to read down, in one known order: the Scenes named, each
+ * joined to the one after it, and the first marked as the Scene the Story opens
+ * on. The order a Story is written in is read off the Story — how far each Scene
+ * stands from the opening, in Exits taken — so a chain is the one shape whose
+ * document runs in the order it was asked for, and the opening has to be named or
+ * the walk starts from whichever Scene the insert happened to hand back first,
+ * which is issue #261 one column over. See
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ */
+export async function seedChain(story: Story, names: string[]) {
+  const scenes = await seedScenes(story, names)
+  for (const [place, scene] of scenes.entries()) {
+    if (place) await seedExit(scenes[place - 1]!.id, scene.id)
+  }
+  await sql`update stories set opening_scene_id = ${scenes[0]!.id} where id = ${story.id}`
+
+  return scenes
+}
+
+/**
+ * Puts the caret in a Scene, the way an Author would: by pressing its mark on the
+ * rail. Every Scene of the Story is written where it stands since #252, so the
+ * writing surface is up for all of them at once and waiting for it says nothing
+ * about where the caret is. What a press moves is the caret — the rail lights that
+ * Scene's mark, the address names it, and the marks a row carries for the bar of
+ * Commands and for the guided path go with it — so the lit mark is what this waits
+ * for. A Scene whose mark is already lit is left alone, because pressing it would
+ * be asking to go where the caret already is. See
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`.
  */
 export async function writeScene(page: Page, name: string) {
-  // Folded into a rail, the card itself is what is pressed: the button on it is
-  // drawn at the rail's own scale and is no target for a hand — see
-  // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`. Either way the
-  // press is a toggle, so a Scene pressed twice is closed.
-  if (await page.locator('.bench.folded').count()) {
-    return await page.getByRole('article', { name }).click()
-  }
+  const mark = sceneNode(page, name)
+  await expect(mark).toBeVisible()
+  if (!(await mark.getAttribute('class'))?.split(' ').includes('here')) await mark.click()
 
-  await page.getByRole('button', { name: `Write Scene ${name}` }).click()
+  await expect(mark).toHaveClass(/\bhere\b/)
+}
+
+/**
+ * A Scene as the rail draws it: the Graph is a hundred and twenty pixels down the
+ * side of the document now, and a Scene in it is a mark and no words — no image,
+ * no line, no name — see `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ *
+ * `getByRole` cannot reach one, and that is the rail working as designed rather
+ * than an oversight to route around. The rail is `aria-hidden` with every mark at
+ * `tabindex="-1"`, because every fact it draws — where a Scene stands in the
+ * Story, whether the Story opens on it, whether anything arrives at it — is said
+ * in words in the document's own markup, and a drawing in the accessibility tree
+ * would be the whole Story announced twice with a tab order running through it.
+ * So a mark is found by the name the bar of Commands reads it under, which is the
+ * one thing about the rail that does still reach the keyboard:
+ * `app/components/Commands.vue` filters by `checkVisibility()`, which does not
+ * consult `aria-hidden` — see
+ * `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`.
+ * Scoped to the rail all the same, because a way on's own row in the Scene being
+ * written carries a control named *Go to* the Scene it lands on.
+ *
+ * Still `sceneNode` rather than `sceneMark`. *Node* is `CONTEXT.md`'s word for a
+ * Scene as the Graph draws it, and the rail is the Graph read small rather than a
+ * second surface; *mark* is the class the rail gives it, and it is a word two
+ * other things on the bench already carry — the controls that renumber a row, and
+ * what `0035` calls a control named for the bar — so it is not the word to take
+ * for this one.
+ */
+export function sceneNode(page: Page, name: string) {
+  return page.locator(`.rail [data-command="Go to ${name}"]`)
+}
+
+/**
+ * Turns the middle of the bench onto the Story read on the engine a Reader runs.
+ * The rail and the Remarks do not move between the readings — what changes is
+ * what the middle is a reading of, never where anything is — so the Preview
+ * arrives in the document's own place rather than in a box of its own. See
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`, which keeps `0030`'s
+ * engine rule and supersedes its *beside*.
+ */
+export async function readTheStory(page: Page) {
+  const preview = page.getByRole('region', { name: /^Preview/ })
+  if (!await preview.isVisible()) {
+    await page.getByRole('button', { name: 'Read the Story' }).click()
+  }
+  await expect(preview).toBeVisible()
+
+  return preview
 }
 
 /**
@@ -287,14 +357,16 @@ export async function readExits(fromSceneId: string) {
  * opening Scene comes with it — the API refuses to publish a Story without one,
  * and a Scene seeded past the API leaves it unset — so what is seeded is a Story
  * the product would have allowed.
+ *
+ * Which Scene opens is named rather than looked up. The Scenes `seedScenes` writes
+ * share one `created_at` to the microsecond, being one insert, so asking the table
+ * for its earliest asks it to pick, which is issue #261 again one column over.
  */
-export async function seedPublication(story: Story) {
+export async function seedPublication(story: Story, opening?: Pick<Scene, 'id'>) {
   await sql`
     update stories set
       published_at = now(),
-      opening_scene_id = coalesce(
-        opening_scene_id,
-        (select id from scenes where story_id = ${story.id} order by created_at limit 1))
+      opening_scene_id = coalesce(opening_scene_id, ${opening?.id ?? null}::uuid)
     where id = ${story.id}`
 }
 
@@ -315,16 +387,6 @@ export async function readFlags(sceneId: string) {
     select sets from scenes where id = ${sceneId}` as { sets: Sets }[]
 
   return scene!.sets
-}
-
-/** Reads where a Scene sits in the graph, and which Scene its Story opens on. */
-export async function readScenePlacement(id: string) {
-  const [node] = await sql`
-    select scenes.x, scenes.y, stories.opening_scene_id as "openingSceneId"
-    from scenes join stories on stories.id = scenes.story_id
-    where scenes.id = ${id}` as { x: number, y: number, openingSceneId: string | null }[]
-
-  return node!
 }
 
 /** Reads what a Scene is called past the API, to see what a rename really wrote. */

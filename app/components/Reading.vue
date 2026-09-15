@@ -5,9 +5,14 @@
  * meets can go untested by a Preview, and nothing an Author previews can behave
  * differently once it is published.
  *
- * The Path lives here and nowhere else. It never leaves the browser, so
- * every Reading starts with empty State and two Readers of one Story cannot
- * share what they have accumulated — there is no place for them to share it.
+ * The Path is the whole of what one Reading is, and this holds it for whoever is
+ * not holding it already. A Reader's page hands it none, so the Path lives here
+ * for as long as the page does. The bench hands it one, held above the document
+ * so that the middle of the bench can be turned from the writing to the reading
+ * and back without the Reading ending — see #247 and
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`. Either way it never
+ * leaves the browser, so every Reading starts with empty State and two Readers of
+ * one Story cannot share what they have accumulated.
  *
  * `keptFor` is the Story whose Reading this browser keeps between visits: named,
  * the Path is written to local storage on every move and read back when the
@@ -23,35 +28,36 @@ const { story, keptFor } = defineProps<{
 const { t } = useI18n()
 
 /**
- * Where the Reading has got to, said out loud on every move. The whole of what
- * this component offers whoever draws it, and the reason a Preview can put the
- * State on a bench beside it without this knowing who is watching: the Path
- * is all a Preview needs, because everything else is a pure function of it.
- * A Reader's Reading is the same component with nobody listening.
+ * Where the Reading has got to, and the whole of what this component offers
+ * whoever draws it: a Preview can put the State on a bench under it without this
+ * knowing who is watching, because everything else is a pure function of the
+ * Path. Two-way, so that a bench holding the Path above the document reads every
+ * move back and hands the same Reading down again the next time it is looked at.
+ * Left unbound — which is what a Reader's page does — it is a Path of this
+ * component's own, and the default is where every Reading starts before a seed
+ * has been drawn for it.
  */
-const emit = defineEmits<{ at: [Path] }>()
+const at = defineModel<Path>('at', { default: () => UNDRAWN })
 
-const at = ref<Path>(UNDRAWN)
 const shown = computed(() => reading(story, at.value))
 
 /**
- * Every move is said out loud, and kept where the browser will find it again:
- * the whole Path, so what is read back is exactly what replays. Written here
- * rather than in `moveTo` so the opening is kept too — a Reader who has just
- * started over is back at the start next time as well.
+ * Every move is kept where the browser will find it again: the whole Path, so
+ * what is read back is exactly what replays. Watched rather than written at each
+ * move, so the opening is kept too — a Reader who has just started over is back
+ * at the start next time as well — and so is a move made from outside.
  */
 const key = keptFor && `reading-${keptFor}`
 
-function shownAt() {
-  emit('at', at.value)
+watch(at, (now) => {
   if (!key) return
   // A browser that refuses storage, or has none left, refuses quietly: the
   // Reading goes on, it is just not kept.
   try {
-    localStorage.setItem(key, JSON.stringify(at.value))
+    localStorage.setItem(key, JSON.stringify(now))
   }
   catch {}
-}
+})
 
 /**
  * The Path this browser kept from an earlier visit, if it is one to go back to:
@@ -84,18 +90,31 @@ const resumed = ref(false)
 
 /**
  * The seed every draw a Scene makes comes out of, drawn once the Reading is in
- * the browser and said out loud like every other move. Here rather than in the
- * Path this starts at, because the server renders this page too and a seed
- * drawn there and drawn again here would be two Stories either side of
- * hydration. It is the one impure moment in a Reading — see
- * `docs/adr/0024-the-seed-belongs-to-the-position.md`. A Path kept from before
- * carries its seed with it, so a Reading picked up draws what it drew.
+ * the browser it will stay in. Here rather than in the Path this starts at,
+ * because the server renders this page too and a seed drawn there and drawn
+ * again here would be two Stories either side of hydration. It is the one impure
+ * moment in a Reading — see `docs/adr/0024-the-seed-belongs-to-the-position.md`.
+ * A Path kept from before carries its seed with it, so a Reading picked up draws
+ * what it drew.
+ *
+ * Drawn by whoever finds the Path still `UNDRAWN`, which is the one Path both
+ * holders start at: a bench that holds the Path above the document has drawn it
+ * as the bench arrived, and a Reading that drew a second seed on every turn back
+ * to it would be the defect #247 reports.
+ *
+ * Held against the value rather than against the constant itself. A Path handed
+ * down through the model arrives as a reactive proxy of whatever the holder above
+ * keeps, never as the object, so an identity test would read false on every bench
+ * and true on a Reader's page only because `defineModel` hands out that very
+ * object when nobody binds it — which is a rule holding by an accident it does not
+ * name. An undrawn Path has taken nothing, is on the Shot it opened on, and
+ * carries the seed of none, and those are the three things `UNDRAWN` is.
  */
 onMounted(() => {
   const before = kept()
   resumed.value = before !== undefined
-  at.value = before ?? opening()
-  shownAt()
+  if (before) at.value = before
+  else if (!moved(at.value) && at.value.seed === UNDRAWN.seed) at.value = opening()
 })
 
 /**
@@ -110,6 +129,12 @@ onMounted(() => {
  * what has just arrived. At the end of the Story there is neither a Shot nor a
  * way on, and the press that got there took its own button away, so the one
  * control left — reading again from the start — takes the focus it held.
+ *
+ * Starting over is the one move that can land on nothing: it puts the Reading
+ * back where reading again is not offered, so a Story whose Opening Scene plays
+ * no Shot and offers no way on has no control to hand the keyboard to and none
+ * is invented. Focus goes to the document because on that screen there is
+ * nothing to put it on.
  */
 const frame = useTemplateRef<HTMLElement>('frame')
 const exits = useTemplateRef<HTMLElement>('exits')
@@ -118,36 +143,9 @@ const again = useTemplateRef<HTMLElement>('again')
 async function moveTo(to: Path) {
   at.value = to
   resumed.value = false
-  shownAt()
   await nextTick()
   ;(shown.value.shot ? frame.value : (exits.value?.querySelector('button') ?? again.value))?.focus()
 }
-
-/**
- * The same Path under another draw, which is the one thing about a Reading
- * something outside it may change: the Preview's reroll. Nothing moves, so
- * nothing takes focus — the Author presses the button again and again, and what
- * changes is the Story around it. Exposed rather than taken as a prop, because
- * the Path lives here and a second place to hold it is a second Reading.
- */
-function reroll() {
-  at.value = rerolled(at.value)
-  shownAt()
-}
-
-/**
- * The Reading put at a Path worked out somewhere else: the pane an Author writes
- * beside routes the reading to the Scene they are on, and a Path held in two
- * places would be two Readings. Nothing takes focus, because nobody pressed
- * anything in here — the Author pressed a card in the rail, and the keyboard
- * belongs where they left it.
- */
-function goTo(to: Path) {
-  at.value = to
-  shownAt()
-}
-
-defineExpose({ reroll, goTo })
 
 const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, scene.name])))
 
@@ -231,11 +229,8 @@ function offered(exit: Exit) {
            editor reads it — and the only thing on the page that says how much of
            the Scene is left, every tick lit once the run is behind the Reader. -->
       <div class="edge">
-        <p class="eyebrow">
-          <span :lang="story.language">{{ scene?.name }}</span>
-          <span aria-hidden="true">·</span>
-          {{ $t('reading.shotOf', { place, of: run.length }) }}
-        </p>
+        <p class="eyebrow" :lang="story.language">{{ scene?.name }}</p>
+        <p class="counting">{{ $t('reading.shotOf', { place, of: run.length }) }}</p>
         <ol aria-hidden="true" class="ticks">
           <li v-for="(_, tick) in run.length" :key="tick" :class="{ lit: tick < place }" />
         </ol>
@@ -272,7 +267,14 @@ function offered(exit: Exit) {
          sentence inside it. -->
     <p class="ended trail" role="status">{{ shown.ended ? $t('reading.ended') : '' }}</p>
 
-    <p class="again">
+    <!-- Offered once the Reading has moved and not before: on the first beat of
+         the Opening Scene there is nothing to read again, and the press would
+         draw a new seed and throw the same frame the Reader is already looking
+         at. It is a stop the keyboard is spared too, on the one screen whose
+         whole tab order is otherwise the next beat — and the Author who does
+         want that frame drawn again has the reroll on the bench, which is a
+         control of the Preview rather than one of the Reading. -->
+    <p v-if="moved(at)" class="again">
       <button ref="again" type="button" class="trail" @click="moveTo(opening())">
         {{ $t('reading.again') }}
       </button>
@@ -344,11 +346,23 @@ figcaption {
   padding: var(--s5) clamp(var(--s4), 4vw, var(--s5));
 }
 
+/* The edge of the film: the Scene the beat belongs to at the leading end, and at
+   the trailing end how far into its run the Reader is — the count and the ticks
+   reading the same fact twice, once in words and once as the length of film that
+   is left. */
 .edge {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--s4);
+  gap: var(--s3);
+}
+
+.counting {
+  margin-inline-start: auto;
+  color: var(--muted);
+  font-family: var(--data);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* One tick a Shot, filled up to the one on screen. */
@@ -439,9 +453,11 @@ figcaption {
   content: none;
 }
 
+/* Reading the Story again from the start: the way out of the reading, at the
+   leading edge under everything it is a way out of, rather than centred in the
+   room where it reads as the thing the page was for. */
 .again {
   display: flex;
-  justify-content: center;
 }
 
 .again button {
