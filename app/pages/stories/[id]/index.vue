@@ -419,12 +419,15 @@ async function makeScene(name = t('editor.provisionalSceneName')) {
     }) as Scene
 
     writtenId = written.id
-    announce(t('editor.sceneCreated', { name }))
   })
+  if (!writtenId) return
 
-  // After the read the change asks for, so the surface the Scene is written on
-  // is in the page by the time focus is sent into it.
-  if (writtenId) await writeScene(writtenId, name === t('editor.provisionalSceneName'))
+  // After the read the change asks for: the sentence names the Scene as the bench
+  // does, and `names` cannot number a Scene the Story does not hold yet; and the
+  // surface the Scene is written on is in the page by the time focus is sent into
+  // it.
+  announce(t('editor.sceneCreated', { name: sceneNamed(names.value, writtenId, t) }))
+  await writeScene(writtenId, name === t('editor.provisionalSceneName'))
 }
 
 /**

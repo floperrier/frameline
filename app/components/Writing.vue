@@ -463,10 +463,14 @@ async function splitBefore(scene: Scene, shot: Shot) {
     }) as Pick<Scene, 'id' | 'name'>
 
     writtenId = split.id
-    announce(t('editor.sceneSplit', { name: nameOf(scene.id), to: name }))
   })
 
-  if (writtenId) emit('open', writtenId, true)
+  // Said once the read the change asks for has landed, because the sentence names
+  // the new half as the bench does and the bench numbers a name two Scenes carry
+  // off the Story it holds — which does not hold the new half until then.
+  if (!writtenId) return
+  announce(t('editor.sceneSplit', { name: nameOf(scene.id), to: nameOf(writtenId) }))
+  emit('open', writtenId, true)
 }
 
 /** Attaches an image, sent as the whole request body: picked or dropped, it is the same file to the same endpoint. */
@@ -606,9 +610,10 @@ async function addExit(scene: Scene) {
 
   const found = story.scenes.find(other => plainly(other.name) === plainly(name))
   let writtenId: string | undefined
+  let toSceneId = found?.id
 
   await changing(scene, async () => {
-    const toSceneId = found?.id ?? (await send(`/api/stories/${story.id}/scenes`, {
+    toSceneId ??= (await send(`/api/stories/${story.id}/scenes`, {
       method: 'POST',
       body: { name },
     }) as Scene).id
@@ -619,13 +624,17 @@ async function addExit(scene: Scene) {
     }) as Exit
 
     writtenId = written.id
-    announce(t(found ? 'editor.exitDrawn' : 'editor.exitDrawnToNew', {
-      from: nameOf(scene.id),
-      to: found ? nameOf(found.id) : name,
-    }))
   })
 
-  if (!writtenId) return
+  if (!writtenId || !toSceneId) return
+  // Past the read-back, as in `splitBefore`: a Scene written here under the words
+  // the bench numbers another by — *The bar (2)* typed beside two called *The bar*
+  // — renumbers the Scene it was named in, so both halves are read off the Story
+  // that holds it.
+  announce(t(found ? 'editor.exitDrawn' : 'editor.exitDrawnToNew', {
+    from: nameOf(scene.id),
+    to: nameOf(toSceneId),
+  }))
   await nextTick()
   document.getElementById(`exit-${writtenId}`)?.focus()
 }

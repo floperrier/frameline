@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test'
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
-import { ONE_PIXEL, live, sceneNode, seedExit, seedScenes, test, toast } from './author'
+import { ONE_PIXEL, live, readExits, sceneNode, seedExit, seedScenes, test, toast } from './author'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
 /**
@@ -966,4 +966,82 @@ test('opens a Story whose address names a Scene that is gone where a Reading wou
     // an error and says nothing: the Story opens, and the Author carries on.
     await expect(page.locator('.rail .here')).toHaveAttribute('data-scene', scenes[0]!.id)
     await expect(page.locator('.writing .scene')).toHaveCount(2)
+  })
+
+/**
+ * A Story of two Scenes both called *The bar*, the first opening on the second,
+ * with two beats apiece so that either can be split. The smallest Story on which
+ * the name the bench draws and the name the Author typed differ.
+ */
+async function twoBars(request: APIRequestContext) {
+  const story = await (await request.post('/api/stories', {
+    data: { title: 'A Story' },
+  })).json() as { id: string, title: string }
+  const bars = await seedScenes(story, ['The bar', 'The bar'])
+  await seedExit(bars[0]!.id, bars[1]!.id)
+  expect((await request.post(`/api/scenes/${bars[0]!.id}/opening`)).ok()).toBeTruthy()
+  for (const bar of bars) {
+    expect((await request.post(`/api/scenes/${bar.id}/shots`)).ok()).toBeTruthy()
+  }
+
+  return { story, bars }
+}
+
+/** What the rail calls one Scene, which is what every control naming it is named by. */
+async function railName(page: Page, sceneId: string) {
+  const said = await page.locator(`.rail .mark[data-scene="${sceneId}"]`)
+    .getAttribute('data-command')
+
+  return said!.replace(/^Go to /, '')
+}
+
+/**
+ * What the bench says out loud about a Scene it has just written is held against
+ * what the rail calls that Scene, on a Story where the two can differ. The sentence
+ * is for a reader who cannot see where the caret went, and the rail is the reading
+ * every other control is named from — see
+ * `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`. It is said
+ * once the Story holds the Scene, because the number is drawn off the Story and
+ * nothing can number a Scene that is not in it yet (#294).
+ */
+test('names a Scene it has just split off as the rail names it', async ({ page, request }) => {
+  const { story, bars } = await twoBars(request)
+  await page.goto(`/stories/${story.id}`)
+  await live(page)
+
+  // Each bar in turn, so the second half split off is the second *{name}, continued*
+  // and the sentence has a number to get wrong.
+  for (const [at, bar] of bars.entries()) {
+    await page.getByRole('button', { name: `Split The bar (${at + 1}) before Shot 2` }).click()
+    await expect(page.locator('.rail .mark')).toHaveCount(3 + at)
+
+    // The one way on out of the half that was split is the Exit joining the two.
+    // What was said is read once the rail has the new half, and read rather than
+    // waited for: a sentence said too early stands there for its three seconds
+    // and would otherwise be reported as nothing said.
+    const [joined] = await readExits(bar.id)
+    expect(await toast(page).textContent()).toBe(
+      `“${await railName(page, bar.id)}” split: `
+      + `what followed is now “${await railName(page, joined!.toSceneId)}”`)
+  }
+})
+
+test('names the Scene a way on has just written, and the Scene it left, as the rail names them',
+  async ({ page, request }) => {
+    const { story, bars } = await twoBars(request)
+    await page.goto(`/stories/${story.id}`)
+    await live(page)
+
+    // The words the bench numbers the first bar by, typed as a name: the Scene
+    // written answers to them, so the number walks on past it and both bars are
+    // renumbered under the Author's hands — including the one the way on left.
+    const adding = page.locator(`#add-way-${bars[1]!.id}`)
+    await adding.fill('The bar (1)')
+    await adding.press('Enter')
+    await expect(page.locator('.rail .mark')).toHaveCount(3)
+
+    const [drawn] = await readExits(bars[1]!.id)
+    expect(await toast(page).textContent()).toBe(
+      `“${await railName(page, drawn!.toSceneId)}” written, `
+      + `and an Exit from ${await railName(page, bars[1]!.id)} to it drawn`)
   })
