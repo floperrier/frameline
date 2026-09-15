@@ -101,6 +101,22 @@ the Scene it leads to, and a press on a node puts that Scene under the gate — 
 _Affiché_: Graphe
 _Avoid_: map, tree, flowchart, board, canvas
 
+**Contact Sheet**:
+A whole Story seen rather than read: every Shot of every Scene as the Image it
+carries, in bands, one band a Scene, in the order the Story is written in. One of
+the three readings the bench turns the same document over to — the writing, the
+Contact Sheet and the Preview — and the one an Author judges by looking instead
+of by reading: a Shot with no Image is drawn as a Shot with no Image, so what is
+still a grey rectangle is countable at a glance. It is where a Description is
+written, because it is where the Author is looking at the Image. Out of the
+grammar of cinema, which
+`docs/adr/0022-the-metaphor-stops-at-the-edge-of-the-work.md` reserves for the
+work, because a reading is a way of looking at the work rather than a tool of the
+bench — see `docs/adr/0043-a-story-is-written-as-one-document.md`.
+_Affiché_: Planche-contact
+_Avoid_: grid, gallery, board, mosaic, storyboard, thumbnails, overview,
+mosaïque, vignettes, story-board, aperçu
+
 **Opening Scene**:
 The one Scene a Reading starts on, named by the Story itself. The first Scene an
 Author writes becomes it, and the Author can name another. Deleting it leaves the

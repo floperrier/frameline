@@ -32,6 +32,12 @@ const refusedIn = ref<string>()
  * The two holders the Story's own edge writes through, which are the page's own
  * with the Scene the last refusal was drawn in cleared on the way past: an act
  * about the whole Story cannot be refused in somebody's section of the document.
+ *
+ * The Contact Sheet writes through them too, for the same reason read the other
+ * way round: the one field it carries is about a Shot, but no section of the
+ * document is on screen while the sheet is, so a refusal claimed for a Scene would
+ * be a sentence said behind a surface nobody is looking at. Cleared, it is said
+ * under the Story's edge, where it is on screen whichever reading is up.
  */
 const changeStory: Change = (act) => {
   refusedIn.value = undefined
@@ -188,7 +194,7 @@ watch(() => sceneWritten.value?.id, async () => {
  * a Scene written from nothing arrives in.
  */
 async function writeScene(sceneId: string, naming = false) {
-  reading.value = false
+  reading.value = 'writing'
   await goToScene(sceneId, false)
   await nextTick()
 
@@ -258,13 +264,22 @@ const counted = computed(() => {
 })
 
 /**
- * Which reading the middle of the bench is showing: the writing, or the Story read
- * on the engine a Reader runs. The rail and the Remarks do not move between them —
- * what changes is what the middle is a reading of, never where anything is. See
+ * The three readings of the one document, in the order an Author moves through
+ * them: the writing, where a Story is written; the Contact Sheet, where it is
+ * seen rather than read; and the Preview, where it is read on the engine a Reader
+ * runs. The rail and the Remarks do not move between them — what changes is what
+ * the middle is a reading of, never where anything is. See
  * `docs/adr/0043-a-story-is-written-as-one-document.md`, which keeps `0030`'s
  * engine rule and supersedes its *beside*.
  */
-const reading = ref(false)
+type Reading = 'writing' | 'sheet' | 'preview'
+
+/**
+ * Which of the three the middle of the bench is showing. The writing is what the
+ * server renders, so the bench arrives on the reading it is for and neither of the
+ * other two costs a byte until it is asked for.
+ */
+const reading = ref<Reading>('writing')
 
 /**
  * Where the Reading the Preview replays has got to. The bench holds it, above
@@ -291,12 +306,14 @@ onMounted(() => {
 })
 
 /**
- * What the control that turns the middle over says: what pressing it does, rather
- * than which reading is up — so the control and the Command that runs it are one
- * sentence.
+ * What each reading is offered under: what pressing it does, rather than which
+ * reading is up — so the control and the Command that runs it are one sentence.
  */
-const faceSays = computed(() =>
-  reading.value ? t('editor.writeTheScene') : t('editor.readTheStory'))
+const faceSays = computed<Record<Reading, string>>(() => ({
+  writing: t('editor.writeTheScene'),
+  sheet: t('editor.seeTheContactSheet'),
+  preview: t('editor.readTheStory'),
+}))
 
 /**
  * Whatever in the writing last took focus: a beat, a Scene's own name, one of the
@@ -307,7 +324,7 @@ const faceSays = computed(() =>
 let caret: HTMLElement | undefined
 
 function focusedIn(event: FocusEvent) {
-  if (!reading.value) caret = event.target as HTMLElement
+  if (reading.value === 'writing') caret = event.target as HTMLElement
 }
 
 /**
@@ -322,29 +339,30 @@ function inSceneWritten(held: HTMLElement) {
 }
 
 /**
- * The middle of the bench turned onto the other reading. Focus stays on the
- * control on the way to the reading, because the writing that goes dark takes
- * whatever was focused inside it with it and the reading has nothing that has
- * just arrived.
+ * The middle of the bench turned onto one of the other two readings. Focus stays
+ * on the control on the way out of the writing, because the writing that goes dark
+ * takes whatever was focused inside it with it and the reading that arrives has
+ * nothing that has just been left.
  *
- * Coming back, it goes to the beat the Author left — where that beat is still in
- * the Scene the address names. The caret is a variable of this page and the
- * address is moved by the rail, by the bar of Commands and by the reading itself,
- * none of which touches focus in the document: a caret put back after one of those
- * would put the Author, and the next word they type, in the Scene they left. There
- * is one notion of where the Author is and it is the Path, so anything the address
- * does not answer to is wound to instead — as is a Story opened and turned over
- * without a word typed into it, which has no beat to come back to at all.
+ * Coming back to the writing, it goes to the beat the Author left — where that beat
+ * is still in the Scene the address names. The caret is a variable of this page and
+ * the address is moved by the rail, by the bar of Commands, by the reading itself
+ * and by a mark on a band of the Contact Sheet, none of which touches focus in the
+ * document: a caret put back after one of those would put the Author, and the next
+ * word they type, in the Scene they left. There is one notion of where the Author
+ * is and it is the Path, so anything the address does not answer to is wound to
+ * instead — as is a Story opened and turned over without a word typed into it,
+ * which has no beat to come back to at all.
  *
  * The writing is never taken out of the document — the reading takes its place in
  * front of it — so a beat that is still the right one holds the caret it held, and
  * the focus the browser dropped when the field went dark is the whole of what has
  * to be put back.
  */
-async function turnOver(event: Event) {
-  reading.value = !reading.value
+async function turnTo(turn: Reading, event: Event) {
+  reading.value = turn
   ;(event.currentTarget as HTMLElement).focus()
-  if (reading.value) return
+  if (turn !== 'writing') return
 
   await nextTick()
   if (caret && inSceneWritten(caret)) caret.focus()
@@ -362,10 +380,11 @@ async function turnOver(event: Event) {
       :write="writeStory"
     >
       <!-- The bench's own acts, on the Story's own edge: the way into every act
-           by naming it, and which reading the middle of the bench is showing. Two
-           controls, because the document under them is what the screen is for —
-           the Remarks left this row for a region of their own beside the document,
-           see `docs/adr/0043-a-story-is-written-as-one-document.md`. -->
+           by naming it, and the two readings the middle of the bench is not
+           showing. Three controls, because the document under them is what the
+           screen is for — the Remarks left this row for a region of their own
+           beside the document, see
+           `docs/adr/0043-a-story-is-written-as-one-document.md`. -->
       <div class="tools">
         <!-- The key does the same thing as the control, drawn on the control where
              somebody who never reads a legend will find it — see
@@ -375,19 +394,46 @@ async function turnOver(event: Event) {
           <span class="combination"><kbd>{{ modifier }}</kbd><kbd>K</kbd></span>
         </button>
 
-        <!-- `data-step` is here rather than on the reading itself: the guided
-             path sends an Author to read why a Shot is not playing, and the turn
-             is the gesture it has to point at — see
-             `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md`. -->
-        <button
-          v-if="sceneWritten"
-          type="button"
-          data-step="reading"
-          :data-command="faceSays"
-          @click="turnOver"
-        >
-          {{ faceSays }}
-        </button>
+        <!-- The two readings the middle is not showing, each named for what
+             pressing it does, and standing in the order the three readings are
+             read in — so the way back to the writing is the same control in the
+             same place from either of the other two. Written out rather than
+             looped, because the mark the guided path resolves by has to be a
+             literal in the template for the spec that reads the template as
+             source to find it once and only once. -->
+        <template v-if="sceneWritten">
+          <button
+            v-if="reading !== 'writing'"
+            type="button"
+            :data-command="faceSays.writing"
+            @click="turnTo('writing', $event)"
+          >
+            {{ faceSays.writing }}
+          </button>
+
+          <button
+            v-if="reading !== 'sheet'"
+            type="button"
+            :data-command="faceSays.sheet"
+            @click="turnTo('sheet', $event)"
+          >
+            {{ faceSays.sheet }}
+          </button>
+
+          <!-- `data-step` is here rather than on the reading itself: the guided
+               path sends an Author to read why a Shot is not playing, and the
+               turn is the gesture it has to point at — see
+               `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md`. -->
+          <button
+            v-if="reading !== 'preview'"
+            type="button"
+            data-step="reading"
+            :data-command="faceSays.preview"
+            @click="turnTo('preview', $event)"
+          >
+            {{ faceSays.preview }}
+          </button>
+        </template>
       </div>
     </StoryHeader>
 
@@ -422,9 +468,9 @@ async function turnOver(event: Event) {
          and the side the bench says what it read back on. Nothing covers anything
          and nothing is made `inert`: what folds is the width the Remarks are said
          in and never their voice. The one thing here that is `display: none` is
-         the face of the document that is not being read, which is not a fold at
-         all — the writing and the reading are two faces of one column and only one
-         of them is on at a time. See
+         the writing while one of the other two readings is up, which is not a fold
+         at all — the three readings are three faces of one column and only one of
+         them is on at a time. See
          `docs/adr/0043-a-story-is-written-as-one-document.md`. -->
     <div v-else-if="story" class="bench">
       <!-- The Graph drawn small, and it never grows: 120 pixels at every width,
@@ -435,15 +481,17 @@ async function turnOver(event: Event) {
         @write-scene="goToScene"
       />
 
-      <!-- The one thing on the bench that scrolls. Which reading it holds is the
-           page's to say; where it is, is not. -->
+      <!-- The middle of the bench, and the one of its three regions that scrolls.
+           Which reading it holds is the page's to say; where it is, is not. The
+           Contact Sheet fills it and scrolls its bands inside itself, so the
+           column's own scrollbar belongs to the writing and to the Preview. -->
       <div class="document" @focusin="focusedIn">
         <!-- There is one notion of where the Author is and it is the Path, so a
              way on pressed in the reading moves the writing with it — see
              `docs/adr/0030-a-story-is-read-where-it-is-written.md`, whose engine
              rule `0043` keeps. -->
         <Preview
-          v-if="reading && sceneWritten"
+          v-if="reading === 'preview' && sceneWritten"
           v-model:at="at"
           :story="story"
           :scene-written="sceneWritten.id"
@@ -451,13 +499,30 @@ async function turnOver(event: Event) {
           @moved="follow"
         />
 
+        <!-- The Story seen rather than read: every Shot of every Scene as the
+             Image it carries. Taken out of the document when it is not the
+             reading on screen rather than left dark like the writing, because
+             every frame of it is an image the browser would go and fetch: a Story
+             of forty Scenes drawn whole is the heaviest thing this product
+             renders, and nothing on the sheet is a caret that has to be found
+             again. -->
+        <ContactSheet
+          v-else-if="reading === 'sheet'"
+          :story="story"
+          :scene-written="sceneWritten?.id"
+          :write="writeStory"
+          :image-of="imageOf"
+          @open="goToScene"
+        />
+
         <!-- The whole Story as one document, every Scene of it written where it
              stands: there is no one Scene to put on a bench first, because the
-             bench is the document. It goes dark while the reading is up rather
-             than out of the document, so the beat the caret was left on is still
-             the beat it is on when the Author turns back — see `turnOver`. -->
+             bench is the document. It goes dark while one of the other two
+             readings is up rather than out of the document, so the beat the caret
+             was left on is still the beat it is on when the Author turns back —
+             see `turnTo`. -->
         <Writing
-          v-show="!reading"
+          v-show="reading === 'writing'"
           v-model:refused-in="refusedIn"
           :story="story"
           :scene-written="sceneWritten?.id"
@@ -492,7 +557,7 @@ async function turnOver(event: Event) {
         <Remarks
           :story="story"
           :scene-written="sceneWritten?.id"
-          :previewed="reading"
+          :previewed="reading === 'preview'"
           @open="goToScene"
         />
       </aside>
@@ -537,11 +602,13 @@ main {
   grid-area: rail;
 }
 
-/* The scroller, and the only one on the bench: the document is what the window is
-   for at every width. Wound to the Scene the address names — smoothly when the
-   Author asked for the move, and instantly on the first sight of the bench, which
-   `windOn` says. The answer to `prefers-reduced-motion` is given once, here,
-   rather than at each call. */
+/* The scroller the middle of the bench stands in, and the only one the layout has:
+   the document is what the window is for at every width. The Contact Sheet takes
+   the whole of it and scrolls its own bands inside itself, which leaves this one
+   with nothing to do while that reading is up. Wound to the Scene the address
+   names — smoothly when the Author asked for the move, and instantly on the first
+   sight of the bench, which `windOn` says. The answer to `prefers-reduced-motion`
+   is given once, here, rather than at each call. */
 .document {
   grid-area: document;
   min-inline-size: 0;
