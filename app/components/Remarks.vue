@@ -60,13 +60,18 @@ const emit = defineEmits<{ open: [string] }>()
  * one thing `0035` marks a control to prevent. Named by the state, the way the
  * header names Publish and Unpublish on the same fact.
  *
- * It starts where the element itself starts, which is open: the two would
+ * It starts where the element itself starts, which is closed: the two would
  * otherwise disagree until the first toggle, and the bar would offer *Read the
- * Remarks* over a list already open. Open is also the only answer a server can
- * give, since the bench is rendered whole before anything has measured a window,
- * and it is the right one at the width there is room at. The fold closes it below.
+ * Remarks* over a list already open. Closed is what the server renders, because
+ * the bench is drawn whole before anything has measured a window and a list that
+ * arrives open below the fold is shut a frame later — measured at 0.15 of layout
+ * shift at 390 and at 900, where the Remarks stand in the document's own column
+ * and closing them pulls the writing up by some two hundred pixels. Opening them
+ * above the fold costs nothing, because there they grow inside a column of their
+ * own width that pushes nothing. `settle` decides which, once there is a window
+ * to read it from.
  */
-const open = ref(true)
+const open = ref(false)
 
 /**
  * The fold, asked of the stylesheet rather than measured here. `--two-columns` is
@@ -151,7 +156,6 @@ const spoken = computed(() => {
 <template>
   <details
     ref="region"
-    open
     class="found"
     @toggle="open = ($event.target as HTMLDetailsElement).open"
   >
