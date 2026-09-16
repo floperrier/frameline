@@ -982,20 +982,27 @@ test('the Graph is drawn from the Story, and redrawn as the Story changes', asyn
 
   await page.goto(`/stories/${story.id}`)
 
-  // Every Scene is a mark on the rail, the one the caret is in included: there is
+  // Every Scene is a point on the rail, the one the caret is in included: there is
   // no gate standing in the place of a node any more, so the drawing is the whole
-  // Story at every moment. And the drawing is a drawing and nothing else — no
-  // image, no line, no name, not a word of text — because
+  // Story at every moment. And the drawing is points and the lines between them
+  // and nothing else — no image, no name, not a word of text — because
   // `docs/adr/0043-a-story-is-written-as-one-document.md` made the Graph a locator
-  // a hundred and twenty pixels wide rather than a workspace, and a line across a
-  // rail this narrow would say less than the column a Scene stands in already
-  // does. Where an Exit lands is read in the document of the Scene it leaves.
+  // rather than a workspace and `docs/adr/0045-the-rail-draws-the-ways-on.md` gave
+  // it the ways on to draw. Where an Exit lands is still read in the document of
+  // the Scene it leaves, which is where it is written.
   const rail = page.locator('.rail')
   const mark = (name: string) => sceneNode(page, name)
   const at = async (name: string) => (await mark(name).boundingBox())!
   await expect(rail.locator('.mark')).toHaveCount(5)
-  await expect(rail.locator('svg, line, img')).toHaveCount(0)
+  // One line per pair of Scenes an Exit joins. Direct children, because the head
+  // that says which way a line runs is a path of its own inside the marker.
+  await expect(rail.locator('.ways > path')).toHaveCount(3)
+  await expect(rail.locator('img')).toHaveCount(0)
   await expect(rail).toHaveText('')
+
+  // The ways on and off the Scene the caret is in are lit, which is the one
+  // question a shape is asked while a Scene is open: the opening leaves two.
+  await expect(rail.locator('.ways > path.lit')).toHaveCount(2)
 
   // And nothing in it is announced or tabbed to, which is what lets the document
   // say every one of these facts in words without saying them twice. *The arrival*
@@ -1039,6 +1046,9 @@ test('the Graph is drawn from the Story, and redrawn as the Story changes', asyn
   await expect(page.getByRole('group', { name: 'Writing The bar' })).toBeVisible()
   await expect(mark('The bar')).toHaveClass(/here/)
   await expect(mark('The arrival')).not.toHaveClass(/here/)
+  // And the light on the lines moves with it: the one way on that arrives at
+  // *The bar*, where the opening had two leaving it.
+  await expect(rail.locator('.ways > path.lit')).toHaveCount(1)
 
   // Nothing is placed by hand, so the rail follows the Story: another Opening
   // Scene is another first column.

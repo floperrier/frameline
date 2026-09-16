@@ -169,7 +169,7 @@ test('folds the Remarks and then the rail, and hides neither', async ({ page, re
   // things, each named in its own component's scoped block.
   const said = (await page.locator('aside.said').boundingBox())!
 
-  expect(rail.width).toBe(120)
+  expect(rail.width).toBe(220)
   expect(middle.x).toBeGreaterThanOrEqual(rail.x + rail.width)
   expect(said.x).toBeGreaterThanOrEqual(middle.x + middle.width)
   await expect(page.locator('.found')).toHaveJSProperty('open', true)
@@ -184,14 +184,15 @@ test('folds the Remarks and then the rail, and hides neither', async ({ page, re
     .toBeLessThan((await page.locator('.document').boundingBox())!.y)
   await expect(page.locator('.found')).toHaveJSProperty('open', false)
   await expect(page.locator('.found summary')).toContainText('0')
-  expect((await page.locator('.rail').boundingBox())!.width).toBe(120)
+  expect((await page.locator('.rail').boundingBox())!.width).toBe(220)
 
-  // The second: the rail narrows to a strip of dots and the document keeps the
-  // window. Nothing is covered and nothing is taken away — every Scene still has
-  // its mark, and the line that opens the Remarks is still there to be pressed.
+  // The second: the rail narrows to a strip the drawing scrolls sideways through,
+  // and the document keeps the window. Nothing is covered and nothing is taken
+  // away — every Scene still has its point, at the size a finger needs, and the
+  // line that opens the Remarks is still there to be pressed.
   await page.setViewportSize({ width: 390, height: 844 })
   await expect.poll(async () => (await page.locator('.rail').boundingBox())!.width)
-    .toBeLessThan(48)
+    .toBeLessThan(96)
   await expect(page.locator('.rail .mark')).toHaveCount(10)
   await expect(page.locator('.found summary')).toBeVisible()
   await expect(page.locator('.writing')).toBeVisible()
@@ -436,9 +437,9 @@ test('leaves no caret in the rail when a mark is pressed, at either width and on
     // straight through — a button still takes the focus on one, and the caret was
     // ending up in a subtree the accessibility tree does not have.
     //
-    // Pressed at the width the rail is a plate of a hundred and twenty pixels and
-    // at the width it folds to a strip of dots, because what the fold narrows is
-    // the drawing and never what can be pressed.
+    // Pressed at the width the rail is a plate of two hundred and twenty pixels
+    // and at the width it folds to a strip, because what the fold narrows is the
+    // window on the drawing and never what can be pressed.
     for (const [width, height, place] of [[1440, 900, 7], [390, 844, 3]] as const) {
       await page.setViewportSize({ width, height })
       await sceneNode(page, `Scene ${place}`).click()

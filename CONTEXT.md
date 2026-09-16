@@ -93,11 +93,14 @@ Opening Scene in Exits taken, and in what order it is offered — and never plac
 by hand: the Graph is a reading of the Story and moves when the Story does — see
 `docs/adr/0041-the-graph-is-drawn-from-the-story.md`. It is drawn small down the
 side of the document, as the rail: the columns run down the page and the Scenes of
-a column run across it, a node carries no words, and no Exit is drawn at all — an
-Exit is read in the document of the Scene it leaves, which is where it is written,
-by naming the Scene it leads to. The rail is a locator and not a workspace: it
-says where in the Story the caret is, it marks a Scene nothing arrives at, and a
-press on a node winds the document to that Scene — see
+a column run across it, a node is a point and carries no words, and an Exit is the
+line drawn between two of them, with the way it runs marked at the end it arrives
+at — see `docs/adr/0045-the-rail-draws-the-ways-on.md`. An Exit is still written in
+the document of the Scene it leaves, by naming the Scene it leads to; the drawing
+is what that writing amounts to and never where it is done. The rail is a locator
+and not a workspace: it says where in the Story the caret is, it lights the ways on
+and off the Scene being written, it marks a Scene nothing arrives at, and a press
+on a node winds the document to that Scene — see
 `docs/adr/0043-a-story-is-written-as-one-document.md` and
 `docs/adr/0034-a-story-is-written-without-the-canvas.md`.
 _Affiché_: Graphe

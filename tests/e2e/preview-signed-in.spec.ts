@@ -970,7 +970,7 @@ test('the bench takes the room the window leaves it', async ({ page, request }) 
 
   // A wide window, one inside the fold where what the bench says beside the
   // document goes to the head of it, and a phone — where the rail narrows to a
-  // strip of dots. Three regions that never trade width at any of them, and no
+  // strip the drawing scrolls sideways through. Three regions that never trade width at any of them, and no
   // fold that hides anything: see
   // `docs/adr/0043-a-story-is-written-as-one-document.md`.
   for (const size of [

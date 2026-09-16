@@ -98,9 +98,10 @@ test('the run shows the image of every Shot that carries one', async ({ page, re
 
   // This claim used to be made of a node: the Graph drew the image of a Scene's
   // first Shot, and that was what an Author recognised the Scene by before they
-  // had read a word of it. The Graph is the rail now — a hundred and twenty pixels
-  // down the side of the document, drawing no image, no line and no name, see
-  // `docs/adr/0043-a-story-is-written-as-one-document.md` — so the claim moves to
+  // had read a word of it. The Graph is the rail now — points and the lines
+  // between them down the side of the document, drawing no image and no name, see
+  // `docs/adr/0043-a-story-is-written-as-one-document.md` and
+  // `docs/adr/0045-the-rail-draws-the-ways-on.md` — so the claim moves to
   // where an image is still drawn small: the beat's own row, where the thumbnail
   // stands beside the words. It is what is left on the bench of reading the work
   // by looking rather than by reading, which is the question an Author judging how

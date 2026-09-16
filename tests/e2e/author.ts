@@ -275,15 +275,17 @@ export async function writeScene(page: Page, name: string) {
 }
 
 /**
- * A Scene as the rail draws it: the Graph is a hundred and twenty pixels down the
- * side of the document now, and a Scene in it is a mark and no words — no image,
- * no line, no name — see `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ * A Scene as the rail draws it: the Graph is two hundred and twenty pixels down
+ * the side of the document, and a Scene in it is a point and no words — no image,
+ * no name, nothing but where it stands and the lines arriving at it — see
+ * `docs/adr/0043-a-story-is-written-as-one-document.md` and
+ * `docs/adr/0045-the-rail-draws-the-ways-on.md`.
  *
  * `getByRole` cannot reach one, and that is the rail working as designed rather
  * than an oversight to route around. The rail is `aria-hidden` with every mark at
  * `tabindex="-1"`, because every fact it draws — where a Scene stands in the
- * Story, whether the Story opens on it, whether anything arrives at it — is said
- * in words in the document's own markup, and a drawing in the accessibility tree
+ * Story, whether the Story opens on it, whether anything arrives at it, which
+ * Scenes its ways on reach — is said in words in the document's own markup, and a drawing in the accessibility tree
  * would be the whole Story announced twice with a tab order running through it.
  * So a mark is found by the name the bar of Commands reads it under, which is the
  * one thing about the rail that does still reach the keyboard:

@@ -175,8 +175,9 @@ and `x`/`y` under another name.
 ## Consequences
 
 **No fold hides anything, and the Remarks are the test of that.** The Remarks fold
-first, then the rail narrows to a strip of dots, and the document keeps the
-window. What folds is the width the Remarks are said in and never their voice:
+first, then the rail narrows — to a strip of dots then, and since
+`docs/adr/0045-the-rail-draws-the-ways-on.md` to a strip the drawing scrolls
+sideways through — and the document keeps the window. What folds is the width the Remarks are said in and never their voice:
 folded, they are a line at the head of the document carrying their count, which
 opens them. Nothing covers the bench, nothing of the bench is made `inert` — the
 modal `<dialog>` of `docs/adr/0017-a-confirmation-is-drawn-on-the-bench.md` and
