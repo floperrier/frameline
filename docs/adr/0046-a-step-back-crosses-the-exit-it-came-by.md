@@ -4,6 +4,14 @@ status: accepted
 
 # A step back crosses the Exit it came by
 
+Amended in issue #300, by
+`docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`: an Exit may now
+say that it is not crossed backwards, and answers as its Story says where it has
+not. What that replaces is the bold consequence below beginning *It is offered
+exactly where reading again from the start is offered*, marked where it stands.
+Everything else here stands, and the reason an Exit can be closed by saying so
+rather than by unwinding anything is exactly what this record settles.
+
 A Reading moved only forward. The one control that undid anything read *Read
 Again from the Start*, which throws the whole Path away, so a Reader who pressed
 the frame one beat too early, or took an Exit they did not mean to, paid for it
@@ -86,7 +94,11 @@ Scene stepped back into is is the one thing the Path cannot say for itself. It i
 the run this Reading plays and not the Scene the Author wrote, so a Shot a
 Condition skipped on the way in is skipped on the way back.
 
-**It is offered exactly where reading again from the start is offered**, which is
+**It is offered exactly where reading again from the start is offered** —
+*amended by `0047`: an Exit that is not crossed backwards leaves a Reading with
+nothing behind it, so the control is drawn where the engine says there is a beat
+behind rather than where `moved()` is true. The two still share one row, and the
+very first beat of a Story still carries neither.* — which is
 `moved()` — a Reading that has taken no Exit and is still on the Shot it opened
 on has no beat behind it. The two controls therefore share one row and one
 condition, and the very first beat of a Story carries neither.

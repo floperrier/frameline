@@ -1051,3 +1051,64 @@ test('a refusal from the reading is said, whatever the writing was refused befor
     await expect(page.locator('main > [role="alert"]'))
       .toHaveText(/renumbered all at once/)
   })
+
+test('the Author closes an Exit behind the Reader, and the reading says so on both sides',
+  async ({ page, request }) => {
+    const story = await writeStory(request)
+    const { scenes } = await scenesOf(request, story.id)
+    const street = scenes[0]!
+
+    // The Exit is written in the document, and the reading is the other face of
+    // the same middle — so the bench is turned over between saying it and reading
+    // it, which is the gesture an Author makes.
+    const written = page.getByLabel('Stepping back the Exit 1 to The bar, out of The street')
+    const turnToTheReading = () => readTheStory(page)
+    const turnToTheWriting = () => page.getByRole('button', { name: 'Write the Scene' }).click()
+
+    await page.goto(`/stories/${story.id}?scene=${street.id}`)
+    await live(page)
+
+    // The way on is crossed backwards until somebody says otherwise.
+    await expect(written).toHaveValue('story')
+    await written.selectOption('Not offered')
+
+    const preview = await turnToTheReading()
+    const stepBack = preview.getByRole('button', { name: 'Step Back' })
+
+    // The mark stands beside the way on where the way on stands: at the end of
+    // the Scene, among the Exits being offered, which is where an Author reads
+    // what taking it will cost.
+    await preview.getByRole('button', { name: 'Next Shot' }).click()
+    await preview.getByRole('button', { name: 'Next Shot' }).click()
+    await expect(preview.getByText('No way back')).toBeVisible()
+
+    // Taken, and the beat behind is not on offer: what is left is reading again
+    // from the start.
+    await preview.getByRole('button', { name: 'Follow her out' }).click()
+    await expect(preview.getByText('Smoke, and no one she knows.')).toBeVisible()
+    await expect(stepBack).toHaveCount(0)
+    await expect(preview.getByRole('button', { name: 'Read Again from the Start' }))
+      .toBeVisible()
+
+    // Said as the Story says instead, and the Story says it is crossed: the
+    // Reading is the Reading it was — the Path is held above the document and the
+    // turn does not end it — and the way back is back.
+    await turnToTheWriting()
+    await written.selectOption('As the Story says')
+    await turnToTheReading()
+    await expect(preview.getByText('No way back')).toHaveCount(0)
+    await stepBack.click()
+    await expect(preview.getByText('She steps out.')).toBeVisible()
+
+    // And the Story answers for it: one press on the header's own fold closes
+    // every Exit that has not spoken for itself. The reading stands where it
+    // stood — at the end of the street, with its way on offered — so taking it
+    // again is the same move under a Story that has changed its mind.
+    await page.getByText('How it is read').click()
+    await page.getByLabel('Stepping back across an Exit').selectOption('Not offered')
+    await expect(preview.getByText('No way back')).toBeVisible()
+
+    await preview.getByRole('button', { name: 'Follow her out' }).click()
+    await expect(preview.getByText('Smoke, and no one she knows.')).toBeVisible()
+    await expect(stepBack).toHaveCount(0)
+  })

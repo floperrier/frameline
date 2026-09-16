@@ -141,6 +141,13 @@
       "when": 1788528215940,
       "tag": "0019_unusual_bloodscream",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1789585382232,
+      "tag": "0020_third_yellowjacket",
+      "breakpoints": true
     }
   ]
 }

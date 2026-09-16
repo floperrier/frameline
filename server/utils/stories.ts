@@ -83,16 +83,43 @@ export async function readStoryCover(event: H3Event, storyId: string) {
  * so that is what an empty change is missing.
  */
 export async function readStoryChanges(event: H3Event, storyId: string) {
-  const body = await readBody<{ title?: unknown, synopsis?: unknown, coverShotId?: unknown }>(event)
-  const changes: { title?: string, synopsis?: string, coverShotId?: string | null } = {}
+  const body = await readBody<{
+    title?: unknown
+    synopsis?: unknown
+    coverShotId?: unknown
+    stepsBack?: unknown
+  }>(event)
+  const changes: {
+    title?: string
+    synopsis?: string
+    coverShotId?: string | null
+    stepsBack?: boolean
+  } = {}
 
   if (body?.title !== undefined) changes.title = await readStoryTitle(event)
   if (body?.synopsis !== undefined) changes.synopsis = await readStorySynopsis(event)
   if (body?.coverShotId !== undefined) changes.coverShotId = await readStoryCover(event, storyId)
+  if (body?.stepsBack !== undefined) changes.stepsBack = await readStoryStepsBack(event)
   // Which is a title asked for, by the reader that phrases the refusal.
   if (!Object.keys(changes).length) await readStoryTitle(event)
 
   return changes
+}
+
+/**
+ * Reads what an Exit of this Story answers when it has not answered for itself:
+ * whether a Reading crosses it backwards. A boolean and nothing else — the Story
+ * is where the question stops being open, so there is no third answer here the
+ * way there is on an Exit.
+ */
+export async function readStoryStepsBack(event: H3Event) {
+  const body = await readBody<{ stepsBack?: unknown }>(event)
+
+  if (typeof body?.stepsBack !== 'boolean') {
+    throw createError({ statusCode: 400, message: saying(event)('refusals.storyStepsBack') })
+  }
+
+  return body.stepsBack
 }
 
 /**
@@ -203,6 +230,7 @@ export async function readStoryGraph(storyId: string) {
       text: exits.text,
       position: exits.position,
       conditions: exits.conditions,
+      stepsBack: exits.stepsBack,
     })
     .from(exits)
     .innerJoin(scenes, eq(exits.fromSceneId, scenes.id))

@@ -10,6 +10,15 @@ export type StoryToRead = {
   openingSceneId: string | null
   scenes: { id: string, sets: Sets, shots: Shot[] }[]
   exits: Exit[]
+  /**
+   * Whether a Reading steps back across an Exit that has not said otherwise.
+   * It is on the Story rather than only on the Exit so that an Author says once
+   * what their Story is like, and on the Exit as well so that one door can close
+   * where the rest do not — one question, asked of the Exit, answered by the
+   * Story where the Exit says nothing. See
+   * `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
+   */
+  stepsBack: boolean
 }
 
 /**
@@ -321,8 +330,14 @@ export function take(at: Path, exit: Exit): Path {
  * Nothing is unset, because nothing was ever set aside: State is a pure function
  * of the Path, so a Path one Exit shorter *is* the State the Reader held before
  * they took that Exit, and taking it again draws the same Flags out of the same
- * seed. Nothing at all where nothing is behind, which is `moved` read the other
- * way about: a Reading that has not begun cannot step out of its own opening.
+ * seed.
+ *
+ * Nothing at all where nothing is behind — a Reading that has not begun cannot
+ * step out of its own opening — and nothing where the Exit behind is one the
+ * Author closed: an Exit says whether it is crossed backwards, and answers as
+ * its Story says where it has not said. That is the one place the rule is read,
+ * so the Reading and every screen drawing it cannot come apart about which door
+ * has shut. See `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
  *
  * The Story is here for the one thing the Path cannot say — how long the run of
  * the Scene stepped back into is. It is the run this Reading plays and not the
@@ -331,7 +346,14 @@ export function take(at: Path, exit: Exit): Path {
  */
 export function back(story: StoryToRead, at: Path): Path | undefined {
   if (at.shot > 0) return { ...at, shot: at.shot - 1 }
-  if (at.taken.length === 0) return
+
+  // Which Exit would be crossed, and whether it is crossed: the Exit's own
+  // answer where it gave one, and its Story's where it did not. An opening Path
+  // has taken none and is stopped here, as is a Path whose last Exit the Story
+  // no longer carries — a Reading the walk stops short of has no way back
+  // through a door that is gone.
+  const crossed = story.exits.find(exit => exit.id === at.taken.at(-1))
+  if (!crossed || !(crossed.stepsBack ?? story.stepsBack)) return
 
   const before: Path = { ...at, taken: at.taken.slice(0, -1), shot: 0 }
   return { ...before, shot: reading(story, before).run.length }

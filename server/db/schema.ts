@@ -76,6 +76,10 @@ export const authors = pgTable('authors', {
 // `published_at` already says which side of publishing the Story is on. It
 // defaults to false and nothing backfills it: nobody agreed to appear in a
 // catalogue that did not exist when they published.
+// `steps_back` is what an Exit of this Story answers when it has not answered
+// for itself: true, the default, is the Reading a step back crosses every Exit
+// of — which is every Story written before the column existed, reading exactly
+// as it read.
 export const stories = pgTable('stories', {
   id: uuid('id').primaryKey().defaultRandom(),
   authorId: uuid('author_id').notNull().references(() => authors.id, { onDelete: 'cascade' }),
@@ -88,6 +92,7 @@ export const stories = pgTable('stories', {
     .references((): AnyPgColumn => shots.id, { onDelete: 'set null' }),
   publishedAt: timestamp('published_at', { withTimezone: true }),
   listed: boolean('listed').notNull().default(false),
+  stepsBack: boolean('steps_back').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
@@ -194,6 +199,14 @@ export const shots = pgTable('shots', {
 // for a while an insert naming no Place has to succeed rather than take drawing
 // an Exit down with it — see
 // `docs/adr/0002-the-schema-moves-with-the-deploy.md`.
+//
+// `steps_back` is whether a Reading crosses this Exit backwards, and it is the
+// one column here that is nullable on purpose: null is the Exit answering *as
+// the Story says*, which is what every Exit answers until an Author says
+// otherwise. The Story's own `steps_back` is what that answer resolves to, so
+// there is one fact per Exit and one default per Story rather than two settings
+// that can disagree — see
+// `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
 export const exits = pgTable('exits', {
   id: uuid('id').primaryKey().defaultRandom(),
   fromSceneId: uuid('from_scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
@@ -201,6 +214,7 @@ export const exits = pgTable('exits', {
   text: text('text').notNull().default(''),
   conditions: jsonb('conditions').$type<Condition[]>().notNull().default([]),
   position: integer('position').notNull().default(0),
+  stepsBack: boolean('steps_back'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 

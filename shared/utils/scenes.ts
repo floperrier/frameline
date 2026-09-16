@@ -246,6 +246,13 @@ export type Exit = {
   text: string
   position: number
   conditions: Condition[]
+  /**
+   * Whether a Reading steps back across this Exit, or null for the Exit
+   * answering as its Story says — which is what every Exit answers until an
+   * Author says otherwise. See
+   * `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
+   */
+  stepsBack: boolean | null
 }
 
 /**
@@ -506,6 +513,8 @@ export type StoryInEditor = {
   publishedAt: string | null
   /** Whether the Author has put the published Story in the Catalogue. */
   listed: boolean
+  /** What an Exit of this Story answers when it has not answered for itself. */
+  stepsBack: boolean
   scenes: Scene[]
   exits: Exit[]
 }

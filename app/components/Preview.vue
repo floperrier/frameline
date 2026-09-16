@@ -252,6 +252,17 @@ function why(conditions: Condition[]) {
              its Place, which is the only thing that tells two ways on to one
              Scene apart — see issue #276. -->
         <template #ordering="{ exit }">
+          <!-- The way on the Reader does not come back through, marked before it
+               is taken rather than explained after: the step back is simply not
+               there on the far side of it, and an absent control has to read as
+               what the Author wrote and not as a defect. It is the Exit's own
+               answer or its Story's, which is the one place that rule is read —
+               see `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
+               Words and not a mark, because it is the Author being told something
+               rather than an act they can do. -->
+          <span v-if="!(exit.stepsBack ?? story.stepsBack)" class="aside">
+            {{ $t('preview.noWayBack') }}
+          </span>
           <button
             type="button"
             class="mark"
