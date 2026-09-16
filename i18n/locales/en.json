@@ -274,6 +274,7 @@
   "reading": {
     "shotOf": "Shot {place} of {of}",
     "next": "Next Shot",
+    "back": "Step Back",
     "ended": "The path ends here.",
     "again": "Read Again from the Start",
     "resumed": "Picked up where you left off."

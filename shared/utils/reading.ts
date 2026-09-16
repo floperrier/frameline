@@ -311,6 +311,33 @@ export function take(at: Path, exit: Exit): Path {
 }
 
 /**
+ * The Reader steps back a beat. Inside a Scene that is one Shot fewer; on the
+ * first Shot of one it is the last Exit untaken, landing at the end of the Scene
+ * that Exit left with its ways on offered again — which is what a Reader means
+ * by *back*, and what
+ * `docs/adr/0046-a-step-back-crosses-the-exit-it-came-by.md` says is safe to
+ * mean.
+ *
+ * Nothing is unset, because nothing was ever set aside: State is a pure function
+ * of the Path, so a Path one Exit shorter *is* the State the Reader held before
+ * they took that Exit, and taking it again draws the same Flags out of the same
+ * seed. Nothing at all where nothing is behind, which is `moved` read the other
+ * way about: a Reading that has not begun cannot step out of its own opening.
+ *
+ * The Story is here for the one thing the Path cannot say — how long the run of
+ * the Scene stepped back into is. It is the run this Reading plays and not the
+ * Scene's own, so a Shot a Condition skipped on the way in is skipped on the way
+ * back as well.
+ */
+export function back(story: StoryToRead, at: Path): Path | undefined {
+  if (at.shot > 0) return { ...at, shot: at.shot - 1 }
+  if (at.taken.length === 0) return
+
+  const before: Path = { ...at, taken: at.taken.slice(0, -1), shot: 0 }
+  return { ...before, shot: reading(story, before).run.length }
+}
+
+/**
  * A Path that arrives at one Scene, so that a Reading can be stopped on the Scene
  * an Author is writing. Searched for rather than stated, because a Scene has no
  * Path of its own: which Exits a Reader takes to reach it depends on the State
