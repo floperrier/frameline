@@ -647,8 +647,9 @@ async function turnTo(turn: Reading, event: Event) {
          them is on at a time. See
          `docs/adr/0043-a-story-is-written-as-one-document.md`. -->
     <div v-else-if="story" class="bench">
-      <!-- The Graph drawn small, and it never grows: 120 pixels at every width,
-           narrowing to a strip of dots on a phone. -->
+      <!-- The Graph drawn small: the Story as points joined by the ways on
+           between them, two hundred and twenty pixels at every width, narrowing on
+           a phone to a strip the drawing scrolls sideways through. -->
       <Graph
         :story="story"
         :scene-written="sceneWritten?.id"
@@ -657,7 +658,7 @@ async function turnTo(turn: Reading, event: Event) {
 
       <!-- The middle of the bench: what the bench has to say about the reading in
            it, and under that the reading. The name is the page's own word for this
-           region — `.column` is the Graph's, for the columns it draws a Story in. -->
+           region — `.drawing` is the Graph's, for the plate it draws a Story on. -->
       <div class="middle">
         <!-- Why the last change in one Scene of the document was refused. Said
              above the reading rather than inside it, and naming the Scene it is

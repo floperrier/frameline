@@ -103,7 +103,10 @@ drops them follows. `PATCH /api/scenes/:id` renames and does nothing else;
 
 **The Graph is right in the first frame**, on the server as in the browser: every
 node is one size, so the lines are arithmetic on the Story and nothing is measured
-after render. A Story wider than the window scrolls inside the band, at one scale.
+after render. A Story wider than the window scrolls inside the band, at one scale. This is the claim
+`docs/adr/0045-the-rail-draws-the-ways-on.md` keeps once there are lines on the
+rail to keep it about: every point is one size and every line is arithmetic on
+two of them, and nothing is measured after render.
 
 **A Scene nothing reaches is drawn as the loose end it is**, dashed, after the
 last column the opening reaches. The Remark that says so in words stays.

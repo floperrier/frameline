@@ -12,6 +12,7 @@ import {
   scenesAExitMayLandOn,
   wordsOf,
 } from '../../shared/utils/scenes'
+import { DRAWING_WIDTH, MARK, drawn, linkPath } from '../../app/utils/graph'
 
 /** A Scene of the map, which is all a Scene is to it: an id. */
 function scene(id: string): Scene {
@@ -281,5 +282,128 @@ describe('the words a Scene holds', () => {
     ]
 
     expect(wordsOf(shots)).toBe(8)
+  })
+})
+
+/**
+ * The drawing itself, which the rail turns the columns above into: where a point
+ * stands and where a line bends are constants and the Story, so a Story of forty
+ * Scenes comes out the same on the server as in the browser — see
+ * `docs/adr/0045-the-rail-draws-the-ways-on.md`. It is arithmetic a person can get
+ * wrong without a browser, which is what these are for; that it *looks* like the
+ * Story is the end-to-end suite's, and the eye's.
+ */
+describe('where the rail draws a Story', () => {
+  const at = (columns: string[][], id: string) => drawn(columns).at.get(id)!
+
+  test('puts each column on a row of its own, running down the rail', () => {
+    const columns = [['a'], ['b'], ['c']]
+    const [a, b, c] = ['a', 'b', 'c'].map(id => at(columns, id))
+
+    expect(b!.y - a!.y).toBe(c!.y - b!.y)
+    expect(a!.y).toBeLessThan(b!.y)
+    // A column of one stands in the middle, which is what a chain is drawn as.
+    expect([a!.x, b!.x, c!.x]).toEqual([DRAWING_WIDTH / 2, DRAWING_WIDTH / 2, DRAWING_WIDTH / 2])
+  })
+
+  test('centres the Scenes of a column across the rail, in the order it is offered', () => {
+    const columns = [['a'], ['b', 'c']]
+    const [b, c] = ['b', 'c'].map(id => at(columns, id))
+
+    expect(b!.y).toBe(c!.y)
+    expect(b!.x).toBeLessThan(c!.x)
+    expect((b!.x + c!.x) / 2).toBe(DRAWING_WIDTH / 2)
+    expect(c!.x - b!.x).toBeGreaterThanOrEqual(MARK)
+  })
+
+  test('wraps a column wider than the rail onto a row of its own, before the next', () => {
+    const columns = [['a'], ['b', 'c', 'd', 'e', 'f', 'g'], ['h']]
+    const drawing = drawn(columns)
+    const [b, f, g, h] = ['b', 'f', 'g', 'h'].map(id => drawing.at.get(id)!)
+
+    // Five across, and the sixth on a row of the same column rather than squeezed
+    // in beside them: what a fold may narrow is the rail and never the point.
+    expect(f!.y).toBe(b!.y)
+    expect(g!.y).toBeGreaterThan(b!.y)
+    expect(g!.x).toBe(DRAWING_WIDTH / 2)
+    expect(h!.y - g!.y).toBe(g!.y - b!.y)
+  })
+
+  test('comes out as tall as the rows it drew, clear of the rail at both ends', () => {
+    const columns = [['a'], ['b']]
+    const drawing = drawn(columns)
+    const [a, b] = ['a', 'b'].map(id => drawing.at.get(id)!)
+
+    expect(drawing.height - (b!.y + MARK / 2)).toBe(a!.y - MARK / 2)
+  })
+
+  test('has nothing to draw for a Story with no Scene in it', () => {
+    expect(drawn([])).toEqual({ at: new Map(), height: 0 })
+  })
+})
+
+describe('the line an Exit is drawn as', () => {
+  /** Where a line starts and where it ends, read off the path it is drawn as. */
+  const ends = (d: string) => {
+    const numbers = d.match(/-?\d+(?:\.\d+)?/g)!.map(Number)
+
+    return { from: numbers.slice(0, 2), to: numbers.slice(-2), all: numbers }
+  }
+
+  test('falls down the rail into the column after, clear of both rims', () => {
+    const columns = [['a'], ['b']]
+    const drawing = drawn(columns)
+    const [a, b] = ['a', 'b'].map(id => drawing.at.get(id)!)
+    const { from, to } = ends(linkPath(a!, b!))
+
+    // Under the point it leaves and over the one it arrives at: past the rim, so
+    // the line is not drawn on the point, and inside the pitch, so the head at the
+    // end is read as arriving at it.
+    expect(from[0]).toBe(a!.x)
+    expect(from[1]! - a!.y).toBeGreaterThan(MARK / 2)
+    expect(from[1]! - a!.y).toBeLessThan(MARK)
+    expect(to[0]).toBe(b!.x)
+    expect(b!.y - to[1]!).toBeGreaterThan(MARK / 2)
+    expect(b!.y - to[1]!).toBeLessThan(MARK)
+  })
+
+  test('bows off the side where it runs back up the rail', () => {
+    const columns = [['a'], ['b']]
+    const drawing = drawn(columns)
+    const [a, b] = ['a', 'b'].map(id => drawing.at.get(id)!)
+    const { from, to, all } = ends(linkPath(b!, a!))
+
+    // Off the side of both points and back up, so a way back is never read as the
+    // way on it runs alongside.
+    expect(from[1]).toBe(b!.y)
+    expect(from[0]! - b!.x).toBeGreaterThan(MARK / 2)
+    expect(to[1]).toBe(a!.y)
+    expect(Math.max(...all)).toBeGreaterThan(a!.x + MARK)
+  })
+
+  test('arches over two Scenes of one column joined to each other', () => {
+    const columns = [['a'], ['b', 'c']]
+    const drawing = drawn(columns)
+    const [b, c] = ['b', 'c'].map(id => drawing.at.get(id)!)
+    const { from, to } = ends(linkPath(b!, c!))
+
+    expect(from[0]).toBe(b!.x)
+    expect(to[0]).toBe(c!.x)
+    expect(b!.y - from[1]!).toBeGreaterThan(MARK / 2)
+    expect(c!.y - to[1]!).toBeGreaterThan(MARK / 2)
+  })
+
+  test('loops beside the point where a Scene re-enters itself', () => {
+    const columns = [['a']]
+    const a = drawn(columns).at.get('a')!
+    const { from, to, all } = ends(linkPath(a, a))
+
+    // Over the point and back under it, out to the side: a Reading that comes
+    // round again is a loop and is drawn as one.
+    expect(from[0]).toBe(a.x)
+    expect(to[0]).toBe(a.x)
+    expect(from[1]).toBeLessThan(a.y)
+    expect(to[1]).toBeGreaterThan(a.y)
+    expect(Math.max(...all)).toBeGreaterThan(a.x + MARK / 2)
   })
 })
