@@ -112,6 +112,17 @@ const presented = computed(() => story && coverOf(story))
  * Taking it away leaves the Opening Scene's first Image standing in, which is
  * what a Story nobody named a Cover for is presented by.
  */
+/**
+ * What an Exit of this Story answers when it has not answered for itself:
+ * whether a Reading crosses it backwards. A change and not a typed write — one
+ * press settles it, and what it settles is how the whole work is read, so the
+ * Story on the bench is reloaded around it the way listing and publishing are.
+ * See `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
+ */
+function readBack(stepsBack: boolean) {
+  return change(() => send(`/api/stories/${id}`, { method: 'PATCH', body: { stepsBack } }))
+}
+
 function nameCover(coverShotId: string | null) {
   return change(() => send(`/api/stories/${id}`, { method: 'PATCH', body: { coverShotId } }))
 }
@@ -223,7 +234,11 @@ function unlist() {
            once and the Scene under the header is written all day. A native
            disclosure, so the browser keeps it open or shut and the keyboard
            already knows it. -->
-      <details v-if="story" class="presenting">
+      <!-- Named with the fold beside it, so opening one shuts the other: both
+           panels hang from the same end of the edge, and two open at once would
+           be drawn over each other. The browser settles it — see the exclusive
+           disclosure a shared `name` makes — rather than a watcher here. -->
+      <details v-if="story" class="presenting" name="bench-fold">
         <summary class="eyebrow">{{ $t('editor.presentation') }}</summary>
 
         <div class="folded">
@@ -272,6 +287,37 @@ function unlist() {
           {{ $t('editor.coverUnname') }}
         </button>
         </fieldset>
+        </div>
+      </details>
+
+      <!-- How the work is read, which is one question and is answered once: may a
+           Reading come back through an Exit that has not said otherwise? It folds
+           like the presentation beside it and for the same reason — it is settled
+           when the Story is being thought about rather than while a Scene is
+           being written — and it is a fold of its own because what a stranger is
+           handed before opening the work and how the work is read are two
+           different things.
+
+           An Exit says it for itself where the Author wrote it, in the document;
+           this is what an Exit that has said nothing answers. See
+           `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`. -->
+      <details v-if="story" class="how" name="bench-fold">
+        <summary class="eyebrow">{{ $t('editor.howItIsRead') }}</summary>
+
+        <div class="folded">
+          <p class="crossing">
+            <label class="eyebrow" for="story-steps-back">
+              {{ $t('editor.storySteppingBack') }}
+            </label>
+            <select
+              id="story-steps-back"
+              :value="story.stepsBack ? 'yes' : 'no'"
+              @change="readBack(($event.target as HTMLSelectElement).value === 'yes')"
+            >
+              <option value="yes">{{ $t('editor.steppingBackOffered') }}</option>
+              <option value="no">{{ $t('editor.steppingBackRefused') }}</option>
+            </select>
+          </p>
         </div>
       </details>
 
@@ -415,8 +461,17 @@ header {
    labels around it are. Open, it lays the two out over the table rather than
    making the edge two rows tall: they are written once, and the Story is laid
    out under them all day. */
-.presenting summary {
+.presenting summary,
+.how summary {
   cursor: pointer;
+}
+
+/* The one question this fold holds: the label and the answer on one line, the
+   way the same question is written on an Exit in the document. */
+.crossing {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
 }
 
 .folded {

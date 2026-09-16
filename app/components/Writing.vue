@@ -647,6 +647,26 @@ function writeExitText(scene: Scene, exit: Exit) {
   }))
 }
 
+/**
+ * Whether a Reading crosses this Exit backwards. Three answers in one field —
+ * the Exit's own yes, its own no, and the Story's, which is what an Exit answers
+ * until the Author says otherwise — so the select reads and writes the null the
+ * column holds rather than a pair of switches that could disagree. See
+ * `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
+ */
+function crossedBack(exit: Exit) {
+  return exit.stepsBack === null ? 'story' : exit.stepsBack ? 'yes' : 'no'
+}
+
+function writeCrossedBack(scene: Scene, exit: Exit, answer: string) {
+  exit.stepsBack = answer === 'story' ? null : answer === 'yes'
+
+  return writing(scene, () => send(`/api/exits/${exit.id}`, {
+    method: 'PATCH',
+    body: { stepsBack: exit.stepsBack },
+  }))
+}
+
 function moveExit(held: SceneInDocument, exit: Exit, step: -1 | 1) {
   return renumber(held.scene, 'exits', movedBy(held.ways.map(way => way.id), exit.id, step))
 }
@@ -1093,6 +1113,38 @@ function writeConditions(
                   @write="writeConditions(held.scene, 'exits', exit.id, exit.conditions)"
                 />
 
+                <!-- Whether the Reader may come back through this Exit, beside
+                     the tests it is offered under: both are what the Author says
+                     about this way on and neither is what it says. Named for the
+                     Exit it belongs to, because two Exits of one Scene leading to
+                     one Scene would otherwise answer to the same words — see
+                     issue #276. -->
+                <p class="crossing">
+                  <label class="eyebrow" :for="`back-${exit.id}`">
+                    {{ $t('editor.steppingBack') }}
+                    <span class="visually-hidden">
+                      {{ $t('editor.theWayOnTo', {
+                        place: place + 1,
+                        scene: nameOf(exit.toSceneId),
+                        from: held.name,
+                      }) }}
+                    </span>
+                  </label>
+                  <select
+                    :id="`back-${exit.id}`"
+                    :value="crossedBack(exit)"
+                    @change="writeCrossedBack(
+                      held.scene,
+                      exit,
+                      ($event.target as HTMLSelectElement).value,
+                    )"
+                  >
+                    <option value="story">{{ $t('editor.steppingBackAsStory') }}</option>
+                    <option value="yes">{{ $t('editor.steppingBackOffered') }}</option>
+                    <option value="no">{{ $t('editor.steppingBackRefused') }}</option>
+                  </select>
+                </p>
+
                 <div class="row">
                   <button
                     type="button"
@@ -1528,6 +1580,24 @@ textarea.shot:hover {
 .beneath .conditions {
   flex: 1 1 auto;
   min-inline-size: 0;
+}
+
+/* Whether the Reader comes back this way: the label and the answer on one line,
+   beside the tests the Exit is offered under rather than under them — two things
+   the Author says about the same way on, read along the same edge. It gives way
+   before the Conditions do at a narrow width, because the tests are read every
+   day and this is answered once. */
+.crossing {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--s2);
+}
+
+/* Two words on one line: the label is shorter than the answer beside it, and
+   broken over two lines it reads as two labels. */
+.crossing .eyebrow {
+  white-space: nowrap;
 }
 
 /* The marks that act on one row, set closer than a row of controls anywhere else:

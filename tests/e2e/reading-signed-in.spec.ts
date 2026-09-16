@@ -202,3 +202,61 @@ test('a Reader steps back a beat, inside a Scene and across the Exit they took',
   await reading.getByRole('button', { name: 'Next Shot' }).click()
   await expect(reading.getByRole('status').filter({ hasText: 'The path ends here.' })).toBeVisible()
 })
+
+test('an Exit the Author closed is not crossed backwards, and the Scene behind it still is', async ({ page, request, browser, baseURL }) => {
+  const story = await writeStory(request)
+  const link = `${baseURL}/read/${story.id}`
+  const { exits } = await (await request.get(`/api/stories/${story.id}`)).json()
+
+  await page.goto(`/stories/${story.id}`)
+  await page.getByRole('button', { name: 'Publish this Story', exact: true }).click()
+  await expect(page.getByRole('link', { name: link })).toBeVisible()
+
+  /**
+   * Somebody who has never read this Story, standing in the bar: a Reader of
+   * their own each time, because a browser that has read it already is put back
+   * where it stood and would be reading a Path rather than the rule under test.
+   * The street is read to its end on the way, which is the one thing every one of
+   * these has in common.
+   */
+  async function inTheBar() {
+    const { page: reading } = await reader(browser, link)
+    await reading.getByRole('button', { name: 'Next Shot' }).click()
+    await reading.getByRole('button', { name: 'Next Shot' }).click()
+    await reading.getByRole('button', { name: 'Follow her out' }).click()
+    await expect(reading.getByText('Smoke, and no one she knows.')).toBeVisible()
+    return reading
+  }
+
+  const stepBack = (reading: Page) => reading.getByRole('button', { name: 'Step Back' })
+
+  // The one way on out of the street says the Reader does not come back through
+  // it. Nothing else about the Story changes.
+  await request.patch(`/api/exits/${exits[0].id}`, { data: { stepsBack: false } })
+
+  // Inside the street the beat before is still a beat before: a closed Exit
+  // closes a door, it does not stop a Reader re-reading what they have read.
+  const { page: reading } = await reader(browser, link)
+  await reading.getByRole('button', { name: 'Next Shot' }).click()
+  await stepBack(reading).click()
+  await expect(reading.getByText('A door opens.')).toBeVisible()
+
+  // Through the Exit, and there is no way back: the Story is there to be read
+  // again from the start, and the beat behind is not on offer.
+  const closed = await inTheBar()
+  await expect(stepBack(closed)).toHaveCount(0)
+  await expect(closed.getByRole('button', { name: 'Read Again from the Start' })).toBeVisible()
+
+  // The Exit says it over its Story, which says the opposite: a Story that
+  // crosses nothing back still crosses back the one Exit that says it does.
+  await request.patch(`/api/stories/${story.id}`, { data: { stepsBack: false } })
+  await request.patch(`/api/exits/${exits[0].id}`, { data: { stepsBack: true } })
+  const open = await inTheBar()
+  await stepBack(open).click()
+  await expect(open.getByText('She steps out.')).toBeVisible()
+  await expect(open.getByRole('button', { name: 'Follow her out' })).toBeVisible()
+
+  // And an Exit that says nothing answers as its Story says, which now refuses.
+  await request.patch(`/api/exits/${exits[0].id}`, { data: { stepsBack: null } })
+  await expect(stepBack(await inTheBar())).toHaveCount(0)
+})

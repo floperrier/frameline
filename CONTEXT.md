@@ -81,6 +81,10 @@ The English interface shows the word itself — _Exits_ over the part of a Scene
 document that holds them, _the Exit 1 to …_ on every control of a row — and a
 Step may gloss it as _the way on_ once, when it introduces the term; the gloss
 is never a label.
+An Exit also says whether a Reading is stepped back across it, the way it says
+what Conditions it is offered under: the Author's own yes, their own no, or
+nothing at all, which is the Exit answering as its Story says — see
+`docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
 _Affiché_: Sortie
 _Avoid_: choice, option, link, branch, edge, transition, cut, coupe, raccord,
 montage

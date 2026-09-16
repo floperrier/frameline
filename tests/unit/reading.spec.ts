@@ -19,12 +19,20 @@ type Written = string | [text: string, conditions: Condition[]]
 
 function story(
   scenes: Record<string, Written[]>,
-  exits: [from: string, text: string, to: string, conditions?: Condition[]][] = [],
+  exits: [
+    from: string,
+    text: string,
+    to: string,
+    conditions?: Condition[],
+    stepsBack?: boolean | null,
+  ][] = [],
   openingSceneId: string | null = Object.keys(scenes)[0] ?? null,
   sets: Record<string, Sets> = {},
+  stepsBack = true,
 ): StoryToRead {
   return {
     openingSceneId,
+    stepsBack,
     scenes: Object.entries(scenes).map(([id, texts]) => ({
       id,
       sets: sets[id] ?? {},
@@ -33,13 +41,14 @@ function story(
         return { id: `${id}-${position}`, text, position, image: null, description: '', conditions }
       }),
     })),
-    exits: exits.map(([fromSceneId, text, toSceneId, conditions], index) => ({
+    exits: exits.map(([fromSceneId, text, toSceneId, conditions, crossed], index) => ({
       id: `exit-${index}`,
       fromSceneId,
       toSceneId,
       text,
       position: index,
       conditions: conditions ?? [],
+      stepsBack: crossed ?? null,
     })),
   }
 }
@@ -743,12 +752,92 @@ describe('a Reading stepped back', () => {
     expect(back(night, on(night, OPENING))!.seed).toBe(OPENING.seed)
   })
 
-  it('is offered exactly where reading again from the start is', () => {
+  it('is offered wherever a Story that crosses every Exit back has moved at all', () => {
     let at: Path = OPENING
     for (const _ of Array.from({ length: 6 })) {
       expect(back(night, at) !== undefined).toBe(moved(at))
       at = reading(night, at).shot ? advance(at) : on(night, at)
     }
+  })
+})
+
+describe('an Exit an Author closed behind the Reader', () => {
+  /**
+   * The same two Scenes under four Stories: the way on is crossed backwards or
+   * not, either because the Exit says so or because its Story does. What is read
+   * off each is the one question — is there a beat behind the first Shot of the
+   * Bar? — so the four answers are the whole of the rule.
+   */
+  function night(storyCrosses: boolean, exitCrosses: boolean | null) {
+    return story(
+      { Street: ['A door opens.', 'She steps out.'], Bar: ['Smoke.', 'No one she knows.'] },
+      [['Street', 'Follow her', 'Bar', [], exitCrosses]],
+      'Street',
+      {},
+      storyCrosses,
+    )
+  }
+
+  /** The Path standing on the first Shot of the Bar, one Exit in. */
+  function inTheBar(read: StoryToRead) {
+    let at: Path = OPENING
+    while (reading(read, at).shot) at = advance(at)
+    return take(at, reading(read, at).exits[0]!)
+  }
+
+  it('is crossed as its Story says where the Exit has not said', () => {
+    expect(back(night(true, null), inTheBar(night(true, null)))).toBeDefined()
+    expect(back(night(false, null), inTheBar(night(false, null)))).toBeUndefined()
+  })
+
+  it('says it over its Story, in both directions', () => {
+    expect(back(night(true, false), inTheBar(night(true, false)))).toBeUndefined()
+    expect(back(night(false, true), inTheBar(night(false, true)))).toBeDefined()
+  })
+
+  it('leaves the step back inside a Scene offered whatever either says', () => {
+    const shut = night(false, false)
+    const secondShot = advance(OPENING)
+    expect(shown(shut, back(shut, secondShot)!).text).toBe('A door opens.')
+
+    // And inside the Scene the closed Exit arrives at, where the beat behind is
+    // a beat of the same Scene and no door is crossed to reach it.
+    const played = advance(inTheBar(shut))
+    expect(shown(shut, played).text).toBe('No one she knows.')
+    expect(shown(shut, back(shut, played)!).text).toBe('Smoke.')
+  })
+
+  it('stops the Reading at the first Shot of the Scene it arrives in', () => {
+    const shut = night(false, false)
+    const arrived = inTheBar(shut)
+    expect(back(shut, arrived)).toBeUndefined()
+    // The Reading is otherwise the Reading it was: the Scene plays out as it did.
+    expect(shown(shut, arrived).text).toBe('Smoke.')
+    expect(shown(shut, advance(advance(arrived))).ended).toBe(true)
+  })
+
+  it('crosses the Exit it was taken by, and not whichever Exit is standing', () => {
+    // Two ways into the Bar: one closed, one open. Which one the Reading took is
+    // what settles the step back, and the Exits leaving the Bar say nothing.
+    const two = story(
+      { Street: ['A door opens.'], Side: ['A side door.'], Bar: ['Smoke.'] },
+      [
+        ['Street', 'Follow her', 'Bar', [], false],
+        ['Street', 'Round the side', 'Side'],
+        ['Side', 'In by the side', 'Bar', [], true],
+      ],
+      'Street',
+      {},
+      false,
+    )
+
+    const endOfStreet = advance(OPENING)
+    const byTheFront = take(endOfStreet, reading(two, endOfStreet).exits[0]!)
+    expect(back(two, byTheFront)).toBeUndefined()
+
+    const roundTheSide = take(endOfStreet, reading(two, endOfStreet).exits[1]!)
+    const bySide = take(advance(roundTheSide), reading(two, advance(roundTheSide)).exits[0]!)
+    expect(back(two, bySide)).toBeDefined()
   })
 })
 
