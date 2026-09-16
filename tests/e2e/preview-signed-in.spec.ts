@@ -319,7 +319,7 @@ test('the reading is read by keyboard, and focus goes with each beat',
     expect(await holds(preview.locator('.frame'))).toBe(true)
   })
 
-test('reading again is offered only once the Reading has moved',
+test('stepping back and reading again are offered only once the Reading has moved',
   async ({ page, request }) => {
     const story = await writeStory(request)
     const { scenes } = await scenesOf(request, story.id)
@@ -335,14 +335,17 @@ test('reading again is offered only once the Reading has moved',
     const preview = await writing(page, story.id, street.id)
     const bench = benchIn(page)
     const again = preview.getByRole('button', { name: 'Read Again from the Start' })
+    const back = preview.getByRole('button', { name: 'Step Back' })
     const next = preview.getByRole('button', { name: 'Next Shot' })
 
-    // Nothing has been read, so there is nothing to read again and the offer is
-    // out of the document rather than sitting under the first frame drawing it
-    // over. Out of the tab order with it: the beat the Reader lands on leads to
-    // the one control the Reading has, and from there straight out to the bench.
+    // Nothing has been read, so there is no beat behind and nothing to read
+    // again: both offers are out of the document rather than sitting under the
+    // first frame drawing it over. Out of the tab order with them: the beat the
+    // Reader lands on leads to the one control the Reading has, and from there
+    // straight out to the bench.
     await expect(preview.getByText('A door opens.')).toBeVisible()
     await expect(again).toHaveCount(0)
+    await expect(back).toHaveCount(0)
     await next.focus()
     await page.keyboard.press('Tab')
     await expect(bench.getByRole('button', { name: 'Draw Again' })).toBeFocused()
@@ -360,15 +363,28 @@ test('reading again is offered only once the Reading has moved',
     await expect(preview.getByText('Shot 1 of 2')).toBeVisible()
     await expect(again).toBeHidden()
 
-    // One press, and there is a Reading to go back to the start of: the offer
-    // arrives, and arrives after the control that is still the next thing to do,
-    // so a Reader tabbing on meets the beat before the way out of it.
+    // One press, and there is a beat behind and a Reading to go back to the start
+    // of: both offers arrive, and arrive after the control that is still the next
+    // thing to do — so a Reader tabbing on meets the beat, then the beat behind
+    // it, then the way out of the whole Reading.
     await next.click()
     await expect(preview.getByText('She steps out.')).toBeVisible()
     await expect(again).toBeVisible()
     await next.focus()
     await page.keyboard.press('Tab')
+    await expect(back).toBeFocused()
+    await page.keyboard.press('Tab')
     await expect(again).toBeFocused()
+
+    // The step back is the Author's too, and it is a move like any other: one
+    // beat back is the first beat again, under the seed they have been reading
+    // by, and both offers go with the Reading that has stopped having moved.
+    await back.click()
+    await expect(preview.getByText('A door opens.')).toBeVisible()
+    await expect(back).toHaveCount(0)
+    await expect(again).toHaveCount(0)
+    await next.click()
+    await expect(preview.getByText('She steps out.')).toBeVisible()
 
     // And taken back to the start it is gone again, until the Reading moves once
     // more: what the offer says about the Reading is read off the Reading.

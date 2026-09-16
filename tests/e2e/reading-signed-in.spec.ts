@@ -151,3 +151,54 @@ test('a Reader who finishes a Story is led on to its Author and to the Catalogue
   await expect(reading.locator('.onward').getByRole('link', { name: author.name! })).toHaveCount(0)
   await expect(reading.getByText(author.email)).toHaveCount(0)
 })
+
+test('a Reader steps back a beat, inside a Scene and across the Exit they took', async ({ page, request, browser, baseURL }) => {
+  const story = await writeStory(request)
+  const link = `${baseURL}/read/${story.id}`
+
+  await page.goto(`/stories/${story.id}`)
+  await page.getByRole('button', { name: 'Publish this Story', exact: true }).click()
+  await expect(page.getByRole('link', { name: link })).toBeVisible()
+
+  const { page: reading } = await reader(browser, link)
+  const stepBack = reading.getByRole('button', { name: 'Step Back' })
+
+  // Nothing is behind the first beat, so nothing is offered to step back to.
+  await expect(reading.getByText('A door opens.')).toBeVisible()
+  await expect(stepBack).toHaveCount(0)
+
+  // One beat on and one beat back, by the keyboard: the frame shows the Shot
+  // before, the count says so, and the control goes away with the beat it undid.
+  await reading.getByRole('button', { name: 'Next Shot' }).click()
+  await expect(reading.getByText('She steps out.')).toBeVisible()
+  await stepBack.press('Enter')
+  await expect(reading.getByText('A door opens.')).toBeVisible()
+  await expect(reading.getByText('Shot 1 of 2')).toBeVisible()
+  await expect(stepBack).toHaveCount(0)
+
+  // Out of the Scene by the Exit it offers, and back in by the same one: the
+  // Street is where it was, played out, with its way on offered again.
+  await reading.getByRole('button', { name: 'Next Shot' }).click()
+  await reading.getByRole('button', { name: 'Next Shot' }).click()
+  await reading.getByRole('button', { name: 'Follow her out' }).click()
+  await expect(reading.getByText('Smoke, and no one she knows.')).toBeVisible()
+
+  await stepBack.click()
+  await expect(reading.getByText('She steps out.')).toBeVisible()
+  await expect(reading.getByText('Shot 2 of 2')).toBeVisible()
+  await expect(reading.getByRole('button', { name: 'Follow her out' })).toBeVisible()
+
+  // A step back is a move like any other, so it is kept like any other: the
+  // Reading picked up next visit is the one that stepped back, not the one that
+  // was three beats further on.
+  await reading.reload()
+  await expect(reading.getByText('She steps out.')).toBeVisible()
+  await expect(pickedUp(reading)).toBeVisible()
+
+  // And the way on taken again arrives where it did, with nothing counted twice:
+  // the Story ends where it ended, one Shot after the Bar's own.
+  await reading.getByRole('button', { name: 'Follow her out' }).click()
+  await expect(reading.getByText('Smoke, and no one she knows.')).toBeVisible()
+  await reading.getByRole('button', { name: 'Next Shot' }).click()
+  await expect(reading.getByRole('status').filter({ hasText: 'The path ends here.' })).toBeVisible()
+})

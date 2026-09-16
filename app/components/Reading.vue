@@ -147,6 +147,18 @@ async function moveTo(to: Path) {
   ;(shown.value.shot ? frame.value : (exits.value?.querySelector('button') ?? again.value))?.focus()
 }
 
+/**
+ * The beat behind, which is where stepping back lands. Nothing is read off it
+ * but the move itself: the engine says whether there is one, so the control is
+ * on offer exactly where a step back has somewhere to go — the same rule, and
+ * the same moment, as reading again from the start, which is why the two stand
+ * in one row.
+ */
+function stepBack() {
+  const before = back(story, at.value)
+  if (before) moveTo(before)
+}
+
 const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, scene.name])))
 
 /** The Scene the Reading stands in, so the frame can say where the Reader is. */
@@ -267,14 +279,24 @@ function offered(exit: Exit) {
          sentence inside it. -->
     <p class="ended trail" role="status">{{ shown.ended ? $t('reading.ended') : '' }}</p>
 
-    <!-- Offered once the Reading has moved and not before: on the first beat of
-         the Opening Scene there is nothing to read again, and the press would
-         draw a new seed and throw the same frame the Reader is already looking
-         at. It is a stop the keyboard is spared too, on the one screen whose
-         whole tab order is otherwise the next beat — and the Author who does
-         want that frame drawn again has the reroll on the bench, which is a
-         control of the Preview rather than one of the Reading. -->
-    <p v-if="moved(at)" class="again">
+    <!-- The two ways back, offered once the Reading has moved and not before: on
+         the first beat of the Opening Scene there is no beat behind to step to
+         and nothing to read again, and the press would draw a new seed and throw
+         the same frame the Reader is already looking at. It is a stop the
+         keyboard is spared too, on the one screen whose whole tab order is
+         otherwise the next beat — and the Author who does want that frame drawn
+         again has the reroll on the bench, which is a control of the Preview
+         rather than one of the Reading.
+
+         They stand together under everything they are a way back out of, and
+         never between the frame and the ways on: a Reader choosing an Exit is
+         choosing among the Exits, and a control that undoes the last press has
+         no business in that list. The lighter of the two comes first — one beat
+         before the whole Reading. -->
+    <p v-if="moved(at)" class="back">
+      <button type="button" class="trail" @click="stepBack">
+        {{ $t('reading.back') }}
+      </button>
       <button ref="again" type="button" class="trail" @click="moveTo(opening())">
         {{ $t('reading.again') }}
       </button>
@@ -453,19 +475,22 @@ figcaption {
   content: none;
 }
 
-/* Reading the Story again from the start: the way out of the reading, at the
-   leading edge under everything it is a way out of, rather than centred in the
-   room where it reads as the thing the page was for. */
-.again {
+/* Stepping back a beat, and reading the Story again from the start: the ways out
+   of the reading, at the leading edge under everything they are a way out of,
+   rather than centred in the room where they read as the thing the page was
+   for. Quieter than the press that moves on, which is the one control on this
+   page drawn as a button. */
+.back {
   display: flex;
+  gap: var(--s2);
 }
 
-.again button {
+.back button {
   border-color: transparent;
   background: none;
 }
 
-.again button:hover {
+.back button:hover {
   border-color: transparent;
   background: none;
   color: var(--paper);
