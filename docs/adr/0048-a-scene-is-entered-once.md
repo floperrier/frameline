@@ -40,6 +40,29 @@ gives two Scenes of one name. It carries no link back to its original, and
 nothing in the Story knows it is a copy: it is the Author's to change, to
 rename, and to write new ways on from.
 
+**Amended: a Reading refuses the way back that the writing never saw.** The
+refusal above stands at the writing, so a Story written before this record may
+still hold a cycle and a Reading of one would stand in a Scene twice — which is
+the thing the record forbids. Three answers were open, and the one taken is that
+the Reading refuses: an Exit whose Scene this Reading has already entered is not
+offered. Nothing an Author wrote is edited and nothing is taken away, so no Story
+is left with a Scene nothing arrives at; what changes is only what the Reader is
+handed while standing in one.
+
+It is the answer rather than the alternative it is refused as below because it is
+the only one of the three that makes *a Reading stands in a Scene at most once*
+true of every Story rather than of the ones written from here on. That is what
+lets State stop counting entries everywhere and hold the Scenes entered instead.
+Leaving those Stories alone keeps two behaviours in the product for as long as
+one of them exists, and the count with them; breaking their cycles by migration
+buys the one behaviour by editing work nobody asked it to edit, and can leave a
+Scene nothing arrives at.
+
+What it costs is exactly what the refusal below names: an Author of such a Story
+is left holding a way on that can never be taken. That is a Remark's to report
+rather than a silence — a Story whose returns have gone should say so where the
+Author is reading it.
+
 ## Considered Options
 
 **Refusing an Exit that lands on a column at or above its own**, which is what
@@ -63,6 +86,14 @@ unavailable, it is never available, because the only way to be standing where it
 is written is to have come through the Scene it leads to. The Author would have
 written a way on that cannot be taken, which is the thing a Remark exists to
 report.
+
+*Amended.* Refused as a **replacement** for the refusal at the writing, and that
+still stands. It is taken up **beside** it for the Stories the writing never saw,
+where there is no longer anything to refuse as it is written — see the amendment
+above. On a Story written under this record the Reading's refusal can never fire,
+because no such way on can be written; on one written before it, that refusal is
+what keeps the rule true of every Reading. The objection is the cost, and it is
+accepted for those Stories alone.
 
 **A copy that counts as its original**, so that a Condition could still ask how
 often a Scene has been entered by counting its copies together. It preserves the
@@ -89,6 +120,17 @@ with `VISITS_MAX` and the phrases that count. State stops being a flat map of
 Flags plus a count per Scene and becomes a flat map of Flags plus the Scenes
 entered. `docs/adr/0004-conditions-stay-flat.md` is amended by this, in the
 direction it already argues for: the language gets smaller.
+
+What each stored test becomes follows from that, and settles the migration:
+`at least 1` is that the Scene has been entered, and `fewer than 1` that it has
+not. Every other test compared against a number that can no longer be reached —
+`at least 2` and up can never hold, `fewer than 2` and up always do — and a
+language of two shapes has no way to say *never* or *always*. Those tests are
+**removed from the list** rather than rewritten into something that changes what
+they meant. The Exit or the Shot that carried one stays, offered under whatever
+else it tests, or offered always where that was its only test: a beat an Author
+kept for a return may therefore start playing, which is the honest reading of a
+Story whose returns have gone.
 
 **A Flag is drawn once per Reading rather than once per entry.** The seed in
 `shared/utils/reading.ts` carries the visit count so that a Scene naming several
