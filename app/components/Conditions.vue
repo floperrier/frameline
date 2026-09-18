@@ -69,23 +69,6 @@ function conditionKind(condition: Condition): ConditionKind {
 }
 
 /**
- * Which of the two questions a row about a Scene asks, whichever shape it is
- * written in: the Reader has stood there, or the Reader has not.
- *
- * A Condition still stored in the shape that counted is drawn as the question it
- * is nearest to — `at least` asks that the Scene has been entered, `fewer than`
- * that it has not — for the one deploy before #306 rewrites what is stored. The
- * row is only ever drawn that way: nothing here writes the new shape over the old
- * one until the Author picks a question, which is them saying so rather than the
- * bench deciding for them. See `docs/adr/0048-a-scene-is-entered-once.md`.
- */
-function asksEntered(condition: Condition) {
-  if ('entered' in condition) return condition.entered
-
-  return 'visits' in condition && condition.visits === 'at least'
-}
-
-/**
  * The name the bar of Commands shows the act of adding a Condition under: the
  * words on the button, and what carries the list after them. The carrier belongs
  * in the name here where it is left out of *Add a Shot*, because a Scene on the
@@ -149,9 +132,8 @@ function choose(place: number, kind: ConditionKind) {
 
 /**
  * Which of the two questions the row asks. It writes the whole Condition rather
- * than a field of it, so a row still stored in the shape that counted leaves here
- * in the shape that replaced it — the Author having said which question they
- * meant, which is the one thing that may rewrite such a row before #306 does.
+ * than the one field, which is what a row of a list of flat tests is: the list is
+ * sent whole on every change, so a row is replaced rather than reached into.
  */
 function ask(place: number, entered: boolean) {
   const condition = conditions[place]!
@@ -263,7 +245,7 @@ function conditionCalled(place: number) {
           </label>
           <select
             :id="`entered-${id}-${place}`"
-            :value="String(asksEntered(condition))"
+            :value="String(condition.entered)"
             @change="ask(place, ($event.target as HTMLSelectElement).value === 'true')"
           >
             <option value="true">{{ $t('conditions.hasBeenEntered') }}</option>

@@ -321,45 +321,6 @@ describe('an Exit carrying Conditions', () => {
   })
 })
 
-describe('a Condition still written in the shape that counted', () => {
-  /**
-   * The shape a Condition was stored in while a Reading could enter a Scene again
-   * and again. It is read for the one deploy before #306 rewrites what is stored,
-   * and its meaning is untouched: a Scene is entered at most once, so what it
-   * compares against is one or nought and the comparison it asked for is the
-   * comparison it makes.
-   */
-  function asked(conditions: Condition[]) {
-    return story(
-      { Street: ['A door opens.'], Bar: ['Smoke.'] },
-      [['Street', 'Go in', 'Bar', conditions]],
-    )
-  }
-
-  const endOfStreet = advance(OPENING)
-  const offered = (conditions: Condition[]) => shown(asked(conditions), endOfStreet).offered
-
-  it('reads “at least one” as the Scene having been entered', () => {
-    expect(offered([{ scene: 'Street', visits: 'at least', times: 1 }])).toEqual(['Go in'])
-    expect(offered([{ scene: 'Bar', visits: 'at least', times: 1 }])).toEqual([])
-  })
-
-  it('reads “fewer than one” as the Scene never having been entered', () => {
-    expect(offered([{ scene: 'Bar', visits: 'fewer than', times: 1 }])).toEqual(['Go in'])
-    expect(offered([{ scene: 'Street', visits: 'fewer than', times: 1 }])).toEqual([])
-  })
-
-  /**
-   * Which is why #306 removes those from the list rather than rewriting them: a
-   * count of two is a count nothing reaches, and a count of fewer than two is one
-   * everything does — neither is a question the language that replaced it can ask.
-   */
-  it('can never hold past one entry, and always holds short of two', () => {
-    expect(offered([{ scene: 'Street', visits: 'at least', times: 2 }])).toEqual([])
-    expect(offered([{ scene: 'Street', visits: 'fewer than', times: 2 }])).toEqual(['Go in'])
-  })
-})
-
 describe('the tests an Exit is hidden by', () => {
   /** The Scenes a Condition names, read back the way an Author reads them. */
   const named = (id: string) => ({ house: 'The House' }[id] ?? id)
@@ -396,14 +357,6 @@ describe('the tests an Exit is hidden by', () => {
       .toEqual(['needs bar to have been entered, and it has not'])
     expect(unmet([{ scene: 'house', entered: false }], state, named, says))
       .toEqual(['needs The House not to have been entered, and it has'])
-  })
-
-  /** The shape that counted still says what it asked for, until #307 stops reading it. */
-  it('names what a visit count asked of a Scene, and whether it was entered', () => {
-    expect(unmet([{ scene: 'house', visits: 'at least', times: 2 }], state, named, says))
-      .toEqual(['needs at least 2 visits to The House, entered once'])
-    expect(unmet([{ scene: 'bar', visits: 'at least', times: 3 }], state, named, says))
-      .toEqual(['needs at least 3 visits to bar, never entered'])
   })
 
   it('names every test that failed, and only those', () => {

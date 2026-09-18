@@ -19,12 +19,13 @@ const TOO_MANY = {
  * none of them can hold another. `carrier` names what is being written in the
  * refusal, so an Author is told which thing they overloaded.
  *
- * Three shapes rather than two, for one deploy: what a Flag holds, whether a Scene
- * has been entered, and the counting shape the second replaced. Only the first two
- * are ever written from here on — the editor writes no other — and the third is
- * taken for as long as a browser holding the previous code can still send one
- * back, which is `docs/adr/0002-the-schema-moves-with-the-deploy.md`'s expand half.
- * #307 stops reading it.
+ * Two shapes and no more: what a Flag holds, or whether a Scene has been entered.
+ * A third was taken for one deploy — the shape that counted entries — so that a
+ * browser holding the previous code could still send its list back while the
+ * migration was on its way; #306 rewrote every row and this no longer reads it.
+ * That is the contract half of
+ * `docs/adr/0002-the-schema-moves-with-the-deploy.md`'s expand–contract, and the
+ * end of `docs/adr/0048-a-scene-is-entered-once.md`'s work on the language.
  */
 export async function readConditions(
   event: H3Event,
@@ -52,9 +53,9 @@ function readCondition(event: H3Event, condition: unknown): Condition {
     throw badCondition(event)
   }
 
-  // A Condition holds its own two or three keys and nothing besides: anything
-  // else is a Condition trying to carry a second one, and flatness is the whole
-  // point of the language.
+  // A Condition holds its own two keys and nothing besides: anything else is a
+  // Condition trying to carry a second one, and flatness is the whole point of the
+  // language.
   const parts = Object.keys(condition).length
 
   if ('flag' in condition) {
@@ -71,31 +72,14 @@ function readCondition(event: H3Event, condition: unknown): Condition {
     return { flag: name, is: is.trim() }
   }
 
-  const { scene } = condition as { scene: unknown }
+  if (parts !== 2) throw badCondition(event)
+
+  const { scene, entered } = condition as { scene: unknown, entered: unknown }
+
   if (typeof scene !== 'string' || !UUID_PATTERN.test(scene)) throw badCondition(event)
+  if (typeof entered !== 'boolean') throw badCondition(event)
 
-  if ('entered' in condition) {
-    if (parts !== 2) throw badCondition(event)
-
-    const { entered } = condition as { entered: unknown }
-    if (typeof entered !== 'boolean') throw badCondition(event)
-
-    return { scene, entered }
-  }
-
-  // The shape that counted entries, taken for one deploy and written by nothing
-  // here: a browser still holding the previous code sends its whole list back when
-  // one row of it changes, and a member of that list refused would take the change
-  // down with it. Unchanged in meaning, down to the comparison and the whole
-  // number it is made against — what has gone is only the cap, which bounded a
-  // count nothing can reach any more.
-  const { visits, times } = condition as { visits: unknown, times: unknown }
-
-  if (parts !== 3) throw badCondition(event)
-  if (visits !== 'at least' && visits !== 'fewer than') throw badCondition(event)
-  if (!Number.isInteger(times) || (times as number) < 1) throw badCondition(event)
-
-  return { scene, visits, times: times as number }
+  return { scene, entered }
 }
 
 function badCondition(event: H3Event) {

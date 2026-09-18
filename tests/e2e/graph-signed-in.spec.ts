@@ -376,8 +376,9 @@ test('half a Flag, and a Condition of no shape, are refused rather than stored',
     request.put(`/api/exits/${exit.id}/conditions`, {
       data: { conditions: [{ scene: from.id, entered: 'yes' }] },
     }),
+    // The shape that counted entries, which nothing reads any more (#307).
     request.put(`/api/exits/${exit.id}/conditions`, {
-      data: { conditions: [{ scene: from.id, visits: 'at least', times: 0 }] },
+      data: { conditions: [{ scene: from.id, visits: 'at least', times: 1 }] },
     }),
     request.put(`/api/exits/${exit.id}/conditions`, {
       data: { conditions: [{ scene: from.id, entered: true, times: 2 }] },

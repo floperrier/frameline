@@ -61,26 +61,20 @@ describe('the Conditions a request writes', () => {
   })
 
   /**
-   * The expand half of an expand–contract: a browser still holding the previous
-   * code sends its whole list back when one row of it changes, so the shape that
-   * counted is taken unchanged for one deploy. #306 rewrites what is stored in it
-   * and #307 stops reading it.
+   * The contract half of an expand–contract. The shape that counted was taken for
+   * one deploy so that a browser holding the previous code could send its list
+   * back while the migration was on its way; #306 rewrote every row, and a
+   * Condition is two shapes again — see
+   * `docs/adr/0002-the-schema-moves-with-the-deploy.md`.
    */
-  it('still takes the shape that counted, unchanged in meaning', async () => {
-    await expect(asking({ conditions: [{ scene: SCENE, visits: 'at least', times: 2 }] }))
-      .resolves.toEqual([{ scene: SCENE, visits: 'at least', times: 2 }])
-    await expect(asking({ conditions: [{ scene: SCENE, visits: 'fewer than', times: 1 }] }))
-      .resolves.toEqual([{ scene: SCENE, visits: 'fewer than', times: 1 }])
-  })
-
-  /**
-   * And it no longer holds a cap on what may be counted. The count bounded how far
-   * a Story could be read round; a Reading stands in a Scene at most once, so
-   * there is nothing left to bound — see `docs/adr/0048-a-scene-is-entered-once.md`.
-   */
-  it('bounds a count by nothing but its being a whole number of entries', async () => {
-    await expect(asking({ conditions: [{ scene: SCENE, visits: 'at least', times: 1000 }] }))
-      .resolves.toEqual([{ scene: SCENE, visits: 'at least', times: 1000 }])
+  it('refuses the shape that counted, whatever it counted', async () => {
+    for (const counting of [
+      { scene: SCENE, visits: 'at least', times: 1 },
+      { scene: SCENE, visits: 'fewer than', times: 1 },
+      { scene: SCENE, visits: 'at least', times: 2 },
+    ]) {
+      await expect(asking({ conditions: [counting] })).rejects.toThrow(/A Condition tests/)
+    }
   })
 
   it('reads no Conditions as an Exit offered to everyone, and a Shot every Reading sees', async () => {
@@ -106,9 +100,7 @@ describe('the Conditions a request writes', () => {
       { scene: SCENE, entered: 'yes' },
       { scene: SCENE, entered: true, times: 2 },
       { scene: SCENE },
-      { scene: SCENE, visits: 'as often as', times: 2 },
-      { scene: SCENE, visits: 'at least', times: 0 },
-      { scene: SCENE, visits: 'at least', times: 1.5 },
+      { scene: SCENE, visits: 'at least', times: 1 },
       [{ flag: 'coat', is: 'on' }],
       'coat is on',
       null,

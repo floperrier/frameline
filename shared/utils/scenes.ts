@@ -542,17 +542,16 @@ export function scenesAExitMayLandOn(scenes: Scene[], exits: Exit[], fromSceneId
  * one row of a form and one comparison in the engine. A Flag that was never set
  * reads as the empty value, which is how a Condition asks for the absence of one.
  *
- * The third member is the shape a Condition was written in while a Reading could
- * enter a Scene again and again, and it is **read and never written**: the
- * editor writes `{ scene, entered }` alone, and the request boundary goes on
- * taking the old shape for one deploy so that nothing already stored breaks
- * before the migration reaches it. It is `docs/adr/0002-the-schema-moves-with-the-deploy.md`'s
- * expand half; #306 rewrites what is stored and #307 takes this member away.
+ * Two members again. A third stood here for one deploy — the shape a Condition was
+ * written in while a Reading could enter a Scene again and again — read so that
+ * nothing already stored broke before the migration reached it, and written by
+ * nothing. #306 rewrote every row and this is the contract half that takes it
+ * away: see `docs/adr/0002-the-schema-moves-with-the-deploy.md` and
+ * `docs/adr/0048-a-scene-is-entered-once.md`.
  */
 export type Condition =
   | { flag: string, is: string }
   | { scene: string, entered: boolean }
-  | { scene: string, visits: 'at least' | 'fewer than', times: number }
 
 export type StoryInEditor = {
   id: string

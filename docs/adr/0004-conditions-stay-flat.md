@@ -4,7 +4,7 @@ status: accepted
 
 # A Condition tests one thing, and the only way they compose is "all of them"
 
-A Condition tests exactly one thing: what a Flag holds, or how often a Scene has
+A Condition tests exactly one thing: what a Flag holds, or whether a Scene has
 been entered. A Cut or a Shot carries a list of them, up to a small cap, and is
 offered — or played — only where every one holds. There is no `or`, no `not`, no
 arithmetic and no nesting, so the whole language is two shapes, one comparison,
