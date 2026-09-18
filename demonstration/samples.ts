@@ -3,7 +3,7 @@
  * rather than read. Three Scenes, named plainly, so the graph reads like a
  * diagram of the product; and the whole language already working, so an Author
  * meets a Flag set on entry, a Condition on a Shot testing it, and a Condition
- * counting visits before being asked to write any of them.
+ * asking whether a Scene has been entered before being asked to write any of them.
  *
  * There is one Sample per Language and nothing translates between them, which is
  * why they sit here beside *Reel Change* rather than in `i18n/locales`: a Sample
@@ -294,7 +294,7 @@ const ENGLISH: Work = {
           text: 'Or this one is, because you did not come that way. A Condition can ask '
             + 'whether a Reading has entered a Scene at all, with no Flag set to tell it — '
             + 'and since a Scene is entered once, that is a thing it can settle for good.',
-          when: [{ scene: 'What an Exit offers', visits: 'fewer than', times: 1 }],
+          when: [{ scene: 'What an Exit offers', entered: false }],
         },
       ],
     },
@@ -401,7 +401,7 @@ const FRENCH: Work = {
             + 'sait demander si une Lecture est entrée dans une Scène, sans qu’aucun Marqueur '
             + 'le lui dise — et comme on n’entre qu’une fois dans une Scène, c’est une chose '
             + 'qu’elle tranche pour de bon.',
-          when: [{ scene: 'Ce qu’offre une Sortie', visits: 'fewer than', times: 1 }],
+          when: [{ scene: 'Ce qu’offre une Sortie', entered: false }],
         },
       ],
     },

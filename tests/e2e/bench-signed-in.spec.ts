@@ -183,7 +183,11 @@ test('folds the Remarks and then the rail, and hides neither', async ({ page, re
   await expect.poll(async () => (await page.locator('aside.said').boundingBox())!.y)
     .toBeLessThan((await page.locator('.document').boundingBox())!.y)
   await expect(page.locator('.found')).toHaveJSProperty('open', false)
-  await expect(page.locator('.found summary')).toContainText('0')
+  // One Remark, and the same one at every width: the chain closes on itself, and
+  // the way on that closes it is one no Reading is ever handed — see
+  // `docs/adr/0048-a-scene-is-entered-once.md`. What is under test is that the
+  // count is on the screen once the list is folded shut, whatever it counts.
+  await expect(page.locator('.found summary')).toContainText('1')
   expect((await page.locator('.rail').boundingBox())!.width).toBe(220)
 
   // The second: the rail narrows to a strip the drawing scrolls sideways through,
@@ -201,7 +205,8 @@ test('folds the Remarks and then the rail, and hides neither', async ({ page, re
   // at: the fold took their width and never their voice — see
   // `docs/adr/0043-a-story-is-written-as-one-document.md`.
   await page.locator('.found summary').click()
-  await expect(page.locator('.found')).toContainText('Nothing to report')
+  await expect(page.locator('.found'))
+    .toContainText('The Exit 1 out of Scene 10 leads back to a Scene')
 
   // Which leaves the writing where it was, rather than under anything: the list
   // flows at the head of the document and the document keeps the rest.
@@ -695,7 +700,7 @@ test('winds the document back to the Scene the caret is already in', async ({ pa
  * twenty named regions, so they repeat by design. So is an option, for the other
  * reason: an option is a value inside one field rather than a control of the
  * bench, and two fields offer the same values by design — every Condition that
- * counts visits offers every Scene of the Story. What is asked of an option is
+ * asks about a Scene offers every Scene of the Story. What is asked of an option is
  * asked field by field instead, by `offeredTwiceOn` below.
  */
 const NAMED = [
@@ -765,8 +770,8 @@ async function saidTwiceOn(surface: Locator) {
  *   `docs/adr/0048-a-scene-is-entered-once.md`.
  * - two Shots of one Scene waiting on one dead pair, and two Exits of another
  *   waiting on the same, so the Remarks have two findings apiece to say.
- * - a Shot counting visits to one of the two Scenes called *The bar*, so the field
- *   that says which Scene is counted is drawn, and offers both of them.
+ * - a Shot asking about one of the two Scenes called *The bar*, so the field that
+ *   says which Scene is asked about is drawn, and offers both of them.
  * - a fourth Scene nothing arrives at, *Le quai*, with one way on to the first
  *   *The bar*: the field saying where that way on leads offers the Scenes it may
  *   land on and the one it already does, which are both Scenes called *The bar*.
@@ -807,7 +812,7 @@ async function collides(request: APIRequestContext) {
   }
   await request.put(`/api/scenes/${station!.id}/flags`, { data: { sets: { ticket: 'found' } } })
   await request.put(`/api/shots/${other!.shots[0]!.id}/conditions`, {
-    data: { conditions: [{ scene: bar!.id, visits: 'at least', times: 1 }] },
+    data: { conditions: [{ scene: bar!.id, entered: true }] },
   })
 
   /** A way on, phrased where a Reader is meant to be offered it. */

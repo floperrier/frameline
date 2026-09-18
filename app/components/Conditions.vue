@@ -9,7 +9,8 @@
  * differently on a Shot than on an Exit would be two Condition editors to keep
  * alike. What differs is only what the row is called — `carrier` is the phrase
  * every label ends in, so a Story of forty Exits and two hundred Shots has no two
- * labels alike — and where the Scene a fresh visit count starts on comes from.
+ * labels alike — and where the Scene a fresh question about a Scene starts on
+ * comes from.
  *
  * The sentence is written the way one is read: the connecting words between the
  * fields are plain text, and every field's label is read by assistive technology
@@ -34,14 +35,14 @@ const { carrier, conditions, names, counting, id, named = true } = defineProps<{
   /** The list itself, edited in place. */
   conditions: Condition[]
   /**
-   * The Scenes a visit count may name — the Story's own, and no other's — each
+   * The Scenes a Condition may ask about — the Story's own, and no other's — each
    * under the name the bench calls it by, `namesOnTheBench`, in the order the
    * Story is written in. The option is read back rather than typed, so two Scenes
    * an Author called the same are numbered here as on every other control — see
    * `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
    */
   names: Map<string, string>
-  /** The Scene a freshly chosen visit count starts on. */
+  /** The Scene a freshly chosen question about a Scene starts on. */
   counting: string
   /** The id of the Exit or Shot carrying the list, which every field's own id is built from. */
   id: string
@@ -61,10 +62,27 @@ const emit = defineEmits<{ write: [] }>()
 const { t } = useI18n()
 
 /** Which of the two things one Condition tests. */
-type ConditionKind = 'flag' | 'visits'
+type ConditionKind = 'flag' | 'entered'
 
 function conditionKind(condition: Condition): ConditionKind {
-  return 'flag' in condition ? 'flag' : 'visits'
+  return 'flag' in condition ? 'flag' : 'entered'
+}
+
+/**
+ * Which of the two questions a row about a Scene asks, whichever shape it is
+ * written in: the Reader has stood there, or the Reader has not.
+ *
+ * A Condition still stored in the shape that counted is drawn as the question it
+ * is nearest to — `at least` asks that the Scene has been entered, `fewer than`
+ * that it has not — for the one deploy before #306 rewrites what is stored. The
+ * row is only ever drawn that way: nothing here writes the new shape over the old
+ * one until the Author picks a question, which is them saying so rather than the
+ * bench deciding for them. See `docs/adr/0048-a-scene-is-entered-once.md`.
+ */
+function asksEntered(condition: Condition) {
+  if ('entered' in condition) return condition.entered
+
+  return 'visits' in condition && condition.visits === 'at least'
 }
 
 /**
@@ -85,9 +103,10 @@ const addNamed = computed(() => t('conditions.addTo', { carrier }))
 /**
  * Adds a Condition. It starts as a Flag with no name, which is half a Condition
  * and which the server is right to refuse, so nothing is written until the name
- * is typed — or until the Author turns the row into a visit count, which is
- * whole the moment it is chosen. The cap is held here rather than by the control
- * alone, because the key that adds a row does not know the control is gone.
+ * is typed — or until the Author turns the row into a question about a Scene,
+ * which is whole the moment it is chosen. The cap is held here rather than by the
+ * control alone, because the key that adds a row does not know the control is
+ * gone.
  */
 function add() {
   if (conditions.length >= CONDITIONS_MAX) return
@@ -117,16 +136,28 @@ function remove(place: number) {
 
 /**
  * Turns one row into a Condition of the other kind, and writes what that leaves:
- * a visit count is whole the moment it is chosen, and a Flag with no name yet is
- * a row the Story does not carry until it is typed. A visit count starts on the
- * Scene this thing belongs to, entered twice — the return the Author is writing
- * for, which is the common one.
+ * a question about a Scene is whole the moment it is chosen, and a Flag with no
+ * name yet is a row the Story does not carry until it is typed. The question
+ * starts on the Scene this thing belongs to, asked as *has been entered* — the
+ * return the Author is writing for, which is the common one.
  */
 function choose(place: number, kind: ConditionKind) {
-  conditions[place] = kind === 'flag'
-    ? { flag: '', is: '' }
-    : { scene: counting, visits: 'at least', times: 2 }
+  conditions[place] = kind === 'flag' ? { flag: '', is: '' } : { scene: counting, entered: true }
 
+  emit('write')
+}
+
+/**
+ * Which of the two questions the row asks. It writes the whole Condition rather
+ * than a field of it, so a row still stored in the shape that counted leaves here
+ * in the shape that replaced it — the Author having said which question they
+ * meant, which is the one thing that may rewrite such a row before #306 does.
+ */
+function ask(place: number, entered: boolean) {
+  const condition = conditions[place]!
+  if ('flag' in condition) return
+
+  conditions[place] = { scene: condition.scene, entered }
   emit('write')
 }
 
@@ -170,7 +201,7 @@ function conditionCalled(place: number) {
           @change="choose(place, ($event.target as HTMLSelectElement).value as ConditionKind)"
         >
           <option value="flag">{{ $t('conditions.flag') }}</option>
-          <option value="visits">{{ $t('conditions.scene') }}</option>
+          <option value="entered">{{ $t('conditions.scene') }}</option>
         </select>
 
         <template v-if="'flag' in condition">
@@ -204,7 +235,7 @@ function conditionCalled(place: number) {
         <template v-else>
           <label class="visually-hidden" :for="`counted-${id}-${place}`">
             {{ $t('conditions.scene') }}
-            {{ $t('conditions.countedBy', { condition: conditionCalled(place) }) }}
+            {{ $t('conditions.askedAboutBy', { condition: conditionCalled(place) }) }}
           </label>
           <select
             :id="`counted-${id}-${place}`"
@@ -222,33 +253,22 @@ function conditionCalled(place: number) {
               {{ name }}
             </option>
           </select>
-          <span class="says" aria-hidden="true">{{ $t('conditions.entered') }}</span>
-          <label class="visually-hidden" :for="`visits-${id}-${place}`">
+          <!-- The two plain questions, as a choice and with no number to type: a
+               Reading stands in a Scene at most once, so what there was to count
+               is now what there is to ask — see
+               `docs/adr/0048-a-scene-is-entered-once.md`. -->
+          <label class="visually-hidden" :for="`entered-${id}-${place}`">
             {{ $t('conditions.entered') }}
             {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
           </label>
           <select
-            :id="`visits-${id}-${place}`"
-            v-model="condition.visits"
-            @change="emit('write')"
+            :id="`entered-${id}-${place}`"
+            :value="String(asksEntered(condition))"
+            @change="ask(place, ($event.target as HTMLSelectElement).value === 'true')"
           >
-            <option value="at least">{{ $t('conditions.atLeast') }}</option>
-            <option value="fewer than">{{ $t('conditions.fewerThan') }}</option>
+            <option value="true">{{ $t('conditions.hasBeenEntered') }}</option>
+            <option value="false">{{ $t('conditions.hasNotBeenEntered') }}</option>
           </select>
-          <label class="visually-hidden" :for="`times-${id}-${place}`">
-            {{ $t('conditions.times') }}
-            {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
-          </label>
-          <input
-            :id="`times-${id}-${place}`"
-            v-model.number="condition.times"
-            class="times data"
-            type="number"
-            min="1"
-            :max="VISITS_MAX"
-            @change="emit('write')"
-          >
-          <span class="says" aria-hidden="true">{{ $t('conditions.times') }}</span>
         </template>
       </div>
 
@@ -333,15 +353,6 @@ function conditionCalled(place: number) {
   max-inline-size: 6rem;
 }
 
-/* The count of visits, wide enough for the three digits of `VISITS_MAX` and not
-   for the twenty characters a number field asks for by default. Written out
-   rather than left to `field-sizing`, so the field is the same width in a browser
-   that has neither — and a count between one and a hundred has nothing to gain
-   from growing. */
-.when .times {
-  inline-size: 3.5rem;
-}
-
 /* The Condition's own number, in the gutter of its row — what the Author refers
    to it by — and the connecting words between its fields, which are the sentence
    itself and not a label of anything: both stencilled on the machine, the way
@@ -356,8 +367,7 @@ function conditionCalled(place: number) {
   font-variant-numeric: tabular-nums;
 }
 
-/* Data the Author types rather than prose: a Condition's two sides, the count of
-   visits. */
+/* Data the Author types rather than prose: a Condition's two sides. */
 .data {
   font-family: var(--data);
 }

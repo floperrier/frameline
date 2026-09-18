@@ -49,11 +49,18 @@ export type StoryToShow = Omit<StoryToRead, 'scenes'> & {
 export type Path = { seed: number, taken: string[], shot: number }
 
 /**
- * Everything one Reading has accumulated: what each Flag holds, and how often
- * each Scene has been entered. Computed from the Path on every read and kept
- * nowhere, so no two Readings can reach the same State.
+ * Everything one Reading has accumulated: what each Flag holds, and the Scenes it
+ * has entered, in the order it entered them. Computed from the Path on every read
+ * and kept nowhere, so no two Readings can reach the same State.
+ *
+ * Entered rather than counted, because a Reading stands in a Scene at most once
+ * and a count of nought or one is a list of names said the long way round — see
+ * `docs/adr/0048-a-scene-is-entered-once.md`. A list rather than a set, because
+ * State is handed to a screen that draws it and to a payload that has to survive
+ * being written down; the Scenes one Reading has been through are few enough that
+ * looking through them costs nothing.
  */
-export type State = { flags: Flags, visits: Record<string, number> }
+export type State = { flags: Flags, entered: string[] }
 
 /**
  * Whether the Conditions an Exit or a Shot carries all pass against this State —
@@ -65,9 +72,35 @@ export function holds(conditions: Condition[], state: State) {
   return conditions.every((condition) => {
     if ('flag' in condition) return (state.flags[condition.flag] ?? '') === condition.is
 
-    const visits = state.visits[condition.scene] ?? 0
+    const entered = state.entered.includes(condition.scene)
+    if ('entered' in condition) return entered === condition.entered
+
+    // The shape that counted, read for one deploy and never written. A Scene is
+    // entered at most once, so what it compares against is one or nought, and the
+    // comparison it asked for is the comparison it still makes: its meaning is
+    // unchanged, and #306 rewrites what is stored in it.
+    const visits = entered ? 1 : 0
     return condition.visits === 'at least' ? visits >= condition.times : visits < condition.times
   })
+}
+
+/**
+ * Whether one Exit is on offer to a Reading standing where it leaves from: every
+ * Condition it carries holds, and the Scene it leads to is not one this Reading
+ * has already entered.
+ *
+ * The second half is `docs/adr/0048-a-scene-is-entered-once.md` read at the far
+ * end of the rule it settled. The bench refuses to write a way on that comes back,
+ * so on a Story written under that rule this can never fire; on one written before
+ * it, it is what keeps a Reading standing in a Scene at most once — nothing an
+ * Author wrote is edited, and the way on is simply not handed over.
+ *
+ * One function, so that what the Reader is offered, what the walk lets a Path
+ * replay and what the search may take are one question: an Exit a forged Path
+ * claims is refused by the same test that hid it.
+ */
+export function offered(exit: Exit, state: State) {
+  return holds(exit.conditions, state) && !state.entered.includes(exit.toSceneId)
 }
 
 /**
@@ -98,6 +131,12 @@ export function unmet(
       })
     }
 
+    if ('entered' in condition) {
+      return say(condition.entered ? 'preview.needsEntered' : 'preview.needsNotEntered', {
+        scene: sceneName(condition.scene),
+      })
+    }
+
     return say('preview.needsVisits', {
       how: say(condition.visits === 'at least' ? 'conditions.atLeast' : 'conditions.fewerThan'),
       count: say(
@@ -105,20 +144,10 @@ export function unmet(
         { times: condition.times },
       ),
       scene: sceneName(condition.scene),
-      entered: entered(state.visits[condition.scene] ?? 0, say),
+      entered: say(
+        state.entered.includes(condition.scene) ? 'preview.enteredOnce' : 'preview.neverEntered'),
     })
   })
-}
-
-/**
- * How often a Scene has been entered, said the way it would be said out loud.
- * Three phrases rather than one with a number in it, because English and French
- * do not agree about what a count of one and a count of none look like, and a
- * plural engine to settle three sentences is a plural engine to keep.
- */
-function entered(visits: number, say: Phrase) {
-  if (visits === 0) return say('preview.neverEntered')
-  return visits === 1 ? say('preview.enteredOnce') : say('preview.enteredTimes', { visits })
 }
 
 /**
@@ -154,15 +183,20 @@ export function rerolled(at: Path): Path {
 
 /**
  * Which of the values a Scene names for a Flag this Reading is shown. Hashed from
- * the seed, the Scene, how many times this Reading has entered it, and the Flag's
- * name — the four things that identify the draw — so each draw is independent of
- * every other: a Shot added upstream, or one skipped by a Condition, leaves it
- * where it was, and a Path replayed after an edit shows the Story it showed.
- * A sequential generator threaded through the walk would shift every later draw
- * instead; see `docs/adr/0024-the-seed-belongs-to-the-position.md`.
+ * the seed, the Scene and the Flag's name — the three things that identify the
+ * draw — so each draw is independent of every other: a Shot added upstream, or one
+ * skipped by a Condition, leaves it where it was, and a Path replayed after an
+ * edit shows the Story it showed. A sequential generator threaded through the walk
+ * would shift every later draw instead; see
+ * `docs/adr/0024-the-seed-belongs-to-the-position.md`.
+ *
+ * The count of entries used to be the fourth, so that a Scene read again drew
+ * again. A Reading arrives once, so there is one draw and the count has left the
+ * key — `docs/adr/0048-a-scene-is-entered-once.md`. The seed is untouched and
+ * still belongs to the Path.
  */
-function drawn(seed: number, sceneId: string, visits: number, flag: string, values: string[]) {
-  return values[hashed(`${seed}:${sceneId}:${visits}:${flag}`) % values.length]!
+function drawn(seed: number, sceneId: string, flag: string, values: string[]) {
+  return values[hashed(`${seed}:${sceneId}:${flag}`) % values.length]!
 }
 
 /**
@@ -210,32 +244,30 @@ export type Shown = {
 
 /**
  * Walks the taken Exits from the opening Scene, accumulating State on the way:
- * every arrival is counted and sets the Flags of the Scene it arrives at, so the
- * State an Exit is judged against is the one the Reader had when they were offered
- * it. An Exit that does not leave the Scene the Reading stands in, or whose
- * Conditions did not all hold there, is not one it could have been offered — a
- * stale link, or a hand-written one — and stops the walk where it is rather than
- * teleporting the Reader.
+ * every arrival is written down and sets the Flags of the Scene it arrives at, so
+ * the State an Exit is judged against is the one the Reader had when they were
+ * offered it. An Exit that does not leave the Scene the Reading stands in, or that
+ * was not on offer there — its Conditions failing, or its Scene already entered —
+ * is not one it could have been offered, so a stale link or a hand-written one
+ * stops the walk where it is rather than teleporting the Reader.
  *
- * The walk is as long as the Exits taken, never as long as the Story's cycles, so
- * a Story that comes back on itself is read round and round without the engine
- * ever looping forever.
+ * The walk is as long as the Exits taken, and a Story that comes back on itself
+ * cannot be walked round twice: the second arrival is the one `offered` withholds.
  *
  * A Flag the Scene gives several values is drawn here, where a Scene already sets
  * its Flags: the draw is made before anything is judged, so the State an Exit or
- * a Shot is held against is the one the Reader arrived with. It is keyed on the
- * count of entries, so a Scene read a second time draws again and a Story that
- * loops is worth looping through.
+ * a Shot is held against is the one the Reader arrived with. One arrival is one
+ * draw, so the draw is made as the Reading arrives and never again.
  */
 function walk(story: StoryToRead, { seed, taken }: Path) {
-  const state: State = { flags: {}, visits: {} }
+  const state: State = { flags: {}, entered: [] }
 
   function enter(id: string) {
-    const visits = (state.visits[id] = (state.visits[id] ?? 0) + 1)
+    state.entered.push(id)
     const sets = story.scenes.find(scene => scene.id === id)?.sets ?? {}
 
     for (const [flag, held] of Object.entries(sets)) {
-      state.flags[flag] = Array.isArray(held) ? drawn(seed, id, visits, flag, held) : held
+      state.flags[flag] = Array.isArray(held) ? drawn(seed, id, flag, held) : held
     }
   }
 
@@ -247,7 +279,7 @@ function walk(story: StoryToRead, { seed, taken }: Path) {
   let walked = 0
   for (const takenId of taken) {
     const exit = story.exits.find(exit =>
-      exit.id === takenId && exit.fromSceneId === sceneId && holds(exit.conditions, state))
+      exit.id === takenId && exit.fromSceneId === sceneId && offered(exit, state))
     if (!exit) break
     sceneId = exit.toSceneId
     enter(sceneId)
@@ -299,12 +331,12 @@ export function reading(story: StoryToRead, at: Path): Shown {
     ?.shots.filter(shot => holds(shot.conditions, state)) ?? []
   const shot = run[at.shot]
   // A Story with no opening Scene has no Exits to offer either, so the empty
-  // Scene and the missing one both end the Path. An Exit one of whose Conditions
-  // fails is not among them, which is what makes it invisible rather than
-  // refused.
+  // Scene and the missing one both end the Path. An Exit this Reading is not
+  // offered — one of its Conditions failing, or its Scene already entered — is not
+  // among them, which is what makes it invisible rather than refused.
   const exits = shot
     ? []
-    : story.exits.filter(exit => exit.fromSceneId === sceneId && holds(exit.conditions, state))
+    : story.exits.filter(exit => exit.fromSceneId === sceneId && offered(exit, state))
 
   return { sceneId, run, shot, exits, ended: !shot && exits.length === 0, state }
 }
@@ -374,14 +406,14 @@ export function back(story: StoryToRead, at: Path): Path | undefined {
  * about the Story the pane says out loud.
  *
  * It is the engine walking its own Story: every step is `reading` for the State,
- * `holds` for whether an Exit was on offer, and `take` for the Path that results —
- * so what this can reach and what a Reader can reach cannot come apart. The
- * breadth-first order makes the answer the shortest way there, which is the one an
- * Author reads the fewest Scenes to arrive at.
+ * `offered` for whether an Exit was on the table, and `take` for the Path that
+ * results — so what this can reach and what a Reader can reach cannot come apart.
+ * The breadth-first order makes the answer the shortest way there, which is the
+ * one an Author reads the fewest Scenes to arrive at.
  *
- * A Scene is passed once for each set of Flags it has been arrived holding,
- * rather than once outright: a Story that loops back to set a Flag and returns is
- * a Story whose second arrival opens ways on the first did not.
+ * A Scene is passed once for each set of Flags it has been arrived holding, rather
+ * than once outright: two ways round to one Scene can set different Flags on the
+ * way, and the ways on it offers on arrival differ with them.
  */
 export function pathTo(story: StoryToRead, from: Path, sceneId: string): Path | undefined {
   const seen = new Set<string>()
@@ -403,7 +435,7 @@ export function pathTo(story: StoryToRead, from: Path, sceneId: string): Path | 
       seen.add(arrivedAs)
 
       for (const exit of story.exits) {
-        if (exit.fromSceneId !== standing || !holds(exit.conditions, state)) continue
+        if (exit.fromSceneId !== standing || !offered(exit, state)) continue
         next.push(take(at, exit))
       }
     }

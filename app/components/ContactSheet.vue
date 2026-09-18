@@ -60,8 +60,8 @@ const names = computed(() => namesOnTheBench(story, t))
 
 /**
  * A Scene read by name where something else names it: the far side of an Exit, the
- * Scene a Condition counts visits to. One a Condition still names after it was
- * deleted is said to be gone rather than shown as the id it holds.
+ * Scene a Condition asks about. One a Condition still names after it was deleted is
+ * said to be gone rather than shown as the id it holds.
  */
 function sceneName(sceneId: string) {
   return sceneNamed(names.value, sceneId, t)
@@ -375,6 +375,14 @@ function describe(shot: Shot) {
               {{ $t('conditions.holds') }}
               <span class="data">{{ condition.is }}</span>
             </template>
+            <template v-else-if="'entered' in condition">
+              {{ $t('conditions.scene') }}
+              <span class="data">{{ sceneName(condition.scene) }}</span>
+              {{ condition.entered
+                ? $t('conditions.hasBeenEntered') : $t('conditions.hasNotBeenEntered') }}
+            </template>
+            <!-- The shape that counted, read for the one deploy before #306
+                 rewrites what is stored in it. -->
             <template v-else>
               {{ $t('conditions.scene') }}
               <span class="data">{{ sceneName(condition.scene) }}</span>

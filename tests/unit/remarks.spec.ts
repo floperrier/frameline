@@ -278,11 +278,11 @@ describe('what can never hold', () => {
     expect(remarks(story, says)).toEqual([])
   })
 
-  it('leaves a visit count alone, however few visits the graph allows', () => {
+  it('leaves a question about a Scene alone, whatever the graph allows', () => {
     const story = onTheBench([
       { name: 'The bar' },
       { name: 'The quay' },
-    ], { exits: [['The bar', 'The quay', { scene: 'The bar', visits: 'at least', times: 9 }]] })
+    ], { exits: [['The bar', 'The quay', { scene: 'The bar', entered: true }]] })
 
     expect(remarks(story, says)).toEqual([])
   })
@@ -294,6 +294,71 @@ describe('what can never hold', () => {
     ], { exits: [['The bar', 'The quay', { flag: 'drink', is: 'wine' }]] })
 
     expect(named(story)).toEqual(['flagUnset'])
+  })
+})
+
+describe('a way on no Reading is ever handed', () => {
+  /**
+   * An Exit leading back to a Scene that already reaches the one it leaves. The
+   * bench refuses to write one now, so this can only ever be a Story written
+   * before `docs/adr/0048-a-scene-is-entered-once.md` — and since that record
+   * decided nothing an Author wrote would be edited, what the bench owes them
+   * instead is to have noticed.
+   */
+  it('says so of the Exit that leads back, by the Scene it leaves and its Place', () => {
+    const story = onTheBench([
+      { name: 'The bar' },
+      { name: 'The quay' },
+    ], { exits: [['The bar', 'The quay'], ['The quay', 'The bar']] })
+
+    expect(remarks(story, says).filter(remark => remark.name === 'exitNeverTaken'))
+      .toEqual([{ name: 'exitNeverTaken', sceneId: 'The quay', said: { scene: 'The quay', place: 1 } }])
+  })
+
+  /** A way on to the Scene it leaves is the same thing said of one Scene. */
+  it('says so of an Exit that leads to the Scene it leaves', () => {
+    const story = onTheBench([{ name: 'The bar' }], { exits: [['The bar', 'The bar']] })
+
+    expect(named(story)).toContain('exitNeverTaken')
+  })
+
+  /**
+   * The case *some way* would get wrong: the quay is reached through the bar and
+   * around it, so a Reader can be standing there without having been in the bar —
+   * and the way on back to it is one they are handed.
+   */
+  it('says nothing of a way back to a Scene there is also a way round', () => {
+    const story = onTheBench([
+      { name: 'The foyer' },
+      { name: 'The bar' },
+      { name: 'The quay' },
+    ], {
+      exits: [
+        ['The foyer', 'The bar'],
+        ['The foyer', 'The quay'],
+        ['The bar', 'The quay'],
+        ['The quay', 'The bar'],
+      ],
+    })
+
+    expect(named(story)).not.toContain('exitNeverTaken')
+  })
+
+  /** A Story read forwards holds none, however many ways round to one Scene it has. */
+  it('says nothing of a Story that only ever leads onwards', () => {
+    const story = onTheBench([
+      { name: 'The bar' },
+      { name: 'La gare' },
+      { name: 'The quay' },
+    ], {
+      exits: [
+        ['The bar', 'La gare'],
+        ['The bar', 'The quay'],
+        ['La gare', 'The quay'],
+      ],
+    })
+
+    expect(named(story)).not.toContain('exitNeverTaken')
   })
 })
 

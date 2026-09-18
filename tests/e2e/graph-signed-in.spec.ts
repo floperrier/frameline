@@ -1,7 +1,7 @@
 import type { APIRequestContext, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
-import { CONDITIONS_MAX, FLAGS_PER_SCENE, VISITS_MAX } from '../../shared/utils/scenes'
+import { CONDITIONS_MAX, FLAGS_PER_SCENE } from '../../shared/utils/scenes'
 import {
   ONE_PIXEL,
   sceneNode,
@@ -311,7 +311,7 @@ test('a Scene sets Flags on entry, and an Exit carries Conditions', async ({ req
   // Two Conditions at once, which is what one could not ask: the Reader has the
   // coat on *and* has been here before.
   const both = [
-    { scene: from.id, visits: 'at least', times: 2 },
+    { scene: from.id, entered: true },
     { flag: 'coat', is: 'on' },
   ]
   const conditioned = await request.put(`/api/exits/${exit.id}/conditions`, {
@@ -371,16 +371,16 @@ test('half a Flag, and a Condition of no shape, are refused rather than stored',
       data: { conditions: [{ flag: 'coat', is: 'on', and: { flag: 'key', is: 'found' } }] },
     }),
     request.put(`/api/exits/${exit.id}/conditions`, {
-      data: { conditions: [{ scene: 'The arrival', visits: 'at least', times: 2 }] },
+      data: { conditions: [{ scene: 'The arrival', entered: true }] },
     }),
     request.put(`/api/exits/${exit.id}/conditions`, {
-      data: { conditions: [{ scene: from.id, visits: 'as often as', times: 2 }] },
+      data: { conditions: [{ scene: from.id, entered: 'yes' }] },
     }),
     request.put(`/api/exits/${exit.id}/conditions`, {
-      data: { conditions: [{ scene: from.id, visits: 'at least', times: VISITS_MAX + 1 }] },
+      data: { conditions: [{ scene: from.id, visits: 'at least', times: 0 }] },
     }),
     request.put(`/api/exits/${exit.id}/conditions`, {
-      data: { conditions: [{ scene: from.id, visits: 'at least', times: 1.5 }] },
+      data: { conditions: [{ scene: from.id, entered: true, times: 2 }] },
     }),
     // One bad member is a bad list, wherever in it it sits.
     request.put(`/api/exits/${exit.id}/conditions`, {
@@ -421,8 +421,8 @@ test('a Condition counts only a Scene of the Exit’s own Story', async ({ reque
   const refused = await request.put(`/api/exits/${exit.id}/conditions`, {
     data: {
       conditions: [
-        { scene: from.id, visits: 'at least', times: 2 },
-        { scene: elsewhere.scenes[0]!.id, visits: 'at least', times: 2 },
+        { scene: from.id, entered: true },
+        { scene: elsewhere.scenes[0]!.id, entered: true },
       ],
     },
   })
@@ -586,7 +586,7 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
   await page
     .getByLabel('Condition 2 of the Exit 1 to The platform, out of The arrival',
       { exact: true })
-    .selectOption('visits')
+    .selectOption('entered')
 
   // Read back past the page, which is what proves all of it landed — and has to
   // happen before the reload, which would abort a write still in flight.
@@ -595,7 +595,7 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
     await expect(readExits(from.id)).resolves.toMatchObject([{
       conditions: [
         { flag: 'coat', is: 'on' },
-        { scene: from.id, visits: 'at least', times: 2 },
+        { scene: from.id, entered: true },
       ],
     }])
   }).toPass()
@@ -617,7 +617,7 @@ test('an Author sets a Flag and two Conditions from the page alone', async ({ pa
   await expect(page
     .getByLabel('Condition 2 of the Exit 1 to The platform, out of The arrival',
       { exact: true }))
-    .toHaveValue('visits')
+    .toHaveValue('entered')
 
   // And an Exit with every Condition taken off it is offered always again.
   for (const place of [2, 1]) {

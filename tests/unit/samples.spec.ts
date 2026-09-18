@@ -16,7 +16,6 @@ import {
   SHOT_DESCRIPTION_MAX_LENGTH,
   SHOT_IMAGE_MAX_BYTES,
   SHOT_TEXT_MAX_LENGTH,
-  VISITS_MAX,
   imageTypeOf,
 } from '../../shared/utils/scenes.ts'
 import type { Condition } from '../../shared/utils/scenes.ts'
@@ -48,13 +47,16 @@ function placeOf(work: Work, name: string) {
 }
 
 /**
- * A Condition as the two Samples can be compared by: the Scene it counts, or the
- * Scene whose Flag it tests, each by its Place in the work rather than by its
+ * A Condition as the two Samples can be compared by: the Scene it asks about, or
+ * the Scene whose Flag it tests, each by its Place in the work rather than by its
  * name, and whether the test asks for a value or for the absence of one.
  */
 function shapeOfCondition(work: Work, condition: Condition) {
   if ('scene' in condition) {
-    return { visits: condition.visits, times: condition.times, of: placeOf(work, condition.scene) }
+    return {
+      entered: 'entered' in condition && condition.entered,
+      of: placeOf(work, condition.scene),
+    }
   }
 
   return {
@@ -158,13 +160,16 @@ describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLan
     expect(tested.length).toBeGreaterThan(0)
   })
 
-  it('counts visits somewhere, so a Condition needing no Flag is met', () => {
-    const counting = conditionsOf(sample).filter(condition => 'scene' in condition)
+  it('asks about a Scene somewhere, so a Condition needing no Flag is met', () => {
+    const asking = conditionsOf(sample).filter(condition => 'scene' in condition)
 
-    expect(counting.length).toBeGreaterThan(0)
-    for (const condition of counting) {
+    expect(asking.length).toBeGreaterThan(0)
+    for (const condition of asking) {
       expect(sample.scenes.map(scene => scene.name)).toContain(condition.scene)
-      expect(condition.times).toBeLessThanOrEqual(VISITS_MAX)
+      // In the shape that replaced the one that counted, and never in the old one:
+      // the Samples are written here rather than migrated, so #306 has nothing of
+      // theirs to rewrite.
+      expect(condition).toHaveProperty('entered')
     }
   })
 

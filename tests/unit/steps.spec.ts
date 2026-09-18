@@ -211,13 +211,13 @@ describe('the Step the bench is showing', () => {
   })
 
   /**
-   * A visit count is a Condition, and it is not this lesson: the Sample teaches
-   * it, already working, and what is taught here is where State comes from.
+   * A question about a Scene is a Condition, and it is not this lesson: the Sample
+   * teaches it, already working, and what is taught here is where State comes from.
    */
-  it('does not take a visit count as the Condition it asked for', () => {
+  it('does not take a question about a Scene as the Condition it asked for', () => {
     const story = joined()
     sets(story, 0, { courage: 'high' })
-    playedWhen(story, 1, { scene: 'The platform', visits: 'at least', times: 2 })
+    playedWhen(story, 1, { scene: 'The platform', entered: true })
 
     expect(asking(story)).toBe('putCondition')
   })

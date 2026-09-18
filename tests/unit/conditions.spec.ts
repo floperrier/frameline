@@ -5,7 +5,6 @@ import {
   CONDITIONS_MAX,
   FLAG_NAME_MAX_LENGTH,
   FLAG_VALUE_MAX_LENGTH,
-  VISITS_MAX,
 } from '../../shared/utils/scenes'
 import { UUID_PATTERN } from '../../server/utils/ids'
 
@@ -30,14 +29,13 @@ vi.stubGlobal('saying', () => (key: string, values?: Record<string, string | num
 vi.stubGlobal('CONDITIONS_MAX', CONDITIONS_MAX)
 vi.stubGlobal('FLAG_NAME_MAX_LENGTH', FLAG_NAME_MAX_LENGTH)
 vi.stubGlobal('FLAG_VALUE_MAX_LENGTH', FLAG_VALUE_MAX_LENGTH)
-vi.stubGlobal('VISITS_MAX', VISITS_MAX)
 vi.stubGlobal('UUID_PATTERN', UUID_PATTERN)
 
 const { readConditions } = await import('../../server/utils/conditions')
 
 const asking = (body: unknown) => readConditions({ body } as unknown as H3Event, 'Exit')
 
-/** A Scene named by a Condition counting visits, which the reader takes as a uuid. */
+/** A Scene named by a Condition asking about one, which the reader takes as a uuid. */
 const SCENE = '0f5c2f8e-3a1e-4a4f-9d2f-1c6d5b0a7e11'
 
 /** As many Flag tests as asked for, each one whole and each one different. */
@@ -49,12 +47,40 @@ describe('the Conditions a request writes', () => {
     await expect(asking({
       conditions: [
         { flag: 'coat', is: 'on' },
-        { scene: SCENE, visits: 'at least', times: 2 },
+        { scene: SCENE, entered: true },
       ],
     })).resolves.toEqual([
       { flag: 'coat', is: 'on' },
-      { scene: SCENE, visits: 'at least', times: 2 },
+      { scene: SCENE, entered: true },
     ])
+  })
+
+  it('takes both questions a Condition may ask of a Scene', async () => {
+    await expect(asking({ conditions: [{ scene: SCENE, entered: false }] }))
+      .resolves.toEqual([{ scene: SCENE, entered: false }])
+  })
+
+  /**
+   * The expand half of an expand–contract: a browser still holding the previous
+   * code sends its whole list back when one row of it changes, so the shape that
+   * counted is taken unchanged for one deploy. #306 rewrites what is stored in it
+   * and #307 stops reading it.
+   */
+  it('still takes the shape that counted, unchanged in meaning', async () => {
+    await expect(asking({ conditions: [{ scene: SCENE, visits: 'at least', times: 2 }] }))
+      .resolves.toEqual([{ scene: SCENE, visits: 'at least', times: 2 }])
+    await expect(asking({ conditions: [{ scene: SCENE, visits: 'fewer than', times: 1 }] }))
+      .resolves.toEqual([{ scene: SCENE, visits: 'fewer than', times: 1 }])
+  })
+
+  /**
+   * And it no longer holds a cap on what may be counted. The count bounded how far
+   * a Story could be read round; a Reading stands in a Scene at most once, so
+   * there is nothing left to bound — see `docs/adr/0048-a-scene-is-entered-once.md`.
+   */
+  it('bounds a count by nothing but its being a whole number of entries', async () => {
+    await expect(asking({ conditions: [{ scene: SCENE, visits: 'at least', times: 1000 }] }))
+      .resolves.toEqual([{ scene: SCENE, visits: 'at least', times: 1000 }])
   })
 
   it('reads no Conditions as an Exit offered to everyone, and a Shot every Reading sees', async () => {
@@ -76,9 +102,12 @@ describe('the Conditions a request writes', () => {
       { flag: '', is: 'on' },
       // A key too many is a Condition trying to carry a second one.
       { flag: 'coat', is: 'on', and: { flag: 'key', is: 'found' } },
-      { scene: 'The arrival', visits: 'at least', times: 2 },
+      { scene: 'The arrival', entered: true },
+      { scene: SCENE, entered: 'yes' },
+      { scene: SCENE, entered: true, times: 2 },
+      { scene: SCENE },
       { scene: SCENE, visits: 'as often as', times: 2 },
-      { scene: SCENE, visits: 'at least', times: VISITS_MAX + 1 },
+      { scene: SCENE, visits: 'at least', times: 0 },
       { scene: SCENE, visits: 'at least', times: 1.5 },
       [{ flag: 'coat', is: 'on' }],
       'coat is on',

@@ -1,7 +1,8 @@
 import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test'
+import type { Condition } from '../../shared/utils/scenes'
 import {
-  live, readTheStory, sceneNode, seedExit, seedPublication, seedScenes, seedStory, test,
-  writeStory,
+  live, readShotConditions, readTheStory, sceneNode, seedPublication, seedScenes, seedStory,
+  test, writeStory,
 } from './author'
 
 /**
@@ -93,7 +94,8 @@ test('the reading is stopped on the Scene being written', async ({ page, request
 
   // And the State that Path accumulated came with it: the street was entered on
   // the way through, which is the whole difference between replaying and playing.
-  await expect(benchIn(page).getByText('The street × 1')).toBeVisible()
+  await expect.poll(() => benchIn(page).locator('.entered li').allTextContents())
+    .toEqual(['The street', 'The bar'])
 })
 
 test('a way on pressed in the reading moves the writing with it', async ({ page, request }) => {
@@ -172,29 +174,31 @@ test('a Scene nobody has written a Shot into is offered with no frame at all',
     const story = await writeStory(request)
     const { scenes } = await scenesOf(request, story.id)
 
-    // A Scene with no Shots in it, reached from the bar and leading back out, so
-    // the Reading stands somewhere the frame has nothing to hold.
-    //
-    // The way back out is seeded past the API, because the bench refuses to write
-    // one: this is a Story that holds a cycle, which the engine goes on reading as
-    // it always did — the refusal of
-    // `docs/adr/0048-a-scene-is-entered-once.md` sits at the writing, and what
-    // becomes of the Stories already holding one is #303.
+    // A Scene with no Shots in it, reached from the bar and leading on out of it,
+    // so the Reading stands somewhere the frame has nothing to hold and is still
+    // offered a way on.
     const wings = await (await request.post(`/api/stories/${story.id}/scenes`, {
       data: { name: 'The wings' },
     })).json()
-    const out = await (await request.post(`/api/scenes/${scenes[1]!.id}/exits`, {
-      data: { toSceneId: wings.id },
+    const alley = await (await request.post(`/api/stories/${story.id}/scenes`, {
+      data: { name: 'The alley' },
     })).json()
-    await request.patch(`/api/exits/${out.id}`, { data: { text: 'Slip out the back' } })
-    await seedExit(wings.id, scenes[0]!.id, 'Back to the street')
+    for (const [from, to, text] of [
+      [scenes[1]!.id, wings.id, 'Slip out the back'],
+      [wings.id, alley.id, 'Out to the alley'],
+    ] as const) {
+      const exit = await (await request.post(`/api/scenes/${from}/exits`, {
+        data: { toSceneId: to },
+      })).json()
+      await request.patch(`/api/exits/${exit.id}`, { data: { text } })
+    }
 
     const preview = await writing(page, story.id, wings.id)
 
     // The way on is offered on its own: nothing stands in for a frame there is no
     // Shot for, and the beat of the Scene left behind does not follow the Reading
     // into this one.
-    await expect(preview.getByRole('button', { name: 'Back to the street' })).toBeVisible()
+    await expect(preview.getByRole('button', { name: 'Out to the alley' })).toBeVisible()
     await expect(preview.locator('figure')).toHaveCount(0)
     await expect(preview.getByText('Smoke, and no one she knows.')).toBeHidden()
   })
@@ -428,10 +432,14 @@ test('a Story that ends where it opens offers reading it again with the ending',
 
 /**
  * A Story whose ways on ask for things: the street puts a coat on, one way out
- * wants it off, and another wants the street entered twice. Neither is offered
- * on a first reading, which is exactly the Author's question — why not. The bar
- * pours a drink and lets the Reading back out, so a second Scene sets a Flag and
- * the street can be entered twice.
+ * wants it off, and the way up out of the bar wants the Reader to have come
+ * through the yard. Neither is offered to a Reading that walks straight in, which
+ * is exactly the Author's question — why not. The yard is the other way into the
+ * bar, so the second of the two opens for a Reading that goes round by it.
+ *
+ * Two ways round rather than one Scene entered twice: a Reading stands in a Scene
+ * at most once, so what makes a Condition about a Scene turn over is which way the
+ * Reader came — see `docs/adr/0048-a-scene-is-entered-once.md`.
  */
 async function writeConditionalStory(request: APIRequestContext) {
   const story = await writeStory(request)
@@ -441,39 +449,47 @@ async function writeConditionalStory(request: APIRequestContext) {
   await request.put(`/api/scenes/${street!.id}/flags`, { data: { sets: { coat: 'on' } } })
   await request.put(`/api/scenes/${bar!.id}/flags`, { data: { sets: { drink: 'whisky' } } })
 
-  // Seeded past the API: the way back out of the bar is what the bench now
-  // refuses to write, and what this Story is for is the engine reading one that
-  // was written before it did — see `docs/adr/0048-a-scene-is-entered-once.md`,
-  // whose refusal sits at the writing, and #303.
-  await seedExit(bar!.id, street!.id, 'Back out')
-
-  for (const [name, text, conditions] of [
-    ['The alley', 'Stay outside', [{ flag: 'coat', is: 'off' }]],
-    ['The stairs', 'Go up', [{ scene: street!.id, visits: 'at least', times: 2 }]],
-  ] as const) {
+  /** A Scene written at the far end of a phrased Exit out of one the Story holds. */
+  const wayOn = async (from: string, name: string, text: string, conditions: Condition[] = []) => {
     const scene = await (await request.post(`/api/stories/${story.id}/scenes`, {
       data: { name },
-    })).json()
-    const exit = await (await request.post(`/api/scenes/${street!.id}/exits`, {
+    })).json() as { id: string }
+    const exit = await (await request.post(`/api/scenes/${from}/exits`, {
       data: { toSceneId: scene.id },
-    })).json()
+    })).json() as { id: string }
     await request.patch(`/api/exits/${exit.id}`, { data: { text } })
-    await request.put(`/api/exits/${exit.id}/conditions`, { data: { conditions } })
+    if (conditions.length) {
+      await request.put(`/api/exits/${exit.id}/conditions`, { data: { conditions } })
+    }
+
+    return scene
   }
 
-  return { story, street: street!.id }
+  const alley = await wayOn(street!.id, 'The alley', 'Stay outside', [{ flag: 'coat', is: 'off' }])
+  const yard = await wayOn(street!.id, 'The yard', 'Round the back')
+  // The other way into the bar, which is what the way up out of it asks for.
+  const inTheBack = await (await request.post(`/api/scenes/${yard.id}/exits`, {
+    data: { toSceneId: bar!.id },
+  })).json() as { id: string }
+  await request.patch(`/api/exits/${inTheBack.id}`, { data: { text: 'In through the back' } })
+  await wayOn(bar!.id, 'The stairs', 'Go up', [{ scene: yard.id, entered: true }])
+
+  return { story, street: street!.id, bar: bar!.id, alley: alley.id, yard: yard.id }
 }
 
 /**
- * From the ways on out of the street, round through the bar and back to them —
- * so the street has been entered twice and the same ways on are asked again.
+ * Out of the bar by the door the Reading came in through, and into it again by the
+ * yard — so the same Scene is arrived at the other way, holding what that way set.
+ *
+ * A step back is a shorter Path and not a second arrival, which is what lets one
+ * Reading try both ways round: the bar stepped out of was never entered twice, and
+ * the arrival by the yard is the only one this Reading has.
  */
-async function roundTheBlock(preview: Locator) {
-  await preview.getByRole('button', { name: 'Follow her out' }).click()
-  await preview.getByRole('button', { name: 'Next Shot' }).click()
-  await preview.getByRole('button', { name: 'Back out' }).click()
-  await preview.getByRole('button', { name: 'Next Shot' }).click()
-  await preview.getByRole('button', { name: 'Next Shot' }).click()
+async function backAndRoundTheYard(preview: Locator) {
+  await preview.getByRole('button', { name: 'Step Back' }).click()
+  await preview.getByRole('button', { name: 'Step Back' }).click()
+  await preview.getByRole('button', { name: 'Round the back' }).click()
+  await preview.getByRole('button', { name: 'In through the back' }).click()
 }
 
 test('the reading shows the Author the State it has accumulated', async ({ page, request }) => {
@@ -481,11 +497,14 @@ test('the reading shows the Author the State it has accumulated', async ({ page,
 
   const preview = await writing(page, story.id, street)
   const bench = benchIn(page)
+  /** The Scenes this Reading has entered, as the bench lists them. */
+  const entered = () => bench.locator('.entered li').allTextContents()
 
   // On the very first Shot, before the Scene has played out: what the street set
-  // on entry, and the visit it was entered on.
+  // on entry, and the Scene it is standing in. Named and not counted — a Reading
+  // stands in a Scene at most once, so there is nothing to count.
   await expect(bench.getByText('coat = on')).toBeVisible()
-  await expect(bench.getByText('The street × 1')).toBeVisible()
+  await expect.poll(entered).toEqual(['The street'])
 
   // Nothing the Reading has not touched is listed — the alley is a Scene of this
   // Story, and no Reading has been in it.
@@ -497,14 +516,15 @@ test('the reading shows the Author the State it has accumulated', async ({ page,
   await preview.getByRole('button', { name: 'Next Shot' }).click()
   await preview.getByRole('button', { name: 'Follow her out' }).click()
   await expect(bench.getByText('drink = whisky')).toBeVisible()
-  await expect(bench.getByText('The bar × 1')).toBeVisible()
   await expect(bench.getByText('coat = on')).toBeVisible()
+  await expect.poll(entered).toEqual(['The street', 'The bar'])
 
-  // Back where it started, and the count says so: a Scene entered twice is a
-  // Scene the bench counts twice.
+  // And the list is the Path and nothing else: stepping back out of the bar takes
+  // it off again, because a shorter Path is a Reading that never went in.
   await preview.getByRole('button', { name: 'Next Shot' }).click()
-  await preview.getByRole('button', { name: 'Back out' }).click()
-  await expect(bench.getByText('The street × 2')).toBeVisible()
+  await preview.getByRole('button', { name: 'Step Back' }).click()
+  await preview.getByRole('button', { name: 'Step Back' }).click()
+  await expect.poll(entered).toEqual(['The street'])
 })
 
 test('the reading says why a way on is missing, and does not offer it',
@@ -521,28 +541,83 @@ test('the reading says why a way on is missing, and does not offer it',
     await preview.getByRole('button', { name: 'Next Shot' }).click()
     await preview.getByRole('button', { name: 'Next Shot' }).click()
 
-    // The way on that holds is offered as a control, and the two the State hides
-    // are on the bench instead, struck through and each naming the test it failed
-    // with both values — a Flag holding something else, and a Scene not entered
-    // often enough yet.
+    // The ways on that hold are offered as controls, and the one the State hides
+    // is on the bench instead, struck through and naming the test it failed with
+    // both values.
     await expect(preview.getByRole('button', { name: 'Follow her out' })).toBeVisible()
+    await expect(preview.getByRole('button', { name: 'Round the back' })).toBeVisible()
     await expect(bench.locator('s').filter({ hasText: 'Stay outside' })).toBeVisible()
     await expect(bench.getByText('needs coat to hold off, holds on')).toBeVisible()
-    await expect(bench.getByText('needs at least 2 visits to The street, entered once'))
-      .toBeVisible()
 
     // A hidden way on is text on a bench and nothing more: no control, and so no
     // keyboard path that could take it and no Place to move it from.
     await expect(preview.getByRole('button', { name: 'Stay outside' })).toHaveCount(0)
+
+    // Straight into the bar, and the way up is hidden by a Scene this Reading has
+    // not been through — said in those words, naming the Scene as the bench names
+    // it rather than as the id the Condition holds.
+    await preview.getByRole('button', { name: 'Follow her out' }).click()
+    await preview.getByRole('button', { name: 'Next Shot' }).click()
+    await expect(bench.locator('s').filter({ hasText: 'Go up' })).toBeVisible()
+    await expect(bench.getByText('needs The yard to have been entered, and it has not'))
+      .toBeVisible()
     await expect(preview.getByRole('button', { name: 'Go up' })).toHaveCount(0)
 
-    // Round the block and back: the visit count the stairs asked for now holds, so
-    // the way on the bench was explaining is a control the Author can take, and the
-    // bench has one fewer to explain.
-    await roundTheBlock(preview)
+    // The other way round: the Reader has been through the yard, so the way on the
+    // bench was explaining is a control the Author can take and there is nothing
+    // left to explain about it.
+    await backAndRoundTheYard(preview)
+    await preview.getByRole('button', { name: 'Next Shot' }).click()
     await expect(preview.getByRole('button', { name: 'Go up' })).toBeVisible()
-    await expect(bench.getByText('needs at least 2 visits')).toBeHidden()
-    await expect(bench.getByText('needs coat to hold off, holds on')).toBeVisible()
+    await expect(bench.getByText('needs The yard to have been entered')).toBeHidden()
+  })
+
+/**
+ * The whole of what #305 gives an Author, driven as one gesture: the Condition is
+ * written from the page — two plain questions and no number to type — and then
+ * watched failing and holding in the reading beside it.
+ */
+test('an Author writes a Condition about a Scene, and watches it hold and not hold',
+  async ({ page, request }) => {
+    const { story, bar, yard } = await writeConditionalStory(request)
+    const shot = await (await request.post(`/api/scenes/${bar}/shots`)).json()
+    await request.patch(`/api/shots/${shot.id}`, {
+      data: { text: 'You came in the back way.', description: '' },
+    })
+
+    await page.goto(`/stories/${story.id}?scene=${bar}`)
+    await live(page)
+
+    // Written from the page. The row is whole the moment the question is chosen,
+    // and what it asks is chosen from the two the language has: there is no number
+    // to type after it, and none to get wrong.
+    await page.getByRole('button', { name: 'Add a Condition to Shot 2 of The bar' }).click()
+    const called = 'Condition 1 of Shot 2 of The bar'
+    await page.getByLabel(called, { exact: true }).selectOption('entered')
+    await page.getByLabel(`Scene asked about by ${called}`).selectOption({ label: 'The yard' })
+
+    await expect(page.getByLabel(`entered for ${called}`)).toHaveValue('true')
+    await expect(page.getByLabel(`times for ${called}`)).toHaveCount(0)
+    await expect.poll(() => readShotConditions(bar))
+      .toEqual([[], [{ scene: yard, entered: true }]])
+
+    // Walking straight in, it does not hold: the beat is not in the run this
+    // Reading plays, and the bench says which test it failed and how.
+    await page.getByRole('button', { name: 'Read the Story' }).click()
+    const preview = previewIn(page)
+    const bench = benchIn(page)
+    await expect(preview.getByText('Shot 1 of 1')).toBeVisible()
+    await expect(bench.getByText('needs The yard to have been entered, and it has not'))
+      .toBeVisible()
+
+    // And round by the yard it holds: two Shots where there was one, and the beat
+    // the Author wrote for that way in on the screen.
+    await preview.getByRole('button', { name: 'Next Shot' }).click()
+    await backAndRoundTheYard(preview)
+    await preview.getByRole('button', { name: 'Next Shot' }).click()
+    await expect(preview.getByText('Shot 2 of 2')).toBeVisible()
+    await expect(preview.locator('figure').getByText('You came in the back way.')).toBeVisible()
+    await expect(bench.getByText('needs The yard to have been entered')).toBeHidden()
   })
 
 test('a Reader of the published Story is shown none of the bench',
@@ -568,46 +643,52 @@ test('a Reader of the published Story is shown none of the bench',
     await expect(reader.getByRole('button', { name: /^Move / })).toHaveCount(0)
   })
 
-test('a Scene says something different on a return visit', async ({ page, request }) => {
-  const { story, street } = await writeConditionalStory(request)
+test('a Scene says something different to a Reading that came the other way',
+  async ({ page, request }) => {
+    const { story, street, bar, yard } = await writeConditionalStory(request)
 
-  // A third Shot in the street, played only once it has been entered twice — the
-  // line the Author used to need a second Scene to hold.
-  const again = await (await request.post(`/api/scenes/${street}/shots`)).json()
-  await request.patch(`/api/shots/${again.id}`, {
-    data: { text: 'The same door, again.', description: '' },
+    // A second Shot in the bar, played only for a Reader who came in the back way
+    // — the line the Author used to need a second visit, or a second Scene, to
+    // hold.
+    const again = await (await request.post(`/api/scenes/${bar}/shots`)).json()
+    await request.patch(`/api/shots/${again.id}`, {
+      data: { text: 'You came in the back way.', description: '' },
+    })
+    await request.put(`/api/shots/${again.id}/conditions`, {
+      data: { conditions: [{ scene: yard, entered: true }] },
+    })
+
+    const preview = await writing(page, story.id, street)
+    const bench = benchIn(page)
+    const frame = preview.locator('figure')
+
+    // Walking straight in, the bar is the one Shot it always was: the run is
+    // counted without the Shot this Reading is not being played, and the bench
+    // says which one that is and why.
+    await preview.getByRole('button', { name: 'Next Shot' }).click()
+    await preview.getByRole('button', { name: 'Next Shot' }).click()
+    await preview.getByRole('button', { name: 'Follow her out' }).click()
+    await expect(preview.getByText('Shot 1 of 1')).toBeVisible()
+    await expect(bench.locator('s').filter({ hasText: 'You came in the back way.' }))
+      .toBeVisible()
+    await expect(bench.getByText('needs The yard to have been entered, and it has not'))
+      .toBeVisible()
+
+    // The bench names the beat, but the frame never plays it: the Scene runs
+    // straight from its one Shot to the ways on.
+    await expect(frame.getByText('Smoke, and no one she knows.')).toBeVisible()
+    await preview.getByRole('button', { name: 'Next Shot' }).click()
+    await expect(frame.getByText('You came in the back way.')).toBeHidden()
+    await expect(preview.getByRole('button', { name: 'Follow her out' })).toHaveCount(0)
+
+    // Round by the yard, and the Scene plays the extra beat: two Shots where there
+    // was one, and nothing left on the bench to explain.
+    await backAndRoundTheYard(preview)
+    await preview.getByRole('button', { name: 'Next Shot' }).click()
+    await expect(preview.getByText('Shot 2 of 2')).toBeVisible()
+    await expect(frame.getByText('You came in the back way.')).toBeVisible()
+    await expect(bench.getByText('Shots this Reading is not played')).toBeHidden()
   })
-  await request.put(`/api/shots/${again.id}/conditions`, {
-    data: { conditions: [{ scene: street, visits: 'at least', times: 2 }] },
-  })
-
-  const preview = await writing(page, story.id, street)
-  const bench = benchIn(page)
-
-  // First time through, the street is the two Shots it always was: the run is
-  // counted without the Shot this Reading is not being played, and the bench
-  // says which one that is and why.
-  await expect(preview.getByText('Shot 1 of 2')).toBeVisible()
-  await expect(bench.locator('s').filter({ hasText: 'The same door, again.' })).toBeVisible()
-  await expect(bench.getByText('needs at least 2 visits to The street, entered once'))
-    .toBeVisible()
-
-  // The bench names the beat, but the frame never plays it: the Scene runs
-  // straight from the second Shot to the ways on.
-  const frame = preview.locator('figure')
-  await preview.getByRole('button', { name: 'Next Shot' }).click()
-  await expect(frame.getByText('She steps out.')).toBeVisible()
-  await preview.getByRole('button', { name: 'Next Shot' }).click()
-  await expect(frame.getByText('The same door, again.')).toBeHidden()
-  await expect(preview.getByRole('button', { name: 'Follow her out' })).toBeVisible()
-
-  // Round the block and back, and the Scene plays the extra beat: three Shots
-  // where there were two, and nothing left on the bench to explain.
-  await roundTheBlock(preview)
-  await expect(preview.getByText('Shot 3 of 3')).toBeVisible()
-  await expect(frame.getByText('The same door, again.')).toBeVisible()
-  await expect(bench.getByText('Shots this Reading is not played')).toBeHidden()
-})
 
 test('a Scene draws one of several values, and the Author draws it again',
   async ({ page, request }) => {
@@ -726,8 +807,8 @@ test('turning the middle of the bench over and back resumes the Reading the Auth
     await page.getByRole('button', { name: 'Write the Scene' }).click()
     await page.getByRole('button', { name: 'Read the Story' }).click()
     await expect(preview.getByText('Smoke, and no one she knows.')).toBeVisible()
-    await expect(benchIn(page).getByText('The street × 1')).toBeVisible()
-    await expect(benchIn(page).getByText('The bar × 1')).toBeVisible()
+    await expect.poll(() => benchIn(page).locator('.entered li').allTextContents())
+      .toEqual(['The street', 'The bar'])
     expect(await drawnIn(page)).toBe(weather)
   })
 

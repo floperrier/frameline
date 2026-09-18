@@ -1,6 +1,6 @@
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { CONDITIONS_MAX, SCENE_NAME_MAX_LENGTH, VISITS_MAX } from '../../shared/utils/scenes'
+import { CONDITIONS_MAX, SCENE_NAME_MAX_LENGTH } from '../../shared/utils/scenes'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 import {
   ONE_PIXEL, writeScene, readExits, readSceneName, readShotConditions, readShots, seedFlags,
@@ -1370,7 +1370,7 @@ test('a Shot carries the Conditions it plays under', async ({ request }) => {
     request, scene.id, ['The projector ticks over.', 'You have been here before.'])
 
   const written = await request.put(`/api/shots/${onReturn!.id}/conditions`, {
-    data: { conditions: [{ scene: scene.id, visits: 'at least', times: 2 }] },
+    data: { conditions: [{ scene: scene.id, entered: true }] },
   })
   expect(written.status()).toBe(200)
 
@@ -1378,7 +1378,7 @@ test('a Shot carries the Conditions it plays under', async ({ request }) => {
     scenes: [{
       shots: [
         { id: always!.id, conditions: [] },
-        { id: onReturn!.id, conditions: [{ scene: scene.id, visits: 'at least', times: 2 }] },
+        { id: onReturn!.id, conditions: [{ scene: scene.id, entered: true }] },
       ],
     }],
   })
@@ -1427,7 +1427,7 @@ test('an Author writes a Condition on a Shot, and it reads as one line', async (
   await page.getByRole('button', { name: 'Add a Condition to Shot 1 of The booth' }).click()
   await page
     .getByLabel('Condition 2 of Shot 1 of The booth', { exact: true })
-    .selectOption('visits')
+    .selectOption('entered')
   expect(await lines(1)).toBeLessThan(3)
 })
 
@@ -1450,7 +1450,7 @@ test('a Shot’s Conditions are refused where an Exit’s would be', async ({
     }),
     request.put(`/api/shots/${shot!.id}/conditions`, { data: { conditions: [{ of: 'nothing' }] } }),
     request.put(`/api/shots/${shot!.id}/conditions`, {
-      data: { conditions: [{ scene: scene.id, visits: 'at least', times: VISITS_MAX + 1 }] },
+      data: { conditions: [{ scene: scene.id, visits: 'at least', times: 0 }] },
     }),
     request.put(`/api/shots/${shot!.id}/conditions`, {
       data: {
@@ -1464,7 +1464,7 @@ test('a Shot’s Conditions are refused where an Exit’s would be', async ({
   // A Scene outside this Story is a Scene this Condition cannot count, and
   // another Author's Shot is one nobody here can write at all.
   const outside = await request.put(`/api/shots/${shot!.id}/conditions`, {
-    data: { conditions: [{ scene: elsewhere.id, visits: 'at least', times: 2 }] },
+    data: { conditions: [{ scene: elsewhere.id, entered: true }] },
   })
   expect(outside.status()).toBe(404)
   const theirs = await request.put(`/api/shots/${elsewhere.shots[0]!.id}/conditions`, {
@@ -1485,15 +1485,16 @@ test('an Author puts a Condition on a Shot from the page alone', async ({ page, 
   await writeScene(page, 'The booth')
 
   await page.getByRole('button', { name: 'Add a Condition to Shot 1 of The booth' }).click()
-  // A visit count is whole the moment it is chosen, and starts on the Scene the
-  // Shot belongs to — the return the Author is writing for.
+  // A question about a Scene is whole the moment it is chosen: it starts on the
+  // Scene the Shot belongs to, asked as *has been entered* — the return the Author
+  // is writing for — and there is no number to type after it.
   await page
     .getByLabel('Condition 1 of Shot 1 of The booth', { exact: true })
-    .selectOption('visits')
+    .selectOption('entered')
 
   await expect(async () => {
     await expect(readShotConditions(scene.id)).resolves.toEqual([
-      [{ scene: scene.id, visits: 'at least', times: 2 }],
+      [{ scene: scene.id, entered: true }],
     ])
   }).toPass()
 
@@ -1503,8 +1504,10 @@ test('an Author puts a Condition on a Shot from the page alone', async ({ page, 
   // comes back to it and there is nothing to open again.
   await page.reload()
   await expect(page.getByLabel('Condition 1 of Shot 1 of The booth', { exact: true }))
-    .toHaveValue('visits')
-  await expect(page.getByLabel('times for Condition 1 of Shot 1 of The booth')).toHaveValue('2')
+    .toHaveValue('entered')
+  await expect(page.getByLabel('entered for Condition 1 of Shot 1 of The booth'))
+    .toHaveValue('true')
+  await expect(page.getByLabel('times for Condition 1 of Shot 1 of The booth')).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Remove Condition 1 of Shot 1 of The booth' }).click()
   await expect(async () => {
