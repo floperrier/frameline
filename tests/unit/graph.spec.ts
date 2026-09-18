@@ -12,7 +12,7 @@ import {
   scenesAExitMayLandOn,
   wordsOf,
 } from '../../shared/utils/scenes'
-import { DRAWING_WIDTH, MARK, drawn, linkPath } from '../../app/utils/graph'
+import { DRAWING_WIDTH, MARK, crossings, drawn, linkPath, traversals } from '../../app/utils/graph'
 
 /** A Scene of the map, which is all a Scene is to it: an id. */
 function scene(id: string): Scene {
@@ -350,6 +350,33 @@ describe('the line an Exit is drawn as', () => {
     return { from: numbers.slice(0, 2), to: numbers.slice(-2), all: numbers }
   }
 
+  /**
+   * The furthest right a line reaches, read off the curve rather than off the
+   * handles that shape it. A bow is drawn where the curve goes and the handles
+   * stand further out than it ever does, so a test that reads them certifies a
+   * line it has not looked at.
+   */
+  const widest = (d: string) => {
+    const n = d.match(/-?\d+(?:\.\d+)?/g)!.map(Number)
+    const x0 = n[0]!
+    const x1 = n[2]!
+    const x2 = n[4]!
+    const x3 = n[6]!
+    let out = -Infinity
+
+    for (let t = 0; t <= 1; t += 0.005) {
+      const u = 1 - t
+
+      out = Math.max(out, u ** 3 * x0 + 3 * u ** 2 * t * x1 + 3 * u * t ** 2 * x2 + t ** 3 * x3)
+    }
+
+    return out
+  }
+
+  /** The pitch from one lane to the next, read off a row of two. */
+  const lanes = drawn([['a', 'b']]).at
+  const pitch = lanes.get('b')!.x - lanes.get('a')!.x
+
   test('falls down the rail into the column after, clear of both rims', () => {
     const columns = [['a'], ['b']]
     const drawing = drawn(columns)
@@ -371,14 +398,38 @@ describe('the line an Exit is drawn as', () => {
     const columns = [['a'], ['b']]
     const drawing = drawn(columns)
     const [a, b] = ['a', 'b'].map(id => drawing.at.get(id)!)
-    const { from, to, all } = ends(linkPath(b!, a!))
+    const { from, to } = ends(linkPath(b!, a!))
 
     // Off the side of both points and back up, so a way back is never read as the
     // way on it runs alongside.
     expect(from[1]).toBe(b!.y)
     expect(from[0]! - b!.x).toBeGreaterThan(MARK / 2)
     expect(to[1]).toBe(a!.y)
-    expect(Math.max(...all)).toBeGreaterThan(a!.x + MARK)
+  })
+
+  test('bows into the gap beside the lane and never into the lane itself', () => {
+    const columns = [['a'], ['b']]
+    const drawing = drawn(columns)
+    const [a, b] = ['a', 'b'].map(id => drawing.at.get(id)!)
+    const out = widest(linkPath(b!, a!)) - a!.x
+
+    // The corridor is the whole of the room a way back has: past its own rim, so
+    // it is not read as the way on running down the same lane, and short of the
+    // rim of whatever stands in the lane beside it, so it is not read as arriving
+    // there either. A bow wider than this crosses the points it passes.
+    expect(out).toBeGreaterThan(MARK / 2)
+    expect(out).toBeLessThan(pitch - MARK / 2)
+  })
+
+  test('keeps a way back inside the drawing when it leaves the last lane', () => {
+    // Five across is the widest a column is drawn, so the last lane is the one
+    // with the least room to bow into — and the drawing is cut to its own width,
+    // where what reaches past it is not drawn at all rather than drawn badly.
+    const columns = [['a', 'b', 'c', 'd', 'e'], ['f', 'g', 'h', 'i', 'j']]
+    const drawing = drawn(columns)
+    const [e, j] = ['e', 'j'].map(id => drawing.at.get(id)!)
+
+    expect(widest(linkPath(j!, e!))).toBeLessThan(DRAWING_WIDTH)
   })
 
   test('arches over two Scenes of one column joined to each other', () => {
@@ -405,5 +456,69 @@ describe('the line an Exit is drawn as', () => {
     expect(from[1]).toBeLessThan(a.y)
     expect(to[1]).toBeGreaterThan(a.y)
     expect(Math.max(...all)).toBeGreaterThan(a.x + MARK / 2)
+  })
+})
+
+/**
+ * What `docs/adr/0045-the-rail-draws-the-ways-on.md` says to reopen the layout on
+ * — "a Story whose crossings outnumber its Scenes" — now that there is something
+ * to count them with. Held here rather than in the component because it is read
+ * off the drawing, and the drawing is arithmetic.
+ */
+describe('how much a drawing crosses itself', () => {
+  const linksOf = (columns: string[][], joins: [string, string][]) => {
+    const { at } = drawn(columns)
+
+    return joins.map(([from, to]) => ({ from, to, d: linkPath(at.get(from)!, at.get(to)!) }))
+  }
+
+  test('counts two ways on that pass over one another', () => {
+    // Two Scenes side by side, each leading to the other's neighbour below: the
+    // two lines have to cross, and they share no Scene to meet at.
+    expect(crossings(linksOf([['a', 'b'], ['c', 'd']], [['a', 'd'], ['b', 'c']]))).toBe(1)
+  })
+
+  test('counts nothing where the ways on run alongside', () => {
+    expect(crossings(linksOf([['a', 'b'], ['c', 'd']], [['a', 'c'], ['b', 'd']]))).toBe(0)
+  })
+
+  test('does not count two ways on that leave the same Scene', () => {
+    // They meet where they leave, which is a Scene offering two ways on and not a
+    // drawing that is hard to follow.
+    expect(crossings(linksOf([['a'], ['b', 'c']], [['a', 'b'], ['a', 'c']]))).toBe(0)
+  })
+})
+
+/**
+ * The measure the trials found `crossings` blind to: a column wide enough to wrap
+ * puts points in the row a line into the second row has to get past, and nothing
+ * in `linkPath` knows they are there.
+ */
+describe('which Scenes a drawing runs a line through', () => {
+  const drawnLinks = (columns: string[][], joins: [string, string][]) => {
+    const { at } = drawn(columns)
+
+    return {
+      at,
+      links: joins.map(([from, to]) => ({ from, to, d: linkPath(at.get(from)!, at.get(to)!) })),
+    }
+  }
+
+  test('says nothing of a drawing whose lines keep clear', () => {
+    const { at, links } = drawnLinks([['a'], ['b']], [['a', 'b'], ['b', 'a']])
+
+    expect([...traversals(links, at)]).toEqual([])
+  })
+
+  test('names the Scene a way on into a wrapped column runs over', () => {
+    // Seven Scenes in one column take two rows, and the line into the second row
+    // has the first row's points in its way. The count of crossings is blind to
+    // this: no two lines meet, and the drawing is still wrong.
+    const columns = [['o'], ['a', 'b', 'c', 'd', 'e', 'f', 'g']]
+    const joins: [string, string][] = [['o', 'a'], ['o', 'b'], ['o', 'c'], ['o', 'd'], ['o', 'e'], ['o', 'f'], ['o', 'g']]
+    const { at, links } = drawnLinks(columns, joins)
+
+    expect(crossings(links)).toBe(0)
+    expect(traversals(links, at).size).toBeGreaterThan(0)
   })
 })

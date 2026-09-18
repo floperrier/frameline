@@ -54,6 +54,20 @@ const RADIUS = MARK / 2
  */
 const CLEAR = RADIUS + 2
 
+/**
+ * How far out the two handles of a way back stand. The line has one corridor to
+ * run in — past the rim of the point it leaves, and short of the rim of whatever
+ * stands in the lane beside it — and a cubic whose handles are both this far out
+ * is widest at a quarter of its ends plus three quarters of its handles. At
+ * twenty-two the bow is widest at twenty: eight pixels past its own rim, six
+ * short of the next lane's, and seven inside the drawing's own edge when it
+ * leaves the last lane of all. At a whole LANE, which is what stood here, it was
+ * widest at thirty-two — through the points of the lane beside it for well over
+ * half its length, and five pixels outside the rail when it left the last lane,
+ * where the drawing is cut and a bow is simply not drawn.
+ */
+const BOW = 22
+
 /** Where one Scene is drawn, as the centre of its point. */
 export type Point = { x: number, y: number }
 
@@ -102,7 +116,8 @@ export function drawn(columns: string[][]) {
  * later column falls down the rail, which is the Story being read forwards. A way
  * back — to a Scene in an earlier column, or to the Scene it leaves — bows out to
  * the side, because a line drawn straight back up a lane would be read as the
- * forward one it crosses. Two Scenes of one column joined to each other are
+ * forward one it crosses; and no further out than the gap, because a line that
+ * reaches the lane beside it is read as arriving there instead. Two Scenes of one column joined to each other are
  * arched over, in the room the row pitch leaves above them.
  */
 export function linkPath(from: Point, to: Point) {
@@ -131,7 +146,119 @@ export function linkPath(from: Point, to: Point) {
       + `${to.x} ${to.y - CLEAR}`
   }
 
-  // Back up the rail, bowed off the side of both points.
-  return `M ${from.x + CLEAR} ${from.y} C ${from.x + LANE} ${from.y} `
-    + `${to.x + LANE} ${to.y} ${to.x + CLEAR} ${to.y}`
+  // Back up the rail, bowed off the side of both points and into the gap between
+  // this lane and the next, which is the whole of the room a way back has.
+  return `M ${from.x + CLEAR} ${from.y} C ${from.x + BOW} ${from.y} `
+    + `${to.x + BOW} ${to.y} ${to.x + CLEAR} ${to.y}`
+}
+
+/**
+ * Points along a line, read off the path it is drawn as. The drawing is the
+ * thing being measured, so it is measured where it is written: a curve is not
+ * its handles, and a count that reads the handles counts a line nobody drew.
+ */
+function along(d: string) {
+  const n = d.match(/-?\d+(?:\.\d+)?/g)!.map(Number)
+  const quadratic = n.length === 6
+  const out: Point[] = []
+
+  for (let i = 0; i <= 32; i++) {
+    const t = i / 32
+    const u = 1 - t
+
+    out.push(quadratic
+      ? { x: u * u * n[0]! + 2 * u * t * n[2]! + t * t * n[4]!, y: u * u * n[1]! + 2 * u * t * n[3]! + t * t * n[5]! }
+      : {
+          x: u ** 3 * n[0]! + 3 * u * u * t * n[2]! + 3 * u * t * t * n[4]! + t ** 3 * n[6]!,
+          y: u ** 3 * n[1]! + 3 * u * u * t * n[3]! + 3 * u * t * t * n[5]! + t ** 3 * n[7]!,
+        })
+  }
+
+  return out
+}
+
+/** Which side of `o`→`p` the point `q` falls on, as a sign and nothing more. */
+function side(o: Point, p: Point, q: Point) {
+  return Math.sign((p.x - o.x) * (q.y - o.y) - (p.y - o.y) * (q.x - o.x))
+}
+
+/** Whether two traced lines pass over one another anywhere along their length. */
+function meets(one: Point[], other: Point[]) {
+  for (let i = 1; i < one.length; i++) {
+    for (let j = 1; j < other.length; j++) {
+      const a = one[i - 1]!, b = one[i]!, c = other[j - 1]!, d = other[j]!
+
+      if (side(a, b, c) !== side(a, b, d) && side(c, d, a) !== side(c, d, b)) return true
+    }
+  }
+
+  return false
+}
+
+/**
+ * How many times the lines of a drawing pass over one another, which is the
+ * number `docs/adr/0045-the-rail-draws-the-ways-on.md` writes its own reopening
+ * condition in: "a Story whose crossings outnumber its Scenes at the width the
+ * rail is drawn at". That condition was written with nothing to measure it by, so
+ * until now it could only ever have fired on somebody's impression of a rail.
+ *
+ * Two lines that share a Scene meet at that Scene and are not counted: what makes
+ * a rail hard to follow is a line passing over another somewhere in between, not
+ * two ways on leaving one point together. A pair is counted once, however many of
+ * its samples meet.
+ *
+ * Nothing in the app calls this, and it is not a figure an Author is ever shown.
+ * A Remark is read off the Story and "never says a Story is wrong"; a count of
+ * crossings is read off the drawing and would say precisely that. This is an
+ * instrument for deciding whether the drawing needs changing, kept beside the
+ * layout it measures.
+ */
+export function crossings(links: { from: string, to: string, d: string }[]) {
+  const traced = links.map(link => ({ ...link, points: along(link.d) }))
+  let met = 0
+
+  for (let i = 0; i < traced.length; i++) {
+    for (let j = i + 1; j < traced.length; j++) {
+      const one = traced[i]!
+      const other = traced[j]!
+      const shares = one.from === other.from || one.from === other.to
+        || one.to === other.from || one.to === other.to
+
+      if (!shares && meets(one.points, other.points)) met++
+    }
+  }
+
+  return met
+}
+
+/**
+ * Which Scenes have a line drawn through them that does not join them, as the
+ * ids of the points passed over.
+ *
+ * The sharper of the two measures, and the one `crossings` above does not catch:
+ * a drawing where two lines pass over one another is hard to follow, but a
+ * drawing where a line runs through a point is *wrong* — it shows a Story
+ * reaching a Scene it does not reach. A column wider than the rail wraps onto a
+ * second row, and a line into that second row crosses the first with nothing in
+ * `linkPath` aware of what stands there; the same is true of any line that
+ * changes lane while it changes row. Curves that do not route around obstacles
+ * are what `docs/adr/0045-the-rail-draws-the-ways-on.md` chose, with its eyes
+ * open, over "a measurement problem or a much longer arithmetic".
+ *
+ * Not shown to an Author either, and for the same reason as `crossings`: it is
+ * read off the drawing, not off the Story.
+ */
+export function traversals(links: { from: string, to: string, d: string }[], at: Map<string, Point>) {
+  const passed = new Set<string>()
+
+  for (const link of links) {
+    const points = along(link.d)
+
+    for (const [id, p] of at) {
+      if (id === link.from || id === link.to) continue
+      if (points.some(s => Math.hypot(s.x - p.x, s.y - p.y) < RADIUS)) passed.add(id)
+    }
+  }
+
+  return passed
 }
