@@ -197,7 +197,9 @@
     "steppingBackRefused": "Pas offert",
     "howItIsRead": "Comment il se lit",
     "presentation": "Synopsis et Couverture",
-    "noShotYet": "Rien n’est encore écrit dans cette Scène. Ajoutez le premier battement."
+    "noShotYet": "Rien n’est encore écrit dans cette Scène. Ajoutez le premier battement.",
+    "duplicateScene": "Dupliquer la Scène",
+    "sceneDuplicated": "« {name} » dupliquée en « {to} », qui porte ses Plans et aucune de ses Sorties"
   },
   "conditions": {
     "ofCarrier": "de {carrier}",
@@ -368,6 +370,7 @@
     "listTitleLong": "Un titre ne peut pas dépasser {max} caractères.",
     "favouritesTitle": "Les Favoris sont la Liste que chaque compte possède : ils n’ont pas de titre à écrire.",
     "favouritesDelete": "Les Favoris sont la Liste que chaque compte possède : ils ne peuvent pas être supprimés.",
-    "split": "Une Scène se scinde avant l’un de ses propres Plans, jamais avant le premier."
+    "split": "Une Scène se scinde avant l’un de ses propres Plans, jamais avant le premier.",
+    "wayBack": "Une Lecture ne se tient qu’une fois dans une Scène : une Sortie ne peut donc pas ramener à une Scène que le Lecteur a pu déjà traverser. Dupliquez cette Scène, puis faites-y mener la Sortie."
   }
 }

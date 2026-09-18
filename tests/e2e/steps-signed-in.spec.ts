@@ -372,8 +372,15 @@ test('the light follows its target as the document grows above it', async ({
 }) => {
   // A Scene with something written in it, which is the Story the way on is asked
   // of: a seeded Scene arrives with a Shot in it, the way an Author's does.
+  //
+  // A window tall enough to hold the Scene with the beat this writes into it,
+  // because what is being measured is the light following a target carried down
+  // the window — a target carried off it is the case the spec below poses, and a
+  // Scene's slate is a row deep enough that the default window has it leave at the
+  // second beat.
   const story = await seedStory(author, 'A Story')
   await seedScene(story, 'The arrival')
+  await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The arrival')
 

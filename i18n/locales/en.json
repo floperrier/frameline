@@ -197,7 +197,9 @@
     "steppingBackRefused": "Not offered",
     "howItIsRead": "How it is read",
     "presentation": "Synopsis and Cover",
-    "noShotYet": "Nothing is written in this Scene yet. Add the first beat."
+    "noShotYet": "Nothing is written in this Scene yet. Add the first beat.",
+    "duplicateScene": "Duplicate Scene",
+    "sceneDuplicated": "“{name}” duplicated as “{to}”, carrying its Shots and none of its ways on"
   },
   "conditions": {
     "ofCarrier": "of {carrier}",
@@ -368,6 +370,7 @@
     "listTitleLong": "A title cannot be longer than {max} characters.",
     "favouritesTitle": "Favourites is the List every account has, so it has no title to write.",
     "favouritesDelete": "Favourites is the List every account has, so it cannot be deleted.",
-    "split": "A Scene is split before one of its own Shots, and never before the first."
+    "split": "A Scene is split before one of its own Shots, and never before the first.",
+    "wayBack": "A Reading stands in a Scene once, so an Exit cannot lead back to a Scene the Reader may already have come through. Duplicate that Scene, and lead the Exit to the copy."
   }
 }

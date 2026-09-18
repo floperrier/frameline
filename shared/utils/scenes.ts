@@ -468,24 +468,67 @@ export function exitNamed(exit: Exit, sceneName: (id: string) => string, say: Ph
 }
 
 /**
- * The Scenes an Exit leaving one Scene may land on: every Scene in the Story bar
- * the one it leaves and the ones it already reaches. It is what lights up while
- * an Exit is being drawn, and it is fixed the moment the gesture begins — it
- * depends on the departing Scene and the Exits already leaving it, and neither
- * changes under the Author's hand.
+ * Whether a Reading standing in one Scene can come to stand in another by the
+ * ways on already written. A Scene reaches itself, because that is where the
+ * Reading already stands.
  *
- * The server allows both of the slips this withholds: a Scene that exits to
- * itself is one a Reading re-enters, and two Exits to one Scene under opposite
- * Conditions is what Conditions on an Exit are for. What the hand cannot do by
- * accident is still written on purpose, from the Exit's own panel — see
- * `docs/adr/0015-a-cut-is-drawn-by-hand.md`.
+ * Beside the walk the columns are made of rather than inside it: the columns are
+ * a picture of the whole Story, and this is one question about two Scenes,
+ * walked from one of them and stopped the moment it has its answer. The Scenes
+ * walked through are carried, so a Story written before
+ * `docs/adr/0048-a-scene-is-entered-once.md` and still holding a cycle is
+ * answered rather than walked for ever.
+ *
+ * It is the refusal that record asks for: a way on from A to B is refused
+ * exactly when B already reaches A, which is to say when it is the one closing a
+ * cycle. Because that is the test and not a rule about columns, a way on written
+ * today can never make one written earlier illegal — the record carries the
+ * worked example.
+ *
+ * One reading of the rule in the product: the bench withholds a landing with it,
+ * and the server refuses a way on with it, rather than the boundary holding a
+ * second copy of it in SQL.
+ */
+export function reaches(exits: Exit[], from: string, to: string) {
+  const walked = new Set([from])
+  const edge = [from]
+
+  while (edge.length) {
+    const standing = edge.pop()!
+    if (standing === to) return true
+
+    for (const exit of exitsFrom(exits, standing)) {
+      if (walked.has(exit.toSceneId)) continue
+      walked.add(exit.toSceneId)
+      edge.push(exit.toSceneId)
+    }
+  }
+
+  return false
+}
+
+/**
+ * The Scenes an Exit leaving one Scene may land on: every Scene in the Story bar
+ * the ones it already reaches and the ones that reach it, which is the Scene it
+ * leaves and everything a Reading could have come through to get there. It is
+ * what lights up while an Exit is being drawn, and it is fixed the moment the
+ * gesture begins — it depends on the departing Scene and the Exits of the Story,
+ * and neither changes under the Author's hand.
+ *
+ * A Scene that reaches this one is withheld because the server refuses it: a way
+ * on that leads back is not a slip the hand is saved from but a Story the product
+ * says cannot exist — see `docs/adr/0048-a-scene-is-entered-once.md`. The one
+ * slip still withheld here and allowed there is a second Exit to a Scene this one
+ * already reaches, which under opposite Conditions is what Conditions on an Exit
+ * are for: what the hand cannot do by accident is still written on purpose, from
+ * the Exit's own row — see `docs/adr/0015-a-cut-is-drawn-by-hand.md`.
  */
 export function scenesAExitMayLandOn(scenes: Scene[], exits: Exit[], fromSceneId: string) {
   const reached = new Set(
     exits.filter(exit => exit.fromSceneId === fromSceneId).map(exit => exit.toSceneId))
 
-  return new Set(
-    scenes.map(scene => scene.id).filter(id => id !== fromSceneId && !reached.has(id)))
+  return new Set(scenes.map(scene => scene.id)
+    .filter(id => !reached.has(id) && !reaches(exits, id, fromSceneId)))
 }
 
 /**

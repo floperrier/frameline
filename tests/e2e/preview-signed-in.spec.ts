@@ -1,6 +1,7 @@
 import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test'
 import {
-  live, readTheStory, sceneNode, seedPublication, seedScenes, seedStory, test, writeStory,
+  live, readTheStory, sceneNode, seedExit, seedPublication, seedScenes, seedStory, test,
+  writeStory,
 } from './author'
 
 /**
@@ -173,18 +174,20 @@ test('a Scene nobody has written a Shot into is offered with no frame at all',
 
     // A Scene with no Shots in it, reached from the bar and leading back out, so
     // the Reading stands somewhere the frame has nothing to hold.
+    //
+    // The way back out is seeded past the API, because the bench refuses to write
+    // one: this is a Story that holds a cycle, which the engine goes on reading as
+    // it always did — the refusal of
+    // `docs/adr/0048-a-scene-is-entered-once.md` sits at the writing, and what
+    // becomes of the Stories already holding one is #303.
     const wings = await (await request.post(`/api/stories/${story.id}/scenes`, {
       data: { name: 'The wings' },
     })).json()
-    for (const [from, to, text] of [
-      [scenes[1]!.id, wings.id, 'Slip out the back'],
-      [wings.id, scenes[0]!.id, 'Back to the street'],
-    ] as const) {
-      const exit = await (await request.post(`/api/scenes/${from}/exits`, {
-        data: { toSceneId: to },
-      })).json()
-      await request.patch(`/api/exits/${exit.id}`, { data: { text } })
-    }
+    const out = await (await request.post(`/api/scenes/${scenes[1]!.id}/exits`, {
+      data: { toSceneId: wings.id },
+    })).json()
+    await request.patch(`/api/exits/${out.id}`, { data: { text: 'Slip out the back' } })
+    await seedExit(wings.id, scenes[0]!.id, 'Back to the street')
 
     const preview = await writing(page, story.id, wings.id)
 
@@ -438,10 +441,11 @@ async function writeConditionalStory(request: APIRequestContext) {
   await request.put(`/api/scenes/${street!.id}/flags`, { data: { sets: { coat: 'on' } } })
   await request.put(`/api/scenes/${bar!.id}/flags`, { data: { sets: { drink: 'whisky' } } })
 
-  const back = await (await request.post(`/api/scenes/${bar!.id}/exits`, {
-    data: { toSceneId: street!.id },
-  })).json()
-  await request.patch(`/api/exits/${back.id}`, { data: { text: 'Back out' } })
+  // Seeded past the API: the way back out of the bar is what the bench now
+  // refuses to write, and what this Story is for is the engine reading one that
+  // was written before it did — see `docs/adr/0048-a-scene-is-entered-once.md`,
+  // whose refusal sits at the writing, and #303.
+  await seedExit(bar!.id, street!.id, 'Back out')
 
   for (const [name, text, conditions] of [
     ['The alley', 'Stay outside', [{ flag: 'coat', is: 'off' }]],

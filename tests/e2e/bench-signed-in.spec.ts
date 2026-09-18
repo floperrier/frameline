@@ -754,20 +754,24 @@ async function saidTwiceOn(surface: Locator) {
  *   every Shot, every Image, every Description and both sections answer to one
  *   pair of facts. Issue #284.
  * - two Exits of one Scene leading to one Scene, twice over: the pair out of the
- *   opening that no Reading is offered, and the pair out of *La gare* that every
- *   Reading is. The Place is the only thing that tells the rows apart, in the
+ *   first *The bar* that no Reading is offered, and the pair out of *La gare* that
+ *   every Reading is. The Place is the only thing that tells the rows apart, in the
  *   writing and in the Preview both. Issue #276.
  * - a Scene with a way on to each of the two Scenes called *The bar*, so the two
  *   rows of the reading the Author renumbers are told apart by the name the bench
- *   draws and by nothing else.
+ *   draws and by nothing else. It is *La gare*, and it is the Scene the Story opens
+ *   on: a Reading stands in a Scene at most once, so the Scene whose ways on lead
+ *   to both bars cannot be one either bar leads to — see
+ *   `docs/adr/0048-a-scene-is-entered-once.md`.
  * - two Shots of one Scene waiting on one dead pair, and two Exits of another
  *   waiting on the same, so the Remarks have two findings apiece to say.
  * - a Shot counting visits to one of the two Scenes called *The bar*, so the field
  *   that says which Scene is counted is drawn, and offers both of them.
- * - a fourth Scene nothing arrives at, with one way on to the first *The bar*: the
- *   field saying where it leads offers the Scenes it does not reach yet, which are
- *   both Scenes called *The bar*. Out of the three others every such field offers
- *   one Scene alone, because each of them already reaches every other.
+ * - a fourth Scene nothing arrives at, *Le quai*, with one way on to the first
+ *   *The bar*: the field saying where that way on leads offers the Scenes it may
+ *   land on and the one it already does, which are both Scenes called *The bar*.
+ *   Out of the two bars the same field offers nothing at all, because everything
+ *   else in the Story already reaches them.
  *
  * `ticket` is set to *found* and nothing else, so *lost* is a value no Scene ever
  * sets: the Conditions written on it are the dead ones. Every beat of the two
@@ -816,23 +820,23 @@ async function collides(request: APIRequestContext) {
     return exit
   }
 
-  // Out of the opening: the one way on a Reading is offered, and two to one Scene
-  // that no Reading ever is.
-  await way(bar!.id, station!.id, 'Follow her out')
+  // Out of the first *The bar*: two ways on to one Scene that no Reading is ever
+  // offered.
   for (let at = 0; at < 2; at++) {
     const dead = await way(bar!.id, other!.id)
     await request.put(`/api/exits/${dead.id}/conditions`, { data: { conditions: lost } })
   }
 
-  // Out of the Scene the reading stops in: one to each Scene called *The bar*, and
-  // a second to the same one. Phrased, because what a Reader presses is the
-  // Author's own words and two ways on saying nothing would read alike to a Reader
-  // too — which is the Story's own defect and not the bench's.
-  await way(station!.id, bar!.id, 'Back to the bar')
+  // Out of the Scene the reading stops in, which is the one the Story opens on:
+  // one to each Scene called *The bar*, and a second to the same one. Phrased,
+  // because what a Reader presses is the Author's own words and two ways on saying
+  // nothing would read alike to a Reader too — which is the Story's own defect and
+  // not the bench's.
+  await way(station!.id, bar!.id, 'Follow her out')
   await way(station!.id, other!.id, 'On to the other bar')
   await way(station!.id, other!.id, 'Through the door')
   await way(quay!.id, bar!.id)
-  expect((await request.post(`/api/scenes/${bar!.id}/opening`)).ok()).toBeTruthy()
+  expect((await request.post(`/api/scenes/${station!.id}/opening`)).ok()).toBeTruthy()
 
   return { story, bar: bar!, station: station!, other: other! }
 }
