@@ -377,6 +377,7 @@ test('the bar names every act marked on a Scene being written, and no other', as
     'Publish this Story',
     'Go to The street',
     'Go to The bar',
+    'Duplicate Scene',
     'Delete Scene',
     'Add a Flag',
     'Add a Condition to Shot 1 of The street',
@@ -459,10 +460,14 @@ test('an Author writes a way on by naming the act, and the hand lands on the fie
   // one of these at the foot of every Scene, so the label says which foot.
   const adding = page.getByRole('combobox', { name: 'An Exit from here The bar' })
   await expect(adding).toBeFocused()
-  await adding.fill('The street')
+  // Onwards, and never back to the street: a Reading stands in a Scene at most
+  // once, and the street is where this one came from — see
+  // `docs/adr/0048-a-scene-is-entered-once.md`. A name nothing answers to writes
+  // the Scene at the far end, which is how every Scene after the first is born.
+  await adding.fill('The alley')
   await adding.press('Enter')
 
-  // The act ran on the Story: The bar now has a way on to The street. Where a way
+  // The act ran on the Story: The bar now has a way on to The alley. Where a way
   // on already written leads is a row's own, and the exhaustive spec above holds
   // that the bar does not offer it.
   await expect(page.getByRole('combobox', { name: 'Where the Exit 1 out of The bar leads' }))

@@ -265,6 +265,38 @@ async function deleteScene(scene: Scene) {
   return changing(scene, () => send(`/api/scenes/${scene.id}`, { method: 'DELETE' }))
 }
 
+/**
+ * Writes the Scene again: a copy carrying its Shots and the Flags it sets, under
+ * its own name, with none of its ways on. It is what an Author reaches for where
+ * they wanted the Reader to meet a Scene a second time, now that a Reading stands
+ * in a Scene at most once and the way on that led back is refused — see
+ * `docs/adr/0048-a-scene-is-entered-once.md`.
+ *
+ * The copy is opened, and its name is not selected for typing over: the name is
+ * the original's on purpose, and the bench numbers the two apart. What a split
+ * writes is half a Scene under a provisional name; what this writes is a Scene
+ * the Author already named.
+ *
+ * Nothing arrives at it yet, so the order puts it past every Scene the opening
+ * reaches — it lands below the Author's hands and never above them, the way a
+ * Scene born from a way on does.
+ */
+async function duplicateScene(scene: Scene) {
+  let writtenId: string | undefined
+
+  await changing(scene, async () => {
+    const copy = await send(`/api/scenes/${scene.id}/duplicate`, { method: 'POST' }) as Scene
+    writtenId = copy.id
+  })
+
+  // Past the read-back, as in `splitBefore`: both Scenes now answer to one name,
+  // so neither is named as the bench names it until the Story holding both has
+  // landed.
+  if (!writtenId) return
+  announce(t('editor.sceneDuplicated', { name: nameOf(scene.id), to: nameOf(writtenId) }))
+  emit('open', writtenId)
+}
+
 function renameScene(scene: Scene) {
   return writing(scene, () => send(`/api/scenes/${scene.id}`, {
     method: 'PATCH',
@@ -719,9 +751,9 @@ function writeConditions(
         {{ $t('editor.sceneName', { name: held.name }) }}
       </label>
       <!-- The slate: the name, whether the Story opens here, what arrives at it,
-           and the one act that takes it away. What arrives is said in words rather
-           than left to the rail's marks, because the rail is `aria-hidden` and this
-           is where the document says it. -->
+           and the two acts that write the Scene again or take it away. What arrives
+           is said in words rather than left to the rail's marks, because the rail
+           is `aria-hidden` and this is where the document says it. -->
       <div class="slate" :class="{ unreached: held.unreached }">
         <h2 class="named">
           <input
@@ -766,6 +798,16 @@ function writeConditions(
         </p>
 
         <p class="arrivals">{{ held.arrivals }}</p>
+
+        <button
+          type="button"
+          class="going"
+          :data-command="held.here ? $t('editor.duplicateScene') : undefined"
+          @click="duplicateScene(held.scene)"
+        >
+          {{ $t('editor.duplicateScene') }}
+          <span class="visually-hidden">{{ held.name }}</span>
+        </button>
 
         <button
           type="button"
@@ -1285,11 +1327,11 @@ function writeConditions(
   scroll-margin-block-start: var(--s4);
 }
 
-/* The slate: the Scene's name, whether the Story opens on it, what arrives at it
-   and the one act that takes it away — one line, and the only place on the bench
-   where the condensed face a title card is set in appears at the size it is meant
-   to be read at. The name is typed where it is read, so the field draws no box
-   until the pointer is on it. */
+/* The slate: the Scene's name, whether the Story opens on it, what arrives at it,
+   and the acts that write it again or take it away — one line, and the only place
+   on the bench where the condensed face a title card is set in appears at the size
+   it is meant to be read at. The name is typed where it is read, so the field
+   draws no box until the pointer is on it. */
 .slate {
   display: flex;
   flex-wrap: wrap;
@@ -1359,10 +1401,10 @@ function writeConditions(
   border-block-end-style: dashed;
 }
 
-/* Taking the Scene away is named in full — it is what the bar of Commands reads
-   and what a screen reader hears — and worn as the quiet mark it should be: the
-   act at the far end of the slate, in the alarm's colour only once the hand is on
-   it. */
+/* Writing the Scene again and taking it away are both named in full — it is what
+   the bar of Commands reads and what a screen reader hears — and worn as the quiet
+   marks they should be: the acts at the far end of the slate, and only the one
+   that takes something away wears the alarm's colour once the hand is on it. */
 .going {
   border-color: transparent;
   background: none;

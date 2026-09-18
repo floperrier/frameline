@@ -9,6 +9,7 @@ import {
   inColumns,
   inDocumentOrder,
   namesOnTheBench,
+  reaches,
   scenesAExitMayLandOn,
   wordsOf,
 } from '../../shared/utils/scenes'
@@ -246,11 +247,68 @@ describe('the names the bench calls a Story’s Scenes by', () => {
   })
 })
 
+describe('whether one Scene reaches another', () => {
+  test('is the ways on walked forwards, and never backwards', () => {
+    const exits = [exit('a', 'b'), exit('b', 'c')]
+
+    expect(reaches(exits, 'a', 'c')).toBe(true)
+    expect(reaches(exits, 'c', 'a')).toBe(false)
+  })
+
+  /** Because that is where the Reading already stands, which is what refuses a way on to the Scene it leaves. */
+  test('has a Scene reaching itself', () => {
+    expect(reaches([], 'a', 'a')).toBe(true)
+  })
+
+  /**
+   * A Story written before `docs/adr/0048-a-scene-is-entered-once.md` may hold a
+   * cycle, and the walk is asked about it by the bench that draws it. It carries
+   * the Scenes it has been through, so it answers rather than walking for ever.
+   */
+  test('answers a Story that still holds a cycle', () => {
+    const exits = [exit('a', 'b'), exit('b', 'a')]
+
+    expect(reaches(exits, 'a', 'b')).toBe(true)
+    expect(reaches(exits, 'b', 'c')).toBe(false)
+  })
+
+  /**
+   * The stability the record rests on. `O→A→B→C` is legal throughout and the
+   * Author then writes `O→C`: under a rule about columns C moves to the second
+   * column and `B→C` — written weeks earlier, untouched — becomes illegal. Under
+   * this one an Exit is refused exactly when it is the one closing a cycle, so
+   * every way on already written is still one that could be written now.
+   */
+  test('never leaves a way on written earlier illegal', () => {
+    const written = [exit('o', 'a'), exit('a', 'b'), exit('b', 'c'), exit('o', 'c', 1)]
+
+    for (const way of written) {
+      const others = written.filter(other => other !== way)
+
+      expect(reaches(others, way.toSceneId, way.fromSceneId)).toBe(false)
+    }
+  })
+})
+
 describe('the Scenes an Exit may land on', () => {
   test('are every Scene but the one it leaves and the ones it already reaches', () => {
     const scenes = ['a', 'b', 'c'].map(scene)
 
     expect(scenesAExitMayLandOn(scenes, [exit('a', 'b')], 'a')).toEqual(new Set(['c']))
+  })
+
+  /**
+   * A Scene a Reading could have come through is not a landing: a way on back to
+   * it is what the server refuses, so the field never offers it. Two Scenes of one
+   * column are neighbours and stay on offer — `b` and `c` are both reached from
+   * `a`, and neither reaches the other.
+   */
+  test('are never a Scene that reaches the one the Exit leaves', () => {
+    const scenes = ['a', 'b', 'c', 'd'].map(scene)
+    const exits = [exit('a', 'b'), exit('a', 'c', 1), exit('c', 'd')]
+
+    expect(scenesAExitMayLandOn(scenes, exits, 'd')).toEqual(new Set(['b']))
+    expect(scenesAExitMayLandOn(scenes, exits, 'b')).toEqual(new Set(['c', 'd']))
   })
 })
 

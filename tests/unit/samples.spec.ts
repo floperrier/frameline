@@ -193,14 +193,21 @@ describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLan
     }
   })
 
-  it('leaves no Scene whose only way on carries Conditions', () => {
+  it('ends once, and never by a Condition that did not hold', () => {
+    const endings = sample.scenes.filter(scene => !sample.exits.some(exit => exit.from === scene.name))
+
+    // A Story read forwards has to stop somewhere — see
+    // `docs/adr/0048-a-scene-is-entered-once.md` — and the Sample stops once, on
+    // purpose. Every other Scene keeps a way on that no Condition can take away,
+    // because a Scene whose ways on are all conditional is one an unmet Condition
+    // turns into an ending nobody wrote.
+    expect(endings).toHaveLength(1)
+
     for (const scene of sample.scenes) {
       const leaving = sample.exits.filter(exit => exit.from === scene.name)
 
-      // A Scene with no way on at all is an ending, which a Sample does not have;
-      // a Scene whose ways on are all conditional is one an unmet Condition turns
-      // into an ending nobody wrote.
-      expect(leaving.length).toBeGreaterThan(0)
+      if (!leaving.length) continue
+
       expect(leaving.some(exit => !exit.when?.length)).toBe(true)
     }
   })

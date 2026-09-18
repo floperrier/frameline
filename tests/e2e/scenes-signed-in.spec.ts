@@ -1,9 +1,10 @@
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 import { CONDITIONS_MAX, SCENE_NAME_MAX_LENGTH, VISITS_MAX } from '../../shared/utils/scenes'
+import type { StoryInEditor } from '../../shared/utils/scenes'
 import {
-  writeScene, readExits, readSceneName, readShotConditions, readShots, seedFlags,
-  seedExit, seedScene, seedStory, test,
+  ONE_PIXEL, writeScene, readExits, readSceneName, readShotConditions, readShots, seedFlags,
+  seedExit, seedScene, seedStory, test, toast,
 } from './author'
 
 const noId = '00000000-0000-4000-8000-000000000000'
@@ -1115,11 +1116,14 @@ test('a refusal at the foot of a long Scene is read without leaving the foot of 
   async ({ page, request }) => {
     await page.setViewportSize({ width: 1280, height: 720 })
     const { story, scenes } = await chained(request, ['The arrival', 'The platform', 'The bar'])
-    const [arrival, platform] = scenes
+    const [, platform, bar] = scenes
     // A second way on, so the first has somewhere to be moved to, under a run of
     // twenty beats: the ways out are the last part of a Scene's section, and this
     // is what puts them two thousand pixels below the slate the sentence hangs on.
-    await request.post(`/api/scenes/${platform!.id}/exits`, { data: { toSceneId: arrival!.id } })
+    // To the same Scene as the first, which two Exits under opposite Conditions is
+    // what Conditions on an Exit are for — a way on leading back is refused, see
+    // `docs/adr/0048-a-scene-is-entered-once.md`.
+    await request.post(`/api/scenes/${platform!.id}/exits`, { data: { toSceneId: bar!.id } })
     await writeShots(
       request, platform!.id, Array.from({ length: 20 }, (_, beat) => `Beat ${beat + 1}.`))
 
@@ -1326,12 +1330,16 @@ test('a Scene dismissed from the confirmation is left exactly as it was', async 
 }) => {
   const { story, scene } = await openScene(request, 'The booth')
   await writeShots(request, scene.id, ['The projector ticks over.', 'Nobody is in it.'])
-  const lobby = await (await request.post(
-    `/api/stories/${story.id}/scenes`, { data: { name: 'The lobby' } })).json()
+  const write = async (name: string) => await (await request.post(
+    `/api/stories/${story.id}/scenes`, { data: { name } })).json()
+  const lobby = await write('The lobby')
+  const foyer = await write('The foyer')
   // An Exit at each end, because the schema cascades a delete from both of them and
-  // only the ways on were ever counted.
+  // only the ways on were ever counted. The one arriving is written from a third
+  // Scene rather than back out of the lobby: a Reading stands in a Scene at most
+  // once — see `docs/adr/0048-a-scene-is-entered-once.md`.
   await request.post(`/api/scenes/${scene.id}/exits`, { data: { toSceneId: lobby.id } })
-  await request.post(`/api/scenes/${lobby.id}/exits`, { data: { toSceneId: scene.id } })
+  await request.post(`/api/scenes/${foyer.id}/exits`, { data: { toSceneId: scene.id } })
 
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The booth')
@@ -1353,7 +1361,7 @@ test('a Scene dismissed from the confirmation is left exactly as it was', async 
   await expect(readSceneName(scene.id)).resolves.toBe('The booth')
   await expect(readShots(scene.id)).resolves.toHaveLength(2)
   await expect(readExits(scene.id)).resolves.toHaveLength(1)
-  await expect(readExits(lobby.id)).resolves.toHaveLength(1)
+  await expect(readExits(foyer.id)).resolves.toHaveLength(1)
 })
 
 test('a Shot carries the Conditions it plays under', async ({ request }) => {
@@ -1503,3 +1511,157 @@ test('an Author puts a Condition on a Shot from the page alone', async ({ page, 
     await expect(readShotConditions(scene.id)).resolves.toEqual([[]])
   }).toPass()
 })
+
+/**
+ * The sentence the bench refuses a way on that comes back with, in the Language
+ * the suite reads. Held here rather than typed into each expectation, because it
+ * is said at two boundaries and read on one band.
+ */
+const COMES_BACK = 'A Reading stands in a Scene once, so an Exit cannot lead back to a Scene '
+  + 'the Reader may already have come through. Duplicate that Scene, and lead the Exit to the copy.'
+
+/**
+ * Both halves of `docs/adr/0048-a-scene-is-entered-once.md` as one Author meets
+ * them: the bench says no to the way on that would let a Reading come back, and
+ * says what to write instead — which is the copy, written from the same slate and
+ * ordinary from the moment it exists.
+ *
+ * One test and not two, because from the Author's side it is one act interrupted:
+ * shipping the refusal without the copy would leave them with nowhere to go, and a
+ * spec that drove them apart would not be driving what the ticket is.
+ */
+test('the bench refuses a way on that comes back, and an Author writes the Scene again instead',
+  async ({ page, request }) => {
+    const { story, scenes } = await chained(request, ['The arrival', 'The platform', 'The bar'])
+    const [arrival, bar] = [scenes[0]!, scenes[2]!]
+    const [first, second] = await writeShots(
+      request, arrival.id, ['She steps off the train.', 'The platform is empty.'])
+    await request.put(`/api/shots/${first!.id}/image`, { data: ONE_PIXEL })
+    await request.patch(`/api/shots/${first!.id}`, {
+      data: { text: 'She steps off the train.', description: 'A platform at night' },
+    })
+    await request.put(`/api/shots/${second!.id}/conditions`, {
+      data: { conditions: [{ flag: 'coat', is: 'on' }] },
+    })
+
+    await page.goto(`/stories/${story.id}`)
+    await writeScene(page, 'The bar')
+
+    // Nothing a Reading could have come through is on offer. Out of the last Scene
+    // of a chain that is every other Scene of the Story, so the field at the foot
+    // of the ways on offers nothing at all.
+    const leaving = written(page, 'The bar')
+    const adding = leaving.getByLabel('An Exit from here The bar')
+    const offered = () => leaving.locator('.adding datalist option')
+      .evaluateAll(options => options.map(option => (option as HTMLOptionElement).value))
+    await expect.poll(offered).toEqual([])
+
+    // The field takes any name at all, so the refusal is what the Author meets: a
+    // sentence naming the Scene it was written in, saying what was refused and what
+    // to write instead. Nothing is left behind.
+    await adding.fill('The arrival')
+    await adding.press('Enter')
+    await expect(refusal(page)).toHaveText(`In “The bar”: ${COMES_BACK}`)
+    await expect.poll(() => readExits(bar.id)).toEqual([])
+
+    // What to write instead, from the slate of the Scene to be met again. The act
+    // is marked, so the bar of Commands offers it by name wherever the caret is.
+    await writeScene(page, 'The arrival')
+    const duplicate = written(page, 'The arrival').getByRole('button', { name: 'Duplicate Scene' })
+    await expect(duplicate).toHaveAttribute('data-command', 'Duplicate Scene')
+    await duplicate.click()
+
+    // Two Scenes answer to one name now, so the bench numbers them — and says what
+    // it did under the names it draws them by.
+    await expect(toast(page)).toHaveText(
+      '“The arrival (1)” duplicated as “The arrival (2)”, '
+      + 'carrying its Shots and none of its ways on')
+
+    const read = async () =>
+      await (await request.get(`/api/stories/${story.id}`)).json() as StoryInEditor
+    const copies = (await read()).scenes.filter(scene => scene.name === 'The arrival')
+    expect(copies).toHaveLength(2)
+    const copy = copies.find(scene => scene.id !== arrival.id)!
+
+    // It carries the Shots with their text, their Conditions and their order, and
+    // none of the original's ways on.
+    expect(copy.shots.map(shot => [shot.text, shot.description, shot.conditions])).toEqual([
+      ['She steps off the train.', 'A platform at night', []],
+      ['The platform is empty.', '', [{ flag: 'coat', is: 'on' }]],
+    ])
+    await expect.poll(() => readExits(copy.id)).toEqual([])
+
+    // The Image is the copy's own Shot again rather than a reference to the Shot it
+    // was made from: its own address, serving the same bytes.
+    expect(copy.shots[0]!.image).toBe(`/api/shots/${copy.shots[0]!.id}/image`)
+    const served = await request.get(copy.shots[0]!.image!)
+    expect(Buffer.from(await served.body())).toEqual(ONE_PIXEL)
+
+    // Ordinary from the moment it exists: renamed like any other Scene, and then
+    // the way on the bench refused is written to it instead.
+    const renaming = naming(page, copy.id)
+    await renaming.fill('The arrival, again')
+    await renaming.blur()
+    await expect.poll(() => readSceneName(copy.id)).toBe('The arrival, again')
+
+    await writeScene(page, 'The bar')
+    const writing = written(page, 'The bar').getByLabel('An Exit from here The bar')
+    await writing.fill('The arrival, again')
+    await writing.press('Enter')
+    await expect.poll(() => readExits(bar.id)).toMatchObject([{ toSceneId: copy.id }])
+  })
+
+/**
+ * The same refusal at both boundaries a way on is given a destination, and the two
+ * things it does not refuse. Asked of the requests rather than of the bench,
+ * because what is being held is the rule and not the sentence: the field withholds
+ * the landings the server refuses, so the only way to write one from the bench is
+ * by typing a name — which is the test above.
+ */
+test('a way on that comes back is refused wherever it is given a destination',
+  async ({ request }) => {
+    const { story, scenes } = await chained(request, ['The arrival', 'The platform', 'The bar'])
+    const [arrival, platform, bar] = [scenes[0]!, scenes[1]!, scenes[2]!]
+
+    // Written: the Scene at the far end already reaches the one the way on leaves.
+    const back = await request.post(`/api/scenes/${bar.id}/exits`, {
+      data: { toSceneId: arrival.id },
+    })
+    expect(back.status()).toBe(400)
+    expect((await back.json()).message).toBe(COMES_BACK)
+
+    // A way on to the Scene it leaves is that same test asked of one Scene, since
+    // a Reading standing in a Scene has already entered it.
+    const itself = await request.post(`/api/scenes/${bar.id}/exits`, {
+      data: { toSceneId: bar.id },
+    })
+    expect(itself.status()).toBe(400)
+
+    // Re-led: the same walk, asked of a way on that already exists. And a way on
+    // re-led onwards is untouched — the rule is about coming back and not about
+    // changing where something lands.
+    const [leaving] = await readExits(platform.id)
+    const led = await request.put(`/api/exits/${leaving!.id}/scene`, {
+      data: { toSceneId: arrival.id },
+    })
+    expect(led.status()).toBe(400)
+    expect((await led.json()).message).toBe(COMES_BACK)
+
+    // Two Scenes of one column are neighbours, and one may lead to the other: the
+    // kiosk and the platform are both reached from the arrival, and neither
+    // reaches the other.
+    const kiosk = await (await request.post(`/api/stories/${story.id}/scenes`, {
+      data: { name: 'The kiosk' },
+    })).json() as { id: string }
+    expect((await request.post(`/api/scenes/${arrival.id}/exits`, {
+      data: { toSceneId: kiosk.id },
+    })).status()).toBe(201)
+    expect((await request.post(`/api/scenes/${platform.id}/exits`, {
+      data: { toSceneId: kiosk.id },
+    })).status()).toBe(201)
+
+    // Every refusal left the Story exactly as it was written.
+    await expect.poll(() => readExits(bar.id)).toEqual([])
+    await expect.poll(() => readExits(platform.id))
+      .toMatchObject([{ toSceneId: bar.id }, { toSceneId: kiosk.id }])
+  })

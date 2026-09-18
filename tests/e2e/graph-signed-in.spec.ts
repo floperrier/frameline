@@ -199,14 +199,21 @@ test('the opening Scene can be changed', async ({ request }) => {
 test('deleting a Scene takes the Exits touching it, and the opening with it', async ({ request }) => {
   const { story, scenes } = await openGraph(request)
   const [opening, other] = scenes as [{ id: string }, { id: string }]
-  await request.post(`/api/scenes/${opening.id}/exits`, { data: { toSceneId: other.id } })
-  await request.post(`/api/scenes/${other.id}/exits`, { data: { toSceneId: opening.id } })
+  // A third Scene leading in, rather than a way on out of `other` coming back:
+  // the Exit arriving has to be written from somewhere the Reading has not been,
+  // since a Reading stands in a Scene at most once — see
+  // `docs/adr/0048-a-scene-is-entered-once.md`.
+  const tunnel = await (await request.post(`/api/stories/${story.id}/scenes`, {
+    data: { name: 'The tunnel' },
+  })).json() as { id: string }
+  await drawExit(request, opening.id, other.id)
+  await drawExit(request, tunnel.id, opening.id)
 
   expect((await request.delete(`/api/scenes/${opening.id}`)).status()).toBe(200)
 
   // Both Exits are gone — the one that left the Scene and the one that arrived —
   // and the Story is left with no opening Scene for the Author to name again.
-  await expect(readExits(other.id)).resolves.toEqual([])
+  await expect(readExits(tunnel.id)).resolves.toEqual([])
   await expect((await request.get(`/api/stories/${story.id}`)).json())
     .resolves.toMatchObject({ openingSceneId: null, exits: [] })
 })

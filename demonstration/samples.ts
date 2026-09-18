@@ -240,15 +240,12 @@ const ENGLISH: Work = {
             + 'it may not be is neither.',
         },
         {
-          text: 'You have stood here before, which is the only reason this beat is playing: '
-            + 'a Condition can count how often a Reading has entered a Scene, and no Flag '
-            + 'was set to tell it.',
+          text: 'A Story is read forwards. You will stand in each Scene at most once, so the '
+            + 'Exit you take next is taken once — and a Scene meant to be seen again is '
+            + 'written again, as a copy of itself.',
           description: 'Plates stacked on the left and two rows of dots on the right: the '
-            + 'Flags one Reading holds, and the times it has entered a Scene.',
+            + 'Flags one Reading holds, and the Scenes it has entered.',
           image: 'a-state',
-          // A Condition needing no Flag at all, and the one an Author can watch
-          // arrive: the Scene it counts is the Scene the Shot is in.
-          when: [{ scene: 'Where a Story starts', visits: 'at least', times: 2 }],
         },
       ],
     },
@@ -293,6 +290,12 @@ const ENGLISH: Work = {
           image: 'a-gap',
           when: [{ flag: 'exit', is: 'taken' }],
         },
+        {
+          text: 'Or this one is, because you did not come that way. A Condition can ask '
+            + 'whether a Reading has entered a Scene at all, with no Flag set to tell it — '
+            + 'and since a Scene is entered once, that is a thing it can settle for good.',
+          when: [{ scene: 'What an Exit offers', visits: 'fewer than', times: 1 }],
+        },
       ],
     },
   ],
@@ -311,12 +314,6 @@ const ENGLISH: Work = {
       from: 'What an Exit offers',
       to: 'What a Condition tests',
       text: 'Go on to the Conditions',
-    },
-    { from: 'What an Exit offers', to: 'Where a Story starts', text: 'Go back to the first Scene' },
-    {
-      from: 'What a Condition tests',
-      to: 'Where a Story starts',
-      text: 'Read it again from the start',
     },
   ],
 }
@@ -345,15 +342,12 @@ const FRENCH: Work = {
             + 'Image seule — ce qu’il ne peut pas être, c’est ni l’un ni l’autre.',
         },
         {
-          text: 'Vous êtes déjà venu ici, et c’est la seule raison pour laquelle ce temps se '
-            + 'joue : une Condition sait compter les entrées d’une Lecture dans une Scène, '
-            + 'et aucun Marqueur ne le lui a dit.',
+          text: 'Un Récit se lit vers l’avant. Vous ne vous tiendrez au plus qu’une fois dans '
+            + 'chaque Scène, donc la Sortie que vous prendrez tout à l’heure se prend une '
+            + 'fois — et une Scène qu’on veut revoir se réécrit, en copie d’elle-même.',
           description: 'Des plaques empilées à gauche et deux rangées de points à droite : '
-            + 'les Marqueurs qu’une Lecture porte, et le nombre d’entrées dans une Scène.',
+            + 'les Marqueurs qu’une Lecture porte, et les Scènes où elle est entrée.',
           image: 'a-state',
-          // Une Condition qui n’a besoin d’aucun Marqueur, et celle qu’un Auteur
-          // peut voir arriver : la Scène qu’elle compte est celle du Plan.
-          when: [{ scene: 'Là où un Récit commence', visits: 'at least', times: 2 }],
         },
       ],
     },
@@ -402,6 +396,13 @@ const FRENCH: Work = {
           image: 'a-gap',
           when: [{ flag: 'sortie', is: 'prise' }],
         },
+        {
+          text: 'Ou bien c’est celui-ci, parce que vous n’êtes pas passé par là. Une Condition '
+            + 'sait demander si une Lecture est entrée dans une Scène, sans qu’aucun Marqueur '
+            + 'le lui dise — et comme on n’entre qu’une fois dans une Scène, c’est une chose '
+            + 'qu’elle tranche pour de bon.',
+          when: [{ scene: 'Ce qu’offre une Sortie', visits: 'fewer than', times: 1 }],
+        },
       ],
     },
   ],
@@ -420,16 +421,6 @@ const FRENCH: Work = {
       from: 'Ce qu’offre une Sortie',
       to: 'Ce que teste une Condition',
       text: 'Continuer vers les Conditions',
-    },
-    {
-      from: 'Ce qu’offre une Sortie',
-      to: 'Là où un Récit commence',
-      text: 'Revenir à la première Scène',
-    },
-    {
-      from: 'Ce que teste une Condition',
-      to: 'Là où un Récit commence',
-      text: 'Relire depuis le début',
     },
   ],
 }
