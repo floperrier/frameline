@@ -1449,8 +1449,9 @@ test('a Shot’s Conditions are refused where an Exit’s would be', async ({
       data: { conditions: [{ flag: '', is: 'on' }] },
     }),
     request.put(`/api/shots/${shot!.id}/conditions`, { data: { conditions: [{ of: 'nothing' }] } }),
+    // The shape that counted entries, which nothing reads any more (#307).
     request.put(`/api/shots/${shot!.id}/conditions`, {
-      data: { conditions: [{ scene: scene.id, visits: 'at least', times: 0 }] },
+      data: { conditions: [{ scene: scene.id, visits: 'at least', times: 1 }] },
     }),
     request.put(`/api/shots/${shot!.id}/conditions`, {
       data: {

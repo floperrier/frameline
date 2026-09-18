@@ -375,22 +375,11 @@ function describe(shot: Shot) {
               {{ $t('conditions.holds') }}
               <span class="data">{{ condition.is }}</span>
             </template>
-            <template v-else-if="'entered' in condition">
+            <template v-else>
               {{ $t('conditions.scene') }}
               <span class="data">{{ sceneName(condition.scene) }}</span>
               {{ condition.entered
                 ? $t('conditions.hasBeenEntered') : $t('conditions.hasNotBeenEntered') }}
-            </template>
-            <!-- The shape that counted, read for the one deploy before #306
-                 rewrites what is stored in it. -->
-            <template v-else>
-              {{ $t('conditions.scene') }}
-              <span class="data">{{ sceneName(condition.scene) }}</span>
-              {{ $t('conditions.entered') }}
-              {{ condition.visits === 'at least'
-                ? $t('conditions.atLeast') : $t('conditions.fewerThan') }}
-              <span class="data">{{ condition.times }}</span>
-              {{ $t('conditions.times') }}
             </template>
           </span>
         </p>

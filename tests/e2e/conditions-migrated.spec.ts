@@ -2,7 +2,6 @@ import { readFile } from 'node:fs/promises'
 import { neon } from '@neondatabase/serverless'
 import { expect } from '@playwright/test'
 import type { APIRequestContext } from '@playwright/test'
-import type { Condition } from '../../shared/utils/scenes'
 import { readExits, readShotConditions, test } from './author'
 
 /**
@@ -10,9 +9,7 @@ import { readExits, readShotConditions, test } from './author'
  *
  * The statements are read off the migration rather than written out again here,
  * so what is asserted is what production runs: a copy of them kept in a spec is a
- * copy that drifts, and the thing under test is the file. The old shape is still
- * readable at the request boundary until #307, which is what lets the rows be
- * written through the API in the shape the migration is about to take away.
+ * copy that drifts, and the thing under test is the file.
  *
  * It runs against the same database the rest of the suite does, and touches
  * nothing else in it: the statements are scoped to rows holding a counting test,
@@ -21,6 +18,19 @@ import { readExits, readShotConditions, test } from './author'
 const sql = neon(process.env.DATABASE_URL!)
 
 const MIGRATION = 'server/db/migrations/0021_conditions_ask_whether_entered.sql'
+
+/**
+ * Conditions written into a row past the API. It is the only way to state this
+ * spec's input now that the boundary refuses the shape that counted (#307), and it
+ * is also the truer statement of it: what the migration is handed is rows a
+ * database is already holding, not a request anybody can still make.
+ */
+async function seedConditions(carrier: 'shots' | 'exits', id: string, conditions: unknown[]) {
+  const held = JSON.stringify(conditions)
+
+  if (carrier === 'shots') await sql`update shots set conditions = ${held}::jsonb where id = ${id}`
+  else await sql`update exits set conditions = ${held}::jsonb where id = ${id}`
+}
 
 /** The deploy's own statements, one at a time, the way `drizzle-kit migrate` runs them. */
 async function migrate() {
@@ -36,9 +46,10 @@ async function migrate() {
  * questions, the two that no longer say anything, and a Flag test beside them to
  * prove the rest of a list is left where it was.
  *
- * Written through the API, because that is where a Condition's shape is kept and
- * the Scene it names is scoped to the Story — so what the migration is handed is a
- * Story an Author really could have written, not rows put in behind it.
+ * The Scenes, the Shots and the Exits are written through the API, so what the
+ * migration is handed is a Story an Author really could have written; only the
+ * Conditions go in behind it, because the shape they are in is the one the
+ * boundary no longer takes.
  */
 async function storyHoldingCounts(request: APIRequestContext) {
   const story = await (await request.post('/api/stories', {
@@ -51,7 +62,7 @@ async function storyHoldingCounts(request: APIRequestContext) {
     data: { name: 'The house' },
   })).json() as { id: string }
 
-  const played: Condition[][] = [
+  const played: unknown[][] = [
     // The Flag test stays where it stood, and the count beside it becomes a question.
     [{ flag: 'reel', is: 'threaded' }, { scene: scene.id, visits: 'at least', times: 1 }],
     // One survives, one can never hold and goes — and the Places close up behind it.
@@ -62,11 +73,10 @@ async function storyHoldingCounts(request: APIRequestContext) {
   ]
   for (const conditions of played) {
     const shot = await (await request.post(`/api/scenes/${scene.id}/shots`)).json() as { id: string }
-    expect((await request.put(`/api/shots/${shot.id}/conditions`, { data: { conditions } })).ok())
-      .toBeTruthy()
+    await seedConditions('shots', shot.id, conditions)
   }
 
-  const offered: Condition[][] = [
+  const offered: unknown[][] = [
     // A test that always held now that a Scene is entered once, and so says nothing.
     [{ scene: scene.id, visits: 'fewer than', times: 3 }, { flag: 'reel', is: 'threaded' }],
     // Already written in the shape that replaced the others: untouched.
@@ -76,8 +86,7 @@ async function storyHoldingCounts(request: APIRequestContext) {
     const exit = await (await request.post(`/api/scenes/${scene.id}/exits`, {
       data: { toSceneId: onward.id },
     })).json() as { id: string }
-    expect((await request.put(`/api/exits/${exit.id}/conditions`, { data: { conditions } })).ok())
-      .toBeTruthy()
+    await seedConditions('exits', exit.id, conditions)
   }
 
   return { story, scene: scene.id, onward: onward.id }

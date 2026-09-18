@@ -36,8 +36,8 @@ the walk builds it from empty on every read. A Path with its last Exit dropped i
 not a Path whose effects have been rolled back; it is, byte for byte, the Path
 the Reader was standing on before they took that Exit, and what it computes to is
 what they held then. Taking the Exit again walks the same Exits in the same
-order: the visit count comes back to the number it was, the draw keyed on that
-count comes out with the value it came out with, and a Flag written over is
+order: the Scenes entered come back to the ones they were, the draw keyed on the
+Scene comes out with the value it came out with, and a Flag written over is
 written over again. A Reading that stepped back and went on again is
 indistinguishable from one that never stepped back, because the two are the same
 Path — which is the claim the engine's spec makes directly rather than a property

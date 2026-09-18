@@ -72,15 +72,7 @@ export function holds(conditions: Condition[], state: State) {
   return conditions.every((condition) => {
     if ('flag' in condition) return (state.flags[condition.flag] ?? '') === condition.is
 
-    const entered = state.entered.includes(condition.scene)
-    if ('entered' in condition) return entered === condition.entered
-
-    // The shape that counted, read for one deploy and never written. A Scene is
-    // entered at most once, so what it compares against is one or nought, and the
-    // comparison it asked for is the comparison it still makes: its meaning is
-    // unchanged, and #306 rewrites what is stored in it.
-    const visits = entered ? 1 : 0
-    return condition.visits === 'at least' ? visits >= condition.times : visits < condition.times
+    return state.entered.includes(condition.scene) === condition.entered
   })
 }
 
@@ -108,8 +100,8 @@ export function offered(exit: Exit, state: State) {
  * carries that this State fails, saying what the test asked for and what the
  * State actually holds. For
  * an Author's eyes alone — a Reader is never told what they are not being
- * offered — so the Scene a Condition counts is named rather than shown as the id
- * the Condition holds.
+ * offered — so the Scene a Condition asks about is named rather than shown as the
+ * id the Condition holds.
  *
  * Every test is put back through `holds` one at a time rather than read a second
  * time here, so what this says failed and what the engine hid the Exit for cannot
@@ -131,21 +123,8 @@ export function unmet(
       })
     }
 
-    if ('entered' in condition) {
-      return say(condition.entered ? 'preview.needsEntered' : 'preview.needsNotEntered', {
-        scene: sceneName(condition.scene),
-      })
-    }
-
-    return say('preview.needsVisits', {
-      how: say(condition.visits === 'at least' ? 'conditions.atLeast' : 'conditions.fewerThan'),
-      count: say(
-        condition.times === 1 ? 'preview.oneVisit' : 'preview.manyVisits',
-        { times: condition.times },
-      ),
+    return say(condition.entered ? 'preview.needsEntered' : 'preview.needsNotEntered', {
       scene: sceneName(condition.scene),
-      entered: say(
-        state.entered.includes(condition.scene) ? 'preview.enteredOnce' : 'preview.neverEntered'),
     })
   })
 }
