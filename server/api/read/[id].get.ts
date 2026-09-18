@@ -1,5 +1,5 @@
 import { and, eq, isNotNull } from 'drizzle-orm'
-import { stories } from '../../db/schema'
+import { authors, stories } from '../../db/schema'
 import { useDb } from '../../db'
 
 /**
@@ -11,6 +11,12 @@ import { useDb } from '../../db'
  * A Reading is not stored anywhere. The Reader is handed the Story and keeps
  * their own Path in it, which is why two Readers of one Story can never
  * share what they have accumulated — there is nothing here to share.
+ *
+ * It is signed, as an entry on a shelf is: the Author's id and Name, so the page
+ * a Reader finishes on can lead to whoever wrote what they have just read. The
+ * join is an inner one because a Story is owned by one Author and the column
+ * says so; the Name is what may be absent, and the page draws no byline where
+ * there is none. The email is not selected.
  */
 export default defineEventHandler(async (event) => {
   const id = readId(event, 'Story')
@@ -21,8 +27,15 @@ export default defineEventHandler(async (event) => {
       title: stories.title,
       language: stories.language,
       openingSceneId: stories.openingSceneId,
+      stepsBack: stories.stepsBack,
+      // The title card wears the same Image the shelf did, so a Reader arrives
+      // where the entry they pressed said they would.
+      cover: coverShotOf,
+      authorId: authors.id,
+      authorName: authors.name,
     })
     .from(stories)
+    .innerJoin(authors, eq(stories.authorId, authors.id))
     .where(and(eq(stories.id, id), isNotNull(stories.publishedAt)))
 
   if (!story) throw notFound(event, 'Story')
@@ -33,6 +46,7 @@ export default defineEventHandler(async (event) => {
   // business, so it does not leave the editor.
   return {
     ...story,
+    cover: coverUrl(story.cover),
     scenes: scenes.map(({ id, name, sets, shots }) => ({ id, name, sets, shots })),
     exits,
   }

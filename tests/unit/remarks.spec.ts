@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { remarks } from '../../app/utils/remarks.ts'
 import type { Condition, Scene, Shot, StoryInEditor } from '../../shared/utils/scenes.ts'
+import type { Phrase } from '../../shared/utils/phrases.ts'
+import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases.ts'
 import en from '../../i18n/locales/en.json'
 
 /**
@@ -9,8 +11,18 @@ import en from '../../i18n/locales/en.json'
  * database, no browser, no engine.
  */
 
+/**
+ * The words themselves, read out of the message file the interface reads: a
+ * Remark names a Scene the way every control of the bench does, and where two
+ * Scenes share a name that is a phrase rather than the name — so what a Remark
+ * says is asserted against the real messages and not against a stub.
+ */
+const says: Phrase = (key, values) => phrase(DEFAULT_LOCALE, key, values)
+
 type Written = {
   name: string
+  /** Its id, which is its name except where two Scenes of the Story carry one name. */
+  id?: string
   shots?: Partial<Shot>[]
   sets?: Scene['sets']
 }
@@ -22,7 +34,7 @@ type Written = {
  */
 function onTheBench(
   scenes: Written[],
-  { exits = [], opens = scenes[0]?.name ?? null }: {
+  { exits = [], opens = idOf(scenes[0]) }: {
     exits?: [from: string, to: string, ...conditions: Condition[]][]
     opens?: string | null
   } = {},
@@ -34,13 +46,13 @@ function onTheBench(
     openingSceneId: opens,
     publishedAt: null,
     scenes: scenes.map((scene, place) => ({
-      id: scene.name,
+      id: idOf(scene),
       name: scene.name,
       x: 0,
       y: place * 200,
       sets: scene.sets ?? {},
       shots: (scene.shots ?? [{ text: 'A door opens.' }]).map((shot, at) => ({
-        id: `${scene.name}-${at}`,
+        id: `${idOf(scene)}-${at}`,
         text: '',
         image: null,
         description: '',
@@ -59,9 +71,13 @@ function onTheBench(
   }
 }
 
+function idOf(scene?: Written) {
+  return scene ? scene.id ?? scene.name : null
+}
+
 /** The Remarks by name alone, which is what every assertion here is about. */
 function named(story: StoryInEditor) {
-  return remarks(story).map(remark => remark.name)
+  return remarks(story, says).map(remark => remark.name)
 }
 
 describe('what the bench finds in a Story', () => {
@@ -71,11 +87,11 @@ describe('what the bench finds in a Story', () => {
       { exits: [['The street', 'The bar']] },
     )
 
-    expect(remarks(story)).toEqual([])
+    expect(remarks(story, says)).toEqual([])
   })
 
   it('says nothing about a Story nobody has started', () => {
-    expect(remarks(onTheBench([]))).toEqual([])
+    expect(remarks(onTheBench([]), says)).toEqual([])
   })
 
   it('names a Story with Scenes and no opening Scene', () => {
@@ -86,7 +102,7 @@ describe('what the bench finds in a Story', () => {
 
   it('names a Scene no Exit arrives at, and never the opening Scene', () => {
     const story = onTheBench([{ name: 'The street' }, { name: 'The bar' }])
-    const found = remarks(story)
+    const found = remarks(story, says)
 
     expect(found.map(remark => remark.name)).toEqual(['sceneUnreached'])
     expect(found[0]!.sceneId).toBe('The bar')
@@ -100,7 +116,7 @@ describe('what the bench finds in a Story', () => {
 
   it('names a Shot carrying neither text nor Image, by the Place it holds', () => {
     const story = onTheBench([{ name: 'The street', shots: [{ text: 'A door.' }, { text: ' ' }] }])
-    const [found] = remarks(story)
+    const [found] = remarks(story, says)
 
     expect(found!.name).toBe('shotUnwritten')
     expect(found!.said).toEqual({ scene: 'The street', place: 2 })
@@ -109,7 +125,7 @@ describe('what the bench finds in a Story', () => {
   it('leaves a Shot that carries an Image and no text alone', () => {
     const story = onTheBench([{ name: 'The street', shots: [{ image: '/i', description: 'A door' }] }])
 
-    expect(remarks(story)).toEqual([])
+    expect(remarks(story, says)).toEqual([])
   })
 
   it('names an Image nobody described', () => {
@@ -117,12 +133,34 @@ describe('what the bench finds in a Story', () => {
 
     expect(named(story)).toEqual(['imageUndescribed'])
   })
+
+  /**
+   * Nothing stops an Author calling two Scenes *The bar*, so a Remark naming one
+   * of them reads the name the bench gives it rather than the name itself — the
+   * number is drawn by `namesOnTheBench` and read here, which makes the Remarks
+   * agree with the document and the Contact Sheet about which *The bar* a sentence
+   * is about. Numbered in the order the Story is written in and not in the order
+   * the API hands the Scenes back, which is why the second one written is *(1)*
+   * here: it is the one the Story opens on.
+   */
+  it('numbers two Scenes an Author called the same, as the Story is written', () => {
+    const story = onTheBench([
+      { id: 'later', name: 'The bar', shots: [{}] },
+      { id: 'opening', name: 'The bar', shots: [{}] },
+    ], { exits: [['opening', 'later']], opens: 'opening' })
+
+    expect(remarks(story, says).map(remark => says(`remark.${remark.name}`, remark.said)))
+      .toEqual([
+        'Shot 1 of The bar (2) carries neither text nor Image.',
+        'Shot 1 of The bar (1) carries neither text nor Image.',
+      ])
+  })
 })
 
 describe('the two halves of a Flag nobody joined up', () => {
   it('names a Flag a Scene sets that no Condition reads', () => {
     const story = onTheBench([{ name: 'The bar', sets: { drink: 'whisky' } }])
-    const found = remarks(story).find(remark => remark.name === 'flagUntested')
+    const found = remarks(story, says).find(remark => remark.name === 'flagUntested')
 
     expect(found?.said).toEqual({ flag: 'drink', scene: 'The bar' })
   })
@@ -150,13 +188,13 @@ describe('the two halves of a Flag nobody joined up', () => {
       { name: 'The quay', shots: [{ text: 'Water.', conditions: [{ flag: 'drink', is: 'whisky' }] }] },
     ], { exits: [['The bar', 'The quay']] })
 
-    expect(remarks(story)).toEqual([])
+    expect(remarks(story, says)).toEqual([])
   })
 
   it('passes over the empty name a row half typed leaves behind', () => {
     const story = onTheBench([{ name: 'The bar', sets: { '': 'whisky' } }])
 
-    expect(remarks(story)).toEqual([])
+    expect(remarks(story, says)).toEqual([])
   })
 })
 
@@ -166,10 +204,10 @@ describe('what can never hold', () => {
       { name: 'The bar', sets: { drink: ['whisky', 'beer'] } },
       { name: 'The quay' },
     ], { exits: [['The bar', 'The quay', { flag: 'drink', is: 'wine' }]] })
-    const found = remarks(story).find(remark => remark.name === 'exitUnofferable')
+    const found = remarks(story, says).find(remark => remark.name === 'exitUnofferable')
 
     expect(found?.sceneId).toBe('The bar')
-    expect(found?.said).toEqual({ scene: 'The bar', flag: 'drink', is: 'wine' })
+    expect(found?.said).toEqual({ scene: 'The bar', place: 1, flag: 'drink', is: 'wine' })
   })
 
   it('names a Shot the same way', () => {
@@ -184,13 +222,47 @@ describe('what can never hold', () => {
     expect(named(story)).toContain('shotUnplayable')
   })
 
+  /**
+   * The Scene is not enough to tell two of these apart, which is the whole of
+   * issue #276: two beats of one Scene waiting on the same pair are two findings
+   * an Author goes to separately, and a sentence naming only the Scene would be
+   * the same sentence twice — and the Remark is a control, so the same control
+   * named twice with it.
+   */
+  it('names the row a dead Condition is written on, and not the Scene alone', () => {
+    const dead: Condition[] = [{ flag: 'ticket', is: 'lost' }]
+    const story = onTheBench([
+      {
+        name: 'The yard',
+        sets: { ticket: 'found' },
+        shots: [
+          { text: 'A.', conditions: dead },
+          { text: 'B.', conditions: dead },
+        ],
+      },
+      { name: 'The quay' },
+    ], { exits: [['The yard', 'The quay', ...dead], ['The yard', 'The quay', ...dead]] })
+
+    const said = remarks(story, says)
+      .filter(remark => remark.name === 'shotUnplayable' || remark.name === 'exitUnofferable')
+      .map(remark => says(`remark.${remark.name}`, remark.said))
+
+    expect(said).toEqual([
+      'Shot 1 of The yard plays only when ticket holds “lost”, which no Scene ever sets it to.',
+      'Shot 2 of The yard plays only when ticket holds “lost”, which no Scene ever sets it to.',
+      'The Exit 1 out of The yard is offered only when ticket holds “lost”, which no Scene ever sets it to.',
+      'The Exit 2 out of The yard is offered only when ticket holds “lost”, which no Scene ever sets it to.',
+    ])
+    expect(new Set(said).size).toBe(said.length)
+  })
+
   it('leaves one of the values a Scene draws from alone', () => {
     const story = onTheBench([
       { name: 'The bar', sets: { drink: ['whisky', 'beer'] } },
       { name: 'The quay' },
     ], { exits: [['The bar', 'The quay', { flag: 'drink', is: 'beer' }]] })
 
-    expect(remarks(story)).toEqual([])
+    expect(remarks(story, says)).toEqual([])
   })
 
   it('leaves the absence of a Flag alone, which is what the empty value asks for', () => {
@@ -203,16 +275,16 @@ describe('what can never hold', () => {
       { name: 'The gate' },
     ], { exits: [['The booth', 'The gate', { flag: 'reel', is: '' }]] })
 
-    expect(remarks(story)).toEqual([])
+    expect(remarks(story, says)).toEqual([])
   })
 
-  it('leaves a visit count alone, however few visits the graph allows', () => {
+  it('leaves a question about a Scene alone, whatever the graph allows', () => {
     const story = onTheBench([
       { name: 'The bar' },
       { name: 'The quay' },
-    ], { exits: [['The bar', 'The quay', { scene: 'The bar', visits: 'at least', times: 9 }]] })
+    ], { exits: [['The bar', 'The quay', { scene: 'The bar', entered: true }]] })
 
-    expect(remarks(story)).toEqual([])
+    expect(remarks(story, says)).toEqual([])
   })
 
   it('says only that the Flag is unset where nothing sets it at all', () => {
@@ -222,6 +294,71 @@ describe('what can never hold', () => {
     ], { exits: [['The bar', 'The quay', { flag: 'drink', is: 'wine' }]] })
 
     expect(named(story)).toEqual(['flagUnset'])
+  })
+})
+
+describe('a way on no Reading is ever handed', () => {
+  /**
+   * An Exit leading back to a Scene that already reaches the one it leaves. The
+   * bench refuses to write one now, so this can only ever be a Story written
+   * before `docs/adr/0048-a-scene-is-entered-once.md` — and since that record
+   * decided nothing an Author wrote would be edited, what the bench owes them
+   * instead is to have noticed.
+   */
+  it('says so of the Exit that leads back, by the Scene it leaves and its Place', () => {
+    const story = onTheBench([
+      { name: 'The bar' },
+      { name: 'The quay' },
+    ], { exits: [['The bar', 'The quay'], ['The quay', 'The bar']] })
+
+    expect(remarks(story, says).filter(remark => remark.name === 'exitNeverTaken'))
+      .toEqual([{ name: 'exitNeverTaken', sceneId: 'The quay', said: { scene: 'The quay', place: 1 } }])
+  })
+
+  /** A way on to the Scene it leaves is the same thing said of one Scene. */
+  it('says so of an Exit that leads to the Scene it leaves', () => {
+    const story = onTheBench([{ name: 'The bar' }], { exits: [['The bar', 'The bar']] })
+
+    expect(named(story)).toContain('exitNeverTaken')
+  })
+
+  /**
+   * The case *some way* would get wrong: the quay is reached through the bar and
+   * around it, so a Reader can be standing there without having been in the bar —
+   * and the way on back to it is one they are handed.
+   */
+  it('says nothing of a way back to a Scene there is also a way round', () => {
+    const story = onTheBench([
+      { name: 'The foyer' },
+      { name: 'The bar' },
+      { name: 'The quay' },
+    ], {
+      exits: [
+        ['The foyer', 'The bar'],
+        ['The foyer', 'The quay'],
+        ['The bar', 'The quay'],
+        ['The quay', 'The bar'],
+      ],
+    })
+
+    expect(named(story)).not.toContain('exitNeverTaken')
+  })
+
+  /** A Story read forwards holds none, however many ways round to one Scene it has. */
+  it('says nothing of a Story that only ever leads onwards', () => {
+    const story = onTheBench([
+      { name: 'The bar' },
+      { name: 'La gare' },
+      { name: 'The quay' },
+    ], {
+      exits: [
+        ['The bar', 'La gare'],
+        ['The bar', 'The quay'],
+        ['La gare', 'The quay'],
+      ],
+    })
+
+    expect(named(story)).not.toContain('exitNeverTaken')
   })
 })
 

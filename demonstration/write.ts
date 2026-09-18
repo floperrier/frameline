@@ -53,12 +53,10 @@ const story = await api('POST', '/api/stories', {
 const written = new Map<string, string>()
 
 for (const scene of work.scenes) {
-  const [x, y] = scene.at
   const { id } = await api('POST', `/api/stories/${story.id}/scenes`, { name: scene.name }) as
     { id: string }
 
   written.set(scene.name, id)
-  await api('PATCH', `/api/scenes/${id}`, { x, y })
   if (scene.sets) await api('PUT', `/api/scenes/${id}/flags`, { sets: scene.sets })
 
   for (const shot of scene.shots) {

@@ -61,10 +61,12 @@ export type Shot = {
 }
 
 /**
- * A work as a whole. A Scene is placed in the graph by hand, because where a
- * Scene sits is part of reading the Story at a glance; an Exit names the Scenes it
- * joins rather than identifying them, and so does the Condition it is offered
- * under — `write.ts` puts the ids in once the Scenes exist.
+ * A work as a whole. Nothing here says where a Scene is drawn: the Graph is laid
+ * out from the Story and from nothing else — see
+ * `docs/adr/0041-the-graph-is-drawn-from-the-story.md` — so a coordinate written
+ * here would have nowhere to go. An Exit names the Scenes it joins rather than
+ * identifying them, and so does the Condition it is offered under — `write.ts`
+ * puts the ids in once the Scenes exist.
  *
  * `language` is the Language the work is written in, English where it says
  * nothing, and never the Locale of whoever reads it. `opening` names the Scene a
@@ -75,7 +77,7 @@ export type Work = {
   title: string
   language?: StoryLanguage
   opening?: string
-  scenes: { name: string, at: [number, number], sets?: Flags, shots: Shot[] }[]
+  scenes: { name: string, sets?: Flags, shots: Shot[] }[]
   exits: { from: string, to: string, text: string, when?: Condition[] }[]
 }
 

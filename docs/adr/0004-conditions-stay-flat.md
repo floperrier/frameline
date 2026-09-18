@@ -4,7 +4,7 @@ status: accepted
 
 # A Condition tests one thing, and the only way they compose is "all of them"
 
-A Condition tests exactly one thing: what a Flag holds, or how often a Scene has
+A Condition tests exactly one thing: what a Flag holds, or whether a Scene has
 been entered. A Cut or a Shot carries a list of them, up to a small cap, and is
 offered — or played — only where every one holds. There is no `or`, no `not`, no
 arithmetic and no nesting, so the whole language is two shapes, one comparison,
@@ -29,6 +29,16 @@ and every Cut leaving it (#31). So a Shot carries the same list under the same
 cap, read by the same reader and judged by the same `holds`: a Shot whose
 Conditions fail is left out of the run this Reading plays. Nothing about the
 language changed — what changed is what may carry it.
+
+**Amended a third time, and this one takes something away.** A Condition counting
+Scene visits compared against a number, because a Reading could enter a Scene
+again and again. `docs/adr/0048-a-scene-is-entered-once.md` decided it cannot, so
+the count has nothing left to count: it is nought or one, and the test is whether
+the Reader has stood there. The shape becomes `{ scene, entered }`, the cap on
+what may be counted goes with the counting, and the sentence below about visits
+being what the engine counts anyway is no longer true. What the language keeps is
+the question almost every such Condition was actually asking, and what it loses is
+"the third time" — which is a Story this product no longer writes.
 
 `CONTEXT.md` calls a Condition "a flat test on State, carried by a Cut or by a
 Shot", and the flatness is this: each test stands alone and is read on its own,

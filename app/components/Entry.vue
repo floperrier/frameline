@@ -25,6 +25,8 @@ const { story } = defineProps<{
     publishedAt: string | null
     authorId?: string
     authorName?: string | null
+    /** The address of the Image the Story is presented by, or none. */
+    cover?: string | null
   }
 }>()
 
@@ -33,7 +35,14 @@ const localePath = useLocalePath()
 </script>
 
 <template>
-  <li>
+  <li :class="{ covered: story.cover }">
+    <!-- The frame the Story is presented by: its Cover, or its Opening Scene's
+         first Image standing in — see
+         `docs/adr/0040-a-story-is-presented-by-one-of-its-own-frames.md`.
+         Decorative beside the title that names the work, so it says nothing of
+         its own: a Reader who cannot see it meets the Shot's Description when
+         they read. -->
+    <img v-if="story.cover" class="cover" :src="story.cover" alt="" loading="lazy">
     <NuxtLink class="open" :to="`/read/${story.id}`" :lang="story.language">
       {{ story.title }}
     </NuxtLink>
@@ -74,6 +83,30 @@ li {
   gap: var(--s2) var(--s4);
   padding-block: var(--s4);
   border-block-end: 1px solid var(--edge);
+}
+
+/* A Story with a frame to show is met by it first: the Cover stands at the head
+   of the row down its whole height, and the words are set beside it. The shelf
+   is otherwise unchanged, so a Story with no Image sits on the same lines as one
+   with — pictures and words in one column, never two shelves. */
+li.covered {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.cover {
+  grid-row: 1 / span 3;
+  align-self: start;
+  inline-size: 7.5rem;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border: 1px solid var(--edge);
+  border-radius: var(--machined);
+  background: var(--bench);
+}
+
+li.covered .synopsis,
+li.covered .doing {
+  grid-column: 2 / -1;
 }
 
 .open {
@@ -125,6 +158,14 @@ li {
 @media (--phone) {
   li {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  li.covered {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .cover {
+    inline-size: 5rem;
   }
 }
 </style>

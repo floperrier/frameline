@@ -1,8 +1,13 @@
 ---
-status: accepted
+status: superseded by 0041
 ---
 
 # A Cut is drawn by hand
+
+Superseded by `docs/adr/0041-the-graph-is-drawn-from-the-story.md`: an Exit is
+written in the document of the Scene it leaves, by naming where it leads, and
+the Graph takes no gesture but a press on a node.
+
 
 A Cut is made by dragging from the edge of one Scene's node to another. A strip
 twenty pixels wide down the leading edge of every node is where the gesture

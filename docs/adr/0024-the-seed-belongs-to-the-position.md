@@ -10,8 +10,15 @@ unless they are written down: where the randomness lives, and how one draw is
 told from the next.
 
 The answers are that the seed is a part of the Position, and that a drawn value
-is a hash of the seed, the Scene, the count of entries to that Scene, and the
-Flag's name — never the next number out of a generator threaded through the walk.
+is a hash of the seed, the Scene and the Flag's name — never the next number out
+of a generator threaded through the walk.
+
+**Amended.** As accepted, the count of entries to the Scene was in the key as
+well, so that a Scene read a second time drew again. A Reading now stands in a
+Scene at most once — `docs/adr/0048-a-scene-is-entered-once.md` — so there is one
+arrival and one draw, and the count has left the key. Nothing else here moves:
+the seed is still the Position's, and a draw is still told from every other by
+its own identity rather than by its place in a sequence.
 
 ## The seed is in the Position, not in State
 
@@ -54,12 +61,13 @@ showed. A Reader coming back a beat would be safe, but an Author editing while a
 Reading is in progress would silently rewrite it.
 
 Keying the draw on its own identity removes the dependency altogether. The value
-is `values[hash(seed, sceneId, visits, flag) % values.length]`, so each draw is
-independent of every other: the same Scene, the same entry, the same Flag and the
-same seed give the same value, whatever else the Story grew in the meantime. It
-also gives the re-entry behaviour for free — the entry count is in the key, so a
-Scene read a second time draws again, which is the whole point of a Story that
-loops.
+is `values[hash(seed, sceneId, flag) % values.length]`, so each draw is
+independent of every other: the same Scene, the same Flag and the same seed give
+the same value, whatever else the Story grew in the meantime. As first written the
+key also carried the count of entries, which gave the re-entry behaviour for free
+— a Scene read a second time drew again, which was the whole point of a Story that
+loops. A Story no longer loops, so what that bought is a draw the Reading makes on
+arrival and never again.
 
 The hash is a few lines in `shared/utils/reading.ts` rather than a dependency, on
 the grounds of `docs/adr/0010-the-graph-is-written-here-not-pulled-in.md`: FNV-1a

@@ -33,8 +33,8 @@ export type Problem = { said: string, door?: boolean }
 /**
  * The two ways a change is sent, named so that the pieces of the bench can be
  * handed the very ones the page holds. There is one `useEditing` on the page and
- * the graph, the panel and the header all write through it: a piece that made
- * its own would be a second refusal on the same screen.
+ * the header, the document and the reading all write through it: a piece that
+ * made its own would be a second refusal on the same screen.
  */
 export type Change = (act: () => Promise<unknown>) => Promise<boolean>
 export type Write = (act: () => Promise<unknown>) => Promise<void>

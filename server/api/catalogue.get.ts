@@ -21,9 +21,13 @@ import { useDb } from '../db'
  * one way and to whoever wrote it the other. The join is an inner one because a
  * Name is what listing asks for before it lists — an entry with nobody's name on
  * it is the one thing the Catalogue is not. The email is not selected.
+ *
+ * Each entry carries the address of the Image it is presented by — the Cover, or
+ * the Opening Scene's first — resolved here so the shelf draws pictures without a
+ * request apiece to find out whether there is one.
  */
 export default defineEventHandler(async () => {
-  return useDb()
+  const rows = await useDb()
     .select({
       id: stories.id,
       title: stories.title,
@@ -32,9 +36,12 @@ export default defineEventHandler(async () => {
       publishedAt: stories.publishedAt,
       authorId: authors.id,
       authorName: authors.name,
+      cover: coverShotOf,
     })
     .from(stories)
     .innerJoin(authors, eq(stories.authorId, authors.id))
     .where(and(eq(stories.listed, true), isNotNull(stories.publishedAt)))
     .orderBy(desc(stories.publishedAt))
+
+  return rows.map(row => ({ ...row, cover: coverUrl(row.cover) }))
 })

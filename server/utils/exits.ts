@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { exits, scenes, stories } from '../db/schema'
 import { useDb } from '../db'
@@ -41,6 +41,46 @@ export async function readExitText(event: H3Event) {
   return text
 }
 
+/**
+ * Reads whether a Reading crosses this Exit backwards: true, false, or null for
+ * the Exit answering as its Story says. Three answers to one question, which is
+ * why they arrive in one field rather than as a pair of switches that could
+ * disagree — see
+ * `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`. Anything else
+ * in the field is refused rather than read as one of the three.
+ */
+export async function readExitStepsBack(event: H3Event) {
+  const body = await readBody<{ stepsBack?: unknown }>(event)
+  const stepsBack = body?.stepsBack
+
+  if (stepsBack !== null && typeof stepsBack !== 'boolean') {
+    throw createError({ statusCode: 400, message: saying(event)('refusals.exitStepsBack') })
+  }
+
+  return stepsBack
+}
+
+/**
+ * What a PATCH may change about an Exit: the words the Reader presses, whether a
+ * Reading crosses it backwards, or both. Each is read only where the body names
+ * it, so writing the one the Author changed leaves the other where it was — and
+ * null is a value here rather than an absence, which is why the field is looked
+ * for against `undefined` and not against nothing.
+ *
+ * A body naming neither is refused as the text being asked for: the words are
+ * what an Exit is written with, so that is what an empty change is missing.
+ */
+export async function readExitChanges(event: H3Event) {
+  const body = await readBody<{ text?: unknown, stepsBack?: unknown }>(event)
+  const changes: { text?: string, stepsBack?: boolean | null } = {}
+
+  if (body?.text !== undefined) changes.text = await readExitText(event)
+  if (body?.stepsBack !== undefined) changes.stepsBack = await readExitStepsBack(event)
+  if (!Object.keys(changes).length) await readExitText(event)
+
+  return changes
+}
+
 /** Reads which Scene an Exit arrives at. */
 export async function readTargetSceneId(event: H3Event) {
   const body = await readBody<{ toSceneId?: unknown }>(event)
@@ -51,4 +91,57 @@ export async function readTargetSceneId(event: H3Event) {
   }
 
   return toSceneId
+}
+
+/**
+ * Refuses a way on that would let a Reading come back, which is
+ * `docs/adr/0048-a-scene-is-entered-once.md` held where a way on is given a
+ * destination: from A to B is refused exactly when B already reaches A, and a
+ * way on to the Scene it leaves is that same test asked of one Scene, since a
+ * Scene reaches itself.
+ *
+ * Both places a destination is written ask it — as an Exit is drawn, and as one
+ * is re-led — so the Scene being left is named either by itself or by the Exit
+ * standing in it, and the answer is the same walk either way.
+ *
+ * Read and then written rather than settled inside the statement that writes:
+ * the walk is `reaches`, the one the bench withholds a landing with, so the rule
+ * is read once in the product instead of once here and again in SQL. The read is
+ * scoped to the Author's own Stories, so a Scene that is not theirs is refused
+ * nothing and falls through to the not-found the write already answers. Nothing
+ * holds the two together — the neon-http driver has no transactions — which is
+ * the same seam every act of two statements here accepts, and there is one
+ * Author writing.
+ */
+export async function refuseAWayBack(
+  event: H3Event,
+  authorId: string,
+  leaving: { scene: string } | { exit: string },
+  toSceneId: string,
+) {
+  const departure = 'scene' in leaving
+    ? sql`select id from scenes where id = ${leaving.scene}::uuid`
+    : sql`select from_scene_id as id from exits where id = ${leaving.exit}::uuid`
+
+  // Left joined, because the Story may hold no Exit at all and the Scene being
+  // left still has to come back: a way on from a Scene to itself is refused in a
+  // Story of one Scene and nothing written.
+  const { rows } = await useDb().execute<Exit & { from: string }>(sql`
+    with departure as (
+      select scenes.id, scenes.story_id
+      from scenes
+      where scenes.id in (${departure}) and scenes.story_id in (${storiesOf(authorId)})
+    )
+    select
+      departure.id as "from",
+      exits.from_scene_id as "fromSceneId",
+      exits.to_scene_id as "toSceneId"
+    from departure
+    left join scenes on scenes.story_id = departure.story_id
+    left join exits on exits.from_scene_id = scenes.id`)
+
+  const from = rows[0]?.from
+  if (!from || !reaches(rows, toSceneId, from)) return
+
+  throw createError({ statusCode: 400, message: saying(event)('refusals.wayBack') })
 }

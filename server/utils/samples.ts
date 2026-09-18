@@ -51,8 +51,6 @@ export async function plantSample(
       .values(sample.scenes.map((scene, order) => ({
         storyId: planted!,
         name: scene.name,
-        x: scene.at[0],
-        y: scene.at[1],
         sets: scene.sets ?? {},
         createdAt: new Date(Date.now() + order),
       })))

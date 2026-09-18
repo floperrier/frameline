@@ -18,11 +18,18 @@ import { useDb } from '../../../db'
  * statement that draws an Exit uses: an Exit cannot be led out of its own Story,
  * and neither end can belong to another Author, because a Scene that fails
  * either test selects nothing and nothing is written.
+ *
+ * Re-leading is refused on the same test as writing, and by the same walk: an
+ * Exit led to a Scene that already reaches the one it leaves would let a Reading
+ * come back, which is the thing
+ * `docs/adr/0048-a-scene-is-entered-once.md` takes away. The Scene being left is
+ * named by the Exit here rather than by itself, and nothing else differs.
  */
 export default defineEventHandler(async (event) => {
   const author = await requireAuthor(event)
   const id = readId(event, 'Exit')
   const toSceneId = await readTargetSceneId(event)
+  await refuseAWayBack(event, author.id, { exit: id }, toSceneId)
 
   const { rows } = await useDb().execute<Exit>(sql`
     update exits set to_scene_id = arrival.id

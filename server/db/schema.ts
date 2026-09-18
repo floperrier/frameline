@@ -76,6 +76,10 @@ export const authors = pgTable('authors', {
 // `published_at` already says which side of publishing the Story is on. It
 // defaults to false and nothing backfills it: nobody agreed to appear in a
 // catalogue that did not exist when they published.
+// `steps_back` is what an Exit of this Story answers when it has not answered
+// for itself: true, the default, is the Reading a step back crosses every Exit
+// of — which is every Story written before the column existed, reading exactly
+// as it read.
 export const stories = pgTable('stories', {
   id: uuid('id').primaryKey().defaultRandom(),
   authorId: uuid('author_id').notNull().references(() => authors.id, { onDelete: 'cascade' }),
@@ -84,15 +88,21 @@ export const stories = pgTable('stories', {
   synopsis: text('synopsis').notNull().default(''),
   openingSceneId: uuid('opening_scene_id')
     .references((): AnyPgColumn => scenes.id, { onDelete: 'set null' }),
+  coverShotId: uuid('cover_shot_id')
+    .references((): AnyPgColumn => shots.id, { onDelete: 'set null' }),
   publishedAt: timestamp('published_at', { withTimezone: true }),
   listed: boolean('listed').notNull().default(false),
+  stepsBack: boolean('steps_back').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-// `x` and `y` are where the Author put the Scene's node in the Story graph, in
-// pixels from the graph's top left. They say nothing about the Story itself —
-// two Scenes may sit on top of each other — so nothing constrains them beyond
-// the reach of the graph.
+// `x` and `y` were where the Author put the Scene's node in the Story's graph.
+// Nothing reads or writes them any more: where a Scene is drawn is read off the
+// Story itself — see `docs/adr/0041-the-graph-is-drawn-from-the-story.md`. They
+// stay one deploy longer, because the code running before this one still writes
+// them and a column dropped from under it would take that code down — see
+// `docs/adr/0002-the-schema-moves-with-the-deploy.md`. The migration that drops
+// them follows.
 //
 // `sets` is the Flags the Scene sets on every entry, as one flat object of names
 // to values — or, where the Author named several, to the list one value is drawn
@@ -172,8 +182,8 @@ export const shots = pgTable('shots', {
 // as a Scene's Flags: it is read and written whole with the Exit, and the shape is
 // kept by the request boundary rather than by columns. A Condition naming a Scene
 // holds its id in the json, where no foreign key reaches — a Scene deleted out
-// from under it leaves a Condition counting visits to nowhere, which is a
-// Condition that never passes.
+// from under it leaves a Condition asking about nowhere, which is a Condition
+// that never passes.
 //
 // `position` is the Scene's own numbering of the ways on leaving it: 0, 1, 2
 // with no gaps, the same Place a Shot has in its Scene's run. The Reader is
@@ -189,6 +199,14 @@ export const shots = pgTable('shots', {
 // for a while an insert naming no Place has to succeed rather than take drawing
 // an Exit down with it — see
 // `docs/adr/0002-the-schema-moves-with-the-deploy.md`.
+//
+// `steps_back` is whether a Reading crosses this Exit backwards, and it is the
+// one column here that is nullable on purpose: null is the Exit answering *as
+// the Story says*, which is what every Exit answers until an Author says
+// otherwise. The Story's own `steps_back` is what that answer resolves to, so
+// there is one fact per Exit and one default per Story rather than two settings
+// that can disagree — see
+// `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
 export const exits = pgTable('exits', {
   id: uuid('id').primaryKey().defaultRandom(),
   fromSceneId: uuid('from_scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
@@ -196,6 +214,7 @@ export const exits = pgTable('exits', {
   text: text('text').notNull().default(''),
   conditions: jsonb('conditions').$type<Condition[]>().notNull().default([]),
   position: integer('position').notNull().default(0),
+  stepsBack: boolean('steps_back'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 

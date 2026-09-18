@@ -54,26 +54,29 @@ test.describe('an interface read in French', () => {
     await expect(page.getByRole('link', { name: 'Tous les Récits' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Publier ce Récit', exact: true })).toBeVisible()
 
-    // The words of the craft, on a Scene in the panel it is written in: a Shot is
-    // a Plan and a Flag is a Marqueur, as `CONTEXT.md` says they are shown.
-    await page.getByRole('button', { name: 'Écrire Scène The street' }).click()
-    await expect(page.getByRole('button', { name: 'Ajouter un Plan' })).toBeVisible()
+    // The words of the craft, on the Scene the Story opens on: a Shot is a Plan
+    // and a Flag is a Marqueur, as `CONTEXT.md` says they are shown.
+    await expect(page.getByRole('group', { name: 'Écriture de The street' })).toBeVisible()
+    await expect(page.getByRole('group', { name: 'Écriture de The street' })
+      .getByRole('button', { name: 'Ajouter un Plan' })).toBeVisible()
 
-    // The three tabs a Scene stands behind are the same three words, and the
-    // Marqueurs are read behind theirs.
+    // The three parts a Scene is written in are three headings in its own section
+    // of the document, and the Marqueurs are read under theirs.
     await expect(page.getByRole('button', { name: 'Ajouter un Marqueur à The street' }))
       .toBeVisible()
     expect(await everythingShown(page)).not.toMatch(A_RAW_KEY)
 
     // What the bench says about its own writing is in the Locale twice over: the
     // words, and the clock read the French way rather than the English one.
-    const shot = page.getByRole('textbox', { name: 'Plan 1' })
+    const shot = page.getByRole('group', { name: 'Écriture de The street' })
+      .getByRole('textbox', { name: 'Plan 1 de The street', exact: true })
     await shot.fill('Une porte s\'ouvre.')
     await shot.blur()
     await expect(page.getByText(/^Enregistré à \d{2}:\d{2}$/)).toBeVisible()
 
-    // The Aperçu, beside the Scene being written, where a Story's own words and
-    // the tool's are on screen at once.
+    // The Aperçu, the reading the middle of the bench turns to, where a Story's
+    // own words and the tool's are on screen at once.
+    await page.getByRole('button', { name: 'Lire le Récit' }).click()
     await expect(page.getByText('Sur la table de montage')).toBeVisible()
     expect(await everythingShown(page)).not.toMatch(A_RAW_KEY)
 
@@ -99,6 +102,14 @@ test.describe('an interface read in French', () => {
     await page.goto(`${baseURL}/read/${story.id}`)
     await expect(page).toHaveURL(`${baseURL}/read/${story.id}`)
     await expect(page.getByRole('button', { name: 'Plan suivant' })).toBeVisible()
+    // The two ways off the page are the chrome as much as the words are, and
+    // this is the one route with no localized variant for `localePath` to read a
+    // Locale off — so a French Reader led into English rooms would look exactly
+    // like a green suite anywhere else. Both links are asserted here or nowhere.
+    await expect(page.getByRole('link', { name: 'Trouver des Récits au Catalogue' }))
+      .toHaveAttribute('href', '/fr/catalogue')
+    await expect(page.getByRole('link', { name: 'Frameline' }))
+      .toHaveAttribute('href', '/fr/catalogue')
     // Nothing to switch to here, so nothing is offered.
     await expect(page.getByRole('link', { name: 'English' })).toHaveCount(0)
 
@@ -124,6 +135,9 @@ test('a Story is announced in its own Language while the chrome stays the Reader
 
   await page.goto(`/stories/${story.id}`)
   await page.getByRole('button', { name: 'Publish this Story', exact: true }).click()
+  // The link the bench draws once the Story is out is what says the Publish
+  // landed: a Reader sent to it before that reads a Story nobody has published.
+  await expect(page.getByRole('link', { name: new RegExp(`/read/${story.id}$`) })).toBeVisible()
 
   const reader = await (await browser.newContext({ locale: 'en-US' })).newPage()
   await reader.goto(`${baseURL}/read/${story.id}`)
