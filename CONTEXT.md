@@ -23,7 +23,10 @@ _Avoid_: film, movie, project, game, narrative, experience, histoire
 **Scene**:
 A linear run of Shots, and the only unit at which a Story branches. The run is
 linear for every Reader, but not the same length for each: a Shot whose Conditions
-do not hold is not played.
+do not hold is not played. A Reading stands in a Scene at most once: a Scene an
+Author wants seen again is written again, as a copy carrying the same Shots under
+the same name and no ways on of its own — see
+`docs/adr/0048-a-scene-is-entered-once.md`.
 _Affiché_: Scène
 _Avoid_: passage, knot, node, chapter, page, card, séquence
 
@@ -76,7 +79,10 @@ _Avoid_: index, order, rank, slot, sort key
 **Exit**:
 A directed connection from one Scene to another, offered to the Reader at the end
 of a Scene as something to take. It is the Reader's way out of the Scene, named
-for what they do with it rather than for anything the screen shows them.
+for what they do with it rather than for anything the screen shows them. It only
+ever leads onwards: an Exit to a Scene the Reader could already have stood in is
+refused as it is written, because a Story is read forwards — see
+`docs/adr/0048-a-scene-is-entered-once.md`.
 The English interface shows the word itself — _Exits_ over the part of a Scene's
 document that holds them, _the Exit 1 to …_ on every control of a row — and a
 Step may gloss it as _the way on_ once, when it introduces the term; the gloss
@@ -137,7 +143,8 @@ _Avoid_: start, entry point, root, first scene, home
 
 **Condition**:
 A flat test on State, carried by an Exit or by a Shot: it decides whether the Exit is
-offered to this Reader, or whether the Shot plays for them. Either may carry
+offered to this Reader, or whether the Shot plays for them. It asks one of two
+things — what a Flag holds, or whether a Scene has been entered. Either may carry
 several, and is offered or played only where all of them hold; one carrying none
 always is.
 _Affiché_: Condition
@@ -195,15 +202,18 @@ _Avoid_: error, warning, issue, problem, lint, validation, avertissement, alerte
 
 **State**:
 Everything a Story has accumulated during one Reading — a flat map of Flags, plus
-a visit count per Scene. Never shared between Readings.
+the Scenes it has entered. Entered rather than counted, because a Reading stands
+in a Scene at most once — see `docs/adr/0048-a-scene-is-entered-once.md`. Never
+shared between Readings.
 _Affiché_: État
 _Avoid_: variables, memory, save, progress, context, session data
 
 **Flag**:
 A single named value in State, set by the Author and tested by Conditions. A
-Scene carries the Flags it sets, and sets them on every entry. A Scene may name
-several values for one Flag, and one of them is drawn on each entry — what holds
-a list is the Scene, never the State, where a Flag is the one value drawn.
+Scene carries the Flags it sets, and sets them as it is entered. A Scene may name
+several values for one Flag, and one of them is drawn as the Reading arrives —
+what holds a list is the Scene, never the State, where a Flag is the one value
+drawn.
 _Affiché_: Marqueur
 _Avoid_: variable, switch, toggle, key, drapeau
 

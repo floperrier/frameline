@@ -312,42 +312,37 @@ export const REEL_CHANGE: Work = {
   ],
 
   /* The order the Exits are written in is the order the Reader is offered them,
-     so the ways on read down the page as they read down the screen. */
+     so the ways on read down the page as they read down the screen.
+
+     The work is read forwards and each Scene is stood in once — see
+     `docs/adr/0048-a-scene-is-entered-once.md`. What was a night spent climbing
+     between the booth and the house is now one descent: the reel is threaded or
+     it is not, and everything after that follows from the answer. */
   exits: [
-    {
-      from: 'The booth',
-      to: 'The gate',
-      text: 'Thread it',
-      // A Flag that was never set reads as empty, so this is the way on being
-      // offered exactly once: the Scene it leads to sets `reel` on entry.
-      when: [{ flag: 'reel', is: '' }],
-    },
+    { from: 'The booth', to: 'The gate', text: 'Thread it' },
     {
       from: 'The booth',
       to: 'Row nine',
-      text: 'Go down into the house',
-      // Twice and no more, so a Reader who walked the house before threading the
-      // reel can go down again once they have something to recognise.
-      when: [{ scene: 'Row nine', visits: 'fewer than', times: 2 }],
+      text: 'Leave it wound and go down into the house',
     },
-    {
-      from: 'The booth',
-      to: 'Daybreak',
-      text: 'Open the window onto the boulevard',
-      // The third time the Reader stands in the booth, whatever they did with the
-      // first two, the only way on left is out.
-      when: [{ scene: 'The booth', visits: 'at least', times: 3 }],
-    },
-    { from: 'The gate', to: 'The booth', text: 'Kill the lamp and go back up' },
-    { from: 'Row nine', to: 'The booth', text: 'Climb back to the booth' },
+    { from: 'The gate', to: 'Row nine', text: 'Go down into the house' },
     {
       from: 'Row nine',
       to: 'The coat',
-      text: 'Look at the coat again',
       // Only a Reader who has seen the reel has anything to recognise, so for
       // anyone else this way on is not refused — it is not there.
+      text: 'Look at the coat again',
       when: [{ flag: 'reel', is: 'threaded' }],
     },
-    { from: 'The coat', to: 'The booth', text: 'Go up. Do not run.' },
+    {
+      from: 'Row nine',
+      to: 'Daybreak',
+      // A Flag that was never set reads as empty, so this is the way out for the
+      // Reader who left the reel on the bench: nothing downstairs means anything
+      // to them, and the night simply ends.
+      text: 'Go back up and open the window',
+      when: [{ flag: 'reel', is: '' }],
+    },
+    { from: 'The coat', to: 'Daybreak', text: 'Go up. Do not run.' },
   ],
 }
