@@ -1,7 +1,7 @@
 /**
  * What the bench finds when it reads the Story back: the Scenes nothing arrives
  * at, the Shots nobody has written, the Flags set and never tested, the ways on
- * that can never be offered.
+ * that can never be offered, and the ways on no Reading is ever handed.
  *
  * A Remark is a reading and never a refusal. Nothing here blocks a write, marks a
  * Story invalid or corrects anything: every one of these is a Story an Author is
@@ -23,7 +23,7 @@
  * (`app/utils/steps.ts`) and for the same reasons: it cannot disagree with the
  * screen, it survives a reload, and nothing stores it.
  */
-import { exitsFrom, namesOnTheBench } from '../../shared/utils/scenes'
+import { exitsFrom, namesOnTheBench, reaches } from '../../shared/utils/scenes'
 import type { Condition, Scene, StoryInEditor } from '../../shared/utils/scenes'
 import type { Phrase } from '../../shared/utils/phrases'
 
@@ -90,7 +90,78 @@ export function remarks(story: StoryInEditor, say: Phrase): Remark[] {
     })
   }
 
-  return [...found, ...flagRemarks(story, names), ...deadRemarks(story, names)]
+  return [
+    ...found,
+    ...flagRemarks(story, names),
+    ...deadRemarks(story, names),
+    ...neverTakenRemarks(story, names),
+  ]
+}
+
+/**
+ * The ways on no Reading is ever handed: an Exit whose Scene stands on every way
+ * to the Scene it leaves, so a Reading standing there has already been through it
+ * and is never offered it. It is not sometimes unavailable — it is never
+ * available, because the only way to be where it is written is to have come
+ * through the Scene it leads to.
+ *
+ * This is the cost `docs/adr/0048-a-scene-is-entered-once.md` accepted when it
+ * decided that a Reading refuses a way back the writing never saw: nothing an
+ * Author already wrote is edited, so what the bench owes them instead is to have
+ * noticed. It can only ever fire on a Story written before that rule — the bench
+ * refuses to write such a way on now — which is exactly the Story an Author has no
+ * other way of being told about.
+ *
+ * *Every* way and not merely *some* way: a Scene reached both through the one the
+ * Exit leads to and around it is a Scene the Reader can stand in without having
+ * been there, and that Exit is one they are handed. So what is asked is whether
+ * the departure is still reached with the arrival taken out of the Story
+ * altogether, which is the same question a Reading asks of itself, put to the
+ * whole Story at once.
+ *
+ * Conditions are not read here, and that is safe in the one direction that
+ * matters: they only ever take ways round away, so a Scene every drawn path
+ * passes through is a Scene every Reading passes through. A way on out of a Scene
+ * no Reading reaches at all is left alone — that Scene has a Remark of its own,
+ * and its ways on are not what is wrong with it.
+ */
+function neverTakenRemarks(story: StoryInEditor, names: Map<string, string>): Remark[] {
+  const opening = story.openingSceneId
+  if (!opening) return []
+
+  return story.scenes.flatMap((scene) => {
+    if (!reaches(story.exits, opening, scene.id)) return []
+
+    return exitsFrom(story.exits, scene.id).flatMap((exit, place) =>
+      reachedWithout(story, opening, scene.id, exit.toSceneId)
+        ? []
+        : [{
+            name: 'exitNeverTaken',
+            sceneId: scene.id,
+            said: { scene: names.get(scene.id)!, place: place + 1 },
+          }])
+  })
+}
+
+/**
+ * Whether a Reading still reaches one Scene with another taken out of the Story —
+ * every way on that touches the absent Scene going with it. A Story whose opening
+ * is the Scene taken out reaches nothing at all, which is what makes a way on to
+ * the Scene it leaves answer the same way as a way back.
+ */
+function reachedWithout(
+  story: StoryInEditor,
+  opening: string,
+  sceneId: string,
+  without: string,
+) {
+  if (opening === without) return false
+
+  return reaches(
+    story.exits.filter(exit => exit.fromSceneId !== without && exit.toSceneId !== without),
+    opening,
+    sceneId,
+  )
 }
 
 /**

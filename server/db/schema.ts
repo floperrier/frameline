@@ -182,8 +182,8 @@ export const shots = pgTable('shots', {
 // as a Scene's Flags: it is read and written whole with the Exit, and the shape is
 // kept by the request boundary rather than by columns. A Condition naming a Scene
 // holds its id in the json, where no foreign key reaches — a Scene deleted out
-// from under it leaves a Condition counting visits to nowhere, which is a
-// Condition that never passes.
+// from under it leaves a Condition asking about nowhere, which is a Condition
+// that never passes.
 //
 // `position` is the Scene's own numbering of the ways on leaving it: 0, 1, 2
 // with no gaps, the same Place a Shot has in its Scene's run. The Reader is

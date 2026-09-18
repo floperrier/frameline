@@ -115,7 +115,8 @@ const draws = computed(() =>
 /**
  * What the bench calls each Scene, which is what everything this pane says names
  * one by: the two marks that renumber a way on, the Scene the reading has not
- * reached, the visits the State counts, and the Exits a Condition is hiding. This
+ * reached, the Scenes the State says were entered, and the Exits a Condition is
+ * hiding. This
  * pane is the bench around the reading and never the reading itself — the frames
  * and the buttons a Reader would press are drawn by `Reading.vue`, in the words
  * the Author wrote — so two Scenes an Author called the same are numbered here
@@ -171,7 +172,7 @@ function moveWay(exit: Exit, step: -1 | 1) {
  * almost nothing at very great length.
  */
 const flags = computed(() => Object.entries(shown.value.state.flags))
-const visits = computed(() => Object.entries(shown.value.state.visits))
+const entered = computed(() => shown.value.state.entered)
 
 /** What a Flag holds, and what stands in for a Flag holding the empty value. */
 function held(value: string) {
@@ -367,9 +368,14 @@ function why(conditions: Condition[]) {
 
           <div>
             <p class="eyebrow">{{ $t('preview.scenesEntered') }}</p>
-            <ul class="visits">
-              <li v-for="[sceneId, count] in visits" :key="sceneId">
-                {{ sceneName(sceneId) }} <span aria-hidden="true">×</span> <b>{{ count }}</b>
+            <!-- The Scenes themselves, in the order this Reading went through
+                 them, and no count beside them: a Reading stands in a Scene at
+                 most once, so *× 1* on every line would be arithmetic saying
+                 nothing — see `docs/adr/0048-a-scene-is-entered-once.md`. It is
+                 what an Author reads to see why a Condition held. -->
+            <ul class="entered">
+              <li v-for="sceneId in entered" :key="sceneId">
+                <b>{{ sceneName(sceneId) }}</b>
               </li>
             </ul>
           </div>
@@ -483,9 +489,10 @@ function why(conditions: Condition[]) {
 }
 
 /* What the State holds, read as the pairs they are: the name on the left at the
-   contrast of a label, the value beside it in the machine's own light. */
+   contrast of a label, the value beside it in the machine's own light. The Scenes
+   entered are a list of one thing apiece, so a line of it is only the light half. */
 .flags li,
-.visits li {
+.entered li {
   display: flex;
   align-items: baseline;
   gap: var(--s2);
@@ -493,7 +500,7 @@ function why(conditions: Condition[]) {
 }
 
 .flags b,
-.visits b {
+.entered b {
   color: var(--light);
   font-weight: 500;
 }

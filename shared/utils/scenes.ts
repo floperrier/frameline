@@ -84,13 +84,16 @@ export const CONDITIONS_MAX = 4
  * The longest a Flag's name and its value may be, and how many Flags one Scene
  * may set on entry. A Flag is a short named value, not a place to keep prose,
  * and a Scene setting a score of them is a Story keeping State its graph should
- * be keeping. The most visits a Condition may count is bounded for the same
- * reason: a Story nobody can read round a hundred times cannot need more.
+ * be keeping.
+ *
+ * There is no cap on entries beside them any more. A Condition bounded how many
+ * of them it could count, because a Story could be read round and round; a
+ * Reading now stands in a Scene at most once, so there is nothing left to bound
+ * — see `docs/adr/0048-a-scene-is-entered-once.md`.
  */
 export const FLAG_NAME_MAX_LENGTH = 60
 export const FLAG_VALUE_MAX_LENGTH = 200
 export const FLAGS_PER_SCENE = 20
-export const VISITS_MAX = 100
 
 /**
  * How many values one Flag may be given to draw from. Two at the least — a line
@@ -532,15 +535,23 @@ export function scenesAExitMayLandOn(scenes: Scene[], exits: Exit[], fromSceneId
 }
 
 /**
- * A flat test on the State of one Reading, carried by an Exit or by a Shot: the Exit
- * is offered, and the Shot played, only where every test it carries passes. Two
- * things can be tested and nothing else — what a Flag holds, or how often a Scene has been entered — with no
- * arithmetic and no nesting, so a Condition is one row of a form and one
- * comparison in the engine. A Flag that was never set reads as the empty value,
- * which is how a Condition asks for the absence of one.
+ * A flat test on the State of one Reading, carried by an Exit or by a Shot: the
+ * Exit is offered, and the Shot played, only where every test it carries passes.
+ * Two things can be tested and nothing else — what a Flag holds, or whether a
+ * Scene has been entered — with no arithmetic and no nesting, so a Condition is
+ * one row of a form and one comparison in the engine. A Flag that was never set
+ * reads as the empty value, which is how a Condition asks for the absence of one.
+ *
+ * The third member is the shape a Condition was written in while a Reading could
+ * enter a Scene again and again, and it is **read and never written**: the
+ * editor writes `{ scene, entered }` alone, and the request boundary goes on
+ * taking the old shape for one deploy so that nothing already stored breaks
+ * before the migration reaches it. It is `docs/adr/0002-the-schema-moves-with-the-deploy.md`'s
+ * expand half; #306 rewrites what is stored and #307 takes this member away.
  */
 export type Condition =
   | { flag: string, is: string }
+  | { scene: string, entered: boolean }
   | { scene: string, visits: 'at least' | 'fewer than', times: number }
 
 export type StoryInEditor = {

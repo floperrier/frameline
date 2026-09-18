@@ -207,7 +207,7 @@
     "holds": "vaut",
     "forCondition": "pour {condition}",
     "scene": "Scène",
-    "countedBy": "comptée par {condition}",
+    "askedAboutBy": "interrogée par {condition}",
     "entered": "entrée",
     "atLeast": "au moins",
     "fewerThan": "moins de",
@@ -216,7 +216,9 @@
     "add": "Ajouter une Condition",
     "addTo": "Ajouter une Condition à {carrier}",
     "toCarrier": "à {carrier}",
-    "called": "Condition {place} de {carrier}"
+    "called": "Condition {place} de {carrier}",
+    "hasBeenEntered": "a été entrée",
+    "hasNotBeenEntered": "n’a pas été entrée"
   },
   "flags": {
     "called": "Marqueur {place} posé à l'entrée dans {scene}",
@@ -251,7 +253,8 @@
     "flagUntested": "{scene} pose le Marqueur {flag}, et aucune Condition ne le teste nulle part.",
     "flagUnset": "Une Condition de {scene} teste le Marqueur {flag}, et aucune Scène ne le pose.",
     "exitUnofferable": "La Sortie {place} depuis {scene} n’est offerte que si {flag} vaut « {is} », valeur qu’aucune Scène ne lui donne.",
-    "shotUnplayable": "Le Plan {place} de {scene} ne joue que si {flag} vaut « {is} », valeur qu’aucune Scène ne lui donne."
+    "shotUnplayable": "Le Plan {place} de {scene} ne joue que si {flag} vaut « {is} », valeur qu’aucune Scène ne lui donne.",
+    "exitNeverTaken": "La Sortie {place} de {scene} ramène à une Scène qu’une Lecture arrivée ici a déjà traversée : aucun Lecteur ne se la voit jamais offrir."
   },
   "preview": {
     "nobodyElse": "Personne d'autre ne peut voir ceci",
@@ -276,9 +279,10 @@
     "manyVisits": "{times} entrées",
     "neverEntered": "jamais entrée",
     "enteredOnce": "entrée une fois",
-    "enteredTimes": "entrée {visits} fois",
     "reading": "Aperçu",
-    "notReached": "Rien ne mène encore à {scene}, aucune Lecture n’y arrive donc. L’aperçu ci-dessous reste où il est parvenu."
+    "notReached": "Rien ne mène encore à {scene}, aucune Lecture n’y arrive donc. L’aperçu ci-dessous reste où il est parvenu.",
+    "needsEntered": "demande que {scene} ait été entrée, et elle ne l’a pas été",
+    "needsNotEntered": "demande que {scene} n’ait pas été entrée, et elle l’a été"
   },
   "reading": {
     "shotOf": "Plan {place} sur {of}",
@@ -334,7 +338,7 @@
       "shot": "Un Plan ne peut pas porter plus de {max} Conditions.",
       "exit": "Une Sortie ne peut pas porter plus de {max} Conditions."
     },
-    "badCondition": "Une Condition teste ce que vaut un Marqueur, ou combien de fois une Scène a été entrée, jusqu'à {max} fois.",
+    "badCondition": "Une Condition teste ce que vaut un Marqueur, ou si une Scène a été entrée.",
     "exitText": "Une Sortie porte un texte.",
     "exitTextLong": "Une Sortie ne peut pas porter plus de {max} caractères.",
     "exitTarget": "Une Sortie arrive sur une Scène.",
