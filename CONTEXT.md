@@ -81,7 +81,8 @@ A directed connection from one Scene to another, offered to the Reader at the en
 of a Scene as something to take. It is the Reader's way out of the Scene, named
 for what they do with it rather than for anything the screen shows them. It only
 ever leads onwards: an Exit to a Scene the Reader could already have stood in is
-refused as it is written, because a Story is read forwards — see
+refused as it is written, and one written before that rule is simply not offered
+to a Reading that has already stood there, because a Story is read forwards — see
 `docs/adr/0048-a-scene-is-entered-once.md`.
 The English interface shows the word itself — _Exits_ over the part of a Scene's
 document that holds them, _the Exit 1 to …_ on every control of a row — and a
