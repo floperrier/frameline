@@ -8,7 +8,15 @@ import type { Phrase } from './phrases'
  */
 export type StoryToRead = {
   openingSceneId: string | null
-  scenes: { id: string, sets: Sets, shots: Shot[] }[]
+  scenes: {
+    id: string
+    sets: Sets
+    shots: Shot[]
+    sound: string | null
+    soundOfSceneId: string | null
+    transcript: string
+    soundLoops: boolean
+  }[]
   exits: Exit[]
   /**
    * Whether a Reading steps back across an Exit that has not said otherwise.
@@ -28,7 +36,7 @@ export type StoryToRead = {
  * that cannot go on is worse than one offered an Exit named after where it lands.
  */
 export type StoryToShow = Omit<StoryToRead, 'scenes'> & {
-  scenes: { id: string, name: string, sets: Sets, shots: Shot[] }[]
+  scenes: (StoryToRead['scenes'][number] & { name: string })[]
 }
 
 /**

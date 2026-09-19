@@ -96,6 +96,11 @@ export const stories = pgTable('stories', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// The bytes of an image, which drizzle has no column for; the neon-http
+// driver hands a `bytea` back as a Buffer and takes one as a parameter, so
+// nothing is encoded on the way past.
+const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () => 'bytea' })
+
 // `x` and `y` were where the Author put the Scene's node in the Story's graph.
 // Nothing reads or writes them any more: where a Scene is drawn is read off the
 // Story itself — see `docs/adr/0041-the-graph-is-drawn-from-the-story.md`. They
@@ -111,6 +116,27 @@ export const stories = pgTable('stories', {
 // queried across Stories, never joined to anything — so a row apiece would buy a
 // join and nothing else. What keeps the shape honest is the validation at the
 // request boundary, since Postgres will take any jsonb at all.
+//
+// `sound` is the Sound the Scene is heard under, held under its run and crossing
+// the cut between its Shots. The bytes live here rather than in object storage
+// for the reason an Image's do — see
+// `docs/adr/0005-a-shots-image-lives-in-its-row.md` — and null is a Scene that
+// carries none of its own.
+//
+// `sound_of_scene_id` is the Scene this one takes its Sound from, which is how an
+// Author avoids depositing one bed twelve times. It is the Cover's own column for
+// the Cover's own reason: `on delete set null`, so a Scene whose carrier is
+// deleted falls silent rather than breaking. One hop and no further — a Scene
+// named here carries bytes of its own, which the request boundary is what holds.
+//
+// `transcript` is what the Sound makes heard, for a Reader who cannot hear it,
+// and `sound_loops` whether it is held in a loop until the Scene is left or
+// played once and the Scene silent after. Both belong to the bytes and are read
+// off the row carrying them, so a Scene that names another never has its own
+// read: the same rain is transcribed once. Not null with a default apiece,
+// because a rollback leaves the old code inserting Scenes that name neither —
+// see `docs/adr/0002-the-schema-moves-with-the-deploy.md`. A deposited Sound
+// loops until the Author says otherwise, which is what a bed usually is.
 export const scenes = pgTable('scenes', {
   id: uuid('id').primaryKey().defaultRandom(),
   storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
@@ -118,13 +144,13 @@ export const scenes = pgTable('scenes', {
   x: integer('x').notNull().default(0),
   y: integer('y').notNull().default(0),
   sets: jsonb('sets').$type<Sets>().notNull().default({}),
+  sound: bytea('sound'),
+  soundOfSceneId: uuid('sound_of_scene_id')
+    .references((): AnyPgColumn => scenes.id, { onDelete: 'set null' }),
+  transcript: text('transcript').notNull().default(''),
+  soundLoops: boolean('sound_loops').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
-
-// The bytes of an image, which drizzle has no column for; the neon-http
-// driver hands a `bytea` back as a Buffer and takes one as a parameter, so
-// nothing is encoded on the way past.
-const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () => 'bytea' })
 
 // `position` is the Scene's own numbering of its Shots: 0, 1, 2 with no gaps.
 // Nothing else in a Shot says where it comes, and the Reader plays the run in
@@ -148,6 +174,15 @@ const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () =>
 // thing said about the one image, and empty is an Image nobody has described —
 // which is what a Shot of text alone carries too.
 //
+// `sound` is the Sound the Shot strikes with: it plays as the beat plays, does
+// not loop, and is gone. Null for a Shot that strikes with nothing. There is no
+// `sound_of_shot_id` beside it, deliberately: naming exists because depositing a
+// 400 KB bed twelve times is work, and a struck sound weighs 20 KB and is
+// re-picked from the library in one press.
+//
+// `transcript` is what it makes heard, beside the bytes the way a Description
+// sits beside an Image — one of each on a Shot carrying both.
+//
 // `conditions` are the flat tests the Shot plays under, all of which must hold;
 // an empty list is a Shot every Reading sees. Held as jsonb, validated at the
 // request boundary and naming a Scene by an id no foreign key reaches, for the
@@ -168,6 +203,8 @@ export const shots = pgTable('shots', {
   position: integer('position').notNull(),
   image: bytea('image'),
   description: text('description').notNull().default(''),
+  sound: bytea('sound'),
+  transcript: text('transcript').notNull().default(''),
   conditions: jsonb('conditions').$type<Condition[]>().notNull().default([]),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })

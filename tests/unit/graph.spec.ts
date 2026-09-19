@@ -17,7 +17,10 @@ import { DRAWING_WIDTH, MARK, crossings, drawn, linkPath, traversals } from '../
 
 /** A Scene of the map, which is all a Scene is to it: an id. */
 function scene(id: string): Scene {
-  return { id, name: id, sets: {}, shots: [] }
+  return {
+    id, name: id, sets: {}, shots: [],
+    sound: null, soundOfSceneId: null, transcript: '', soundLoops: true,
+  }
 }
 
 /** A way on from one Scene to another, in the Place it is offered at. */
@@ -144,7 +147,16 @@ describe('the order a Story is written in', () => {
     const rewritten = scenes.map(one => ({
       ...one,
       name: `${one.name} renamed`,
-      shots: [{ id: `${one.id}-1`, text: 'A Shot', position: 0, image: null, description: '', conditions: [] }],
+      shots: [{
+        id: `${one.id}-1`,
+        text: 'A Shot',
+        position: 0,
+        image: null,
+        description: '',
+        conditions: [],
+        sound: null,
+        transcript: '',
+      }],
     }))
 
     expect(named(rewritten, exits, 'a')).toEqual(before)
@@ -334,9 +346,18 @@ describe('what the bench counts of a Story', () => {
 describe('the words a Scene holds', () => {
   test('are counted across its Shots, as runs of anything but whitespace', () => {
     const shots = [
-      { id: '1', text: 'She steps  off the train.', position: 0, image: null, description: '', conditions: [] },
-      { id: '2', text: '', position: 1, image: null, description: 'a frame', conditions: [] },
-      { id: '3', text: ' L’arrivée — enfin ', position: 2, image: null, description: '', conditions: [] },
+      {
+        id: '1', text: 'She steps  off the train.', position: 0, image: null,
+        description: '', conditions: [], sound: null, transcript: '',
+      },
+      {
+        id: '2', text: '', position: 1, image: null,
+        description: 'a frame', conditions: [], sound: null, transcript: '',
+      },
+      {
+        id: '3', text: ' L’arrivée — enfin ', position: 2, image: null,
+        description: '', conditions: [], sound: null, transcript: '',
+      },
     ]
 
     expect(wordsOf(shots)).toBe(8)
