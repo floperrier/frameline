@@ -50,6 +50,24 @@ the Description carries the frame.
 _Affiché_: Description
 _Avoid_: alt, alt text, label, caption, tooltip, legend
 
+**Sound**:
+The one sound a Scene or a Shot carries. A Scene's is held under the run and
+crosses the cut between its Shots; a Shot's strikes with the beat and is gone. A
+Scene's is either held in a loop until the Scene is left, or played once and the
+Scene silent after; a Shot's does neither. It is deposited on the row that plays
+it, and a Scene may instead name a Scene that carries one — never a Scene that is
+itself naming — the way a Cover is named among the Images the Shots already carry.
+_Affiché_: Son
+_Avoid_: audio, track, clip, soundtrack, sfx, cue, ambience, bande-son, piste,
+ambiance, musique, bruitage
+
+**Transcript**:
+What a Sound makes heard, written by the Author for a Reader who cannot hear it.
+Never a Description, which says what one Image shows: a Shot carrying both an
+Image and a Sound carries one of each.
+_Affiché_: Transcription
+_Avoid_: caption, subtitle, lyrics, alt, sous-titre, légende, paroles
+
 **Synopsis**:
 The few lines an Author writes presenting their Story to whoever is deciding
 whether to read it, carried by the Story wherever it is presented. Never a

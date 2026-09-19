@@ -7,9 +7,9 @@ status: accepted
 The bench is a document. The whole Story is in it, from the Opening Scene to the
 last, and an Author writes their Story the way they write anything else: from the
 top, downwards, by typing. A Scene is a heading, the Flags it sets on entry, the
-run of its Shots, and the ways out of it named by where they lead, with the
-Conditions each is offered under. The next Scene is under it. Nothing has to be
-opened and nothing closes.
+Sound it is heard under, the run of its Shots, and the ways out of it named by
+where they lead, with the Conditions each is offered under. The next Scene is
+under it. Nothing has to be opened and nothing closes.
 
 The order is not a new fact about a Story. It is the layout of
 `docs/adr/0041-the-graph-is-drawn-from-the-story.md` read as a sequence instead of

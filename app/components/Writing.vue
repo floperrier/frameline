@@ -6,9 +6,10 @@
  * name comes from. It is not *script*, which that record refuses in as many words,
  * and not *text*, which is what a Shot carries beside its Image.
  *
- * A Scene is a heading, the Flags it sets on entry, the run of its Shots, and the
- * ways out of it named by where they lead. The next Scene is under it. Nothing has
- * to be opened and nothing closes, and **every Scene is written where it stands**:
+ * A Scene is a heading, the Flags it sets on entry, the Sound it is heard
+ * under, the run of its Shots, and the ways out of it named by where they
+ * lead. The next Scene is under it. Nothing has to be opened and nothing
+ * closes, and **every Scene is written where it stands**:
  * there is no one Scene the Author has to put on a bench first, because the bench
  * is the document. That is the whole of issue #252, and it is what took the gate
  * of `docs/adr/0042-the-scene-is-written-where-it-stands.md` — one Scene behind a
