@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { expect } from '@playwright/test'
 import { seedScene, seedStory, test, writeStory } from './author'
-import { SOUND_MAX_BYTES } from '../../shared/utils/sound'
+import { SOUND_MAX_BYTES, SOUND_TRANSCRIPT_MAX_LENGTH } from '../../shared/utils/sound'
 import type { APIRequestContext } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
@@ -105,4 +105,95 @@ test('a Sound of somebody else’s Story is not refused so much as absent', asyn
 
   expect((await request.put(`/api/scenes/${scene.id}/sound`, { data: A_SOUND })).status()).toBe(404)
   expect((await request.get(`/api/scenes/${scene.id}/sound`)).status()).toBe(404)
+})
+
+test('a Transcript and a loop are written beside the Sound they belong to', async ({ request }) => {
+  const { story, scene, shots } = await openScene(request)
+  await request.put(`/api/scenes/${scene.id}/sound`, { data: A_SOUND })
+
+  await request.patch(`/api/scenes/${scene.id}`, {
+    data: { transcript: 'Rain on a tin roof, steady.', soundLoops: false },
+  })
+  await request.put(`/api/shots/${shots[0]!.id}/sound`, { data: A_SOUND })
+  await request.patch(`/api/shots/${shots[0]!.id}`, {
+    data: { text: 'A door opens.', description: '', transcript: 'A door slams.' },
+  })
+
+  const after = await reread(request, story.id)
+  expect(after.scenes[0]!.transcript).toBe('Rain on a tin roof, steady.')
+  expect(after.scenes[0]!.soundLoops).toBe(false)
+  expect(after.scenes[0]!.shots[0]!.transcript).toBe('A door slams.')
+  // A body naming only the Sound's own fields leaves the name where it was.
+  expect(after.scenes[0]!.name).toBe(scene.name)
+})
+
+test('a Scene takes its Sound from a Scene that carries one, and never from one that names', async ({ request }) => {
+  const story = await writeStory(request)
+  const read = await reread(request, story.id)
+  const carrier = read.scenes[0]!
+  const second = await seedScene(story, 'The bar')
+  const third = await seedScene(story, 'The alley')
+
+  await request.put(`/api/scenes/${carrier.id}/sound`, { data: A_SOUND })
+
+  const named = await request.patch(`/api/scenes/${second.id}`, {
+    data: { soundOfSceneId: carrier.id },
+  })
+  expect(named.status()).toBe(200)
+  // By id, not by position: `writeStory` already seeds a Scene of its own before
+  // `second` is written, so `second` is not the Story's second Scene by the
+  // order Scenes come back in.
+  const sceneNamed = (read: StoryInEditor, id: string) => read.scenes.find(scene => scene.id === id)!
+  expect(sceneNamed(await reread(request, story.id), second.id).soundOfSceneId).toBe(carrier.id)
+
+  // One hop and no further: the Scene named has to carry bytes of its own.
+  const chained = await request.patch(`/api/scenes/${third.id}`, {
+    data: { soundOfSceneId: second.id },
+  })
+  expect(chained.status()).toBe(400)
+  expect((await chained.json()).message).toContain('A Scene takes its Sound')
+
+  // And never from itself, nor from a Scene of somebody else’s Story.
+  expect((await request.patch(`/api/scenes/${third.id}`, {
+    data: { soundOfSceneId: third.id },
+  })).status()).toBe(400)
+
+  // Nor from a Scene nobody seeded: a well-formed id names nothing here.
+  expect((await request.patch(`/api/scenes/${third.id}`, {
+    data: { soundOfSceneId: '00000000-0000-4000-8000-000000000000' },
+  })).status()).toBe(400)
+
+  // Not even spelled in another letter case. `fourth` carries bytes of its own
+  // and nothing names it yet, so a naive string comparison of the URL segment
+  // against the body would miss this — the two spellings read as different
+  // strings, and only Postgres, not JavaScript, would notice that they name the
+  // same Scene, leaving it named after itself with its own bytes cleared.
+  const fourth = await seedScene(story, 'The rooftop')
+  await request.put(`/api/scenes/${fourth.id}/sound`, { data: A_SOUND })
+  expect((await request.patch(`/api/scenes/${fourth.id.toUpperCase()}`, {
+    data: { soundOfSceneId: fourth.id },
+  })).status()).toBe(400)
+
+  // Nor may a carrier already named by another take on a naming of its own: that
+  // would leave the Scene naming it two hops from the bytes, which nothing here
+  // ever walks back to fix.
+  const reNamed = await request.patch(`/api/scenes/${carrier.id}`, {
+    data: { soundOfSceneId: fourth.id },
+  })
+  expect(reNamed.status()).toBe(400)
+  expect((await reNamed.json()).message).toContain('A Scene takes its Sound')
+
+  // Taking the naming away is saying it names nothing.
+  await request.patch(`/api/scenes/${second.id}`, { data: { soundOfSceneId: null } })
+  expect(sceneNamed(await reread(request, story.id), second.id).soundOfSceneId).toBeNull()
+})
+
+test('a Transcript longer than one is refused, and names the limit', async ({ request }) => {
+  const { scene } = await openScene(request)
+
+  const tooLong = await request.patch(`/api/scenes/${scene.id}`, {
+    data: { transcript: 'w'.repeat(SOUND_TRANSCRIPT_MAX_LENGTH + 1) },
+  })
+  expect(tooLong.status()).toBe(400)
+  expect((await tooLong.json()).message).toContain(`${SOUND_TRANSCRIPT_MAX_LENGTH} characters`)
 })

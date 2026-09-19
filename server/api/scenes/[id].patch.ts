@@ -3,20 +3,31 @@ import { scenes } from '../../db/schema'
 import { useDb } from '../../db'
 
 /**
- * Renames a Scene, which is the one thing about a Scene written on its own: its
- * Shots, its Flags and its ways on each have an endpoint of theirs, and where it
- * is drawn is read off the Story rather than written anywhere.
+ * Writes what an Author says about one Scene: its name, and the three things
+ * said about the Sound it is heard under — what it makes heard, whether it is
+ * held in a loop, and the Scene it is taken from. They come through one door
+ * because they are one Scene's row, and each lands on its own: a body naming one
+ * of them leaves the rest where they were.
+ *
+ * The bytes are not here. A Sound is a file, and a file is deposited at an
+ * address of its own — `server/api/scenes/[id]/sound.put.ts`.
  */
 export default defineEventHandler(async (event) => {
   const author = await requireAuthor(event)
   const id = readId(event, 'Scene')
-  const name = await readSceneName(event)
+  const changes = await readSceneChanges(event, id)
 
   const [scene] = await useDb()
     .update(scenes)
-    .set({ name })
+    .set(changes)
     .where(and(eq(scenes.id, id), inArray(scenes.storyId, storiesOf(author.id))))
-    .returning({ id: scenes.id, name: scenes.name })
+    .returning({
+      id: scenes.id,
+      name: scenes.name,
+      transcript: scenes.transcript,
+      soundLoops: scenes.soundLoops,
+      soundOfSceneId: scenes.soundOfSceneId,
+    })
 
   if (!scene) throw notFound(event, 'Scene')
   return scene

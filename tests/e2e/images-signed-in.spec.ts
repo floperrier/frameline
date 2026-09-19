@@ -347,16 +347,16 @@ test('a Description is the Author’s to write, to change and to take away', asy
   await field.blur()
   await expect.poll(async () => (await reread(request, story.id))[0]!.description).toBe('')
 
-  // A request saying nothing about the Description is refused rather than taken
-  // as an empty one, the same way a request saying nothing about the text is:
-  // writing it as empty would erase what the Author wrote.
+  // A PATCH writes only what the body names: naming the text alone leaves the
+  // Description standing, rather than erasing what the Author wrote about the
+  // image by saying nothing about it.
   await request.patch(`/api/shots/${shot.id}`, {
     data: { text: shot.text, description: 'A door, opening.' },
   })
-  const nothingSaid = await request.patch(`/api/shots/${shot.id}`, { data: { text: 'Rewritten.' } })
-  expect(nothingSaid.status()).toBe(400)
+  const textAlone = await request.patch(`/api/shots/${shot.id}`, { data: { text: 'Rewritten.' } })
+  expect(textAlone.status()).toBe(200)
   expect((await reread(request, story.id))[0]).toMatchObject({
-    text: shot.text,
+    text: 'Rewritten.',
     description: 'A door, opening.',
   })
 
