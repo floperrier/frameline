@@ -1,12 +1,33 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   carriesSound,
   heardUnder,
   heldAcross,
+  SOUND_MAX_BYTES,
   soundCarriers,
   soundTypeOf,
 } from '../../shared/utils/sound.ts'
 import type { Carrying } from '../../shared/utils/sound.ts'
+import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases.ts'
+import type { H3Event } from 'h3'
+
+/**
+ * The deposit read at the request boundary. The reader is a server module, so
+ * what it reaches for is nitro's own: the raw body, the cap it measures against,
+ * and the error it refuses with — standing those up is the whole of what it
+ * takes to read the reader without a server around it.
+ */
+vi.stubGlobal('readRawBody', async (event: { body: unknown }) => event.body)
+vi.stubGlobal('createError', (refusal: { statusCode: number, message: string }) =>
+  Object.assign(new Error(refusal.message), refusal))
+vi.stubGlobal('saying', () => (key: string, values?: Record<string, string | number>) =>
+  phrase(DEFAULT_LOCALE, key, values))
+vi.stubGlobal('SOUND_MAX_BYTES', SOUND_MAX_BYTES)
+vi.stubGlobal('soundTypeOf', soundTypeOf)
+
+const { readSound } = await import('../../server/utils/sounds.ts')
+
+const depositing = (body: unknown) => readSound({ body } as unknown as H3Event)
 
 /**
  * What a Sound is, and which one a Scene is actually heard under. Both are read
@@ -165,5 +186,27 @@ describe('what the Story carries', () => {
         { ...scene('bar', { soundOfSceneId: 'street' }), shots: shots() },
       ],
     })).toBe(false)
+  })
+})
+
+describe('the deposit a request carries', () => {
+  it('takes a file whose own first bytes say what it is', async () => {
+    await expect(depositing(Buffer.from(bytes('m4a')))).resolves.toHaveLength(heads.m4a.length)
+  })
+
+  it('refuses a request carrying no file at all, and says what one is', async () => {
+    await expect(depositing(undefined)).rejects.toThrow('A Sound is a file to upload')
+    await expect(depositing(Buffer.alloc(0))).rejects.toThrow('A Sound is a file to upload')
+  })
+
+  it('refuses one past the cap, by its weight and not by its kind', async () => {
+    const heavy = Buffer.concat([Buffer.from(bytes('m4a')), Buffer.alloc(SOUND_MAX_BYTES)])
+
+    await expect(depositing(heavy)).rejects.toThrow('cannot weigh more than 2 MB')
+  })
+
+  it('refuses one of a kind no Reader can be sure of hearing', async () => {
+    await expect(depositing(Buffer.from(bytes('ogg'))))
+      .rejects.toThrow('A Sound is an AAC or an MP3 file')
   })
 })
