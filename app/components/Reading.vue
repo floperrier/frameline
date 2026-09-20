@@ -384,6 +384,12 @@ const hidden = ref(false)
 
 onMounted(() => {
   const watching = () => { hidden.value = document.visibilityState === 'hidden' }
+  // Read as the Reading mounts rather than waited for. A silent Story opens with
+  // no press at all, so a link opened into a background tab — a middle click, a
+  // session restored — would start its clock in a room nobody is looking at, and
+  // the Reader would arrive at a Story that had played on without them. The event
+  // says when it changed; only this says what it is.
+  watching()
   document.addEventListener('visibilitychange', watching)
   onBeforeUnmount(() => document.removeEventListener('visibilitychange', watching))
 })
@@ -396,6 +402,16 @@ onMounted(() => {
 const holding = ref<ReturnType<typeof setTimeout>>()
 
 /**
+ * How long the beat on screen stands, or null where it stands until the press.
+ * Watched as well as read, because the Preview is where this feature is written:
+ * an Author who turns a Scene from *at the press* to *after a time* has changed
+ * the hold on the beat in front of them, and a clock that only caught up at the
+ * next move would be the bench reading a Story that is no longer the one written.
+ */
+const heldFor = computed(() =>
+  scene.value && shown.value.shot ? cut(scene.value, shown.value.shot).after : null)
+
+/**
  * The hold: where the Cut of the Shot on screen names a time, the clock makes the
  * cut the press would have made, through `advance` and nothing else — so a Path
  * arrived at by waiting is the Path a hand would have arrived at.
@@ -406,7 +422,7 @@ const holding = ref<ReturnType<typeof setTimeout>>()
  * the rule `docs/adr/0049-a-sound-is-carried-by-what-plays-it.md` settled about a
  * Sound, read again.
  */
-watch([at, paused, hidden], () => {
+watch([at, paused, hidden, heldFor], () => {
   clearTimeout(holding.value)
   // Immediate, so the beat a page opens on is held like every other one — and the
   // server draws that beat too, where a timer would be started into a request that
@@ -590,7 +606,7 @@ const clocked = computed(() => story.scenes.some(scene =>
         {{ sounding ? $t('reading.soundOff') : $t('reading.soundOn') }}
       </button>
       <button
-        v-if="heard?.transcript || shown.shot?.transcript"
+        v-if="heardAtAll && (heard?.transcript || shown.shot?.transcript)"
         type="button"
         class="trail"
         @click="transcribed = !transcribed"

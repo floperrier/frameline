@@ -64,35 +64,86 @@ test('the clock makes the cut the press would have made, and the press cuts ahea
 
 test('the Reader stops the clock, and stepping back stops it for them',
   async ({ page, request }) => {
+    // The page's clock is wound by hand from here: a hold is a duration, and a
+    // spec that waited one out in real seconds would be the slowest thing in the
+    // suite and the raciest — see issues #287 and #325. Installed before the page
+    // is opened, so the hold the Reading arms as it mounts is on this clock too.
+    await page.clock.install()
     await opened(page, request, async (scenes) => {
-      // Two seconds: long enough that the control is pressed well inside the hold,
-      // short enough that waiting one out twice is not a slow spec.
-      await request.patch(`/api/scenes/${scenes[0]!.id}`, { data: { cutAfter: 2000 } })
+      await request.patch(`/api/scenes/${scenes[0]!.id}`, { data: { cutAfter: 10_000 } })
     })
 
-    const run = page.getByRole('button', { name: 'Run the Reading' })
+    const resume = page.getByRole('button', { name: 'Resume the Reading' })
     const held = page.getByText('A door opens.')
 
     await expect(held).toBeVisible()
+
+    // Six seconds into a hold of ten, and stopped there.
+    await page.clock.fastForward(6000)
+    await expect(held).toBeVisible()
     await page.getByRole('button', { name: 'Pause the Reading' }).click()
 
-    // Well past the time the beat was held for, and the beat is where it was.
-    await page.waitForTimeout(3000)
+    // A minute on, and the beat is where it was: a clock that is stopped is
+    // stopped, and not merely slowed down.
+    await page.clock.fastForward(60_000)
     await expect(held).toBeVisible()
 
-    // The clock is the Reader's to start again, and it holds the beat it is
-    // standing on for the whole of its time rather than for what was left of it:
-    // nothing recorded how far the hold had got.
-    await run.click()
+    // Started again, the beat stands for the whole of its time rather than for
+    // the four seconds that were left of it. This is the assertion that would
+    // fail if a hold were ever resumed: at six seconds a resumed one is two
+    // seconds past the cut it would have made.
+    await resume.click()
+    await page.clock.fastForward(6000)
+    await expect(held).toBeVisible()
+    await page.clock.fastForward(5000)
     await expect(page.getByText('She steps out.')).toBeVisible()
 
     // Somebody who steps back has asked to stop. A Reader carried forward again a
     // few seconds later would have a control that undoes nothing.
     await page.getByRole('button', { name: 'Step Back' }).click()
     await expect(held).toBeVisible()
-    await expect(run).toBeVisible()
-    await page.waitForTimeout(3000)
+    await expect(resume).toBeVisible()
+    await page.clock.fastForward(60_000)
     await expect(held).toBeVisible()
+  })
+
+test('a Story opened into a tab nobody is looking at holds its beat',
+  async ({ page, request }) => {
+    await page.clock.install()
+    // A background tab, said in the one way a spec can say it: Playwright has no
+    // way to open a page that is genuinely not on screen, so the page is made to
+    // answer *hidden* from before anything of the Reading has mounted. What is
+    // being proved is that the Reading asks at all rather than waiting to be told
+    // — a silent Story opens with no press, so a link followed into the
+    // background would otherwise play itself out in a room nobody is looking at.
+    await page.addInitScript(() => {
+      Object.defineProperty(document, 'visibilityState', {
+        get: () => 'hidden',
+        configurable: true,
+      })
+    })
+
+    await opened(page, request, async (scenes) => {
+      await request.patch(`/api/scenes/${scenes[0]!.id}`, { data: { cutAfter: 2000 } })
+    })
+
+    const held = page.getByText('A door opens.')
+    await expect(held).toBeVisible()
+
+    await page.clock.fastForward(60_000)
+    await expect(held).toBeVisible()
+
+    // And the clock is running the moment the tab is looked at, from the
+    // beginning of the hold: nothing recorded how much of it went by unseen.
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', {
+        get: () => 'visible',
+        configurable: true,
+      })
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    await page.clock.fastForward(2000)
+    await expect(page.getByText('She steps out.')).toBeVisible()
   })
 
 test('one beat dissolves into the next, or the passage is made through black',
@@ -163,5 +214,5 @@ test('a Story where nothing moves by itself is given no way to stop it',
 
     await expect(page.getByText('A door opens.')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Pause the Reading' })).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Run the Reading' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Resume the Reading' })).toHaveCount(0)
   })
