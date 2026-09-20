@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { Condition, Sets } from '../../shared/utils/scenes'
+import { CUT_OVER_MAX, isTime } from '../../shared/utils/scenes'
 import type { Path, State, StoryToRead } from '../../shared/utils/reading'
-import { advance, back, moved, opening, pathTo, reading, resumes, take, unmet } from '../../shared/utils/reading'
+import {
+  advance, back, cut, moved, opening, pathTo, reading, resumes, take, unmet,
+} from '../../shared/utils/reading'
 import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
 import type { Phrase } from '../../shared/utils/phrases'
 
@@ -40,6 +43,14 @@ function story(
       soundOfSceneId: null,
       transcript: '',
       soundLoops: true,
+      // The Cut plays no part in a Reading these tests state: every Scene waits
+      // for the press and cuts hard, and every Exit passes through the outgoing
+      // Shot, which is the one Story every row this Story has always written
+      // amounts to.
+      cutAfter: null,
+      cutOver: 0,
+      cutThrough: 'image',
+      exitsAfter: null,
       shots: texts.map((written, position) => {
         const [text, conditions] = typeof written === 'string' ? [written, []] : written
         return {
@@ -51,6 +62,9 @@ function story(
           conditions,
           sound: null,
           transcript: '',
+          cutAfter: null,
+          cutOver: null,
+          cutThrough: null,
         }
       }),
     })),
@@ -62,6 +76,8 @@ function story(
       position: index,
       conditions: conditions ?? [],
       stepsBack: crossed ?? null,
+      cutOver: 0,
+      cutThrough: 'image',
     })),
   }
 }
@@ -1009,5 +1025,57 @@ describe('a Path kept in the browser and replayed', () => {
 
   it('is not picked up past the run, where Shots have since been taken away', () => {
     expect(resumes(two, { ...OPENING, shot: 5 })).toBe(false)
+  })
+})
+
+describe('cut', () => {
+  const scene = {
+    id: 'a', sets: {}, shots: [], sound: null, soundOfSceneId: null,
+    transcript: '', soundLoops: true,
+    cutAfter: 4000, cutOver: 800, cutThrough: 'image' as const, exitsAfter: null,
+  }
+  const shot = {
+    id: 's', text: '', position: 0, image: null, description: '',
+    conditions: [], sound: null, transcript: '',
+    cutAfter: null, cutOver: null, cutThrough: null,
+  }
+
+  it('is the Scene\'s where the Shot says nothing', () => {
+    expect(cut(scene, shot)).toEqual({ after: 4000, over: 800, through: 'image' })
+  })
+
+  it('is the Shot\'s where the Shot answers', () => {
+    expect(cut(scene, { ...shot, cutAfter: 1000, cutOver: 0, cutThrough: 'black' }))
+      .toEqual({ after: 1000, over: 0, through: 'black' })
+  })
+
+  it('answers field by field', () => {
+    expect(cut(scene, { ...shot, cutThrough: 'black' }))
+      .toEqual({ after: 4000, over: 800, through: 'black' })
+  })
+
+  it('reads a Shot\'s nought as waiting for the press', () => {
+    expect(cut(scene, { ...shot, cutAfter: 0 }).after).toBeNull()
+  })
+
+  it('waits where the Scene waits and the Shot says nothing', () => {
+    expect(cut({ ...scene, cutAfter: null }, shot).after).toBeNull()
+  })
+
+  it('holds a Shot that answers over a Scene that waits', () => {
+    expect(cut({ ...scene, cutAfter: null }, { ...shot, cutAfter: 2500 }).after).toBe(2500)
+  })
+})
+
+describe('isTime', () => {
+  it('takes a whole number within the cap', () => {
+    expect(isTime(0, CUT_OVER_MAX)).toBe(true)
+    expect(isTime(CUT_OVER_MAX, CUT_OVER_MAX)).toBe(true)
+  })
+
+  it('refuses what is not one', () => {
+    for (const held of [-1, CUT_OVER_MAX + 1, 1.5, '800', null, undefined, NaN]) {
+      expect(isTime(held, CUT_OVER_MAX)).toBe(false)
+    }
   })
 })

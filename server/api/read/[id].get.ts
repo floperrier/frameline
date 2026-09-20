@@ -49,12 +49,15 @@ export default defineEventHandler(async (event) => {
   // card a control: a Reader who presses it consents to being played something,
   // and a browser will not play into a page nobody has touched. Read off the
   // addresses the graph already carries, so no query touches the bytes.
+  //
+  // The Cut is part of `readStoryGraph` itself now, so a Scene and a Shot
+  // arrive already carrying it — nothing here resolves it, that is `cut()`'s
+  // job for whoever plays the Reading.
   return {
     ...story,
     cover: coverUrl(story.cover),
     carriesSound: carriesSound({ scenes }),
-    scenes: scenes.map(({ id, name, sets, shots, sound, soundOfSceneId, transcript, soundLoops }) =>
-      ({ id, name, sets, shots, sound, soundOfSceneId, transcript, soundLoops })),
+    scenes,
     exits,
   }
 })
