@@ -10,6 +10,31 @@ export const SCENE_NAME_MAX_LENGTH = 200
 export const SHOT_TEXT_MAX_LENGTH = 2000
 
 /**
+ * What a Cut's three times are capped at, in milliseconds. A Shot standing
+ * longer than a minute is a Shot waiting for a press, a dissolve past five
+ * seconds is a Scene of its own, and a choice left standing longer than a minute
+ * is not under a clock. See
+ * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
+ */
+export const CUT_AFTER_MAX = 60_000
+export const CUT_OVER_MAX = 5_000
+export const EXITS_AFTER_MAX = 60_000
+
+/** What a cut passes through: the outgoing Shot, or black. */
+export type CutThrough = 'image' | 'black'
+export const CUT_THROUGHS: readonly CutThrough[] = ['image', 'black']
+
+/**
+ * Whether a value is a time this product writes: a whole number of milliseconds
+ * from nought to the cap. Here rather than at the request boundary because the
+ * bench holds a field to exactly what the server will take, and one function is
+ * how the two cannot come apart.
+ */
+export function isTime(held: unknown, max: number): held is number {
+  return typeof held === 'number' && Number.isInteger(held) && held >= 0 && held <= max
+}
+
+/**
  * The longest Description an Image may carry. A Description says what one frame
  * shows, in the sentence an editor would say it in, so it is capped near an Exit's
  * line rather than near a Shot's text: prose about the image is the Shot's text,
@@ -239,6 +264,10 @@ export type Shot = {
   sound: string | null
   /** What that Sound makes heard, empty where nobody has written it down. */
   transcript: string
+  /** This Shot's own answer about how it leaves the screen; null is *as the Scene says*. */
+  cutAfter: number | null
+  cutOver: number | null
+  cutThrough: CutThrough | null
 }
 export type Scene = {
   id: string
@@ -252,6 +281,11 @@ export type Scene = {
   /** What the Sound makes heard, and whether it is held in a loop: both the carrier's. */
   transcript: string
   soundLoops: boolean
+  /** How the Shots of this Scene's run are cut, and how long its ways on stand. */
+  cutAfter: number | null
+  cutOver: number
+  cutThrough: CutThrough
+  exitsAfter: number | null
 }
 export type Exit = {
   id: string
@@ -267,6 +301,9 @@ export type Exit = {
    * `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
    */
   stepsBack: boolean | null
+  /** The passage from the Scene this Exit leaves to the Scene it lands on. */
+  cutOver: number
+  cutThrough: CutThrough
 }
 
 /**

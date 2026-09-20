@@ -1,4 +1,4 @@
-import type { Condition, Exit, Flags, Sets, Shot } from './scenes'
+import type { Condition, CutThrough, Exit, Flags, Sets, Shot } from './scenes'
 import type { Phrase } from './phrases'
 
 /**
@@ -16,6 +16,17 @@ export type StoryToRead = {
     soundOfSceneId: string | null
     transcript: string
     soundLoops: boolean
+    /**
+     * A Scene's Cut is what its Shots are cut as, resolved against each Shot's
+     * own answer by `cut()` below. `exitsAfter` has three states: null waits
+     * for the Reader to take a way on, a number counts down to the first one
+     * offered, and nought never offers one at all — see
+     * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
+     */
+    cutAfter: number | null
+    cutOver: number
+    cutThrough: CutThrough
+    exitsAfter: number | null
   }[]
   exits: Exit[]
   /**
@@ -101,6 +112,41 @@ export function holds(conditions: Condition[], state: State) {
  */
 export function offered(exit: Exit, state: State) {
   return holds(exit.conditions, state) && !state.entered.includes(exit.toSceneId)
+}
+
+/**
+ * One Scene as the engine reads it, named so that what resolves a Cut can say
+ * what it takes without spelling the Story's shape out again.
+ */
+export type SceneToRead = StoryToRead['scenes'][number]
+
+/**
+ * How one Shot leaves the screen: when the cut is made, how long it takes and
+ * what it passes through. `after` of null is the Shot standing until the Reader
+ * presses.
+ */
+export type Cut = { after: number | null, over: number, through: CutThrough }
+
+/**
+ * A Shot answers for itself where it says anything and is cut as its Scene says
+ * where it says nothing, field by field — the shape
+ * `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md` gave an Exit's
+ * steps back.
+ *
+ * The nought a Shot writes to say *this one waits* resolves to no time at all,
+ * so the sentinel never leaves the column it is written in: everything
+ * downstream reads waiting as the absence of a time, and there is one place in
+ * the product where nought has to be understood. See
+ * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
+ */
+export function cut(scene: SceneToRead, shot: Shot): Cut {
+  const after = shot.cutAfter === null ? scene.cutAfter : shot.cutAfter
+
+  return {
+    after: after === 0 ? null : after,
+    over: shot.cutOver ?? scene.cutOver,
+    through: shot.cutThrough ?? scene.cutThrough,
+  }
 }
 
 /**

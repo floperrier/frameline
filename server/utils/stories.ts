@@ -164,6 +164,17 @@ export async function readStoryLanguage(event: H3Event): Promise<StoryLanguage> 
 }
 
 /**
+ * A Scene as the graph draws it, short of its Cut. A Preview and a Reading play
+ * the same graph, but only a Reading is cut by a clock, so the Cut is not part
+ * of what they share — it is selected on its own by whichever caller is
+ * drawing a Reading. See `server/api/read/[id].get.ts`.
+ */
+type SceneOnTheGraph =
+  Omit<Scene, 'cutAfter' | 'cutOver' | 'cutThrough' | 'exitsAfter' | 'shots'> & {
+    shots: Omit<Shot, 'cutAfter' | 'cutOver' | 'cutThrough'>[]
+  }
+
+/**
  * The Scenes of a Story, each a run of Shots in order,
  * and the Exits that join them. Shared because an Author's Story and a Reader's
  * are the same graph read by two different doors — a Preview and a Reading play
@@ -201,7 +212,7 @@ export async function readStoryGraph(storyId: string) {
     // instant have to be broken apart by something: their ids do it.
     .orderBy(scenes.createdAt, scenes.id, shots.position)
 
-  const scenesOfStory: Scene[] = []
+  const scenesOfStory: SceneOnTheGraph[] = []
   for (const row of rows) {
     let scene = scenesOfStory.at(-1)
     if (scene?.id !== row.sceneId) {
