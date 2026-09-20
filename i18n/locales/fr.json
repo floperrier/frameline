@@ -431,6 +431,7 @@
     "split": "Une Scène se scinde avant l’un de ses propres Plans, jamais avant le premier.",
     "wayBack": "Une Lecture ne se tient qu’une fois dans une Scène : une Sortie ne peut donc pas ramener à une Scène que le Lecteur a pu déjà traverser. Dupliquez cette Scène, puis faites-y mener la Sortie.",
     "cutAfter": "Un Plan se tient un nombre entier de secondes, au plus une minute.",
+    "cutAfterNought": "Une Scène tient ses Plans un temps ou jusqu’à ce que le Lecteur presse, et zéro n’est ni l’un ni l’autre.",
     "cutOver": "Une Coupe se fait en un nombre entier de millisecondes, au plus cinq secondes.",
     "cutThrough": "Une Coupe se fait en fondu enchaîné ou en fondu au noir.",
     "exitsAfter": "Les Sorties restent offertes un nombre entier de secondes, au plus une minute."

@@ -280,7 +280,10 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
   if (body?.cutAfter !== undefined) {
     changes.cutAfter = await readCutAfter(event)
     if (changes.cutAfter === 0) {
-      throw createError({ statusCode: 400, message: saying(event)('refusals.cutAfter') })
+      throw createError({
+        statusCode: 400,
+        message: saying(event)('refusals.cutAfterNought'),
+      })
     }
   }
   // A Scene's own cut takes no null: only a Shot answering *as its Scene says*
