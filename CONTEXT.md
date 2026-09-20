@@ -72,7 +72,7 @@ leaves to the Scene it lands on is made, never when, because an Exit is taken
 rather than held.
 _Affiché_: Coupe
 _Avoid_: transition, timing, duration, delay, autoplay, timer, slideshow,
-fondu, durée, minuterie, défilement, enchaînement
+durée, minuterie, défilement
 
 **Transcript**:
 What a Sound makes heard, written by the Author for a Reader who cannot hear it.
@@ -214,7 +214,7 @@ does not, and nothing it offers is reachable by the keyboard alone. Not every
 act of the bench is one: the mark is on the controls whose act an Author would
 say out loud — go to a Scene, add a Flag, mark the Opening Scene — and off the
 marks that renumber a row, which are pressed beside the row they are done to,
-and off the two acts whose control is a `<select>`, which no press can open.
+and off the acts whose control is a `<select>`, which no press can open.
 The one Command with no control behind it is the offer to write a Scene under a
 name that reached nothing, because an Author who has just typed the name of a Scene
 that does not exist has said what they want. Named in plain language rather than out of

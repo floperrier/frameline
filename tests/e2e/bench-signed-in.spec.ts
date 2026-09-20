@@ -324,10 +324,11 @@ test('draws a row\'s marks at the weight of the words until the hand arrives at 
     //
     // The row is drawn as matter, then what is said of that matter, then the acts
     // on the row: the Image, the words, the Description of the Image, the Sound,
-    // the Transcript of the Sound, and `.beneath` last by construction — so the
-    // Sound's own controls come before the acts, on the same side of the words as
-    // the Description, because the Transcript sits under the Sound as the
-    // Description sits under the Image.
+    // the Transcript of the Sound, the Cut, and `.beneath` last by construction —
+    // so the Sound's own controls come before the acts, on the same side of the
+    // words as the Description, because the Transcript sits under the Sound as the
+    // Description sits under the Image. The Cut comes after both, because it is
+    // what the beat does at its end rather than what it carries.
     //
     // This beat carries neither Image nor Sound, so neither thing said of them is
     // drawn, and *Listen* and *Take This Sound* are disabled until the `<select>`
@@ -339,6 +340,8 @@ test('draws a row\'s marks at the weight of the words until the hand arrives at 
     for (const stop of [
       beat.getByLabel('The Sound of Shot 2 of Scene 1'),
       beat.getByLabel('Upload a Sound for Shot 2 of Scene 1'),
+      beat.getByLabel('This Shot is cut Shot 2 of Scene 1', { exact: true }),
+      beat.getByLabel('The Cut is made Shot 2 of Scene 1', { exact: true }),
       beat.getByRole('button', { name: 'Add a Condition to Shot 2 of Scene 1' }),
       beat.getByRole('button', { name: 'Split Scene 1 before Shot 2' }),
       beat.getByRole('button', { name: 'Move Earlier Shot 2 of Scene 1' }),

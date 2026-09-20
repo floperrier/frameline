@@ -4,7 +4,8 @@ import { useDb } from '../../db'
 
 /**
  * Writes what the Reader will be offered at the end of the Scene the Exit leaves,
- * and whether a Reading crosses this Exit backwards.
+ * whether a Reading crosses this Exit backwards, and how it cuts the passage it
+ * makes.
  */
 export default defineEventHandler(async (event) => {
   const author = await requireAuthor(event)
@@ -21,6 +22,8 @@ export default defineEventHandler(async (event) => {
       toSceneId: exits.toSceneId,
       text: exits.text,
       stepsBack: exits.stepsBack,
+      cutOver: exits.cutOver,
+      cutThrough: exits.cutThrough,
     })
 
   if (!exit) throw notFound(event, 'Exit')
