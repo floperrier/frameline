@@ -25,6 +25,9 @@ type Written = {
   id?: string
   shots?: Partial<Shot>[]
   sets?: Scene['sets']
+  sound?: string | null
+  soundOfSceneId?: string | null
+  transcript?: string
 }
 
 /**
@@ -51,12 +54,18 @@ function onTheBench(
       x: 0,
       y: place * 200,
       sets: scene.sets ?? {},
+      sound: scene.sound ?? null,
+      soundOfSceneId: scene.soundOfSceneId ?? null,
+      transcript: scene.transcript ?? '',
+      soundLoops: true,
       shots: (scene.shots ?? [{ text: 'A door opens.' }]).map((shot, at) => ({
         id: `${idOf(scene)}-${at}`,
         text: '',
         image: null,
         description: '',
         conditions: [],
+        sound: null,
+        transcript: '',
         ...shot,
       })),
     })) as StoryInEditor['scenes'],
@@ -154,6 +163,37 @@ describe('what the bench finds in a Story', () => {
         'Shot 1 of The bar (2) carries neither text nor Image.',
         'Shot 1 of The bar (1) carries neither text nor Image.',
       ])
+  })
+
+  it('names a Sound nobody transcribed, on the Scene carrying it and on the Shot', () => {
+    const story = onTheBench([
+      { name: 'The street', sound: '/api/scenes/the-street/sound' },
+      { name: 'The bar', shots: [{ text: 'A door.', sound: '/api/shots/one/sound' }] },
+    ], { exits: [['The street', 'The bar']] })
+
+    expect(named(story)).toEqual(['soundUntranscribed', 'soundUntranscribed'])
+    expect(remarks(story, says)[0]!.said).toEqual({ carrier: says('remark.theSceneSound', { scene: 'The street' }) })
+    expect(remarks(story, says)[1]!.said).toEqual({
+      carrier: says('remark.theShotSound', { place: 1, scene: 'The bar' }),
+    })
+  })
+
+  it('says nothing about a Sound that is transcribed, nor about a silent Scene', () => {
+    const story = onTheBench([
+      { name: 'The street', sound: '/api/scenes/the-street/sound', transcript: 'Rain.' },
+      { name: 'The bar' },
+    ], { exits: [['The street', 'The bar']] })
+
+    expect(remarks(story, says)).toEqual([])
+  })
+
+  it('says nothing of a Scene that takes its Sound from another: the Transcript is the carrier’s', () => {
+    const story = onTheBench([
+      { name: 'The street', sound: '/api/scenes/the-street/sound', transcript: 'Rain.' },
+      { name: 'The bar', soundOfSceneId: 'The street' },
+    ], { exits: [['The street', 'The bar']] })
+
+    expect(remarks(story, says)).toEqual([])
   })
 })
 
