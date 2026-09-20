@@ -175,6 +175,10 @@ async function moveTo(to: Path) {
 const behind = computed(() => back(story, at.value))
 
 function stepBack() {
+  // Somebody who goes back has asked to stop: a Reader carried forward again a
+  // few seconds after stepping back has a control that undoes nothing, and the
+  // clock they were ahead of would be reading the Story for them.
+  paused.value = true
   if (behind.value) moveTo(behind.value)
 }
 
@@ -315,6 +319,73 @@ function strikeShot() {
 }
 
 watch(() => `${at.value.taken.length}-${at.value.shot}`, strikeShot, { flush: 'post' })
+
+/**
+ * Whether the clock is stopped. Beside the Path and never inside it, the way
+ * muting is — a Path is a reading of the Story and stopping is a property of the
+ * person. Unlike muting it is not kept between visits: a mute is a preference, a
+ * pause is a moment, and a Reader who comes back to a Story they stopped wants it
+ * running again. See
+ * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
+ */
+const paused = ref(false)
+
+/** Whether the page is out of sight, which stops the clock as surely as the control does. */
+const hidden = ref(false)
+
+onMounted(() => {
+  const watching = () => { hidden.value = document.visibilityState === 'hidden' }
+  document.addEventListener('visibilitychange', watching)
+  onBeforeUnmount(() => document.removeEventListener('visibilitychange', watching))
+})
+
+/**
+ * What the beat on screen is being held under, or nothing where nothing holds it.
+ * Named apart from `held` above, which is the Shot the frame holds: one is what is
+ * on screen and the other is what will take it off.
+ */
+const holding = ref<ReturnType<typeof setTimeout>>()
+
+/**
+ * The hold: where the Cut of the Shot on screen names a time, the clock makes the
+ * cut the press would have made, through `advance` and nothing else — so a Path
+ * arrived at by waiting is the Path a hand would have arrived at.
+ *
+ * Set as the beat appears and cleared as it leaves, so no timer outlives the beat
+ * it was started for; restarted rather than resumed after a pause or a hidden tab,
+ * because nothing recorded how far it had got. A Cut is not a position, which is
+ * the rule `docs/adr/0049-a-sound-is-carried-by-what-plays-it.md` settled about a
+ * Sound, read again.
+ */
+watch([at, paused, hidden], () => {
+  clearTimeout(holding.value)
+  // Immediate, so the beat a page opens on is held like every other one — and the
+  // server draws that beat too, where a timer would be started into a request that
+  // has already been answered and nothing would ever clear it.
+  if (!import.meta.client) return
+
+  const beat = shown.value.shot
+  if (!beat || !scene.value || paused.value || hidden.value) return
+
+  const { after } = cut(scene.value, beat)
+  if (after === null) return
+
+  holding.value = setTimeout(() => moveTo(advance(at.value)), after)
+}, { immediate: true })
+
+onBeforeUnmount(() => clearTimeout(holding.value))
+
+/**
+ * Whether anything in this Story moves by itself, which is whether the Reader is
+ * given the control that stops it. WCAG 2.2.2 asks for a pause the moment
+ * something advances on its own and asks for nothing where nothing does, so a
+ * Story read entirely by the hand is given no control over a clock that never
+ * runs — the way a Story carrying no Sound is given no title card to press. A
+ * Shot's nought is *at the press*, which is a Shot standing still like any other.
+ */
+const clocked = computed(() => story.scenes.some(scene =>
+  scene.cutAfter !== null || scene.exitsAfter !== null
+  || scene.shots.some(shot => (shot.cutAfter ?? 0) > 0)))
 </script>
 
 <template>
@@ -427,11 +498,21 @@ watch(() => `${at.value.taken.length}-${at.value.shot}`, strikeShot, { flush: 'p
          sentence inside it. -->
     <p class="ended trail" role="status">{{ shown.ended ? $t('reading.ended') : '' }}</p>
 
-    <!-- What the Reader is given over the Sound: the one refusal, and the words
-         for whoever cannot hear it. Both are the person's rather than the
-         Reading's, so neither touches the Path. -->
-    <p v-if="heardAtAll" class="listening">
-      <button type="button" class="trail" @click="sounding = !sounding">
+    <!-- What the Reader is given over the Reading itself: the clock stopped, the
+         one refusal of the Sound, and the words for whoever cannot hear it. All
+         three are the person's rather than the Reading's, so none of them touches
+         the Path.
+
+         The pause comes first because it is the one control over something
+         already happening, and it is drawn only where something can happen: a
+         Story nobody wrote a time into is read entirely by the hand, and a
+         control over a clock that never runs would do nothing — the way a Story
+         carrying no Sound is given no title card to press. -->
+    <p v-if="clocked || heardAtAll" class="given">
+      <button v-if="clocked" type="button" class="trail" @click="paused = !paused">
+        {{ paused ? $t('reading.run') : $t('reading.pause') }}
+      </button>
+      <button v-if="heardAtAll" type="button" class="trail" @click="sounding = !sounding">
         {{ sounding ? $t('reading.soundOff') : $t('reading.soundOn') }}
       </button>
       <button
@@ -660,23 +741,27 @@ figcaption {
   content: none;
 }
 
-/* The one refusal and the Transcript's own switch, and stepping back a beat or
-   reading the Story again from the start: all four are the same quiet trail,
-   never a control over the Reading, so `.listening` shares `.back`'s rules
-   rather than repeating them. */
-.listening,
+/* The clock stopped, the one refusal and the Transcript's own switch, and
+   stepping back a beat or reading the Story again from the start: all of them are
+   the same quiet trail, none of them a control the Story is read with, so
+   `.given` shares `.back`'s rules rather than repeating them. */
+.given,
 .back {
   display: flex;
+  /* Three of them on the one line where a Story is heard and held under a clock,
+     which is wider than a phone: the trail wraps rather than running off the
+     side of the room. */
+  flex-wrap: wrap;
   gap: var(--s2);
 }
 
-.listening button,
+.given button,
 .back button {
   border-color: transparent;
   background: none;
 }
 
-.listening button:hover,
+.given button:hover,
 .back button:hover {
   border-color: transparent;
   background: none;

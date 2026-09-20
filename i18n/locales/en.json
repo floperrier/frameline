@@ -331,6 +331,8 @@
     "ended": "The path ends here.",
     "again": "Read Again from the Start",
     "resumed": "Picked up where you left off.",
+    "pause": "Pause the Reading",
+    "run": "Run the Reading",
     "soundOff": "Turn the Sound Off",
     "soundOn": "Turn the Sound On",
     "showTranscript": "Show the Transcript",
