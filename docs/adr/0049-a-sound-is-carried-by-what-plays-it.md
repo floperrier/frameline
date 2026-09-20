@@ -12,8 +12,10 @@ a still image and words. A Scene is heard under something, and a beat strikes.
 apiece under the access rule of the Story they belong to. It is
 `docs/adr/0005-a-shots-image-lives-in-its-row.md` read again, for the same
 reason and at the same cap: nothing of the work lives outside the work, a
-published Story depends on no file the product might later withdraw, and at two
-megabytes Postgres keeps the value in the row rather than TOASTing it out.
+published Story depends on no file the product might later withdraw, and a
+`bytea` that big is TOASTed out of the row by Postgres and never touched by a
+query that does not select it — which is why `readStoryGraph` selects
+`sound is not null` and never the column itself.
 
 **A Scene may name a Scene instead of carrying bytes, one hop and no further.**
 Depositing a 400 KB bed twelve times is work; naming is how an Author avoids it,

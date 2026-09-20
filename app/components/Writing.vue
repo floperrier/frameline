@@ -530,14 +530,12 @@ function attach(scene: Scene, shot: Shot, file: File) {
   })
 }
 
-/** The picker is cleared afterwards, so picking the same file twice is a change twice. */
+/** Picked from the dialog rather than dropped on the thumbnail — see `depositedFile`. */
 function attachImage(scene: Scene, shot: Shot, event: Event) {
-  const picker = event.target as HTMLInputElement
-  const picked = picker.files?.[0]
-  if (!picked) return
-  picker.value = ''
+  const file = depositedFile(event)
+  if (!file) return
 
-  return attach(scene, shot, picked)
+  return attach(scene, shot, file)
 }
 
 /** The Shot whose thumbnail a file is over, held by id: the read that lands mid-drag replaces every Scene in the Story. */
@@ -575,6 +573,15 @@ function dropImage(scene: Scene, shot: Shot, event: DragEvent) {
 const carriers = computed(() => soundCarriers(story.scenes))
 
 /**
+ * What the file dialog offers. The media types alone are not enough: several
+ * platforms map `.m4a` to `audio/x-m4a`, which greys an Author's own AAC files
+ * out of their own dialog — in a product that ships thirty of them. Naming the
+ * extensions beside the types loosens nothing, because what a Sound is is read
+ * off its first bytes by the server and never off this list.
+ */
+const SOUND_ACCEPT = [...SOUND_TYPES, '.m4a', '.mp3', '.aac'].join(',')
+
+/**
  * What each Scene's picker is standing on, a Scene at a time: the document holds
  * forty of these and one string between them would put what was chosen at the
  * foot of one Scene into all of them. A Scene that goes takes its entry with it,
@@ -590,7 +597,12 @@ watch(() => story.scenes, (scenes) => {
   for (const id of Object.keys(picked)) {
     if (!standing.has(id)) delete picked[id]
   }
-})
+  // Seeded as well as pruned. `v-model` on a `<select>` whose value matches no
+  // option leaves `selectedIndex` at -1, which draws the field blank and puts
+  // the placeholder out of reach; the empty string is the placeholder's own
+  // value, so standing on it is standing on *No Sound*.
+  for (const id of standing) picked[id] ??= ''
+}, { immediate: true })
 
 /** Where what has been chosen is served: a Scene of this Story, or a file of the library. */
 function chosenSound(chosen: string | undefined) {
@@ -683,6 +695,15 @@ function depositSound(scene: Scene, event: Event) {
  * `docs/adr/0017-a-confirmation-is-drawn-on-the-bench.md`, and
  * `docs/adr/0049-a-sound-is-carried-by-what-plays-it.md` for why no Remark can
  * say it afterwards.
+ *
+ * This is also the only way to change a Scene's bed: the controls that deposit
+ * one are behind the Sound being absent, so replacing means removing first, and
+ * on a carrier twelve Scenes name that is a question about twelve Scenes falling
+ * silent. They fall silent for exactly as long as the row carries no bytes: the
+ * DELETE clears this Scene's own columns and never the `sound_of_scene_id` of
+ * the Scenes naming it — only deleting the row itself does that, which is the
+ * `on delete set null` — so all twelve are heard again the moment the new bytes
+ * land. The confirmation says the cost and not the return.
  */
 async function removeSound(held: SceneInDocument) {
   if (held.namedBy) {
@@ -1128,7 +1149,7 @@ function writeConditions(
             </span>
             <input
               type="file"
-              :accept="SOUND_TYPES.join(',')"
+              :accept="SOUND_ACCEPT"
               @change="depositSound(held.scene, $event)"
             >
           </label>
@@ -1138,9 +1159,12 @@ function writeConditions(
               {{ $t('editor.soundOfScene', { name: held.name }) }}
             </label>
             <select :id="`sound-${held.scene.id}`" v-model="picked[held.scene.id]">
-              <option value="" />
+              <option value="">{{ $t('editor.noSoundPicked') }}</option>
+              <!-- Not on a Scene others are heard under: naming one from here
+                   would be a second hop, which the API refuses — so the picker
+                   withholds exactly what the server would not take. -->
               <optgroup
-                v-if="carriers.some(carrier => carrier.id !== held.scene.id)"
+                v-if="!held.namedBy && carriers.some(carrier => carrier.id !== held.scene.id)"
                 :label="$t('editor.soundsOfStory')"
               >
                 <option
@@ -1159,11 +1183,23 @@ function writeConditions(
               </optgroup>
             </select>
 
-            <button type="button" class="mark" @click="listen(picked[held.scene.id])">
+            <!-- Both act on what the `<select>` is standing on, so on nothing
+                 they do nothing: disabled rather than pressable and inert, which
+                 also keeps two dead stops per Scene out of the keyboard walk. -->
+            <button
+              type="button"
+              class="mark"
+              :disabled="!picked[held.scene.id]"
+              @click="listen(picked[held.scene.id])"
+            >
               {{ $t('editor.listenToSound') }}
               <span class="visually-hidden">{{ held.name }}</span>
             </button>
-            <button type="button" @click="takeSound(held.scene, picked[held.scene.id])">
+            <button
+              type="button"
+              :disabled="!picked[held.scene.id]"
+              @click="takeSound(held.scene, picked[held.scene.id])"
+            >
               {{ $t('editor.takeSound') }}
               <span class="visually-hidden">{{ held.name }}</span>
             </button>
@@ -1309,19 +1345,30 @@ function writeConditions(
                     {{ $t('editor.soundOfShot', { place: place + 1, scene: held.name }) }}
                   </label>
                   <select :id="`shot-sound-${shot.id}`" v-model="picked[shot.id]">
-                    <option value="">{{ $t('editor.noShotSoundYet') }}</option>
+                    <option value="">{{ $t('editor.noSoundPicked') }}</option>
                     <option v-for="sound in SOUND_LIBRARY" :key="sound.file" :value="`library:${sound.file}`">
                       {{ sound.label[$i18n.locale as 'en' | 'fr'] ?? sound.label.en }}
                       · {{ $t('editor.soundSeconds', { count: sound.seconds }) }}
                     </option>
                   </select>
-                  <button type="button" class="mark" @click="listen(picked[shot.id])">
+                  <!-- Inert on nothing, so disabled on nothing: see the Scene's
+                       own pair above. -->
+                  <button
+                    type="button"
+                    class="mark"
+                    :disabled="!picked[shot.id]"
+                    @click="listen(picked[shot.id])"
+                  >
                     {{ $t('editor.listenToSound') }}
                     <span class="visually-hidden">
                       {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
                     </span>
                   </button>
-                  <button type="button" @click="takeShotSound(held.scene, shot, picked[shot.id])">
+                  <button
+                    type="button"
+                    :disabled="!picked[shot.id]"
+                    @click="takeShotSound(held.scene, shot, picked[shot.id])"
+                  >
                     {{ $t('editor.takeSound') }}
                     <span class="visually-hidden">
                       {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
@@ -1333,7 +1380,7 @@ function writeConditions(
                     </span>
                     <input
                       type="file"
-                      :accept="SOUND_TYPES.join(',')"
+                      :accept="SOUND_ACCEPT"
                       @change="depositShotSound(held.scene, shot, $event)"
                     >
                   </label>

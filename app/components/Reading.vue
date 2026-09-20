@@ -47,7 +47,7 @@ const shown = computed(() => reading(story, at.value))
  * move, so the opening is kept too — a Reader who has just started over is back
  * at the start next time as well — and so is a move made from outside.
  */
-const key = keptFor && `reading-${keptFor}`
+const key = keptFor && readingKey(keptFor)
 
 watch(at, (now) => {
   if (!key) return
@@ -104,6 +104,12 @@ onMounted(() => {
   // that watch will not see it as a change and will not fire for it. Struck
   // here instead: the opening beat is a beat that plays like any other.
   if (!moved(at.value)) strikeShot()
+  // The bed has no such exception and needs the call for the opposite reason:
+  // a Preview is mounted afresh over a Path the bench held, so `heard` arrives
+  // already standing at its value and the watch below never fires for it. The
+  // guard in `holdBed` makes the next crossing into the same carrier a no-op,
+  // so nothing started here is restarted.
+  holdBed(heard.value)
 })
 
 /**
@@ -235,8 +241,12 @@ watch(transcribed, now => keepFlag(TRANSCRIPT_SHOWN, now))
  * stays silent, which is the element's own `ended` and nothing this has to do.
  * Runs whether or not sound is on — muting is `.muted` above, not a reason to
  * tear the source down and restart it on the next press.
+ *
+ * A function rather than only a watch callback, for the reason `strikeShot` is
+ * one: a Preview is mounted afresh over a Path the bench was already holding, so
+ * the Scene is not crossed into and nothing watched here changes.
  */
-watch(heard, (now, before) => {
+function holdBed(now: Heard | undefined, before?: Heard) {
   const element = bed.value
   if (!element) return
 
@@ -251,16 +261,25 @@ watch(heard, (now, before) => {
 
   element.src = now.sound
   element.currentTime = 0
+  // Said here rather than left to the watch above, which fires on the press
+  // after a Reader turned the sound off and never on the play that starts a
+  // bed: what would escape otherwise is sound reaching somebody who asked for
+  // none.
+  element.muted = !sounding.value
   // A browser that refuses to play refuses quietly: the reading goes on in
   // silence rather than throwing into a page nobody can see it from.
   element.play().catch(() => {})
-})
+}
+
+watch(heard, holdBed)
 
 /**
  * The strike, which plays as the beat plays and is gone. Keyed on the Path rather
  * than on the Shot, so a Shot played again strikes again — it is the same key the
  * frame is thrown by. Plays whether or not sound is on, for the same reason the
- * bed does: muting is `.muted` above, read by the element itself.
+ * bed does: muting is `.muted`, read by the element itself, and set here before
+ * the play as well as by the watch above — the press that turns sound off can
+ * come after the mount this strikes from and before the watch has set anything.
  *
  * A function rather than only a watch callback, because one transition into a
  * drawn Path — the opening beat, in `onMounted` above — moves nothing this key
@@ -278,6 +297,7 @@ function strikeShot() {
 
   element.src = sound
   element.currentTime = 0
+  element.muted = !sounding.value
   element.play().catch(() => {})
 }
 
@@ -348,7 +368,7 @@ watch(() => `${at.value.taken.length}-${at.value.shot}`, strikeShot, { flush: 'p
            is `visually-hidden` and still read, never taken out of the
            accessibility tree and never announced in a live region, which would
            trample the reading. -->
-      <div v-if="heard || shown.shot?.sound" class="heard">
+      <div v-if="heard?.transcript || shown.shot?.transcript" class="heard">
         <p v-if="heard?.transcript" class="transcript" :class="{ 'visually-hidden': !transcribed }">
           <span class="eyebrow">{{ $t('reading.sceneTranscript') }}</span>
           <span :lang="story.language">{{ heard.transcript }}</span>

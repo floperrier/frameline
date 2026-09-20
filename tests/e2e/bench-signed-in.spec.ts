@@ -321,18 +321,32 @@ test('draws a row\'s marks at the weight of the words until the hand arrives at 
     // tab stop where it stands, in the order the row draws it, and none of them is
     // anywhere else in the document — `display: none` was never the mechanism, so
     // there is nothing to take out and put back.
+    //
+    // The row is drawn as matter, then what is said of that matter, then the acts
+    // on the row: the Image, the words, the Description of the Image, the Sound,
+    // the Transcript of the Sound, and `.beneath` last by construction — so the
+    // Sound's own controls come before the acts, on the same side of the words as
+    // the Description, because the Transcript sits under the Sound as the
+    // Description sits under the Image.
+    //
+    // This beat carries neither Image nor Sound, so neither thing said of them is
+    // drawn, and *Listen* and *Take This Sound* are disabled until the `<select>`
+    // is standing on something — a disabled control is no tab stop, which is two
+    // stops a row this row does not spend.
     await page.mouse.move(0, 0)
     await beat.locator('textarea').focus()
 
-    for (const named of [
-      'Add a Condition to Shot 2 of Scene 1',
-      'Split Scene 1 before Shot 2',
-      'Move Earlier Shot 2 of Scene 1',
-      'Move Later Shot 2 of Scene 1',
-      'Delete Shot 2 of Scene 1',
+    for (const stop of [
+      beat.getByLabel('The Sound of Shot 2 of Scene 1'),
+      beat.getByLabel('Upload a Sound for Shot 2 of Scene 1'),
+      beat.getByRole('button', { name: 'Add a Condition to Shot 2 of Scene 1' }),
+      beat.getByRole('button', { name: 'Split Scene 1 before Shot 2' }),
+      beat.getByRole('button', { name: 'Move Earlier Shot 2 of Scene 1' }),
+      beat.getByRole('button', { name: 'Move Later Shot 2 of Scene 1' }),
+      beat.getByRole('button', { name: 'Delete Shot 2 of Scene 1' }),
     ]) {
       await page.keyboard.press('Tab')
-      await expect(beat.getByRole('button', { name: named })).toBeFocused()
+      await expect(stop).toBeFocused()
     }
 
     // And the caret in the row is the same arrival as the pointer on it: an Author

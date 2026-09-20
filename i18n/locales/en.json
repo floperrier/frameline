@@ -223,7 +223,7 @@
     "soundOfShot": "The Sound of Shot {place} of {scene}",
     "pickSoundOfShot": "Upload a Sound for Shot {place} of {scene}",
     "transcriptOfShot": "The Transcript of Shot {place} of {scene}",
-    "noShotSoundYet": "No Sound"
+    "noSoundPicked": "No Sound"
   },
   "conditions": {
     "ofCarrier": "of {carrier}",
@@ -315,7 +315,7 @@
     "showTranscript": "Show the Transcript",
     "hideTranscript": "Hide the Transcript",
     "sceneTranscript": "What the Scene is heard under",
-    "shotTranscript": "What this beat strikes with"
+    "shotTranscript": "What the Shot strikes with"
   },
   "read": {
     "eyebrow": "A Frameline Story",

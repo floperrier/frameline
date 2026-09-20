@@ -31,11 +31,15 @@ export const SOUND_TRANSCRIPT_MAX_LENGTH = 500
 const MPEG4_BRANDS = ['M4A ', 'mp42', 'isom']
 
 /**
- * The kinds a Sound may be, which is what the picker offers and the server
- * takes. `audio/mp4` and `audio/mpeg` are not Frameline's words for a Sound —
- * they are the registered media types a `Content-Type` header and an
- * `<audio><source type>` must carry, and neither has a synonym to carry it
- * under instead. `CONTEXT.md` already settles this on the same kind of list:
+ * The kinds a Sound may be. It is the file dialog's `accept` and nothing else:
+ * no boundary is held by it, because what a Sound is is read off its own first
+ * bytes by `soundTypeOf` on the way in — a file dialog is a courtesy to the hand
+ * and never a check.
+ *
+ * `audio/mp4` and `audio/mpeg` are not Frameline's words for a Sound — they are
+ * the registered media types a `Content-Type` header and an
+ * `<audio><source type>` must carry, and neither has a synonym to carry it under
+ * instead. `CONTEXT.md` already settles this on the same kind of list:
  * `alt` sits on the Description entry's `_Avoid_` line and is written eight
  * times in `app/` regardless, because HTML owns that attribute's name the
  * way the platform owns this string.

@@ -201,9 +201,9 @@
     "duplicateScene": "Dupliquer la Scène",
     "sceneDuplicated": "« {name} » dupliquée en « {to} », qui porte ses Plans et aucune de ses Sorties",
     "soundHeld": "Son",
-    "noSoundYet": "Cette Scène ne s’entend sous rien. Téléversez un Son, ou prenez-en un au Récit ou à la bibliothèque.",
+    "noSoundYet": "Cette Scène ne s’entend sous aucun Son. Envoyez-en un, ou prenez-en un dans le Récit ou dans la bibliothèque.",
     "soundOfScene": "Le Son de {name}",
-    "pickSoundOfScene": "Téléverser un Son pour {name}",
+    "pickSoundOfScene": "Envoyer un Son pour {name}",
     "soundsOfStory": "Les Sons que porte ce Récit",
     "soundLibrary": "La bibliothèque",
     "listenToSound": "Écouter",
@@ -221,9 +221,9 @@
     "confirmSceneSoundLostMany": "{count} Scènes s’entendent sous elle, et deviennent muettes.",
     "soundSeconds": "{count} s",
     "soundOfShot": "Le Son du Plan {place} de {scene}",
-    "pickSoundOfShot": "Téléverser un Son pour le Plan {place} de {scene}",
+    "pickSoundOfShot": "Envoyer un Son pour le Plan {place} de {scene}",
     "transcriptOfShot": "La Transcription du Plan {place} de {scene}",
-    "noShotSoundYet": "Aucun Son"
+    "noSoundPicked": "Aucun Son"
   },
   "conditions": {
     "ofCarrier": "de {carrier}",
@@ -314,8 +314,8 @@
     "soundOn": "Rétablir le Son",
     "showTranscript": "Afficher la Transcription",
     "hideTranscript": "Masquer la Transcription",
-    "sceneTranscript": "Ce sous quoi la Scène s’entend",
-    "shotTranscript": "Ce que ce battement frappe"
+    "sceneTranscript": "Le Son tenu sous la Scène",
+    "shotTranscript": "Le Son que frappe le Plan"
   },
   "read": {
     "eyebrow": "Un Récit Frameline",
@@ -388,7 +388,7 @@
     "imageMissing": "Une image est un fichier à envoyer.",
     "imageHeavy": "Une image ne peut pas peser plus de {mb} Mo.",
     "imageType": "Un Plan porte une image JPEG, PNG ou WebP, et rien d'autre.",
-    "soundMissing": "Un Son est un fichier à téléverser.",
+    "soundMissing": "Un Son est un fichier à envoyer.",
     "soundHeavy": "Un Son ne peut pas peser plus de {mb} Mo.",
     "soundType": "Un Son est un fichier AAC ou MP3, et rien d’autre : ce sont les deux que tous les navigateurs lisent.",
     "transcript": "Une Transcription dit ce qu’un Son fait entendre, en {max} caractères au plus.",

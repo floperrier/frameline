@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { neon } from '@neondatabase/serverless'
 import { expect, test as base, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test'
 import { DISMISSED } from '../../app/utils/steps'
@@ -16,6 +17,14 @@ export const ONE_PIXEL = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==',
   'base64',
 )
+
+/**
+ * One real MP3, a few frames of silence, for the specs that deposit a Sound. A
+ * file rather than a shape, for the reason the pixel above is one — and an MP3
+ * rather than an `.m4a`, because the Chromium Playwright ships carries no AAC
+ * decoder and a browser that cannot decode what it is handed proves nothing.
+ */
+export const A_SOUND = readFileSync(new URL('silence.mp3', import.meta.url))
 
 export type Author = { id: string, email: string, name: string | null }
 type Story = { id: string, title: string }

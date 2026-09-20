@@ -3,8 +3,8 @@ import { expect } from '@playwright/test'
 import { CONDITIONS_MAX, SCENE_NAME_MAX_LENGTH } from '../../shared/utils/scenes'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 import {
-  ONE_PIXEL, writeScene, readExits, readSceneName, readShotConditions, readShots, seedFlags,
-  seedExit, seedScene, seedStory, test, toast,
+  A_SOUND, ONE_PIXEL, writeScene, readExits, readSceneName, readShotConditions, readShots,
+  seedFlags, seedExit, seedScene, seedStory, test, toast,
 } from './author'
 
 const noId = '00000000-0000-4000-8000-000000000000'
@@ -913,6 +913,54 @@ test('the mark that moves where the Story opens is a tab stop on every Scene it 
     expect(read.openingSceneId).toBe(scenes[0]!.id)
   })
 
+/**
+ * The Scene's own Sound section has an order too, and it is the order the section
+ * is drawn in: the file of the Author's own first, then the list of what the
+ * Story and the library already carry, then the two acts on what that list is
+ * standing on. Held here because nothing else holds it — the section stands below
+ * the Flags, so a control added to it breaks no walk and the next person to add
+ * one would not know there was an order to keep.
+ *
+ * Walked twice, because *Listen* and *Take This Sound* both act on what the
+ * `<select>` is standing on and do nothing at all on nothing: standing on nothing
+ * they are disabled, which is not a tab stop, and the walk is two stops long.
+ */
+test('the Sound a Scene is heard under is chosen in the order the section draws',
+  async ({ page, request }) => {
+    const { story, scenes } = await chained(request, ['The arrival', 'The platform'])
+    await page.goto(`/stories/${story.id}`)
+    await expect(written(page, 'The arrival')).toBeVisible()
+
+    const section = sectionOf(page, scenes[0]!.id)
+    const depositing = section.getByLabel('Upload a Sound for The arrival')
+    const picking = section.getByLabel('The Sound of The arrival')
+    const listening = section.getByRole('button', { name: 'Listen The arrival' })
+    const taking = section.getByRole('button', { name: 'Take This Sound The arrival' })
+
+    // Standing on nothing, the two acts are drawn and refuse the walk, which is
+    // what a control that would do nothing owes an Author. What the `<select>`
+    // stands on is its own placeholder and never nothing: a value matching no
+    // option leaves `selectedIndex` at -1, which draws the field blank and puts
+    // *No Sound* — written and translated — out of reach.
+    await expect(picking).toHaveJSProperty('selectedIndex', 0)
+    await expect(listening).toBeDisabled()
+    await expect(taking).toBeDisabled()
+
+    await depositing.focus()
+    await page.keyboard.press('Tab')
+    await expect(picking).toBeFocused()
+
+    // Standing on a Sound of the library, both act and both take their place.
+    await picking.selectOption({ index: 1 })
+    await expect(listening).toBeEnabled()
+
+    await depositing.focus()
+    for (const stop of [picking, listening, taking]) {
+      await page.keyboard.press('Tab')
+      await expect(stop).toBeFocused()
+    }
+  })
+
 test('two Scenes leading to one Scene name their rows apart', async ({ page, request }) => {
   const { story, scene } = await openScene(request, 'The street')
   const write = async (name: string) => await (await request.post(
@@ -1632,6 +1680,65 @@ test('the bench refuses a way on that comes back, and an Author writes the Scene
     await writing.fill('The arrival, again')
     await writing.press('Enter')
     await expect.poll(() => readExits(bar.id)).toMatchObject([{ toSceneId: copy.id }])
+  })
+
+/**
+ * What a copy carries is the whole of the Scene rather than the part of it that
+ * was written first. `docs/adr/0049-a-sound-is-carried-by-what-plays-it.md` puts
+ * the bed on the Scene's own row and the strike on the Shot's, so a copy taking
+ * the Images and leaving the Sounds would be the Scene met again in silence —
+ * silently, which is the one way a copy must never differ from what it was made
+ * from.
+ *
+ * Both ways a Scene is heard, because a copy has to answer for both: the Scene
+ * carrying bytes is copied with them, and the Scene naming a carrier is copied
+ * still naming it. That is one hop either way, since what the original named
+ * carries bytes by construction.
+ */
+test('a duplicated Scene is heard under what it was heard under, and strikes as it struck',
+  async ({ request }) => {
+    const { story, scenes } = await chained(request, ['The arrival', 'The platform'])
+    const [arrival, platform] = [scenes[0]!, scenes[1]!]
+    const [, second] = await writeShots(request, arrival.id, ['One', 'Two'])
+
+    await request.put(`/api/scenes/${arrival.id}/sound`, { data: A_SOUND })
+    await request.patch(`/api/scenes/${arrival.id}`, {
+      data: { transcript: 'Rain on the roof', soundLoops: false },
+    })
+    await request.put(`/api/shots/${second!.id}/sound`, { data: A_SOUND })
+    await request.patch(`/api/shots/${second!.id}`, { data: { transcript: 'A door slams' } })
+    await request.patch(`/api/scenes/${platform.id}`, { data: { soundOfSceneId: arrival.id } })
+
+    const copyOf = async (sceneId: string) => {
+      const made = await request.post(`/api/scenes/${sceneId}/duplicate`)
+      expect(made.status()).toBe(201)
+      const { id } = await made.json() as { id: string }
+      const read = await (await request.get(`/api/stories/${story.id}`)).json() as StoryInEditor
+
+      return read.scenes.find(scene => scene.id === id)!
+    }
+
+    // The carrier's copy carries the bytes itself, at an address of its own, and
+    // the two things that belong to those bytes come with them: the same rain,
+    // transcribed once and played once.
+    const carrier = await copyOf(arrival.id)
+    expect(carrier.sound).toBe(`/api/scenes/${carrier.id}/sound`)
+    expect(carrier.transcript).toBe('Rain on the roof')
+    expect(carrier.soundLoops).toBe(false)
+    const served = await request.get(carrier.sound!)
+    expect(Buffer.compare(Buffer.from(await served.body()), A_SOUND)).toBe(0)
+
+    // And the beat strikes with its own, transcribed as it was transcribed, while
+    // the beat that struck with nothing goes on striking with nothing.
+    expect(carrier.shots[1]!.sound).toBe(`/api/shots/${carrier.shots[1]!.id}/sound`)
+    expect(carrier.shots[1]!.transcript).toBe('A door slams')
+    expect(carrier.shots[0]!.sound).toBeNull()
+
+    // The copy of a Scene that names one names the same Scene, and carries no
+    // bytes — which is the Scene met again, heard under exactly what it was.
+    const naming = await copyOf(platform.id)
+    expect(naming.sound).toBeNull()
+    expect(naming.soundOfSceneId).toBe(arrival.id)
   })
 
 /**

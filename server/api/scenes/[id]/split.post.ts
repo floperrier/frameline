@@ -10,6 +10,13 @@ import { useDb } from '../../../db'
  * what it played, with one press between the two halves. The Flags stay where
  * they were set, on the Scene a Reading enters first.
  *
+ * Both halves go on being heard under the Sound the Scene was heard under: a
+ * split says where a cut falls and does not take a bed away. The new Scene names
+ * whatever the original named, or names the original itself where the original
+ * carries the bytes — one hop either way, which is what
+ * `docs/adr/0049-a-sound-is-carried-by-what-plays-it.md` holds to. The Shots move
+ * as rows, so the Sound each strikes with and its Transcript move with them.
+ *
  * This is the act `docs/adr/0001-branching-only-between-scenes.md` said the
  * decision owed: an Author who wants a Story to branch in the middle of a Scene
  * splits it there and writes the second way on out of the first half.
@@ -32,7 +39,8 @@ export default defineEventHandler(async (event) => {
 
   const { rows } = await useDb().execute<Scene>(sql`
     with parted as (
-      select shots.position, scenes.id as scene_id, scenes.story_id
+      select shots.position, scenes.id as scene_id, scenes.story_id,
+        scenes.sound_of_scene_id, scenes.sound is not null as has_sound
       from shots
       join scenes on scenes.id = shots.scene_id
       where shots.id = ${shotId}::uuid
@@ -41,8 +49,10 @@ export default defineEventHandler(async (event) => {
         and shots.position > 0
     ),
     made as (
-      insert into scenes (story_id, name)
-      select story_id, ${name} from parted
+      insert into scenes (story_id, name, sound_of_scene_id)
+      select parted.story_id, ${name},
+        coalesce(parted.sound_of_scene_id, case when parted.has_sound then parted.scene_id end)
+      from parted
       returning id, name
     ),
     moved as (

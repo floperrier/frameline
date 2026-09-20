@@ -1,6 +1,5 @@
-import { readFileSync } from 'node:fs'
 import { expect } from '@playwright/test'
-import { seedPublication, seedScene, seedStory, test, writeStory } from './author'
+import { A_SOUND, seedPublication, seedScene, seedStory, test, writeStory } from './author'
 import { SOUND_MAX_BYTES, SOUND_TRANSCRIPT_MAX_LENGTH } from '../../shared/utils/sound'
 import type { APIRequestContext, Page } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
@@ -28,13 +27,6 @@ test('a Story arrives carrying no Sound anywhere, and says so of every row', asy
   expect(shots[0]!.sound).toBeNull()
   expect(shots[0]!.transcript).toBe('')
 })
-
-/**
- * A real MP3, a few frames of silence, for the specs that deposit one. A file
- * rather than a shape: the server reads the kind out of the first bytes, and the
- * browser has to be able to decode what it is handed.
- */
-export const A_SOUND = readFileSync(new URL('silence.mp3', import.meta.url))
 
 /** An MPEG-4 head with nothing behind it: enough to be taken, never to be played. */
 const AN_M4A = Buffer.concat([
