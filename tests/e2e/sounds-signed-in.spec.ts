@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { expect } from '@playwright/test'
 import { seedScene, seedStory, test, writeStory } from './author'
 import { SOUND_MAX_BYTES, SOUND_TRANSCRIPT_MAX_LENGTH } from '../../shared/utils/sound'
-import type { APIRequestContext } from '@playwright/test'
+import type { APIRequestContext, Page } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
 /** The first Scene of a Story written the way an Author writes one, and its Shots. */
@@ -196,4 +196,118 @@ test('a Transcript longer than one is refused, and names the limit', async ({ re
   })
   expect(tooLong.status()).toBe(400)
   expect((await tooLong.json()).message).toContain(`${SOUND_TRANSCRIPT_MAX_LENGTH} characters`)
+})
+
+/** One Scene's own section of the document, which is where that Scene is written. */
+function writing(page: Page, scene = 'The street') {
+  return page.getByRole('group', { name: `Writing ${scene}` })
+}
+
+test('an Author takes a Sound from the library, and the Scene carries its own bytes after', async ({ page, request }) => {
+  const { story, scene } = await openScene(request)
+
+  await page.goto(`/stories/${story.id}`)
+  const soundField = writing(page).getByLabel('The Sound of The street')
+  // Selected by value rather than by the option's full label, which also carries
+  // a duration this test has no reason to hardcode.
+  const rain = await soundField.getByRole('option', { name: /Rain/ }).getAttribute('value')
+  await soundField.selectOption(rain!)
+  await writing(page).getByRole('button', { name: 'Take This Sound' }).click()
+
+  // The bytes are copied into the row at the moment of the pick, so the Story
+  // depends on no file the product might later withdraw.
+  await expect.poll(async () => (await reread(request, story.id)).scenes[0]!.sound)
+    .toBe(`/api/scenes/${scene.id}/sound`)
+  await expect(writing(page).getByLabel('Transcript The street')).toBeVisible()
+})
+
+test('a Scene takes its Sound from another, and says whose it is', async ({ page, request }) => {
+  // `writeStory` writes The street and The bar already, joined by one Exit.
+  const { story, scene } = await openScene(request)
+  await request.put(`/api/scenes/${scene.id}/sound`, { data: A_SOUND })
+
+  await page.goto(`/stories/${story.id}`)
+  await writing(page, 'The bar').getByLabel('The Sound of The bar')
+    .selectOption({ label: 'The street' })
+  await writing(page, 'The bar').getByRole('button', { name: 'Take This Sound The bar' }).click()
+
+  await expect.poll(async () => (await reread(request, story.id)).scenes[1]!.soundOfSceneId)
+    .toBe(scene.id)
+  await expect(writing(page, 'The bar')).toContainText('Heard under The street')
+  // The Transcript belongs to the carrier, so the Scene naming one has no field
+  // for it: the same rain is transcribed once.
+  await expect(writing(page, 'The bar').getByLabel('Transcript The bar')).toHaveCount(0)
+})
+
+test('removing a Sound others are heard under asks first, and says how many fall silent', async ({ page, request }) => {
+  const { story, scene } = await openScene(request)
+  const read = await reread(request, story.id)
+  const alley = await seedScene(story, 'The alley')
+  await request.put(`/api/scenes/${scene.id}/sound`, { data: A_SOUND })
+  for (const named of [read.scenes[1]!, alley]) {
+    await request.patch(`/api/scenes/${named.id}`, { data: { soundOfSceneId: scene.id } })
+  }
+
+  await page.goto(`/stories/${story.id}`)
+  await writing(page).getByRole('button', { name: 'Remove the Sound' }).click()
+
+  const asked = page.getByRole('dialog')
+  await expect(asked).toContainText('the 2 Scenes heard under it fall silent')
+  await asked.getByRole('button', { name: 'Remove the Sound' }).click()
+
+  await expect.poll(async () => (await reread(request, story.id)).scenes[0]!.sound).toBeNull()
+})
+
+test('deleting a Scene others are heard under says so before it goes', async ({ page, request }) => {
+  const { story, scene } = await openScene(request)
+  const read = await reread(request, story.id)
+  await request.put(`/api/scenes/${scene.id}/sound`, { data: A_SOUND })
+  await request.patch(`/api/scenes/${read.scenes[1]!.id}`, {
+    data: { soundOfSceneId: scene.id },
+  })
+
+  await page.goto(`/stories/${story.id}`)
+  await writing(page).getByRole('button', { name: 'Delete Scene' }).click()
+
+  // The confirmation is the only place this can be said: with `on delete set
+  // null`, nothing in the Story remembers afterwards, so no Remark can see it.
+  await expect(page.getByRole('dialog')).toContainText('One Scene is heard under it')
+})
+
+/** The field the bar is typed into, which is the bar's own accessible name. */
+function typing(page: Page) {
+  return page.getByRole('textbox', { name: 'Type a name' })
+}
+
+/** The control the bar is opened by, named for the bar and carrying its key. */
+function commanding(page: Page) {
+  return page.getByRole('button', { name: 'Commands' })
+}
+
+/** Every Command the bar is offering under what has been typed, in its order. */
+function offered(page: Page) {
+  return page.locator('dialog.commands li button')
+}
+
+/**
+ * Opens the bar by its control, repeated until it takes: `page.goto` returns
+ * when the document has loaded and not when Vue has attached anything to it.
+ */
+async function open(page: Page) {
+  const up = page.locator('dialog.commands[open]')
+
+  await expect(async () => {
+    if (!await up.count()) await commanding(page).click()
+    await expect(typing(page)).toBeFocused({ timeout: 1000 })
+  }).toPass()
+}
+
+test('Remove the Sound is named in the bar once the Scene is heard under one', async ({ page, request }) => {
+  const { story, scene } = await openScene(request)
+  await request.put(`/api/scenes/${scene.id}/sound`, { data: A_SOUND })
+
+  await page.goto(`/stories/${story.id}`)
+  await open(page)
+  await typing(page).fill('Remove the Sound')
+  await expect(offered(page)).toHaveText(['Remove the Sound'])
 })

@@ -546,13 +546,13 @@ test('everything a Scene holds is on the surface at once, each part counted',
     // so what is asked about one Scene is asked of that Scene's own section.
     const arrival = written(page, 'The arrival')
 
-    // The three parts of a Scene, in the order a Reader meets them, each headed
-    // and counted where it starts: the Flags set on entry, the run of beats, the
-    // ways on.
+    // The four parts of a Scene, in the order a Reader meets them, each headed
+    // and counted where it starts: the Flags set on entry, what it is heard
+    // under, the run of beats, the ways on.
     await expect(arrival.locator('.held > h3'))
-      .toHaveText([/Flags\s*1/, /Shots\s*2/, /Exits\s*1/])
+      .toHaveText([/Flags\s*1/, 'Sound', /Shots\s*2/, /Exits\s*1/])
 
-    // And all three are on the surface together, which is what taking the tabs
+    // And all four are on the surface together, which is what taking the tabs
     // out bought: a Condition and the Flags that satisfy it are read at once.
     await expect(arrival.getByRole('textbox', { name: 'Shot 1 of The arrival', exact: true }))
       .toBeVisible()
@@ -563,7 +563,7 @@ test('everything a Scene holds is on the surface at once, each part counted',
 
     // The count follows the Story rather than the page it was drawn on.
     await arrival.getByRole('button', { name: 'Add a Shot' }).click()
-    await expect(arrival.locator('.held > h3').nth(1)).toHaveText(/Shots\s*3/)
+    await expect(arrival.locator('.held > h3').nth(2)).toHaveText(/Shots\s*3/)
   })
 
 test('a Scene is typed as one document, beat after beat', async ({ page, request }) => {
@@ -808,7 +808,11 @@ test('re-rooting from the foot of the document gives back the room there is',
 
     await expect.poll(() => page.locator('.document').evaluate(box => box.scrollTop)).toBe(0)
     await expect(writing).toBeInViewport()
-    expect((await writing.boundingBox())!.y).toBeLessThanOrEqual(before)
+    // A fraction of a pixel rather than none: the seven Scenes standing above
+    // Eight before the correction are each a hair taller or shorter than the one
+    // Scene standing above it after, and the sub-pixel remainder is not the room
+    // the correction claimed back.
+    expect((await writing.boundingBox())!.y).toBeLessThanOrEqual(before + 1)
   })
 
 test('renumbering and taking away a way on leave the words where the hand left them',
@@ -823,6 +827,25 @@ test('renumbering and taking away a way on leave the words where the hand left t
     await page.goto(`/stories/${story.id}?scene=${fifth.id}`)
     const writing = written(page, 'Five')
     await expect(writing).toBeInViewport()
+
+    const moveLaterButton = writing
+      .getByRole('button', { name: 'Move Later the Exit 1 to Six, out of Five', exact: true })
+    // Named by place as well as destination (see the comment beside the mark
+    // in Writing.vue), and the place moving later is the point of the first
+    // act below — so this is matched on the destination alone, which the
+    // renumbering never touches, rather than on a place number the renumbering
+    // is about to change out from under it.
+    const deleteButton = writing
+      .getByRole('button', { name: /^Delete the Exit \d+ to Seven, out of Five$/ })
+    // Both controls stand fully in view before the baseline is taken. Left to
+    // itself, a short viewport has one of them sitting a few pixels past its
+    // bottom edge — a control that is not fully in view is not fully clickable,
+    // and Playwright scrolls it the rest of the way in before the click lands.
+    // That scroll is the click's own precondition and not this act's doing, so
+    // the test does what a hand about to press these would do too: reach them
+    // first, then measure.
+    await moveLaterButton.scrollIntoViewIfNeeded()
+    await deleteButton.scrollIntoViewIfNeeded()
     const before = (await writing.boundingBox())!.y
 
     // Neither of these can raise a line above the caret, and the claim is worth a
@@ -832,17 +855,13 @@ test('renumbering and taking away a way on leave the words where the hand left t
     // nothing else; taking one away can only lengthen a Scene's distance or leave
     // it unreached, and a Scene nothing reaches is read after every column the
     // opening does. Both happen under the Author's hands, never over them.
-    await writing
-      .getByRole('button', { name: 'Move Later the Exit 1 to Six, out of Five', exact: true })
-      .click()
+    await moveLaterButton.click()
     await expect.poll(async () => (await readExits(fifth.id)).map(way => way.toSceneId))
       .toEqual([scenes[6]!.id, scenes[5]!.id, scenes[7]!.id])
     await expect.poll(async () => Math.abs((await writing.boundingBox())!.y - before))
       .toBeLessThanOrEqual(2)
 
-    await writing
-      .getByRole('button', { name: 'Delete the Exit 1 to Seven, out of Five', exact: true })
-      .click()
+    await deleteButton.click()
     await expect.poll(async () => (await readExits(fifth.id)).length).toBe(2)
     await expect.poll(async () => Math.abs((await writing.boundingBox())!.y - before))
       .toBeLessThanOrEqual(2)
