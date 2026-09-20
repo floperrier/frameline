@@ -14,9 +14,12 @@ import type { StoryInEditor } from '../../shared/utils/scenes'
  * Reading is one component behind both doors, so what is proved here is proved of
  * an Author's Preview as well.
  *
- * The times are short on purpose — half a second held, three seconds waited out —
- * because the one thing a hold cannot be asserted without is time actually
- * passing.
+ * Two kinds of time, for two kinds of assertion. A hold is a timer, so everything
+ * about holding is wound by hand on `page.clock` and costs no real seconds at
+ * all. A passage is painted by the browser on a schedule of its own — a CSS
+ * transition, and the frames Vue counts it in — and a fake clock freezes the very
+ * thing being read, so everything about passing waits in real time, over beats
+ * held for half a second and passages of three.
  */
 async function opened(
   page: Page,

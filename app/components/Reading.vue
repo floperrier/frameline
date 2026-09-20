@@ -600,7 +600,7 @@ const clocked = computed(() => story.scenes.some(scene =>
          carrying no Sound is given no title card to press. -->
     <p v-if="clocked || heardAtAll" class="given">
       <button v-if="clocked" type="button" class="trail" @click="paused = !paused">
-        {{ paused ? $t('reading.run') : $t('reading.pause') }}
+        {{ paused ? $t('reading.resume') : $t('reading.pause') }}
       </button>
       <button v-if="heardAtAll" type="button" class="trail" @click="sounding = !sounding">
         {{ sounding ? $t('reading.soundOff') : $t('reading.soundOn') }}
