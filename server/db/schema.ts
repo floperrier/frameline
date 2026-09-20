@@ -12,7 +12,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
-import type { Condition, Sets } from '../../shared/utils/scenes'
+import type { Condition, CutThrough, Sets } from '../../shared/utils/scenes'
 
 // `name` is the Name an Author appears under wherever somebody else meets them:
 // beside a Listed Story, on their Profile. It arrives from the provider they
@@ -170,7 +170,7 @@ export const scenes = pgTable('scenes', {
   soundLoops: boolean('sound_loops').notNull().default(true),
   cutAfter: integer('cut_after'),
   cutOver: integer('cut_over').notNull().default(0),
-  cutThrough: text('cut_through').notNull().default('image'),
+  cutThrough: text('cut_through').$type<CutThrough>().notNull().default('image'),
   exitsAfter: integer('exits_after'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
@@ -238,7 +238,7 @@ export const shots = pgTable('shots', {
   transcript: text('transcript').notNull().default(''),
   cutAfter: integer('cut_after'),
   cutOver: integer('cut_over'),
-  cutThrough: text('cut_through'),
+  cutThrough: text('cut_through').$type<CutThrough>(),
   conditions: jsonb('conditions').$type<Condition[]>().notNull().default([]),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
@@ -293,7 +293,7 @@ export const exits = pgTable('exits', {
   position: integer('position').notNull().default(0),
   stepsBack: boolean('steps_back'),
   cutOver: integer('cut_over').notNull().default(0),
-  cutThrough: text('cut_through').notNull().default('image'),
+  cutThrough: text('cut_through').$type<CutThrough>().notNull().default('image'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
