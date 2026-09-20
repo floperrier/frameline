@@ -766,6 +766,145 @@ function removeShotSound(scene: Scene, shot: Shot) {
   return changing(scene, () => send(`/api/shots/${shot.id}/sound`, { method: 'DELETE' }))
 }
 
+/**
+ * How a cut is made, read off the two columns that say it. Nought over is a hard
+ * cut and there is no third value to read: under a duration of nought there is
+ * nothing for `cutThrough` to be true of, so the panel offers one answer of three
+ * where the columns hold two facts, and neither can disagree with the other. A
+ * Shot alone may say nothing at all, which is the null both of its columns hold
+ * and which reads here as *as the Scene says*. See
+ * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
+ */
+function cutKind(carrier: { cutOver: number | null, cutThrough: CutThrough | null }) {
+  if (carrier.cutOver === null) return 'scene'
+
+  return carrier.cutOver === 0 ? 'hard' : carrier.cutThrough ?? 'image'
+}
+
+/**
+ * When a Shot leaves the screen, in the three answers its one column holds: as
+ * its Scene says, at the press, or after a time of its own. A Scene has two of
+ * them — it is what a Shot falls back on, so it has nothing to fall back on
+ * itself — and its null is the press rather than a deferral.
+ */
+function cutWhen(shot: Shot) {
+  if (shot.cutAfter === null) return 'scene'
+
+  return shot.cutAfter === 0 ? 'press' : 'clock'
+}
+
+/** How long the ways on stand: until one is taken, for a time, or not at all. */
+function exitsOffered(scene: Scene) {
+  if (scene.exitsAfter === null) return 'taken'
+
+  return scene.exitsAfter === 0 ? 'none' : 'clock'
+}
+
+/**
+ * What each answer about how a cut is made writes. *Hard* names no `cutThrough`
+ * at all rather than naming a third value: the column is left where it was,
+ * because under a duration of nought nothing is passed through — and a Scene's
+ * and an Exit's own column would refuse the null a Shot is allowed to leave.
+ *
+ * The two durations are where the clock starts and not what it is: an Author
+ * writes over either in the field beside the answer.
+ */
+type CutMade = 'hard' | 'image' | 'black'
+
+const CUT_MADE: Record<CutMade, Partial<Pick<Exit, 'cutOver' | 'cutThrough'>>> = {
+  hard: { cutOver: 0 },
+  image: { cutOver: 800, cutThrough: 'image' },
+  black: { cutOver: 1200, cutThrough: 'black' },
+}
+
+function cutMade(answer: string) {
+  return CUT_MADE[answer as CutMade]
+}
+
+/**
+ * Where a clock starts on the answer that asks for one: four seconds for a beat,
+ * which is a Shot read rather than glanced at, and ten for the ways on, which are
+ * read and then chosen between.
+ */
+const A_TIME_HELD = 4000
+const A_TIME_OFFERED = 10_000
+
+/**
+ * A field of seconds read back as the milliseconds the column holds, and nothing
+ * at all for a field left empty — a box being cleared is an Author in the middle
+ * of typing, and nought is a sentence this panel writes from a `<select>` and
+ * never from a number. A time past its cap is written and refused by its own
+ * phrase, because a refusal says more than a field that silently kept what it
+ * had.
+ */
+function secondsWritten(event: Event) {
+  const seconds = (event.target as HTMLInputElement).valueAsNumber
+
+  return Number.isNaN(seconds) ? undefined : Math.round(seconds * 1000)
+}
+
+/** A body one of those empty fields is in is a body with no change in it. */
+function wholeCut(body: object) {
+  return Object.values(body).every(held => held !== undefined)
+}
+
+/**
+ * What a Scene, a Shot or an Exit says about its Cut. One function per carrier
+ * rather than one clever one, because the three rows are three endpoints and the
+ * panel reads better where each says which it writes. The value is put on the row
+ * before the request leaves, the way every other typed write here does it, so the
+ * document does not flicker back to the answer that was chosen against.
+ */
+function writeSceneCut(
+  scene: Scene,
+  body: Partial<Pick<Scene, 'cutAfter' | 'cutOver' | 'cutThrough' | 'exitsAfter'>>,
+) {
+  if (!wholeCut(body)) return
+  Object.assign(scene, body)
+
+  return writing(scene, () => send(`/api/scenes/${scene.id}`, { method: 'PATCH', body }))
+}
+
+function writeShotCut(
+  scene: Scene,
+  shot: Shot,
+  body: Partial<Pick<Shot, 'cutAfter' | 'cutOver' | 'cutThrough'>>,
+) {
+  if (!wholeCut(body)) return
+  Object.assign(shot, body)
+
+  return writing(scene, () => send(`/api/shots/${shot.id}`, { method: 'PATCH', body }))
+}
+
+function writeExitCut(
+  scene: Scene, exit: Exit, body: Partial<Pick<Exit, 'cutOver' | 'cutThrough'>>,
+) {
+  if (!wholeCut(body)) return
+  Object.assign(exit, body)
+
+  return writing(scene, () => send(`/api/exits/${exit.id}`, { method: 'PATCH', body }))
+}
+
+/** The three answers a Shot's own row gives, each written as the column holds it. */
+function writeShotCutAfter(scene: Scene, shot: Shot, answer: string) {
+  return writeShotCut(scene, shot, {
+    cutAfter: answer === 'scene' ? null : answer === 'press' ? 0 : A_TIME_HELD,
+  })
+}
+
+function writeShotCutMade(scene: Scene, shot: Shot, answer: string) {
+  const said = answer === 'scene' ? { cutOver: null, cutThrough: null } : cutMade(answer)
+
+  return writeShotCut(scene, shot, said)
+}
+
+/** And the three the Scene gives about how long it leaves its ways on standing. */
+function writeExitsAfter(scene: Scene, answer: string) {
+  return writeSceneCut(scene, {
+    exitsAfter: answer === 'taken' ? null : answer === 'none' ? 0 : A_TIME_OFFERED,
+  })
+}
+
 function deleteShot(scene: Scene, shot: Shot) {
   return changing(scene, () => send(`/api/shots/${shot.id}`, { method: 'DELETE' }))
 }
@@ -1207,6 +1346,116 @@ function writeConditions(
         </template>
       </section>
 
+      <!-- How the Scene's run is cut: when a Shot leaves the screen, how it leaves
+           it, and how long the ways on stand at the end. Under the Sound and above
+           the run, because it is the last thing said about the whole Scene before
+           its own beats begin — and a Shot may answer otherwise on its own row.
+
+           Every answer is a `<select>` and never a number, so the noughts the
+           columns hold — a Shot held until the press, ways on offered for no time
+           at all — are sentences the Author reads rather than sentinels they have
+           to know to type. That is also why none of these is marked for the bar of
+           Commands: no press opens a `<select>`, which is the exemption `CONTEXT.md`
+           writes into the Command entry. See
+           `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`. -->
+      <section class="held cut">
+        <h3>{{ $t('editor.cutHeld') }}</h3>
+
+        <p class="cutting">
+          <label class="eyebrow" :for="`cut-after-${held.scene.id}`">
+            {{ $t('editor.shotsAreCut') }}
+            <span class="visually-hidden">{{ held.name }}</span>
+          </label>
+          <select
+            :id="`cut-after-${held.scene.id}`"
+            :value="held.scene.cutAfter === null ? 'press' : 'clock'"
+            @change="writeSceneCut(held.scene, {
+              cutAfter: ($event.target as HTMLSelectElement).value === 'press'
+                ? null
+                : A_TIME_HELD,
+            })"
+          >
+            <option value="press">{{ $t('editor.cutAtThePress') }}</option>
+            <option value="clock">{{ $t('editor.cutAfterATime') }}</option>
+          </select>
+          <!-- The number is drawn only under the answer that asks for one: a field
+               of seconds beside *at the press* would be a duration nobody wrote. -->
+          <template v-if="held.scene.cutAfter !== null">
+            <input
+              type="number"
+              inputmode="decimal"
+              min="0.5"
+              :max="CUT_AFTER_MAX / 1000"
+              step="0.5"
+              :value="held.scene.cutAfter / 1000"
+              :aria-label="$t('editor.secondsAShotStands', { name: held.name })"
+              @change="writeSceneCut(held.scene, { cutAfter: secondsWritten($event) })"
+            >
+            <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
+          </template>
+        </p>
+
+        <p class="cutting">
+          <label class="eyebrow" :for="`cut-over-${held.scene.id}`">
+            {{ $t('editor.cutIsMade') }}
+            <span class="visually-hidden">{{ held.name }}</span>
+          </label>
+          <select
+            :id="`cut-over-${held.scene.id}`"
+            :value="cutKind(held.scene)"
+            @change="writeSceneCut(
+              held.scene, cutMade(($event.target as HTMLSelectElement).value))"
+          >
+            <option value="hard">{{ $t('editor.cutHard') }}</option>
+            <option value="image">{{ $t('editor.cutThroughImage') }}</option>
+            <option value="black">{{ $t('editor.cutThroughBlack') }}</option>
+          </select>
+          <template v-if="held.scene.cutOver > 0">
+            <input
+              type="number"
+              inputmode="decimal"
+              min="0.1"
+              :max="CUT_OVER_MAX / 1000"
+              step="0.1"
+              :value="held.scene.cutOver / 1000"
+              :aria-label="$t('editor.secondsTheCutTakes', { name: held.name })"
+              @change="writeSceneCut(held.scene, { cutOver: secondsWritten($event) })"
+            >
+            <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
+          </template>
+        </p>
+
+        <p class="cutting">
+          <label class="eyebrow" :for="`exits-after-${held.scene.id}`">
+            {{ $t('editor.exitsAreOffered') }}
+            <span class="visually-hidden">{{ held.name }}</span>
+          </label>
+          <select
+            :id="`exits-after-${held.scene.id}`"
+            :value="exitsOffered(held.scene)"
+            @change="writeExitsAfter(
+              held.scene, ($event.target as HTMLSelectElement).value)"
+          >
+            <option value="taken">{{ $t('editor.exitsUntilTaken') }}</option>
+            <option value="clock">{{ $t('editor.exitsForATime') }}</option>
+            <option value="none">{{ $t('editor.exitsNotAtAll') }}</option>
+          </select>
+          <template v-if="held.scene.exitsAfter">
+            <input
+              type="number"
+              inputmode="decimal"
+              min="0.5"
+              :max="EXITS_AFTER_MAX / 1000"
+              step="0.5"
+              :value="held.scene.exitsAfter / 1000"
+              :aria-label="$t('editor.secondsTheExitsStand', { name: held.name })"
+              @change="writeSceneCut(held.scene, { exitsAfter: secondsWritten($event) })"
+            >
+            <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
+          </template>
+        </p>
+      </section>
+
       <!-- The run: one row a beat, its Place in the margin, the thumbnail and the
            words side by side, the Description under them where there is an Image to
            describe, and what the beat plays under sharing its last line with the
@@ -1403,6 +1652,89 @@ function writeConditions(
                   @change="writeShot(held.scene, shot)"
                 >
               </p>
+
+              <!-- What this beat says about its own Cut, where the Scene has said
+                   it for the run: both answer *as the Scene says* until the Author
+                   says otherwise, which is the null the columns hold. Drawn on
+                   every beat rather than behind a gesture, because a run where one
+                   Shot is held longer than the others is read by seeing the row
+                   that differs. -->
+              <div class="cut">
+                <p class="cutting">
+                  <label class="eyebrow" :for="`shot-cut-after-${shot.id}`">
+                    {{ $t('editor.shotIsCut') }}
+                    <span class="visually-hidden">
+                      {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                    </span>
+                  </label>
+                  <select
+                    :id="`shot-cut-after-${shot.id}`"
+                    :value="cutWhen(shot)"
+                    @change="writeShotCutAfter(
+                      held.scene, shot, ($event.target as HTMLSelectElement).value)"
+                  >
+                    <option value="scene">{{ $t('editor.cutAsTheSceneSays') }}</option>
+                    <option value="press">{{ $t('editor.cutAtThePress') }}</option>
+                    <option value="clock">{{ $t('editor.cutAfterATime') }}</option>
+                  </select>
+                  <template v-if="shot.cutAfter">
+                    <input
+                      type="number"
+                      inputmode="decimal"
+                      min="0.5"
+                      :max="CUT_AFTER_MAX / 1000"
+                      step="0.5"
+                      :value="shot.cutAfter / 1000"
+                      :aria-label="$t('editor.secondsThisShotStands', {
+                        place: place + 1,
+                        scene: held.name,
+                      })"
+                      @change="writeShotCut(held.scene, shot, {
+                        cutAfter: secondsWritten($event),
+                      })"
+                    >
+                    <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
+                  </template>
+                </p>
+
+                <p class="cutting">
+                  <label class="eyebrow" :for="`shot-cut-over-${shot.id}`">
+                    {{ $t('editor.cutIsMade') }}
+                    <span class="visually-hidden">
+                      {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                    </span>
+                  </label>
+                  <select
+                    :id="`shot-cut-over-${shot.id}`"
+                    :value="cutKind(shot)"
+                    @change="writeShotCutMade(
+                      held.scene, shot, ($event.target as HTMLSelectElement).value)"
+                  >
+                    <option value="scene">{{ $t('editor.cutAsTheSceneSays') }}</option>
+                    <option value="hard">{{ $t('editor.cutHard') }}</option>
+                    <option value="image">{{ $t('editor.cutThroughImage') }}</option>
+                    <option value="black">{{ $t('editor.cutThroughBlack') }}</option>
+                  </select>
+                  <template v-if="shot.cutOver">
+                    <input
+                      type="number"
+                      inputmode="decimal"
+                      min="0.1"
+                      :max="CUT_OVER_MAX / 1000"
+                      step="0.1"
+                      :value="shot.cutOver / 1000"
+                      :aria-label="$t('editor.secondsTheShotsCutTakes', {
+                        place: place + 1,
+                        scene: held.name,
+                      })"
+                      @change="writeShotCut(held.scene, shot, {
+                        cutOver: secondsWritten($event),
+                      })"
+                    >
+                    <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
+                  </template>
+                </p>
+              </div>
 
               <div class="beneath">
                 <Conditions
@@ -1628,6 +1960,54 @@ function writeConditions(
                     <option value="yes">{{ $t('editor.steppingBackOffered') }}</option>
                     <option value="no">{{ $t('editor.steppingBackRefused') }}</option>
                   </select>
+                </p>
+
+                <!-- How the passage out of the Scene is made, and never when: an
+                     Exit is taken rather than held, so there is nothing here to
+                     say how long it stands — the Scene says that of all of them
+                     at once. It answers for itself with no Scene behind it, which
+                     is why there is no *as the Scene says* among the three: see
+                     `0050`. -->
+                <p class="cutting">
+                  <label class="eyebrow" :for="`exit-cut-over-${exit.id}`">
+                    {{ $t('editor.cutIsMade') }}
+                    <span class="visually-hidden">
+                      {{ $t('editor.theWayOnTo', {
+                        place: place + 1,
+                        scene: nameOf(exit.toSceneId),
+                        from: held.name,
+                      }) }}
+                    </span>
+                  </label>
+                  <select
+                    :id="`exit-cut-over-${exit.id}`"
+                    :value="cutKind(exit)"
+                    @change="writeExitCut(
+                      held.scene, exit, cutMade(($event.target as HTMLSelectElement).value))"
+                  >
+                    <option value="hard">{{ $t('editor.cutHard') }}</option>
+                    <option value="image">{{ $t('editor.cutThroughImage') }}</option>
+                    <option value="black">{{ $t('editor.cutThroughBlack') }}</option>
+                  </select>
+                  <template v-if="exit.cutOver > 0">
+                    <input
+                      type="number"
+                      inputmode="decimal"
+                      min="0.1"
+                      :max="CUT_OVER_MAX / 1000"
+                      step="0.1"
+                      :value="exit.cutOver / 1000"
+                      :aria-label="$t('editor.secondsTheExitsCutTakes', {
+                        place: place + 1,
+                        scene: nameOf(exit.toSceneId),
+                        from: held.name,
+                      })"
+                      @change="writeExitCut(held.scene, exit, {
+                        cutOver: secondsWritten($event),
+                      })"
+                    >
+                    <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
+                  </template>
                 </p>
 
                 <div class="row">
@@ -1904,6 +2284,50 @@ function writeConditions(
   min-inline-size: 0;
 }
 
+/* One thing said about a Cut, read as a sentence: the label, the answer, and the
+   seconds where the answer asks for a number. It wraps rather than shrinks,
+   because at the width of a phone a label of four words beside two fields is
+   wider than the column and the alternative is a page that scrolls sideways. */
+.cutting {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1) var(--s2);
+}
+
+/* As wide as the longest answer it holds and no wider, so three of them under one
+   heading are three sentences rather than three slots — and so the box does not
+   change width as the answer in it changes. */
+.cutting select {
+  inline-size: auto;
+  max-inline-size: 100%;
+}
+
+/* A field for a number of seconds, which is two digits and a decimal: sized to
+   what is typed in it rather than to the row it stands on, and figured so that a
+   column of them is read down as well as across. */
+.cutting input {
+  inline-size: 5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The unit beside it, in the machine's own face. Not an `.eyebrow`, which would
+   uppercase the symbol into an initial. */
+.cutting .unit {
+  color: var(--muted);
+  font-family: var(--data);
+  font-size: 0.75rem;
+}
+
+/* On a beat and on a way on, the Cut is read at the size of the row it is
+   written on: the Scene's own section is the only place it is read at the size of
+   a section. */
+.beat .cutting,
+.written .cutting {
+  font-size: 0.8125rem;
+}
+
 .transcribed input {
   flex: 1 1 14rem;
   min-inline-size: 0;
@@ -1998,8 +2422,20 @@ function writeConditions(
    placement would carry both of these into the narrow column instead of under
    the words, the way `.beneath` already claims the row below them. */
 .beat > .struck,
-.beat > .transcribed {
+.beat > .transcribed,
+.beat > .cut {
   grid-column: 1 / -1;
+}
+
+/* What the beat says about its own Cut: the two answers side by side while they
+   fit, one under the other where they do not. Set further apart than anything
+   else on the row, because each of the two is a label and its answer and the eye
+   has to read where one sentence ends and the next starts. */
+.beat > .cut {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1) var(--s4);
 }
 
 /* The thumbnail, drawn whether or not there is an image in it: an empty one is the
