@@ -3,8 +3,8 @@ import { expect } from '@playwright/test'
 import { CONDITIONS_MAX, SCENE_NAME_MAX_LENGTH } from '../../shared/utils/scenes'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 import {
-  ONE_PIXEL, writeScene, readExits, readSceneName, readShotConditions, readShots, seedFlags,
-  seedExit, seedScene, seedStory, test, toast,
+  A_SOUND, ONE_PIXEL, writeScene, readExits, readSceneName, readShotConditions, readShots,
+  seedFlags, seedExit, seedScene, seedStory, test, toast,
 } from './author'
 
 const noId = '00000000-0000-4000-8000-000000000000'
@@ -546,13 +546,13 @@ test('everything a Scene holds is on the surface at once, each part counted',
     // so what is asked about one Scene is asked of that Scene's own section.
     const arrival = written(page, 'The arrival')
 
-    // The three parts of a Scene, in the order a Reader meets them, each headed
-    // and counted where it starts: the Flags set on entry, the run of beats, the
-    // ways on.
+    // The four parts of a Scene, in the order a Reader meets them, each headed
+    // and counted where it starts: the Flags set on entry, what it is heard
+    // under, the run of beats, the ways on.
     await expect(arrival.locator('.held > h3'))
-      .toHaveText([/Flags\s*1/, /Shots\s*2/, /Exits\s*1/])
+      .toHaveText([/Flags\s*1/, 'Sound', /Shots\s*2/, /Exits\s*1/])
 
-    // And all three are on the surface together, which is what taking the tabs
+    // And all four are on the surface together, which is what taking the tabs
     // out bought: a Condition and the Flags that satisfy it are read at once.
     await expect(arrival.getByRole('textbox', { name: 'Shot 1 of The arrival', exact: true }))
       .toBeVisible()
@@ -563,7 +563,7 @@ test('everything a Scene holds is on the surface at once, each part counted',
 
     // The count follows the Story rather than the page it was drawn on.
     await arrival.getByRole('button', { name: 'Add a Shot' }).click()
-    await expect(arrival.locator('.held > h3').nth(1)).toHaveText(/Shots\s*3/)
+    await expect(arrival.locator('.held > h3').nth(2)).toHaveText(/Shots\s*3/)
   })
 
 test('a Scene is typed as one document, beat after beat', async ({ page, request }) => {
@@ -808,7 +808,11 @@ test('re-rooting from the foot of the document gives back the room there is',
 
     await expect.poll(() => page.locator('.document').evaluate(box => box.scrollTop)).toBe(0)
     await expect(writing).toBeInViewport()
-    expect((await writing.boundingBox())!.y).toBeLessThanOrEqual(before)
+    // A fraction of a pixel rather than none: the seven Scenes standing above
+    // Eight before the correction are each a hair taller or shorter than the one
+    // Scene standing above it after, and the sub-pixel remainder is not the room
+    // the correction claimed back.
+    expect((await writing.boundingBox())!.y).toBeLessThanOrEqual(before + 1)
   })
 
 test('renumbering and taking away a way on leave the words where the hand left them',
@@ -823,6 +827,25 @@ test('renumbering and taking away a way on leave the words where the hand left t
     await page.goto(`/stories/${story.id}?scene=${fifth.id}`)
     const writing = written(page, 'Five')
     await expect(writing).toBeInViewport()
+
+    const moveLaterButton = writing
+      .getByRole('button', { name: 'Move Later the Exit 1 to Six, out of Five', exact: true })
+    // Named by place as well as destination (see the comment beside the mark
+    // in Writing.vue), and the place moving later is the point of the first
+    // act below — so this is matched on the destination alone, which the
+    // renumbering never touches, rather than on a place number the renumbering
+    // is about to change out from under it.
+    const deleteButton = writing
+      .getByRole('button', { name: /^Delete the Exit \d+ to Seven, out of Five$/ })
+    // Both controls stand fully in view before the baseline is taken. Left to
+    // itself, a short viewport has one of them sitting a few pixels past its
+    // bottom edge — a control that is not fully in view is not fully clickable,
+    // and Playwright scrolls it the rest of the way in before the click lands.
+    // That scroll is the click's own precondition and not this act's doing, so
+    // the test does what a hand about to press these would do too: reach them
+    // first, then measure.
+    await moveLaterButton.scrollIntoViewIfNeeded()
+    await deleteButton.scrollIntoViewIfNeeded()
     const before = (await writing.boundingBox())!.y
 
     // Neither of these can raise a line above the caret, and the claim is worth a
@@ -832,17 +855,13 @@ test('renumbering and taking away a way on leave the words where the hand left t
     // nothing else; taking one away can only lengthen a Scene's distance or leave
     // it unreached, and a Scene nothing reaches is read after every column the
     // opening does. Both happen under the Author's hands, never over them.
-    await writing
-      .getByRole('button', { name: 'Move Later the Exit 1 to Six, out of Five', exact: true })
-      .click()
+    await moveLaterButton.click()
     await expect.poll(async () => (await readExits(fifth.id)).map(way => way.toSceneId))
       .toEqual([scenes[6]!.id, scenes[5]!.id, scenes[7]!.id])
     await expect.poll(async () => Math.abs((await writing.boundingBox())!.y - before))
       .toBeLessThanOrEqual(2)
 
-    await writing
-      .getByRole('button', { name: 'Delete the Exit 1 to Seven, out of Five', exact: true })
-      .click()
+    await deleteButton.click()
     await expect.poll(async () => (await readExits(fifth.id)).length).toBe(2)
     await expect.poll(async () => Math.abs((await writing.boundingBox())!.y - before))
       .toBeLessThanOrEqual(2)
@@ -892,6 +911,54 @@ test('the mark that moves where the Story opens is a tab stop on every Scene it 
 
     const read = await (await request.get(`/api/stories/${story.id}`)).json()
     expect(read.openingSceneId).toBe(scenes[0]!.id)
+  })
+
+/**
+ * The Scene's own Sound section has an order too, and it is the order the section
+ * is drawn in: the file of the Author's own first, then the list of what the
+ * Story and the library already carry, then the two acts on what that list is
+ * standing on. Held here because nothing else holds it — the section stands below
+ * the Flags, so a control added to it breaks no walk and the next person to add
+ * one would not know there was an order to keep.
+ *
+ * Walked twice, because *Listen* and *Take This Sound* both act on what the
+ * `<select>` is standing on and do nothing at all on nothing: standing on nothing
+ * they are disabled, which is not a tab stop, and the walk is two stops long.
+ */
+test('the Sound a Scene is heard under is chosen in the order the section draws',
+  async ({ page, request }) => {
+    const { story, scenes } = await chained(request, ['The arrival', 'The platform'])
+    await page.goto(`/stories/${story.id}`)
+    await expect(written(page, 'The arrival')).toBeVisible()
+
+    const section = sectionOf(page, scenes[0]!.id)
+    const depositing = section.getByLabel('Upload a Sound for The arrival')
+    const picking = section.getByLabel('The Sound of The arrival')
+    const listening = section.getByRole('button', { name: 'Listen The arrival' })
+    const taking = section.getByRole('button', { name: 'Take This Sound The arrival' })
+
+    // Standing on nothing, the two acts are drawn and refuse the walk, which is
+    // what a control that would do nothing owes an Author. What the `<select>`
+    // stands on is its own placeholder and never nothing: a value matching no
+    // option leaves `selectedIndex` at -1, which draws the field blank and puts
+    // *No Sound* — written and translated — out of reach.
+    await expect(picking).toHaveJSProperty('selectedIndex', 0)
+    await expect(listening).toBeDisabled()
+    await expect(taking).toBeDisabled()
+
+    await depositing.focus()
+    await page.keyboard.press('Tab')
+    await expect(picking).toBeFocused()
+
+    // Standing on a Sound of the library, both act and both take their place.
+    await picking.selectOption({ index: 1 })
+    await expect(listening).toBeEnabled()
+
+    await depositing.focus()
+    for (const stop of [picking, listening, taking]) {
+      await page.keyboard.press('Tab')
+      await expect(stop).toBeFocused()
+    }
   })
 
 test('two Scenes leading to one Scene name their rows apart', async ({ page, request }) => {
@@ -1613,6 +1680,65 @@ test('the bench refuses a way on that comes back, and an Author writes the Scene
     await writing.fill('The arrival, again')
     await writing.press('Enter')
     await expect.poll(() => readExits(bar.id)).toMatchObject([{ toSceneId: copy.id }])
+  })
+
+/**
+ * What a copy carries is the whole of the Scene rather than the part of it that
+ * was written first. `docs/adr/0049-a-sound-is-carried-by-what-plays-it.md` puts
+ * the bed on the Scene's own row and the strike on the Shot's, so a copy taking
+ * the Images and leaving the Sounds would be the Scene met again in silence —
+ * silently, which is the one way a copy must never differ from what it was made
+ * from.
+ *
+ * Both ways a Scene is heard, because a copy has to answer for both: the Scene
+ * carrying bytes is copied with them, and the Scene naming a carrier is copied
+ * still naming it. That is one hop either way, since what the original named
+ * carries bytes by construction.
+ */
+test('a duplicated Scene is heard under what it was heard under, and strikes as it struck',
+  async ({ request }) => {
+    const { story, scenes } = await chained(request, ['The arrival', 'The platform'])
+    const [arrival, platform] = [scenes[0]!, scenes[1]!]
+    const [, second] = await writeShots(request, arrival.id, ['One', 'Two'])
+
+    await request.put(`/api/scenes/${arrival.id}/sound`, { data: A_SOUND })
+    await request.patch(`/api/scenes/${arrival.id}`, {
+      data: { transcript: 'Rain on the roof', soundLoops: false },
+    })
+    await request.put(`/api/shots/${second!.id}/sound`, { data: A_SOUND })
+    await request.patch(`/api/shots/${second!.id}`, { data: { transcript: 'A door slams' } })
+    await request.patch(`/api/scenes/${platform.id}`, { data: { soundOfSceneId: arrival.id } })
+
+    const copyOf = async (sceneId: string) => {
+      const made = await request.post(`/api/scenes/${sceneId}/duplicate`)
+      expect(made.status()).toBe(201)
+      const { id } = await made.json() as { id: string }
+      const read = await (await request.get(`/api/stories/${story.id}`)).json() as StoryInEditor
+
+      return read.scenes.find(scene => scene.id === id)!
+    }
+
+    // The carrier's copy carries the bytes itself, at an address of its own, and
+    // the two things that belong to those bytes come with them: the same rain,
+    // transcribed once and played once.
+    const carrier = await copyOf(arrival.id)
+    expect(carrier.sound).toBe(`/api/scenes/${carrier.id}/sound`)
+    expect(carrier.transcript).toBe('Rain on the roof')
+    expect(carrier.soundLoops).toBe(false)
+    const served = await request.get(carrier.sound!)
+    expect(Buffer.compare(Buffer.from(await served.body()), A_SOUND)).toBe(0)
+
+    // And the beat strikes with its own, transcribed as it was transcribed, while
+    // the beat that struck with nothing goes on striking with nothing.
+    expect(carrier.shots[1]!.sound).toBe(`/api/shots/${carrier.shots[1]!.id}/sound`)
+    expect(carrier.shots[1]!.transcript).toBe('A door slams')
+    expect(carrier.shots[0]!.sound).toBeNull()
+
+    // The copy of a Scene that names one names the same Scene, and carries no
+    // bytes — which is the Scene met again, heard under exactly what it was.
+    const naming = await copyOf(platform.id)
+    expect(naming.sound).toBeNull()
+    expect(naming.soundOfSceneId).toBe(arrival.id)
   })
 
 /**

@@ -226,6 +226,8 @@ const ENGLISH: Work = {
   scenes: [
     {
       name: 'Where a Story starts',
+      sound: 'rain.m4a',
+      transcript: 'Rain on the street, steady, under everything.',
       shots: [
         {
           text: 'This is a Shot: one Image and its text, shown to you as a single beat. '
@@ -238,6 +240,8 @@ const ENGLISH: Work = {
         {
           text: 'This Shot has no Image. A Shot may be text alone, or an Image alone — what '
             + 'it may not be is neither.',
+          sound: 'door-close.m4a',
+          transcript: 'A door closes.',
         },
         {
           text: 'A Story is read forwards. You will stand in each Scene at most once, so the '
@@ -327,6 +331,8 @@ const FRENCH: Work = {
   scenes: [
     {
       name: 'Là où un Récit commence',
+      sound: 'rain.m4a',
+      transcript: 'Il pleut sur la ville, sans jamais s’arrêter.',
       shots: [
         {
           text: 'Ceci est un Plan : une Image et son texte, montrés comme un seul '
@@ -340,6 +346,8 @@ const FRENCH: Work = {
         {
           text: 'Ce Plan n’a pas d’Image. Un Plan peut n’être que du texte, ou qu’une '
             + 'Image seule — ce qu’il ne peut pas être, c’est ni l’un ni l’autre.',
+          sound: 'door-close.m4a',
+          transcript: 'Une porte se ferme.',
         },
         {
           text: 'Un Récit se lit vers l’avant. Vous ne vous tiendrez au plus qu’une fois dans '

@@ -380,7 +380,7 @@ test('the light follows its target as the document grows above it', async ({
   // second beat.
   const story = await seedStory(author, 'A Story')
   await seedScene(story, 'The arrival')
-  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.setViewportSize({ width: 1280, height: 1100 })
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The arrival')
 

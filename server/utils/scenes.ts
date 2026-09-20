@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq, isNotNull } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { scenes, stories } from '../db/schema'
 import { useDb } from '../db'
@@ -138,4 +138,131 @@ function drawnFrom(event: H3Event, values: unknown[]) {
  */
 function badFlags(event: H3Event) {
   return createError({ statusCode: 400, message: saying(event)('refusals.badFlag') })
+}
+
+/**
+ * Reads what a Transcript says: what a Sound makes heard, for a Reader who
+ * cannot hear it. The same rule as a Description, for the same reason — empty is
+ * a Sound nobody has transcribed yet, which a Sound is entitled to be, and
+ * missing altogether is a request that would erase it by saying nothing.
+ */
+export async function readTranscript(event: H3Event) {
+  const body = await readBody<{ transcript?: unknown }>(event)
+  const written = body?.transcript
+
+  if (typeof written !== 'string' || written.length > SOUND_TRANSCRIPT_MAX_LENGTH) {
+    throw createError({
+      statusCode: 400,
+      message: saying(event)('refusals.transcript', { max: SOUND_TRANSCRIPT_MAX_LENGTH }),
+    })
+  }
+
+  return written
+}
+
+/** Whether the Scene's Sound is held in a loop until the Scene is left, or played once. */
+export async function readSoundLoops(event: H3Event) {
+  const body = await readBody<{ soundLoops?: unknown }>(event)
+
+  if (typeof body?.soundLoops !== 'boolean') {
+    throw createError({ statusCode: 400, message: saying(event)('refusals.soundLoops') })
+  }
+
+  return body.soundLoops
+}
+
+/**
+ * Reads the Scene this one takes its Sound from: a Scene of the same Story that
+ * carries bytes of its own, or null to take the naming away. A trust boundary
+ * twice over, like the Cover's — the id is checked for shape here and for
+ * belonging below, because a Scene of somebody else's Story would otherwise be
+ * heard through this one.
+ *
+ * Carrying bytes of its own is what makes the naming one hop and no further: a
+ * Scene that is itself naming is refused here, so a chain cannot be written and
+ * the reading never has to walk one. The other half of the same rule is a Scene
+ * already named by another: letting it take on a naming of its own would leave
+ * whoever names it two hops from the bytes, so that is refused too, before the
+ * target is even looked at.
+ */
+export async function readNamedSound(event: H3Event, sceneId: string) {
+  const body = await readBody<{ soundOfSceneId?: unknown }>(event)
+  const named = body?.soundOfSceneId
+  if (named === null) return null
+
+  const refused = () =>
+    createError({ statusCode: 400, message: saying(event)('refusals.namedSound') })
+  if (typeof named !== 'string' || !UUID_PATTERN.test(named)) throw refused()
+
+  // Lowercased before they are compared: an id is a uuid, which Postgres reads
+  // the same in either case, so two spellings of one id would pass a comparison
+  // of strings and then be the same Scene naming itself where it counts.
+  const lowered = named.toLowerCase()
+  if (lowered === sceneId.toLowerCase()) throw refused()
+
+  // Three statements rather than joins to the same table twice over: this is a
+  // gesture an Author makes once a Scene, and the query nobody could read at a
+  // glance would cost more than it saved.
+  const [naming] = await useDb()
+    .select({ storyId: scenes.storyId })
+    .from(scenes)
+    .where(eq(scenes.id, sceneId))
+  if (!naming) throw refused()
+
+  const [namedByAnother] = await useDb()
+    .select({ id: scenes.id })
+    .from(scenes)
+    .where(eq(scenes.soundOfSceneId, sceneId))
+  if (namedByAnother) throw refused()
+
+  const [carrier] = await useDb()
+    .select({ id: scenes.id })
+    .from(scenes)
+    .where(and(
+      eq(scenes.id, named),
+      eq(scenes.storyId, naming.storyId),
+      isNotNull(scenes.sound),
+    ))
+  if (!carrier) throw refused()
+
+  return carrier.id
+}
+
+/**
+ * What a PATCH may change about a Scene: its name, and the three things that are
+ * said about the Sound it is heard under. Each is read only where the body names
+ * it, so the bench can write the one field the Author touched without carrying
+ * the others along — the shape `readStoryChanges` already has.
+ *
+ * A body naming none is refused as a name being asked for: the name is the one
+ * thing a Scene cannot be without, so that is what an empty change is missing.
+ */
+export async function readSceneChanges(event: H3Event, sceneId: string) {
+  const body = await readBody<{
+    name?: unknown
+    transcript?: unknown
+    soundLoops?: unknown
+    soundOfSceneId?: unknown
+  }>(event)
+  const changes: {
+    name?: string
+    transcript?: string
+    soundLoops?: boolean
+    soundOfSceneId?: string | null
+    sound?: null
+  } = {}
+
+  if (body?.name !== undefined) changes.name = await readSceneName(event)
+  if (body?.transcript !== undefined) changes.transcript = await readTranscript(event)
+  if (body?.soundLoops !== undefined) changes.soundLoops = await readSoundLoops(event)
+  if (body?.soundOfSceneId !== undefined) {
+    changes.soundOfSceneId = await readNamedSound(event, sceneId)
+    // A Scene carries its own Sound or names one, never both: naming lets go of
+    // whatever was deposited here, so nothing can disagree about what is heard.
+    if (changes.soundOfSceneId) changes.sound = null
+  }
+  // Which is a name asked for, by the reader that phrases the refusal.
+  if (!Object.keys(changes).length) await readSceneName(event)
+
+  return changes
 }

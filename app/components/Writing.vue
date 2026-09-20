@@ -6,9 +6,10 @@
  * name comes from. It is not *script*, which that record refuses in as many words,
  * and not *text*, which is what a Shot carries beside its Image.
  *
- * A Scene is a heading, the Flags it sets on entry, the run of its Shots, and the
- * ways out of it named by where they lead. The next Scene is under it. Nothing has
- * to be opened and nothing closes, and **every Scene is written where it stands**:
+ * A Scene is a heading, the Flags it sets on entry, the Sound it is heard
+ * under, the run of its Shots, and the ways out of it named by where they
+ * lead. The next Scene is under it. Nothing has to be opened and nothing
+ * closes, and **every Scene is written where it stands**:
  * there is no one Scene the Author has to put on a bench first, because the bench
  * is the document. That is the whole of issue #252, and it is what took the gate
  * of `docs/adr/0042-the-scene-is-written-where-it-stands.md` — one Scene behind a
@@ -146,6 +147,10 @@ type SceneInDocument = {
   ways: Exit[]
   /** How much of a work the Scene is, said beside each of its headings. */
   counted: { flags: number, shots: number }
+  /** What this Scene is heard under: its own Sound, the one it names, or nothing. */
+  heard: Heard | undefined
+  /** How many Scenes take their Sound from this one, which is what a delete costs them. */
+  namedBy: number
 }
 
 /**
@@ -185,6 +190,8 @@ const sections = computed<SceneInDocument[]>(() => {
         flags: Object.keys(scene.sets).length,
         shots: scene.shots.length,
       },
+      heard: heardUnder(story.scenes, scene.id),
+      namedBy: story.scenes.filter(other => other.soundOfSceneId === scene.id).length,
     }
   })
 })
@@ -251,16 +258,26 @@ function exitsInto(sceneId: string) {
 /**
  * A Scene goes with its Shots and the Exits at both ends of it, and the Author
  * named none of them, so it is asked about with all three counted. See
- * `docs/adr/0017-a-confirmation-is-drawn-on-the-bench.md`.
+ * `docs/adr/0017-a-confirmation-is-drawn-on-the-bench.md`. Scenes heard under
+ * it fall silent too, and nothing else records that afterwards — see
+ * `docs/adr/0049-a-sound-is-carried-by-what-plays-it.md` — so the question
+ * says how many.
  */
-async function deleteScene(scene: Scene) {
+async function deleteScene(held: SceneInDocument) {
+  const scene = held.scene
   const asked = {
     name: nameOf(scene.id),
     shots: countedShots(scene.shots.length, t),
     waysOn: countedExits(exitsFrom(story.exits, scene.id).length, t),
     waysIn: countedExits(exitsInto(scene.id).length, t),
   }
-  if (!await ask(t('editor.confirmDeleteScene', asked), t('editor.deleteScene'))) return
+  const silenced = held.namedBy
+    ? ` ${t(
+      held.namedBy === 1 ? 'editor.confirmSceneSoundLostOne' : 'editor.confirmSceneSoundLostMany',
+      { count: held.namedBy },
+    )}`
+    : ''
+  if (!await ask(t('editor.confirmDeleteScene', asked) + silenced, t('editor.deleteScene'))) return
 
   return changing(scene, () => send(`/api/scenes/${scene.id}`, { method: 'DELETE' }))
 }
@@ -412,7 +429,7 @@ async function openBeat(scene: Scene, shot: Shot, place: number) {
     // written after the one that follows it and the run reads back stale.
     await send(`/api/shots/${shot.id}`, {
       method: 'PATCH',
-      body: { text: shot.text, description: shot.description },
+      body: { text: shot.text, description: shot.description, transcript: shot.transcript },
     })
 
     const opened = await send(`/api/scenes/${scene.id}/shots`, { method: 'POST' }) as Shot
@@ -451,11 +468,11 @@ async function typeInShot(shotId: string, atTheEnd = false) {
   if (atTheEnd) field.setSelectionRange(field.value.length, field.value.length)
 }
 
-/** Writes what the Author typed about one Shot — its text and its image's Description — in one request. */
+/** Writes what the Author typed about one Shot — its text, its image's Description and its Sound's Transcript — in one request. */
 function writeShot(scene: Scene, shot: Shot) {
   return writing(scene, () => send(`/api/shots/${shot.id}`, {
     method: 'PATCH',
-    body: { text: shot.text, description: shot.description },
+    body: { text: shot.text, description: shot.description, transcript: shot.transcript },
   }))
 }
 
@@ -513,14 +530,12 @@ function attach(scene: Scene, shot: Shot, file: File) {
   })
 }
 
-/** The picker is cleared afterwards, so picking the same file twice is a change twice. */
+/** Picked from the dialog rather than dropped on the thumbnail — see `depositedFile`. */
 function attachImage(scene: Scene, shot: Shot, event: Event) {
-  const picker = event.target as HTMLInputElement
-  const picked = picker.files?.[0]
-  if (!picked) return
-  picker.value = ''
+  const file = depositedFile(event)
+  if (!file) return
 
-  return attach(scene, shot, picked)
+  return attach(scene, shot, file)
 }
 
 /** The Shot whose thumbnail a file is over, held by id: the read that lands mid-drag replaces every Scene in the Story. */
@@ -547,6 +562,208 @@ function dropImage(scene: Scene, shot: Shot, event: DragEvent) {
   if (!image) return
 
   return attach(scene, shot, image)
+}
+
+/**
+ * The Sounds a Scene may be heard under: the ones this Story already carries, and
+ * the library. One list rather than two, because naming a Sound the Story carries
+ * and taking one off the shelf are the same gesture for the Author — and the list
+ * offers carriers alone, which is the rule the API refuses the rest by.
+ */
+const carriers = computed(() => soundCarriers(story.scenes))
+
+/**
+ * What the file dialog offers. The media types alone are not enough: several
+ * platforms map `.m4a` to `audio/x-m4a`, which greys an Author's own AAC files
+ * out of their own dialog — in a product that ships thirty of them. Naming the
+ * extensions beside the types loosens nothing, because what a Sound is is read
+ * off its first bytes by the server and never off this list.
+ */
+const SOUND_ACCEPT = [...SOUND_TYPES, '.m4a', '.mp3', '.aac'].join(',')
+
+/**
+ * What each Scene's picker is standing on, a Scene at a time: the document holds
+ * forty of these and one string between them would put what was chosen at the
+ * foot of one Scene into all of them. A Scene that goes takes its entry with it,
+ * the way the field a way on is named into does.
+ */
+const picked = reactive<Record<string, string>>({})
+
+watch(() => story.scenes, (scenes) => {
+  const standing = new Set([
+    ...scenes.map(scene => scene.id),
+    ...scenes.flatMap(scene => scene.shots.map(shot => shot.id)),
+  ])
+  for (const id of Object.keys(picked)) {
+    if (!standing.has(id)) delete picked[id]
+  }
+  // Seeded as well as pruned. `v-model` on a `<select>` whose value matches no
+  // option leaves `selectedIndex` at -1, which draws the field blank and puts
+  // the placeholder out of reach; the empty string is the placeholder's own
+  // value, so standing on it is standing on *No Sound*.
+  for (const id of standing) picked[id] ??= ''
+}, { immediate: true })
+
+/** Where what has been chosen is served: a Scene of this Story, or a file of the library. */
+function chosenSound(chosen: string | undefined) {
+  if (!chosen) return
+  const [where, named] = [chosen.slice(0, chosen.indexOf(':')), chosen.slice(chosen.indexOf(':') + 1)]
+
+  return where === 'scene' ? sceneSoundUrl(named) : libraryUrl(named)
+}
+
+/**
+ * Hears what has been chosen before it is taken. One element for the whole
+ * document: an Author listens to one thing at a time, and a second press stops
+ * the first — which is what the hand means by it.
+ */
+const listening = useTemplateRef<HTMLAudioElement>('listening')
+
+function listen(chosen: string | undefined) {
+  const sound = chosenSound(chosen)
+  if (!sound || !listening.value) return
+
+  listening.value.src = sound
+  return listening.value.play()
+}
+
+/**
+ * The file an input's `change` carried, taken off it the way an image's own
+ * deposit does — and the picker cleared, so choosing the very file already
+ * there fires a second `change`. Read before `changing` is asked for one, so
+ * a dialog closed with nothing chosen claims no Scene and reaches no server.
+ */
+function depositedFile(event: Event) {
+  const picker = event.target as HTMLInputElement
+  const file = picker.files?.[0]
+  if (file) picker.value = ''
+  return file
+}
+
+/**
+ * The two gestures every carrier of a Sound shares, addressed by the URL its
+ * own endpoint answers to: a file sent as the whole request body the way an
+ * image's is, or a file of the library fetched and replayed through the
+ * same PUT — the same validation, the same sniffing, the same cap, and no
+ * server path of its own. A Scene and a Shot differ in everything around
+ * this (naming, confirmation, a loop), never in the PUT itself, so it is
+ * written once here rather than copied per carrier.
+ */
+function depositSoundAt(url: string, file: File) {
+  return send(url, { method: 'PUT', body: file })
+}
+
+async function takeLibrarySoundAt(url: string, file: string) {
+  const blob = await (await fetch(libraryUrl(file))).blob()
+  await send(url, { method: 'PUT', body: blob })
+}
+
+/**
+ * Takes the Sound chosen: a Scene of the Story is named, or a file of the
+ * library is taken (see `takeLibrarySoundAt`). The bytes are copied into the
+ * row at the moment of the pick, so a published Story depends on no file the
+ * product might later withdraw.
+ */
+function takeSound(scene: Scene, chosen: string | undefined) {
+  if (!chosen) return
+  const named = chosen.startsWith('scene:') && chosen.slice('scene:'.length)
+
+  return changing(scene, async () => {
+    if (named) {
+      await send(`/api/scenes/${scene.id}`, {
+        method: 'PATCH',
+        body: { soundOfSceneId: named },
+      })
+      return
+    }
+
+    await takeLibrarySoundAt(`/api/scenes/${scene.id}/sound`, chosen.slice('library:'.length))
+  })
+}
+
+/** A Sound uploaded onto a Scene: see `depositedFile` and `depositSoundAt`. */
+function depositSound(scene: Scene, event: Event) {
+  const file = depositedFile(event)
+  if (!file) return
+
+  return changing(scene, () => depositSoundAt(`/api/scenes/${scene.id}/sound`, file))
+}
+
+/**
+ * Takes the Scene's Sound away. It asks first where other Scenes are heard under
+ * it, because it costs them exactly what deleting this Scene would — see
+ * `docs/adr/0017-a-confirmation-is-drawn-on-the-bench.md`, and
+ * `docs/adr/0049-a-sound-is-carried-by-what-plays-it.md` for why no Remark can
+ * say it afterwards.
+ *
+ * This is also the only way to change a Scene's bed: the controls that deposit
+ * one are behind the Sound being absent, so replacing means removing first, and
+ * on a carrier twelve Scenes name that is a question about twelve Scenes falling
+ * silent. They fall silent for exactly as long as the row carries no bytes: the
+ * DELETE clears this Scene's own columns and never the `sound_of_scene_id` of
+ * the Scenes naming it — only deleting the row itself does that, which is the
+ * `on delete set null` — so all twelve are heard again the moment the new bytes
+ * land. The confirmation says the cost and not the return.
+ */
+async function removeSound(held: SceneInDocument) {
+  if (held.namedBy) {
+    // A count rather than a suffix on a noun, because a plural is not a letter
+    // added in every language the interface is read in — the rule `countedShots`
+    // is written under.
+    const asked = { name: nameOf(held.scene.id), count: held.namedBy }
+    const question = t(
+      held.namedBy === 1 ? 'editor.confirmRemoveSoundOne' : 'editor.confirmRemoveSoundMany',
+      asked,
+    )
+    if (!await ask(question, t('editor.removeSound'))) return
+  }
+
+  return changing(held.scene, () =>
+    send(`/api/scenes/${held.scene.id}/sound`, { method: 'DELETE' }))
+}
+
+/** What the Sound makes heard, and whether it is held in a loop: a typed write apiece. */
+function writeTranscript(scene: Scene) {
+  return writing(scene, () => send(`/api/scenes/${scene.id}`, {
+    method: 'PATCH',
+    body: { transcript: scene.transcript },
+  }))
+}
+
+function writeSoundLoops(scene: Scene, answer: string) {
+  scene.soundLoops = answer === 'loop'
+
+  return writing(scene, () => send(`/api/scenes/${scene.id}`, {
+    method: 'PATCH',
+    body: { soundLoops: scene.soundLoops },
+  }))
+}
+
+/**
+ * The same three gestures on a beat: a file of the Author's own or one off
+ * the library (see `depositedFile`, `depositSoundAt` and
+ * `takeLibrarySoundAt`), and taking it away. There is no naming here and no
+ * loop — a Shot's Sound strikes with the beat and is gone, and a struck
+ * sound weighs 20 KB, which is not worth a column and a `<select>` to save.
+ * See `docs/adr/0049-a-sound-is-carried-by-what-plays-it.md`.
+ */
+function depositShotSound(scene: Scene, shot: Shot, event: Event) {
+  const file = depositedFile(event)
+  if (!file) return
+
+  return changing(scene, () => depositSoundAt(`/api/shots/${shot.id}/sound`, file))
+}
+
+function takeShotSound(scene: Scene, shot: Shot, chosen: string | undefined) {
+  if (!chosen?.startsWith('library:')) return
+
+  return changing(scene, () =>
+    takeLibrarySoundAt(`/api/shots/${shot.id}/sound`, chosen.slice('library:'.length)))
+}
+
+/** No confirmation: a beat's Sound is a beat's, and nothing else is heard under it. */
+function removeShotSound(scene: Scene, shot: Shot) {
+  return changing(scene, () => send(`/api/shots/${shot.id}/sound`, { method: 'DELETE' }))
 }
 
 function deleteShot(scene: Scene, shot: Shot) {
@@ -813,7 +1030,7 @@ function writeConditions(
           type="button"
           class="danger going"
           :data-command="held.here ? $t('editor.deleteScene') : undefined"
-          @click="deleteScene(held.scene)"
+          @click="deleteScene(held)"
         >
           {{ $t('editor.deleteScene') }}
           <span class="visually-hidden">{{ held.name }}</span>
@@ -848,6 +1065,146 @@ function writeConditions(
           :named="held.here"
           @write="writeFlags(held.scene, $event)"
         />
+      </section>
+
+      <!-- The Sound the Scene is heard under, at the head of its section beside
+           the Flags, because both are what happens on entry: the bed is under the
+           run before the first beat plays. A Scene heard under nothing spends a
+           line on saying so, which is most Scenes. -->
+      <section class="held heard">
+        <h3>{{ $t('editor.soundHeld') }}</h3>
+
+        <template v-if="held.heard">
+          <!-- The browser's own transport: a Sound is listened to rather than
+               looked at, and nothing the bench could draw beats the control every
+               Author already knows. -->
+          <audio
+            class="transport"
+            controls
+            preload="none"
+            :src="held.heard.sound"
+            :aria-label="$t('editor.soundOfScene', { name: held.name })"
+          />
+
+          <!-- Where the Sound is the Scene's own, the two things said about it are
+               written here; where it is another Scene's, they belong to that
+               Scene's row and this says whose it is. -->
+          <template v-if="held.heard.carrier === held.scene.id">
+            <p class="transcribed">
+              <label class="eyebrow" :for="`transcript-${held.scene.id}`">
+                {{ $t('editor.transcript') }}
+                <span class="visually-hidden">{{ held.name }}</span>
+              </label>
+              <input
+                :id="`transcript-${held.scene.id}`"
+                v-model="held.scene.transcript"
+                type="text"
+                :maxlength="SOUND_TRANSCRIPT_MAX_LENGTH"
+                :placeholder="$t('editor.whatTheSoundMakesHeard')"
+                @change="writeTranscript(held.scene)"
+              >
+            </p>
+
+            <p class="holding">
+              <label class="eyebrow" :for="`loop-${held.scene.id}`">
+                {{ $t('editor.soundHolds') }}
+                <span class="visually-hidden">{{ held.name }}</span>
+              </label>
+              <select
+                :id="`loop-${held.scene.id}`"
+                :value="held.scene.soundLoops ? 'loop' : 'once'"
+                @change="writeSoundLoops(
+                  held.scene, ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="loop">{{ $t('editor.soundLooped') }}</option>
+                <option value="once">{{ $t('editor.soundOnce') }}</option>
+              </select>
+            </p>
+          </template>
+
+          <p v-else class="eyebrow taken">
+            {{ $t('editor.soundTakenFrom', { name: nameOf(held.heard.carrier) }) }}
+          </p>
+
+          <button
+            type="button"
+            class="danger going"
+            :data-command="held.here ? $t('editor.removeSound') : undefined"
+            @click="removeSound(held)"
+          >
+            {{ $t('editor.removeSound') }}
+            <span class="visually-hidden">{{ held.name }}</span>
+          </button>
+        </template>
+
+        <template v-else>
+          <p class="none">{{ $t('editor.noSoundYet') }}</p>
+
+          <!-- Two ways in, and they are the same gesture twice: a file of the
+               Author's own, or one this Story already carries or the library
+               ships. One list rather than two, so naming and picking read alike. -->
+          <label class="depositing">
+            <span class="visually-hidden">
+              {{ $t('editor.pickSoundOfScene', { name: held.name }) }}
+            </span>
+            <input
+              type="file"
+              :accept="SOUND_ACCEPT"
+              @change="depositSound(held.scene, $event)"
+            >
+          </label>
+
+          <p class="picking">
+            <label class="visually-hidden" :for="`sound-${held.scene.id}`">
+              {{ $t('editor.soundOfScene', { name: held.name }) }}
+            </label>
+            <select :id="`sound-${held.scene.id}`" v-model="picked[held.scene.id]">
+              <option value="">{{ $t('editor.noSoundPicked') }}</option>
+              <!-- Not on a Scene others are heard under: naming one from here
+                   would be a second hop, which the API refuses — so the picker
+                   withholds exactly what the server would not take. -->
+              <optgroup
+                v-if="!held.namedBy && carriers.some(carrier => carrier.id !== held.scene.id)"
+                :label="$t('editor.soundsOfStory')"
+              >
+                <option
+                  v-for="carrier in carriers.filter(carrier => carrier.id !== held.scene.id)"
+                  :key="carrier.id"
+                  :value="`scene:${carrier.id}`"
+                >
+                  {{ nameOf(carrier.id) }}
+                </option>
+              </optgroup>
+              <optgroup :label="$t('editor.soundLibrary')">
+                <option v-for="sound in SOUND_LIBRARY" :key="sound.file" :value="`library:${sound.file}`">
+                  {{ sound.label[$i18n.locale as 'en' | 'fr'] ?? sound.label.en }}
+                  · {{ $t('editor.soundSeconds', { count: sound.seconds }) }}
+                </option>
+              </optgroup>
+            </select>
+
+            <!-- Both act on what the `<select>` is standing on, so on nothing
+                 they do nothing: disabled rather than pressable and inert, which
+                 also keeps two dead stops per Scene out of the keyboard walk. -->
+            <button
+              type="button"
+              class="mark"
+              :disabled="!picked[held.scene.id]"
+              @click="listen(picked[held.scene.id])"
+            >
+              {{ $t('editor.listenToSound') }}
+              <span class="visually-hidden">{{ held.name }}</span>
+            </button>
+            <button
+              type="button"
+              :disabled="!picked[held.scene.id]"
+              @click="takeSound(held.scene, picked[held.scene.id])"
+            >
+              {{ $t('editor.takeSound') }}
+              <span class="visually-hidden">{{ held.name }}</span>
+            </button>
+          </p>
+        </template>
       </section>
 
       <!-- The run: one row a beat, its Place in the margin, the thumbnail and the
@@ -957,6 +1314,92 @@ function writeConditions(
                   type="text"
                   :maxlength="SHOT_DESCRIPTION_MAX_LENGTH"
                   :placeholder="$t('editor.whatTheImageShows')"
+                  @change="writeShot(held.scene, shot)"
+                >
+              </p>
+
+              <!-- The other matter a beat carries: an Image on one side and a
+                   Sound on the other, with the Transcript under the Sound as the
+                   Description is under the Image. No loop and no naming — a
+                   Shot's Sound strikes with the beat and is gone. -->
+              <p class="struck">
+                <template v-if="shot.sound">
+                  <audio
+                    class="transport"
+                    controls
+                    preload="none"
+                    :src="shot.sound"
+                    :aria-label="$t('editor.soundOfShot', { place: place + 1, scene: held.name })"
+                  />
+                  <button type="button" class="danger mark" @click="removeShotSound(held.scene, shot)">
+                    <span aria-hidden="true">×</span>
+                    <span class="visually-hidden">
+                      {{ $t('editor.removeSound') }}
+                      {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                    </span>
+                  </button>
+                </template>
+
+                <template v-else>
+                  <label class="visually-hidden" :for="`shot-sound-${shot.id}`">
+                    {{ $t('editor.soundOfShot', { place: place + 1, scene: held.name }) }}
+                  </label>
+                  <select :id="`shot-sound-${shot.id}`" v-model="picked[shot.id]">
+                    <option value="">{{ $t('editor.noSoundPicked') }}</option>
+                    <option v-for="sound in SOUND_LIBRARY" :key="sound.file" :value="`library:${sound.file}`">
+                      {{ sound.label[$i18n.locale as 'en' | 'fr'] ?? sound.label.en }}
+                      · {{ $t('editor.soundSeconds', { count: sound.seconds }) }}
+                    </option>
+                  </select>
+                  <!-- Inert on nothing, so disabled on nothing: see the Scene's
+                       own pair above. -->
+                  <button
+                    type="button"
+                    class="mark"
+                    :disabled="!picked[shot.id]"
+                    @click="listen(picked[shot.id])"
+                  >
+                    {{ $t('editor.listenToSound') }}
+                    <span class="visually-hidden">
+                      {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    :disabled="!picked[shot.id]"
+                    @click="takeShotSound(held.scene, shot, picked[shot.id])"
+                  >
+                    {{ $t('editor.takeSound') }}
+                    <span class="visually-hidden">
+                      {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                    </span>
+                  </button>
+                  <label class="depositing">
+                    <span class="visually-hidden">
+                      {{ $t('editor.pickSoundOfShot', { place: place + 1, scene: held.name }) }}
+                    </span>
+                    <input
+                      type="file"
+                      :accept="SOUND_ACCEPT"
+                      @change="depositShotSound(held.scene, shot, $event)"
+                    >
+                  </label>
+                </template>
+              </p>
+
+              <p v-if="shot.sound" class="transcribed">
+                <label class="eyebrow" :for="`shot-transcript-${shot.id}`">
+                  {{ $t('editor.transcript') }}
+                  <span class="visually-hidden">
+                    {{ $t('editor.transcriptOfShot', { place: place + 1, scene: held.name }) }}
+                  </span>
+                </label>
+                <input
+                  :id="`shot-transcript-${shot.id}`"
+                  v-model="shot.transcript"
+                  type="text"
+                  :maxlength="SOUND_TRANSCRIPT_MAX_LENGTH"
+                  :placeholder="$t('editor.whatTheSoundMakesHeard')"
                   @change="writeShot(held.scene, shot)"
                 >
               </p>
@@ -1289,6 +1732,11 @@ function writeConditions(
         </form>
       </section>
     </section>
+
+    <!-- What a chosen Sound is heard on before it is taken. One for the document:
+         an Author listens to one thing at a time, and the second press stops the
+         first. -->
+    <audio ref="listening" class="visually-hidden" preload="none" />
   </article>
 </template>
 
@@ -1430,6 +1878,54 @@ function writeConditions(
   gap: var(--s2) var(--s3);
 }
 
+/* What the Scene is heard under, read along one line with its own heading the way
+   the Flags are: a Scene heard under nothing spends a line on saying so. */
+.held.heard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+}
+
+/* The browser's own transport, held to the width of a control rather than of the
+   column: a Sound is listened to, and the row it sits on carries what is said
+   about it as well. */
+.transport {
+  block-size: 2rem;
+  inline-size: min(100%, 18rem);
+}
+
+.transcribed,
+.holding,
+.picking {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-inline-size: 0;
+}
+
+.transcribed input {
+  flex: 1 1 14rem;
+  min-inline-size: 0;
+  padding: var(--s1) var(--s2);
+  border-color: transparent;
+  background: none;
+  font-size: 0.8125rem;
+}
+
+.transcribed input:hover,
+.transcribed input:focus-visible {
+  border-color: var(--edge);
+}
+
+.picking select {
+  max-inline-size: min(100%, 22rem);
+}
+
+.depositing input {
+  font-size: 0.8125rem;
+}
+
 .held > h3 {
   display: flex;
   align-items: baseline;
@@ -1494,6 +1990,15 @@ function writeConditions(
 }
 
 .beat > .beneath {
+  grid-column: 1 / -1;
+}
+
+/* Struck across the row's full width rather than into the 8rem column the Image
+   leaves behind once its span ends: without this, the grid's own sparse
+   placement would carry both of these into the narrow column instead of under
+   the words, the way `.beneath` already claims the row below them. */
+.beat > .struck,
+.beat > .transcribed {
   grid-column: 1 / -1;
 }
 
@@ -1605,6 +2110,21 @@ textarea.shot:hover {
 .described input:hover,
 .described input:focus-visible {
   border-color: var(--edge);
+}
+
+/* What the beat strikes with, on the words' side of the row under the
+   Description: the two matters a beat carries are read one under the other. */
+.struck {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1) var(--s2);
+  min-inline-size: 0;
+}
+
+.struck select {
+  max-inline-size: min(100%, 16rem);
+  font-size: 0.8125rem;
 }
 
 /* The Conditions and the marks on one line, the marks at the trailing edge. A row

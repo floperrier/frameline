@@ -36,9 +36,22 @@ function story(
     scenes: Object.entries(scenes).map(([id, texts]) => ({
       id,
       sets: sets[id] ?? {},
+      sound: null,
+      soundOfSceneId: null,
+      transcript: '',
+      soundLoops: true,
       shots: texts.map((written, position) => {
         const [text, conditions] = typeof written === 'string' ? [written, []] : written
-        return { id: `${id}-${position}`, text, position, image: null, description: '', conditions }
+        return {
+          id: `${id}-${position}`,
+          text,
+          position,
+          image: null,
+          description: '',
+          conditions,
+          sound: null,
+          transcript: '',
+        }
       }),
     })),
     exits: exits.map(([fromSceneId, text, toSceneId, conditions, crossed], index) => ({

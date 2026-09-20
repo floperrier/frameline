@@ -47,7 +47,7 @@ const shown = computed(() => reading(story, at.value))
  * move, so the opening is kept too — a Reader who has just started over is back
  * at the start next time as well — and so is a move made from outside.
  */
-const key = keptFor && `reading-${keptFor}`
+const key = keptFor && readingKey(keptFor)
 
 watch(at, (now) => {
   if (!key) return
@@ -60,33 +60,38 @@ watch(at, (now) => {
 })
 
 /**
- * The Path this browser kept from an earlier visit, if it is one to go back to:
- * `resumes` says whether it has moved, has not ended, and still fits the Story as
- * published. Anything else in the slot — nothing, an ending, a Path the Author
- * has since edited from under, bytes that are not a Path — is a fresh start.
+ * The Path this browser kept from an earlier visit, if it is one to go back to.
+ * `keptFor` is the Story to read it for; left out — a Preview — there is nothing
+ * to read back. See `app/utils/kept.ts`.
  */
 function kept(): Path | undefined {
-  if (!key) return
-  let at: unknown
-  try {
-    at = JSON.parse(localStorage.getItem(key) ?? 'null')
-  }
-  catch {
-    return
-  }
-  return isPath(at) && resumes(story, at) ? at : undefined
-}
-
-/** Whether what the browser handed back has the shape of a Path, whatever wrote it. */
-function isPath(at: unknown): at is Path {
-  return typeof at === 'object' && at !== null
-    && Number.isInteger((at as Path).seed)
-    && Number.isInteger((at as Path).shot) && (at as Path).shot >= 0
-    && Array.isArray((at as Path).taken)
+  return keptFor ? keptReading(keptFor, story) : undefined
 }
 
 /** Whether what is on screen is where the Reader left off, said until they move. */
 const resumed = ref(false)
+
+/**
+ * Whether sound is on, and whether the Transcript is shown. Sound is on by
+ * default, because the press that opened the Reading is the consent, and both
+ * answers are kept for the person rather than for this Story: muting is not a
+ * property of a reading.
+ *
+ * Restored in a mount of its own, registered above the Path's — Vue runs the
+ * hooks in the order they were registered, and the opening strike and the
+ * opening bed both play out of that one. Registered after it, this would leave
+ * both plays reading the default rather than the Reader's own answer, and what
+ * would escape is sound reaching somebody who asked for none. That the watch
+ * below catches up a microtask later is not the guarantee: the guarantee is that
+ * neither element is ever played before this has run.
+ */
+const sounding = ref(true)
+const transcribed = ref(false)
+
+onMounted(() => {
+  sounding.value = !keptFlag(SOUND_OFF)
+  transcribed.value = keptFlag(TRANSCRIPT_SHOWN)
+})
 
 /**
  * The seed every draw a Scene makes comes out of, drawn once the Reading is in
@@ -115,6 +120,18 @@ onMounted(() => {
   resumed.value = before !== undefined
   if (before) at.value = before
   else if (!moved(at.value) && at.value.seed === UNDRAWN.seed) at.value = opening()
+  // The strike below is watched on the Path's position, and the position this
+  // Reading lands on here — freshly drawn, or resumed onto a kept Path nothing
+  // ever moved from — is the same `0-0` the Path started this component at, so
+  // that watch will not see it as a change and will not fire for it. Struck
+  // here instead: the opening beat is a beat that plays like any other.
+  if (!moved(at.value)) strikeShot()
+  // The bed has no such exception and needs the call for the opposite reason:
+  // a Preview is mounted afresh over a Path the bench held, so `heard` arrives
+  // already standing at its value and the watch below never fires for it. The
+  // guard in `holdBed` makes the next crossing into the same carrier a no-op,
+  // so nothing started here is restarted.
+  holdBed(heard.value)
 })
 
 /**
@@ -195,10 +212,120 @@ const held = computed(() => shown.value.shot ?? run.value.at(-1))
 function offered(exit: Exit) {
   return exitNamed(exit, id => sceneNamed(sceneNames.value, id, t), t)
 }
+
+/**
+ * The two elements the Story is heard on, held outside everything the Path keys:
+ * the frame is thrown afresh on every beat, and a bed inside it would be a bed
+ * that restarts on every press. The bed crosses the cut and the strike does not.
+ */
+const bed = useTemplateRef<HTMLAudioElement>('bed')
+const strike = useTemplateRef<HTMLAudioElement>('strike')
+
+/** Whether this Story is heard at all, which is what decides whether the controls are drawn. */
+const heardAtAll = computed(() => carriesSound(story))
+
+/** What the Scene the Reading stands in is heard under — its own Sound, or the one it names. */
+const heard = computed(() => heardUnder(story.scenes, shown.value.sceneId))
+
+/**
+ * Muting is the person turning down what is already playing, not a reason for
+ * either element to stop or forget where it stood: a bed keeps running under a
+ * Scene whether or not anyone is listening, and a strike already sounding must
+ * fall silent at the press rather than at the next beat. One place sets `muted`
+ * on both, so nothing above this has to know sound is off at all.
+ *
+ * It reaches what is already playing, and nothing else: what is about to play
+ * sets its own `muted` before the `play()`, because a press and a mount are two
+ * different moments and only the press is watched here.
+ */
+watch(sounding, now => {
+  keepFlag(SOUND_OFF, !now)
+  if (bed.value) bed.value.muted = !now
+  if (strike.value) strike.value.muted = !now
+})
+watch(transcribed, now => keepFlag(TRANSCRIPT_SHOWN, now))
+
+/**
+ * The bed, held under the run and across the cut. It is started again exactly when
+ * the carrier changes — B naming A, A naming B and both naming C are one Sound —
+ * and nothing records where it had got to, so a crossing into another carrier
+ * starts that one from the beginning, forwards or backwards alike. Held in a loop
+ * it repeats until the Scene is left; played once it falls silent and the Scene
+ * stays silent, which is the element's own `ended` and nothing this has to do.
+ * Runs whether or not sound is on — muting is `.muted` above, not a reason to
+ * tear the source down and restart it on the next press.
+ *
+ * A function rather than only a watch callback, for the reason `strikeShot` is
+ * one: a Preview is mounted afresh over a Path the bench was already holding, so
+ * the Scene is not crossed into and nothing watched here changes.
+ */
+function holdBed(now: Heard | undefined, before?: Heard) {
+  const element = bed.value
+  if (!element) return
+
+  if (!now) {
+    element.pause()
+    element.removeAttribute('src')
+    return
+  }
+
+  element.loop = now.loops
+  if (heldAcross(before, now) && element.getAttribute('src') === now.sound) return
+
+  element.src = now.sound
+  element.currentTime = 0
+  // Said here rather than left to the watch above, which fires on the press
+  // after a Reader turned the sound off and never on the play that starts a
+  // bed: what would escape otherwise is sound reaching somebody who asked for
+  // none.
+  element.muted = !sounding.value
+  // A browser that refuses to play refuses quietly: the reading goes on in
+  // silence rather than throwing into a page nobody can see it from.
+  element.play().catch(() => {})
+}
+
+watch(heard, holdBed)
+
+/**
+ * The strike, which plays as the beat plays and is gone. Keyed on the Path rather
+ * than on the Shot, so a Shot played again strikes again — it is the same key the
+ * frame is thrown by. Plays whether or not sound is on, for the same reason the
+ * bed does: muting is `.muted`, read by the element itself, and set here before
+ * the play as well as by the watch above — the press that turns sound off can
+ * come after the mount this strikes from and before the watch has set anything.
+ *
+ * A function rather than only a watch callback, because one transition into a
+ * drawn Path — the opening beat, in `onMounted` above — moves nothing this key
+ * can see change and would otherwise never strike at all.
+ */
+function strikeShot() {
+  const element = strike.value
+  const sound = shown.value.shot?.sound
+  if (!element) return
+
+  if (!sound) {
+    element.pause()
+    return
+  }
+
+  element.src = sound
+  element.currentTime = 0
+  element.muted = !sounding.value
+  element.play().catch(() => {})
+}
+
+watch(() => `${at.value.taken.length}-${at.value.shot}`, strikeShot, { flush: 'post' })
 </script>
 
 <template>
   <div class="reading">
+    <!-- The two layers, outside everything the Path keys: the bed is held under
+         the run and crosses the cut, and the strike plays with the beat and is
+         gone. They lie over each other without ducking — there is no mixing and
+         no priority. -->
+    <audio ref="bed" data-sound="scene" preload="auto" aria-hidden="true" />
+    <audio ref="strike" data-sound="shot" preload="auto" aria-hidden="true" />
+
     <!-- Said before the frame, where a Reader landing mid-Story looks first: they
          are where they left off, not at a Story that starts in the middle. A
          status, so a screen reader hears it as the beat arrives, and gone at the
@@ -249,6 +376,25 @@ function offered(exit: Exit) {
           <li v-for="(_, tick) in run.length" :key="tick" :class="{ lit: tick < place }" />
         </ol>
       </div>
+
+      <!-- What a Reader who cannot hear is owed. Always in the document: hidden it
+           is `visually-hidden` and still read, never taken out of the
+           accessibility tree and never announced in a live region, which would
+           trample the reading. -->
+      <div v-if="heard?.transcript || shown.shot?.transcript" class="heard">
+        <p v-if="heard?.transcript" class="transcript" :class="{ 'visually-hidden': !transcribed }">
+          <span class="eyebrow">{{ $t('reading.sceneTranscript') }}</span>
+          <span :lang="story.language">{{ heard.transcript }}</span>
+        </p>
+        <p
+          v-if="shown.shot?.transcript"
+          class="transcript"
+          :class="{ 'visually-hidden': !transcribed }"
+        >
+          <span class="eyebrow">{{ $t('reading.shotTranscript') }}</span>
+          <span :lang="story.language">{{ shown.shot.transcript }}</span>
+        </p>
+      </div>
     </template>
 
     <!-- The one control the frame carries, and only while there is a Shot left to
@@ -280,6 +426,23 @@ function offered(exit: Exit) {
          a change to a node it already holds, never a node that arrives with its
          sentence inside it. -->
     <p class="ended trail" role="status">{{ shown.ended ? $t('reading.ended') : '' }}</p>
+
+    <!-- What the Reader is given over the Sound: the one refusal, and the words
+         for whoever cannot hear it. Both are the person's rather than the
+         Reading's, so neither touches the Path. -->
+    <p v-if="heardAtAll" class="listening">
+      <button type="button" class="trail" @click="sounding = !sounding">
+        {{ sounding ? $t('reading.soundOff') : $t('reading.soundOn') }}
+      </button>
+      <button
+        v-if="heard?.transcript || shown.shot?.transcript"
+        type="button"
+        class="trail"
+        @click="transcribed = !transcribed"
+      >
+        {{ transcribed ? $t('reading.hideTranscript') : $t('reading.showTranscript') }}
+      </button>
+    </p>
 
     <!-- The two ways back, offered once the Reading has moved and not before: on
          the first beat of the Opening Scene there is nothing to read again, and
@@ -410,6 +573,21 @@ figcaption {
   background: var(--grease);
 }
 
+/* The Transcript sits under the edge rather than over the image, so it never
+   pushes the frame around on arrival: on or off, the beat is where it was. */
+.heard {
+  display: grid;
+  gap: var(--s1);
+}
+
+.transcript {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
 .next {
   justify-self: start;
   padding-inline: var(--s4);
@@ -482,21 +660,23 @@ figcaption {
   content: none;
 }
 
-/* Stepping back a beat, and reading the Story again from the start: the ways out
-   of the reading, at the leading edge under everything they are a way out of,
-   rather than centred in the room where they read as the thing the page was
-   for. Quieter than the press that moves on, which is the one control on this
-   page drawn as a button. */
+/* The one refusal and the Transcript's own switch, and stepping back a beat or
+   reading the Story again from the start: all four are the same quiet trail,
+   never a control over the Reading, so `.listening` shares `.back`'s rules
+   rather than repeating them. */
+.listening,
 .back {
   display: flex;
   gap: var(--s2);
 }
 
+.listening button,
 .back button {
   border-color: transparent;
   background: none;
 }
 
+.listening button:hover,
 .back button:hover {
   border-color: transparent;
   background: none;

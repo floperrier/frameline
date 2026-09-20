@@ -1,7 +1,8 @@
 /**
  * What the bench finds when it reads the Story back: the Scenes nothing arrives
- * at, the Shots nobody has written, the Flags set and never tested, the ways on
- * that can never be offered, and the ways on no Reading is ever handed.
+ * at, the Shots nobody has written, a Sound nobody transcribed, the Flags set
+ * and never tested, the ways on that can never be offered, and the ways on no
+ * Reading is ever handed.
  *
  * A Remark is a reading and never a refusal. Nothing here blocks a write, marks a
  * Story invalid or corrects anything: every one of these is a Story an Author is
@@ -58,6 +59,12 @@ export type Remark = {
  * it phrases rather than only names: `namesOnTheBench` numbers two Scenes an
  * Author called the same, and a Remark that read the name straight would say one
  * sentence twice — see issue #284.
+ *
+ * `soundUntranscribed` says the same sentence of a Scene's Sound and a Shot's,
+ * so what it names is not the Scene but a phrase — `theSceneSound` or
+ * `theShotSound` — and that phrase is a full noun phrase and never a bare
+ * fragment: French does not compose a sentence from one, so the noun carries
+ * its own article rather than waiting on the sentence around it for one.
  */
 export function remarks(story: StoryInEditor, say: Phrase): Remark[] {
   const found: Remark[] = []
@@ -77,6 +84,18 @@ export function remarks(story: StoryInEditor, say: Phrase): Remark[] {
     }
     if (!scene.shots.length) found.push({ name: 'sceneUnplayed', sceneId: scene.id, said })
 
+    // Said of the carrier alone: a Scene heard under another has no Transcript to
+    // write, because the Transcript belongs to the row the bytes are on. A silent
+    // Scene is said nothing about at all — silence is not a defect, and a Remark
+    // on every text-only Story is noise.
+    if (scene.sound && !scene.transcript.trim()) {
+      found.push({
+        name: 'soundUntranscribed',
+        sceneId: scene.id,
+        said: { carrier: say('remark.theSceneSound', { scene: names.get(scene.id)! }) },
+      })
+    }
+
     scene.shots.forEach((shot, place) => {
       const atPlace = { ...said, place: place + 1 }
       // Neither text nor Image is the glossary's own definition of a Shot the
@@ -86,6 +105,18 @@ export function remarks(story: StoryInEditor, say: Phrase): Remark[] {
       }
       if (shot.image && !shot.description.trim()) {
         found.push({ name: 'imageUndescribed', sceneId: scene.id, said: atPlace })
+      }
+      if (shot.sound && !shot.transcript.trim()) {
+        found.push({
+          name: 'soundUntranscribed',
+          sceneId: scene.id,
+          said: {
+            carrier: say('remark.theShotSound', {
+              scene: names.get(scene.id)!,
+              place: place + 1,
+            }),
+          },
+        })
       }
     })
   }

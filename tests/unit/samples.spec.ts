@@ -20,6 +20,7 @@ import {
 } from '../../shared/utils/scenes.ts'
 import type { Condition } from '../../shared/utils/scenes.ts'
 import { STORY_LANGUAGES, STORY_TITLE_MAX_LENGTH } from '../../shared/utils/stories.ts'
+import { SOUND_LIBRARY } from '../../shared/utils/library.ts'
 
 /**
  * The Samples as data. A Sample is written to be taken apart by an Author who
@@ -78,9 +79,13 @@ function shapeOf(work: Work) {
     scenes: work.scenes.map(scene => ({
       at: scene.at,
       sets: Object.keys(scene.sets ?? {}).length,
+      sound: scene.sound,
+      transcribed: Boolean(scene.transcript),
       shots: scene.shots.map(shot => ({
         image: shot.image,
         described: Boolean(shot.description),
+        sound: shot.sound,
+        transcribed: Boolean(shot.transcript),
         when: (shot.when ?? []).map(condition => shapeOfCondition(work, condition)),
       })),
     })),
@@ -99,7 +104,8 @@ function textOf(work: Work) {
     ...work.exits.map(exit => exit.text),
     ...work.scenes.flatMap(scene => [
       scene.name,
-      ...scene.shots.flatMap(shot => [shot.text, shot.description ?? '']),
+      scene.transcript ?? '',
+      ...scene.shots.flatMap(shot => [shot.text, shot.description ?? '', shot.transcript ?? '']),
     ]),
   ].filter(Boolean)
 }
@@ -264,6 +270,33 @@ describe('the images a Sample shows', () => {
     // an image committed as something else would be refused as it was attached.
     expect(imageTypeOf(bytes)).toBe('image/webp')
     expect(bytes.length).toBeLessThanOrEqual(SHOT_IMAGE_MAX_BYTES)
+  })
+})
+
+describe('the Sound a Sample is heard under', () => {
+  const library = new Set(SOUND_LIBRARY.map(sound => sound.file))
+
+  it('is a file the library actually ships, in either language', () => {
+    for (const language of SAMPLE_LANGUAGES) {
+      for (const scene of SAMPLES[language].scenes) {
+        if (scene.sound) expect(library).toContain(scene.sound)
+        for (const shot of scene.shots) {
+          if (shot.sound) expect(library).toContain(shot.sound)
+        }
+      }
+    }
+  })
+
+  it('is transcribed wherever it is carried, in the language the Sample is written in', () => {
+    for (const language of SAMPLE_LANGUAGES) {
+      const carried = SAMPLES[language].scenes.flatMap(scene => [
+        ...(scene.sound ? [scene.transcript] : []),
+        ...scene.shots.filter(shot => shot.sound).map(shot => shot.transcript),
+      ])
+
+      expect(carried.length).toBeGreaterThan(0)
+      expect(carried.filter(said => !said?.trim())).toEqual([])
+    }
   })
 })
 

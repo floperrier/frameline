@@ -114,6 +114,12 @@ const { message: announced, show: announce } = useToast()
  * byte-identical and the browser goes on drawing the image it already has.
  * Asking for it under a different address is what makes the new image the one
  * on screen.
+ *
+ * A Sound needs none of this and it is not an oversight: the controls that
+ * deposit one stand behind the Sound being absent, so a Sound is removed before
+ * another is deposited and the `<audio>` element is destroyed and rebuilt
+ * between the two. The thumbnail is always drawn, so the `<img>` is the same
+ * element either side of an attach — which is the whole of the difference.
  */
 const attachedAt = reactive<Record<string, number>>({})
 

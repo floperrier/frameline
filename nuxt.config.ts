@@ -75,6 +75,12 @@ export default defineNuxtConfig({
     serverAssets: [{
       baseName: 'samples',
       dir: fileURLToPath(new URL('demonstration/images', import.meta.url)),
+    }, {
+      // The library, a second time: the CDN serves `public/sounds/` to the
+      // browser that picks one, and planting a Sample needs the same bytes on the
+      // server, where the deployed bundle is not the repository.
+      baseName: 'sounds',
+      dir: fileURLToPath(new URL('public/sounds', import.meta.url)),
     }],
   },
   runtimeConfig: {

@@ -177,6 +177,12 @@ export async function readStoryGraph(storyId: string) {
       sceneId: scenes.id,
       name: scenes.name,
       sets: scenes.sets,
+      soundOfSceneId: scenes.soundOfSceneId,
+      transcript: scenes.transcript,
+      soundLoops: scenes.soundLoops,
+      // Whether the Scene carries a Sound, never the Sound: the bytes are served
+      // one request apiece, so a Story is the same size however many it holds.
+      hasSound: sql<boolean>`${scenes.sound} is not null`,
       shotId: shots.id,
       text: shots.text,
       position: shots.position,
@@ -185,6 +191,8 @@ export async function readStoryGraph(storyId: string) {
       // Whether the Shot carries an image, never the image: the bytes are served
       // one request apiece, so a Story is the same size however many images it has.
       hasImage: sql<boolean>`${shots.image} is not null`,
+      shotTranscript: shots.transcript,
+      hasShotSound: sql<boolean>`${shots.sound} is not null`,
     })
     .from(scenes)
     .leftJoin(shots, eq(shots.sceneId, scenes.id))
@@ -202,6 +210,10 @@ export async function readStoryGraph(storyId: string) {
         name: row.name,
         sets: row.sets,
         shots: [],
+        sound: row.hasSound ? sceneSoundUrl(row.sceneId) : null,
+        soundOfSceneId: row.soundOfSceneId,
+        transcript: row.transcript,
+        soundLoops: row.soundLoops,
       }
       scenesOfStory.push(scene)
     }
@@ -213,6 +225,8 @@ export async function readStoryGraph(storyId: string) {
         image: row.hasImage ? shotImageUrl(row.shotId) : null,
         description: row.description!,
         conditions: row.conditions!,
+        sound: row.hasShotSound ? shotSoundUrl(row.shotId) : null,
+        transcript: row.shotTranscript!,
       })
     }
   }

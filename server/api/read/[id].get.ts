@@ -44,10 +44,17 @@ export default defineEventHandler(async (event) => {
 
   // Where the Author put a Scene's node in the graph is none of a Reading's
   // business, so it does not leave the editor.
+  //
+  // Whether the Story carries a Sound anywhere, which is what makes the title
+  // card a control: a Reader who presses it consents to being played something,
+  // and a browser will not play into a page nobody has touched. Read off the
+  // addresses the graph already carries, so no query touches the bytes.
   return {
     ...story,
     cover: coverUrl(story.cover),
-    scenes: scenes.map(({ id, name, sets, shots }) => ({ id, name, sets, shots })),
+    carriesSound: carriesSound({ scenes }),
+    scenes: scenes.map(({ id, name, sets, shots, sound, soundOfSceneId, transcript, soundLoops }) =>
+      ({ id, name, sets, shots, sound, soundOfSceneId, transcript, soundLoops })),
     exits,
   }
 })

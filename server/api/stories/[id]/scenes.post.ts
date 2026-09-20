@@ -47,5 +47,13 @@ export default defineEventHandler(async (event) => {
   if (!rows[0]) throw notFound(event, 'Story')
 
   setResponseStatus(event, 201)
-  return { ...rows[0], sets: {}, shots: [] }
+  return {
+    ...rows[0],
+    sets: {},
+    shots: [],
+    sound: null,
+    soundOfSceneId: null,
+    transcript: '',
+    soundLoops: true,
+  }
 })

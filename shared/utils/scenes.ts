@@ -235,12 +235,23 @@ export type Shot = {
   image: string | null
   description: string
   conditions: Condition[]
+  /** Where the Sound this Shot strikes with is served, or null where it strikes with none. */
+  sound: string | null
+  /** What that Sound makes heard, empty where nobody has written it down. */
+  transcript: string
 }
 export type Scene = {
   id: string
   name: string
   sets: Sets
   shots: Shot[]
+  /** Where the Sound this Scene carries is served, or null where it carries none of its own. */
+  sound: string | null
+  /** The Scene this one is heard under instead, or null. */
+  soundOfSceneId: string | null
+  /** What the Sound makes heard, and whether it is held in a loop: both the carrier's. */
+  transcript: string
+  soundLoops: boolean
 }
 export type Exit = {
   id: string

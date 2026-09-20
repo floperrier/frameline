@@ -77,3 +77,28 @@ export async function readShotImage(event: H3Event) {
 
   return bytes
 }
+
+/**
+ * What a PATCH may change about a Shot: its text, the Description of the image it
+ * carries, and the Transcript of the Sound it strikes with. Each is read only
+ * where the body names it — the shape `readStoryChanges` has — so the Transcript
+ * written beside a Sound does not have to carry the beat's text along with it.
+ *
+ * A body naming none is refused as the text being asked for, which is what a
+ * request that would erase the Shot is missing.
+ */
+export async function readShotChanges(event: H3Event) {
+  const body = await readBody<{
+    text?: unknown
+    description?: unknown
+    transcript?: unknown
+  }>(event)
+  const changes: { text?: string, description?: string, transcript?: string } = {}
+
+  if (body?.text !== undefined) changes.text = await readShotText(event)
+  if (body?.description !== undefined) changes.description = await readShotDescription(event)
+  if (body?.transcript !== undefined) changes.transcript = await readTranscript(event)
+  if (!Object.keys(changes).length) await readShotText(event)
+
+  return changes
+}

@@ -21,6 +21,7 @@ const { data: story, error } = await useAsyncData(
     cover: string | null
     authorId: string
     authorName: string | null
+    carriesSound: boolean
   }>,
 )
 
@@ -29,6 +30,24 @@ const { data: story, error } = await useAsyncData(
 // that went wrong is passed on as itself: a Reader of a Story that is very much
 // published must not be told it is gone because a query failed.
 if (error.value) throw createError({ ...error.value, fatal: true })
+
+/**
+ * The one press a Story that carries a Sound is given before the Reading draws
+ * anything: a browser will not play into a page nobody has touched, so the
+ * title card is that touch and consent in one. A silent Story skips it —
+ * there is nothing to consent to — and keeps the page it always had.
+ *
+ * `Resume` rather than `Begin` where this browser kept a Path for this Story,
+ * read the same way the Reading itself reads it back — see `app/utils/kept.ts`
+ * — so the one word said before the frame is on screen already tells a
+ * returning Reader they are not starting over.
+ */
+const begun = ref(!story.value?.carriesSound)
+const resuming = ref(false)
+
+onMounted(() => {
+  if (story.value) resuming.value = Boolean(keptReading(id, story.value))
+})
 </script>
 
 <template>
@@ -53,6 +72,16 @@ if (error.value) throw createError({ ...error.value, fatal: true })
            line above it stays in the Reader's. -->
       <h1 :lang="story?.language">{{ story?.title }}</h1>
 
+      <!-- The one press a Story that carries a Sound is given before it plays
+           anything: a browser will not play into a page nobody has touched, and
+           consenting to sound is consenting to this one, not to sound in
+           general. Says `Resume` rather than `Begin` where this browser kept a
+           Path for this Story, so a returning Reader is told before the frame
+           is even drawn that they are not starting over. -->
+      <button v-if="story && !begun" type="button" class="beginning primary" @click="begun = true">
+        {{ resuming ? $t('read.resume') : $t('read.begin') }}
+      </button>
+
       <!-- Put away from the page it is read on, which is where a Reader decides
            they want it again. An Author with no account for it is told so once,
            in the same place, and is left on the Story. -->
@@ -65,7 +94,7 @@ if (error.value) throw createError({ ...error.value, fatal: true })
     <!-- Kept for this Story in this browser, so the Reader who left comes back to
          where they stood. The Preview draws the same component and keeps
          nothing: an Author on the bench is testing, not reading. -->
-    <Reading v-if="story" :story="story" :kept-for="id" />
+    <Reading v-if="story && begun" :story="story" :kept-for="id" />
 
     <!-- The credits, and they are drawn here rather than inside the Reading
          because a Preview is the same component and an Author testing their own
@@ -142,9 +171,24 @@ h1 {
   font-size: clamp(2rem, 1.4rem + 2.4vw, 3rem);
 }
 
+/* The one control the title card carries where the Story asks for it: the
+   press that is both the Reader's consent and the gesture a browser requires
+   before anything may play. `.primary` because it is the one action the card
+   is for — there is nothing else to press until it has been. Pinned to the
+   second column: a covered card's Cover spans three rows and this is a fourth
+   one down the text beside it, so left to auto-placement it would fall back
+   into the Cover's own column once that span runs out. */
+.beginning {
+  grid-column: 2;
+  margin-block-start: var(--s3);
+  padding-inline: var(--s4);
+}
+
 /* Under the title card, off the line the title sits on: what is offered about
-   the Story is not part of the Story. */
+   the Story is not part of the Story. Pinned to the second column for the same
+   reason `.beginning` above it is: it is the row past a covered card's Cover. */
 .away {
+  grid-column: 2;
   margin-block-start: var(--s2);
 }
 

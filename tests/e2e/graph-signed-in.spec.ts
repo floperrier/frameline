@@ -3,6 +3,7 @@ import { expect } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 import { CONDITIONS_MAX, FLAGS_PER_SCENE } from '../../shared/utils/scenes'
 import {
+  A_SOUND,
   ONE_PIXEL,
   sceneNode,
   writeScene,
@@ -1109,6 +1110,65 @@ test('a Scene is split before one of its Shots, and its ways on move to the seco
       .toEqual(['One'])
     await expect(readExits(arrival.id)).resolves.toMatchObject([{ toSceneId: half.id, text: '' }])
     await expect(readExits(half.id)).resolves.toMatchObject([{ toSceneId: platform.id }])
+  })
+
+/**
+ * A split says where a cut falls; it does not take a bed away. The Shots move as
+ * rows, so what each strikes with goes with it — but the second half is a Scene
+ * written fresh, and a Scene written fresh is heard under nothing. An Author who
+ * split a Scene would lose the bed over everything after the cut, with no
+ * confirmation and no way to read that they had, which is the one thing
+ * `docs/adr/0017-a-confirmation-is-drawn-on-the-bench.md` will not have.
+ *
+ * Both ways the first half was heard, because the second half has to hold to the
+ * one hop either way: a carrier is named by the half split off it, and a Scene
+ * that was already naming is copied still naming the same Scene.
+ */
+test('both halves of a split Scene are heard under the Sound the Scene was heard under',
+  async ({ request }) => {
+    const { story, scenes } = await openGraph(request, ['The arrival', 'The platform'])
+    const [arrival, platform] = scenes as [{ id: string }, { id: string }]
+    const shots: Record<string, { id: string }[]> = {}
+    for (const scene of [arrival, platform]) {
+      shots[scene.id] = []
+      for (const text of ['One', 'Two']) {
+        const shot = await (await request.post(`/api/scenes/${scene.id}/shots`)).json()
+        await request.patch(`/api/shots/${shot.id}`, { data: { text, description: '' } })
+        shots[scene.id]!.push(shot)
+      }
+    }
+
+    // The arrival carries the bytes; the platform carries none and is heard under
+    // the arrival. One split apiece is the two cases the rule has.
+    await request.put(`/api/scenes/${arrival.id}/sound`, { data: A_SOUND })
+    await request.patch(`/api/scenes/${platform.id}`, { data: { soundOfSceneId: arrival.id } })
+
+    const splitBefore = async (sceneId: string, shotId: string, name: string) => {
+      const split = await request.post(`/api/scenes/${sceneId}/split`, { data: { shotId, name } })
+      expect(split.status()).toBe(201)
+      const { id } = await split.json() as { id: string }
+      const read = await readGraph(request, story.id)
+
+      return read.scenes.find(scene => scene.id === id)!
+    }
+
+    // Split off a carrier, the second half names the first: it cannot carry the
+    // bytes without their being deposited twice, and naming is the one hop.
+    const behind = await splitBefore(arrival.id, shots[arrival.id]![1]!.id, 'The arrival, after')
+    expect(behind.sound).toBeNull()
+    expect(behind.soundOfSceneId).toBe(arrival.id)
+
+    // Split off a Scene that names one, the second half names the same Scene
+    // rather than the half it came out of — which would be the second hop.
+    const after = await splitBefore(platform.id, shots[platform.id]![1]!.id, 'The platform, after')
+    expect(after.sound).toBeNull()
+    expect(after.soundOfSceneId).toBe(arrival.id)
+
+    // And the first halves are untouched: a split reads where the cut falls.
+    const read = await readGraph(request, story.id)
+    expect(read.scenes.find(scene => scene.id === arrival.id)!.sound)
+      .toBe(`/api/scenes/${arrival.id}/sound`)
+    expect(read.scenes.find(scene => scene.id === platform.id)!.soundOfSceneId).toBe(arrival.id)
   })
 
 /**
