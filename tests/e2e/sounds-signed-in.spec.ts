@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { expect } from '@playwright/test'
-import { seedScene, seedStory, test, writeStory } from './author'
+import { seedPublication, seedScene, seedStory, test, writeStory } from './author'
 import { SOUND_MAX_BYTES, SOUND_TRANSCRIPT_MAX_LENGTH } from '../../shared/utils/sound'
 import type { APIRequestContext, Page } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
@@ -378,4 +378,176 @@ test('an Author deposits a Sound on a beat by choosing a file, and it plays besi
     .toBe(`/api/shots/${shots[0]!.id}/sound`)
   await expect(writing(page).getByLabel('The Sound of Shot 1 of The street')).toBeVisible()
   await expect(writing(page).getByLabel('The Transcript of Shot 1 of The street')).toBeVisible()
+})
+
+/**
+ * A published Story heard under a Sound, which is what every claim about the
+ * reading is made against. `named` has the second Scene take its Sound from the
+ * first, which is the crossing that must not restart.
+ *
+ * The Sound is the MP3 fixture and never one of the library's own: a Sound has to
+ * be decoded by the browser the suite runs in, and the open-source Chromium
+ * Playwright ships carries no AAC decoder. Both kinds are taken by the product;
+ * only this one can be listened to here.
+ */
+async function heardStory(
+  request: APIRequestContext,
+  { named = false, transcript = '' } = {},
+) {
+  const story = await writeStory(request)
+  const [street, bar] = (await reread(request, story.id)).scenes
+
+  await request.put(`/api/scenes/${street!.id}/sound`, { data: A_SOUND })
+  if (transcript) await request.patch(`/api/scenes/${street!.id}`, { data: { transcript } })
+  if (named) {
+    await request.patch(`/api/scenes/${bar!.id}`, { data: { soundOfSceneId: street!.id } })
+  }
+  await seedPublication(story)
+
+  return story
+}
+
+/** The same Story with nothing heard under it, which is the page as it was. */
+async function silentStory(request: APIRequestContext) {
+  const story = await writeStory(request)
+  await seedPublication(story)
+
+  return story
+}
+
+/** How far into the bed the browser has got, which is what says it did not restart. */
+function playedFor(page: Page) {
+  return page.evaluate(() => {
+    const bed = document.querySelector<HTMLAudioElement>('[data-sound="scene"]')
+
+    return bed?.currentTime ?? -1
+  })
+}
+
+test('the title card is what a Reader presses on a Story that carries a Sound', async ({ page, request }) => {
+  const story = await heardStory(request)
+
+  await page.goto(`/read/${story.id}`)
+  // Nothing plays until the press, so the first beat is not on screen either.
+  await expect(page.getByRole('button', { name: 'Begin' })).toBeVisible()
+  await expect(page.getByText('A door opens.')).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Begin' }).click()
+  await expect(page.getByText('A door opens.')).toBeVisible()
+})
+
+test('a silent Story keeps the page it had: nothing to press, the first Shot at load', async ({ page, request }) => {
+  const story = await silentStory(request)
+
+  await page.goto(`/read/${story.id}`)
+  await expect(page.getByText('A door opens.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Begin' })).toHaveCount(0)
+})
+
+test('the Sound holds across the cut where both Scenes are heard under one carrier', async ({ page, request }) => {
+  const story = await heardStory(request, { named: true })
+
+  await page.goto(`/read/${story.id}`)
+  await page.getByRole('button', { name: 'Begin' }).click()
+  await expect.poll(() => playedFor(page)).toBeGreaterThan(0.2)
+
+  const before = await playedFor(page)
+  // Two Shots to a Scene in the fixture `writeStory` writes: one `Next Shot`
+  // lands on the second, and a second exhausts the run and draws the Exits.
+  await page.getByRole('button', { name: 'Next Shot' }).click()
+  await page.getByRole('button', { name: 'Next Shot' }).click()
+  await page.getByRole('button', { name: 'Follow her out' }).click()
+
+  // The observable form of "it did not restart": the clock is still climbing on
+  // the far side of the cut.
+  await expect(page.getByText('Smoke, and no one she knows.')).toBeVisible()
+  await expect.poll(() => playedFor(page)).toBeGreaterThan(before)
+})
+
+test('sound turned off stays off across a reload, and the Path is intact beside it', async ({ page, request }) => {
+  const story = await heardStory(request)
+
+  await page.goto(`/read/${story.id}`)
+  await page.getByRole('button', { name: 'Begin' }).click()
+  await page.getByRole('button', { name: 'Turn the Sound Off' }).click()
+  await page.getByRole('button', { name: 'Next Shot' }).click()
+
+  await page.reload()
+  // Muting is a property of the person and the Path is a reading of the Story:
+  // two keys, two lifetimes, and the card says which of the two it read.
+  await page.getByRole('button', { name: 'Resume' }).click()
+  await expect(page.getByRole('button', { name: 'Turn the Sound On' })).toBeVisible()
+  await expect(page.getByText('Picked up where you left off.')).toBeVisible()
+})
+
+test('turning sound back on mid-Scene does not restart the bed', async ({ page, request }) => {
+  const story = await heardStory(request)
+
+  await page.goto(`/read/${story.id}`)
+  await page.getByRole('button', { name: 'Begin' }).click()
+  await expect.poll(() => playedFor(page)).toBeGreaterThan(0.2)
+
+  const before = await playedFor(page)
+  await page.getByRole('button', { name: 'Turn the Sound Off' }).click()
+  await page.getByRole('button', { name: 'Turn the Sound On' }).click()
+
+  // Read at once, before the clock could climb back past `before` on its own —
+  // `expect.poll` would give a restart the run of its 5s timeout to catch up and
+  // hide it. Muting silences the element; it does not tear the bed down and
+  // rebuild it, so the clock it had already reached is not thrown back to zero
+  // the moment sound is asked for again.
+  expect(await playedFor(page)).toBeGreaterThan(before - 0.05)
+})
+
+/** What the strike element is doing, to see whether muting reaches it without a beat. */
+function struck(page: Page) {
+  return page.evaluate(() => {
+    const strike = document.querySelector<HTMLAudioElement>('[data-sound="shot"]')
+
+    return strike && { muted: strike.muted, paused: strike.paused }
+  })
+}
+
+test('muting reaches a Shot already striking, not only the next beat', async ({ page, request }) => {
+  const story = await writeStory(request)
+  const [street] = (await reread(request, story.id)).scenes
+  // The very first Shot of the Story: the beat that plays at the press itself,
+  // with no beat before it to have moved the Path the strike is watched on.
+  await request.put(`/api/shots/${street!.shots[0]!.id}/sound`, { data: A_SOUND })
+  await seedPublication(story)
+
+  await page.goto(`/read/${story.id}`)
+  await page.getByRole('button', { name: 'Begin' }).click()
+
+  // Playing and heard on the opening beat itself, before anything else is
+  // pressed — proving the strike fires on the transition into a drawn Path
+  // and not only on a move away from it.
+  await expect.poll(async () => (await struck(page))?.paused).toBe(false)
+  expect((await struck(page))?.muted).toBe(false)
+
+  await page.getByRole('button', { name: 'Turn the Sound Off' }).click()
+  // Muted at the press itself, with no beat in between to key a new watch.
+  await expect.poll(async () => (await struck(page))?.muted).toBe(true)
+  // The same element, still running: muting is not a pause.
+  expect((await struck(page))?.paused).toBe(false)
+})
+
+test('the Transcript is in the page whether it is shown or not', async ({ page, request }) => {
+  const story = await heardStory(request, { transcript: 'Rain on a tin roof.' })
+
+  await page.goto(`/read/${story.id}`)
+  await page.getByRole('button', { name: 'Begin' }).click()
+
+  // Hidden, it is `visually-hidden` and still read by a screen reader: never out
+  // of the accessibility tree, and never in a live region. Read by the class
+  // rather than by `toBeVisible`, which a box clipped to a pixel still satisfies
+  // — the same reason the sheet's own tests read `.visually-hidden` this way.
+  const said = page.getByText('Rain on a tin roof.')
+  const transcript = page.locator('p.transcript', { hasText: 'Rain on a tin roof.' })
+  await expect(said).toBeAttached()
+  await expect(transcript).toHaveClass(/visually-hidden/)
+
+  await page.getByRole('button', { name: 'Show the Transcript' }).click()
+  await expect(transcript).not.toHaveClass(/visually-hidden/)
+  await expect(said).toBeVisible()
 })

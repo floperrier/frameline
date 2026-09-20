@@ -309,10 +309,18 @@
     "back": "Revenir en arrière",
     "ended": "Le chemin s'arrête ici.",
     "again": "Relire depuis le début",
-    "resumed": "Reprise là où vous en étiez."
+    "resumed": "Reprise là où vous en étiez.",
+    "soundOff": "Couper le Son",
+    "soundOn": "Rétablir le Son",
+    "showTranscript": "Afficher la Transcription",
+    "hideTranscript": "Masquer la Transcription",
+    "sceneTranscript": "Ce sous quoi la Scène s’entend",
+    "shotTranscript": "Ce que ce battement frappe"
   },
   "read": {
-    "eyebrow": "Un Récit Frameline"
+    "eyebrow": "Un Récit Frameline",
+    "begin": "Commencer",
+    "resume": "Reprendre"
   },
   "comments": {
     "heading": "Commentaires",
