@@ -58,6 +58,15 @@ export type Shot = {
   description?: string
   image?: Image | string
   when?: Condition[]
+  /**
+   * The Sound the beat strikes with, named as one of the library's own files —
+   * `shared/utils/library.ts`. A work carries no bytes of its own: the library is
+   * committed once, and `write.ts` deposits the file through the API like any
+   * other upload.
+   */
+  sound?: string
+  /** What that Sound makes heard, in the language the work is written in. */
+  transcript?: string
 }
 
 /**
@@ -77,7 +86,14 @@ export type Work = {
   title: string
   language?: StoryLanguage
   opening?: string
-  scenes: { name: string, sets?: Flags, shots: Shot[] }[]
+  scenes: {
+    name: string
+    sets?: Flags
+    shots: Shot[]
+    /** The Sound the Scene is heard under, named as one of the library's files. */
+    sound?: string
+    transcript?: string
+  }[]
   exits: { from: string, to: string, text: string, when?: Condition[] }[]
 }
 
