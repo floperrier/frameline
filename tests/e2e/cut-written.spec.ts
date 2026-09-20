@@ -200,9 +200,9 @@ test('the three doors take the fields their own row holds, and refuse what is no
     }
 
     const aTime = 'A Shot stands for a whole number of seconds, up to a minute.'
-    const aCut = 'A cut takes a whole number of milliseconds, up to five seconds.'
+    const aCut = 'A Cut takes a whole number of milliseconds, up to five seconds.'
     const aKind = 'A Cut is made in a dissolve or in a fade to black.'
-    const waysOn = 'The ways on stand for a whole number of seconds, up to a minute.'
+    const offered = 'The Exits are offered for a whole number of seconds, up to a minute.'
 
     // A Scene and an Exit answer for their own cut with nothing above them, so
     // neither column takes the null a Shot may leave — and both doors refuse it
@@ -226,7 +226,7 @@ test('the three doors take the fields their own row holds, and refuse what is no
     await refuses(shot, { cutAfter: CUT_AFTER_MAX + 1 }, aTime)
     await refuses(scene, { cutOver: CUT_OVER_MAX + 1 }, aCut)
     await refuses(exit, { cutOver: CUT_OVER_MAX + 1 }, aCut)
-    await refuses(scene, { exitsAfter: EXITS_AFTER_MAX + 1 }, waysOn)
+    await refuses(scene, { exitsAfter: EXITS_AFTER_MAX + 1 }, offered)
 
     // Under it, either side of nought: a Shot's nought is a sentence and anything
     // below it is not a duration at all.
