@@ -95,6 +95,68 @@ test('the Reader stops the clock, and stepping back stops it for them',
     await expect(held).toBeVisible()
   })
 
+test('one beat dissolves into the next, or the passage is made through black',
+  async ({ page, request }) => {
+    const frames = page.locator('.frame')
+
+    await opened(page, request, async (scenes) => {
+      // Three seconds of passage over a beat held for half a second: long enough
+      // that two frames on screen at once is a fact a spec can read. The beat
+      // arriving waits for the press, so the one passage is the only one — an
+      // Author who writes a dissolve longer than the hold under it gets three
+      // frames over each other, which is what they asked for and not what is
+      // being read here.
+      await request.patch(`/api/scenes/${scenes[0]!.id}`, {
+        data: { cutAfter: 500, cutOver: 3000 },
+      })
+      await request.patch(`/api/shots/${scenes[0]!.shots[1]!.id}`, { data: { cutAfter: 0 } })
+    })
+
+    await expect(page.getByText('A door opens.')).toBeVisible()
+
+    // What the passage is made over is carried by the gate, because it is the one
+    // thing that outlasts the beat — and a dissolve is both beats over each other
+    // for the whole of it.
+    await expect(page.locator('.gate')).toHaveAttribute('style', /3000ms/)
+    await expect.poll(() => frames.count()).toBe(2)
+    await expect(page.getByText('She steps out.')).toBeVisible()
+    await expect.poll(() => frames.count()).toBe(1)
+
+    // The other passage an Author can write over the same clock: the beat leaving
+    // and the beat arriving take half the duration each, either side of a room
+    // with nothing in it.
+    await opened(page, request, async (scenes) => {
+      await request.patch(`/api/scenes/${scenes[0]!.id}`, {
+        data: { cutAfter: 500, cutOver: 3000, cutThrough: 'black' },
+      })
+      await request.patch(`/api/shots/${scenes[0]!.shots[1]!.id}`, { data: { cutAfter: 0 } })
+    })
+
+    await expect(page.locator('.frame.through-black-leave-active')).toHaveCount(1)
+    await expect(page.getByText('She steps out.')).toBeVisible()
+  })
+
+test('a Reader who asked for less motion is given the rhythm without the passage',
+  async ({ page, request }) => {
+    // Asked of the browser rather than of the run, because `reducedMotion` handed
+    // to `test.use` never reaches the context this suite seals its own cookie into.
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await opened(page, request, async (scenes) => {
+      await request.patch(`/api/scenes/${scenes[0]!.id}`, {
+        data: { cutAfter: 500, cutOver: 3000, cutThrough: 'black' },
+      })
+      await request.patch(`/api/shots/${scenes[0]!.shots[1]!.id}`, { data: { cutAfter: 0 } })
+    })
+
+    // The hold is the rhythm of the work rather than a decoration on it, so the
+    // beat still arrives on its own.
+    await expect(page.getByText('She steps out.')).toBeVisible()
+
+    // And every passage is gone: the three seconds the Author wrote would still
+    // have both beats on screen a second from now, and there is one.
+    await expect(page.locator('.frame')).toHaveCount(1, { timeout: 1000 })
+  })
+
 test('a Story where nothing moves by itself is given no way to stop it',
   async ({ page, request }) => {
     await opened(page, request, async () => {})

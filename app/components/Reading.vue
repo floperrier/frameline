@@ -165,6 +165,55 @@ async function moveTo(to: Path) {
 }
 
 /**
+ * What the passage on screen is made over: the Cut of the Shot leaving, or of the
+ * Exit taken. Read at the move rather than off what arrives, because what a
+ * passage looks like is the leaving's to say — and an Exit carries one of its own
+ * precisely so that a Scene can end on a fade the next Scene knows nothing about.
+ *
+ * Nought and through the image is a hard cut, which is what every move the Story
+ * says nothing about makes: a step back and a Reading started again are the Reader
+ * correcting themselves rather than a raccord, and nothing about either is written
+ * on the Story.
+ */
+const passing = ref<{ over: number, through: CutThrough }>({ over: 0, through: 'image' })
+
+function passBy(over: number, through: CutThrough, to: Path) {
+  passing.value = { over, through }
+
+  return moveTo(to)
+}
+
+/**
+ * The cut the press makes, which is the cut the clock makes where the press does
+ * not come. Both read the Shot's own Cut and pass by it, so the two are one
+ * passage made two ways.
+ *
+ * Asked of the Shot on screen and the Scene it belongs to without either being
+ * checked, because the one control that calls this is drawn only while a Shot is
+ * on screen — and a Shot on screen is a Shot of the run the Reading stands in.
+ */
+function passOn() {
+  const made = cut(scene.value!, shown.value.shot!)
+
+  return passBy(made.over, made.through, advance(at.value))
+}
+
+/**
+ * A beat still fading out is no longer a beat: it is on screen for whoever is
+ * watching and nothing at all for whoever is reading by ear or by keyboard, who
+ * would otherwise meet the same Story twice over for the length of a passage.
+ * `inert` is the one word for all of it — out of the accessibility tree, out of
+ * the tab order and out of reach of a press — and it goes when the element does.
+ *
+ * Focus is on the frame leaving where the clock made the cut, and taking it out
+ * blurs it: `moveTo` is already on its way to the beat arriving, one tick later
+ * and in the same task, which is where the focus was always going.
+ */
+function leaving(frame: Element) {
+  if (frame instanceof HTMLElement) frame.inert = true
+}
+
+/**
  * The beat behind, or nothing where there is none: the opening beat of the
  * Story, or an Exit the Author closed behind the Reader. The engine is asked
  * rather than the Path read here — an Exit says whether it is crossed backwards
@@ -179,7 +228,7 @@ function stepBack() {
   // few seconds after stepping back has a control that undoes nothing, and the
   // clock they were ahead of would be reading the Story for them.
   paused.value = true
-  if (behind.value) moveTo(behind.value)
+  if (behind.value) passBy(0, 'image', behind.value)
 }
 
 const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, scene.name])))
@@ -367,10 +416,10 @@ watch([at, paused, hidden], () => {
   const beat = shown.value.shot
   if (!beat || !scene.value || paused.value || hidden.value) return
 
-  const { after } = cut(scene.value, beat)
+  const { after, over, through } = cut(scene.value, beat)
   if (after === null) return
 
-  holding.value = setTimeout(() => moveTo(advance(at.value)), after)
+  holding.value = setTimeout(() => passBy(over, through, advance(at.value)), after)
 }, { immediate: true })
 
 onBeforeUnmount(() => clearTimeout(holding.value))
@@ -406,35 +455,55 @@ const clocked = computed(() => story.scenes.some(scene =>
     <!-- One Shot at a time, and the Exits only once the Scene has played out —
          behind the frame it played out on, which is held rather than taken away. -->
     <template v-if="held">
-      <!-- Keyed on the Path, so arriving at a Shot draws the frame again:
-           each beat is thrown onto the screen rather than swapped into it, and
-           reading a Scene again throws its first frame again. -->
-      <!-- The frame holds nothing but the Author's own work — the image, what it
-           shows, and the beat — so the whole of it is announced in the Story's
-           Language whatever language the chrome around it is read in. Nothing
-           translates a Story: see
-           `docs/adr/0013-the-interfaces-locale-is-not-the-storys-language.md`. -->
-      <figure
-        ref="frame"
-        :key="`${at.taken.length}-${at.shot}`"
-        class="frame"
-        :class="{ 'pushed-back': !shown.shot }"
-        :lang="story.language"
-        tabindex="-1"
-      >
-        <!-- The image and the text are one beat, so they arrive together and the
-             Reader moves past both at once.
+      <!-- The gate the frame sits in, and the one thing here that outlasts a
+           beat: a passage puts two frames in it at once, so what the Author wrote
+           the passage over is carried by what holds both of them. A dissolve
+           leaves them over each other and a passage through black takes the room
+           down to nothing between them — either way it is the beat leaving that
+           says how, which is why the duration is set at the move and not read off
+           what arrives. -->
+      <div class="gate" :style="{ '--cut-over': `${passing.over}ms` }">
+        <!-- A hard cut is not a passage: `css` false takes the whole transition
+             out of the way, so the beat leaving is gone in the same tick rather
+             than lying over the next one at nothing for as long as the browser
+             takes to agree it has finished. Every Story written before the Cut is
+             one of these, and every one of them cuts exactly as it always did. -->
+        <Transition
+          :name="passing.through === 'black' ? 'through-black' : 'dissolve'"
+          :css="passing.over > 0"
+          @leave="leaving"
+        >
+          <!-- Keyed on the Path, so arriving at a Shot draws the frame again:
+               each beat is thrown onto the screen rather than swapped into it, and
+               reading a Scene again throws its first frame again. -->
+          <!-- The frame holds nothing but the Author's own work — the image, what
+               it shows, and the beat — so the whole of it is announced in the
+               Story's Language whatever language the chrome around it is read in.
+               Nothing translates a Story: see
+               `docs/adr/0013-the-interfaces-locale-is-not-the-storys-language.md`. -->
+          <figure
+            ref="frame"
+            :key="`${at.taken.length}-${at.shot}`"
+            class="frame"
+            :class="{ 'pushed-back': !shown.shot }"
+            :lang="story.language"
+            tabindex="-1"
+          >
+            <!-- The image and the text are one beat, so they arrive together and
+                 the Reader moves past both at once.
 
-             `alt` is the image's Description and nothing else: the Shot's text is
-             never used as one, because the text carries the beat and is read out
-             beside the image anyway. An Image nobody has described falls back to
-             empty, which is what keeps a screen reader from announcing a frame it
-             has nothing to say about. -->
-        <img v-if="held.image" :src="held.image" :alt="held.description">
-        <figcaption>
-          <p class="shot">{{ held.text }}</p>
-        </figcaption>
-      </figure>
+                 `alt` is the image's Description and nothing else: the Shot's text
+                 is never used as one, because the text carries the beat and is read
+                 out beside the image anyway. An Image nobody has described falls
+                 back to empty, which is what keeps a screen reader from announcing
+                 a frame it has nothing to say about. -->
+            <img v-if="held.image" :src="held.image" :alt="held.description">
+            <figcaption>
+              <p class="shot">{{ held.text }}</p>
+            </figcaption>
+          </figure>
+        </Transition>
+      </div>
 
       <!-- Where the beat sits in the run: the Scene's name, and one tick a Shot
            with the Shot on screen lit. The edge of the film, read the way an
@@ -470,7 +539,7 @@ const clocked = computed(() => story.scenes.some(scene =>
 
     <!-- The one control the frame carries, and only while there is a Shot left to
          ask for: the frame held behind the ways on asks for nothing. -->
-    <button v-if="shown.shot" type="button" class="next" @click="moveTo(advance(at))">
+    <button v-if="shown.shot" type="button" class="next" @click="passOn()">
       {{ $t('reading.next') }}
     </button>
 
@@ -480,7 +549,12 @@ const clocked = computed(() => story.scenes.some(scene =>
       <li v-for="exit in shown.exits" :key="exit.id">
         <!-- What the Author wrote on the Exit, so it carries the Story's Language
              like the beat above it does. -->
-        <button type="button" class="splice" :lang="story.language" @click="moveTo(take(at, exit))">
+        <button
+          type="button"
+          class="splice"
+          :lang="story.language"
+          @click="passBy(exit.cutOver, exit.cutThrough, take(at, exit))"
+        >
           {{ offered(exit) }}
         </button>
 
@@ -548,7 +622,7 @@ const clocked = computed(() => story.scenes.some(scene =>
       <button v-if="behind" type="button" class="trail" @click="stepBack">
         {{ $t('reading.back') }}
       </button>
-      <button ref="again" type="button" class="trail" @click="moveTo(opening())">
+      <button ref="again" type="button" class="trail" @click="passBy(0, 'image', opening())">
         {{ $t('reading.again') }}
       </button>
     </p>
@@ -572,6 +646,71 @@ const clocked = computed(() => story.scenes.some(scene =>
 .frame {
   overflow: clip;
   animation: thrown 320ms ease-out;
+}
+
+/* A passage is two frames on screen at once, and the room is the size of the one
+   arriving: the beat leaving is taken out of the flow and fades where it stood,
+   so the page settles the moment the new beat is in — which is what a hard cut
+   has always done here and what every Story written before the Cut still does. */
+.gate {
+  display: grid;
+  position: relative;
+}
+
+/* The beat leaving is `inert` from the moment it starts to go, which is what
+   takes it out of reach of a press as well as out of the reading. The throw is
+   an arrival and nothing else, so it is taken off a frame on its way out — and
+   with it the 320ms a browser would otherwise hold the frame on for, over and
+   above the duration the Author wrote. */
+.dissolve-leave-active,
+.through-black-leave-active {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  animation: none;
+}
+
+/* A dissolve is the two frames over each other for the whole of the duration the
+   Author wrote. Nought — a hard cut, and every Story that says nothing — is a
+   transition of no duration, which is the beat swapped for the next one exactly
+   as before. */
+.dissolve-enter-active,
+.dissolve-leave-active {
+  transition: opacity var(--cut-over, 0ms) ease;
+}
+
+.dissolve-enter-from,
+.dissolve-leave-to,
+.through-black-enter-from,
+.through-black-leave-to {
+  opacity: 0;
+}
+
+/* A passage through black is the same fade twice over a room already painted
+   black: the beat leaving goes first and the beat arriving waits for the room to
+   be empty, so the two halves share the duration rather than doubling it.
+
+   Written as a delay rather than as `<Transition mode="out-in">`, which would
+   take the frame out of the document between the halves — everything under it
+   would jump up and back down, and the focus `moveTo` puts on the beat arriving
+   would have nothing to land on for half the passage. */
+.through-black-enter-active,
+.through-black-leave-active {
+  transition: opacity calc(var(--cut-over, 0ms) / 2) ease;
+}
+
+.through-black-enter-active {
+  transition-delay: calc(var(--cut-over, 0ms) / 2);
+}
+
+/* The hold stays — it is the rhythm of the work and not a decoration — and every
+   passage goes. `frameline.css` already takes each duration to nothing for
+   anyone who has asked for that; the wait between the two halves above is the one
+   thing a duration cut to nothing leaves standing, so it is cut here. */
+@media (prefers-reduced-motion: reduce) {
+  .through-black-enter-active {
+    transition-delay: 0ms;
+  }
 }
 
 /* The Scene has played out and the frame it ended on is held behind the ways on:
