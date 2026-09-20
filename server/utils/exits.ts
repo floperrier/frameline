@@ -62,20 +62,43 @@ export async function readExitStepsBack(event: H3Event) {
 
 /**
  * What a PATCH may change about an Exit: the words the Reader presses, whether a
- * Reading crosses it backwards, or both. Each is read only where the body names
- * it, so writing the one the Author changed leaves the other where it was — and
- * null is a value here rather than an absence, which is why the field is looked
- * for against `undefined` and not against nothing.
+ * Reading crosses it backwards, and how the passage it makes is cut. Each is
+ * read only where the body names it, so writing the one the Author changed
+ * leaves the rest where they were — and null is a value here rather than an
+ * absence, which is why the field is looked for against `undefined` and not
+ * against nothing.
  *
- * A body naming neither is refused as the text being asked for: the words are
- * what an Exit is written with, so that is what an empty change is missing.
+ * `cutOver` and `cutThrough` take no null on an Exit: unlike a Shot, an Exit has
+ * no Scene above it to answer *as it says*, so both are read with `nullable`
+ * false. There is no `cutAfter` here — an Exit is taken rather than held, so it
+ * has nothing to stand for.
+ *
+ * A body naming none of the three is refused as the text being asked for: the
+ * words are what an Exit is written with, so that is what an empty change is
+ * missing.
  */
 export async function readExitChanges(event: H3Event) {
-  const body = await readBody<{ text?: unknown, stepsBack?: unknown }>(event)
-  const changes: { text?: string, stepsBack?: boolean | null } = {}
+  const body = await readBody<{
+    text?: unknown
+    stepsBack?: unknown
+    cutOver?: unknown
+    cutThrough?: unknown
+  }>(event)
+  const changes: {
+    text?: string
+    stepsBack?: boolean | null
+    cutOver?: number
+    cutThrough?: CutThrough
+  } = {}
 
   if (body?.text !== undefined) changes.text = await readExitText(event)
   if (body?.stepsBack !== undefined) changes.stepsBack = await readExitStepsBack(event)
+  if (body?.cutOver !== undefined) {
+    changes.cutOver = await readCutOver(event, { nullable: false })
+  }
+  if (body?.cutThrough !== undefined) {
+    changes.cutThrough = await readCutThrough(event, { nullable: false })
+  }
   if (!Object.keys(changes).length) await readExitText(event)
 
   return changes

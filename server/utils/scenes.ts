@@ -229,10 +229,11 @@ export async function readNamedSound(event: H3Event, sceneId: string) {
 }
 
 /**
- * What a PATCH may change about a Scene: its name, and the three things that are
- * said about the Sound it is heard under. Each is read only where the body names
- * it, so the bench can write the one field the Author touched without carrying
- * the others along — the shape `readStoryChanges` already has.
+ * What a PATCH may change about a Scene: its name, the three things that are
+ * said about the Sound it is heard under, and its Cut — how its run is cut and
+ * how long its ways on stand. Each is read only where the body names it, so the
+ * bench can write the one field the Author touched without carrying the others
+ * along — the shape `readStoryChanges` already has.
  *
  * A body naming none is refused as a name being asked for: the name is the one
  * thing a Scene cannot be without, so that is what an empty change is missing.
@@ -243,6 +244,10 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
     transcript?: unknown
     soundLoops?: unknown
     soundOfSceneId?: unknown
+    cutAfter?: unknown
+    cutOver?: unknown
+    cutThrough?: unknown
+    exitsAfter?: unknown
   }>(event)
   const changes: {
     name?: string
@@ -250,6 +255,10 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
     soundLoops?: boolean
     soundOfSceneId?: string | null
     sound?: null
+    cutAfter?: number | null
+    cutOver?: number
+    cutThrough?: CutThrough
+    exitsAfter?: number | null
   } = {}
 
   if (body?.name !== undefined) changes.name = await readSceneName(event)
@@ -261,6 +270,17 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
     // whatever was deposited here, so nothing can disagree about what is heard.
     if (changes.soundOfSceneId) changes.sound = null
   }
+  if (body?.cutAfter !== undefined) changes.cutAfter = await readCutAfter(event)
+  // A Scene's own cut takes no null: only a Shot answering *as its Scene says*
+  // may leave one, so a Scene naming null here is refused the way an out-of-
+  // bounds value is.
+  if (body?.cutOver !== undefined) {
+    changes.cutOver = await readCutOver(event, { nullable: false })
+  }
+  if (body?.cutThrough !== undefined) {
+    changes.cutThrough = await readCutThrough(event, { nullable: false })
+  }
+  if (body?.exitsAfter !== undefined) changes.exitsAfter = await readExitsAfter(event)
   // Which is a name asked for, by the reader that phrases the refusal.
   if (!Object.keys(changes).length) await readSceneName(event)
 

@@ -4,9 +4,9 @@ import { useDb } from '../../db'
 
 /**
  * Writes what an Author says about one Shot: its text, the Description of the
- * image it carries, and the Transcript of the Sound it strikes with. Each comes
- * through one door because each is one Shot's row, and each lands on its own: a
- * body naming one of them leaves the rest where they were.
+ * image it carries, the Transcript of the Sound it strikes with, and its own
+ * Cut. Each comes through one door because each is one Shot's row, and each
+ * lands on its own: a body naming one of them leaves the rest where they were.
  */
 export default defineEventHandler(async (event) => {
   const author = await requireAuthor(event)
@@ -23,6 +23,9 @@ export default defineEventHandler(async (event) => {
       position: shots.position,
       description: shots.description,
       transcript: shots.transcript,
+      cutAfter: shots.cutAfter,
+      cutOver: shots.cutOver,
+      cutThrough: shots.cutThrough,
     })
 
   if (!shot) throw notFound(event, 'Shot')
