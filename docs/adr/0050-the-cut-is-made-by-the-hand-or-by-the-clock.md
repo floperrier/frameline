@@ -67,6 +67,15 @@ inside it, as the mute is — a Path is a reading of the Story — and unlike th
 mute it is not kept between visits, because a mute is a preference and a pause
 is a moment.
 
+**The word has been used here once before.** It named what is now the Exit, in
+`docs/adr/0007-the-order-of-the-ways-on-is-written-not-drawn.md` and in the
+superseded `docs/adr/0015-a-cut-is-drawn-by-hand.md`, and the rename that
+followed is why the Exit entry in `CONTEXT.md` keeps *cut* and *coupe* off its
+word list to this day. `0007` says as much in its own closing note, and what it
+settled about the order of the ways on is untouched by either naming: read Cut
+as Exit there. In every document written from this one onwards it reads the
+other way, as the thing decided above — which an Exit carries and is not.
+
 ## Considered Options
 
 **A term of its own for the timed choice.** `Cut` names what takes a Shot off
