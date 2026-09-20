@@ -137,6 +137,25 @@ const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () =>
 // because a rollback leaves the old code inserting Scenes that name neither —
 // see `docs/adr/0002-the-schema-moves-with-the-deploy.md`. A deposited Sound
 // loops until the Author says otherwise, which is what a bed usually is.
+//
+// `cut_after` is how long each Shot of the run stands before the cut is made,
+// in milliseconds, and null is the run that waits for the press — which is every
+// Story written before the column existed, reading exactly as it read.
+//
+// `cut_over` is how long that cut takes and `cut_through` what it passes
+// through: `image`, the outgoing Shot dissolving into the next, or `black`. A
+// hard cut is `cut_over` of nought, which is why there is no third value to
+// write: under no duration there is nothing for `cut_through` to be true of, so
+// a hard cut through black cannot be said rather than having to be refused —
+// `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`'s rule about
+// two settings that could disagree.
+//
+// `exits_after` is how long the ways on stand: null until one is taken, a
+// number of milliseconds after which the first one offered is taken, and nought
+// for the ways on never offered at all — the Scene flowing into the next without
+// asking. Three states of one fact rather than a flag beside a duration, which
+// could contradict it. See
+// `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
 export const scenes = pgTable('scenes', {
   id: uuid('id').primaryKey().defaultRandom(),
   storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
@@ -149,6 +168,10 @@ export const scenes = pgTable('scenes', {
     .references((): AnyPgColumn => scenes.id, { onDelete: 'set null' }),
   transcript: text('transcript').notNull().default(''),
   soundLoops: boolean('sound_loops').notNull().default(true),
+  cutAfter: integer('cut_after'),
+  cutOver: integer('cut_over').notNull().default(0),
+  cutThrough: text('cut_through').notNull().default('image'),
+  exitsAfter: integer('exits_after'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
@@ -183,6 +206,14 @@ export const scenes = pgTable('scenes', {
 // `transcript` is what it makes heard, beside the bytes the way a Description
 // sits beside an Image — one of each on a Shot carrying both.
 //
+// `cut_after`, `cut_over` and `cut_through` are this Shot's own answer about how
+// it leaves the screen, and null on each is the Shot saying nothing and being cut
+// as its Scene says — `steps_back` on an Exit, for `steps_back`'s own reason. The
+// one answer a Scene's default cannot give is *this one waits for the press*
+// while the rest of the run runs, and that is what nought is here: a Shot held
+// for no time would not be seen at all, so nought cannot mean a duration. See
+// `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
+//
 // `conditions` are the flat tests the Shot plays under, all of which must hold;
 // an empty list is a Shot every Reading sees. Held as jsonb, validated at the
 // request boundary and naming a Scene by an id no foreign key reaches, for the
@@ -205,6 +236,9 @@ export const shots = pgTable('shots', {
   description: text('description').notNull().default(''),
   sound: bytea('sound'),
   transcript: text('transcript').notNull().default(''),
+  cutAfter: integer('cut_after'),
+  cutOver: integer('cut_over'),
+  cutThrough: text('cut_through'),
   conditions: jsonb('conditions').$type<Condition[]>().notNull().default([]),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
@@ -244,6 +278,12 @@ export const shots = pgTable('shots', {
 // there is one fact per Exit and one default per Story rather than two settings
 // that can disagree — see
 // `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
+//
+// `cut_over` and `cut_through` are the passage from the Scene this Exit leaves to
+// the Scene it lands on, read the way a Scene's are and defaulting to the hard
+// cut every Story has always made. There is no `cut_after` beside them: an Exit
+// is taken rather than held, and how long the Reader has to take it is the
+// leaving Scene's `exits_after`.
 export const exits = pgTable('exits', {
   id: uuid('id').primaryKey().defaultRandom(),
   fromSceneId: uuid('from_scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
@@ -252,6 +292,8 @@ export const exits = pgTable('exits', {
   conditions: jsonb('conditions').$type<Condition[]>().notNull().default([]),
   position: integer('position').notNull().default(0),
   stepsBack: boolean('steps_back'),
+  cutOver: integer('cut_over').notNull().default(0),
+  cutThrough: text('cut_through').notNull().default('image'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
