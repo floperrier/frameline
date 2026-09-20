@@ -72,7 +72,7 @@ leaves to the Scene it lands on is made, never when, because an Exit is taken
 rather than held.
 _Affiché_: Coupe
 _Avoid_: transition, timing, duration, delay, autoplay, timer, slideshow,
-fondu, durée, minuterie, défilement, enchaînement
+durée, minuterie, défilement
 
 **Transcript**:
 What a Sound makes heard, written by the Author for a Reader who cannot hear it.

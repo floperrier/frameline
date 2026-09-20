@@ -270,7 +270,19 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
     // whatever was deposited here, so nothing can disagree about what is heard.
     if (changes.soundOfSceneId) changes.sound = null
   }
-  if (body?.cutAfter !== undefined) changes.cutAfter = await readCutAfter(event)
+  // A Scene's run waits for the press in null and in nothing else. Nought is a
+  // Shot's word for the same thing — a beat that stands for no time is a beat
+  // nobody sees, so it is free to mean *held until the press* — and a Scene's
+  // column holding both would be one fact in two shapes, which is what
+  // `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md` and
+  // `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md` refuse. So the
+  // Scene is refused the nought a Shot keeps.
+  if (body?.cutAfter !== undefined) {
+    changes.cutAfter = await readCutAfter(event)
+    if (changes.cutAfter === 0) {
+      throw createError({ statusCode: 400, message: saying(event)('refusals.cutAfter') })
+    }
+  }
   // A Scene's own cut takes no null: only a Shot answering *as its Scene says*
   // may leave one, so a Scene naming null here is refused the way an out-of-
   // bounds value is.

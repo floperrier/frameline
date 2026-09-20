@@ -843,6 +843,21 @@ function secondsWritten(event: Event) {
   return Number.isNaN(seconds) ? undefined : Math.round(seconds * 1000)
 }
 
+/**
+ * The same field read as the hold of a Scene's whole run, where nought is not a
+ * duration but the absence of one. An Author typing it is saying *no hold*, and
+ * on a Scene that is said in null: nought is a Shot's word for it, and a Scene's
+ * column holding both would be one fact in two shapes — which is what `0047` and
+ * `0050` refuse, and what the door at `readSceneChanges` refuses beside this. The
+ * `<select>` above the field flips to *at the press* by itself, so the panel
+ * cannot draw a Scene the Reading does not hold.
+ */
+function holdWritten(event: Event) {
+  const written = secondsWritten(event)
+
+  return written === undefined || written > 0 ? written : null
+}
+
 /** A body one of those empty fields is in is a body with no change in it. */
 function wholeCut(body: object) {
   return Object.values(body).every(held => held !== undefined)
@@ -1389,7 +1404,7 @@ function writeConditions(
               step="0.5"
               :value="held.scene.cutAfter / 1000"
               :aria-label="$t('editor.secondsAShotStands', { name: held.name })"
-              @change="writeSceneCut(held.scene, { cutAfter: secondsWritten($event) })"
+              @change="writeSceneCut(held.scene, { cutAfter: holdWritten($event) })"
             >
             <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
           </template>

@@ -234,8 +234,8 @@
     "secondsThisShotStands": "Secondes que le Plan {place} de {scene} tient",
     "cutIsMade": "La Coupe se fait",
     "cutHard": "Franche",
-    "cutThroughImage": "Par l’image",
-    "cutThroughBlack": "Par le noir",
+    "cutThroughImage": "Fondu enchaîné",
+    "cutThroughBlack": "Fondu au noir",
     "secondsTheCutTakes": "Secondes que prend la Coupe de {name}",
     "secondsTheShotsCutTakes": "Secondes que prend la Coupe du Plan {place} de {scene}",
     "secondsTheExitsCutTakes": "Secondes que prend la Coupe de la Sortie {place} vers {scene}, depuis {from}",
@@ -432,7 +432,7 @@
     "wayBack": "Une Lecture ne se tient qu’une fois dans une Scène : une Sortie ne peut donc pas ramener à une Scène que le Lecteur a pu déjà traverser. Dupliquez cette Scène, puis faites-y mener la Sortie.",
     "cutAfter": "Un Plan se tient un nombre entier de secondes, au plus une minute.",
     "cutOver": "Une Coupe se fait en un nombre entier de millisecondes, au plus cinq secondes.",
-    "cutThrough": "Une Coupe passe par l’image ou par le noir.",
+    "cutThrough": "Une Coupe se fait en fondu enchaîné ou en fondu au noir.",
     "exitsAfter": "Les Sorties restent offertes un nombre entier de secondes, au plus une minute."
   }
 }

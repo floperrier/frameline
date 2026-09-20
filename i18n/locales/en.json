@@ -234,11 +234,11 @@
     "secondsThisShotStands": "Seconds Shot {place} of {scene} stands",
     "cutIsMade": "The Cut is made",
     "cutHard": "Hard",
-    "cutThroughImage": "Through the image",
-    "cutThroughBlack": "Through black",
+    "cutThroughImage": "A Dissolve",
+    "cutThroughBlack": "A Fade to Black",
     "secondsTheCutTakes": "Seconds the Cut of {name} takes",
     "secondsTheShotsCutTakes": "Seconds the Cut of Shot {place} of {scene} takes",
-    "secondsTheExitsCutTakes": "Seconds the Cut of the Exit {place} to {scene}, out of {from}, takes",
+    "secondsTheExitsCutTakes": "Seconds taken by the Cut of the Exit {place} to {scene}, out of {from}",
     "exitsAreOffered": "The Exits are offered",
     "exitsUntilTaken": "Until one is taken",
     "exitsForATime": "For a time",
@@ -432,7 +432,7 @@
     "wayBack": "A Reading stands in a Scene once, so an Exit cannot lead back to a Scene the Reader may already have come through. Duplicate that Scene, and lead the Exit to the copy.",
     "cutAfter": "A Shot stands for a whole number of seconds, up to a minute.",
     "cutOver": "A cut takes a whole number of milliseconds, up to five seconds.",
-    "cutThrough": "A cut passes through the image or through black.",
+    "cutThrough": "A Cut is made in a dissolve or in a fade to black.",
     "exitsAfter": "The ways on stand for a whole number of seconds, up to a minute."
   }
 }

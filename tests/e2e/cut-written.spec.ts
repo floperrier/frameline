@@ -23,16 +23,17 @@ async function reread(request: APIRequestContext, storyId: string) {
 async function writing(page: Page, request: APIRequestContext) {
   const story = await writeStory(request)
   const { scenes } = await reread(request, story.id)
+  const scene = scenes[0]!
 
-  await page.goto(`/stories/${story.id}?scene=${scenes[0]!.id}`)
+  await page.goto(`/stories/${story.id}?scene=${scene.id}`)
   await live(page)
 
-  return story
+  return { story, scene, shot: scene.shots[0]! }
 }
 
 test('a Scene says when its Shots are cut and how long its ways on stand',
   async ({ page, request }) => {
-    const story = await writing(page, request)
+    const { story, scene, shot } = await writing(page, request)
     const when = page.getByLabel('The Shots are cut The street', { exact: true })
     const stands = page.getByLabel('Seconds a Shot of The street stands', { exact: true })
 
@@ -77,11 +78,32 @@ test('a Scene says when its Shots are cut and how long its ways on stand',
     await expect(when).toHaveValue('clock')
     await expect(stands).toHaveValue('2.5')
     await expect(offered).toHaveValue('none')
+
+    // Typed to nought, the hold is no hold: on a Scene that is said in null, so
+    // the panel answers *at the press* and takes the field away with it. A panel
+    // reading *after a time, 0 s* over a run the Reading holds until the press
+    // would be the one thing `0050` promises cannot happen.
+    await stands.fill('0')
+    await stands.blur()
+    await expect(when).toHaveValue('press')
+    await expect(stands).toHaveCount(0)
+    await expect.poll(async () => (await reread(request, story.id)).scenes[0]!.cutAfter)
+      .toBeNull()
+
+    // And the door says the same, so nothing else can write the shape the panel
+    // will not: a Scene's nought is refused where a Shot's is taken, which is the
+    // whole reason nought exists.
+    const refused = await request.patch(`/api/scenes/${scene.id}`, { data: { cutAfter: 0 } })
+    expect(refused.status()).toBe(400)
+    expect((await refused.json()).message)
+      .toContain('A Shot stands for a whole number of seconds')
+    expect((await request.patch(`/api/shots/${shot.id}`, { data: { cutAfter: 0 } })).status())
+      .toBe(200)
   })
 
 test('a Shot answers as its Scene says until it answers for itself',
   async ({ page, request }) => {
-    const story = await writing(page, request)
+    const { story } = await writing(page, request)
     const shotOf = async () => (await reread(request, story.id)).scenes[0]!.shots[0]!
     const when = page.getByLabel('This Shot is cut Shot 1 of The street', { exact: true })
     const made = page.getByLabel('The Cut is made Shot 1 of The street', { exact: true })
@@ -97,7 +119,7 @@ test('a Shot answers as its Scene says until it answers for itself',
     await expect(page.getByLabel('Seconds Shot 1 of The street stands', { exact: true }))
       .toHaveCount(0)
 
-    await made.selectOption('Through the image')
+    await made.selectOption('A Dissolve')
     await expect.poll(async () => {
       const { cutOver, cutThrough } = await shotOf()
       return { cutOver, cutThrough }
@@ -119,15 +141,15 @@ test('a Shot answers as its Scene says until it answers for itself',
 
 test('an Exit says how the passage out is made, and a hard cut says nothing more',
   async ({ page, request }) => {
-    const story = await writing(page, request)
+    const { story } = await writing(page, request)
     const way = 'the Exit 1 to The bar, out of The street'
     const made = page.getByLabel(`The Cut is made ${way}`, { exact: true })
-    const takes = page.getByLabel(`Seconds the Cut of ${way}, takes`, { exact: true })
+    const takes = page.getByLabel(`Seconds taken by the Cut of ${way}`, { exact: true })
 
     await expect(made).toHaveValue('hard')
     await expect(takes).toHaveCount(0)
 
-    await made.selectOption('Through black')
+    await made.selectOption('A Fade to Black')
     await expect(takes).toHaveValue('1.2')
     await expect.poll(async () => {
       const { cutOver, cutThrough } = (await reread(request, story.id)).exits[0]!
