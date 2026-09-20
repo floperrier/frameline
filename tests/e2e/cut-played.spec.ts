@@ -14,12 +14,22 @@ import type { StoryInEditor } from '../../shared/utils/scenes'
  * Reading is one component behind both doors, so what is proved here is proved of
  * an Author's Preview as well.
  *
- * Two kinds of time, for two kinds of assertion. A hold is a timer, so everything
- * about holding is wound by hand on `page.clock` and costs no real seconds at
- * all. A passage is painted by the browser on a schedule of its own — a CSS
- * transition, and the frames Vue counts it in — and a fake clock freezes the very
- * thing being read, so everything about passing waits in real time, over beats
- * held for half a second and passages of three.
+ * Three kinds of test, and each keeps the time its assertion asks for.
+ *
+ * That a cut is made at all is left to the browser's own scheduler: a Scene held
+ * for half a second, and a beat waited for the way anything else here is waited
+ * for. Half a second of a retrying assertion is the cheapest proof there is that
+ * a clock runs, and it is the one test that would gain nothing from a clock of
+ * ours.
+ *
+ * What a hold does over time is wound forward by hand on `page.clock` — stopped
+ * six seconds into ten, started again, a minute of clock proving a stop. Those
+ * are the durations the behaviour is actually about, and a spec that waited them
+ * out is a spec nobody runs.
+ *
+ * A passage is read in real time again, because it is painted by the browser on
+ * a schedule of its own — a CSS transition, and the frames Vue counts it in — and
+ * a fake clock freezes the very thing being looked at.
  */
 async function opened(
   page: Page,
