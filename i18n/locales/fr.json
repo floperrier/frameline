@@ -219,7 +219,11 @@
     "confirmRemoveSoundMany": "Le Son de « {name} » disparaît, et les {count} Scènes qui s’entendent sous lui deviennent muettes.",
     "confirmSceneSoundLostOne": "Une Scène s’entend sous elle, et devient muette.",
     "confirmSceneSoundLostMany": "{count} Scènes s’entendent sous elle, et deviennent muettes.",
-    "soundSeconds": "{count} s"
+    "soundSeconds": "{count} s",
+    "soundOfShot": "Le Son du Plan {place} de {scene}",
+    "pickSoundOfShot": "Téléverser un Son pour le Plan {place} de {scene}",
+    "transcriptOfShot": "La Transcription du Plan {place} de {scene}",
+    "noShotSoundYet": "Aucun Son"
   },
   "conditions": {
     "ofCarrier": "de {carrier}",

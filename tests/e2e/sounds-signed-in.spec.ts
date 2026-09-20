@@ -212,12 +212,28 @@ test('an Author takes a Sound from the library, and the Scene carries its own by
   // a duration this test has no reason to hardcode.
   const rain = await soundField.getByRole('option', { name: /Rain/ }).getAttribute('value')
   await soundField.selectOption(rain!)
-  await writing(page).getByRole('button', { name: 'Take This Sound' }).click()
+  await writing(page).getByRole('button', { name: 'Take This Sound The street', exact: true }).click()
 
   // The bytes are copied into the row at the moment of the pick, so the Story
   // depends on no file the product might later withdraw.
   await expect.poll(async () => (await reread(request, story.id)).scenes[0]!.sound)
     .toBe(`/api/scenes/${scene.id}/sound`)
+  await expect(writing(page).getByLabel('Transcript The street')).toBeVisible()
+})
+
+test('an Author deposits a Sound on a Scene by choosing a file, and the row carries it after', async ({ page, request }) => {
+  const { story, scene } = await openScene(request)
+
+  await page.goto(`/stories/${story.id}`)
+  const picker = writing(page).getByLabel('Upload a Sound for The street')
+  await picker.scrollIntoViewIfNeeded()
+  await picker.setInputFiles({ name: 'silence.mp3', mimeType: 'audio/mpeg', buffer: A_SOUND })
+
+  // The bytes are copied into the row at the moment of the pick, the same as a
+  // Sound taken from the library: see the test above.
+  await expect.poll(async () => (await reread(request, story.id)).scenes[0]!.sound)
+    .toBe(`/api/scenes/${scene.id}/sound`)
+  await expect(writing(page).getByLabel('The Sound of The street')).toBeVisible()
   await expect(writing(page).getByLabel('Transcript The street')).toBeVisible()
 })
 
@@ -310,4 +326,56 @@ test('Remove the Sound is named in the bar once the Scene is heard under one', a
   await open(page)
   await typing(page).fill('Remove the Sound')
   await expect(offered(page)).toHaveText(['Remove the Sound'])
+})
+
+test('a beat strikes with a Sound taken from the library, transcribed beside it', async ({ page, request }) => {
+  const { story, shots } = await openScene(request)
+
+  await page.goto(`/stories/${story.id}`)
+  // The picker beside a beat carries the library alone and no second group: a
+  // Shot's Sound is never named, because a struck sound weighs 20 KB and is
+  // re-picked in one press.
+  await expect(writing(page).locator('[data-shot] optgroup')).toHaveCount(0)
+
+  // Selected by value rather than by the option's full label, which also carries
+  // a duration this test has no reason to hardcode — the same reason the Scene's
+  // own version of this test reads the value back first.
+  const shotSoundField = writing(page).getByLabel('The Sound of Shot 1 of The street')
+  const doorClosing = await shotSoundField.getByRole('option', { name: /A door closing/ })
+    .getAttribute('value')
+  await shotSoundField.selectOption(doorClosing!)
+  // Named for the beat as well as for the act, because the Scene's own Take
+  // stands above it in the same section.
+  await writing(page)
+    .getByRole('button', { name: 'Take This Sound Shot 1 of The street' })
+    .click()
+
+  await expect.poll(async () =>
+    (await reread(request, story.id)).scenes[0]!.shots[0]!.sound)
+    .toBe(`/api/shots/${shots[0]!.id}/sound`)
+
+  await writing(page).getByLabel('The Transcript of Shot 1 of The street').fill('A door closes.')
+  await writing(page).getByLabel('Shot 1 of The street', { exact: true }).click()
+
+  await expect.poll(async () =>
+    (await reread(request, story.id)).scenes[0]!.shots[0]!.transcript)
+    .toBe('A door closes.')
+
+  // And it strikes rather than being held: there is no loop to answer for.
+  await expect(writing(page).getByLabel('Held under the Scene')).toHaveCount(0)
+})
+
+test('an Author deposits a Sound on a beat by choosing a file, and it plays beside the Transcript', async ({ page, request }) => {
+  const { story, shots } = await openScene(request)
+
+  await page.goto(`/stories/${story.id}`)
+  const picker = writing(page).getByLabel('Upload a Sound for Shot 1 of The street')
+  await picker.scrollIntoViewIfNeeded()
+  await picker.setInputFiles({ name: 'silence.mp3', mimeType: 'audio/mpeg', buffer: A_SOUND })
+
+  await expect.poll(async () =>
+    (await reread(request, story.id)).scenes[0]!.shots[0]!.sound)
+    .toBe(`/api/shots/${shots[0]!.id}/sound`)
+  await expect(writing(page).getByLabel('The Sound of Shot 1 of The street')).toBeVisible()
+  await expect(writing(page).getByLabel('The Transcript of Shot 1 of The street')).toBeVisible()
 })
