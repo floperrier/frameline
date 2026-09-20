@@ -61,6 +61,19 @@ _Affiché_: Son
 _Avoid_: audio, track, clip, soundtrack, sfx, cue, ambience, bande-son, piste,
 ambiance, musique, bruitage
 
+**Cut**:
+What takes one Shot off the screen and puts the next one there: when it is made
+and how it is made. Made by the Reader pressing, or by itself after a time the
+Author writes; made hard, or over a duration, through the outgoing image or
+through black. A Scene says how its run is cut, a Shot may say otherwise, and a
+Shot that says nothing is cut as its Scene says — the shape an Exit's *steps
+back* already has. An Exit carries one too — how the passage from the Scene it
+leaves to the Scene it lands on is made, never when, because an Exit is taken
+rather than held.
+_Affiché_: Coupe
+_Avoid_: transition, timing, duration, delay, autoplay, timer, slideshow,
+fondu, durée, minuterie, défilement, enchaînement
+
 **Transcript**:
 What a Sound makes heard, written by the Author for a Reader who cannot hear it.
 Never a Description, which says what one Image shows: a Shot carrying both an
@@ -110,6 +123,11 @@ An Exit also says whether a Reading is stepped back across it, the way it says
 what Conditions it is offered under: the Author's own yes, their own no, or
 nothing at all, which is the Exit answering as its Story says — see
 `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
+An Exit is offered until the Reader takes it, or only for the time its Scene
+gives it, after which the first one still offered is taken for them — and a Scene
+may give it no time at all, flowing into the next without asking. What the clock
+takes is what the Enter key would have pressed, so the order the ways on are
+written in is the whole of what says which.
 _Affiché_: Sortie
 _Avoid_: choice, option, link, branch, edge, transition, cut, coupe, raccord,
 montage
