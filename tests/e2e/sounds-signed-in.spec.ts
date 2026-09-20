@@ -464,12 +464,37 @@ test('sound turned off stays off across a reload, and the Path is intact beside 
   await page.getByRole('button', { name: 'Turn the Sound Off' }).click()
   await page.getByRole('button', { name: 'Next Shot' }).click()
 
+  // Every `play()` the next page makes, with the element's own `muted` read at
+  // the moment of the call. The question is whether what the Reading plays out
+  // of its mount is already silent, and only the call itself can answer it: by
+  // the time a test could look at the element, the watch that mutes what is
+  // playing has been and gone, and a page that let a frame out and one that
+  // never did read the same. Installed before the reload, so the window it
+  // records is the reloaded page's alone.
+  await page.addInitScript(() => {
+    const played: boolean[] = []
+    Object.assign(window, { played })
+    const play = HTMLMediaElement.prototype.play
+    HTMLMediaElement.prototype.play = function () {
+      played.push(this.muted)
+      return play.call(this)
+    }
+  })
+
   await page.reload()
   // Muting is a property of the person and the Path is a reading of the Story:
   // two keys, two lifetimes, and the card says which of the two it read.
   await page.getByRole('button', { name: 'Resume' }).click()
   await expect(page.getByRole('button', { name: 'Turn the Sound On' })).toBeVisible()
   await expect(page.getByText('Picked up where you left off.')).toBeVisible()
+
+  // And the bed the press starts is muted from its own first frame. The Reader
+  // turned sound off before the reload; the answer is restored in a mount
+  // registered above the one the opening bed plays out of, so it is the
+  // Reader's and not the default by the time anything plays.
+  const played = await page.evaluate(() => (window as unknown as { played: boolean[] }).played)
+  expect(played.length).toBeGreaterThan(0)
+  expect(played).not.toContain(false)
 })
 
 test('turning sound back on mid-Scene does not restart the bed', async ({ page, request }) => {

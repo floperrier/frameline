@@ -72,6 +72,28 @@ function kept(): Path | undefined {
 const resumed = ref(false)
 
 /**
+ * Whether sound is on, and whether the Transcript is shown. Sound is on by
+ * default, because the press that opened the Reading is the consent, and both
+ * answers are kept for the person rather than for this Story: muting is not a
+ * property of a reading.
+ *
+ * Restored in a mount of its own, registered above the Path's — Vue runs the
+ * hooks in the order they were registered, and the opening strike and the
+ * opening bed both play out of that one. Registered after it, this would leave
+ * both plays reading the default rather than the Reader's own answer, and what
+ * would escape is sound reaching somebody who asked for none. That the watch
+ * below catches up a microtask later is not the guarantee: the guarantee is that
+ * neither element is ever played before this has run.
+ */
+const sounding = ref(true)
+const transcribed = ref(false)
+
+onMounted(() => {
+  sounding.value = !keptFlag(SOUND_OFF)
+  transcribed.value = keptFlag(TRANSCRIPT_SHOWN)
+})
+
+/**
  * The seed every draw a Scene makes comes out of, drawn once the Reading is in
  * the browser it will stay in. Here rather than in the Path this starts at,
  * because the server renders this page too and a seed drawn there and drawn
@@ -206,24 +228,15 @@ const heardAtAll = computed(() => carriesSound(story))
 const heard = computed(() => heardUnder(story.scenes, shown.value.sceneId))
 
 /**
- * Whether sound is on. It is on by default, because the press that opened the
- * Reading is the consent, and the answer is kept for the person rather than for
- * this Story: muting is not a property of a reading.
- */
-const sounding = ref(true)
-const transcribed = ref(false)
-
-onMounted(() => {
-  sounding.value = !keptFlag(SOUND_OFF)
-  transcribed.value = keptFlag(TRANSCRIPT_SHOWN)
-})
-
-/**
  * Muting is the person turning down what is already playing, not a reason for
  * either element to stop or forget where it stood: a bed keeps running under a
  * Scene whether or not anyone is listening, and a strike already sounding must
- * fall silent at the press rather than at the next beat. One place sets
- * `muted` on both, so nothing above this has to know sound is off at all.
+ * fall silent at the press rather than at the next beat. One place sets `muted`
+ * on both, so nothing above this has to know sound is off at all.
+ *
+ * It reaches what is already playing, and nothing else: what is about to play
+ * sets its own `muted` before the `play()`, because a press and a mount are two
+ * different moments and only the press is watched here.
  */
 watch(sounding, now => {
   keepFlag(SOUND_OFF, !now)
