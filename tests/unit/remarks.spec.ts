@@ -28,6 +28,10 @@ type Written = {
   sound?: string | null
   soundOfSceneId?: string | null
   transcript?: string
+  cutAfter?: Scene['cutAfter']
+  cutOver?: Scene['cutOver']
+  cutThrough?: Scene['cutThrough']
+  exitsAfter?: Scene['exitsAfter']
 }
 
 /**
@@ -58,6 +62,10 @@ function onTheBench(
       soundOfSceneId: scene.soundOfSceneId ?? null,
       transcript: scene.transcript ?? '',
       soundLoops: true,
+      cutAfter: scene.cutAfter ?? null,
+      cutOver: scene.cutOver ?? 0,
+      cutThrough: scene.cutThrough ?? 'image',
+      exitsAfter: scene.exitsAfter ?? null,
       shots: (scene.shots ?? [{ text: 'A door opens.' }]).map((shot, at) => ({
         id: `${idOf(scene)}-${at}`,
         text: '',
@@ -66,6 +74,9 @@ function onTheBench(
         conditions: [],
         sound: null,
         transcript: '',
+        cutAfter: null,
+        cutOver: null,
+        cutThrough: null,
         ...shot,
       })),
     })) as StoryInEditor['scenes'],
@@ -399,6 +410,46 @@ describe('a way on no Reading is ever handed', () => {
     })
 
     expect(named(story)).not.toContain('exitNeverTaken')
+  })
+})
+
+describe('the Cut', () => {
+  it('remarks on a Scene that flows on and leads nowhere', () => {
+    const story = onTheBench([{ name: 'One', exitsAfter: 0, shots: [] }])
+
+    expect(named(story)).toContain('sceneFlowsNowhere')
+  })
+
+  it('says nothing of a Scene that flows on and leads somewhere', () => {
+    const story = onTheBench(
+      [{ name: 'One', exitsAfter: 0 }, { name: 'Two' }],
+      { exits: [['One', 'Two']] },
+    )
+
+    expect(named(story)).not.toContain('sceneFlowsNowhere')
+  })
+
+  // 200 words a minute is about 15 characters a second, so 400 characters need
+  // some 27 seconds and a Shot standing for one is plainly unreadable.
+  it('remarks on a Shot that stands for less time than its text takes to read', () => {
+    const text = 'x'.repeat(400)
+    const story = onTheBench([{ name: 'One', cutAfter: 1000, shots: [{ text }] }])
+
+    expect(named(story)).toContain('shotStandsTooBriefly')
+  })
+
+  it('says nothing of a Shot given the time its text takes', () => {
+    const text = 'x'.repeat(400)
+    const story = onTheBench([{ name: 'One', cutAfter: 40_000, shots: [{ text }] }])
+
+    expect(named(story)).not.toContain('shotStandsTooBriefly')
+  })
+
+  it('says nothing of a Shot nothing is timing', () => {
+    const text = 'x'.repeat(400)
+    const story = onTheBench([{ name: 'One', cutAfter: null, shots: [{ text }] }])
+
+    expect(named(story)).not.toContain('shotStandsTooBriefly')
   })
 })
 

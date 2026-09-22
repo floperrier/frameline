@@ -27,6 +27,18 @@
 import { exitsFrom, namesOnTheBench, reaches } from '../../shared/utils/scenes'
 import type { Condition, Scene, StoryInEditor } from '../../shared/utils/scenes'
 import type { Phrase } from '../../shared/utils/phrases'
+import { cut } from '../../shared/utils/reading'
+
+/**
+ * How fast a Reader reads, at about 200 words a minute — a measured rate rather
+ * than an invented one, and the only number in this file that comes from outside
+ * the Story. It is used to notice a Shot nobody could read in the time it stands
+ * and for nothing else, and the margin below is wide on purpose: a Remark that
+ * fires on a Shot an Author has merely made brisk is a Remark an Author learns to
+ * ignore.
+ */
+const CHARACTERS_A_SECOND = 15
+const BRIEF_ENOUGH_TO_SAY_SO = 0.5
 
 export type Remark = {
   /**
@@ -84,6 +96,13 @@ export function remarks(story: StoryInEditor, say: Phrase): Remark[] {
     }
     if (!scene.shots.length) found.push({ name: 'sceneUnplayed', sceneId: scene.id, said })
 
+    // A Scene whose ways on stand for no time flows into the next without
+    // asking — docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md —
+    // and one with no way on at all ends the Reading there and then.
+    if (scene.exitsAfter === 0 && !exitsFrom(story.exits, scene.id).length) {
+      found.push({ name: 'sceneFlowsNowhere', sceneId: scene.id, said })
+    }
+
     // Said of the carrier alone: a Scene heard under another has no Transcript to
     // write, because the Transcript belongs to the row the bytes are on. A silent
     // Scene is said nothing about at all — silence is not a defect, and a Remark
@@ -117,6 +136,18 @@ export function remarks(story: StoryInEditor, say: Phrase): Remark[] {
             }),
           },
         })
+      }
+
+      // Resolved against the Scene by `cut()` rather than read off the Shot: a
+      // Shot saying nothing under a Scene cut after a second is exactly the
+      // case worth noticing. A Shot with no text has nothing to read, and is
+      // left to `shotUnwritten` instead.
+      if (shot.text.trim()) {
+        const { after } = cut(scene, shot)
+        const takesToRead = (shot.text.length / CHARACTERS_A_SECOND) * 1000
+        if (after !== null && after < takesToRead * BRIEF_ENOUGH_TO_SAY_SO) {
+          found.push({ name: 'shotStandsTooBriefly', sceneId: scene.id, said: atPlace })
+        }
       }
     })
   }
