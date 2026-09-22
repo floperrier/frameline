@@ -441,6 +441,33 @@ watch([at, paused, hidden, heldFor], () => {
 onBeforeUnmount(() => clearTimeout(holding.value))
 
 /**
+ * The ways on, in the three states a Scene may offer them in. Standing until one
+ * is taken is null and is every Story written before this existed. A number is
+ * the time they stand, after which the first one still offered is taken — which
+ * is the one already holding focus and the one Enter would press, so the order
+ * the Author wrote them in is the whole of what says which. Nought is the Scene
+ * flowing into the next without asking, and there they are never painted at all.
+ */
+const standing = computed(() => (shown.value.exits.length ? scene.value?.exitsAfter ?? null : null))
+const asking = computed(() => shown.value.exits.length > 0 && standing.value !== 0)
+
+const expiring = ref<ReturnType<typeof setTimeout>>()
+
+watch([at, paused, hidden], () => {
+  clearTimeout(expiring.value)
+
+  const first = shown.value.exits[0]
+  if (!first || paused.value || hidden.value) return
+  if (standing.value === null) return
+
+  const takeIt = () => passBy(first.cutOver, first.cutThrough, take(at.value, first))
+  if (standing.value === 0) takeIt()
+  else expiring.value = setTimeout(takeIt, standing.value)
+}, { immediate: true })
+
+onBeforeUnmount(() => clearTimeout(expiring.value))
+
+/**
  * Whether anything in this Story moves by itself, which is whether the Reader is
  * given the control that stops it. WCAG 2.2.2 asks for a pause the moment
  * something advances on its own and asks for nothing where nothing does, so a
@@ -561,7 +588,7 @@ const clocked = computed(() => story.scenes.some(scene =>
 
     <!-- The ways on go under the frame rather than over it, and carry no eyebrow
          of their own: the edge above has already named the Scene they leave. -->
-    <ul v-if="shown.exits.length" ref="exits" class="exits">
+    <ul v-if="asking" ref="exits" class="exits">
       <li v-for="exit in shown.exits" :key="exit.id">
         <!-- What the Author wrote on the Exit, so it carries the Story's Language
              like the beat above it does. -->
@@ -582,6 +609,23 @@ const clocked = computed(() => story.scenes.some(scene =>
         <slot name="ordering" :exit="exit" />
       </li>
     </ul>
+
+    <!-- The time the ways on stand, drained by a bar keyed on the Path so a fresh
+         arrival restarts it rather than resuming one already spent. `role="timer"`'s
+         live region is off by default, so the countdown is read on demand and never
+         spoken over the beat playing under it — the rule the Transcript already
+         follows. -->
+    <div
+      v-if="standing"
+      :key="`${at.taken.length}-${at.shot}`"
+      class="expiring"
+      :style="{ '--standing': `${standing}ms` }"
+    >
+      <span class="drain" :class="{ stopped: paused || hidden }" aria-hidden="true" />
+      <p role="timer" class="visually-hidden">
+        {{ $t('reading.waysOnStandFor', { seconds: standing / 1000 }) }}
+      </p>
+    </div>
 
     <!-- In the document before it has anything to say: a live region announces
          a change to a node it already holds, never a node that arrives with its
@@ -860,6 +904,49 @@ figcaption {
 
 .exits .splice:hover {
   background: var(--steel-lit);
+}
+
+/* The time the ways on stand: a track the width of the column, and a bar drained
+   out of it at the pace the Author wrote — the same edge-and-grease pair the
+   ticks over the frame are read in, so a Reader who has met one progress already
+   reads the other. */
+.expiring {
+  block-size: 3px;
+  background: var(--edge);
+  overflow: hidden;
+}
+
+.drain {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  background: var(--grease);
+  transform-origin: left;
+  animation: drain var(--standing) linear forwards;
+}
+
+.drain.stopped {
+  animation-play-state: paused;
+}
+
+@keyframes drain {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* The clock is the work and the bar is the decoration on it: the time still runs
+   underneath, but nothing here is asked to watch it counting down. Overrides
+   `frameline.css`'s own answer to the same query, which would otherwise still run
+   the animation — over a duration cut to nothing, landing the bar drained rather
+   than full. */
+@media (prefers-reduced-motion: reduce) {
+  .drain {
+    animation: none;
+  }
 }
 
 .resumed,
