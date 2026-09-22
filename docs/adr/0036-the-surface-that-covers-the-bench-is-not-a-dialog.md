@@ -1,8 +1,14 @@
 ---
-status: accepted
+status: superseded by 0041
 ---
 
 # The surface that covers the bench is not a dialog
+
+Superseded by `docs/adr/0041-the-graph-is-drawn-from-the-story.md`: no surface
+covers the bench any more. On a phone the document is a column of the page under
+the Graph like everywhere else, so nothing is made inert and there is nothing to
+close.
+
 
 `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md` made writing a Scene a
 state the whole bench is in: the graph folds into a rail and the writing surface

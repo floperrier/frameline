@@ -26,10 +26,8 @@ function onTheBench(scenes: [name: string, shot?: string][] = []): StoryInEditor
     scenes: scenes.map(([name, shot], place) => ({
       id: name,
       name,
-      x: 0,
-      y: place * 100,
       sets: {},
-      shots: shot === undefined ? [] : [{ id: `${name}-1`, text: shot }],
+      shots: shot === undefined ? [] : [{ id: `${name}-1`, text: shot, conditions: [] }],
     })) as StoryInEditor['scenes'],
     exits: [],
   }
@@ -136,7 +134,7 @@ describe('the Step the bench is showing', () => {
     expect(asking(story)).toBe('openingScene')
   })
 
-  it('asks for the Preview once a Shot of the second Scene tests that Flag', () => {
+  it('asks for the Preview once a Shot tests that Flag', () => {
     const story = joined()
     sets(story, 0, { courage: 'high' })
     playedWhen(story, 1, { flag: 'courage', is: 'low' })
@@ -204,7 +202,7 @@ describe('the Step the bench is showing', () => {
     expect(asking(story)).toBeUndefined()
   })
 
-  it('goes on asking while the Condition on the second Scene names no Flag that is set', () => {
+  it('goes on asking while the Condition names no Flag that is set', () => {
     const story = joined()
     sets(story, 0, { courage: 'high' })
     playedWhen(story, 1, { flag: 'coat', is: 'on' })
@@ -213,28 +211,44 @@ describe('the Step the bench is showing', () => {
   })
 
   /**
-   * A visit count is a Condition, and it is not this lesson: the Sample teaches
-   * it, already working, and what is taught here is where State comes from.
+   * A question about a Scene is a Condition, and it is not this lesson: the Sample
+   * teaches it, already working, and what is taught here is where State comes from.
    */
-  it('does not take a visit count as the Condition it asked for', () => {
+  it('does not take a question about a Scene as the Condition it asked for', () => {
     const story = joined()
     sets(story, 0, { courage: 'high' })
-    playedWhen(story, 1, { scene: 'The platform', visits: 'at least', times: 2 })
+    playedWhen(story, 1, { scene: 'The platform', entered: true })
 
     expect(asking(story)).toBe('putCondition')
   })
 
   /**
-   * The Condition is asked for on the second Scene, where a Flag the first sets
-   * is already in State. One on the first Scene's own Shot is a Condition the
-   * Author wrote somewhere else, and the step is still waiting.
+   * The light is on the Scene the caret is in, and after the way on that is still
+   * the first Scene, so a Condition written where the light is lands on the first
+   * Scene's own Shot. The Flag it sets on entry is in State by the time that Shot
+   * plays, so the lesson holds there, and the Step is met — issue #278.
    */
-  it('does not take a Condition on the first Scene as the one it asked for', () => {
+  it('takes a Condition on the first Scene as the one it asked for', () => {
     const story = joined()
     sets(story, 0, { courage: 'high' })
     playedWhen(story, 0, { flag: 'courage', is: 'low' })
 
-    expect(asking(story)).toBe('putCondition')
+    expect(asking(story)).toBe('previewCondition')
+  })
+
+  /**
+   * The Scenes arrive in whatever order the API hands them back, which is not an
+   * order the Story has, and the caret is not the Story's either. So the answer
+   * is the same whichever way the Scenes are listed: a predicate over the Story
+   * alone — `docs/adr/0020-progress-is-the-story.md`.
+   */
+  it('gives the same answer whatever order the Scenes are listed in', () => {
+    const story = joined()
+    sets(story, 0, { courage: 'high' })
+    playedWhen(story, 1, { flag: 'courage', is: 'low' })
+    const reversed = { ...story, scenes: [...story.scenes].reverse() }
+
+    expect(asking(reversed)).toBe(asking(story))
   })
 
   /**
@@ -252,23 +266,41 @@ describe('the Step the bench is showing', () => {
 })
 
 /**
- * The bench with a Scene open for writing: the page, the header over it, the
- * document the Scene is written in and the Preview beside it. Every Step but the
- * first is read in that state, so this is where its target has to be.
+ * The bench with a Story on it: the page, the header over it, the document the
+ * Story is written in and the reading the middle of the bench turns over to. Every
+ * Step but the first is read in that state, so this is where its target has to be.
  */
 const WRITING = [
   'app/pages/stories/[id]/index.vue',
   'app/components/StoryHeader.vue',
-  'app/components/Panel.vue',
+  'app/components/Writing.vue',
   'app/components/Preview.vue',
 ]
 
-/** Every file the bench is drawn from, the canvas the first Step points at included. */
+/** Every file the bench is drawn from, the page the first Step points at included. */
 const EDITOR = ['app/components/Graph.vue', ...WRITING]
 
 /** Every file named, read as the one source the editor is drawn from. */
 function drawnFrom(files: string[]) {
   return files.map(file => readFileSync(file, 'utf8')).join('\n')
+}
+
+/**
+ * The targets the editor's own templates name. A target is the whole of the
+ * attribute's value where the element carries it whatever the Story is, and a
+ * quoted name inside that value where it is carried by one Scene of the document
+ * and not by the thirty-nine others: `0043` scopes the five Steps that are about
+ * a Scene to the Scene the caret is in, and a template saying so in an expression
+ * is still the template saying it. Both forms are read here, so the anchor
+ * `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md` asks for holds
+ * whichever way the attribute is written.
+ */
+function targetsIn(source: string) {
+  return [...source.matchAll(/:?data-step="([^"]+)"/g)].flatMap(([, written]) => {
+    const named = [...written.matchAll(/'([\w-]+)'/g)].map(([, target]) => target)
+
+    return named.length ? named : [written]
+  })
 }
 
 describe('every Step', () => {
@@ -290,27 +322,23 @@ describe('every Step', () => {
     // Every file the bench is drawn from, because the editor is the page and the
     // three pieces it is laid out from: a target that moved from one of them to
     // another has moved within the same editor.
-    const drawn = [...drawnFrom(EDITOR).matchAll(/data-step="([^"]+)"/g)]
-      .map(([, target]) => target)
+    const drawn = targetsIn(drawnFrom(EDITOR))
 
     // Held as sets on both sides: the editor draws each target once, and two
     // Steps may ask for two things in the same place.
-    expect(drawn.sort()).toEqual([...new Set(STEPS.map(step => step.target))].sort())
+    expect(drawn.sort()).toEqual([...new Set(STEPS.flatMap(step => step.targets))].sort())
   })
 
   /**
    * Not merely that the target is drawn somewhere, but that it is drawn where the
    * bench answers a press at the moment the Step is shown. Every Step but the
-   * first is read with a Scene open for writing — every act that makes a Scene
-   * opens it — and there the canvas is folded into a rail: a press on a card in
-   * the rail writes that Scene, the aiming refuses outright, and the drawing has
-   * no bare bench left to let go on. A target on the canvas is therefore a Step
-   * asking for a gesture that does nothing, which is what the Exit step did until
-   * the way on it teaches moved into the Scene's own document.
+   * first is read with a Scene on the bench — there always is one — and the Graph
+   * above it takes no gesture but a press on a node, so a target on the Graph is a
+   * Step asking for a gesture that does nothing.
    *
-   * The first Step is the exception and the one target the canvas keeps: it is
-   * asked of a Story with no Scene in it, where the graph is not drawn at all and
-   * the control that writes the first Scene stands in its place.
+   * The first Step is the exception: it is asked of a Story with no Scene in it,
+   * where the Graph is not drawn at all and the control that writes the first
+   * Scene stands in its place, on the page.
    *
    * Which surface the target is drawn in is as far as source read as text can go.
    * That the control then answers the press the sentence asks for is walked in
@@ -318,11 +346,11 @@ describe('every Step', () => {
    * shown in and with nothing closed or switched to first.
    */
   it('points at something the bench answers where the Step is read', () => {
-    const written = drawnFrom(WRITING)
+    const written = targetsIn(drawnFrom(WRITING))
 
     expect(STEPS
       .filter(step => step.name !== 'nameScene')
-      .filter(step => !written.includes(`data-step="${step.target}"`))
+      .filter(step => step.targets.some(target => !written.includes(target)))
       .map(step => step.name)).toEqual([])
   })
 })

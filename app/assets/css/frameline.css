@@ -66,9 +66,8 @@
      whatever the hardware is standing in.
 
      Beside the scale rather than written where they are used, because they are
-     the same fact for every full-bleed surface and there is going to be more
-     than one: the writing surface covering the bench on a phone is the first,
-     and the reading room is the next.
+     the same fact for every full-bleed surface and the reading room will not be
+     the only one.
 
      Physical names, because that is what `env()` answers in: the four insets are
      top, right, bottom and left of the screen whichever way the text runs, and a
@@ -176,13 +175,17 @@ textarea {
   color: inherit;
 }
 
+/* A field is a slot machined into the bench, not a hole cut through it: it is
+   lit a shade off whichever surface it stands on — a little raised from the
+   deepest one, a little recessed from a plate laid over it — so a column of them
+   reads as part of the machine rather than as a row of black rectangles. */
 input,
 select,
 textarea {
   padding: var(--s2) var(--s3);
   border: 1px solid var(--edge);
   border-radius: var(--machined);
-  background: color-mix(in oklab, var(--bench) 70%, black);
+  background: color-mix(in oklab, var(--steel) 70%, var(--bench));
   inline-size: 100%;
   min-inline-size: 0;
 }
@@ -293,6 +296,44 @@ button:disabled {
   min-inline-size: 1.75rem;
   padding: var(--s1) var(--s2);
   line-height: 1.2;
+}
+
+/* A row whose marks arrive with the hand. The document holds every Scene of the
+   Story at once, so a bench drawing every mark at full strength draws forty
+   Scenes' worth of chrome over the one thing the surface is for; a row nobody is
+   working on therefore carries its marks at the weight of the words they stand
+   among, and the row under the pointer or holding the caret carries them as the
+   controls they are. See
+   `docs/adr/0043-a-story-is-written-as-one-document.md`, which is where the rule
+   is written.
+
+   What changes is weight and never presence. Nothing here is taken out of the
+   document, out of the tab order or out of the accessibility tree, so every mark
+   is still reached by `Tab` where it stands, and a mark the bar of Commands named
+   is named there still — the bar asks the browser whether a control is drawn, and
+   a faded one is. Which marks the bar carries is `0035`'s own answer and not this
+   rule's: it names the act that adds a Condition and leaves the marks that
+   renumber, duplicate or strike a row alone. See
+   `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`,
+   which is why `display: none` could not be the mechanism here.
+
+   Written as the one state that is not the ordinary one, so that a row under the
+   hand is a row this says nothing at all about: the light a mark takes from its
+   own hover, the alarm a `.danger` takes from its, and the fade a spent one takes
+   from `:disabled` all arrive unrestated. A screen with no pointer needs no rule
+   of its own either — a finger lands the caret in the row it presses, which is
+   the same arrival. */
+.handed .mark {
+  transition:
+    border-color 120ms ease-out,
+    background-color 120ms ease-out,
+    color 120ms ease-out;
+}
+
+.handed:not(:hover, :focus-within) .mark {
+  border-color: transparent;
+  background: none;
+  color: var(--muted);
 }
 
 /* One row of a list read as the sentence it is — "coat holds on", "played when
@@ -416,10 +457,12 @@ button:disabled {
    rather than waiting for a click. */
 .toast {
   position: fixed;
-  /* Over the writing surface where it covers the bench — `Panel.vue` at
-     `--phone` is fixed at 3 — and no higher than the guided step's own light
-     (`Step.vue`, 4 and 5), which is drawn after it and stays over it. What the
-     bench has just done is said to the Author, not to the bench. */
+  /* No higher than the guided step's own light (`Step.vue`, 4 and 5), which is
+     drawn after it and stays over it. It used to have a second reason — a writing
+     surface that covered the bench on a phone, fixed at 3 — and
+     `docs/adr/0043-a-story-is-written-as-one-document.md` took that surface away:
+     nothing covers the bench now. What the bench has just done is said to the
+     Author, not to the bench. */
   z-index: 4;
   inset-block-end: var(--s4);
   inset-inline-end: var(--s4);

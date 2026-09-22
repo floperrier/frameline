@@ -1,18 +1,25 @@
 <script setup lang="ts">
 /**
- * The bench's own header, in two halves. On one side what the Story **is**: the
- * way back, its title — written here, so an Author never leaves the Story to
- * rename it — the Language it is written in, and the state of the last write. On
- * the other, one place for where it can be **read**: the Synopsis, the public
- * link, Publish and List, which are four faces of the one subject rather than
- * four controls that appear and disappear under one another.
+ * The bench's own edge: one row above the table the Story is laid out on. What
+ * the Story **is** — the way back, its title, written here so an Author never
+ * leaves the Story to rename it, the Language it is written in and the state of
+ * the last write — then the acts of the bench, which the page puts in the slot
+ * between the two halves, and then one place for where the Story can be
+ * **read**: the Synopsis, the public link, Publish and List, which are four
+ * faces of the one subject rather than four controls that appear and disappear
+ * under one another.
+ *
+ * One row, because the table under it is the whole of the screen — see
+ * `docs/adr/0042-the-scene-is-written-where-it-stands.md`. What is written once
+ * rather than all day, the Synopsis and the Cover, folds into a disclosure that
+ * opens over the table instead of pushing the edge taller.
  *
  * The interface's Locale is not here. It is a property of the person reading and
  * not of the Story — see
  * `docs/adr/0013-the-interfaces-locale-is-not-the-storys-language.md` — so it is
  * changed where the rest of what is theirs is, on the list of their own Stories.
  */
-const { id, story, keptAt, writing, change, write } = defineProps<{
+const { id, story, keptAt, change, write } = defineProps<{
   /**
    * The Story's own id, which every act here is sent against. It comes from the
    * route rather than from the Story, because the Publish is offered while a
@@ -23,16 +30,6 @@ const { id, story, keptAt, writing, change, write } = defineProps<{
   story?: StoryInEditor
   /** When a typed change last reached the Story, which the bench reports here. */
   keptAt?: Date
-  /**
-   * Whether a Scene is on the writing surface, which is what the header folds
-   * for. Writing a Scene is a state of the whole bench — see
-   * `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md` — and the graph
-   * already folds into a rail for it; the header owes the same. What the Story
-   * is stays, because that is what the Author is inside, and so do the acts that
-   * publish it and the link a Publish hands out. The Synopsis folds away: it is
-   * the one thing here nobody writes while they are writing a Scene.
-   */
-  writing?: boolean
   /** The one holder every write on this page goes through. */
   change: Change
   /**
@@ -43,7 +40,7 @@ const { id, story, keptAt, writing, change, write } = defineProps<{
   write: Write
 }>()
 
-const { locale } = useI18n()
+const { t, locale } = useI18n()
 const localePath = useLocalePath()
 const { languageNamed } = useEntries()
 const { user: author, fetch: refreshAuthor } = useUserSession()
@@ -88,6 +85,46 @@ function present() {
     method: 'PATCH',
     body: { synopsis: story?.synopsis },
   }))
+}
+
+/**
+ * Every Image the Story carries, in the order the Story is written — each one a
+ * frame the Author may name as the Cover — and the one a shelf shows today,
+ * named or standing in. The bench runs the same rule the server does, so the
+ * frame marked here is the frame a Reader meets. See
+ * `docs/adr/0040-a-story-is-presented-by-one-of-its-own-frames.md`.
+ *
+ * Each frame is a radio named by the Shot's Place and the Scene, so the Scene is
+ * named the way every control of the bench names one — by `namesOnTheBench`, which
+ * numbers two Scenes an Author called the same. Read off the Scene instead, two
+ * Scenes called *The bar* with an Image apiece put two radios under one name — see
+ * `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
+ */
+const names = computed(() => (story ? namesOnTheBench(story, t) : new Map<string, string>()))
+const frames = computed(() => (story?.scenes ?? []).flatMap(scene => scene.shots
+  .filter(shot => shot.image)
+  .map(shot => ({ shot, place: shot.position + 1, scene: names.value.get(scene.id)! }))))
+const presented = computed(() => story && coverOf(story))
+
+/**
+ * Naming the Cover, and taking the naming away. A click rather than a typed
+ * write, so the Story is read back and the shelf's own rule marks the frame.
+ * Taking it away leaves the Opening Scene's first Image standing in, which is
+ * what a Story nobody named a Cover for is presented by.
+ */
+/**
+ * What an Exit of this Story answers when it has not answered for itself:
+ * whether a Reading crosses it backwards. A change and not a typed write — one
+ * press settles it, and what it settles is how the whole work is read, so the
+ * Story on the bench is reloaded around it the way listing and publishing are.
+ * See `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
+ */
+function readBack(stepsBack: boolean) {
+  return change(() => send(`/api/stories/${id}`, { method: 'PATCH', body: { stepsBack } }))
+}
+
+function nameCover(coverShotId: string | null) {
+  return change(() => send(`/api/stories/${id}`, { method: 'PATCH', body: { coverShotId } }))
 }
 
 function publish() {
@@ -143,16 +180,18 @@ function unlist() {
 </script>
 
 <template>
-  <!-- The bench's own header, in two halves: what the Story is, and where it can
-       be read. It stays on screen, because the graph below it scrolls a long
-       way. -->
-  <header :class="{ writing }">
+  <!-- The bench's own header, in two halves on one row: what the Story is, and
+       where it can be read. One row, because a Scene is always being written
+       under it and the rows below are what the screen is for: the Synopsis and
+       the Cover, which nobody writes while writing a Scene, fold into a
+       disclosure, and the acts that publish stay on the row. -->
+  <header>
     <div class="titling">
       <NuxtLink class="back trail" :to="localePath('/stories')">
         {{ $t('editor.allStories') }}
       </NuxtLink>
       <!-- The title is the heading and the heading is written in, the same idiom
-           as a Scene's name in the panel: a bare field with no mode to enter
+           as a Scene's name in the document: a bare field with no mode to enter
            first. The label sits outside the heading rather than in it, or it
            would be read out ahead of the title the Author is correcting. -->
       <label class="visually-hidden" for="story-title">{{ $t('editor.storyTitle') }}</label>
@@ -179,30 +218,114 @@ function unlist() {
       <p v-if="kept" class="kept-at">{{ $t('editor.keptAt', { time: kept }) }}</p>
     </div>
 
-    <section class="release" :class="{ folded: writing }" aria-labelledby="release">
-      <h2 id="release" class="eyebrow">{{ $t('editor.whereItIsRead') }}</h2>
+    <!-- The acts of the bench, which belong to the page and not to the Story:
+         the way into every act by naming it, and which reading the middle of the
+         bench is showing. Two of them, since the Remarks left this row for a
+         region beside the document and nothing here opens a Scene any more: the
+         whole Story is in the document — see
+         `docs/adr/0043-a-story-is-written-as-one-document.md`. -->
+    <slot />
 
-      <!-- The few lines the Story is presented by wherever somebody meets it
-           before opening it. Written here, beside the acts that put the Story
-           where it can be met, because it is the same subject: what a stranger
-           is handed. -->
-      <p v-if="!writing" class="synopsis">
-        <label class="eyebrow" for="story-synopsis">{{ $t('editor.synopsis') }}</label>
-        <textarea
-          v-if="story"
-          id="story-synopsis"
-          v-model="story.synopsis"
-          rows="2"
-          :maxlength="STORY_SYNOPSIS_MAX_LENGTH"
-          @change="present"
-        />
-      </p>
+    <section class="release" aria-labelledby="release">
+      <h2 id="release" class="visually-hidden">{{ $t('editor.whereItIsRead') }}</h2>
+
+      <!-- What a stranger is handed before they open the work — the few lines
+           of the Synopsis and the Cover — folded shut, because it is written
+           once and the Scene under the header is written all day. A native
+           disclosure, so the browser keeps it open or shut and the keyboard
+           already knows it. -->
+      <!-- Named with the fold beside it, so opening one shuts the other: both
+           panels hang from the same end of the edge, and two open at once would
+           be drawn over each other. The browser settles it — see the exclusive
+           disclosure a shared `name` makes — rather than a watcher here. -->
+      <details v-if="story" class="presenting" name="bench-fold">
+        <summary class="eyebrow">{{ $t('editor.presentation') }}</summary>
+
+        <div class="folded">
+        <p class="synopsis">
+          <label class="eyebrow" for="story-synopsis">{{ $t('editor.synopsis') }}</label>
+          <textarea
+            id="story-synopsis"
+            v-model="story.synopsis"
+            rows="2"
+            :maxlength="STORY_SYNOPSIS_MAX_LENGTH"
+            @change="present"
+          />
+        </p>
+
+        <!-- Named from among the Story's own Images and never uploaded here, so a
+             Cover is always a frame of the work — each thumbnail is a radio, and
+             the one checked is the one a shelf shows, whether the Author named it
+             or the Opening Scene is standing in. -->
+        <fieldset class="cover">
+        <legend class="eyebrow">{{ $t('editor.cover') }}</legend>
+        <p class="note">{{ $t(frames.length ? 'editor.coverNote' : 'editor.coverNone') }}</p>
+        <div v-if="frames.length" class="frames">
+          <label
+            v-for="{ shot, place, scene } in frames"
+            :key="shot.id"
+            :class="{ chosen: shot.id === presented }"
+          >
+            <input
+              type="radio"
+              name="cover"
+              :value="shot.id"
+              :checked="shot.id === presented"
+              @change="nameCover(shot.id)"
+            >
+            <img :src="shot.image!" :alt="$t('editor.coverOf', { place, scene })">
+          </label>
+        </div>
+        <!-- Offered only while a Cover is named: with none, the Opening Scene is
+             already standing in and there is nothing to take away. -->
+        <button
+          v-if="story.coverShotId"
+          type="button"
+          :data-command="$t('editor.coverUnname')"
+          @click="nameCover(null)"
+        >
+          {{ $t('editor.coverUnname') }}
+        </button>
+        </fieldset>
+        </div>
+      </details>
+
+      <!-- How the work is read, which is one question and is answered once: may a
+           Reading come back through an Exit that has not said otherwise? It folds
+           like the presentation beside it and for the same reason — it is settled
+           when the Story is being thought about rather than while a Scene is
+           being written — and it is a fold of its own because what a stranger is
+           handed before opening the work and how the work is read are two
+           different things.
+
+           An Exit says it for itself where the Author wrote it, in the document;
+           this is what an Exit that has said nothing answers. See
+           `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`. -->
+      <details v-if="story" class="how" name="bench-fold">
+        <summary class="eyebrow">{{ $t('editor.howItIsRead') }}</summary>
+
+        <div class="folded">
+          <p class="crossing">
+            <label class="eyebrow" for="story-steps-back">
+              {{ $t('editor.storySteppingBack') }}
+            </label>
+            <select
+              id="story-steps-back"
+              :value="story.stepsBack ? 'yes' : 'no'"
+              @change="readBack(($event.target as HTMLSelectElement).value === 'yes')"
+            >
+              <option value="yes">{{ $t('editor.steppingBackOffered') }}</option>
+              <option value="no">{{ $t('editor.steppingBackRefused') }}</option>
+            </select>
+          </p>
+        </div>
+      </details>
 
       <!-- The link, shown in full so it can be copied out of the page. It is
            what publishing hands over, and it goes on working whether or not
            the Story is in the Catalogue. -->
       <p v-if="story?.publishedAt" class="live">
-        <span class="eyebrow">{{ $t('editor.readableAt') }}</span>
+        <span class="visually-hidden">{{ $t('editor.readableAt') }}</span>
         <a class="link" :href="publicLink">{{ publicLink }}</a>
       </p>
 
@@ -271,31 +394,36 @@ function unlist() {
 </template>
 
 <style scoped>
+@import '~/assets/css/folds.css';
+
+/* The edge: one row, and the containing block for the two things that open over
+   the table rather than pushing the row taller. */
 header {
-  position: sticky;
-  inset-block-start: 0;
+  position: relative;
   z-index: 2;
+  flex: none;
   display: flex;
   flex-wrap: wrap;
-  align-items: start;
-  justify-content: space-between;
-  gap: var(--s3) var(--s4);
-  padding-block: var(--s3);
+  align-items: center;
+  gap: var(--s2) var(--s4);
+  padding: var(--s2) var(--s4);
   border-block-end: 1px solid var(--edge);
-  /* The graph scrolls under the header, so the header cannot be transparent. */
   background: var(--bench);
 }
 
+/* What the Story is, read along the edge: the way back, the title, and the two
+   marks the bench keeps about it. */
 .titling {
-  display: grid;
-  gap: var(--s1);
-  flex: 1 1 20rem;
-  max-inline-size: 34rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s2) var(--s3);
+  min-inline-size: 0;
 }
 
 /* A Story's title is the Author's own words, so nothing here recases them. The
    field is the heading and wears the heading's face, the way a Scene's name does
-   in the panel: the frame it draws is held off the pointer rather than restated
+   in the document: the frame it draws is held off the pointer rather than restated
    here, so the two fields cannot drift apart. */
 .named {
   min-inline-size: 0;
@@ -311,38 +439,135 @@ header {
   border-block-end-color: var(--edge);
 }
 
-/* Where the Story can be read: the Synopsis, the link and the two acts, in one
-   column so that they read as one subject rather than as a row of controls. */
+/* Where the Story can be read: the Synopsis, the link and the two acts, at the
+   trailing end of the edge so that they read as one subject rather than as a row
+   of controls scattered along it. */
 .release {
-  display: grid;
-  gap: var(--s2);
-  flex: 1 1 24rem;
-  max-inline-size: 34rem;
-}
-
-/* Writing a Scene is a state of the bench and the header takes it too, the way
-   the graph beside it folds into a rail: the title comes down to a label on a
-   reel and the Synopsis folds away, because the three columns below are what the
-   screen is for. Nothing leaves the tab order and nothing changes shape. */
-header.writing {
-  padding-block: var(--s2);
-}
-
-header.writing .named input {
-  font-size: 1.75rem;
-}
-
-.release.folded {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: end;
+  align-items: center;
   gap: var(--s2) var(--s3);
+  margin-inline-start: auto;
+  min-inline-size: 0;
+}
+
+/* The title comes down to a label on a reel: the table under the edge is what
+   the screen is for. */
+.named input {
+  font-size: 1.375rem;
+}
+
+/* The disclosure the Synopsis and the Cover fold into, its summary set as the
+   labels around it are. Open, it lays the two out over the table rather than
+   making the edge two rows tall: they are written once, and the Story is laid
+   out under them all day. */
+.presenting summary,
+.how summary {
+  cursor: pointer;
+}
+
+/* The one question this fold holds: the label and the answer on one line, the
+   way the same question is written on an Exit in the document. */
+.crossing {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.folded {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: 100%;
+  inset-inline-end: var(--s4);
+  display: grid;
+  gap: var(--s3);
+  inline-size: min(30rem, calc(100vw - 2 * var(--s4)));
+  padding: var(--s4);
+  border: 1px solid var(--edge);
+  border-block-start: none;
+  border-radius: 0 0 var(--machined) var(--machined);
+  background: var(--steel);
+  box-shadow: var(--lifted);
 }
 
 .release .synopsis {
   display: grid;
   gap: var(--s1);
+}
+
+/* The Cover beside the Synopsis: a strip of the Story's own frames, each one a
+   thumbnail the size the document draws a Shot's, so the same Image reads as the
+   same thing on the two surfaces. The fieldset draws no box of its own — the
+   legend is the label the other fields wear. */
+.cover {
+  display: grid;
+  gap: var(--s1);
+  justify-items: start;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.cover legend {
+  padding: 0;
+}
+
+.cover .note {
+  color: var(--muted);
+  font-size: 0.875rem;
+  max-inline-size: 60ch;
+}
+
+.cover .frames {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+/* The radio lies over its thumbnail at no opacity, so the frame is what is pressed
+   and what is marked, and the press lands on the control itself. The chosen one
+   wears the grease pencil the Opening Scene wears on the graph: it is the frame the
+   world outside is shown. */
+.cover label {
+  position: relative;
+  display: block;
+  inline-size: 4.5rem;
+  block-size: 3rem;
+  border: 1px solid var(--edge);
+  border-radius: var(--machined);
+  background: var(--bench);
+  cursor: pointer;
+}
+
+.cover input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.cover label.chosen {
+  border-color: var(--grease);
+  outline: 2px solid var(--grease);
+  outline-offset: -1px;
+}
+
+/* The focus the input takes cannot be seen where the input is, so the ring is
+   drawn round the frame that is pressed — the one in `frameline.css`, restated
+   here because `:has()` cannot reach back to a rule written for `:focus-visible`. */
+.cover label:has(:focus-visible) {
+  outline: 2px solid var(--light);
+  outline-offset: 2px;
+}
+
+.cover img {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  border-radius: inherit;
 }
 
 /* The two acts on the Story as a whole, side by side: they are the one decision
@@ -353,11 +578,65 @@ header.writing .named input {
   gap: var(--s2);
 }
 
-/* The Name asked for in the listing: a row of its own under the acts, because
-   it is a sentence and a field rather than another control beside the buttons. */
+/* At the width of a phone the edge is three rows and not eight: what the Story
+   is, then the acts of the bench, then the acts on the Story — each of the last
+   two a strip that winds sideways rather than a row that wraps into four. Every
+   control stays drawn, so the bar of Commands still reaches every one of them and
+   the guided path still has something to point at; and the acts lead their strip,
+   so what a row too narrow to hold everything shows first is what an Author
+   presses. See `docs/adr/0042-the-scene-is-written-where-it-stands.md`. */
+@media (--phone) {
+  header {
+    gap: var(--s2) var(--s3);
+    padding: var(--s2) var(--s3);
+  }
+
+  .release {
+    flex: 1 1 100%;
+    flex-wrap: nowrap;
+    min-inline-size: 0;
+    overflow-x: auto;
+    margin-inline-start: 0;
+    padding-block-end: 2px;
+  }
+
+  .release > * {
+    flex: none;
+  }
+
+  /* The acts lead the strip: what a row too narrow to hold everything shows
+     first is what an Author presses. In the fold rather than in the document,
+     because the order of the edge is a visual matter and the document's order is
+     the order the bar of Commands reads the bench in — see
+     `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`. */
+  .acts {
+    order: -1;
+  }
+
+  /* The link gives up its width first: it is read once and copied, and the acts
+     beside it are pressed. */
+  .link {
+    max-inline-size: 11rem;
+  }
+}
+
+/* The Name asked for in the listing, over the table for the reason the Synopsis
+   is: it is a sentence and a field rather than another control beside the
+   buttons, and the edge is one row. */
 .signing {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: 100%;
+  inset-inline-end: var(--s4);
   display: grid;
-  gap: var(--s1);
+  gap: var(--s2);
+  inline-size: min(26rem, calc(100vw - 2 * var(--s4)));
+  padding: var(--s4);
+  border: 1px solid var(--edge);
+  border-block-start: none;
+  border-radius: 0 0 var(--machined) var(--machined);
+  background: var(--steel);
+  box-shadow: var(--lifted);
 }
 
 .signing .asked {
@@ -375,12 +654,20 @@ header.writing .named input {
 }
 
 /* A published Story wears the grease pencil: the link is the one thing on the
-   bench that anyone outside can reach. */
+   bench that anyone outside can reach. Along the edge it is a mark rather than a
+   block, and it gives up its width before the acts beside it do. */
 .live {
-  display: grid;
-  gap: 2px;
-  padding-inline-start: var(--s3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s1) var(--s2);
+  min-inline-size: 0;
+  padding-inline-start: var(--s2);
   border-inline-start: 2px solid var(--grease);
+}
+
+.live .eyebrow {
+  flex: none;
 }
 
 /* The time of the last write, set in the face the interface reads its own
@@ -393,10 +680,13 @@ header.writing .named input {
 }
 
 .link {
+  overflow: hidden;
+  max-inline-size: 16rem;
   color: var(--paper);
   font-family: var(--data);
   font-size: 0.75rem;
-  word-break: break-all;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* The way back to the Stories, at the start of the line it is on. */

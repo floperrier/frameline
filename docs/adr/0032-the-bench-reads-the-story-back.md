@@ -113,11 +113,14 @@ which is a coupling between a pure function and a template that
 `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md` already refused
 once.
 
-**A visit count is not read.** Whether a Scene can be entered often enough for a
-Condition to hold is a question about the routes through the graph, not about a
-list of values, and a wrong answer is worse than none: an Author who meant a
-Scene to be enterable twice would be told their Story is broken. That question is
-the Preview's, which walks a real Path.
+**A Condition about a Scene is not read.** Whether a Reading can reach the Scene
+a Condition asks about, holding what the rest of the list wants, is a question
+about the routes through the graph and not about a list of values, and a wrong
+answer is worse than none. That question is the Preview's, which walks a real
+Path. What *is* read is the one case a walk settles outright and an Author has no
+other way of being told: a way on no Reading is ever handed, which
+`docs/adr/0048-a-scene-is-entered-once.md` left behind in the Stories written
+before it.
 
 **The reading has no memory and nothing to dismiss.** A Remark is not a task, is
 not acknowledged, and is not stored. It is there while the Story is in that state

@@ -15,9 +15,17 @@ const TOO_MANY = {
  *
  * A trust boundary that matters more than most: what is written here lands in a
  * jsonb column, which would take any shape at all, and the engine then reads it
- * back as Conditions — so only the two flat shapes get through, member by member,
- * and neither of them can hold another. `carrier` names what is being written in
- * the refusal, so an Author is told which thing they overloaded.
+ * back as Conditions — so only the flat shapes get through, member by member, and
+ * none of them can hold another. `carrier` names what is being written in the
+ * refusal, so an Author is told which thing they overloaded.
+ *
+ * Two shapes and no more: what a Flag holds, or whether a Scene has been entered.
+ * A third was taken for one deploy — the shape that counted entries — so that a
+ * browser holding the previous code could still send its list back while the
+ * migration was on its way; #306 rewrote every row and this no longer reads it.
+ * That is the contract half of
+ * `docs/adr/0002-the-schema-moves-with-the-deploy.md`'s expand–contract, and the
+ * end of `docs/adr/0048-a-scene-is-entered-once.md`'s work on the language.
  */
 export async function readConditions(
   event: H3Event,
@@ -45,9 +53,9 @@ function readCondition(event: H3Event, condition: unknown): Condition {
     throw badCondition(event)
   }
 
-  // A Condition holds its own two or three keys and nothing besides: anything
-  // else is a Condition trying to carry a second one, and flatness is the whole
-  // point of the language.
+  // A Condition holds its own two keys and nothing besides: anything else is a
+  // Condition trying to carry a second one, and flatness is the whole point of the
+  // language.
   const parts = Object.keys(condition).length
 
   if ('flag' in condition) {
@@ -64,31 +72,26 @@ function readCondition(event: H3Event, condition: unknown): Condition {
     return { flag: name, is: is.trim() }
   }
 
-  const { scene, visits, times } = condition as { scene: unknown, visits: unknown, times: unknown }
+  if (parts !== 2) throw badCondition(event)
 
-  if (parts !== 3) throw badCondition(event)
+  const { scene, entered } = condition as { scene: unknown, entered: unknown }
+
   if (typeof scene !== 'string' || !UUID_PATTERN.test(scene)) throw badCondition(event)
-  if (visits !== 'at least' && visits !== 'fewer than') throw badCondition(event)
-  if (!Number.isInteger(times) || (times as number) < 1 || (times as number) > VISITS_MAX) {
-    throw badCondition(event)
-  }
+  if (typeof entered !== 'boolean') throw badCondition(event)
 
-  return { scene, visits, times: times as number }
+  return { scene, entered }
 }
 
 function badCondition(event: H3Event) {
-  return createError({
-    statusCode: 400,
-    message: saying(event)('refusals.badCondition', { max: VISITS_MAX }),
-  })
+  return createError({ statusCode: 400, message: saying(event)('refusals.badCondition') })
 }
 
 /**
  * The guard both Conditions endpoints write their list behind: every Scene a
- * visit count names has to be a Scene of the Story the Exit or the Shot belongs
- * to. A Condition naming anything else matches nothing here, so nothing is
- * written, whichever Place it holds in the list — and a Condition can never be
- * made to count a Scene of another Story, or of another Author's.
+ * Condition names has to be a Scene of the Story the Exit or the Shot belongs to.
+ * A Condition naming anything else matches nothing here, so nothing is written,
+ * whichever Place it holds in the list — and a Condition can never be made to ask
+ * about a Scene of another Story, or of another Author's.
  *
  * One fragment rather than one apiece, because it is the scoping and not merely
  * a lookup: two copies that had to stay in step by hand is one copy away from a

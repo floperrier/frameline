@@ -1,13 +1,18 @@
 <script setup lang="ts">
 /**
- * The Story read beside the Scene being written, on the engine a Reader runs —
- * see `docs/adr/0030-a-story-is-read-where-it-is-written.md`. It replays the
- * Path the Author is on, with the State that Path has accumulated, and stops on
- * the Scene they are writing.
+ * The Story read in the middle of the bench, on the engine a Reader runs — see
+ * `docs/adr/0030-a-story-is-read-where-it-is-written.md`, whose engine rule
+ * `docs/adr/0043-a-story-is-written-as-one-document.md` keeps and whose *beside*
+ * it supersedes. It replays the Path the Author is on, with the State that Path
+ * has accumulated, and stops on the Scene they are writing.
+ *
+ * The Path is the bench's, held above the document and handed down, so this pane
+ * is turned to and away from without the Reading it is a face of ever ending —
+ * see #247.
  *
  * There is one notion of where the Author is and it is the Path, so the two
  * halves answer to each other: pressing a way on here moves the writing to the
- * Scene it leads to, and pressing a card in the rail routes the reading to that
+ * Scene it leads to, and pressing a mark on the rail routes the reading to that
  * Scene. Neither holds a cursor of its own.
  *
  * Under the reading is the bench: the State it has accumulated, the ways on its
@@ -35,18 +40,14 @@ const emit = defineEmits<{ moved: [string] }>()
 const { t } = useI18n()
 
 /**
- * Where the Reading below has got to, and the only thing it tells this pane. The
- * engine is a pure function of it, so reading it a second time here costs a walk
- * of the Exits taken and buys a State nobody had to hand out.
+ * The Reading, which is its Path and nothing else. It belongs to the bench and
+ * is passed straight through to the reel below, so that neither this pane nor
+ * the reel holds a Reading of its own: the seed goes on being the seed the
+ * Author has been reading under however often the middle of the bench is turned
+ * over. The engine is a pure function of it, so everything on the bench under
+ * the reading is worked out from it again here and nothing has to be handed out.
  */
-const at = ref<Path>(UNDRAWN)
-
-/**
- * The reel beside the writing, which holds the Path and is the only thing that
- * may move it. All this asks of it is another draw, and the Path that stops on a
- * given Scene — a Path held here as well would be a second Reading.
- */
-const reel = useTemplateRef<{ reroll: () => void, goTo: (to: Path) => void }>('reel')
+const at = defineModel<Path>('at', { required: true })
 
 const shown = computed(() => reading(story, at.value))
 
@@ -63,17 +64,10 @@ const standing = computed(() => shown.value.sceneId)
 const reached = ref(true)
 
 /**
- * Whether what the Reading says about itself should move the writing. The Reading
- * draws its own seed as it mounts and says so, which happens before this pane has
- * routed it anywhere: heard then, the opening Scene would take the writing off
- * the Scene the Author asked for.
- */
-let following = false
-
-/**
  * The reading routed to the Scene being written: on from where it stands, so an
  * Author three Scenes in keeps what those Scenes set, and from the opening when
- * the Scene cannot be reached from where they are.
+ * the Scene cannot be reached from where they are. The seed is carried into that
+ * second search, because a Path found under another one would be another Reading.
  */
 function route() {
   if (standing.value === sceneWritten) {
@@ -84,19 +78,21 @@ function route() {
   const found = pathTo(story, at.value, sceneWritten)
     ?? pathTo(story, opening(at.value.seed), sceneWritten)
   reached.value = !!found
-  if (found) reel.value?.goTo(found)
+  if (found) at.value = found
 }
 
-/** Where the Reading has got to, and the writing moved to meet it. */
-function heard(to: Path) {
-  at.value = to
-  if (following && standing.value && standing.value !== sceneWritten) emit('moved', standing.value)
-}
-
-onMounted(() => {
-  route()
-  following = true
+/**
+ * The Reading moved somewhere the writing is not, and the writing asked to
+ * follow it. Read off where the Reading stands rather than off the move that got
+ * there, so the pane cannot answer its own question: every Path this routes
+ * arrives at the Scene being written, and a Scene it could not reach leaves the
+ * Reading where it was.
+ */
+watch(standing, (now) => {
+  if (now && now !== sceneWritten) emit('moved', now)
 })
+
+onMounted(route)
 
 watch(() => sceneWritten, route)
 
@@ -116,11 +112,21 @@ watch(() => story, route, { deep: true })
 const draws = computed(() =>
   story.scenes.some(scene => Object.values(scene.sets).some(Array.isArray)))
 
-/** Scenes are read by name here as everywhere else an Author reads them. */
-const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, scene.name])))
+/**
+ * What the bench calls each Scene, which is what everything this pane says names
+ * one by: the two marks that renumber a way on, the Scene the reading has not
+ * reached, the Scenes the State says were entered, and the Exits a Condition is
+ * hiding. This
+ * pane is the bench around the reading and never the reading itself — the frames
+ * and the buttons a Reader would press are drawn by `Reading.vue`, in the words
+ * the Author wrote — so two Scenes an Author called the same are numbered here
+ * exactly as they are in the writing and on the Contact Sheet. See
+ * `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
+ */
+const names = computed(() => namesOnTheBench(story, t))
 
 function sceneName(sceneId: string) {
-  return sceneNamed(sceneNames.value, sceneId, t)
+  return sceneNamed(names.value, sceneId, t)
 }
 
 /**
@@ -135,6 +141,13 @@ const ways = computed(() => (standing.value ? exitsFrom(story.exits, standing.va
 function placeOf(exit: Exit) {
   return ways.value.findIndex(way => way.id === exit.id)
 }
+
+/**
+ * What the bench calls the Scene the reading stands in, which is the Scene the
+ * two marks beside every way on renumber a row out of. Nothing where the reading
+ * stands nowhere at all, which is a reading with no way on to renumber.
+ */
+const standsIn = computed(() => (standing.value ? sceneName(standing.value) : ''))
 
 /**
  * The order the ways on are offered in, set here because this is the one screen
@@ -159,7 +172,7 @@ function moveWay(exit: Exit, step: -1 | 1) {
  * almost nothing at very great length.
  */
 const flags = computed(() => Object.entries(shown.value.state.flags))
-const visits = computed(() => Object.entries(shown.value.state.visits))
+const entered = computed(() => shown.value.state.entered)
 
 /** What a Flag holds, and what stands in for a Flag holding the empty value. */
 function held(value: string) {
@@ -204,17 +217,14 @@ function why(conditions: Condition[]) {
 </script>
 
 <template>
-  <!-- The reading and the bench it is cut on, stacked in a column of the bench:
-       a landmark, because it is one of the three things the bench holds while a
-       Scene is written and an Author can be sent to it. -->
-  <!-- `data-step` is on the whole pane rather than on a control in it: the
-       guided path sends an Author to read why a Shot is not playing, and what it
-       has to point at is the reading itself. -->
-  <section class="preview" data-step="preview" aria-labelledby="preview-heading">
-    <p id="preview-heading" class="eyebrow">
-      {{ $t('preview.reading') }}
-      <span aria-hidden="true">·</span>
-      {{ $t('preview.nobodyElse') }}
+  <!-- The reading and the bench it is cut on, stacked in the middle of the bench:
+       a landmark, because an Author can be sent to it. The guided path points at
+       the control that turns the middle over rather than at this pane — the pane is
+       not on screen until they do, and what the Step asks for is the turn. -->
+  <section class="preview" aria-labelledby="preview-heading">
+    <p id="preview-heading" class="says">
+      <span class="eyebrow">{{ $t('preview.reading') }}</span>
+      <span class="aside">{{ $t('preview.nobodyElse') }}</span>
     </p>
 
     <!-- Said plainly to the Author, who can go and mark one. A Reader meeting the
@@ -232,14 +242,28 @@ function why(conditions: Condition[]) {
            arrives with its sentence inside it. -->
       <p class="nothing" role="status">{{ reached ? '' : $t('preview.notReached', { scene: sceneName(sceneWritten) }) }}</p>
 
-      <Reading ref="reel" :story="story" @at="heard">
+      <Reading v-model:at="at" :story="story">
         <!-- The order the ways on are offered in, set on the buttons as they are
              read. A pair of controls rather than a drag, because an order that
              can only be set with a pointer is an order some Authors cannot set. -->
         <!-- The marks the Scene being written is renumbered by, because this pane
              stands beside that surface and the Place of a way on is the same act
-             here as it is there — see `.mark` in `frameline.css`. -->
+             here as it is there — see `.mark` in `frameline.css`. Named the way
+             they are there too: the act, and then the way on it is done to, by
+             its Place, which is the only thing that tells two ways on to one
+             Scene apart — see issue #276. -->
         <template #ordering="{ exit }">
+          <!-- The way on the Reader does not come back through, marked before it
+               is taken rather than explained after: the step back is simply not
+               there on the far side of it, and an absent control has to read as
+               what the Author wrote and not as a defect. It is the Exit's own
+               answer or its Story's, which is the one place that rule is read —
+               see `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
+               Words and not a mark, because it is the Author being told something
+               rather than an act they can do. -->
+          <span v-if="!(exit.stepsBack ?? story.stepsBack)" class="aside">
+            {{ $t('preview.noWayBack') }}
+          </span>
           <button
             type="button"
             class="mark"
@@ -249,7 +273,11 @@ function why(conditions: Condition[]) {
             <span aria-hidden="true">↑</span>
             <span class="visually-hidden">
               {{ $t('common.moveEarlier') }}
-              {{ $t('editor.theExitTo', { scene: sceneName(exit.toSceneId) }) }}
+              {{ $t('editor.theWayOnTo', {
+                place: placeOf(exit) + 1,
+                scene: sceneName(exit.toSceneId),
+                from: standsIn,
+              }) }}
             </span>
           </button>
           <button
@@ -261,7 +289,11 @@ function why(conditions: Condition[]) {
             <span aria-hidden="true">↓</span>
             <span class="visually-hidden">
               {{ $t('common.moveLater') }}
-              {{ $t('editor.theExitTo', { scene: sceneName(exit.toSceneId) }) }}
+              {{ $t('editor.theWayOnTo', {
+                place: placeOf(exit) + 1,
+                scene: sceneName(exit.toSceneId),
+                from: standsIn,
+              }) }}
             </span>
           </button>
         </template>
@@ -270,20 +302,20 @@ function why(conditions: Condition[]) {
       <!-- What is on the bench is the Author's own instrument and no part of the
            Story, so it sits under the reading and never in it. -->
       <section class="bench" aria-labelledby="preview-bench">
-        <p id="preview-bench" class="eyebrow">
-          {{ $t('preview.bench') }}
-          <span aria-hidden="true">·</span>
-          {{ $t('preview.benchNote') }}
+        <p id="preview-bench" class="says">
+          <span class="eyebrow">{{ $t('preview.bench') }}</span>
+          <span class="aside">{{ $t('preview.benchNote') }}</span>
         </p>
 
         <!-- The one control on the bench, and no part of the Story: the same
-             Reading at the same Path, read against another draw. -->
+             Reading at the same Path, read against another draw. Nothing moves,
+             so nothing takes focus — the Author presses it again and again, and
+             what changes is the Story around it. -->
         <p v-if="draws" class="draw">
-          <button type="button" class="trail" @click="reel?.reroll()">
+          <button type="button" @click="at = rerolled(at)">
             {{ $t('preview.reroll') }}
           </button>
-          <span aria-hidden="true">·</span>
-          {{ $t('preview.rerollNote') }}
+          <span class="aside">{{ $t('preview.rerollNote') }}</span>
         </p>
 
         <!-- Why a way on is missing: the Exits out of this Scene the State is
@@ -292,7 +324,7 @@ function why(conditions: Condition[]) {
              for a Reader, and its Place is not moved from a button that is not
              on offer. -->
         <div v-if="hidden.length" class="hidden">
-          <p class="eyebrow">{{ $t('preview.waysOnHidden') }}</p>
+          <p class="eyebrow">{{ $t('preview.exitsHidden') }}</p>
           <ul>
             <li v-for="exit in hidden" :key="exit.id">
               <s class="splice" :lang="story.language">{{ exitNamed(exit, sceneName, t) }}</s>
@@ -336,9 +368,14 @@ function why(conditions: Condition[]) {
 
           <div>
             <p class="eyebrow">{{ $t('preview.scenesEntered') }}</p>
-            <ul class="visits">
-              <li v-for="[sceneId, count] in visits" :key="sceneId">
-                {{ sceneName(sceneId) }} <span aria-hidden="true">×</span> <b>{{ count }}</b>
+            <!-- The Scenes themselves, in the order this Reading went through
+                 them, and no count beside them: a Reading stands in a Scene at
+                 most once, so *× 1* on every line would be arithmetic saying
+                 nothing — see `docs/adr/0048-a-scene-is-entered-once.md`. It is
+                 what an Author reads to see why a Condition held. -->
+            <ul class="entered">
+              <li v-for="sceneId in entered" :key="sceneId">
+                <b>{{ sceneName(sceneId) }}</b>
               </li>
             </ul>
           </div>
@@ -349,37 +386,70 @@ function why(conditions: Condition[]) {
 </template>
 
 <style scoped>
-@import '~/assets/css/folds.css';
-
-/* The third column of the bench: the reading, and the bench it is cut on under
-   it. It is as tall as the other two and scrolls inside itself, so a long Scene
-   is read here rather than down the page. */
+/* The other reading the middle of the bench holds: the Story read as a Reader
+   will read it, and under it the instrument the Author reads it with. It takes
+   the document's own place rather than a box beside it — a Story is read where it
+   is written, see `docs/adr/0030-a-story-is-read-where-it-is-written.md` and
+   `docs/adr/0043-a-story-is-written-as-one-document.md`. The reading is at the
+   top because that is what the face is for, and the bench is pushed to the foot
+   of it — a control desk under a screen, rather than a second card floating
+   halfway down an empty pane. */
 .preview {
   flex: 1;
   /* The containing block for what is inside it, for the reason the writing
-     surface is one: see `Panel.vue`. */
+     surface is one: see `Writing.vue`. */
   position: relative;
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
   gap: var(--s3);
   min-inline-size: 0;
-  max-inline-size: 34rem;
   overflow: auto;
+  padding: var(--s4);
+  border: 1px solid var(--light);
+  border-radius: var(--machined);
+  background: var(--bench);
+  box-shadow: 0 40px 90px -25px rgb(0 0 0 / 0.85);
+}
+
+/* What this column is, and what is true of it: the stencilled name of the
+   surface, and beside it the one thing an Author needs to know about it, said in
+   ordinary words rather than stencilled alongside as though it were a second
+   label. */
+.says {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s1) var(--s2);
+}
+
+.aside {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+/* The reading is given the whole of the column's own width, none of the room the
+   reading room pads itself out with — down here the desk under it is what ends
+   the column — and whatever height is going, with the frame held in the middle of
+   it: a screen hangs in a room rather than resting on the top edge of one. */
+.reading {
+  flex: 1;
+  align-content: center;
+  padding-block-end: 0;
+}
+
+/* The Author's own instrument, at the foot of the column: what this Reading has
+   accumulated, what its Conditions are hiding, and the one control that draws
+   the Story again. In the machine's own voice — mono, small, on the surface an
+   editor works on rather than the one they look at — and pushed down so that a
+   short reading leaves its space above the desk rather than between the two. */
+.bench {
+  display: grid;
+  gap: var(--s4);
+  margin-block-start: auto;
   padding: var(--s3);
   border: 1px solid var(--edge);
   border-radius: var(--machined);
   background: var(--steel);
-}
-
-/* The bench under the reading, in the machine's own voice: mono, small, and on
-   the surface an editor works on rather than the one they look at. */
-.bench {
-  display: grid;
-  gap: var(--s4);
-  padding: var(--s3);
-  border: 1px solid var(--edge);
-  border-radius: var(--machined);
-  background: var(--bench);
   font-family: var(--data);
   font-size: 0.8125rem;
 }
@@ -418,8 +488,19 @@ function why(conditions: Condition[]) {
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
 }
 
+/* What the State holds, read as the pairs they are: the name on the left at the
+   contrast of a label, the value beside it in the machine's own light. The Scenes
+   entered are a list of one thing apiece, so a line of it is only the light half. */
+.flags li,
+.entered li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  color: var(--muted);
+}
+
 .flags b,
-.visits b {
+.entered b {
   color: var(--light);
   font-weight: 500;
 }
@@ -429,13 +510,13 @@ function why(conditions: Condition[]) {
   color: var(--muted);
 }
 
-/* The draw, offered the way the bench says everything else: the control first
-   and what it does beside it, in the machine's own small voice. */
+/* The draw: the control first and what it does beside it, on the one line the
+   bench gives anything it offers. */
 .draw {
   display: flex;
-  align-items: baseline;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--s2);
-  color: var(--muted);
 }
 
 /* A Story with nowhere to start, or a Scene nothing leads to: a note where the
@@ -446,9 +527,10 @@ function why(conditions: Condition[]) {
   border: 1px dashed var(--edge);
   border-radius: var(--machined);
   color: var(--muted);
+  font-size: 0.875rem;
 }
 
-/* Nothing to say: out of the pane's grid, so the gap it would open goes too, and
+/* Nothing to say: out of the pane's flow, so the gap it would open goes too, and
    no box — but never `display: none`, which would take the live region out of
    the accessibility tree and bring the silence back. */
 .nothing:empty {
@@ -456,15 +538,5 @@ function why(conditions: Condition[]) {
   padding: 0;
   border: 0;
   opacity: 0;
-}
-
-/* On a phone the writing surface covers the bench, so there is no column beside
-   it for the reading to be in — and no row above the bench to press a fold from
-   either, which is why the band the reading folds in stops short of the phone:
-   see the foot of `Graph.vue`. */
-@media (--phone) {
-  .preview {
-    display: none;
-  }
 }
 </style>

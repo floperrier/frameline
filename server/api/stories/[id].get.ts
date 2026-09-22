@@ -17,8 +17,10 @@ export default defineEventHandler(async (event) => {
       language: stories.language,
       synopsis: stories.synopsis,
       openingSceneId: stories.openingSceneId,
+      coverShotId: stories.coverShotId,
       publishedAt: stories.publishedAt,
       listed: stories.listed,
+      stepsBack: stories.stepsBack,
     })
     .from(stories)
     .where(and(eq(stories.id, id), eq(stories.authorId, author.id)))

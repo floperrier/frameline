@@ -6,12 +6,12 @@ import { useDb } from '../../../db'
  * rather than a PATCH: the Author is replacing the whole list every time, and
  * the way to say "always offered" is to send none.
  *
- * A Condition counting visits names a Scene, and every such Scene is looked up
+ * A Condition asking about a Scene names it, and every such Scene is looked up
  * in the one statement that writes the list — joined on the Story the Exit
  * leaves, the way an Exit's own two ends are, by the guard a Shot's endpoint
  * writes behind too. The Scene can still be deleted afterwards, which leaves a
- * Condition counting visits to nowhere — see `schema.ts` — but never one
- * pointing outside the Story it belongs to.
+ * Condition asking about nowhere — see `schema.ts` — but never one pointing
+ * outside the Story it belongs to.
  */
 export default defineEventHandler(async (event) => {
   const author = await requireAuthor(event)

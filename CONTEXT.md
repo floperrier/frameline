@@ -23,7 +23,10 @@ _Avoid_: film, movie, project, game, narrative, experience, histoire
 **Scene**:
 A linear run of Shots, and the only unit at which a Story branches. The run is
 linear for every Reader, but not the same length for each: a Shot whose Conditions
-do not hold is not played.
+do not hold is not played. A Reading stands in a Scene at most once: a Scene an
+Author wants seen again is written again, as a copy carrying the same Shots under
+the same name and no ways on of its own — see
+`docs/adr/0048-a-scene-is-entered-once.md`.
 _Affiché_: Scène
 _Avoid_: passage, knot, node, chapter, page, card, séquence
 
@@ -47,6 +50,37 @@ the Description carries the frame.
 _Affiché_: Description
 _Avoid_: alt, alt text, label, caption, tooltip, legend
 
+**Sound**:
+The one sound a Scene or a Shot carries. A Scene's is held under the run and
+crosses the cut between its Shots; a Shot's strikes with the beat and is gone. A
+Scene's is either held in a loop until the Scene is left, or played once and the
+Scene silent after; a Shot's does neither. It is deposited on the row that plays
+it, and a Scene may instead name a Scene that carries one — never a Scene that is
+itself naming — the way a Cover is named among the Images the Shots already carry.
+_Affiché_: Son
+_Avoid_: audio, track, clip, soundtrack, sfx, cue, ambience, bande-son, piste,
+ambiance, musique, bruitage
+
+**Cut**:
+What takes one Shot off the screen and puts the next one there: when it is made
+and how it is made. Made by the Reader pressing, or by itself after a time the
+Author writes; made hard, or over a time of its own, through the outgoing image
+or through black. A Scene says how its run is cut, a Shot may say otherwise,
+and a Shot that says nothing is cut as its Scene says — the shape an Exit's
+*steps back* already has. An Exit carries one too — how the passage from the
+Scene it leaves to the Scene it lands on is made, never when, because an Exit is
+taken rather than held.
+_Affiché_: Coupe
+_Avoid_: transition, timing, duration, delay, autoplay, timer, slideshow,
+durée, minuterie, défilement
+
+**Transcript**:
+What a Sound makes heard, written by the Author for a Reader who cannot hear it.
+Never a Description, which says what one Image shows: a Shot carrying both an
+Image and a Sound carries one of each.
+_Affiché_: Transcription
+_Avoid_: caption, subtitle, lyrics, alt, sous-titre, légende, paroles
+
 **Synopsis**:
 The few lines an Author writes presenting their Story to whoever is deciding
 whether to read it, carried by the Story wherever it is presented. Never a
@@ -54,6 +88,17 @@ Description: a Description says what one Image shows to a Reader who cannot see
 it, and a Story has one Synopsis where it has as many Descriptions as Images.
 _Affiché_: Synopsis
 _Avoid_: description, blurb, summary, pitch, résumé, présentation
+
+**Cover**:
+The one Image a Story is presented by wherever it is met before it is opened — the
+Catalogue, a Profile, a List, the title card of the reading page — named by the
+Author from among the Images its Shots already carry, never uploaded on its own.
+A Story nobody named one for is presented by the first Image of its Opening
+Scene, and a Story with no Image at all by its words alone. A plain word rather
+than a cinematic one, because a cover is what this is — see
+`docs/adr/0040-a-story-is-presented-by-one-of-its-own-frames.md`.
+_Affiché_: Couverture
+_Avoid_: poster, still, key art, thumbnail, hero image, affiche, vignette
 
 **Place**:
 Where a Shot comes in its Scene's run, or an Exit in the ways on offered at the end
@@ -65,28 +110,64 @@ _Avoid_: index, order, rank, slot, sort key
 **Exit**:
 A directed connection from one Scene to another, offered to the Reader at the end
 of a Scene as something to take. It is the Reader's way out of the Scene, named
-for what they do with it rather than for anything the screen shows them.
+for what they do with it rather than for anything the screen shows them. It only
+ever leads onwards: an Exit to a Scene the Reader could already have stood in is
+refused as it is written, and one written before that rule is simply not offered
+to a Reading that has already stood there, because a Story is read forwards — see
+`docs/adr/0048-a-scene-is-entered-once.md`.
 The English interface shows the word itself — _Exits_ over the part of a Scene's
 document that holds them, _the Exit 1 to …_ on every control of a row — and a
 Step may gloss it as _the way on_ once, when it introduces the term; the gloss
 is never a label.
+An Exit also says whether a Reading is stepped back across it, the way it says
+what Conditions it is offered under: the Author's own yes, their own no, or
+nothing at all, which is the Exit answering as its Story says — see
+`docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
+An Exit is offered until the Reader takes it, or only for the time its Scene
+gives it, after which the first one still offered is taken for them — and a Scene
+may give it no time at all, flowing into the next without asking. What the clock
+takes is what the Enter key would have pressed, so the order the ways on are
+written in is the whole of what says which.
 _Affiché_: Sortie
 _Avoid_: choice, option, link, branch, edge, transition, cut, coupe, raccord,
 montage
 
 **Graph**:
-A whole Story seen at once, as its Scenes and the Exits between them. A Scene is
-drawn in it as a node and an Exit as an edge — words for the drawing, never for the
-Scene or the Exit itself. A node is drawn as a card, which is a word for that
-drawing on the same terms: the Scene it stands for is never a card, and where a
-Scene is written is the surface the bench folds open for it, with the Graph beside
-it as a rail — see
-`docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`. Nothing is written in
-the drawing: an Exit is written in the document of the Scene it leaves, and a
-press on its line opens that Scene — see
+A whole Story seen at once, as its Scenes in the order its Exits put them in. A Scene
+is drawn in it as a node — a word for the drawing, never for the Scene itself.
+Where every node stands is read off the Story — how far the Scene is from the
+Opening Scene in Exits taken, and in what order it is offered — and never placed
+by hand: the Graph is a reading of the Story and moves when the Story does — see
+`docs/adr/0041-the-graph-is-drawn-from-the-story.md`. It is drawn small down the
+side of the document, as the rail: the columns run down the page and the Scenes of
+a column run across it, a node is a point and carries no words, and an Exit is the
+line drawn between two of them, with the way it runs marked at the end it arrives
+at — see `docs/adr/0045-the-rail-draws-the-ways-on.md`. An Exit is still written in
+the document of the Scene it leaves, by naming the Scene it leads to; the drawing
+is what that writing amounts to and never where it is done. The rail is a locator
+and not a workspace: it says where in the Story the caret is, it lights the ways on
+and off the Scene being written, it marks a Scene nothing arrives at, and a press
+on a node winds the document to that Scene — see
+`docs/adr/0043-a-story-is-written-as-one-document.md` and
 `docs/adr/0034-a-story-is-written-without-the-canvas.md`.
 _Affiché_: Graphe
 _Avoid_: map, tree, flowchart, board, canvas
+
+**Contact Sheet**:
+A whole Story seen rather than read: every Shot of every Scene as the Image it
+carries, in bands, one band a Scene, in the order the Story is written in. One of
+the three readings the bench turns the same document over to — the writing, the
+Contact Sheet and the Preview — and the one an Author judges by looking instead
+of by reading: a Shot with no Image is drawn as a Shot with no Image, so what is
+still a grey rectangle is countable at a glance. It is where a Description is
+written, because it is where the Author is looking at the Image. Out of the
+grammar of cinema, which
+`docs/adr/0022-the-metaphor-stops-at-the-edge-of-the-work.md` reserves for the
+work, because a reading is a way of looking at the work rather than a tool of the
+bench — see `docs/adr/0043-a-story-is-written-as-one-document.md`.
+_Affiché_: Planche-contact
+_Avoid_: grid, gallery, board, mosaic, storyboard, thumbnails, overview,
+mosaïque, vignettes, story-board, aperçu
 
 **Opening Scene**:
 The one Scene a Reading starts on, named by the Story itself. The first Scene an
@@ -99,7 +180,8 @@ _Avoid_: start, entry point, root, first scene, home
 
 **Condition**:
 A flat test on State, carried by an Exit or by a Shot: it decides whether the Exit is
-offered to this Reader, or whether the Shot plays for them. Either may carry
+offered to this Reader, or whether the Shot plays for them. It asks one of two
+things — what a Flag holds, or whether a Scene has been entered. Either may carry
 several, and is offered or played only where all of them hold; one carrying none
 always is.
 _Affiché_: Condition
@@ -132,7 +214,7 @@ does not, and nothing it offers is reachable by the keyboard alone. Not every
 act of the bench is one: the mark is on the controls whose act an Author would
 say out loud — go to a Scene, add a Flag, mark the Opening Scene — and off the
 marks that renumber a row, which are pressed beside the row they are done to,
-and off the two acts whose control is a `<select>`, which no press can open.
+and off the acts whose control is a `<select>`, which no press can open.
 The one Command with no control behind it is the offer to write a Scene under a
 name that reached nothing, because an Author who has just typed the name of a Scene
 that does not exist has said what they want. Named in plain language rather than out of
@@ -157,15 +239,18 @@ _Avoid_: error, warning, issue, problem, lint, validation, avertissement, alerte
 
 **State**:
 Everything a Story has accumulated during one Reading — a flat map of Flags, plus
-a visit count per Scene. Never shared between Readings.
+the Scenes it has entered. Entered rather than counted, because a Reading stands
+in a Scene at most once — see `docs/adr/0048-a-scene-is-entered-once.md`. Never
+shared between Readings.
 _Affiché_: État
 _Avoid_: variables, memory, save, progress, context, session data
 
 **Flag**:
 A single named value in State, set by the Author and tested by Conditions. A
-Scene carries the Flags it sets, and sets them on every entry. A Scene may name
-several values for one Flag, and one of them is drawn on each entry — what holds
-a list is the Scene, never the State, where a Flag is the one value drawn.
+Scene carries the Flags it sets, and sets them as it is entered. A Scene may name
+several values for one Flag, and one of them is drawn as the Reading arrives —
+what holds a list is the Scene, never the State, where a Flag is the one value
+drawn.
 _Affiché_: Marqueur
 _Avoid_: variable, switch, toggle, key, drapeau
 
@@ -204,12 +289,13 @@ _Affiché_: Lecteur
 _Avoid_: user, player, viewer, visitor, audience
 
 **Preview**:
-An Author reading their own Story on the same engine a Reader runs — a pane
-inside the editor, beside the Scene being written, which replays the Path the
-Author is on with the State it has accumulated and stops on that Scene. Beside
-the Scene where the bench can hold both, and in the Scene's own place where it
-cannot — see
-`docs/adr/0037-the-reading-folds-before-the-writing-does.md`. Not a
+An Author reading their own Story on the same engine a Reader runs, which replays
+the Path the Author is on with the State it has accumulated and stops on the Scene
+they are writing. It is the third of the readings the bench turns the same
+document over to — the writing, the Contact Sheet and the Preview — chosen by a
+control, and it takes the document's own place rather than a box beside it, so a
+Story is read exactly where it is written, at every width: see
+`docs/adr/0043-a-story-is-written-as-one-document.md`. Not a
 Publish: nobody else can reach it. It is the one screen where the order the ways
 on are offered in is set, on the choice buttons as they are read, so a Preview is
 no longer without consequence for the Story — see

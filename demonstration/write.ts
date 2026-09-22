@@ -30,8 +30,10 @@ import { neon } from '@neondatabase/serverless'
 import { sealSession, type H3Event } from 'h3'
 import { imageTypeOf } from '../shared/utils/scenes.ts'
 import type { Condition } from '../shared/utils/scenes.ts'
+import { soundTypeOf } from '../shared/utils/sound.ts'
 import { SAMPLES, SAMPLE_LANGUAGES, imagePath, type SampleLanguage } from './samples.ts'
 import { REEL_CHANGE } from './reel-change.ts'
+import { soundPath } from './sounds.ts'
 import { develop, type Shot } from './work.ts'
 
 const origin = argument('origin') ?? 'http://localhost:3100'
@@ -53,22 +55,41 @@ const story = await api('POST', '/api/stories', {
 const written = new Map<string, string>()
 
 for (const scene of work.scenes) {
-  const [x, y] = scene.at
   const { id } = await api('POST', `/api/stories/${story.id}/scenes`, { name: scene.name }) as
     { id: string }
 
   written.set(scene.name, id)
-  await api('PATCH', `/api/scenes/${id}`, { x, y })
   if (scene.sets) await api('PUT', `/api/scenes/${id}/flags`, { sets: scene.sets })
+  if (scene.sound) await deposit(`/api/scenes/${id}/sound`, scene.sound)
+  // The Transcript and the Cut come through the Scene's one door, and only what
+  // the work names goes through it: a field the work left out is `undefined`,
+  // which `JSON.stringify` drops from the body, so the column keeps the default
+  // every Story written before the Cut has. A work naming none sends nothing.
+  const says = {
+    transcript: scene.transcript,
+    cutAfter: scene.cutAfter,
+    cutOver: scene.cutOver,
+    cutThrough: scene.cutThrough,
+    exitsAfter: scene.exitsAfter,
+  }
+
+  if (Object.values(says).some(said => said !== undefined)) {
+    await api('PATCH', `/api/scenes/${id}`, says)
+  }
 
   for (const shot of scene.shots) {
     const { id: shotId } = await api('POST', `/api/scenes/${id}/shots`) as { id: string }
     await api('PATCH', `/api/shots/${shotId}`, {
       text: shot.text,
       description: shot.description ?? '',
+      transcript: shot.transcript ?? '',
+      cutAfter: shot.cutAfter,
+      cutOver: shot.cutOver,
+      cutThrough: shot.cutThrough,
     })
     const image = await imageOf(shot)
     if (image) await attach(shotId, image)
+    if (shot.sound) await deposit(`/api/shots/${shotId}/sound`, shot.sound)
     if (shot.when) {
       await api('PUT', `/api/shots/${shotId}/conditions`, { conditions: shot.when.map(identified) })
     }
@@ -86,7 +107,11 @@ for (const exit of work.exits) {
     toSceneId: sceneNamed(exit.to),
   }) as { id: string }
 
-  await api('PATCH', `/api/exits/${id}`, { text: exit.text })
+  await api('PATCH', `/api/exits/${id}`, {
+    text: exit.text,
+    cutOver: exit.cutOver,
+    cutThrough: exit.cutThrough,
+  })
   if (exit.when) {
     await api('PUT', `/api/exits/${id}/conditions`, { conditions: exit.when.map(identified) })
   }
@@ -166,6 +191,22 @@ async function attach(shotId: string, image: Buffer) {
   })
 
   if (!response.ok) throw await refused(response, `PUT /api/shots/${shotId}/image`)
+}
+
+/**
+ * Deposits one of the library's Sounds, read from the folder on disk. The whole
+ * body is the file, as the bench's own picker sends it, and the type is read off
+ * the bytes the same way the server reads them.
+ */
+async function deposit(path: string, file: string) {
+  const bytes = await readFile(soundPath(file))
+  const response = await fetch(`${origin}${path}`, {
+    method: 'PUT',
+    headers: { cookie, 'content-type': soundTypeOf(bytes) ?? 'application/octet-stream' },
+    body: new Uint8Array(bytes),
+  })
+
+  if (!response.ok) throw await refused(response, `PUT ${path}`)
 }
 
 async function api(method: string, path: string, body?: unknown) {

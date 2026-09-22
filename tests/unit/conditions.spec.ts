@@ -5,7 +5,6 @@ import {
   CONDITIONS_MAX,
   FLAG_NAME_MAX_LENGTH,
   FLAG_VALUE_MAX_LENGTH,
-  VISITS_MAX,
 } from '../../shared/utils/scenes'
 import { UUID_PATTERN } from '../../server/utils/ids'
 
@@ -30,14 +29,13 @@ vi.stubGlobal('saying', () => (key: string, values?: Record<string, string | num
 vi.stubGlobal('CONDITIONS_MAX', CONDITIONS_MAX)
 vi.stubGlobal('FLAG_NAME_MAX_LENGTH', FLAG_NAME_MAX_LENGTH)
 vi.stubGlobal('FLAG_VALUE_MAX_LENGTH', FLAG_VALUE_MAX_LENGTH)
-vi.stubGlobal('VISITS_MAX', VISITS_MAX)
 vi.stubGlobal('UUID_PATTERN', UUID_PATTERN)
 
 const { readConditions } = await import('../../server/utils/conditions')
 
 const asking = (body: unknown) => readConditions({ body } as unknown as H3Event, 'Exit')
 
-/** A Scene named by a Condition counting visits, which the reader takes as a uuid. */
+/** A Scene named by a Condition asking about one, which the reader takes as a uuid. */
 const SCENE = '0f5c2f8e-3a1e-4a4f-9d2f-1c6d5b0a7e11'
 
 /** As many Flag tests as asked for, each one whole and each one different. */
@@ -49,12 +47,34 @@ describe('the Conditions a request writes', () => {
     await expect(asking({
       conditions: [
         { flag: 'coat', is: 'on' },
-        { scene: SCENE, visits: 'at least', times: 2 },
+        { scene: SCENE, entered: true },
       ],
     })).resolves.toEqual([
       { flag: 'coat', is: 'on' },
-      { scene: SCENE, visits: 'at least', times: 2 },
+      { scene: SCENE, entered: true },
     ])
+  })
+
+  it('takes both questions a Condition may ask of a Scene', async () => {
+    await expect(asking({ conditions: [{ scene: SCENE, entered: false }] }))
+      .resolves.toEqual([{ scene: SCENE, entered: false }])
+  })
+
+  /**
+   * The contract half of an expand–contract. The shape that counted was taken for
+   * one deploy so that a browser holding the previous code could send its list
+   * back while the migration was on its way; #306 rewrote every row, and a
+   * Condition is two shapes again — see
+   * `docs/adr/0002-the-schema-moves-with-the-deploy.md`.
+   */
+  it('refuses the shape that counted, whatever it counted', async () => {
+    for (const counting of [
+      { scene: SCENE, visits: 'at least', times: 1 },
+      { scene: SCENE, visits: 'fewer than', times: 1 },
+      { scene: SCENE, visits: 'at least', times: 2 },
+    ]) {
+      await expect(asking({ conditions: [counting] })).rejects.toThrow(/A Condition tests/)
+    }
   })
 
   it('reads no Conditions as an Exit offered to everyone, and a Shot every Reading sees', async () => {
@@ -76,10 +96,11 @@ describe('the Conditions a request writes', () => {
       { flag: '', is: 'on' },
       // A key too many is a Condition trying to carry a second one.
       { flag: 'coat', is: 'on', and: { flag: 'key', is: 'found' } },
-      { scene: 'The arrival', visits: 'at least', times: 2 },
-      { scene: SCENE, visits: 'as often as', times: 2 },
-      { scene: SCENE, visits: 'at least', times: VISITS_MAX + 1 },
-      { scene: SCENE, visits: 'at least', times: 1.5 },
+      { scene: 'The arrival', entered: true },
+      { scene: SCENE, entered: 'yes' },
+      { scene: SCENE, entered: true, times: 2 },
+      { scene: SCENE },
+      { scene: SCENE, visits: 'at least', times: 1 },
       [{ flag: 'coat', is: 'on' }],
       'coat is on',
       null,

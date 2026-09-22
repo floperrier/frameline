@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { Condition, Sets } from '../../shared/utils/scenes'
+import { CUT_OVER_MAX, isTime } from '../../shared/utils/scenes'
 import type { Path, State, StoryToRead } from '../../shared/utils/reading'
-import { advance, opening, pathTo, reading, resumes, take, unmet } from '../../shared/utils/reading'
+import {
+  advance, back, cut, moved, movesItself, opening, pathTo, reading, resumes, take, unmet,
+} from '../../shared/utils/reading'
 import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
 import type { Phrase } from '../../shared/utils/phrases'
 
@@ -19,27 +22,62 @@ type Written = string | [text: string, conditions: Condition[]]
 
 function story(
   scenes: Record<string, Written[]>,
-  exits: [from: string, text: string, to: string, conditions?: Condition[]][] = [],
+  exits: [
+    from: string,
+    text: string,
+    to: string,
+    conditions?: Condition[],
+    stepsBack?: boolean | null,
+  ][] = [],
   openingSceneId: string | null = Object.keys(scenes)[0] ?? null,
   sets: Record<string, Sets> = {},
+  stepsBack = true,
 ): StoryToRead {
   return {
     openingSceneId,
+    stepsBack,
     scenes: Object.entries(scenes).map(([id, texts]) => ({
       id,
       sets: sets[id] ?? {},
+      sound: null,
+      soundOfSceneId: null,
+      transcript: '',
+      soundLoops: true,
+      // The Cut plays no part in a Reading these tests state: every Scene waits
+      // for the press and cuts hard, and every Exit passes through the outgoing
+      // Shot, which is the one Story every row this Story has always written
+      // amounts to.
+      cutAfter: null,
+      cutOver: 0,
+      cutThrough: 'image',
+      exitsAfter: null,
       shots: texts.map((written, position) => {
         const [text, conditions] = typeof written === 'string' ? [written, []] : written
-        return { id: `${id}-${position}`, text, position, image: null, description: '', conditions }
+        return {
+          id: `${id}-${position}`,
+          text,
+          position,
+          image: null,
+          description: '',
+          conditions,
+          sound: null,
+          transcript: '',
+          cutAfter: null,
+          cutOver: null,
+          cutThrough: null,
+        }
       }),
     })),
-    exits: exits.map(([fromSceneId, text, toSceneId, conditions], index) => ({
+    exits: exits.map(([fromSceneId, text, toSceneId, conditions, crossed], index) => ({
       id: `exit-${index}`,
       fromSceneId,
       toSceneId,
       text,
       position: index,
       conditions: conditions ?? [],
+      stepsBack: crossed ?? null,
+      cutOver: 0,
+      cutThrough: 'image',
     })),
   }
 }
@@ -131,36 +169,44 @@ describe('a Reading that reaches an Exit', () => {
   })
 })
 
-describe('a Reading that comes back somewhere', () => {
+describe('a Story that comes back on itself', () => {
+  /**
+   * The Story the bench now refuses to write, read as the engine reads one written
+   * before it did: the way out of the Bar leads to the Street, which this Reading
+   * has already stood in, so it is never handed over. Nothing an Author wrote is
+   * edited — see `docs/adr/0048-a-scene-is-entered-once.md`.
+   */
   const loop = story(
     { Street: ['A door opens.'], Bar: ['Smoke.'] },
     [['Street', 'Go in', 'Bar'], ['Bar', 'Go out', 'Street']],
   )
 
-  /** Walks the only round trip the Story allows, `times` times around. */
-  function around(times: number) {
-    let at = OPENING
-    for (let lap = 0; lap < times; lap++) {
-      for (const _ of ['in', 'out']) {
-        at = advance(at)
-        at = take(at, reading(loop, at).exits[0]!)
-      }
-    }
-    return at
-  }
+  const endOfStreet = advance(OPENING)
+  const inTheBar = take(endOfStreet, reading(loop, endOfStreet).exits[0]!)
+  const endOfBar = advance(inTheBar)
 
-  it('reads the same Scene again rather than running out of Story', () => {
-    expect(shown(loop, around(3))).toEqual({ text: 'A door opens.', offered: [], ended: false })
+  it('does not offer the way back to a Scene this Reading has stood in', () => {
+    expect(shown(loop, endOfStreet).offered).toEqual(['Go in'])
+    expect(shown(loop, endOfBar)).toEqual({ text: undefined, offered: [], ended: true })
   })
 
-  it('counts every visit to a Scene, and the opening Scene as visited once', () => {
-    expect(reading(loop, OPENING).state.visits).toEqual({ Street: 1 })
-    expect(reading(loop, around(3)).state.visits).toEqual({ Street: 4, Bar: 3 })
+  it('holds the Scenes it has entered, in the order it entered them', () => {
+    expect(reading(loop, OPENING).state.entered).toEqual(['Street'])
+    expect(reading(loop, endOfBar).state.entered).toEqual(['Street', 'Bar'])
+  })
+
+  it('stands where it stood when a Path claims the way back anyway', () => {
+    // The same test that hid the way on refuses the Path that claims it: a forged
+    // Path stops the walk where the Reader really was.
+    const forged: Path = { ...endOfBar, taken: [...endOfBar.taken, 'exit-1'], shot: 0 }
+
+    expect(shown(loop, forged).text).toBe('Smoke.')
+    expect(reading(loop, forged).state.entered).toEqual(['Street', 'Bar'])
   })
 
   it('carries no State from one Reading to another', () => {
-    reading(loop, around(2)).state.visits.Street = 99
-    expect(reading(loop, OPENING).state.visits).toEqual({ Street: 1 })
+    reading(loop, endOfBar).state.entered.push('Nowhere')
+    expect(reading(loop, OPENING).state.entered).toEqual(['Street'])
   })
 })
 
@@ -237,18 +283,22 @@ describe('an Exit carrying Conditions', () => {
       .toEqual(['Stay outside'])
   })
 
-  it('counts the visits to a Scene, the Scene being stood in included', () => {
-    const first = ways([{ scene: 'Street', visits: 'at least', times: 2 }])
-    expect(shown(first, endOfStreet).offered).toEqual(['Stay outside'])
+  it('asks whether a Scene has been entered, the Scene stood in included', () => {
+    const been = ways([{ scene: 'Street', entered: true }])
+    expect(shown(been, endOfStreet).offered).toEqual(['Stay outside', 'Go in'])
 
-    const once = ways([{ scene: 'Street', visits: 'fewer than', times: 2 }])
-    expect(shown(once, endOfStreet).offered).toEqual(['Stay outside', 'Go in'])
+    const notBeen = ways([{ scene: 'Street', entered: false }])
+    expect(shown(notBeen, endOfStreet).offered).toEqual(['Stay outside'])
+
+    // And a Scene nothing has reached is one the Reader has not stood in.
+    expect(shown(ways([{ scene: 'Bar', entered: false }]), endOfStreet).offered)
+      .toEqual(['Stay outside', 'Go in'])
   })
 
   it('is offered where every Condition it carries holds, and hidden where one fails', () => {
     const both: Condition[] = [
       { flag: 'key', is: 'found' },
-      { scene: 'Street', visits: 'at least', times: 1 },
+      { scene: 'Street', entered: true },
     ]
     expect(shown(ways(both, { Street: { key: 'found' } }), endOfStreet).offered)
       .toEqual(['Stay outside', 'Go in'])
@@ -300,58 +350,6 @@ describe('an Exit carrying Conditions', () => {
   })
 })
 
-describe('a Scene read a second time', () => {
-  /**
-   * The Street twice, going somewhere else the second time round: the Shots of a
-   * Scene are the same on every visit, so what changes is which Exit is offered.
-   */
-  const returning = story(
-    { Street: ['A door opens.'], Bar: ['Smoke.'], Alley: ['Rain.'] },
-    [
-      ['Street', 'Go in', 'Bar', [{ scene: 'Street', visits: 'fewer than', times: 2 }]],
-      ['Street', 'Give up', 'Alley', [{ scene: 'Street', visits: 'at least', times: 2 }]],
-      ['Bar', 'Back out', 'Street'],
-    ],
-  )
-
-  it('offers what the first visit offered, and then something else', () => {
-    const endOfStreet = advance(OPENING)
-    expect(shown(returning, endOfStreet).offered).toEqual(['Go in'])
-
-    const inTheBar = take(endOfStreet, reading(returning, endOfStreet).exits[0]!)
-    const endOfBar = advance(inTheBar)
-    const backOutside = take(endOfBar, reading(returning, endOfBar).exits[0]!)
-    const endOfStreetAgain = advance(backOutside)
-
-    expect(shown(returning, endOfStreetAgain).offered).toEqual(['Give up'])
-  })
-
-  it('lets the same Exit be taken once and no more, however the Path asks', () => {
-    // The way in is offered on the first visit to the street and not on the
-    // second, so a Reading that comes back and claims to take it again is a
-    // Path no Reader could have reached: the walk stops where it stopped.
-    const endOfStreet = advance(OPENING)
-    const inTheBar = take(endOfStreet, reading(returning, endOfStreet).exits[0]!)
-    const endOfBar = advance(inTheBar)
-    const backOutside = take(endOfBar, reading(returning, endOfBar).exits[0]!)
-
-    expect(shown(returning, backOutside).text).toBe('A door opens.')
-
-    const twice: Path = { taken: [...backOutside.taken, 'exit-0'], shot: 0 }
-    expect(shown(returning, twice).text).toBe('A door opens.')
-    expect(reading(returning, twice).state.visits).toEqual({ Street: 2, Bar: 1 })
-  })
-
-  it('takes the Exit it is offered the second time round', () => {
-    let at = OPENING
-    for (const _ of ['in', 'out', 'away']) {
-      at = advance(at)
-      at = take(at, reading(returning, at).exits[0]!)
-    }
-    expect(shown(returning, at).text).toBe('Rain.')
-  })
-})
-
 describe('the tests an Exit is hidden by', () => {
   /** The Scenes a Condition names, read back the way an Author reads them. */
   const named = (id: string) => ({ house: 'The House' }[id] ?? id)
@@ -364,7 +362,7 @@ describe('the tests an Exit is hidden by', () => {
    */
   const says: Phrase = (key, values) => phrase(DEFAULT_LOCALE, key, values)
 
-  const state: State = { flags: { reel: 'spooled' }, visits: { house: 1 } }
+  const state: State = { flags: { reel: 'spooled' }, entered: ['house'] }
 
   it('says nothing of an Exit this Reading is offered', () => {
     expect(unmet([{ flag: 'reel', is: 'spooled' }], state, named, says)).toEqual([])
@@ -383,81 +381,87 @@ describe('the tests an Exit is hidden by', () => {
       .toEqual(['needs reel to hold nothing, holds spooled'])
   })
 
-  it('names the Scene a visit count is asked of, and how often it was entered', () => {
-    expect(unmet([{ scene: 'house', visits: 'at least', times: 2 }], state, named, says))
-      .toEqual(['needs at least 2 visits to The House, entered once'])
-    expect(unmet([{ scene: 'house', visits: 'fewer than', times: 1 }], state, named, says))
-      .toEqual(['needs fewer than 1 visit to The House, entered once'])
-    expect(unmet([{ scene: 'house', visits: 'fewer than', times: 2 }],
-      { flags: {}, visits: { house: 3 } }, named, says))
-      .toEqual(['needs fewer than 2 visits to The House, entered 3 times'])
-  })
-
-  it('says a Scene the Reading has never reached was never entered', () => {
-    expect(unmet([{ scene: 'bar', visits: 'at least', times: 3 }], state, named, says))
-      .toEqual(['needs at least 3 visits to bar, never entered'])
+  it('names the Scene a Condition asks about, and which way it asked', () => {
+    expect(unmet([{ scene: 'bar', entered: true }], state, named, says))
+      .toEqual(['needs bar to have been entered, and it has not'])
+    expect(unmet([{ scene: 'house', entered: false }], state, named, says))
+      .toEqual(['needs The House not to have been entered, and it has'])
   })
 
   it('names every test that failed, and only those', () => {
     expect(unmet([
       { flag: 'reel', is: 'spooled' },
       { flag: 'reel', is: 'threaded' },
-      { scene: 'house', visits: 'at least', times: 4 },
+      { scene: 'house', entered: false },
     ], state, named, says)).toEqual([
       'needs reel to hold threaded, holds spooled',
-      'needs at least 4 visits to The House, entered once',
+      'needs The House not to have been entered, and it has',
     ])
   })
 })
 
 describe('a Shot carrying Conditions', () => {
   /**
-   * A booth read twice: the middle Shot plays only on a return, and the last one
-   * only on a first visit. What the Reading sees says which run it got — the
-   * Scene the Author wrote is one, and the run played is the one that holds.
+   * A booth reached two ways round: the middle Shot plays for a Reading that came
+   * through the house, and the last one for a Reading that did not. What the
+   * Reading sees says which run it got — the Scene the Author wrote is one, and
+   * the run played is the one that holds.
+   *
+   * Two ways round rather than one Scene read twice: a Reading stands in a Scene
+   * at most once, so what makes the same Scene read differently is the State it is
+   * arrived with — see `docs/adr/0048-a-scene-is-entered-once.md`.
    */
   const booth = story(
     {
+      Foyer: ['A door under the stairs.'],
+      House: ['Rows of empty seats.'],
       Booth: [
         'The projector ticks over.',
-        ['You have been here before.', [{ scene: 'Booth', visits: 'at least', times: 2 }]],
-        ['The last show has run out.', [{ scene: 'Booth', visits: 'fewer than', times: 2 }]],
+        ['You have been down in the house.', [{ scene: 'House', entered: true }]],
+        ['The house is still dark.', [{ scene: 'House', entered: false }]],
       ],
-      House: ['Rows of empty seats.'],
+      Reel: ['The reel runs out.'],
     },
-    [['Booth', 'Walk the house', 'House'], ['House', 'Back up', 'Booth']],
+    [
+      ['Foyer', 'Straight up', 'Booth'],
+      ['Foyer', 'Through the house', 'House'],
+      ['House', 'Up to the booth', 'Booth'],
+      ['Booth', 'Thread it', 'Reel'],
+    ],
   )
 
-  /** Round the only loop the Story allows, `times` times, ending in the Booth. */
-  function laps(times: number) {
-    let at = OPENING
-    for (let lap = 0; lap < times; lap++) {
-      for (const _ of ['out', 'back']) {
-        while (reading(booth, at).shot) at = advance(at)
-        at = take(at, reading(booth, at).exits[0]!)
-      }
-    }
-    return at
+  /** Reads the Foyer to its end and takes one of the two ways up, landing in the Booth. */
+  function upTo(place: number) {
+    const endOfFoyer = advance(OPENING)
+    const at = take(endOfFoyer, reading(booth, endOfFoyer).exits[place]!)
+    if (place === 0) return at
+
+    const endOfHouse = advance(at)
+    return take(endOfHouse, reading(booth, endOfHouse).exits[0]!)
   }
 
+  const straightUp = upTo(0)
+  const roundTheHouse = upTo(1)
+
   it('leaves out the Shots whose Conditions this Reading fails', () => {
-    expect(run(booth, OPENING)).toEqual(['The projector ticks over.', 'The last show has run out.'])
-    expect(run(booth, laps(1)))
-      .toEqual(['The projector ticks over.', 'You have been here before.'])
+    expect(run(booth, straightUp))
+      .toEqual(['The projector ticks over.', 'The house is still dark.'])
+    expect(run(booth, roundTheHouse))
+      .toEqual(['The projector ticks over.', 'You have been down in the house.'])
   })
 
   it('plays the run without the gap the skipped Shot left', () => {
-    expect(shown(booth, OPENING).text).toBe('The projector ticks over.')
-    expect(shown(booth, advance(OPENING)).text).toBe('The last show has run out.')
-    expect(shown(booth, advance(advance(OPENING))).text).toBeUndefined()
+    expect(shown(booth, straightUp).text).toBe('The projector ticks over.')
+    expect(shown(booth, advance(straightUp)).text).toBe('The house is still dark.')
+    expect(shown(booth, advance(advance(straightUp))).text).toBeUndefined()
   })
 
-  it('says something different on the return visit, from the same Scene', () => {
-    expect(shown(booth, advance(laps(1))).text).toBe('You have been here before.')
+  it('says something different to a Reading that came the other way', () => {
+    expect(shown(booth, advance(roundTheHouse)).text).toBe('You have been down in the house.')
   })
 
   it('offers the ways on once the run this Reading plays has run out', () => {
-    expect(shown(booth, advance(advance(OPENING))).offered).toEqual(['Walk the house'])
+    expect(shown(booth, advance(advance(straightUp))).offered).toEqual(['Thread it'])
   })
 
   it('plays a Shot carrying none to every Reading', () => {
@@ -532,29 +536,46 @@ describe('a Scene drawing one of several values for a Flag', () => {
     expect(new Set(seeds.map(at => shown(weather, at).text)).size).toBe(3)
   })
 
-  it('draws again on a second entry to the Scene, so a Story read round may differ', () => {
-    const looping = story(
+  /**
+   * The draw is made as the Reading arrives, and there is one arrival — so the key
+   * it is hashed from is the seed, the Scene and the Flag, and how the Reading got
+   * there has left it. Two ways round to one Scene under one seed therefore draw
+   * alike, which is what tells this apart from the count that used to be in the
+   * key: see `docs/adr/0048-a-scene-is-entered-once.md`.
+   */
+  it('draws on the seed, the Scene and the Flag alone, so two ways round draw alike', () => {
+    const twoWays = story(
       {
-        Street: [
+        Foyer: ['A door under the stairs.'],
+        Lane: ['She goes the long way.'],
+        Corner: [
           ['Rain on the awning.', [{ flag: 'weather', is: 'rain' }]],
           ['Sun on the awning.', [{ flag: 'weather', is: 'sun' }]],
         ],
-        Corner: ['She turns back.'],
       },
-      [['Street', 'Walk on', 'Corner'], ['Corner', 'Back to the street', 'Street']],
-      'Street',
-      { Street: { weather: ['rain', 'sun'] } },
+      [
+        ['Foyer', 'Straight there', 'Corner'],
+        ['Foyer', 'The long way', 'Lane'],
+        ['Lane', 'On to the corner', 'Corner'],
+      ],
+      'Foyer',
+      { Corner: { weather: ['rain', 'sun'] } },
     )
 
-    /** The Path two Exits on, standing in the Street for the second time. */
-    const roundAgain = (at: Path) => {
-      const onward = take(advance(at), reading(looping, advance(at)).exits[0]!)
-      return take(advance(onward), reading(looping, advance(onward)).exits[0]!)
+    /** The Corner reached by the Exit at that Place out of the Foyer. */
+    const cornerBy = (at: Path, place: number) => {
+      const straight = take(advance(at), reading(twoWays, advance(at)).exits[place]!)
+      if (place === 0) return straight
+
+      return take(advance(straight), reading(twoWays, advance(straight)).exits[0]!)
     }
 
-    const differed = seeds.filter(at =>
-      shown(looping, at).text !== shown(looping, roundAgain(at)).text)
-    expect(differed.length).toBeGreaterThan(0)
+    for (const at of seeds) {
+      expect(shown(twoWays, cornerBy(at, 0)).text).toBe(shown(twoWays, cornerBy(at, 1)).text)
+    }
+    // And the list is still reached at both ends across the seeds a Reading is
+    // drawn under, so what they agree on is a draw and not one value throughout.
+    expect(new Set(seeds.map(at => shown(twoWays, cornerBy(at, 0)).text)).size).toBe(2)
   })
 
   it('leaves a later Scene’s draw alone when an earlier Scene is edited', () => {
@@ -625,6 +646,214 @@ describe('a Scene drawing one of several values for a Flag', () => {
     for (const at of seeds.slice(0, 20)) {
       expect(reading(setting, at).state.flags.coat).toBe('on')
     }
+  })
+})
+
+describe('a Reading stepped back', () => {
+  /**
+   * A Street of two Shots, a Bar of two, and one way between them — so a step
+   * back has somewhere to go inside a Scene and somewhere to go across an Exit,
+   * and the Scene stepped back into has a run long enough for the landing to be
+   * a fact rather than a coincidence.
+   */
+  const night = story(
+    {
+      Street: ['A door opens.', 'She steps out.'],
+      Bar: ['Smoke.', 'No one she knows.'],
+      Corner: ['Rain on the awning.'],
+    },
+    [['Street', 'Follow her', 'Bar'], ['Bar', 'Leave', 'Corner']],
+  )
+
+  /** Reads a Scene to its end and takes the first way on out of it. */
+  function on(read: StoryToRead, at: Path) {
+    while (reading(read, at).shot) at = advance(at)
+    return take(at, reading(read, at).exits[0]!)
+  }
+
+  it('steps back to the Shot before, inside a Scene', () => {
+    expect(shown(night, back(night, advance(OPENING))!).text).toBe('A door opens.')
+  })
+
+  it('offers nothing at all on the very first beat of the Story', () => {
+    expect(back(night, OPENING)).toBeUndefined()
+  })
+
+  it('crosses the Exit it came by, landing on the ways on out of the Scene it left', () => {
+    const inTheBar = on(night, OPENING)
+    expect(shown(night, inTheBar).text).toBe('Smoke.')
+
+    const backInTheStreet = back(night, inTheBar)!
+    expect(shown(night, backInTheStreet)).toEqual({
+      text: undefined,
+      offered: ['Follow her'],
+      ended: false,
+    })
+    expect(reading(night, backInTheStreet).sceneId).toBe('Street')
+  })
+
+  it('steps back off an ending, onto the last beat that was played', () => {
+    // A Bar nothing leaves, so the Reading runs out there rather than looping.
+    const cul = story(
+      { Street: ['A door opens.'], Bar: ['Smoke.', 'No one she knows.'] },
+      [['Street', 'Follow her', 'Bar']],
+    )
+
+    const ending = advance(advance(on(cul, OPENING)))
+    expect(shown(cul, ending).ended).toBe(true)
+    expect(shown(cul, back(cul, ending)!).text).toBe('No one she knows.')
+  })
+
+  it('lands past the run this Reading played, not past the one the Author wrote', () => {
+    /**
+     * A Booth whose second Shot plays on a return alone: stepping back into it
+     * from the House has to land at the end of the two Shots this Reading saw,
+     * where its ways on are, and not at the end of the three that are written.
+     */
+    const booth = story(
+      {
+        Booth: [
+          'The projector ticks over.',
+          ['You have been here before.', [{ scene: 'Booth', visits: 'at least', times: 2 }]],
+          'The reel runs out.',
+        ],
+        House: ['Rows of empty seats.'],
+      },
+      [['Booth', 'Walk the house', 'House']],
+    )
+
+    const inTheHouse = on(booth, OPENING)
+    const backInTheBooth = back(booth, inTheHouse)!
+
+    expect(run(booth, backInTheBooth)).toEqual(['The projector ticks over.', 'The reel runs out.'])
+    expect(backInTheBooth.shot).toBe(2)
+    expect(shown(booth, backInTheBooth).offered).toEqual(['Walk the house'])
+  })
+
+  it('leaves the State where stepping back and going on again is a Reading that never did', () => {
+    const straight = on(night, OPENING)
+    const there = on(night, straight)
+
+    // Out to the Bar, back into the Street, and out to the Bar again: the second
+    // arrival is the first, because the Path that carries it is the same Path.
+    let wandering = back(night, straight)!
+    wandering = on(night, wandering)
+
+    expect(wandering).toEqual(straight)
+    expect(reading(night, wandering).state).toEqual(reading(night, straight).state)
+
+    // And the Scene stepped out of and walked into again is entered once: a step
+    // back is a shorter Path, not a second arrival.
+    expect(reading(night, there).state.entered).toEqual(['Street', 'Bar', 'Corner'])
+  })
+
+  it('draws a Flag the way the Reading drew it before, on the same entry', () => {
+    const weather = story(
+      { Street: ['A door opens.', 'She steps out.'], Bar: ['Smoke.'] },
+      [['Street', 'Follow her', 'Bar']],
+      'Street',
+      { Bar: { weather: ['rain', 'sun'] } },
+    )
+
+    const inTheBar = on(weather, OPENING)
+    const drawn = reading(weather, inTheBar).state.flags.weather
+
+    const steppedBack = back(weather, inTheBar)!
+    expect(reading(weather, steppedBack).state.flags.weather).toBeUndefined()
+    expect(reading(weather, on(weather, steppedBack)).state.flags.weather).toBe(drawn)
+  })
+
+  it('carries the seed the Reading was drawn under', () => {
+    expect(back(night, advance(OPENING))!.seed).toBe(OPENING.seed)
+    expect(back(night, on(night, OPENING))!.seed).toBe(OPENING.seed)
+  })
+
+  it('is offered wherever a Story that crosses every Exit back has moved at all', () => {
+    let at: Path = OPENING
+    for (const _ of Array.from({ length: 6 })) {
+      expect(back(night, at) !== undefined).toBe(moved(at))
+      at = reading(night, at).shot ? advance(at) : on(night, at)
+    }
+  })
+})
+
+describe('an Exit an Author closed behind the Reader', () => {
+  /**
+   * The same two Scenes under four Stories: the way on is crossed backwards or
+   * not, either because the Exit says so or because its Story does. What is read
+   * off each is the one question — is there a beat behind the first Shot of the
+   * Bar? — so the four answers are the whole of the rule.
+   */
+  function night(storyCrosses: boolean, exitCrosses: boolean | null) {
+    return story(
+      { Street: ['A door opens.', 'She steps out.'], Bar: ['Smoke.', 'No one she knows.'] },
+      [['Street', 'Follow her', 'Bar', [], exitCrosses]],
+      'Street',
+      {},
+      storyCrosses,
+    )
+  }
+
+  /** The Path standing on the first Shot of the Bar, one Exit in. */
+  function inTheBar(read: StoryToRead) {
+    let at: Path = OPENING
+    while (reading(read, at).shot) at = advance(at)
+    return take(at, reading(read, at).exits[0]!)
+  }
+
+  it('is crossed as its Story says where the Exit has not said', () => {
+    expect(back(night(true, null), inTheBar(night(true, null)))).toBeDefined()
+    expect(back(night(false, null), inTheBar(night(false, null)))).toBeUndefined()
+  })
+
+  it('says it over its Story, in both directions', () => {
+    expect(back(night(true, false), inTheBar(night(true, false)))).toBeUndefined()
+    expect(back(night(false, true), inTheBar(night(false, true)))).toBeDefined()
+  })
+
+  it('leaves the step back inside a Scene offered whatever either says', () => {
+    const shut = night(false, false)
+    const secondShot = advance(OPENING)
+    expect(shown(shut, back(shut, secondShot)!).text).toBe('A door opens.')
+
+    // And inside the Scene the closed Exit arrives at, where the beat behind is
+    // a beat of the same Scene and no door is crossed to reach it.
+    const played = advance(inTheBar(shut))
+    expect(shown(shut, played).text).toBe('No one she knows.')
+    expect(shown(shut, back(shut, played)!).text).toBe('Smoke.')
+  })
+
+  it('stops the Reading at the first Shot of the Scene it arrives in', () => {
+    const shut = night(false, false)
+    const arrived = inTheBar(shut)
+    expect(back(shut, arrived)).toBeUndefined()
+    // The Reading is otherwise the Reading it was: the Scene plays out as it did.
+    expect(shown(shut, arrived).text).toBe('Smoke.')
+    expect(shown(shut, advance(advance(arrived))).ended).toBe(true)
+  })
+
+  it('crosses the Exit it was taken by, and not whichever Exit is standing', () => {
+    // Two ways into the Bar: one closed, one open. Which one the Reading took is
+    // what settles the step back, and the Exits leaving the Bar say nothing.
+    const two = story(
+      { Street: ['A door opens.'], Side: ['A side door.'], Bar: ['Smoke.'] },
+      [
+        ['Street', 'Follow her', 'Bar', [], false],
+        ['Street', 'Round the side', 'Side'],
+        ['Side', 'In by the side', 'Bar', [], true],
+      ],
+      'Street',
+      {},
+      false,
+    )
+
+    const endOfStreet = advance(OPENING)
+    const byTheFront = take(endOfStreet, reading(two, endOfStreet).exits[0]!)
+    expect(back(two, byTheFront)).toBeUndefined()
+
+    const roundTheSide = take(endOfStreet, reading(two, endOfStreet).exits[1]!)
+    const bySide = take(advance(roundTheSide), reading(two, advance(roundTheSide)).exits[0]!)
+    expect(back(two, bySide)).toBeDefined()
   })
 })
 
@@ -726,17 +955,25 @@ describe('a Reading stopped at one Scene', () => {
   })
 
   /**
-   * A Scene is passed once for each set of Flags it has been arrived holding, so
-   * a Story that loops back to set one and returns is a Story whose second
-   * arrival opens a way on the first did not.
+   * A Scene is passed once for each set of Flags it has been arrived holding,
+   * rather than once outright: two ways round to one Scene set different Flags on
+   * the way, and the ways on it offers on arrival differ with them. The Landing is
+   * reached first with nothing in hand, and the search has to reach it again by
+   * the Study rather than counting it visited.
    */
-  it('goes round again where the way on wants a Flag set further on', () => {
+  it('takes the way round that sets the Flag a way on further on wants', () => {
     const key = story(
-      { Hall: ['A locked door.'], Study: ['A key on the desk.'], Vault: ['Rows of tins.'] },
+      {
+        Hall: ['A locked door.'],
+        Study: ['A key on the desk.'],
+        Landing: ['Bare boards.'],
+        Vault: ['Rows of tins.'],
+      },
       [
-        ['Hall', 'Unlock it', 'Vault', [{ flag: 'key', is: 'found' }]],
+        ['Hall', 'Straight on', 'Landing'],
         ['Hall', 'Try the study', 'Study'],
-        ['Study', 'Back to the hall', 'Hall'],
+        ['Study', 'On to the landing', 'Landing'],
+        ['Landing', 'Unlock it', 'Vault', [{ flag: 'key', is: 'found' }]],
       ],
       'Hall',
       { Study: { key: 'found' } },
@@ -788,5 +1025,119 @@ describe('a Path kept in the browser and replayed', () => {
 
   it('is not picked up past the run, where Shots have since been taken away', () => {
     expect(resumes(two, { ...OPENING, shot: 5 })).toBe(false)
+  })
+})
+
+describe('cut', () => {
+  const scene = {
+    id: 'a', sets: {}, shots: [], sound: null, soundOfSceneId: null,
+    transcript: '', soundLoops: true,
+    cutAfter: 4000, cutOver: 800, cutThrough: 'image' as const, exitsAfter: null,
+  }
+  const shot = {
+    id: 's', text: '', position: 0, image: null, description: '',
+    conditions: [], sound: null, transcript: '',
+    cutAfter: null, cutOver: null, cutThrough: null,
+  }
+
+  it('is the Scene\'s where the Shot says nothing', () => {
+    expect(cut(scene, shot)).toEqual({ after: 4000, over: 800, through: 'image' })
+  })
+
+  it('is the Shot\'s where the Shot answers', () => {
+    expect(cut(scene, { ...shot, cutAfter: 1000, cutOver: 0, cutThrough: 'black' }))
+      .toEqual({ after: 1000, over: 0, through: 'black' })
+  })
+
+  it('answers field by field', () => {
+    expect(cut(scene, { ...shot, cutThrough: 'black' }))
+      .toEqual({ after: 4000, over: 800, through: 'black' })
+  })
+
+  it('reads a Shot\'s nought as waiting for the press', () => {
+    expect(cut(scene, { ...shot, cutAfter: 0 }).after).toBeNull()
+  })
+
+  it('waits where the Scene waits and the Shot says nothing', () => {
+    expect(cut({ ...scene, cutAfter: null }, shot).after).toBeNull()
+  })
+
+  it('holds a Shot that answers over a Scene that waits', () => {
+    expect(cut({ ...scene, cutAfter: null }, { ...shot, cutAfter: 2500 }).after).toBe(2500)
+  })
+})
+
+describe('movesItself', () => {
+  /**
+   * What every case here is written over: two Scenes and one way on between
+   * them, with nothing about the Cut said anywhere — which is every Story
+   * written before there was a Cut to write.
+   */
+  const byHand = story(
+    { Street: ['A door opens.', 'She steps out.'], Alley: ['Nobody comes.'] },
+    [['Street', 'Follow her out', 'Alley']])
+
+  /** The same Story with one Scene saying something about its Cut. */
+  function written(
+    named: string,
+    says: Partial<StoryToRead['scenes'][number]>,
+    told: StoryToRead = byHand,
+  ) {
+    return {
+      ...told,
+      scenes: told.scenes.map(scene => (scene.id === named ? { ...scene, ...says } : scene)),
+    }
+  }
+
+  /** The same Story with every Shot of one Scene answering for itself. */
+  function answering(named: string, cutAfter: number, told: StoryToRead = byHand) {
+    const shots = told.scenes.find(scene => scene.id === named)!.shots
+    return written(named, { shots: shots.map(shot => ({ ...shot, cutAfter })) }, told)
+  }
+
+  it('is nothing where nothing is written', () => {
+    expect(movesItself(byHand)).toBe(false)
+  })
+
+  it('reads a Scene that cuts its run after a time', () => {
+    expect(movesItself(written('Street', { cutAfter: 4000 }))).toBe(true)
+  })
+
+  it('reads a Shot that answers with a time under a Scene that waits', () => {
+    expect(movesItself(answering('Street', 2000))).toBe(true)
+  })
+
+  it('withholds it where the Scene names a time and every Shot waits', () => {
+    expect(movesItself(answering('Street', 0, written('Street', { cutAfter: 4000 }))))
+      .toBe(false)
+  })
+
+  it('withholds it where a Scene with no run at all names a time', () => {
+    expect(movesItself(written('Street', { cutAfter: 4000 }, story({ Street: [] })))).toBe(false)
+  })
+
+  it('reads ways on that stand for a time', () => {
+    expect(movesItself(written('Street', { exitsAfter: 10_000 }))).toBe(true)
+  })
+
+  it('reads a Scene that flows into the next without asking', () => {
+    expect(movesItself(written('Street', { exitsAfter: 0 }))).toBe(true)
+  })
+
+  it('withholds it where a Scene names a time for ways on it has none of', () => {
+    expect(movesItself(written('Alley', { exitsAfter: 10_000 }))).toBe(false)
+  })
+})
+
+describe('isTime', () => {
+  it('takes a whole number within the cap', () => {
+    expect(isTime(0, CUT_OVER_MAX)).toBe(true)
+    expect(isTime(CUT_OVER_MAX, CUT_OVER_MAX)).toBe(true)
+  })
+
+  it('refuses what is not one', () => {
+    for (const held of [-1, CUT_OVER_MAX + 1, 1.5, '800', null, undefined, NaN]) {
+      expect(isTime(held, CUT_OVER_MAX)).toBe(false)
+    }
   })
 })

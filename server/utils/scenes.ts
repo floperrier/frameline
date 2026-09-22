@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq, isNotNull } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { scenes, stories } from '../db/schema'
 import { useDb } from '../db'
@@ -41,52 +41,19 @@ export async function readSceneName(event: H3Event) {
 }
 
 /**
- * Reads the name a Scene is being renamed to, where the request may not be
- * carrying one: a node dragged sends its placement alone, and a rename sends the
- * two together. A name that is there is held to what a Scene may be called in
- * the first place — a blank one is refused rather than written over the name the
- * Scene already answers to.
+ * Reads the Shot a Scene is split before. Only its shape is read here: whether it
+ * is a Shot of this Scene, and not its first, is what the split's own statement
+ * settles, because both are facts about the Scene as it stands at that moment.
  */
-export async function readSceneRename(event: H3Event) {
-  const body = await readBody<{ name?: unknown }>(event)
+export async function readSplitShot(event: H3Event) {
+  const body = await readBody<{ shotId?: unknown }>(event)
+  const shotId = body?.shotId
 
-  return body?.name === undefined ? undefined : await readSceneName(event)
-}
-
-/**
- * Reads where in the graph a Scene has been put. Both coordinates are bounded, so a
- * Scene cannot be written to a place the graph cannot show; whole pixels, so the
- * integer column takes them as they are.
- */
-export async function readScenePlacement(event: H3Event) {
-  const body = await readBody<{ x?: unknown, y?: unknown }>(event)
-  const [x, y] = [body?.x, body?.y].map(value =>
-    typeof value === 'number' && value >= 0 && value <= GRAPH_REACH ? Math.round(value) : undefined)
-
-  if (x === undefined || y === undefined) {
-    throw createError({
-      statusCode: 400,
-      message: saying(event)('refusals.scenePlacement', { reach: GRAPH_REACH }),
-    })
+  if (typeof shotId !== 'string' || !UUID_PATTERN.test(shotId)) {
+    throw createError({ statusCode: 400, message: saying(event)('refusals.split') })
   }
 
-  return { x, y }
-}
-
-/**
- * Reads where a Scene is being placed, where the request may be carrying no
- * placement at all: a Scene written by dropping an Exit on the bare bench says
- * where it landed, and one written from the form at the top of the page leaves
- * the endpoint to choose a spot itself. A placement that is there is held to the
- * same bound as one on a Scene already written — a Story cannot be seeded with a
- * node beyond the graph's reach any more than it can be dragged to one.
- */
-export async function readScenePlacementOffered(event: H3Event) {
-  const body = await readBody<{ x?: unknown, y?: unknown }>(event)
-
-  return body?.x === undefined && body?.y === undefined
-    ? undefined
-    : await readScenePlacement(event)
+  return shotId
 }
 
 /**
@@ -171,4 +138,166 @@ function drawnFrom(event: H3Event, values: unknown[]) {
  */
 function badFlags(event: H3Event) {
   return createError({ statusCode: 400, message: saying(event)('refusals.badFlag') })
+}
+
+/**
+ * Reads what a Transcript says: what a Sound makes heard, for a Reader who
+ * cannot hear it. The same rule as a Description, for the same reason — empty is
+ * a Sound nobody has transcribed yet, which a Sound is entitled to be, and
+ * missing altogether is a request that would erase it by saying nothing.
+ */
+export async function readTranscript(event: H3Event) {
+  const body = await readBody<{ transcript?: unknown }>(event)
+  const written = body?.transcript
+
+  if (typeof written !== 'string' || written.length > SOUND_TRANSCRIPT_MAX_LENGTH) {
+    throw createError({
+      statusCode: 400,
+      message: saying(event)('refusals.transcript', { max: SOUND_TRANSCRIPT_MAX_LENGTH }),
+    })
+  }
+
+  return written
+}
+
+/** Whether the Scene's Sound is held in a loop until the Scene is left, or played once. */
+export async function readSoundLoops(event: H3Event) {
+  const body = await readBody<{ soundLoops?: unknown }>(event)
+
+  if (typeof body?.soundLoops !== 'boolean') {
+    throw createError({ statusCode: 400, message: saying(event)('refusals.soundLoops') })
+  }
+
+  return body.soundLoops
+}
+
+/**
+ * Reads the Scene this one takes its Sound from: a Scene of the same Story that
+ * carries bytes of its own, or null to take the naming away. A trust boundary
+ * twice over, like the Cover's — the id is checked for shape here and for
+ * belonging below, because a Scene of somebody else's Story would otherwise be
+ * heard through this one.
+ *
+ * Carrying bytes of its own is what makes the naming one hop and no further: a
+ * Scene that is itself naming is refused here, so a chain cannot be written and
+ * the reading never has to walk one. The other half of the same rule is a Scene
+ * already named by another: letting it take on a naming of its own would leave
+ * whoever names it two hops from the bytes, so that is refused too, before the
+ * target is even looked at.
+ */
+export async function readNamedSound(event: H3Event, sceneId: string) {
+  const body = await readBody<{ soundOfSceneId?: unknown }>(event)
+  const named = body?.soundOfSceneId
+  if (named === null) return null
+
+  const refused = () =>
+    createError({ statusCode: 400, message: saying(event)('refusals.namedSound') })
+  if (typeof named !== 'string' || !UUID_PATTERN.test(named)) throw refused()
+
+  // Lowercased before they are compared: an id is a uuid, which Postgres reads
+  // the same in either case, so two spellings of one id would pass a comparison
+  // of strings and then be the same Scene naming itself where it counts.
+  const lowered = named.toLowerCase()
+  if (lowered === sceneId.toLowerCase()) throw refused()
+
+  // Three statements rather than joins to the same table twice over: this is a
+  // gesture an Author makes once a Scene, and the query nobody could read at a
+  // glance would cost more than it saved.
+  const [naming] = await useDb()
+    .select({ storyId: scenes.storyId })
+    .from(scenes)
+    .where(eq(scenes.id, sceneId))
+  if (!naming) throw refused()
+
+  const [namedByAnother] = await useDb()
+    .select({ id: scenes.id })
+    .from(scenes)
+    .where(eq(scenes.soundOfSceneId, sceneId))
+  if (namedByAnother) throw refused()
+
+  const [carrier] = await useDb()
+    .select({ id: scenes.id })
+    .from(scenes)
+    .where(and(
+      eq(scenes.id, named),
+      eq(scenes.storyId, naming.storyId),
+      isNotNull(scenes.sound),
+    ))
+  if (!carrier) throw refused()
+
+  return carrier.id
+}
+
+/**
+ * What a PATCH may change about a Scene: its name, the three things that are
+ * said about the Sound it is heard under, and its Cut — how its run is cut and
+ * how long its ways on stand. Each is read only where the body names it, so the
+ * bench can write the one field the Author touched without carrying the others
+ * along — the shape `readStoryChanges` already has.
+ *
+ * A body naming none is refused as a name being asked for: the name is the one
+ * thing a Scene cannot be without, so that is what an empty change is missing.
+ */
+export async function readSceneChanges(event: H3Event, sceneId: string) {
+  const body = await readBody<{
+    name?: unknown
+    transcript?: unknown
+    soundLoops?: unknown
+    soundOfSceneId?: unknown
+    cutAfter?: unknown
+    cutOver?: unknown
+    cutThrough?: unknown
+    exitsAfter?: unknown
+  }>(event)
+  const changes: {
+    name?: string
+    transcript?: string
+    soundLoops?: boolean
+    soundOfSceneId?: string | null
+    sound?: null
+    cutAfter?: number | null
+    cutOver?: number
+    cutThrough?: CutThrough
+    exitsAfter?: number | null
+  } = {}
+
+  if (body?.name !== undefined) changes.name = await readSceneName(event)
+  if (body?.transcript !== undefined) changes.transcript = await readTranscript(event)
+  if (body?.soundLoops !== undefined) changes.soundLoops = await readSoundLoops(event)
+  if (body?.soundOfSceneId !== undefined) {
+    changes.soundOfSceneId = await readNamedSound(event, sceneId)
+    // A Scene carries its own Sound or names one, never both: naming lets go of
+    // whatever was deposited here, so nothing can disagree about what is heard.
+    if (changes.soundOfSceneId) changes.sound = null
+  }
+  // A Scene's run waits for the press in null and in nothing else. Nought is a
+  // Shot's word for the same thing — a beat that stands for no time is a beat
+  // nobody sees, so it is free to mean *held until the press* — and a Scene's
+  // column holding both would be one fact in two shapes, which is what
+  // `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md` and
+  // `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md` refuse. So the
+  // Scene is refused the nought a Shot keeps.
+  if (body?.cutAfter !== undefined) {
+    changes.cutAfter = await readCutAfter(event)
+    if (changes.cutAfter === 0) {
+      throw createError({
+        statusCode: 400,
+        message: saying(event)('refusals.cutAfterNought'),
+      })
+    }
+  }
+  // A Scene's own cut takes no null: only a Shot answering *as its Scene says*
+  // may leave one, so a Scene naming null here is refused the way an out-of-
+  // bounds value is.
+  if (body?.cutOver !== undefined) {
+    changes.cutOver = await readCutOver(event, { nullable: false })
+  }
+  if (body?.cutThrough !== undefined) {
+    changes.cutThrough = await readCutThrough(event, { nullable: false })
+  }
+  if (body?.exitsAfter !== undefined) changes.exitsAfter = await readExitsAfter(event)
+  // Which is a name asked for, by the reader that phrases the refusal.
+  if (!Object.keys(changes).length) await readSceneName(event)
+
+  return changes
 }

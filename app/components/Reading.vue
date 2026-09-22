@@ -5,9 +5,14 @@
  * meets can go untested by a Preview, and nothing an Author previews can behave
  * differently once it is published.
  *
- * The Path lives here and nowhere else. It never leaves the browser, so
- * every Reading starts with empty State and two Readers of one Story cannot
- * share what they have accumulated — there is no place for them to share it.
+ * The Path is the whole of what one Reading is, and this holds it for whoever is
+ * not holding it already. A Reader's page hands it none, so the Path lives here
+ * for as long as the page does. The bench hands it one, held above the document
+ * so that the middle of the bench can be turned from the writing to the reading
+ * and back without the Reading ending — see #247 and
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`. Either way it never
+ * leaves the browser, so every Reading starts with empty State and two Readers of
+ * one Story cannot share what they have accumulated.
  *
  * `keptFor` is the Story whose Reading this browser keeps between visits: named,
  * the Path is written to local storage on every move and read back when the
@@ -23,79 +28,110 @@ const { story, keptFor } = defineProps<{
 const { t } = useI18n()
 
 /**
- * Where the Reading has got to, said out loud on every move. The whole of what
- * this component offers whoever draws it, and the reason a Preview can put the
- * State on a bench beside it without this knowing who is watching: the Path
- * is all a Preview needs, because everything else is a pure function of it.
- * A Reader's Reading is the same component with nobody listening.
+ * Where the Reading has got to, and the whole of what this component offers
+ * whoever draws it: a Preview can put the State on a bench under it without this
+ * knowing who is watching, because everything else is a pure function of the
+ * Path. Two-way, so that a bench holding the Path above the document reads every
+ * move back and hands the same Reading down again the next time it is looked at.
+ * Left unbound — which is what a Reader's page does — it is a Path of this
+ * component's own, and the default is where every Reading starts before a seed
+ * has been drawn for it.
  */
-const emit = defineEmits<{ at: [Path] }>()
+const at = defineModel<Path>('at', { default: () => UNDRAWN })
 
-const at = ref<Path>(UNDRAWN)
 const shown = computed(() => reading(story, at.value))
 
 /**
- * Every move is said out loud, and kept where the browser will find it again:
- * the whole Path, so what is read back is exactly what replays. Written here
- * rather than in `moveTo` so the opening is kept too — a Reader who has just
- * started over is back at the start next time as well.
+ * Every move is kept where the browser will find it again: the whole Path, so
+ * what is read back is exactly what replays. Watched rather than written at each
+ * move, so the opening is kept too — a Reader who has just started over is back
+ * at the start next time as well — and so is a move made from outside.
  */
-const key = keptFor && `reading-${keptFor}`
+const key = keptFor && readingKey(keptFor)
 
-function shownAt() {
-  emit('at', at.value)
+watch(at, (now) => {
   if (!key) return
   // A browser that refuses storage, or has none left, refuses quietly: the
   // Reading goes on, it is just not kept.
   try {
-    localStorage.setItem(key, JSON.stringify(at.value))
+    localStorage.setItem(key, JSON.stringify(now))
   }
   catch {}
-}
+})
 
 /**
- * The Path this browser kept from an earlier visit, if it is one to go back to:
- * `resumes` says whether it has moved, has not ended, and still fits the Story as
- * published. Anything else in the slot — nothing, an ending, a Path the Author
- * has since edited from under, bytes that are not a Path — is a fresh start.
+ * The Path this browser kept from an earlier visit, if it is one to go back to.
+ * `keptFor` is the Story to read it for; left out — a Preview — there is nothing
+ * to read back. See `app/utils/kept.ts`.
  */
 function kept(): Path | undefined {
-  if (!key) return
-  let at: unknown
-  try {
-    at = JSON.parse(localStorage.getItem(key) ?? 'null')
-  }
-  catch {
-    return
-  }
-  return isPath(at) && resumes(story, at) ? at : undefined
-}
-
-/** Whether what the browser handed back has the shape of a Path, whatever wrote it. */
-function isPath(at: unknown): at is Path {
-  return typeof at === 'object' && at !== null
-    && Number.isInteger((at as Path).seed)
-    && Number.isInteger((at as Path).shot) && (at as Path).shot >= 0
-    && Array.isArray((at as Path).taken)
+  return keptFor ? keptReading(keptFor, story) : undefined
 }
 
 /** Whether what is on screen is where the Reader left off, said until they move. */
 const resumed = ref(false)
 
 /**
+ * Whether sound is on, and whether the Transcript is shown. Sound is on by
+ * default, because the press that opened the Reading is the consent, and both
+ * answers are kept for the person rather than for this Story: muting is not a
+ * property of a reading.
+ *
+ * Restored in a mount of its own, registered above the Path's — Vue runs the
+ * hooks in the order they were registered, and the opening strike and the
+ * opening bed both play out of that one. Registered after it, this would leave
+ * both plays reading the default rather than the Reader's own answer, and what
+ * would escape is sound reaching somebody who asked for none. That the watch
+ * below catches up a microtask later is not the guarantee: the guarantee is that
+ * neither element is ever played before this has run.
+ */
+const sounding = ref(true)
+const transcribed = ref(false)
+
+onMounted(() => {
+  sounding.value = !keptFlag(SOUND_OFF)
+  transcribed.value = keptFlag(TRANSCRIPT_SHOWN)
+})
+
+/**
  * The seed every draw a Scene makes comes out of, drawn once the Reading is in
- * the browser and said out loud like every other move. Here rather than in the
- * Path this starts at, because the server renders this page too and a seed
- * drawn there and drawn again here would be two Stories either side of
- * hydration. It is the one impure moment in a Reading — see
- * `docs/adr/0024-the-seed-belongs-to-the-position.md`. A Path kept from before
- * carries its seed with it, so a Reading picked up draws what it drew.
+ * the browser it will stay in. Here rather than in the Path this starts at,
+ * because the server renders this page too and a seed drawn there and drawn
+ * again here would be two Stories either side of hydration. It is the one impure
+ * moment in a Reading — see `docs/adr/0024-the-seed-belongs-to-the-position.md`.
+ * A Path kept from before carries its seed with it, so a Reading picked up draws
+ * what it drew.
+ *
+ * Drawn by whoever finds the Path still `UNDRAWN`, which is the one Path both
+ * holders start at: a bench that holds the Path above the document has drawn it
+ * as the bench arrived, and a Reading that drew a second seed on every turn back
+ * to it would be the defect #247 reports.
+ *
+ * Held against the value rather than against the constant itself. A Path handed
+ * down through the model arrives as a reactive proxy of whatever the holder above
+ * keeps, never as the object, so an identity test would read false on every bench
+ * and true on a Reader's page only because `defineModel` hands out that very
+ * object when nobody binds it — which is a rule holding by an accident it does not
+ * name. An undrawn Path has taken nothing, is on the Shot it opened on, and
+ * carries the seed of none, and those are the three things `UNDRAWN` is.
  */
 onMounted(() => {
   const before = kept()
   resumed.value = before !== undefined
-  at.value = before ?? opening()
-  shownAt()
+  if (before) at.value = before
+  else if (!moved(at.value) && at.value.seed === UNDRAWN.seed) at.value = opening()
+  // The strike below is watched on the Path's position, and the position this
+  // Reading lands on here — freshly drawn, or resumed onto a kept Path nothing
+  // ever moved from — is the same `0-0` the Path started this component at, so
+  // that watch will not see it as a change and will not fire for it. Struck
+  // here instead: the opening beat is a beat that plays like any other.
+  if (!moved(at.value)) strikeShot()
+  // The bed has no such exception and needs the call for the opposite reason:
+  // a Preview is mounted afresh over a Path the bench held, so `heard` arrives
+  // already standing at its value and the watch below never fires for it. The
+  // guard in `holdBed` makes the next crossing into the same carrier a no-op,
+  // so nothing started here is restarted.
+  holdBed(heard.value)
 })
 
 /**
@@ -110,44 +146,144 @@ onMounted(() => {
  * what has just arrived. At the end of the Story there is neither a Shot nor a
  * way on, and the press that got there took its own button away, so the one
  * control left — reading again from the start — takes the focus it held.
+ *
+ * Starting over is the one move that can land on nothing: it puts the Reading
+ * back where reading again is not offered, so a Story whose Opening Scene plays
+ * no Shot and offers no way on has no control to hand the keyboard to and none
+ * is invented. Focus goes to the document because on that screen there is
+ * nothing to put it on.
+ *
+ * All of which is what the press is owed, and the clock is owed less. A move the
+ * Reader asked for always lands them on what arrived; a move the clock made
+ * lands them there only where what they are holding is going with the beat — the
+ * frame leaving, or the way on the clock is taking, or nothing at all. A Reader
+ * who has tabbed to a control of their own is left standing on it, because
+ * *Pause the Reading* is two tabs from the frame and a clock that took the focus
+ * back at every beat put the one control WCAG 2.2.2 asks for out of the reach of
+ * the people it is there for — on a Scene held half a second, out of reach
+ * altogether. What it costs is the beat arriving unannounced to somebody who is
+ * standing on a control rather than on the work, which is the smaller of the two
+ * silences: they are working the Reading at that moment rather than reading it,
+ * and a live region reading every beat at them while they decide would be the
+ * Story talking over itself. See issue #329 and
+ * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
  */
 const frame = useTemplateRef<HTMLElement>('frame')
 const exits = useTemplateRef<HTMLElement>('exits')
 const again = useTemplateRef<HTMLElement>('again')
 
-async function moveTo(to: Path) {
+/** Where a press puts the Reader, which is the whole of what the paragraph above says. */
+function land() {
+  (shown.value.shot ? frame.value : (exits.value?.querySelector('button') ?? again.value))?.focus()
+}
+
+async function moveTo(to: Path, byClock = false) {
+  // Read before the Path moves: the beat on screen is the one about to leave, and
+  // `leaving` blurs it a tick from now. Nothing at all — a page just opened, a
+  // press that took its own button away — is the focus falling back to the
+  // document, which is nobody's and ours to take.
+  const was = document.activeElement
+  const theirs = byClock && !!was && was !== document.body && !frame.value?.contains(was)
+
   at.value = to
   resumed.value = false
-  shownAt()
   await nextTick()
-  ;(shown.value.shot ? frame.value : (exits.value?.querySelector('button') ?? again.value))?.focus()
+  // And theirs only for as long as what holds it is in the document. Every
+  // control here is drawn under a condition of its own — a Shot left to ask for,
+  // a beat behind, a Transcript to show, a way on still offered — so any of them
+  // can go out with the move, and one that has gone has taken the focus with it.
+  // Whatever the clock takes away, the beat arriving is where the focus lands.
+  if (theirs && was.isConnected) return
+  land()
 }
 
 /**
- * The same Path under another draw, which is the one thing about a Reading
- * something outside it may change: the Preview's reroll. Nothing moves, so
- * nothing takes focus — the Author presses the button again and again, and what
- * changes is the Story around it. Exposed rather than taken as a prop, because
- * the Path lives here and a second place to hold it is a second Reading.
+ * What the passage on screen is made over: the Cut of the Shot leaving, or of the
+ * Exit taken. Read at the move rather than off what arrives, because what a
+ * passage looks like is the leaving's to say — and an Exit carries one of its own
+ * precisely so that a Scene can end on a fade the next Scene knows nothing about.
+ *
+ * Nought and through the image is a hard cut, which is what every move the Story
+ * says nothing about makes: a step back and a Reading started again are the Reader
+ * correcting themselves rather than a raccord, and nothing about either is written
+ * on the Story. It is also what the end of a run makes, where the Story says
+ * plenty and there is nothing on screen for it to be said over — `passOn` below.
  */
-function reroll() {
-  at.value = rerolled(at.value)
-  shownAt()
+const passing = ref<{ over: number, through: CutThrough }>({ over: 0, through: 'image' })
+
+function passBy(over: number, through: CutThrough, to: Path, byClock = false) {
+  passing.value = { over, through }
+
+  return moveTo(to, byClock)
 }
 
 /**
- * The Reading put at a Path worked out somewhere else: the pane an Author writes
- * beside routes the reading to the Scene they are on, and a Path held in two
- * places would be two Readings. Nothing takes focus, because nobody pressed
- * anything in here — the Author pressed a card in the rail, and the keyboard
- * belongs where they left it.
+ * The cut the press makes, which is the cut the clock makes where the press does
+ * not come: the hold below presses this rather than reading the Cut a second time,
+ * so the two are one passage made two ways and one place says what it is.
+ *
+ * **The last Shot of a run is cut hard, whatever the Author wrote on it.** A Cut
+ * is what takes one Shot off the screen and puts the next one there, and at the
+ * end of a run it does neither: the Path walks past the last Shot and the frame
+ * goes on holding it, pushed back behind the ways on. Spending the Scene's Cut
+ * there is a dissolve from an image into itself, and a Scene written *fade to
+ * black* goes to black and comes back to the frame it started on — a passage
+ * between two beats, made where there is only one, and made again by the Exit a
+ * moment later. A Scene flowing into the next shows it plainest: two passages
+ * back to back over one move the Reader never made.
+ *
+ * So the passage out of a Scene is the Exit's and only the Exit's, which is what
+ * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md` already settled
+ * when it refused the Scene's `cut_over` any reach over the way out — an Author
+ * lengthening a dissolve between two Shots is not to be lengthening the way out
+ * of the Scene without being told. The end of the run is the frame standing
+ * still, and the Author's passage is spent once, on the Exit taken. See issue
+ * #332.
+ *
+ * Asked of the Shot on screen and the Scene it belongs to without either being
+ * checked, because the one control that calls this is drawn only while a Shot is
+ * on screen — and a Shot on screen is a Shot of the run the Reading stands in.
  */
-function goTo(to: Path) {
-  at.value = to
-  shownAt()
+function passOn(byClock = false) {
+  const made = shown.value.shot === shown.value.run.at(-1)
+    ? { over: 0, through: 'image' as const }
+    : cut(scene.value!, shown.value.shot!)
+
+  return passBy(made.over, made.through, advance(at.value), byClock)
 }
 
-defineExpose({ reroll, goTo })
+/**
+ * A beat still fading out is no longer a beat: it is on screen for whoever is
+ * watching and nothing at all for whoever is reading by ear or by keyboard, who
+ * would otherwise meet the same Story twice over for the length of a passage.
+ * `inert` is the one word for all of it — out of the accessibility tree, out of
+ * the tab order and out of reach of a press — and it goes when the element does.
+ *
+ * Focus is on the frame leaving where the clock made the cut, and taking it out
+ * blurs it: `moveTo` is already on its way to the beat arriving, one tick later
+ * and in the same task, which is where the focus was always going.
+ */
+function leaving(frame: Element) {
+  if (frame instanceof HTMLElement) frame.inert = true
+}
+
+/**
+ * The beat behind, or nothing where there is none: the opening beat of the
+ * Story, or an Exit the Author closed behind the Reader. The engine is asked
+ * rather than the Path read here — an Exit says whether it is crossed backwards
+ * and answers as its Story says where it has not — so the control on screen and
+ * the move it would make cannot come apart. See
+ * `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
+ */
+const behind = computed(() => back(story, at.value))
+
+function stepBack() {
+  // Somebody who goes back has asked to stop: a Reader carried forward again a
+  // few seconds after stepping back has a control that undoes nothing, and the
+  // clock they were ahead of would be reading the Story for them.
+  paused.value = true
+  if (behind.value) passBy(0, 'image', behind.value)
+}
 
 const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, scene.name])))
 
@@ -183,10 +319,226 @@ const held = computed(() => shown.value.shot ?? run.value.at(-1))
 function offered(exit: Exit) {
   return exitNamed(exit, id => sceneNamed(sceneNames.value, id, t), t)
 }
+
+/**
+ * The two elements the Story is heard on, held outside everything the Path keys:
+ * the frame is thrown afresh on every beat, and a bed inside it would be a bed
+ * that restarts on every press. The bed crosses the cut and the strike does not.
+ */
+const bed = useTemplateRef<HTMLAudioElement>('bed')
+const strike = useTemplateRef<HTMLAudioElement>('strike')
+
+/** Whether this Story is heard at all, which is what decides whether the controls are drawn. */
+const heardAtAll = computed(() => carriesSound(story))
+
+/** What the Scene the Reading stands in is heard under — its own Sound, or the one it names. */
+const heard = computed(() => heardUnder(story.scenes, shown.value.sceneId))
+
+/**
+ * Muting is the person turning down what is already playing, not a reason for
+ * either element to stop or forget where it stood: a bed keeps running under a
+ * Scene whether or not anyone is listening, and a strike already sounding must
+ * fall silent at the press rather than at the next beat. One place sets `muted`
+ * on both, so nothing above this has to know sound is off at all.
+ *
+ * It reaches what is already playing, and nothing else: what is about to play
+ * sets its own `muted` before the `play()`, because a press and a mount are two
+ * different moments and only the press is watched here.
+ */
+watch(sounding, now => {
+  keepFlag(SOUND_OFF, !now)
+  if (bed.value) bed.value.muted = !now
+  if (strike.value) strike.value.muted = !now
+})
+watch(transcribed, now => keepFlag(TRANSCRIPT_SHOWN, now))
+
+/**
+ * The bed, held under the run and across the cut. It is started again exactly when
+ * the carrier changes — B naming A, A naming B and both naming C are one Sound —
+ * and nothing records where it had got to, so a crossing into another carrier
+ * starts that one from the beginning, forwards or backwards alike. Held in a loop
+ * it repeats until the Scene is left; played once it falls silent and the Scene
+ * stays silent, which is the element's own `ended` and nothing this has to do.
+ * Runs whether or not sound is on — muting is `.muted` above, not a reason to
+ * tear the source down and restart it on the next press.
+ *
+ * A function rather than only a watch callback, for the reason `strikeShot` is
+ * one: a Preview is mounted afresh over a Path the bench was already holding, so
+ * the Scene is not crossed into and nothing watched here changes.
+ */
+function holdBed(now: Heard | undefined, before?: Heard) {
+  const element = bed.value
+  if (!element) return
+
+  if (!now) {
+    element.pause()
+    element.removeAttribute('src')
+    return
+  }
+
+  element.loop = now.loops
+  if (heldAcross(before, now) && element.getAttribute('src') === now.sound) return
+
+  element.src = now.sound
+  element.currentTime = 0
+  // Said here rather than left to the watch above, which fires on the press
+  // after a Reader turned the sound off and never on the play that starts a
+  // bed: what would escape otherwise is sound reaching somebody who asked for
+  // none.
+  element.muted = !sounding.value
+  // A browser that refuses to play refuses quietly: the reading goes on in
+  // silence rather than throwing into a page nobody can see it from.
+  element.play().catch(() => {})
+}
+
+watch(heard, holdBed)
+
+/**
+ * The strike, which plays as the beat plays and is gone. Keyed on the Path rather
+ * than on the Shot, so a Shot played again strikes again — it is the same key the
+ * frame is thrown by. Plays whether or not sound is on, for the same reason the
+ * bed does: muting is `.muted`, read by the element itself, and set here before
+ * the play as well as by the watch above — the press that turns sound off can
+ * come after the mount this strikes from and before the watch has set anything.
+ *
+ * A function rather than only a watch callback, because one transition into a
+ * drawn Path — the opening beat, in `onMounted` above — moves nothing this key
+ * can see change and would otherwise never strike at all.
+ */
+function strikeShot() {
+  const element = strike.value
+  const sound = shown.value.shot?.sound
+  if (!element) return
+
+  if (!sound) {
+    element.pause()
+    return
+  }
+
+  element.src = sound
+  element.currentTime = 0
+  element.muted = !sounding.value
+  element.play().catch(() => {})
+}
+
+watch(() => `${at.value.taken.length}-${at.value.shot}`, strikeShot, { flush: 'post' })
+
+/**
+ * The clock this Reading is carried by, and the pause the Reader stops it with.
+ * Every watch below is set on it, which is what keeps them from disagreeing about
+ * the pause or about a tab nobody is looking at: none of them holds an answer of
+ * its own. See `app/composables/clock.ts`, issue #334 and
+ * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
+ */
+const { paused, stopped, clock } = useClock()
+
+/**
+ * The two things a press of that control means, and they are not symmetrical.
+ * Stopping is the Reader asking to be left where they are, so the focus stays on
+ * the control they stopped the clock with — it is the control they will press
+ * again. Starting again is the Reader asking the Story to carry on, which is a
+ * press like any other and hands the focus back to the beat the way every other
+ * press does. Without that, a Reader who stopped the clock and started it again
+ * would be stationed on this button for the rest of the Reading, and every beat
+ * after it would arrive unannounced — which is the likeliest way to be stationed
+ * at all, and the one silence `moveTo`'s rule would otherwise have left standing.
+ */
+function pauseOrResume() {
+  paused.value = !paused.value
+  if (!paused.value) land()
+}
+
+/**
+ * The hold: where the Cut of the Shot on screen names a time, the clock presses
+ * what the hand presses and nothing else — so a Path arrived at by waiting is the
+ * Path a hand would have arrived at, over the passage a hand would have made it
+ * over, and neither can be changed without the other. Where the Cut names no time
+ * the beat is held until the press, and there is nothing to time.
+ *
+ * The time is read inside the clock rather than off a computed beside it, because
+ * the Preview is where this feature is written: an Author who turns a Scene from
+ * *at the press* to *after a time* has changed the hold on the beat in front of
+ * them, and what the clock reads is what restarts it. How the cut is then made is
+ * `passOn`'s alone, read at the move like every other passage.
+ */
+clock(() => {
+  const beat = shown.value.shot
+  if (!beat || !scene.value) return
+
+  const { after } = cut(scene.value, beat)
+  if (after === null) return
+
+  return { after, press: () => passOn(true) }
+})
+
+/**
+ * The ways on, in the three states a Scene may offer them in. Standing until one
+ * is taken is null and is every Story written before this existed. A number is
+ * the time they stand, after which the first one still offered is taken — the
+ * one the Place puts first, which is the one Enter presses from inside the list,
+ * so the order the Author wrote them in is the whole of what says which. Nought
+ * is the Scene flowing into the next without asking, and there they are never
+ * painted at all.
+ */
+const standing = computed(() => (shown.value.exits.length ? scene.value?.exitsAfter ?? null : null))
+const asking = computed(() => shown.value.exits.length > 0 && standing.value !== 0)
+
+/**
+ * What the ways on say for themselves as they arrive, for whoever cannot see
+ * them arrive. A Reader standing on the frame is told by the focus landing in the
+ * list; a Reader standing on a control of their own is told by this and by
+ * nothing else, so it says a choice is there whether or not a clock is running on
+ * it — a Scene whose beats are clocked and whose choice is open is the commonest
+ * shape there is, and it would otherwise stop in silence. Empty where nothing is
+ * being asked: a run still playing, or a Scene flowing into the next.
+ */
+const waysOnSay = computed(() => {
+  if (!asking.value) return ''
+
+  return standing.value === null
+    ? t('reading.waysOnStand')
+    : t('reading.waysOnStandFor', { count: standing.value / 1000 })
+})
+
+/**
+ * The stand: where the ways on are given a time, the clock takes the first one
+ * still offered when it runs out — the one the Place puts first, which is the one
+ * Enter presses from inside the list, so the order the Author wrote them in is the
+ * whole of what says which. Nought is a Scene flowing into the next, and it is
+ * taken through the clock like any other time.
+ */
+clock(() => {
+  const first = shown.value.exits[0]
+  if (!first || standing.value === null) return
+
+  return {
+    after: standing.value,
+    press: () => passBy(first.cutOver, first.cutThrough, take(at.value, first), true),
+  }
+})
+
+/**
+ * Whether anything in this Story moves by itself, which is whether the Reader is
+ * given the control that stops it. WCAG 2.2.2 asks for a pause the moment
+ * something advances on its own and asks for nothing where nothing does, so a
+ * Story read entirely by the hand is given no control over a clock that never
+ * runs — the way a Story carrying no Sound is given no title card to press. The
+ * Story is asked rather than the Reading, so the control is on screen from the
+ * opening beat of a Story whose clock runs three Scenes later: a pause that
+ * arrived with the thing it stops would be a pause nobody could reach in time.
+ */
+const clocked = computed(() => movesItself(story))
 </script>
 
 <template>
   <div class="reading">
+    <!-- The two layers, outside everything the Path keys: the bed is held under
+         the run and crosses the cut, and the strike plays with the beat and is
+         gone. They lie over each other without ducking — there is no mixing and
+         no priority. -->
+    <audio ref="bed" data-sound="scene" preload="auto" aria-hidden="true" />
+    <audio ref="strike" data-sound="shot" preload="auto" aria-hidden="true" />
+
     <!-- Said before the frame, where a Reader landing mid-Story looks first: they
          are where they left off, not at a Story that starts in the middle. A
          status, so a screen reader hears it as the beat arrives, and gone at the
@@ -196,65 +548,120 @@ function offered(exit: Exit) {
     <!-- One Shot at a time, and the Exits only once the Scene has played out —
          behind the frame it played out on, which is held rather than taken away. -->
     <template v-if="held">
-      <!-- Keyed on the Path, so arriving at a Shot draws the frame again:
-           each beat is thrown onto the screen rather than swapped into it, and
-           reading a Scene again throws its first frame again. -->
-      <!-- The frame holds nothing but the Author's own work — the image, what it
-           shows, and the beat — so the whole of it is announced in the Story's
-           Language whatever language the chrome around it is read in. Nothing
-           translates a Story: see
-           `docs/adr/0013-the-interfaces-locale-is-not-the-storys-language.md`. -->
-      <figure
-        ref="frame"
-        :key="`${at.taken.length}-${at.shot}`"
-        class="frame"
-        :class="{ 'pushed-back': !shown.shot }"
-        :lang="story.language"
-        tabindex="-1"
-      >
-        <!-- The image and the text are one beat, so they arrive together and the
-             Reader moves past both at once.
+      <!-- The gate the frame sits in, and the one thing here that outlasts a
+           beat: a passage puts two frames in it at once, so what the Author wrote
+           the passage over is carried by what holds both of them. A dissolve
+           leaves them over each other and a passage through black takes the room
+           down to nothing between them — either way it is the beat leaving that
+           says how, which is why the duration is set at the move and not read off
+           what arrives. -->
+      <div class="gate" :style="{ '--cut-over': `${passing.over}ms` }">
+        <!-- A hard cut is not a passage: `css` false takes the whole transition
+             out of the way, so the beat leaving is gone in the same tick rather
+             than lying over the next one at nothing for as long as the browser
+             takes to agree it has finished. Every Story written before the Cut is
+             one of these, and every one of them cuts exactly as it always did. -->
+        <Transition
+          :name="passing.through === 'black' ? 'through-black' : 'dissolve'"
+          :css="passing.over > 0"
+          @leave="leaving"
+        >
+          <!-- Keyed on the Path, so arriving at a Shot draws the frame again:
+               each beat is thrown onto the screen rather than swapped into it, and
+               reading a Scene again throws its first frame again. -->
+          <!-- The frame holds nothing but the Author's own work — the image, what
+               it shows, and the beat — so the whole of it is announced in the
+               Story's Language whatever language the chrome around it is read in.
+               Nothing translates a Story: see
+               `docs/adr/0013-the-interfaces-locale-is-not-the-storys-language.md`. -->
+          <figure
+            ref="frame"
+            :key="`${at.taken.length}-${at.shot}`"
+            class="frame"
+            :class="{ 'pushed-back': !shown.shot }"
+            :lang="story.language"
+            tabindex="-1"
+          >
+            <!-- The image and the text are one beat, so they arrive together and
+                 the Reader moves past both at once.
 
-             `alt` is the image's Description and nothing else: the Shot's text is
-             never used as one, because the text carries the beat and is read out
-             beside the image anyway. An Image nobody has described falls back to
-             empty, which is what keeps a screen reader from announcing a frame it
-             has nothing to say about. -->
-        <img v-if="held.image" :src="held.image" :alt="held.description">
-        <figcaption>
-          <p class="shot">{{ held.text }}</p>
-        </figcaption>
-      </figure>
+                 `alt` is the image's Description and nothing else: the Shot's text
+                 is never used as one, because the text carries the beat and is read
+                 out beside the image anyway. An Image nobody has described falls
+                 back to empty, which is what keeps a screen reader from announcing
+                 a frame it has nothing to say about. -->
+            <img v-if="held.image" :src="held.image" :alt="held.description">
+            <figcaption>
+              <p class="shot">{{ held.text }}</p>
+            </figcaption>
+          </figure>
+        </Transition>
+      </div>
 
       <!-- Where the beat sits in the run: the Scene's name, and one tick a Shot
            with the Shot on screen lit. The edge of the film, read the way an
            editor reads it — and the only thing on the page that says how much of
            the Scene is left, every tick lit once the run is behind the Reader. -->
       <div class="edge">
-        <p class="eyebrow">
-          <span :lang="story.language">{{ scene?.name }}</span>
-          <span aria-hidden="true">·</span>
-          {{ $t('reading.shotOf', { place, of: run.length }) }}
-        </p>
+        <p class="eyebrow" :lang="story.language">{{ scene?.name }}</p>
+        <p class="counting">{{ $t('reading.shotOf', { place, of: run.length }) }}</p>
         <ol aria-hidden="true" class="ticks">
           <li v-for="(_, tick) in run.length" :key="tick" :class="{ lit: tick < place }" />
         </ol>
+      </div>
+
+      <!-- What a Reader who cannot hear is owed. Always in the document: hidden it
+           is `visually-hidden` and still read, never taken out of the
+           accessibility tree and never announced in a live region, which would
+           trample the reading. -->
+      <div v-if="heard?.transcript || shown.shot?.transcript" class="heard">
+        <p v-if="heard?.transcript" class="transcript" :class="{ 'visually-hidden': !transcribed }">
+          <span class="eyebrow">{{ $t('reading.sceneTranscript') }}</span>
+          <span :lang="story.language">{{ heard.transcript }}</span>
+        </p>
+        <p
+          v-if="shown.shot?.transcript"
+          class="transcript"
+          :class="{ 'visually-hidden': !transcribed }"
+        >
+          <span class="eyebrow">{{ $t('reading.shotTranscript') }}</span>
+          <span :lang="story.language">{{ shown.shot.transcript }}</span>
+        </p>
       </div>
     </template>
 
     <!-- The one control the frame carries, and only while there is a Shot left to
          ask for: the frame held behind the ways on asks for nothing. -->
-    <button v-if="shown.shot" type="button" class="next" @click="moveTo(advance(at))">
+    <button v-if="shown.shot" type="button" class="next" @click="passOn()">
       {{ $t('reading.next') }}
     </button>
 
+    <!-- What tells a Reader who cannot see the ways on that they are being asked,
+         and what the choice stands under. It comes before the list rather than
+         after it, because the focus lands inside the list and what follows the
+         control a screen reader is announcing is reached only by walking the
+         virtual cursor forward, which is walking it while the clock runs. A
+         status, so it is heard where it is rather than found, and in the document
+         before it has anything to say — the way `ended` below is, and for the
+         same reason. Drawn only where a clock can run at all, as the pause below
+         it is: a Story read entirely by the hand never strands a Reader, because
+         every arrival on it is a press of theirs. Still not a timer: it says how
+         long the ways on stand, true for the whole of the stand, and never counts
+         anything down. -->
+    <p v-if="clocked" class="visually-hidden" role="status">{{ waysOnSay }}</p>
+
     <!-- The ways on go under the frame rather than over it, and carry no eyebrow
          of their own: the edge above has already named the Scene they leave. -->
-    <ul v-if="shown.exits.length" ref="exits" class="exits">
+    <ul v-if="asking" ref="exits" class="exits">
       <li v-for="exit in shown.exits" :key="exit.id">
         <!-- What the Author wrote on the Exit, so it carries the Story's Language
              like the beat above it does. -->
-        <button type="button" class="splice" :lang="story.language" @click="moveTo(take(at, exit))">
+        <button
+          type="button"
+          class="splice"
+          :lang="story.language"
+          @click="passBy(exit.cutOver, exit.cutThrough, take(at, exit))"
+        >
           {{ offered(exit) }}
         </button>
 
@@ -267,13 +674,76 @@ function offered(exit: Exit) {
       </li>
     </ul>
 
+    <!-- The time the ways on stand, drained by a bar keyed on the Path so a fresh
+         arrival restarts it rather than resuming one already spent. Decoration
+         and nothing else, all the way through: what it draws is said in words
+         above the list, where it is heard. -->
+    <div
+      v-if="standing"
+      :key="`${at.taken.length}-${at.shot}`"
+      class="expiring"
+      aria-hidden="true"
+      :style="{ '--standing': `${standing}ms` }"
+    >
+      <span class="drain" :class="{ stopped }" />
+    </div>
+
     <!-- In the document before it has anything to say: a live region announces
          a change to a node it already holds, never a node that arrives with its
          sentence inside it. -->
     <p class="ended trail" role="status">{{ shown.ended ? $t('reading.ended') : '' }}</p>
 
-    <p class="again">
-      <button ref="again" type="button" class="trail" @click="moveTo(opening())">
+    <!-- What the Reader is given over the Reading itself: the clock stopped, the
+         one refusal of the Sound, and the words for whoever cannot hear it. All
+         three are the person's rather than the Reading's, so none of them touches
+         the Path.
+
+         The pause comes first because it is the one control over something
+         already happening, and it is drawn only where something can happen: a
+         Story nobody wrote a time into is read entirely by the hand, and a
+         control over a clock that never runs would do nothing — the way a Story
+         carrying no Sound is given no title card to press. -->
+    <p v-if="clocked || heardAtAll" class="given">
+      <button v-if="clocked" type="button" class="trail" @click="pauseOrResume">
+        {{ paused ? $t('reading.resume') : $t('reading.pause') }}
+      </button>
+      <button v-if="heardAtAll" type="button" class="trail" @click="sounding = !sounding">
+        {{ sounding ? $t('reading.soundOff') : $t('reading.soundOn') }}
+      </button>
+      <button
+        v-if="heardAtAll && (heard?.transcript || shown.shot?.transcript)"
+        type="button"
+        class="trail"
+        @click="transcribed = !transcribed"
+      >
+        {{ transcribed ? $t('reading.hideTranscript') : $t('reading.showTranscript') }}
+      </button>
+    </p>
+
+    <!-- The two ways back, offered once the Reading has moved and not before: on
+         the first beat of the Opening Scene there is nothing to read again, and
+         the press would draw a new seed and throw the same frame the Reader is
+         already looking at. It is a stop the keyboard is spared too, on the one
+         screen whose whole tab order is otherwise the next beat — and the Author
+         who does want that frame drawn again has the reroll on the bench, which
+         is a control of the Preview rather than one of the Reading.
+
+         They stand together under everything they are a way back out of, and
+         never between the frame and the ways on: a Reader choosing an Exit is
+         choosing among the Exits, and a control that undoes the last press has
+         no business in that list. The lighter of the two comes first — one beat
+         before the whole Reading.
+
+         The step back is asked of the engine and not of the Reading having
+         moved: the two agreed until an Exit could refuse to be crossed
+         backwards, and where one does the Reader is left with the Story to read
+         again and no beat behind. Nothing says why. A door that has closed says
+         nothing, and a Story that wants it said says it in a Shot. -->
+    <p v-if="moved(at)" class="back">
+      <button v-if="behind" type="button" class="trail" @click="stepBack">
+        {{ $t('reading.back') }}
+      </button>
+      <button ref="again" type="button" class="trail" @click="passBy(0, 'image', opening())">
         {{ $t('reading.again') }}
       </button>
     </p>
@@ -297,6 +767,71 @@ function offered(exit: Exit) {
 .frame {
   overflow: clip;
   animation: thrown 320ms ease-out;
+}
+
+/* A passage is two frames on screen at once, and the room is the size of the one
+   arriving: the beat leaving is taken out of the flow and fades where it stood,
+   so the page settles the moment the new beat is in — which is what a hard cut
+   has always done here and what every Story written before the Cut still does. */
+.gate {
+  display: grid;
+  position: relative;
+}
+
+/* The beat leaving is `inert` from the moment it starts to go, which is what
+   takes it out of reach of a press as well as out of the reading. The throw is
+   an arrival and nothing else, so it is taken off a frame on its way out — and
+   with it the 320ms a browser would otherwise hold the frame on for, over and
+   above the duration the Author wrote. */
+.dissolve-leave-active,
+.through-black-leave-active {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  animation: none;
+}
+
+/* A dissolve is the two frames over each other for the whole of the duration the
+   Author wrote. Nought — a hard cut, and every Story that says nothing — is a
+   transition of no duration, which is the beat swapped for the next one exactly
+   as before. */
+.dissolve-enter-active,
+.dissolve-leave-active {
+  transition: opacity var(--cut-over, 0ms) ease;
+}
+
+.dissolve-enter-from,
+.dissolve-leave-to,
+.through-black-enter-from,
+.through-black-leave-to {
+  opacity: 0;
+}
+
+/* A passage through black is the same fade twice over a room already painted
+   black: the beat leaving goes first and the beat arriving waits for the room to
+   be empty, so the two halves share the duration rather than doubling it.
+
+   Written as a delay rather than as `<Transition mode="out-in">`, which would
+   take the frame out of the document between the halves — everything under it
+   would jump up and back down, and the focus `moveTo` puts on the beat arriving
+   would have nothing to land on for half the passage. */
+.through-black-enter-active,
+.through-black-leave-active {
+  transition: opacity calc(var(--cut-over, 0ms) / 2) ease;
+}
+
+.through-black-enter-active {
+  transition-delay: calc(var(--cut-over, 0ms) / 2);
+}
+
+/* The hold stays — it is the rhythm of the work and not a decoration — and every
+   passage goes. `frameline.css` already takes each duration to nothing for
+   anyone who has asked for that; the wait between the two halves above is the one
+   thing a duration cut to nothing leaves standing, so it is cut here. */
+@media (prefers-reduced-motion: reduce) {
+  .through-black-enter-active {
+    transition-delay: 0ms;
+  }
 }
 
 /* The Scene has played out and the frame it ended on is held behind the ways on:
@@ -344,11 +879,23 @@ figcaption {
   padding: var(--s5) clamp(var(--s4), 4vw, var(--s5));
 }
 
+/* The edge of the film: the Scene the beat belongs to at the leading end, and at
+   the trailing end how far into its run the Reader is — the count and the ticks
+   reading the same fact twice, once in words and once as the length of film that
+   is left. */
 .edge {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--s4);
+  gap: var(--s3);
+}
+
+.counting {
+  margin-inline-start: auto;
+  color: var(--muted);
+  font-family: var(--data);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* One tick a Shot, filled up to the one on screen. */
@@ -365,6 +912,21 @@ figcaption {
 
 .ticks .lit {
   background: var(--grease);
+}
+
+/* The Transcript sits under the edge rather than over the image, so it never
+   pushes the frame around on arrival: on or off, the beat is where it was. */
+.heard {
+  display: grid;
+  gap: var(--s1);
+}
+
+.transcript {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  color: var(--muted);
+  font-size: 0.875rem;
 }
 
 .next {
@@ -405,6 +967,55 @@ figcaption {
   background: var(--steel-lit);
 }
 
+/* The time the ways on stand: a track the width of the column, and a bar drained
+   out of it at the pace the Author wrote — the same edge-and-grease pair the
+   ticks over the frame are read in, so a Reader who has met one progress already
+   reads the other. */
+.expiring {
+  block-size: 3px;
+  background: var(--edge);
+  overflow: hidden;
+}
+
+.drain {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  background: var(--grease);
+  transform-origin: left;
+  animation: drain var(--standing) linear forwards;
+}
+
+/* Full rather than paused mid-drain: the clock behind this bar is thrown away and
+   restarted at the full duration on resume (see the watch above), not picked back
+   up from where it stood, so a bar resumed from six seconds left would be showing
+   a stand the clock is about to give ten again. Same answer as the reduced-motion
+   rule below, and the same reason — removing `animation: none` later starts a new
+   animation rather than continuing the old one, so this also restarts the bar. */
+.drain.stopped {
+  animation: none;
+}
+
+@keyframes drain {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* The clock is the work and the bar is the decoration on it: the time still runs
+   underneath, but nothing here is asked to watch it counting down. Overrides
+   `frameline.css`'s own answer to the same query, which would otherwise still run
+   the animation — over a duration cut to nothing, landing the bar drained rather
+   than full. */
+@media (prefers-reduced-motion: reduce) {
+  .drain {
+    animation: none;
+  }
+}
+
 .resumed,
 .ended {
   display: flex;
@@ -439,17 +1050,28 @@ figcaption {
   content: none;
 }
 
-.again {
+/* The clock stopped, the one refusal and the Transcript's own switch, and
+   stepping back a beat or reading the Story again from the start: all of them are
+   the same quiet trail, none of them a control the Story is read with, so
+   `.given` shares `.back`'s rules rather than repeating them. */
+.given,
+.back {
   display: flex;
-  justify-content: center;
+  /* Three of them on the one line where a Story is heard and held under a clock,
+     which is wider than a phone: the trail wraps rather than running off the
+     side of the room. */
+  flex-wrap: wrap;
+  gap: var(--s2);
 }
 
-.again button {
+.given button,
+.back button {
   border-color: transparent;
   background: none;
 }
 
-.again button:hover {
+.given button:hover,
+.back button:hover {
   border-color: transparent;
   background: none;
   color: var(--paper);

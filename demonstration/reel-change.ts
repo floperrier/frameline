@@ -9,6 +9,12 @@
  * here. The image is a recipe rather than a photograph — see `work.ts` for what
  * develops it — because the work is shot on what this repository can hold, and a
  * dark room with one lit thing in it is an image either way.
+ *
+ * Almost every cut in it is made by the Reader's hand and made hard, which is
+ * how the whole work read before a Cut could be written. The four that are not
+ * are each written where the film already asked for one, and each says so where
+ * it stands — see
+ * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
  */
 
 import type { Work } from './work.ts'
@@ -39,13 +45,17 @@ export const REEL_CHANGE: Work = {
   scenes: [
     {
       name: 'The booth',
-      at: [60, 460],
       shots: [
         {
           text: 'The last show has run out. Down in the house the seats fold up on their own, '
             + 'one after another, like something being agreed.',
           description: 'The projector’s beam crossing the dark booth and landing on the screen, '
             + 'with the backs of two rows of seats black across the bottom of the frame.',
+          // The house empties while nobody is watching it, and the booth is a
+          // later hour by the time there is a reel on the bench. A dissolve is
+          // how that hour is written, and it is the first cut of the work so
+          // that the hard ones upstairs read as hard.
+          cutOver: 1200,
           image: {
             ground: [ROOM, '#050605'],
             glow: [{ colour: LAMP, draw: 'polygon 1060,90 1600,300 1600,790 1000,900', blur: 40 }],
@@ -84,8 +94,20 @@ export const REEL_CHANGE: Work = {
 
     {
       name: 'The gate',
-      at: [520, 40],
       sets: { reel: 'threaded' },
+      // Threaded film runs whether or not anybody has a hand on it, so this
+      // Scene runs too: its beats are cut by the clock and cut hard, at the even
+      // pace a projector keeps. The last one answers for itself.
+      //
+      // The pace is the longest line of the three read whole and no longer: a
+      // montage is brisk, and a beat nobody finishes is not brisk, it is lost.
+      // `tests/unit/works.spec.ts` holds it to that rather than this comment.
+      cutAfter: 5800,
+      // And the way on out of it was never a choice — it is the only one, and
+      // the Reader has just recognised the house they are standing in. Nought is
+      // the Scene flowing into the next without asking, so the way on is never
+      // painted and the recognition carries them down the stairs.
+      exitsAfter: 0,
       shots: [
         {
           text: 'The film goes into the gate the way a hand goes into a glove.',
@@ -132,6 +154,10 @@ export const REEL_CHANGE: Work = {
           text: 'It is this house. Row nine, and a woman looking straight down the lens.',
           description: 'The same house closer: three rows of seats, and in the middle of them the '
             + 'head and shoulders of a woman facing the lens, cut off by the bottom of the frame.',
+          // Nought is *held until the press*. The run has been going by itself
+          // for two beats and stops dead on this one, and nothing moves again
+          // until the Reader moves it — after which there is nothing to decide.
+          cutAfter: 0,
           image: {
             ground: ['#171b19', '#070908'],
             glow: [{ colour: PAPER, draw: 'ellipse 700,700 620,340 0,360', blur: 90, opacity: 0.38 }],
@@ -155,7 +181,6 @@ export const REEL_CHANGE: Work = {
 
     {
       name: 'Row nine',
-      at: [520, 900],
       shots: [
         {
           text: 'The house is warm still, and smells of the dust the lamp burns.',
@@ -215,7 +240,6 @@ export const REEL_CHANGE: Work = {
 
     {
       name: 'The coat',
-      at: [980, 900],
       shots: [
         {
           text: 'The same coat, over the same arm of the same seat, two hundred feet upstairs.',
@@ -272,7 +296,6 @@ export const REEL_CHANGE: Work = {
 
     {
       name: 'Daybreak',
-      at: [980, 400],
       shots: [
         {
           text: 'The window over the bench gives onto the boulevard, and the boulevard '
@@ -317,42 +340,56 @@ export const REEL_CHANGE: Work = {
   ],
 
   /* The order the Exits are written in is the order the Reader is offered them,
-     so the ways on read down the page as they read down the screen. */
+     so the ways on read down the page as they read down the screen.
+
+     The work is read forwards and each Scene is stood in once — see
+     `docs/adr/0048-a-scene-is-entered-once.md`. What was a night spent climbing
+     between the booth and the house is now one descent: the reel is threaded or
+     it is not, and everything after that follows from the answer. */
   exits: [
-    {
-      from: 'The booth',
-      to: 'The gate',
-      text: 'Thread it',
-      // A Flag that was never set reads as empty, so this is the way on being
-      // offered exactly once: the Scene it leads to sets `reel` on entry.
-      when: [{ flag: 'reel', is: '' }],
-    },
+    { from: 'The booth', to: 'The gate', text: 'Thread it' },
     {
       from: 'The booth',
       to: 'Row nine',
-      text: 'Go down into the house',
-      // Twice and no more, so a Reader who walked the house before threading the
-      // reel can go down again once they have something to recognise.
-      when: [{ scene: 'Row nine', visits: 'fewer than', times: 2 }],
+      text: 'Leave it wound and go down into the house',
     },
-    {
-      from: 'The booth',
-      to: 'Daybreak',
-      text: 'Open the window onto the boulevard',
-      // The third time the Reader stands in the booth, whatever they did with the
-      // first two, the only way on left is out.
-      when: [{ scene: 'The booth', visits: 'at least', times: 3 }],
-    },
-    { from: 'The gate', to: 'The booth', text: 'Kill the lamp and go back up' },
-    { from: 'Row nine', to: 'The booth', text: 'Climb back to the booth' },
+    { from: 'The gate', to: 'Row nine', text: 'Go down into the house' },
     {
       from: 'Row nine',
       to: 'The coat',
-      text: 'Look at the coat again',
       // Only a Reader who has seen the reel has anything to recognise, so for
       // anyone else this way on is not refused — it is not there.
+      text: 'Look at the coat again',
       when: [{ flag: 'reel', is: 'threaded' }],
     },
-    { from: 'The coat', to: 'The booth', text: 'Go up. Do not run.' },
+    {
+      from: 'Row nine',
+      to: 'Daybreak',
+      // A Flag that was never set reads as empty, so this is the way out for the
+      // Reader who left the reel on the bench: nothing downstairs means anything
+      // to them, and the night simply ends.
+      //
+      // It ends rather than stops, so it is a passage and not a cut — but a
+      // short one, and through the image rather than through black. The two ways
+      // up are exclusive, so no Reader ever sees one beside the other: what
+      // separates them has to be legible in the gesture itself, and nine hundred
+      // milliseconds of dissolve is a staircase where two seconds of black is a
+      // night.
+      text: 'Go back up and open the window',
+      when: [{ flag: 'reel', is: '' }],
+      cutOver: 900,
+    },
+    {
+      from: 'The coat',
+      to: 'Daybreak',
+      text: 'Go up. Do not run.',
+      // The one ellipsis the work makes: the night ends on the stairs and the
+      // next thing in the frame is a grey morning. A fade through black is how a
+      // sequence is closed, and this is the only sequence here that closes —
+      // the Reader coming up the other way crosses the same night in a dissolve,
+      // because they have nothing to have left behind.
+      cutOver: 2000,
+      cutThrough: 'black',
+    },
   ],
 }

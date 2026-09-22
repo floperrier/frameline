@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { expect } from '@playwright/test'
 import { drizzle } from 'drizzle-orm/neon-http'
 import { SAMPLES, imagePath } from '../../demonstration/samples'
+import { soundPath } from '../../demonstration/sounds'
 import * as schema from '../../server/db/schema'
 import { plantSample } from '../../server/utils/samples'
 import { test, type Author } from './author'
@@ -9,8 +10,8 @@ import { test, type Author } from './author'
 /**
  * What an Author finds in an account that was just created. Planting is called
  * here exactly as production calls it — the same function, over the same
- * committed images — with the database and the images handed in, because this
- * process is not nitro and has neither auto-import.
+ * committed images and Sounds — with the database, the images and the Sounds
+ * handed in, because this process is not nitro and has none of the auto-imports.
  *
  * What no test here covers is *when* planting fires: that a Sample is planted on
  * account creation and never again lives in `signInAuthor`, and the end-to-end
@@ -22,6 +23,7 @@ async function plant(author: Author, language: string) {
   await plantSample(author.id, language, {
     db: drizzle(process.env.DATABASE_URL!, { schema }),
     image: name => readFile(imagePath(name)),
+    sound: file => readFile(soundPath(file)),
   })
 }
 
@@ -52,8 +54,24 @@ test('a new account arrives with a Sample in it', async ({ page, request, author
   const image = await request.get(story.scenes[0].shots[0].image)
   expect(image.headers()['content-type']).toBe('image/webp')
 
+  // Its opening Scene also carries a Sound, so the library's own file has to
+  // have arrived as one a browser will play, transcribed in English — the
+  // Language the Sample is written in.
+  const sound = await request.get(story.scenes[0].sound)
+  expect(sound.headers()['content-type']).toBe('audio/mp4')
+  expect(story.scenes[0].transcript).toBe(SAMPLES.en.scenes[0]!.transcript)
+
   // And it is published, so it reads at its public link the way it previews.
+  // Its opening Scene carries a Sound, so the title card is pressed first — the
+  // consent a browser will not play into a page without.
   await page.goto(`/read/${story.id}`)
+  await page.getByRole('button', { name: 'Begin' }).click()
+  // The opening Scene is cut by the clock now, so the beat this looks for has a
+  // life measured in seconds. The Reader's own pause stops it, which is the
+  // control WCAG 2.2.2 asks for the moment anything advances by itself and the
+  // one this suite is entitled to use: a beat still on screen because somebody
+  // pressed Pause is the beat that was there when they pressed it.
+  await page.getByRole('button', { name: 'Pause the Reading' }).click()
   await expect(page.getByText(SAMPLES.en.scenes[0]!.shots[0]!.text)).toBeVisible()
 })
 

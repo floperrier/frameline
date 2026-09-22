@@ -10,11 +10,17 @@ import { useDb } from '../../../db'
  * The Exit takes the last Place among the ways on leaving its Scene, read and
  * written in that same statement for the reason a Shot's is — the neon-http
  * driver has no transactions to hold a read and a write together.
+ *
+ * What the statement cannot answer is whether the Exit leads back: a Reading
+ * stands in a Scene at most once, so an Exit arriving at a Scene that already
+ * reaches this one is refused before anything is written — see `refuseAWayBack`
+ * and `docs/adr/0048-a-scene-is-entered-once.md`.
  */
 export default defineEventHandler(async (event) => {
   const author = await requireAuthor(event)
   const id = readId(event, 'Scene')
   const toSceneId = await readTargetSceneId(event)
+  await refuseAWayBack(event, author.id, { scene: id }, toSceneId)
 
   const { rows } = await useDb().execute<Exit>(sql`
     insert into exits (from_scene_id, to_scene_id, position)

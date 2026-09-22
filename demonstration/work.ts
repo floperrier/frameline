@@ -16,7 +16,7 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { SHOT_IMAGE_MAX_BYTES } from '../shared/utils/scenes.ts'
-import type { Condition, Flags } from '../shared/utils/scenes.ts'
+import type { Condition, CutThrough, Flags } from '../shared/utils/scenes.ts'
 import type { StoryLanguage } from '../shared/utils/stories.ts'
 
 const run = promisify(execFile)
@@ -58,13 +58,34 @@ export type Shot = {
   description?: string
   image?: Image | string
   when?: Condition[]
+  /**
+   * The Sound the beat strikes with, named as one of the library's own files —
+   * `shared/utils/library.ts`. A work carries no bytes of its own: the library is
+   * committed once, and `write.ts` deposits the file through the API like any
+   * other upload.
+   */
+  sound?: string
+  /** What that Sound makes heard, in the language the work is written in. */
+  transcript?: string
+  /**
+   * This Shot's own answer about how it leaves the screen, where it answers at
+   * all: saying nothing is *as the Scene says*, a `cutAfter` of nought is *held
+   * until the press*, and a `cutOver` of nought is a hard cut, under which
+   * `cutThrough` says nothing. See
+   * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
+   */
+  cutAfter?: number
+  cutOver?: number
+  cutThrough?: CutThrough
 }
 
 /**
- * A work as a whole. A Scene is placed in the graph by hand, because where a
- * Scene sits is part of reading the Story at a glance; an Exit names the Scenes it
- * joins rather than identifying them, and so does the Condition it is offered
- * under — `write.ts` puts the ids in once the Scenes exist.
+ * A work as a whole. Nothing here says where a Scene is drawn: the Graph is laid
+ * out from the Story and from nothing else — see
+ * `docs/adr/0041-the-graph-is-drawn-from-the-story.md` — so a coordinate written
+ * here would have nowhere to go. An Exit names the Scenes it joins rather than
+ * identifying them, and so does the Condition it is offered under — `write.ts`
+ * puts the ids in once the Scenes exist.
  *
  * `language` is the Language the work is written in, English where it says
  * nothing, and never the Locale of whoever reads it. `opening` names the Scene a
@@ -75,8 +96,43 @@ export type Work = {
   title: string
   language?: StoryLanguage
   opening?: string
-  scenes: { name: string, at: [number, number], sets?: Flags, shots: Shot[] }[]
-  exits: { from: string, to: string, text: string, when?: Condition[] }[]
+  scenes: {
+    name: string
+    sets?: Flags
+    shots: Shot[]
+    /** The Sound the Scene is heard under, named as one of the library's files. */
+    sound?: string
+    transcript?: string
+    /**
+     * How the Shots of this Scene's run are cut, and how long its ways on
+     * stand. Saying nothing is the run every work here was written as before
+     * the Cut existed: each beat held until the press, cut hard, with the ways
+     * on standing until one is taken. `exitsAfter` of nought is the Scene
+     * flowing into the next without asking; a Scene's `cutAfter` is refused it,
+     * because a Scene has no *as the Scene says* to fall back to.
+     *
+     * Three states each, and three spellings: a number, nought, or the field
+     * left out. Null is not a fourth — it is what the column already holds
+     * where the work says nothing, so a work that wrote it would be saying the
+     * same thing twice.
+     */
+    cutAfter?: number
+    cutOver?: number
+    cutThrough?: CutThrough
+    exitsAfter?: number
+  }[]
+  /**
+   * An Exit's own Cut is how the passage it makes is made, never when: an Exit
+   * is taken rather than held, and there is no Scene above it to say otherwise.
+   */
+  exits: {
+    from: string
+    to: string
+    text: string
+    when?: Condition[]
+    cutOver?: number
+    cutThrough?: CutThrough
+  }[]
 }
 
 /**
