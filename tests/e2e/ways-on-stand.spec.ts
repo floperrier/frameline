@@ -54,6 +54,33 @@ test('the first Exit offered is taken when the ways on run out of time, and the 
     await expect(page.getByText('Nobody comes.')).toHaveCount(0)
   })
 
+test('the ways on say how long they stand, ahead of the list rather than behind it',
+  async ({ page, request }) => {
+    await page.clock.install()
+    await opened(page, request, async (story, scenes) => {
+      await addSecondExit(request, story, scenes[0]!.id)
+      await request.patch(`/api/scenes/${scenes[0]!.id}`, { data: { exitsAfter: 10_000 } })
+    })
+
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await expect(page.getByRole('button', { name: 'Follow her out' })).toBeVisible()
+
+    // The bar is decoration and says nothing; the sentence is what says a clock
+    // is running on the choice at all. Read off the accessibility tree, where the
+    // order is the whole of the assertion: the focus lands inside the list, and a
+    // sentence behind the list is a sentence reached by walking the virtual
+    // cursor past every way on while the clock runs.
+    await expect(page.locator('.reading')).toMatchAriaSnapshot(`
+      - status: The Exits stand for 10 seconds.
+      - list:
+        - listitem:
+          - button /Follow her out/
+        - listitem:
+          - button /Wait in the street/
+    `)
+  })
+
 test('the Reader who has stopped the clock is not carried through an Exit either',
   async ({ page, request }) => {
     await page.clock.install()

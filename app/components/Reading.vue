@@ -152,15 +152,40 @@ onMounted(() => {
  * no Shot and offers no way on has no control to hand the keyboard to and none
  * is invented. Focus goes to the document because on that screen there is
  * nothing to put it on.
+ *
+ * All of which is what the press is owed, and the clock is owed less. A move the
+ * Reader asked for always lands them on what arrived; a move the clock made
+ * lands them there only where what they are holding is going with the beat — the
+ * frame leaving, or the way on the clock is taking, or nothing at all. A Reader
+ * who has tabbed to a control of their own is left standing on it, because
+ * *Pause the Reading* is two tabs from the frame and a clock that took the focus
+ * back at every beat put the one control WCAG 2.2.2 asks for out of the reach of
+ * the people it is there for — on a Scene held half a second, out of reach
+ * altogether. What it costs is the beat arriving unannounced to somebody who is
+ * standing on a control rather than on the work, which is the smaller of the two
+ * silences: they are working the Reading at that moment rather than reading it,
+ * and a live region reading every beat at them while they decide would be the
+ * Story talking over itself. See issue #329.
  */
 const frame = useTemplateRef<HTMLElement>('frame')
 const exits = useTemplateRef<HTMLElement>('exits')
 const again = useTemplateRef<HTMLElement>('again')
 
-async function moveTo(to: Path) {
+async function moveTo(to: Path, byClock = false) {
+  // Read before the Path moves: the beat on screen is the one about to leave, and
+  // `leaving` blurs it a tick from now. Nothing at all — a page just opened, a
+  // press that took its own button away — is the focus falling back to the
+  // document, which is nobody's and ours to take.
+  const was = document.activeElement
+  const held = byClock && !!was && was !== document.body && !frame.value?.contains(was)
+
   at.value = to
   resumed.value = false
   await nextTick()
+  // And held only while there is something left holding it: the move that takes
+  // the last Shot away takes *Next Shot* with it, and the move the ways on run
+  // out into takes the very Exit the Reader was standing on.
+  if (held && was.isConnected) return
   ;(shown.value.shot ? frame.value : (exits.value?.querySelector('button') ?? again.value))?.focus()
 }
 
@@ -177,10 +202,10 @@ async function moveTo(to: Path) {
  */
 const passing = ref<{ over: number, through: CutThrough }>({ over: 0, through: 'image' })
 
-function passBy(over: number, through: CutThrough, to: Path) {
+function passBy(over: number, through: CutThrough, to: Path, byClock = false) {
   passing.value = { over, through }
 
-  return moveTo(to)
+  return moveTo(to, byClock)
 }
 
 /**
@@ -435,7 +460,7 @@ watch([at, paused, hidden, heldFor], () => {
   const { after, over, through } = cut(scene.value, beat)
   if (after === null) return
 
-  holding.value = setTimeout(() => passBy(over, through, advance(at.value)), after)
+  holding.value = setTimeout(() => passBy(over, through, advance(at.value), true), after)
 }, { immediate: true })
 
 onBeforeUnmount(() => clearTimeout(holding.value))
@@ -467,7 +492,7 @@ watch([at, paused, hidden, standing], () => {
   // Always through the clock, nought included: a `setTimeout` of nought is still a
   // macrotask, landing after the `onMounted` above by construction, so the opening
   // beat of a flowing Scene draws its seed before anything moves the Path off it.
-  const takeIt = () => passBy(first.cutOver, first.cutThrough, take(at.value, first))
+  const takeIt = () => passBy(first.cutOver, first.cutThrough, take(at.value, first), true)
   expiring.value = setTimeout(takeIt, standing.value)
 }, { immediate: true })
 
@@ -592,6 +617,21 @@ const clocked = computed(() => story.scenes.some(scene =>
       {{ $t('reading.next') }}
     </button>
 
+    <!-- What tells a Reader who cannot see the bar that a clock is running on the
+         choice. It stands before the ways on rather than after them, because the
+         focus lands inside the list and what follows the control a screen reader
+         is announcing is reached only by walking the virtual cursor forward,
+         which is walking it while the clock runs. A status, so it is heard where
+         it is rather than found, and in the document before it has anything to
+         say — the way `ended` below is, and for the same reason. Drawn only
+         where a clock can run at all, as the pause below it is: a Story read
+         entirely by the hand is given no region about a clock that never runs.
+         Still not a timer: it says how long the ways on stand, true for the
+         whole of the stand, and never counts anything down. -->
+    <p v-if="clocked" class="visually-hidden" role="status">
+      {{ standing ? $t('reading.waysOnStandFor', { count: standing / 1000 }) : '' }}
+    </p>
+
     <!-- The ways on go under the frame rather than over it, and carry no eyebrow
          of their own: the edge above has already named the Scene they leave. -->
     <ul v-if="asking" ref="exits" class="exits">
@@ -617,20 +657,17 @@ const clocked = computed(() => story.scenes.some(scene =>
     </ul>
 
     <!-- The time the ways on stand, drained by a bar keyed on the Path so a fresh
-         arrival restarts it rather than resuming one already spent. The sentence
-         beside it says how long they stand — true for the whole of the stand, not
-         a reading of what is left — so it carries no `role="timer"`, which would
-         claim a countdown this paragraph never is. -->
+         arrival restarts it rather than resuming one already spent. Decoration
+         and nothing else, all the way through: what it draws is said in words
+         above the list, where it is heard. -->
     <div
       v-if="standing"
       :key="`${at.taken.length}-${at.shot}`"
       class="expiring"
+      aria-hidden="true"
       :style="{ '--standing': `${standing}ms` }"
     >
-      <span class="drain" :class="{ stopped: paused || hidden }" aria-hidden="true" />
-      <p class="visually-hidden">
-        {{ $t('reading.waysOnStandFor', { count: standing / 1000 }) }}
-      </p>
+      <span class="drain" :class="{ stopped: paused || hidden }" />
     </div>
 
     <!-- In the document before it has anything to say: a live region announces
