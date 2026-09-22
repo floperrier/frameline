@@ -140,11 +140,20 @@ test('the keyboard walks out of a Scene that plays itself, and reaches the pause
     await page.keyboard.press('Enter')
 
     // Pressed, and the clock is stopped: the control WCAG 2.2.2 asks for has been
-    // reached by the people it is there for, without racing anything.
+    // reached by the people it is there for, without racing anything. Stopping
+    // leaves them on the control they stopped it with, which is the one they are
+    // about to press again.
     await expect(page.getByRole('button', { name: 'Resume the Reading' })).toBeFocused()
     await page.clock.fastForward(60_000)
     await expect(page.getByText('The street is empty.')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Follow her out' })).toHaveCount(0)
+
+    // And started again by that same press, which is the hand asking the Story to
+    // carry on: the focus goes back to the beat rather than stationing the Reader
+    // on the button for the rest of the Reading, with every beat after it
+    // arriving unannounced.
+    await page.keyboard.press('Enter')
+    await expect(page.locator(':focus')).toContainText('The street is empty.')
   })
 
 test('a Story opened into a tab nobody is looking at holds its beat',

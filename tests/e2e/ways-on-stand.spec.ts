@@ -81,6 +81,35 @@ test('the ways on say how long they stand, ahead of the list rather than behind 
     `)
   })
 
+test('the ways on say they are being asked, where no clock is running on them',
+  async ({ page, request }) => {
+    await page.clock.install()
+    await opened(page, request, async (_, scenes) => {
+      // The commonest shape there is: a Scene that plays its run by itself, and a
+      // choice at the end of it that stands until the Reader takes one.
+      await request.patch(`/api/scenes/${scenes[0]!.id}`, { data: { cutAfter: 500 } })
+    })
+
+    // The Reader steps off the frame onto a control of their own, where the clock
+    // no longer takes the focus back — so from here nothing about the run reaches
+    // them by the focus moving, the ways on arriving included.
+    await page.clock.fastForward(500)
+    const pause = page.getByRole('button', { name: 'Pause the Reading' })
+    await page.keyboard.press('Tab')
+    await page.keyboard.press('Tab')
+    await expect(pause).toBeFocused()
+
+    // The run ends under them and the choice arrives with the focus where they
+    // left it. What says a choice is there at all is the sentence over the list,
+    // and it is owed whether or not a clock is running on the ways on: this Scene
+    // puts none on them.
+    await page.clock.fastForward(500)
+    await expect(page.getByRole('button', { name: 'Follow her out' })).toBeVisible()
+    await expect(pause).toBeFocused()
+    await expect(page.getByRole('status')
+      .filter({ hasText: 'The Exits stand until you take one.' })).toHaveCount(1)
+  })
+
 test('the Reader who has stopped the clock is not carried through an Exit either',
   async ({ page, request }) => {
     await page.clock.install()

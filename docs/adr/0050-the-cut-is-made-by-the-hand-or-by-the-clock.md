@@ -43,11 +43,11 @@ is one way or the other about raccords.
 **The clock presses what the hand would press.** `advance()` and `take()` do not
 change, and `Path` gains nothing. A run that reaches the end of a hold is a run
 that advances; a choice whose time runs out is the first Exit still offered
-being taken, which is the one already holding focus and the one Enter would
-press. So the order the ways on are written in is the whole of what names it,
-and no column says which. A Path arrived at by waiting is indistinguishable from
-one arrived at by pressing, and a forged one is refused by `offered()` exactly
-as it is today.
+being taken, which is the one the Place puts first and the one Enter presses
+from inside the list. So the order the ways on are written in is the whole of
+what names it, and no column says which. A Path arrived at by waiting is
+indistinguishable from one arrived at by pressing, and a forged one is refused
+by `offered()` exactly as it is today.
 
 **A Cut is not a position.** It is the rule
 `docs/adr/0049-a-sound-is-carried-by-what-plays-it.md` settled about a Sound,
@@ -66,6 +66,24 @@ hold is the rhythm of the work. The pause is held beside the Path and never
 inside it, as the mute is — a Path is a reading of the Story — and unlike the
 mute it is not kept between visits, because a mute is a preference and a pause
 is a moment.
+
+**The clock is owed less than the hand.** A press is asked for and a beat that
+arrives by itself is not, and where the focus goes is the difference between
+them. A Reader who presses is put on what arrived, because arriving is what they
+pressed for. A beat the clock brought puts them there only where what they are
+holding is going with it — the frame leaving, or a control the move takes out of
+the document — and otherwise leaves them standing where they put themselves. The
+pause above is why it has to be that way round: a control over something already
+happening is worth nothing if reaching it is a race against the thing it stops,
+and *Pause the Reading* is two tabs from the frame, which a clock taking the
+focus back at every beat turns into two tabs inside half a second. What the rule
+costs is a beat arriving unannounced to somebody standing on a control rather
+than on the work, and that is the smaller silence: at that moment they are
+working the Reading rather than reading it. What it does not cost is the arrival
+itself. The ways on say for themselves, as they arrive, that a choice is there
+and what it stands under; and starting the clock again is a press like any
+other, so it hands the focus back to the beat rather than stationing a Reader on
+the button for the rest of the Story. See issue #329.
 
 **The word has been used here once before.** It named what is now the Exit, in
 `docs/adr/0007-the-order-of-the-ways-on-is-written-not-drawn.md` and in the
@@ -86,8 +104,8 @@ gains a sentence instead, which is enough: a Scene that offers nothing is still
 a Scene offering its Exits, for a duration that happens to be nought.
 
 **A column naming which Exit the clock takes.** The Place already orders them,
-the first one offered already holds the focus, and the Preview is already where
-that order is set —
+the first one offered is the one the focus lands on in the list, and the Preview
+is already where that order is set —
 `docs/adr/0007-the-order-of-the-ways-on-is-written-not-drawn.md`. A second way
 of saying it is a second thing to disagree with the first.
 
