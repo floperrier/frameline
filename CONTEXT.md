@@ -64,12 +64,12 @@ ambiance, musique, bruitage
 **Cut**:
 What takes one Shot off the screen and puts the next one there: when it is made
 and how it is made. Made by the Reader pressing, or by itself after a time the
-Author writes; made hard, or over a duration, through the outgoing image or
-through black. A Scene says how its run is cut, a Shot may say otherwise, and a
-Shot that says nothing is cut as its Scene says — the shape an Exit's *steps
-back* already has. An Exit carries one too — how the passage from the Scene it
-leaves to the Scene it lands on is made, never when, because an Exit is taken
-rather than held.
+Author writes; made hard, or over a time of its own, through the outgoing image
+or through black. A Scene says how its run is cut, a Shot may say otherwise,
+and a Shot that says nothing is cut as its Scene says — the shape an Exit's
+*steps back* already has. An Exit carries one too — how the passage from the
+Scene it leaves to the Scene it lands on is made, never when, because an Exit is
+taken rather than held.
 _Affiché_: Coupe
 _Avoid_: transition, timing, duration, delay, autoplay, timer, slideshow,
 durée, minuterie, défilement

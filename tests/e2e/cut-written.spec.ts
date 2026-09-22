@@ -170,7 +170,7 @@ test('an Exit says how the passage out is made, and a hard cut says nothing more
     const { story } = await writing(page, request)
     const way = 'the Exit 1 to The bar, out of The street'
     const made = page.getByLabel(`The Cut is made ${way}`, { exact: true })
-    const takes = page.getByLabel(`Seconds taken by the Cut of ${way}`, { exact: true })
+    const takes = page.getByLabel(`Seconds the Cut of ${way} takes`, { exact: true })
 
     await expect(made).toHaveValue('hard')
     await expect(takes).toHaveCount(0)
