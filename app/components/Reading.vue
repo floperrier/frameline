@@ -453,16 +453,22 @@ const asking = computed(() => shown.value.exits.length > 0 && standing.value !==
 
 const expiring = ref<ReturnType<typeof setTimeout>>()
 
-watch([at, paused, hidden], () => {
+watch([at, paused, hidden, standing], () => {
   clearTimeout(expiring.value)
+  // Immediate, like the hold above, and guarded the same way: the server draws a
+  // flowing Scene's Path once and answers, and a timer set from that render would
+  // fire into a request already gone, with no `onBeforeUnmount` left to clear it.
+  if (!import.meta.client) return
 
   const first = shown.value.exits[0]
   if (!first || paused.value || hidden.value) return
   if (standing.value === null) return
 
+  // Always through the clock, nought included: a `setTimeout` of nought is still a
+  // macrotask, landing after the `onMounted` above by construction, so the opening
+  // beat of a flowing Scene draws its seed before anything moves the Path off it.
   const takeIt = () => passBy(first.cutOver, first.cutThrough, take(at.value, first))
-  if (standing.value === 0) takeIt()
-  else expiring.value = setTimeout(takeIt, standing.value)
+  expiring.value = setTimeout(takeIt, standing.value)
 }, { immediate: true })
 
 onBeforeUnmount(() => clearTimeout(expiring.value))
@@ -611,10 +617,10 @@ const clocked = computed(() => story.scenes.some(scene =>
     </ul>
 
     <!-- The time the ways on stand, drained by a bar keyed on the Path so a fresh
-         arrival restarts it rather than resuming one already spent. `role="timer"`'s
-         live region is off by default, so the countdown is read on demand and never
-         spoken over the beat playing under it — the rule the Transcript already
-         follows. -->
+         arrival restarts it rather than resuming one already spent. The sentence
+         beside it says how long they stand — true for the whole of the stand, not
+         a reading of what is left — so it carries no `role="timer"`, which would
+         claim a countdown this paragraph never is. -->
     <div
       v-if="standing"
       :key="`${at.taken.length}-${at.shot}`"
@@ -622,8 +628,8 @@ const clocked = computed(() => story.scenes.some(scene =>
       :style="{ '--standing': `${standing}ms` }"
     >
       <span class="drain" :class="{ stopped: paused || hidden }" aria-hidden="true" />
-      <p role="timer" class="visually-hidden">
-        {{ $t('reading.waysOnStandFor', { seconds: standing / 1000 }) }}
+      <p class="visually-hidden">
+        {{ $t('reading.waysOnStandFor', { count: standing / 1000 }) }}
       </p>
     </div>
 
@@ -925,8 +931,14 @@ figcaption {
   animation: drain var(--standing) linear forwards;
 }
 
+/* Full rather than paused mid-drain: the clock behind this bar is thrown away and
+   restarted at the full duration on resume (see the watch above), not picked back
+   up from where it stood, so a bar resumed from six seconds left would be showing
+   a stand the clock is about to give ten again. Same answer as the reduced-motion
+   rule below, and the same reason — removing `animation: none` later starts a new
+   animation rather than continuing the old one, so this also restarts the bar. */
 .drain.stopped {
-  animation-play-state: paused;
+  animation: none;
 }
 
 @keyframes drain {

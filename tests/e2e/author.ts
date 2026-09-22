@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { neon } from '@neondatabase/serverless'
 import { expect, test as base, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test'
 import { DISMISSED } from '../../app/utils/steps'
-import type { Condition, Exit, Scene, Sets, Shot } from '../../shared/utils/scenes'
+import type { Condition, Exit, Scene, Sets, Shot, StoryInEditor } from '../../shared/utils/scenes'
 import { sealSession, type H3Event } from 'h3'
 
 const sql = neon(process.env.DATABASE_URL!)
@@ -490,4 +490,30 @@ export async function live(page: Page) {
     const mounted = document.getElementById('__nuxt')
     return !!mounted && '__vue_app__' in mounted
   })
+}
+
+/**
+ * `writeStory`, changed as the caller asks, published, and opened into a live
+ * Reading through the Reader's own door — the door `live` above waits for, so
+ * a clock the Reading arms as it mounts is armed before the caller looks for
+ * anything it starts. Shared by every spec that reads a Story published past
+ * the API rather than writes one, because each would otherwise open it in
+ * exactly the same few calls.
+ */
+export async function opened(
+  page: Page,
+  request: APIRequestContext,
+  write: (story: { id: string }, scenes: StoryInEditor['scenes']) => Promise<void>,
+) {
+  const story = await writeStory(request)
+  const { scenes } = await (await request.get(`/api/stories/${story.id}`))
+    .json() as StoryInEditor
+
+  await write(story, scenes)
+  await seedPublished(story)
+  await page.goto(`/read/${story.id}`)
+  // The clock is started by the component that holds the Path, so a page that
+  // has loaded and not yet been attached to is a page nothing is holding a
+  // clock on.
+  await live(page)
 }
