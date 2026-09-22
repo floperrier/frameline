@@ -133,6 +133,16 @@ carries.
   engine does today with no line added. It is worth one Remark at the bench and
   no refusal, because a Remark never says a Story is wrong and this is a Story
   an Author may be in the middle of.
+- **The end of a run is not a passage.** A Cut takes one Shot off the screen and
+  puts the next one there, and the move that ends a run does neither: the Path
+  walks past the last Shot and the frame goes on holding it, pushed back behind
+  the ways on. Spending the Scene's Cut there dissolves an image into itself, and
+  takes a Scene written *fade to black* to black and back to the frame it started
+  on — a passage between two beats, made where there is only one, and made again
+  by the Exit a moment later. It would also give the Scene's `cut_over` exactly
+  the reach over the way out that this document refused it above. So that one
+  move is cut hard whatever the run says, and the passage out of a Scene is the
+  Exit's own, made once. See issue #332.
 - Every Story written so far reads exactly as it read. `cut_after` and
   `exits_after` default to null, `cut_over` to 0 and `cut_through` to `image`,
   which is a run that waits for the press, cut hard, with its ways on standing
