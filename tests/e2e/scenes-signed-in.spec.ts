@@ -617,6 +617,13 @@ test('a Scene is typed as one document, beat after beat', async ({ page, request
   await second.press('Backspace')
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toBeFocused()
   await expect.poll(() => readShots(scene.id)).toHaveLength(3)
+  // And the join says nothing. The field it took off the screen writes itself one
+  // last time on the way out — a browser tells a control it was typed in the
+  // moment the caret leaves it, and being removed is one of the ways it leaves —
+  // so a bench that sent that write would be asking for a beat it had just taken
+  // away, and reading the whole Story back over the beat the caret had just moved
+  // to. See issue #325, where that read is what swallowed the newline below.
+  await expect(refusal(page)).toHaveCount(0)
 
   // Shift held, it writes the second line of one beat rather than a second beat.
   await page.keyboard.press('Shift+Enter')
