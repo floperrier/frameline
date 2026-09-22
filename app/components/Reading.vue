@@ -403,14 +403,13 @@ function strikeShot() {
 watch(() => `${at.value.taken.length}-${at.value.shot}`, strikeShot, { flush: 'post' })
 
 /**
- * Whether the clock is stopped. Beside the Path and never inside it, the way
- * muting is — a Path is a reading of the Story and stopping is a property of the
- * person. Unlike muting it is not kept between visits: a mute is a preference, a
- * pause is a moment, and a Reader who comes back to a Story they stopped wants it
- * running again. See
+ * The clock this Reading is carried by, and the pause the Reader stops it with.
+ * Every watch below is set on it, which is what keeps them from disagreeing about
+ * the pause or about a tab nobody is looking at: none of them holds an answer of
+ * its own. See `app/composables/clock.ts`, issue #334 and
  * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
  */
-const paused = ref(false)
+const { paused, stopped, clock } = useClock()
 
 /**
  * The two things a press of that control means, and they are not symmetrical.
@@ -428,66 +427,26 @@ function pauseOrResume() {
   if (!paused.value) land()
 }
 
-/** Whether the page is out of sight, which stops the clock as surely as the control does. */
-const hidden = ref(false)
-
-onMounted(() => {
-  const watching = () => { hidden.value = document.visibilityState === 'hidden' }
-  // Read as the Reading mounts rather than waited for. A silent Story opens with
-  // no press at all, so a link opened into a background tab — a middle click, a
-  // session restored — would start its clock in a room nobody is looking at, and
-  // the Reader would arrive at a Story that had played on without them. The event
-  // says when it changed; only this says what it is.
-  watching()
-  document.addEventListener('visibilitychange', watching)
-  onBeforeUnmount(() => document.removeEventListener('visibilitychange', watching))
-})
-
-/**
- * What the beat on screen is being held under, or nothing where nothing holds it.
- * Named apart from `held` above, which is the Shot the frame holds: one is what is
- * on screen and the other is what will take it off.
- */
-const holding = ref<ReturnType<typeof setTimeout>>()
-
-/**
- * How long the beat on screen stands, or null where it stands until the press.
- * Watched as well as read, because the Preview is where this feature is written:
- * an Author who turns a Scene from *at the press* to *after a time* has changed
- * the hold on the beat in front of them, and a clock that only caught up at the
- * next move would be the bench reading a Story that is no longer the one written.
- */
-const heldFor = computed(() =>
-  scene.value && shown.value.shot ? cut(scene.value, shown.value.shot).after : null)
-
 /**
  * The hold: where the Cut of the Shot on screen names a time, the clock makes the
  * cut the press would have made, through `advance` and nothing else — so a Path
- * arrived at by waiting is the Path a hand would have arrived at.
+ * arrived at by waiting is the Path a hand would have arrived at. Where it names
+ * none the beat is held until the press, and there is nothing to time.
  *
- * Set as the beat appears and cleared as it leaves, so no timer outlives the beat
- * it was started for; restarted rather than resumed after a pause or a hidden tab,
- * because nothing recorded how far it had got. A Cut is not a position, which is
- * the rule `docs/adr/0049-a-sound-is-carried-by-what-plays-it.md` settled about a
- * Sound, read again.
+ * The Cut is resolved inside the clock rather than read off a computed beside it,
+ * because the Preview is where this feature is written: an Author who turns a
+ * Scene from *at the press* to *after a time* has changed the hold on the beat in
+ * front of them, and what the clock reads is what restarts it.
  */
-watch([at, paused, hidden, heldFor], () => {
-  clearTimeout(holding.value)
-  // Immediate, so the beat a page opens on is held like every other one — and the
-  // server draws that beat too, where a timer would be started into a request that
-  // has already been answered and nothing would ever clear it.
-  if (!import.meta.client) return
-
+clock(() => {
   const beat = shown.value.shot
-  if (!beat || !scene.value || paused.value || hidden.value) return
+  if (!beat || !scene.value) return
 
   const { after, over, through } = cut(scene.value, beat)
   if (after === null) return
 
-  holding.value = setTimeout(() => passBy(over, through, advance(at.value), true), after)
-}, { immediate: true })
-
-onBeforeUnmount(() => clearTimeout(holding.value))
+  return { after, press: () => passBy(over, through, advance(at.value), true) }
+})
 
 /**
  * The ways on, in the three states a Scene may offer them in. Standing until one
@@ -518,39 +477,34 @@ const waysOnSay = computed(() => {
     : t('reading.waysOnStandFor', { count: standing.value / 1000 })
 })
 
-const expiring = ref<ReturnType<typeof setTimeout>>()
-
-watch([at, paused, hidden, standing], () => {
-  clearTimeout(expiring.value)
-  // Immediate, like the hold above, and guarded the same way: the server draws a
-  // flowing Scene's Path once and answers, and a timer set from that render would
-  // fire into a request already gone, with no `onBeforeUnmount` left to clear it.
-  if (!import.meta.client) return
-
+/**
+ * The stand: where the ways on are given a time, the clock takes the first one
+ * still offered when it runs out — the one the Place puts first, which is the one
+ * Enter presses from inside the list, so the order the Author wrote them in is the
+ * whole of what says which. Nought is a Scene flowing into the next, and it is
+ * taken through the clock like any other time.
+ */
+clock(() => {
   const first = shown.value.exits[0]
-  if (!first || paused.value || hidden.value) return
-  if (standing.value === null) return
+  if (!first || standing.value === null) return
 
-  // Always through the clock, nought included: a `setTimeout` of nought is still a
-  // macrotask, landing after the `onMounted` above by construction, so the opening
-  // beat of a flowing Scene draws its seed before anything moves the Path off it.
-  const takeIt = () => passBy(first.cutOver, first.cutThrough, take(at.value, first), true)
-  expiring.value = setTimeout(takeIt, standing.value)
-}, { immediate: true })
-
-onBeforeUnmount(() => clearTimeout(expiring.value))
+  return {
+    after: standing.value,
+    press: () => passBy(first.cutOver, first.cutThrough, take(at.value, first), true),
+  }
+})
 
 /**
  * Whether anything in this Story moves by itself, which is whether the Reader is
  * given the control that stops it. WCAG 2.2.2 asks for a pause the moment
  * something advances on its own and asks for nothing where nothing does, so a
  * Story read entirely by the hand is given no control over a clock that never
- * runs — the way a Story carrying no Sound is given no title card to press. A
- * Shot's nought is *at the press*, which is a Shot standing still like any other.
+ * runs — the way a Story carrying no Sound is given no title card to press. The
+ * Story is asked rather than the Reading, so the control is on screen from the
+ * opening beat of a Story whose clock runs three Scenes later: a pause that
+ * arrived with the thing it stops would be a pause nobody could reach in time.
  */
-const clocked = computed(() => story.scenes.some(scene =>
-  scene.cutAfter !== null || scene.exitsAfter !== null
-  || scene.shots.some(shot => (shot.cutAfter ?? 0) > 0)))
+const clocked = computed(() => movesItself(story))
 </script>
 
 <template>
@@ -708,7 +662,7 @@ const clocked = computed(() => story.scenes.some(scene =>
       aria-hidden="true"
       :style="{ '--standing': `${standing}ms` }"
     >
-      <span class="drain" :class="{ stopped: paused || hidden }" />
+      <span class="drain" :class="{ stopped }" />
     </div>
 
     <!-- In the document before it has anything to say: a live region announces
