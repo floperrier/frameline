@@ -80,20 +80,32 @@ test('a Scene says when its Shots are cut and how long its ways on stand',
     await expect(stands).toHaveValue('2.5')
     await expect(offered).toHaveValue('none')
 
-    // Typed to nought, the hold is no hold: on a Scene that is said in null, so
-    // the panel answers *at the press* and takes the field away with it. A panel
-    // reading *after a time, 0 s* over a run the Reading holds until the press
-    // would be the one thing `0050` promises cannot happen.
+    // A nought typed into a field of seconds is not a duration, and what it would
+    // amount to is the answer above it — which `0050` says is picked and never
+    // typed. So the field hands it straight back with the time the Scene is still
+    // holding, rather than taking a run cut after two and a half seconds off the
+    // clock on one keystroke.
     await stands.fill('0')
     await stands.blur()
-    await expect(when).toHaveValue('press')
-    await expect(stands).toHaveCount(0)
+    await expect(when).toHaveValue('clock')
+    await expect(stands).toHaveValue('2.5')
     await expect.poll(async () => (await reread(request, story.id)).scenes[0]!.cutAfter)
-      .toBeNull()
+      .toBe(2500)
 
-    // And the door says the same, so nothing else can write the shape the panel
-    // will not: a Scene's nought is refused where a Shot's is taken, which is the
-    // whole reason nought exists.
+    // The same field on the ways on, where the nought is one the column does hold:
+    // typed, it would flow the Scene into the next without asking, which is the
+    // largest of the three changes and the one nothing on screen would announce.
+    await offered.selectOption('For a time')
+    await standing.fill('0')
+    await standing.blur()
+    await expect(offered).toHaveValue('clock')
+    await expect(standing).toHaveValue('10')
+    await expect.poll(async () => (await reread(request, story.id)).scenes[0]!.exitsAfter)
+      .toBe(10_000)
+
+    // And the door refuses the one nought no column can hold, so nothing else can
+    // write the shape the panel will not: a Scene's nought is refused where a
+    // Shot's is taken, which is the whole reason nought exists.
     const refused = await request.patch(`/api/scenes/${scene.id}`, { data: { cutAfter: 0 } })
     expect(refused.status()).toBe(400)
     expect((await refused.json()).message)
@@ -138,6 +150,19 @@ test('a Shot answers as its Scene says until it answers for itself',
       const { cutOver, cutThrough } = await shotOf()
       return { cutOver, cutThrough }
     }).toEqual({ cutOver: null, cutThrough: null })
+
+    // A Shot's nought is picked the same way, so its field of seconds writes none
+    // either: put on the clock, a typed nought comes back as the four seconds the
+    // beat was standing for rather than as the press the answer above is there to
+    // say.
+    const stands = page.getByLabel('Seconds Shot 1 of The street stands', { exact: true })
+    await when.selectOption('After a time')
+    await expect(stands).toHaveValue('4')
+    await stands.fill('0')
+    await stands.blur()
+    await expect(when).toHaveValue('clock')
+    await expect(stands).toHaveValue('4')
+    await expect.poll(async () => (await shotOf()).cutAfter).toBe(4000)
   })
 
 test('an Exit says how the passage out is made, and a hard cut says nothing more',
@@ -169,6 +194,18 @@ test('an Exit says how the passage out is made, and a hard cut says nothing more
     await expect(takes).toHaveCount(0)
     await expect.poll(async () => (await reread(request, story.id)).exits[0]!.cutOver)
       .toBe(0)
+
+    // A nought typed into the seconds is not a hard cut either — *Hard* is the
+    // answer above — so the field hands it back rather than leaving a passage of
+    // no duration with an image still named as what it is made through.
+    await made.selectOption('A dissolve')
+    await expect(takes).toHaveValue('0.8')
+    await takes.fill('0')
+    await takes.blur()
+    await expect(made).toHaveValue('image')
+    await expect(takes).toHaveValue('0.8')
+    await expect.poll(async () => (await reread(request, story.id)).exits[0]!.cutOver)
+      .toBe(800)
   })
 
 /**

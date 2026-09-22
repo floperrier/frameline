@@ -831,31 +831,33 @@ const A_TIME_OFFERED = 10_000
 
 /**
  * A field of seconds read back as the milliseconds the column holds, and nothing
- * at all for a field left empty — a box being cleared is an Author in the middle
- * of typing, and nought is a sentence this panel writes from a `<select>` and
- * never from a number. A time past its cap is written and refused by its own
- * phrase, because a refusal says more than a field that silently kept what it
- * had.
+ * at all where it says no duration. Two things say none. A box left empty is an
+ * Author in the middle of typing, and it is left as they left it. A nought is not
+ * a duration either — a Shot standing for no time is a Shot nobody sees — and it
+ * is the answer above the field rather than a value in it: *at the press*, *not at
+ * all*, *hard*. Each of those is a sentence a `<select>` writes, and
+ * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md` says the sentinel
+ * behind it is picked and never typed, so the field hands a typed nought straight
+ * back and puts the time the row is still holding in its place. What is judged is
+ * the millisecond the column would hold rather than the number in the box, so a
+ * tenth of one is the nought it rounds to.
+ *
+ * A time past its cap is written and refused by its own phrase, because a refusal
+ * says more than a field that silently kept what it had. A nought has no refusal
+ * to be given, because the doors take it: it is what a Shot's `cutAfter` and a
+ * Scene's `exitsAfter` and `cutOver` hold when the answer above says so, and no
+ * door can tell one typed here from one picked there. A Scene's `cutAfter` is the
+ * one nought closed at both ends, because its column cannot hold one at all: the
+ * door at `readSceneChanges` refuses it with a phrase of its own.
  */
-function secondsWritten(event: Event) {
-  const seconds = (event.target as HTMLInputElement).valueAsNumber
+function secondsWritten(event: Event, stood: number | null) {
+  const field = event.target as HTMLInputElement
+  const written = Math.round(field.valueAsNumber * 1000)
 
-  return Number.isNaN(seconds) ? undefined : Math.round(seconds * 1000)
-}
+  if (written) return written
+  if (stood && !Number.isNaN(field.valueAsNumber)) field.value = String(stood / 1000)
 
-/**
- * The same field read as the hold of a Scene's whole run, where nought is not a
- * duration but the absence of one. An Author typing it is saying *no hold*, and
- * on a Scene that is said in null: nought is a Shot's word for it, and a Scene's
- * column holding both would be one fact in two shapes — which is what `0047` and
- * `0050` refuse, and what the door at `readSceneChanges` refuses beside this. The
- * `<select>` above the field flips to *at the press* by itself, so the panel
- * cannot draw a Scene the Reading does not hold.
- */
-function holdWritten(event: Event) {
-  const written = secondsWritten(event)
-
-  return written === undefined || written > 0 ? written : null
+  return undefined
 }
 
 /** A body one of those empty fields is in is a body with no change in it. */
@@ -1404,7 +1406,8 @@ function writeConditions(
               step="0.5"
               :value="held.scene.cutAfter / 1000"
               :aria-label="$t('editor.secondsAShotStands', { name: held.name })"
-              @change="writeSceneCut(held.scene, { cutAfter: holdWritten($event) })"
+              @change="writeSceneCut(
+                held.scene, { cutAfter: secondsWritten($event, held.scene.cutAfter) })"
             >
             <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
           </template>
@@ -1434,7 +1437,8 @@ function writeConditions(
               step="0.1"
               :value="held.scene.cutOver / 1000"
               :aria-label="$t('editor.secondsTheCutTakes', { name: held.name })"
-              @change="writeSceneCut(held.scene, { cutOver: secondsWritten($event) })"
+              @change="writeSceneCut(
+                held.scene, { cutOver: secondsWritten($event, held.scene.cutOver) })"
             >
             <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
           </template>
@@ -1464,7 +1468,8 @@ function writeConditions(
               step="0.5"
               :value="held.scene.exitsAfter / 1000"
               :aria-label="$t('editor.secondsTheExitsStand', { name: held.name })"
-              @change="writeSceneCut(held.scene, { exitsAfter: secondsWritten($event) })"
+              @change="writeSceneCut(
+                held.scene, { exitsAfter: secondsWritten($event, held.scene.exitsAfter) })"
             >
             <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
           </template>
@@ -1705,7 +1710,7 @@ function writeConditions(
                         scene: held.name,
                       })"
                       @change="writeShotCut(held.scene, shot, {
-                        cutAfter: secondsWritten($event),
+                        cutAfter: secondsWritten($event, shot.cutAfter),
                       })"
                     >
                     <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
@@ -1743,7 +1748,7 @@ function writeConditions(
                         scene: held.name,
                       })"
                       @change="writeShotCut(held.scene, shot, {
-                        cutOver: secondsWritten($event),
+                        cutOver: secondsWritten($event, shot.cutOver),
                       })"
                     >
                     <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
@@ -2018,7 +2023,7 @@ function writeConditions(
                         from: held.name,
                       })"
                       @change="writeExitCut(held.scene, exit, {
-                        cutOver: secondsWritten($event),
+                        cutOver: secondsWritten($event, exit.cutOver),
                       })"
                     >
                     <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
