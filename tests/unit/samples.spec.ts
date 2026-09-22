@@ -10,9 +10,6 @@ import {
 import type { Work } from '../../demonstration/work.ts'
 import {
   CONDITIONS_MAX,
-  CUT_AFTER_MAX,
-  CUT_OVER_MAX,
-  EXITS_AFTER_MAX,
   EXIT_TEXT_MAX_LENGTH,
   FLAGS_PER_SCENE,
   SCENE_NAME_MAX_LENGTH,
@@ -20,7 +17,6 @@ import {
   SHOT_IMAGE_MAX_BYTES,
   SHOT_TEXT_MAX_LENGTH,
   imageTypeOf,
-  isTime,
 } from '../../shared/utils/scenes.ts'
 import type { Condition } from '../../shared/utils/scenes.ts'
 import { STORY_LANGUAGES, STORY_TITLE_MAX_LENGTH } from '../../shared/utils/stories.ts'
@@ -36,6 +32,11 @@ import { SOUND_LIBRARY } from '../../shared/utils/library.ts'
  * Nothing here asks what a Sample says. The English one and the French one are
  * separate works and neither is a translation of the other, so the only thing
  * held against the other Sample is the shape.
+ *
+ * What the Cut's own times are — within their caps, and long enough for the text
+ * of the beat they hold — is asked of both works this repository carries at once,
+ * in `tests/unit/works.spec.ts`, because it is the same question of *Reel
+ * Change*. What is asked here is only that the two Samples answer it alike.
  */
 
 /** The Conditions a work carries, wherever they are carried. */
@@ -44,14 +45,6 @@ function conditionsOf(work: Work) {
     ...work.exits.flatMap(exit => exit.when ?? []),
     ...work.scenes.flatMap(scene => scene.shots.flatMap(shot => shot.when ?? [])),
   ]
-}
-
-/**
- * Whether one of a Cut's times is one the door it is written through will take:
- * a whole number of milliseconds within the cap, or nothing said at all.
- */
-function within(held: number | null | undefined, max: number) {
-  return held === undefined || held === null || isTime(held, max)
 }
 
 /** Where a Scene comes in the work, which is how a Scene is named without its name. */
@@ -272,28 +265,16 @@ describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLan
     for (const exit of sample.exits) {
       expect(exit.text.length).toBeLessThanOrEqual(EXIT_TEXT_MAX_LENGTH)
       expect(exit.when?.length ?? 0).toBeLessThanOrEqual(CONDITIONS_MAX)
-      expect(within(exit.cutOver, CUT_OVER_MAX)).toBe(true)
     }
 
     for (const scene of sample.scenes) {
       expect(scene.name.length).toBeLessThanOrEqual(SCENE_NAME_MAX_LENGTH)
       expect(Object.keys(scene.sets ?? {}).length).toBeLessThanOrEqual(FLAGS_PER_SCENE)
 
-      // Nought is a sentinel where a Shot writes it and where the ways on do,
-      // and a refusal on a Scene's own run — there is no *as the Scene says*
-      // above a Scene. Said here rather than found out halfway through writing
-      // the work into an instance.
-      expect(within(scene.cutAfter, CUT_AFTER_MAX)).toBe(true)
-      expect(scene.cutAfter).not.toBe(0)
-      expect(within(scene.cutOver, CUT_OVER_MAX)).toBe(true)
-      expect(within(scene.exitsAfter, EXITS_AFTER_MAX)).toBe(true)
-
       for (const shot of scene.shots) {
         expect(shot.text.length).toBeLessThanOrEqual(SHOT_TEXT_MAX_LENGTH)
         expect((shot.description ?? '').length).toBeLessThanOrEqual(SHOT_DESCRIPTION_MAX_LENGTH)
         expect(shot.when?.length ?? 0).toBeLessThanOrEqual(CONDITIONS_MAX)
-        expect(within(shot.cutAfter, CUT_AFTER_MAX)).toBe(true)
-        expect(within(shot.cutOver, CUT_OVER_MAX)).toBe(true)
       }
     }
   })

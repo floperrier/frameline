@@ -233,7 +233,12 @@ const ENGLISH: Work = {
       // The opening Scene is cut by the clock, so an Author meets a Story that
       // moves on its own before being asked to write one — and meets the press
       // still cutting early, because it always does.
-      cutAfter: 9000,
+      //
+      // Twelve seconds is the longest beat of either Sample read whole, because
+      // a Scene is entered once and this is the screen that says what a Shot is:
+      // there is no second look at it. The French beats are the longer pair, so
+      // they are what the number is set by, and both Samples take it.
+      cutAfter: 12000,
       shots: [
         {
           text: 'This is a Shot: one Image and its text, shown to you as a single beat. '
@@ -350,9 +355,11 @@ const FRENCH: Work = {
       name: 'Là où un Récit commence',
       sound: 'rain.m4a',
       transcript: 'Il pleut sur la ville, sans jamais s’arrêter.',
-      // The same gesture at the same place as in the English Sample: the two are
-      // one shape in two languages, and the shape is what the Cut is part of now.
-      cutAfter: 9000,
+      // Le même geste à la même place que dans l’Exemple anglais : les deux sont
+      // une seule forme en deux langues, et la Coupe fait maintenant partie de
+      // cette forme. Ce sont les temps français, les plus longs des deux, qui
+      // ont réglé ces douze secondes.
+      cutAfter: 12000,
       shots: [
         {
           text: 'Ceci est un Plan : une Image et son texte, montrés comme un seul '

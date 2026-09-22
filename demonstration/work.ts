@@ -110,11 +110,16 @@ export type Work = {
      * on standing until one is taken. `exitsAfter` of nought is the Scene
      * flowing into the next without asking; a Scene's `cutAfter` is refused it,
      * because a Scene has no *as the Scene says* to fall back to.
+     *
+     * Three states each, and three spellings: a number, nought, or the field
+     * left out. Null is not a fourth — it is what the column already holds
+     * where the work says nothing, so a work that wrote it would be saying the
+     * same thing twice.
      */
     cutAfter?: number
     cutOver?: number
     cutThrough?: CutThrough
-    exitsAfter?: number | null
+    exitsAfter?: number
   }[]
   /**
    * An Exit's own Cut is how the passage it makes is made, never when: an Exit

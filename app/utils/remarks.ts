@@ -36,8 +36,14 @@ import { cut } from '../../shared/utils/reading'
  * and for nothing else, and the margin below is wide on purpose: a Remark that
  * fires on a Shot an Author has merely made brisk is a Remark an Author learns to
  * ignore.
+ *
+ * The rate is exported and the margin is not. What the bench complains about is
+ * half the reading time, because a Remark an Author learns to ignore is worse
+ * than no Remark; what the two works this repository ships hold themselves to is
+ * the whole of it, which `tests/unit/works.spec.ts` asks of them. One rate, two
+ * standards, and the standards cannot drift apart from the rate.
  */
-const CHARACTERS_A_SECOND = 15
+export const CHARACTERS_A_SECOND = 15
 const BRIEF_ENOUGH_TO_SAY_SO = 0.5
 
 export type Remark = {

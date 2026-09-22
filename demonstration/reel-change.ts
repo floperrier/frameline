@@ -98,7 +98,11 @@ export const REEL_CHANGE: Work = {
       // Threaded film runs whether or not anybody has a hand on it, so this
       // Scene runs too: its beats are cut by the clock and cut hard, at the even
       // pace a projector keeps. The last one answers for itself.
-      cutAfter: 4800,
+      //
+      // The pace is the longest line of the three read whole and no longer: a
+      // montage is brisk, and a beat nobody finishes is not brisk, it is lost.
+      // `tests/unit/works.spec.ts` holds it to that rather than this comment.
+      cutAfter: 5800,
       // And the way on out of it was never a choice — it is the only one, and
       // the Reader has just recognised the house they are standing in. Nought is
       // the Scene flowing into the next without asking, so the way on is never
@@ -364,8 +368,16 @@ export const REEL_CHANGE: Work = {
       // A Flag that was never set reads as empty, so this is the way out for the
       // Reader who left the reel on the bench: nothing downstairs means anything
       // to them, and the night simply ends.
+      //
+      // It ends rather than stops, so it is a passage and not a cut — but a
+      // short one, and through the image rather than through black. The two ways
+      // up are exclusive, so no Reader ever sees one beside the other: what
+      // separates them has to be legible in the gesture itself, and nine hundred
+      // milliseconds of dissolve is a staircase where two seconds of black is a
+      // night.
       text: 'Go back up and open the window',
       when: [{ flag: 'reel', is: '' }],
+      cutOver: 900,
     },
     {
       from: 'The coat',
@@ -374,8 +386,8 @@ export const REEL_CHANGE: Work = {
       // The one ellipsis the work makes: the night ends on the stairs and the
       // next thing in the frame is a grey morning. A fade through black is how a
       // sequence is closed, and this is the only sequence here that closes —
-      // the Reader who left the reel wound goes up on a hard cut instead, which
-      // is the whole of what their night amounted to.
+      // the Reader coming up the other way crosses the same night in a dissolve,
+      // because they have nothing to have left behind.
       cutOver: 2000,
       cutThrough: 'black',
     },
