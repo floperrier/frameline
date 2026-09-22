@@ -116,7 +116,39 @@ function changing(scene: Scene, act: () => Promise<unknown>) {
   return change(inScene(scene, act))
 }
 
-function writing(scene: Scene, act: () => Promise<unknown>) {
+/**
+ * Whether the Story still holds the row a typed write is about.
+ *
+ * A field written in and then taken off the screen says so on its way out: the
+ * browser fires one last `change` at a control whose value a hand has altered the
+ * moment it loses the caret, and being removed from the document is one of the
+ * ways it loses it. So a beat emptied and joined to the one before writes itself
+ * once more, to a Shot the Story no longer has, and the bench is asking the server
+ * for a row it has just taken away itself.
+ *
+ * What that costs is not the wasted request. The `404` comes back as a refusal
+ * like any other — *No such Shot* said over the writing, about a beat that is
+ * gone — and a refusal reads the whole Story back, which is the one read
+ * `docs/adr/0008-refetch-is-for-a-refusal.md` allows to land on top of what is
+ * being typed. By then the caret is in the beat before, and the read puts that
+ * beat back as the server holds it, a keystroke and a newline short. Issue #325,
+ * where it is a spec that lost the newline, and an Author who would lose it just
+ * the same.
+ *
+ * Read off the Story the document is drawing now, and never off the row the
+ * handler was rendered with: the field is removed by the very read that took the
+ * row out of the Story, so what the handler closed over is the one reading that
+ * still holds it.
+ */
+function stillWritten(id: string) {
+  return story.scenes.some(
+    scene => scene.id === id || scene.shots.some(shot => shot.id === id))
+    || story.exits.some(exit => exit.id === id)
+}
+
+function writing(scene: Scene, written: string, act: () => Promise<unknown>) {
+  if (!stillWritten(written)) return Promise.resolve()
+
   return write(inScene(scene, act))
 }
 
@@ -315,7 +347,7 @@ async function duplicateScene(scene: Scene) {
 }
 
 function renameScene(scene: Scene) {
-  return writing(scene, () => send(`/api/scenes/${scene.id}`, {
+  return writing(scene, scene.id, () => send(`/api/scenes/${scene.id}`, {
     method: 'PATCH',
     body: { name: scene.name },
   }))
@@ -470,7 +502,7 @@ async function typeInShot(shotId: string, atTheEnd = false) {
 
 /** Writes what the Author typed about one Shot — its text, its image's Description and its Sound's Transcript — in one request. */
 function writeShot(scene: Scene, shot: Shot) {
-  return writing(scene, () => send(`/api/shots/${shot.id}`, {
+  return writing(scene, shot.id, () => send(`/api/shots/${shot.id}`, {
     method: 'PATCH',
     body: { text: shot.text, description: shot.description, transcript: shot.transcript },
   }))
@@ -724,7 +756,7 @@ async function removeSound(held: SceneInDocument) {
 
 /** What the Sound makes heard, and whether it is held in a loop: a typed write apiece. */
 function writeTranscript(scene: Scene) {
-  return writing(scene, () => send(`/api/scenes/${scene.id}`, {
+  return writing(scene, scene.id, () => send(`/api/scenes/${scene.id}`, {
     method: 'PATCH',
     body: { transcript: scene.transcript },
   }))
@@ -733,7 +765,7 @@ function writeTranscript(scene: Scene) {
 function writeSoundLoops(scene: Scene, answer: string) {
   scene.soundLoops = answer === 'loop'
 
-  return writing(scene, () => send(`/api/scenes/${scene.id}`, {
+  return writing(scene, scene.id, () => send(`/api/scenes/${scene.id}`, {
     method: 'PATCH',
     body: { soundLoops: scene.soundLoops },
   }))
@@ -879,7 +911,7 @@ function writeSceneCut(
   if (!wholeCut(body)) return
   Object.assign(scene, body)
 
-  return writing(scene, () => send(`/api/scenes/${scene.id}`, { method: 'PATCH', body }))
+  return writing(scene, scene.id, () => send(`/api/scenes/${scene.id}`, { method: 'PATCH', body }))
 }
 
 function writeShotCut(
@@ -890,7 +922,7 @@ function writeShotCut(
   if (!wholeCut(body)) return
   Object.assign(shot, body)
 
-  return writing(scene, () => send(`/api/shots/${shot.id}`, { method: 'PATCH', body }))
+  return writing(scene, shot.id, () => send(`/api/shots/${shot.id}`, { method: 'PATCH', body }))
 }
 
 function writeExitCut(
@@ -899,7 +931,7 @@ function writeExitCut(
   if (!wholeCut(body)) return
   Object.assign(exit, body)
 
-  return writing(scene, () => send(`/api/exits/${exit.id}`, { method: 'PATCH', body }))
+  return writing(scene, exit.id, () => send(`/api/exits/${exit.id}`, { method: 'PATCH', body }))
 }
 
 /** The three answers a Shot's own row gives, each written as the column holds it. */
@@ -1046,7 +1078,7 @@ async function addExit(scene: Scene) {
 
 /** The words the Reader reads on the button that takes the way on. A typed write, like a Shot's text. */
 function writeExitText(scene: Scene, exit: Exit) {
-  return writing(scene, () => send(`/api/exits/${exit.id}`, {
+  return writing(scene, exit.id, () => send(`/api/exits/${exit.id}`, {
     method: 'PATCH',
     body: { text: exit.text },
   }))
@@ -1066,7 +1098,7 @@ function crossedBack(exit: Exit) {
 function writeCrossedBack(scene: Scene, exit: Exit, answer: string) {
   exit.stepsBack = answer === 'story' ? null : answer === 'yes'
 
-  return writing(scene, () => send(`/api/exits/${exit.id}`, {
+  return writing(scene, exit.id, () => send(`/api/exits/${exit.id}`, {
     method: 'PATCH',
     body: { stepsBack: exit.stepsBack },
   }))
@@ -1084,7 +1116,7 @@ function moveExit(held: SceneInDocument, exit: Exit, step: -1 | 1) {
 function writeFlags(scene: Scene, sets: Sets) {
   scene.sets = sets
 
-  return writing(scene, () => send(`/api/scenes/${scene.id}/flags`, {
+  return writing(scene, scene.id, () => send(`/api/scenes/${scene.id}/flags`, {
     method: 'PUT',
     body: { sets },
   }))
@@ -1094,7 +1126,7 @@ function writeFlags(scene: Scene, sets: Sets) {
 function writeConditions(
   scene: Scene, where: 'exits' | 'shots', carrierId: string, carried: Condition[],
 ) {
-  return writing(scene, () => send(`/api/${where}/${carrierId}/conditions`, {
+  return writing(scene, carrierId, () => send(`/api/${where}/${carrierId}/conditions`, {
     method: 'PUT',
     body: { conditions: wholeConditions(carried) },
   }))
