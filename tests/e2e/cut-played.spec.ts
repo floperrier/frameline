@@ -103,6 +103,59 @@ test('the Reader stops the clock, and stepping back stops it for them',
     await expect(held).toBeVisible()
   })
 
+test('the keyboard walks out of a Scene that plays itself, and reaches the pause',
+  async ({ page, request }) => {
+    await page.clock.install()
+    await opened(page, request, async (_, scenes) => {
+      // A third beat, so there is a hold to burn between each press: the Reader
+      // is two tabs from the pause and every one of those beats is half a second
+      // — which is what the panel's own field allows, and what the first test
+      // above writes.
+      const third = await (await request.post(`/api/scenes/${scenes[0]!.id}/shots`)).json()
+      await request.patch(`/api/shots/${third.id}`, {
+        data: { text: 'The street is empty.', description: '' },
+      })
+      await request.patch(`/api/scenes/${scenes[0]!.id}`, { data: { cutAfter: 500 } })
+    })
+
+    // The Reader is put on the beat the clock brought, which is where a Reading
+    // reached by keyboard begins.
+    await page.clock.fastForward(500)
+    await expect(page.locator(':focus')).toContainText('She steps out.')
+
+    // And walks out of it by hand. A beat goes by between the two presses and the
+    // focus is not taken back: a control the Reader moved to is theirs, and the
+    // clock only ever takes the focus that is going with the beat.
+    const next = page.getByRole('button', { name: 'Next Shot' })
+    await page.keyboard.press('Tab')
+    await expect(next).toBeFocused()
+
+    await page.clock.fastForward(500)
+    await expect(page.getByText('The street is empty.')).toBeVisible()
+    await expect(next).toBeFocused()
+
+    const pause = page.getByRole('button', { name: 'Pause the Reading' })
+    await page.keyboard.press('Tab')
+    await expect(pause).toBeFocused()
+    await page.keyboard.press('Enter')
+
+    // Pressed, and the clock is stopped: the control WCAG 2.2.2 asks for has been
+    // reached by the people it is there for, without racing anything. Stopping
+    // leaves them on the control they stopped it with, which is the one they are
+    // about to press again.
+    await expect(page.getByRole('button', { name: 'Resume the Reading' })).toBeFocused()
+    await page.clock.fastForward(60_000)
+    await expect(page.getByText('The street is empty.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Follow her out' })).toHaveCount(0)
+
+    // And started again by that same press, which is the hand asking the Story to
+    // carry on: the focus goes back to the beat rather than stationing the Reader
+    // on the button for the rest of the Reading, with every beat after it
+    // arriving unannounced.
+    await page.keyboard.press('Enter')
+    await expect(page.locator(':focus')).toContainText('The street is empty.')
+  })
+
 test('a Story opened into a tab nobody is looking at holds its beat',
   async ({ page, request }) => {
     await page.clock.install()

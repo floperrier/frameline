@@ -341,6 +341,7 @@
     "hideTranscript": "Masquer la Transcription",
     "sceneTranscript": "Le Son tenu sous la Scène",
     "shotTranscript": "Le Son que frappe le Plan",
+    "waysOnStand": "Les Sorties restent proposées jusqu'à ce que vous en preniez une.",
     "waysOnStandFor": "Les Sorties restent proposées pendant une seconde. | Les Sorties restent proposées pendant {count} secondes."
   },
   "read": {

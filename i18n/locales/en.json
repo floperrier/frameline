@@ -341,6 +341,7 @@
     "hideTranscript": "Hide the Transcript",
     "sceneTranscript": "What the Scene is heard under",
     "shotTranscript": "What the Shot strikes with",
+    "waysOnStand": "The Exits stand until you take one.",
     "waysOnStandFor": "The Exits stand for one second. | The Exits stand for {count} seconds."
   },
   "read": {

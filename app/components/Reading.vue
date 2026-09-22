@@ -152,16 +152,49 @@ onMounted(() => {
  * no Shot and offers no way on has no control to hand the keyboard to and none
  * is invented. Focus goes to the document because on that screen there is
  * nothing to put it on.
+ *
+ * All of which is what the press is owed, and the clock is owed less. A move the
+ * Reader asked for always lands them on what arrived; a move the clock made
+ * lands them there only where what they are holding is going with the beat — the
+ * frame leaving, or the way on the clock is taking, or nothing at all. A Reader
+ * who has tabbed to a control of their own is left standing on it, because
+ * *Pause the Reading* is two tabs from the frame and a clock that took the focus
+ * back at every beat put the one control WCAG 2.2.2 asks for out of the reach of
+ * the people it is there for — on a Scene held half a second, out of reach
+ * altogether. What it costs is the beat arriving unannounced to somebody who is
+ * standing on a control rather than on the work, which is the smaller of the two
+ * silences: they are working the Reading at that moment rather than reading it,
+ * and a live region reading every beat at them while they decide would be the
+ * Story talking over itself. See issue #329 and
+ * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
  */
 const frame = useTemplateRef<HTMLElement>('frame')
 const exits = useTemplateRef<HTMLElement>('exits')
 const again = useTemplateRef<HTMLElement>('again')
 
-async function moveTo(to: Path) {
+/** Where a press puts the Reader, which is the whole of what the paragraph above says. */
+function land() {
+  (shown.value.shot ? frame.value : (exits.value?.querySelector('button') ?? again.value))?.focus()
+}
+
+async function moveTo(to: Path, byClock = false) {
+  // Read before the Path moves: the beat on screen is the one about to leave, and
+  // `leaving` blurs it a tick from now. Nothing at all — a page just opened, a
+  // press that took its own button away — is the focus falling back to the
+  // document, which is nobody's and ours to take.
+  const was = document.activeElement
+  const theirs = byClock && !!was && was !== document.body && !frame.value?.contains(was)
+
   at.value = to
   resumed.value = false
   await nextTick()
-  ;(shown.value.shot ? frame.value : (exits.value?.querySelector('button') ?? again.value))?.focus()
+  // And theirs only for as long as what holds it is in the document. Every
+  // control here is drawn under a condition of its own — a Shot left to ask for,
+  // a beat behind, a Transcript to show, a way on still offered — so any of them
+  // can go out with the move, and one that has gone has taken the focus with it.
+  // Whatever the clock takes away, the beat arriving is where the focus lands.
+  if (theirs && was.isConnected) return
+  land()
 }
 
 /**
@@ -177,10 +210,10 @@ async function moveTo(to: Path) {
  */
 const passing = ref<{ over: number, through: CutThrough }>({ over: 0, through: 'image' })
 
-function passBy(over: number, through: CutThrough, to: Path) {
+function passBy(over: number, through: CutThrough, to: Path, byClock = false) {
   passing.value = { over, through }
 
-  return moveTo(to)
+  return moveTo(to, byClock)
 }
 
 /**
@@ -379,6 +412,22 @@ watch(() => `${at.value.taken.length}-${at.value.shot}`, strikeShot, { flush: 'p
  */
 const paused = ref(false)
 
+/**
+ * The two things a press of that control means, and they are not symmetrical.
+ * Stopping is the Reader asking to be left where they are, so the focus stays on
+ * the control they stopped the clock with — it is the control they will press
+ * again. Starting again is the Reader asking the Story to carry on, which is a
+ * press like any other and hands the focus back to the beat the way every other
+ * press does. Without that, a Reader who stopped the clock and started it again
+ * would be stationed on this button for the rest of the Reading, and every beat
+ * after it would arrive unannounced — which is the likeliest way to be stationed
+ * at all, and the one silence `moveTo`'s rule would otherwise have left standing.
+ */
+function pauseOrResume() {
+  paused.value = !paused.value
+  if (!paused.value) land()
+}
+
 /** Whether the page is out of sight, which stops the clock as surely as the control does. */
 const hidden = ref(false)
 
@@ -435,7 +484,7 @@ watch([at, paused, hidden, heldFor], () => {
   const { after, over, through } = cut(scene.value, beat)
   if (after === null) return
 
-  holding.value = setTimeout(() => passBy(over, through, advance(at.value)), after)
+  holding.value = setTimeout(() => passBy(over, through, advance(at.value), true), after)
 }, { immediate: true })
 
 onBeforeUnmount(() => clearTimeout(holding.value))
@@ -443,13 +492,31 @@ onBeforeUnmount(() => clearTimeout(holding.value))
 /**
  * The ways on, in the three states a Scene may offer them in. Standing until one
  * is taken is null and is every Story written before this existed. A number is
- * the time they stand, after which the first one still offered is taken — which
- * is the one already holding focus and the one Enter would press, so the order
- * the Author wrote them in is the whole of what says which. Nought is the Scene
- * flowing into the next without asking, and there they are never painted at all.
+ * the time they stand, after which the first one still offered is taken — the
+ * one the Place puts first, which is the one Enter presses from inside the list,
+ * so the order the Author wrote them in is the whole of what says which. Nought
+ * is the Scene flowing into the next without asking, and there they are never
+ * painted at all.
  */
 const standing = computed(() => (shown.value.exits.length ? scene.value?.exitsAfter ?? null : null))
 const asking = computed(() => shown.value.exits.length > 0 && standing.value !== 0)
+
+/**
+ * What the ways on say for themselves as they arrive, for whoever cannot see
+ * them arrive. A Reader standing on the frame is told by the focus landing in the
+ * list; a Reader standing on a control of their own is told by this and by
+ * nothing else, so it says a choice is there whether or not a clock is running on
+ * it — a Scene whose beats are clocked and whose choice is open is the commonest
+ * shape there is, and it would otherwise stop in silence. Empty where nothing is
+ * being asked: a run still playing, or a Scene flowing into the next.
+ */
+const waysOnSay = computed(() => {
+  if (!asking.value) return ''
+
+  return standing.value === null
+    ? t('reading.waysOnStand')
+    : t('reading.waysOnStandFor', { count: standing.value / 1000 })
+})
 
 const expiring = ref<ReturnType<typeof setTimeout>>()
 
@@ -467,7 +534,7 @@ watch([at, paused, hidden, standing], () => {
   // Always through the clock, nought included: a `setTimeout` of nought is still a
   // macrotask, landing after the `onMounted` above by construction, so the opening
   // beat of a flowing Scene draws its seed before anything moves the Path off it.
-  const takeIt = () => passBy(first.cutOver, first.cutThrough, take(at.value, first))
+  const takeIt = () => passBy(first.cutOver, first.cutThrough, take(at.value, first), true)
   expiring.value = setTimeout(takeIt, standing.value)
 }, { immediate: true })
 
@@ -592,6 +659,20 @@ const clocked = computed(() => story.scenes.some(scene =>
       {{ $t('reading.next') }}
     </button>
 
+    <!-- What tells a Reader who cannot see the ways on that they are being asked,
+         and what the choice stands under. It comes before the list rather than
+         after it, because the focus lands inside the list and what follows the
+         control a screen reader is announcing is reached only by walking the
+         virtual cursor forward, which is walking it while the clock runs. A
+         status, so it is heard where it is rather than found, and in the document
+         before it has anything to say — the way `ended` below is, and for the
+         same reason. Drawn only where a clock can run at all, as the pause below
+         it is: a Story read entirely by the hand never strands a Reader, because
+         every arrival on it is a press of theirs. Still not a timer: it says how
+         long the ways on stand, true for the whole of the stand, and never counts
+         anything down. -->
+    <p v-if="clocked" class="visually-hidden" role="status">{{ waysOnSay }}</p>
+
     <!-- The ways on go under the frame rather than over it, and carry no eyebrow
          of their own: the edge above has already named the Scene they leave. -->
     <ul v-if="asking" ref="exits" class="exits">
@@ -617,20 +698,17 @@ const clocked = computed(() => story.scenes.some(scene =>
     </ul>
 
     <!-- The time the ways on stand, drained by a bar keyed on the Path so a fresh
-         arrival restarts it rather than resuming one already spent. The sentence
-         beside it says how long they stand — true for the whole of the stand, not
-         a reading of what is left — so it carries no `role="timer"`, which would
-         claim a countdown this paragraph never is. -->
+         arrival restarts it rather than resuming one already spent. Decoration
+         and nothing else, all the way through: what it draws is said in words
+         above the list, where it is heard. -->
     <div
       v-if="standing"
       :key="`${at.taken.length}-${at.shot}`"
       class="expiring"
+      aria-hidden="true"
       :style="{ '--standing': `${standing}ms` }"
     >
-      <span class="drain" :class="{ stopped: paused || hidden }" aria-hidden="true" />
-      <p class="visually-hidden">
-        {{ $t('reading.waysOnStandFor', { count: standing / 1000 }) }}
-      </p>
+      <span class="drain" :class="{ stopped: paused || hidden }" />
     </div>
 
     <!-- In the document before it has anything to say: a live region announces
@@ -649,7 +727,7 @@ const clocked = computed(() => story.scenes.some(scene =>
          control over a clock that never runs would do nothing — the way a Story
          carrying no Sound is given no title card to press. -->
     <p v-if="clocked || heardAtAll" class="given">
-      <button v-if="clocked" type="button" class="trail" @click="paused = !paused">
+      <button v-if="clocked" type="button" class="trail" @click="pauseOrResume">
         {{ paused ? $t('reading.resume') : $t('reading.pause') }}
       </button>
       <button v-if="heardAtAll" type="button" class="trail" @click="sounding = !sounding">

@@ -4,9 +4,9 @@ import type { APIRequestContext } from '@playwright/test'
 
 /**
  * The other half of the Cut: the ways on may stand for a time of their own,
- * after which the first one still offered is taken — the one already holding
- * focus, and the one Enter would press — and a Scene may give them no time at
- * all, flowing into the next without ever asking. See
+ * after which the first one still offered is taken — the one the Place puts
+ * first, and the one Enter presses from inside the list — and a Scene may give
+ * them no time at all, flowing into the next without ever asking. See
  * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`. `opened`,
  * shared with `cut-played.spec.ts`, is `./author`'s.
  *
@@ -52,6 +52,62 @@ test('the first Exit offered is taken when the ways on run out of time, and the 
     await page.clock.fastForward(10_000)
     await expect(page.getByText('Smoke, and no one she knows.')).toBeVisible()
     await expect(page.getByText('Nobody comes.')).toHaveCount(0)
+  })
+
+test('the ways on say how long they stand, ahead of the list rather than behind it',
+  async ({ page, request }) => {
+    await page.clock.install()
+    await opened(page, request, async (story, scenes) => {
+      await addSecondExit(request, story, scenes[0]!.id)
+      await request.patch(`/api/scenes/${scenes[0]!.id}`, { data: { exitsAfter: 10_000 } })
+    })
+
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await expect(page.getByRole('button', { name: 'Follow her out' })).toBeVisible()
+
+    // The bar is decoration and says nothing; the sentence is what says a clock
+    // is running on the choice at all. Read off the accessibility tree, where the
+    // order is the whole of the assertion: the focus lands inside the list, and a
+    // sentence behind the list is a sentence reached by walking the virtual
+    // cursor past every way on while the clock runs.
+    await expect(page.locator('.reading')).toMatchAriaSnapshot(`
+      - status: The Exits stand for 10 seconds.
+      - list:
+        - listitem:
+          - button /Follow her out/
+        - listitem:
+          - button /Wait in the street/
+    `)
+  })
+
+test('the ways on say they are being asked, where no clock is running on them',
+  async ({ page, request }) => {
+    await page.clock.install()
+    await opened(page, request, async (_, scenes) => {
+      // The commonest shape there is: a Scene that plays its run by itself, and a
+      // choice at the end of it that stands until the Reader takes one.
+      await request.patch(`/api/scenes/${scenes[0]!.id}`, { data: { cutAfter: 500 } })
+    })
+
+    // The Reader steps off the frame onto a control of their own, where the clock
+    // no longer takes the focus back — so from here nothing about the run reaches
+    // them by the focus moving, the ways on arriving included.
+    await page.clock.fastForward(500)
+    const pause = page.getByRole('button', { name: 'Pause the Reading' })
+    await page.keyboard.press('Tab')
+    await page.keyboard.press('Tab')
+    await expect(pause).toBeFocused()
+
+    // The run ends under them and the choice arrives with the focus where they
+    // left it. What says a choice is there at all is the sentence over the list,
+    // and it is owed whether or not a clock is running on the ways on: this Scene
+    // puts none on them.
+    await page.clock.fastForward(500)
+    await expect(page.getByRole('button', { name: 'Follow her out' })).toBeVisible()
+    await expect(pause).toBeFocused()
+    await expect(page.getByRole('status')
+      .filter({ hasText: 'The Exits stand until you take one.' })).toHaveCount(1)
   })
 
 test('the Reader who has stopped the clock is not carried through an Exit either',
