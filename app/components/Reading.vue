@@ -206,7 +206,8 @@ async function moveTo(to: Path, byClock = false) {
  * Nought and through the image is a hard cut, which is what every move the Story
  * says nothing about makes: a step back and a Reading started again are the Reader
  * correcting themselves rather than a raccord, and nothing about either is written
- * on the Story.
+ * on the Story. It is also what the end of a run makes, where the Story says
+ * plenty and there is nothing on screen for it to be said over — `passOn` below.
  */
 const passing = ref<{ over: number, through: CutThrough }>({ over: 0, through: 'image' })
 
@@ -218,17 +219,37 @@ function passBy(over: number, through: CutThrough, to: Path, byClock = false) {
 
 /**
  * The cut the press makes, which is the cut the clock makes where the press does
- * not come. Both read the Shot's own Cut and pass by it, so the two are one
- * passage made two ways.
+ * not come: the hold below presses this rather than reading the Cut a second time,
+ * so the two are one passage made two ways and one place says what it is.
+ *
+ * **The last Shot of a run is cut hard, whatever the Author wrote on it.** A Cut
+ * is what takes one Shot off the screen and puts the next one there, and at the
+ * end of a run it does neither: the Path walks past the last Shot and the frame
+ * goes on holding it, pushed back behind the ways on. Spending the Scene's Cut
+ * there is a dissolve from an image into itself, and a Scene written *fade to
+ * black* goes to black and comes back to the frame it started on — a passage
+ * between two beats, made where there is only one, and made again by the Exit a
+ * moment later. A Scene flowing into the next shows it plainest: two passages
+ * back to back over one move the Reader never made.
+ *
+ * So the passage out of a Scene is the Exit's and only the Exit's, which is what
+ * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md` already settled
+ * when it refused the Scene's `cut_over` any reach over the way out — an Author
+ * lengthening a dissolve between two Shots is not to be lengthening the way out
+ * of the Scene without being told. The end of the run is the frame standing
+ * still, and the Author's passage is spent once, on the Exit taken. See issue
+ * #332.
  *
  * Asked of the Shot on screen and the Scene it belongs to without either being
  * checked, because the one control that calls this is drawn only while a Shot is
  * on screen — and a Shot on screen is a Shot of the run the Reading stands in.
  */
-function passOn() {
-  const made = cut(scene.value!, shown.value.shot!)
+function passOn(byClock = false) {
+  const made = shown.value.shot === shown.value.run.at(-1)
+    ? { over: 0, through: 'image' as const }
+    : cut(scene.value!, shown.value.shot!)
 
-  return passBy(made.over, made.through, advance(at.value))
+  return passBy(made.over, made.through, advance(at.value), byClock)
 }
 
 /**
@@ -428,24 +449,26 @@ function pauseOrResume() {
 }
 
 /**
- * The hold: where the Cut of the Shot on screen names a time, the clock makes the
- * cut the press would have made, through `advance` and nothing else — so a Path
- * arrived at by waiting is the Path a hand would have arrived at. Where it names
- * none the beat is held until the press, and there is nothing to time.
+ * The hold: where the Cut of the Shot on screen names a time, the clock presses
+ * what the hand presses and nothing else — so a Path arrived at by waiting is the
+ * Path a hand would have arrived at, over the passage a hand would have made it
+ * over, and neither can be changed without the other. Where the Cut names no time
+ * the beat is held until the press, and there is nothing to time.
  *
- * The Cut is resolved inside the clock rather than read off a computed beside it,
- * because the Preview is where this feature is written: an Author who turns a
- * Scene from *at the press* to *after a time* has changed the hold on the beat in
- * front of them, and what the clock reads is what restarts it.
+ * The time is read inside the clock rather than off a computed beside it, because
+ * the Preview is where this feature is written: an Author who turns a Scene from
+ * *at the press* to *after a time* has changed the hold on the beat in front of
+ * them, and what the clock reads is what restarts it. How the cut is then made is
+ * `passOn`'s alone, read at the move like every other passage.
  */
 clock(() => {
   const beat = shown.value.shot
   if (!beat || !scene.value) return
 
-  const { after, over, through } = cut(scene.value, beat)
+  const { after } = cut(scene.value, beat)
   if (after === null) return
 
-  return { after, press: () => passBy(over, through, advance(at.value), true) }
+  return { after, press: () => passOn(true) }
 })
 
 /**

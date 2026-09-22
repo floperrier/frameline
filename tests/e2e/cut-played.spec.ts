@@ -236,6 +236,48 @@ test('one beat dissolves into the next, or the passage is made through black',
     await expect(page.getByText('She steps out.')).toBeVisible()
   })
 
+test('the end of a run is no passage, and the Scene is left over the Exit\'s own Cut',
+  async ({ page, request }) => {
+    const frames = page.locator('.frame')
+    const gate = page.locator('.gate')
+
+    await opened(page, request, async (story, scenes) => {
+      // A Scene that fades to black between its beats, and a way on that leaves
+      // over a second of its own: two durations far enough apart that the gate
+      // says which of them is being made.
+      await request.patch(`/api/scenes/${scenes[0]!.id}`, {
+        data: { cutOver: 3000, cutThrough: 'black' },
+      })
+      const { exits } = await (await request.get(`/api/stories/${story.id}`)).json()
+      await request.patch(`/api/exits/${exits[0]!.id}`, { data: { cutOver: 1000 } })
+    })
+
+    await expect(page.getByText('A door opens.')).toBeVisible()
+
+    // The passage the Author wrote, made where a Shot leaves the screen and the
+    // next one arrives — and over before anything else is pressed.
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await expect(gate).toHaveAttribute('style', /3000ms/)
+    await expect(page.getByText('She steps out.')).toBeVisible()
+    await expect(frames).toHaveCount(1)
+
+    // And the move that ends the run is not a passage at all: nothing leaves the
+    // screen there, so the beat is not thrown a second time and the frame is the
+    // one that was already standing, pushed back behind the ways on. See issue
+    // #332 — a second fade here is a Scene going to black and coming back to the
+    // image it went out on.
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await expect(page.getByRole('button', { name: 'Follow her out' })).toBeVisible()
+    await expect(gate).toHaveAttribute('style', /: 0ms/)
+    await expect(frames).toHaveCount(1, { timeout: 1000 })
+    await expect(page.locator('.frame.pushed-back')).toHaveCount(1)
+
+    // The one passage out of the Scene is the Exit's, made where the Scene does
+    // leave the screen.
+    await page.getByRole('button', { name: 'Follow her out' }).click()
+    await expect(gate).toHaveAttribute('style', /1000ms/)
+  })
+
 test('a Reader who asked for less motion is given the rhythm without the passage',
   async ({ page, request }) => {
     // Asked of the browser rather than of the run, because `reducedMotion` handed
