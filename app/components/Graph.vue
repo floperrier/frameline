@@ -356,6 +356,21 @@ watch(() => sceneWritten, async () => {
   background: var(--light);
 }
 
+/* .here borders the mark in the same light it fills it with, so on a Scene
+   that is also flows-on the thicker edge below has nothing to be thicker
+   against — the two facts collapse into one and flows-on is lost. The ring
+   needs a colour of its own to read as a ring at all, against the fill inside
+   it and the plate outside it both, so it takes the one colour already
+   proven to clear the plate at this size — `--muted` is what an ordinary
+   mark's own edge is drawn in, above, for exactly that reason. Flowing-on
+   still invents no colour of its own: it falls back to the quiet ring every
+   unmarked Scene already wears. Placed before `.opens.here` below so an
+   Opening Scene that also stands here and flows on keeps its grease pencil —
+   the later, equally specific rule wins the tie. */
+.rail .mark.here.flows {
+  border-color: var(--muted);
+}
+
 /* Both at once — the Story opens on the Scene being written — keeps the grease
    pencil on the edge and the light inside, so neither fact is lost to the other. */
 .rail .mark.opens.here {
