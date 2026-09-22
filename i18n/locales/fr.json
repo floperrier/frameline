@@ -331,6 +331,8 @@
     "ended": "Le chemin s'arrête ici.",
     "again": "Relire depuis le début",
     "resumed": "Reprise là où vous en étiez.",
+    "pause": "Mettre la Lecture en pause",
+    "resume": "Reprendre la Lecture",
     "soundOff": "Couper le Son",
     "soundOn": "Rétablir le Son",
     "showTranscript": "Afficher la Transcription",
