@@ -3,7 +3,7 @@ import type { Condition, Sets } from '../../shared/utils/scenes'
 import { CUT_OVER_MAX, isTime } from '../../shared/utils/scenes'
 import type { Path, State, StoryToRead } from '../../shared/utils/reading'
 import {
-  advance, back, cut, moved, opening, pathTo, reading, resumes, take, unmet,
+  advance, back, cut, moved, movesItself, opening, pathTo, reading, resumes, take, unmet,
 } from '../../shared/utils/reading'
 import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
 import type { Phrase } from '../../shared/utils/phrases'
@@ -1064,6 +1064,68 @@ describe('cut', () => {
 
   it('holds a Shot that answers over a Scene that waits', () => {
     expect(cut({ ...scene, cutAfter: null }, { ...shot, cutAfter: 2500 }).after).toBe(2500)
+  })
+})
+
+describe('movesItself', () => {
+  /**
+   * What every case here is written over: two Scenes and one way on between
+   * them, with nothing about the Cut said anywhere — which is every Story
+   * written before there was a Cut to write.
+   */
+  const byHand = story(
+    { Street: ['A door opens.', 'She steps out.'], Alley: ['Nobody comes.'] },
+    [['Street', 'Follow her out', 'Alley']])
+
+  /** The same Story with one Scene saying something about its Cut. */
+  function written(
+    named: string,
+    says: Partial<StoryToRead['scenes'][number]>,
+    told: StoryToRead = byHand,
+  ) {
+    return {
+      ...told,
+      scenes: told.scenes.map(scene => (scene.id === named ? { ...scene, ...says } : scene)),
+    }
+  }
+
+  /** The same Story with every Shot of one Scene answering for itself. */
+  function answering(named: string, cutAfter: number, told: StoryToRead = byHand) {
+    const shots = told.scenes.find(scene => scene.id === named)!.shots
+    return written(named, { shots: shots.map(shot => ({ ...shot, cutAfter })) }, told)
+  }
+
+  it('is nothing where nothing is written', () => {
+    expect(movesItself(byHand)).toBe(false)
+  })
+
+  it('reads a Scene that cuts its run after a time', () => {
+    expect(movesItself(written('Street', { cutAfter: 4000 }))).toBe(true)
+  })
+
+  it('reads a Shot that answers with a time under a Scene that waits', () => {
+    expect(movesItself(answering('Street', 2000))).toBe(true)
+  })
+
+  it('withholds it where the Scene names a time and every Shot waits', () => {
+    expect(movesItself(answering('Street', 0, written('Street', { cutAfter: 4000 }))))
+      .toBe(false)
+  })
+
+  it('withholds it where a Scene with no run at all names a time', () => {
+    expect(movesItself(written('Street', { cutAfter: 4000 }, story({ Street: [] })))).toBe(false)
+  })
+
+  it('reads ways on that stand for a time', () => {
+    expect(movesItself(written('Street', { exitsAfter: 10_000 }))).toBe(true)
+  })
+
+  it('reads a Scene that flows into the next without asking', () => {
+    expect(movesItself(written('Street', { exitsAfter: 0 }))).toBe(true)
+  })
+
+  it('withholds it where a Scene names a time for ways on it has none of', () => {
+    expect(movesItself(written('Alley', { exitsAfter: 10_000 }))).toBe(false)
   })
 })
 

@@ -150,6 +150,35 @@ export function cut(scene: SceneToRead, shot: Shot): Cut {
 }
 
 /**
+ * Whether anything in this Story moves by itself, which is what the Reader is
+ * owed a pause over — WCAG 2.2.2, and
+ * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`. A Scene moves
+ * by itself where a Shot of its run resolves to a time, or where its ways on are
+ * given one and there are ways on to take.
+ *
+ * Every Shot is put back through `cut()` rather than read for a time of its own,
+ * so what this says of a Scene and what the clock does in it cannot come apart: a
+ * Scene that names a time and whose every Shot answers nought is a Scene held
+ * until the press, beat by beat, and a Scene with no Shot in it at all has no run
+ * to cut. `exitsAfter` reads the same way against the Exits leaving the Scene,
+ * nought included — a Scene flowing into the next moves the Reading on without
+ * being asked, which is the thing 2.2.2 is about.
+ *
+ * It answers of the Story and not of the Reading, so it says *can* and never
+ * *does*: Conditions may hide every clocked Shot of a run, or every Exit out of a
+ * Scene, and a Reading that takes none of those ways is given a control it never
+ * needs. That is the side to be wrong on: a pause withheld from a Reader a clock
+ * is carrying is a Reading nobody can stop, and a pause offered where nothing
+ * runs is a button that stops a clock nobody started.
+ */
+export function movesItself(story: StoryToRead) {
+  return story.scenes.some(scene =>
+    scene.shots.some(shot => cut(scene, shot).after !== null)
+    || (scene.exitsAfter !== null
+      && story.exits.some(exit => exit.fromSceneId === scene.id)))
+}
+
+/**
  * Why an Exit is not on offer, or a Shot not played: one line for each test it
  * carries that this State fails, saying what the test asked for and what the
  * State actually holds. For
