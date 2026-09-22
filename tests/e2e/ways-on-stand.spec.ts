@@ -4,9 +4,9 @@ import type { APIRequestContext } from '@playwright/test'
 
 /**
  * The other half of the Cut: the ways on may stand for a time of their own,
- * after which the first one still offered is taken — the one already holding
- * focus, and the one Enter would press — and a Scene may give them no time at
- * all, flowing into the next without ever asking. See
+ * after which the first one still offered is taken — the one the Place puts
+ * first, and the one Enter presses from inside the list — and a Scene may give
+ * them no time at all, flowing into the next without ever asking. See
  * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`. `opened`,
  * shared with `cut-played.spec.ts`, is `./author`'s.
  *
