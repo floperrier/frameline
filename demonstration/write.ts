@@ -61,8 +61,20 @@ for (const scene of work.scenes) {
   written.set(scene.name, id)
   if (scene.sets) await api('PUT', `/api/scenes/${id}/flags`, { sets: scene.sets })
   if (scene.sound) await deposit(`/api/scenes/${id}/sound`, scene.sound)
-  if (scene.transcript) {
-    await api('PATCH', `/api/scenes/${id}`, { transcript: scene.transcript })
+  // The Transcript and the Cut come through the Scene's one door, and only what
+  // the work names goes through it: a field the work left out is `undefined`,
+  // which `JSON.stringify` drops from the body, so the column keeps the default
+  // every Story written before the Cut has. A work naming none sends nothing.
+  const says = {
+    transcript: scene.transcript,
+    cutAfter: scene.cutAfter,
+    cutOver: scene.cutOver,
+    cutThrough: scene.cutThrough,
+    exitsAfter: scene.exitsAfter,
+  }
+
+  if (Object.values(says).some(said => said !== undefined)) {
+    await api('PATCH', `/api/scenes/${id}`, says)
   }
 
   for (const shot of scene.shots) {
@@ -71,6 +83,9 @@ for (const scene of work.scenes) {
       text: shot.text,
       description: shot.description ?? '',
       transcript: shot.transcript ?? '',
+      cutAfter: shot.cutAfter,
+      cutOver: shot.cutOver,
+      cutThrough: shot.cutThrough,
     })
     const image = await imageOf(shot)
     if (image) await attach(shotId, image)
@@ -92,7 +107,11 @@ for (const exit of work.exits) {
     toSceneId: sceneNamed(exit.to),
   }) as { id: string }
 
-  await api('PATCH', `/api/exits/${id}`, { text: exit.text })
+  await api('PATCH', `/api/exits/${id}`, {
+    text: exit.text,
+    cutOver: exit.cutOver,
+    cutThrough: exit.cutThrough,
+  })
   if (exit.when) {
     await api('PUT', `/api/exits/${id}/conditions`, { conditions: exit.when.map(identified) })
   }

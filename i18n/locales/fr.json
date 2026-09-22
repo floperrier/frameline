@@ -299,7 +299,9 @@
     "flagUnset": "Une Condition de {scene} teste le Marqueur {flag}, et aucune Scène ne le pose.",
     "exitUnofferable": "La Sortie {place} depuis {scene} n’est offerte que si {flag} vaut « {is} », valeur qu’aucune Scène ne lui donne.",
     "shotUnplayable": "Le Plan {place} de {scene} ne joue que si {flag} vaut « {is} », valeur qu’aucune Scène ne lui donne.",
-    "exitNeverTaken": "La Sortie {place} de {scene} ramène à une Scène qu’une Lecture arrivée ici a déjà traversée : aucun Lecteur ne se la voit jamais offrir."
+    "exitNeverTaken": "La Sortie {place} de {scene} ramène à une Scène qu’une Lecture arrivée ici a déjà traversée : aucun Lecteur ne se la voit jamais offrir.",
+    "sceneFlowsNowhere": "{scene} passe à la suivante sans demander, et n’a aucune Sortie où aller — une Lecture s’arrête là.",
+    "shotStandsTooBriefly": "Le Plan {place} de {scene} reste à l’écran moins longtemps qu’il n’en faut pour lire son texte."
   },
   "preview": {
     "nobodyElse": "Personne d'autre ne peut voir ceci",

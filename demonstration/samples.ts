@@ -2,8 +2,10 @@
  * The Samples — the short Story an Author is given, written to be taken apart
  * rather than read. Three Scenes, named plainly, so the graph reads like a
  * diagram of the product; and the whole language already working, so an Author
- * meets a Flag set on entry, a Condition on a Shot testing it, and a Condition
- * asking whether a Scene has been entered before being asked to write any of them.
+ * meets a Flag set on entry, a Condition on a Shot testing it, a Condition
+ * asking whether a Scene has been entered, a run cut by the clock with one beat
+ * held against it, and a dissolve on the way out, before being asked to write
+ * any of them.
  *
  * There is one Sample per Language and nothing translates between them, which is
  * why they sit here beside *Reel Change* rather than in `i18n/locales`: a Sample
@@ -228,6 +230,15 @@ const ENGLISH: Work = {
       name: 'Where a Story starts',
       sound: 'rain.m4a',
       transcript: 'Rain on the street, steady, under everything.',
+      // The opening Scene is cut by the clock, so an Author meets a Story that
+      // moves on its own before being asked to write one — and meets the press
+      // still cutting early, because it always does.
+      //
+      // Twelve seconds is the longest beat of either Sample read whole, because
+      // a Scene is entered once and this is the screen that says what a Shot is:
+      // there is no second look at it. The French beats are the longer pair, so
+      // they are what the number is set by, and both Samples take it.
+      cutAfter: 12000,
       shots: [
         {
           text: 'This is a Shot: one Image and its text, shown to you as a single beat. '
@@ -250,6 +261,10 @@ const ENGLISH: Work = {
           description: 'Plates stacked on the left and two rows of dots on the right: the '
             + 'Flags one Reading holds, and the Scenes it has entered.',
           image: 'a-state',
+          // Nought is a Shot held until the press, under a Scene that is not:
+          // the beat before a choice stops and waits, which is the other half of
+          // the lesson the Scene above teaches.
+          cutAfter: 0,
         },
       ],
     },
@@ -305,7 +320,14 @@ const ENGLISH: Work = {
   ],
 
   exits: [
-    { from: 'Where a Story starts', to: 'What an Exit offers', text: 'Take the Exit' },
+    {
+      from: 'Where a Story starts',
+      to: 'What an Exit offers',
+      text: 'Take the Exit',
+      // The Exit the Sample is about, so the passage it makes is one an Author
+      // can see being made: a dissolve rather than a hard cut.
+      cutOver: 800,
+    },
     {
       from: 'Where a Story starts',
       to: 'What a Condition tests',
@@ -333,6 +355,11 @@ const FRENCH: Work = {
       name: 'Là où un Récit commence',
       sound: 'rain.m4a',
       transcript: 'Il pleut sur la ville, sans jamais s’arrêter.',
+      // Le même geste à la même place que dans l’Exemple anglais : les deux sont
+      // une seule forme en deux langues, et la Coupe fait maintenant partie de
+      // cette forme. Ce sont les temps français, les plus longs des deux, qui
+      // ont réglé ces douze secondes.
+      cutAfter: 12000,
       shots: [
         {
           text: 'Ceci est un Plan : une Image et son texte, montrés comme un seul '
@@ -356,6 +383,7 @@ const FRENCH: Work = {
           description: 'Des plaques empilées à gauche et deux rangées de points à droite : '
             + 'les Marqueurs qu’une Lecture porte, et les Scènes où elle est entrée.',
           image: 'a-state',
+          cutAfter: 0,
         },
       ],
     },
@@ -416,7 +444,12 @@ const FRENCH: Work = {
   ],
 
   exits: [
-    { from: 'Là où un Récit commence', to: 'Ce qu’offre une Sortie', text: 'Prendre la Sortie' },
+    {
+      from: 'Là où un Récit commence',
+      to: 'Ce qu’offre une Sortie',
+      text: 'Prendre la Sortie',
+      cutOver: 800,
+    },
     {
       from: 'Là où un Récit commence',
       to: 'Ce que teste une Condition',

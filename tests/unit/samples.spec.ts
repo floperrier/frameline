@@ -32,6 +32,11 @@ import { SOUND_LIBRARY } from '../../shared/utils/library.ts'
  * Nothing here asks what a Sample says. The English one and the French one are
  * separate works and neither is a translation of the other, so the only thing
  * held against the other Sample is the shape.
+ *
+ * What the Cut's own times are — within their caps, and long enough for the text
+ * of the beat they hold — is asked of both works this repository carries at once,
+ * in `tests/unit/works.spec.ts`, because it is the same question of *Reel
+ * Change*. What is asked here is only that the two Samples answer it alike.
  */
 
 /** The Conditions a work carries, wherever they are carried. */
@@ -69,29 +74,42 @@ function shapeOfCondition(work: Work, condition: Condition) {
 /**
  * A whole Sample with every word taken out of it: how many Scenes, how many
  * Shots in each, which image each Shot shows, what each carries by way of
- * Conditions, and which Scene leads to which. Two Samples that agree here are
- * the same work in two languages.
+ * Conditions, how each is cut, and which Scene leads to which. Two Samples that
+ * agree here are the same work in two languages.
+ *
+ * The Cut is read as the value itself rather than as whether there is one,
+ * because the three states of a time each mean something different and nought
+ * is one of them — a Sample held until the press in one language and cut after
+ * nine seconds in the other is not the same work twice.
  */
 function shapeOf(work: Work) {
   return {
     language: Boolean(work.language),
     opening: placeOf(work, work.opening ?? ''),
     scenes: work.scenes.map(scene => ({
-      at: scene.at,
       sets: Object.keys(scene.sets ?? {}).length,
       sound: scene.sound,
       transcribed: Boolean(scene.transcript),
+      cutAfter: scene.cutAfter,
+      cutOver: scene.cutOver,
+      cutThrough: scene.cutThrough,
+      exitsAfter: scene.exitsAfter,
       shots: scene.shots.map(shot => ({
         image: shot.image,
         described: Boolean(shot.description),
         sound: shot.sound,
         transcribed: Boolean(shot.transcript),
+        cutAfter: shot.cutAfter,
+        cutOver: shot.cutOver,
+        cutThrough: shot.cutThrough,
         when: (shot.when ?? []).map(condition => shapeOfCondition(work, condition)),
       })),
     })),
     exits: work.exits.map(exit => ({
       from: placeOf(work, exit.from),
       to: placeOf(work, exit.to),
+      cutOver: exit.cutOver,
+      cutThrough: exit.cutThrough,
       when: (exit.when ?? []).map(condition => shapeOfCondition(work, condition)),
     })),
   }

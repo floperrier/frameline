@@ -27,6 +27,24 @@
 import { exitsFrom, namesOnTheBench, reaches } from '../../shared/utils/scenes'
 import type { Condition, Scene, StoryInEditor } from '../../shared/utils/scenes'
 import type { Phrase } from '../../shared/utils/phrases'
+import { cut } from '../../shared/utils/reading'
+
+/**
+ * How fast a Reader reads, at about 200 words a minute — a measured rate rather
+ * than an invented one, and the only number in this file that comes from outside
+ * the Story. It is used to notice a Shot nobody could read in the time it stands
+ * and for nothing else, and the margin below is wide on purpose: a Remark that
+ * fires on a Shot an Author has merely made brisk is a Remark an Author learns to
+ * ignore.
+ *
+ * The rate is exported and the margin is not. What the bench complains about is
+ * half the reading time, because a Remark an Author learns to ignore is worse
+ * than no Remark; what the two works this repository ships hold themselves to is
+ * the whole of it, which `tests/unit/works.spec.ts` asks of them. One rate, two
+ * standards, and the standards cannot drift apart from the rate.
+ */
+export const CHARACTERS_A_SECOND = 15
+const BRIEF_ENOUGH_TO_SAY_SO = 0.5
 
 export type Remark = {
   /**
@@ -70,6 +88,7 @@ export function remarks(story: StoryInEditor, say: Phrase): Remark[] {
   const found: Remark[] = []
   const arrivedAt = new Set(story.exits.map(exit => exit.toSceneId))
   const names = namesOnTheBench(story, say)
+  const opening = story.openingSceneId
 
   // A Story with no Scene at all is a Story nobody has started, not one with
   // something wrong: the bench says so itself, and the guided path asks for the
@@ -83,6 +102,23 @@ export function remarks(story: StoryInEditor, say: Phrase): Remark[] {
       found.push({ name: 'sceneUnreached', sceneId: scene.id, said })
     }
     if (!scene.shots.length) found.push({ name: 'sceneUnplayed', sceneId: scene.id, said })
+
+    // A Scene whose ways on stand for no time flows into the next without
+    // asking — docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md —
+    // and strands a Reading there only where none of its Exits could ever be
+    // handed to one: the same question `reachedWithout` asks for
+    // `exitNeverTaken`, asked here of every Exit a Scene offers at once rather
+    // than of one at a time. A Scene not itself reached from the opening is
+    // left alone — `sceneUnreached` already says the truer thing about it.
+    if (
+      scene.exitsAfter === 0
+      && opening
+      && reaches(story.exits, opening, scene.id)
+      && exitsFrom(story.exits, scene.id)
+        .every(exit => !reachedWithout(story, opening, scene.id, exit.toSceneId))
+    ) {
+      found.push({ name: 'sceneFlowsNowhere', sceneId: scene.id, said })
+    }
 
     // Said of the carrier alone: a Scene heard under another has no Transcript to
     // write, because the Transcript belongs to the row the bytes are on. A silent
@@ -117,6 +153,18 @@ export function remarks(story: StoryInEditor, say: Phrase): Remark[] {
             }),
           },
         })
+      }
+
+      // Resolved against the Scene by `cut()` rather than read off the Shot: a
+      // Shot saying nothing under a Scene cut after a second is exactly the
+      // case worth noticing. A Shot with no text has nothing to read, and is
+      // left to `shotUnwritten` instead.
+      if (shot.text.trim()) {
+        const { after } = cut(scene, shot)
+        const takesToRead = (shot.text.length / CHARACTERS_A_SECOND) * 1000
+        if (after !== null && after < takesToRead * BRIEF_ENOUGH_TO_SAY_SO) {
+          found.push({ name: 'shotStandsTooBriefly', sceneId: scene.id, said: atPlace })
+        }
       }
     })
   }

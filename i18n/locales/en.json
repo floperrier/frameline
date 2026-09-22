@@ -299,7 +299,9 @@
     "flagUnset": "A Condition in {scene} tests the Flag {flag}, and no Scene ever sets it.",
     "exitUnofferable": "The Exit {place} out of {scene} is offered only when {flag} holds “{is}”, which no Scene ever sets it to.",
     "shotUnplayable": "Shot {place} of {scene} plays only when {flag} holds “{is}”, which no Scene ever sets it to.",
-    "exitNeverTaken": "The Exit {place} out of {scene} leads back to a Scene a Reading arriving here has already been through, so no Reader is ever offered it."
+    "exitNeverTaken": "The Exit {place} out of {scene} leads back to a Scene a Reading arriving here has already been through, so no Reader is ever offered it.",
+    "sceneFlowsNowhere": "{scene} flows on without asking, and has no way on to flow to — a Reading ends there.",
+    "shotStandsTooBriefly": "Shot {place} of {scene} stands for less time than its text takes to read."
   },
   "preview": {
     "nobodyElse": "Nobody else can reach this",

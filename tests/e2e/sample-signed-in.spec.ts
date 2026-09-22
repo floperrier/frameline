@@ -66,6 +66,12 @@ test('a new account arrives with a Sample in it', async ({ page, request, author
   // consent a browser will not play into a page without.
   await page.goto(`/read/${story.id}`)
   await page.getByRole('button', { name: 'Begin' }).click()
+  // The opening Scene is cut by the clock now, so the beat this looks for has a
+  // life measured in seconds. The Reader's own pause stops it, which is the
+  // control WCAG 2.2.2 asks for the moment anything advances by itself and the
+  // one this suite is entitled to use: a beat still on screen because somebody
+  // pressed Pause is the beat that was there when they pressed it.
+  await page.getByRole('button', { name: 'Pause the Reading' }).click()
   await expect(page.getByText(SAMPLES.en.scenes[0]!.shots[0]!.text)).toBeVisible()
 })
 
