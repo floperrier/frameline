@@ -199,10 +199,10 @@ test('the three doors take the fields their own row holds, and refuse what is no
       expect([door, (await answer.json()).message]).toEqual([door, said])
     }
 
-    const aTime = 'A Shot stands for a whole number of seconds, up to a minute.'
+    const aTime = 'A Shot stands for a whole number of milliseconds, up to a minute.'
     const aCut = 'A Cut takes a whole number of milliseconds, up to five seconds.'
     const aKind = 'A Cut is made in a dissolve or in a fade to black.'
-    const offered = 'The Exits are offered for a whole number of seconds, up to a minute.'
+    const offered = 'The Exits are offered for a whole number of milliseconds, up to a minute.'
 
     // A Scene and an Exit answer for their own cut with nothing above them, so
     // neither column takes the null a Shot may leave — and both doors refuse it

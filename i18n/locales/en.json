@@ -436,10 +436,10 @@
     "favouritesDelete": "Favourites is the List every account has, so it cannot be deleted.",
     "split": "A Scene is split before one of its own Shots, and never before the first.",
     "wayBack": "A Reading stands in a Scene once, so an Exit cannot lead back to a Scene the Reader may already have come through. Duplicate that Scene, and lead the Exit to the copy.",
-    "cutAfter": "A Shot stands for a whole number of seconds, up to a minute.",
+    "cutAfter": "A Shot stands for a whole number of milliseconds, up to a minute.",
     "cutAfterNought": "A Scene holds its Shots for a time or until the Reader presses, and nought is neither.",
     "cutOver": "A Cut takes a whole number of milliseconds, up to five seconds.",
     "cutThrough": "A Cut is made in a dissolve or in a fade to black.",
-    "exitsAfter": "The Exits are offered for a whole number of seconds, up to a minute."
+    "exitsAfter": "The Exits are offered for a whole number of milliseconds, up to a minute."
   }
 }
