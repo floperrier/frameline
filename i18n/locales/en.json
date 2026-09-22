@@ -238,7 +238,7 @@
     "cutThroughBlack": "A fade to black",
     "secondsTheCutTakes": "Seconds the Cut of {name} takes",
     "secondsTheShotsCutTakes": "Seconds the Cut of Shot {place} of {scene} takes",
-    "secondsTheExitsCutTakes": "Seconds taken by the Cut of the Exit {place} to {scene}, out of {from}",
+    "secondsTheExitsCutTakes": "Seconds the Cut of the Exit {place} to {scene}, out of {from} takes",
     "exitsAreOffered": "The Exits are offered",
     "exitsUntilTaken": "Until one is taken",
     "exitsForATime": "For a time",

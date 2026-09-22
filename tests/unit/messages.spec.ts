@@ -44,6 +44,27 @@ describe('the message files', () => {
   })
 
   /**
+   * `waysOnStandFor` is the first message written in vue-i18n's plural form, where
+   * `|` cuts the branch spoken of one from the branch spoken of the rest and the
+   * count picks between them. The three tests above see none of it: a file that
+   * dropped a branch still carries the key, still says something, and still names
+   * the same values, so a message pluralised in English and flat in French would
+   * reach a French screen reading *pendant 2 secondes* for every count and *une
+   * seconde* for none. Held here so the second pluralised key does not have to
+   * find it out again.
+   */
+  it('cut a pluralised message into the same branches in both languages', () => {
+    for (const key of keysOf(en)) {
+      const at = (messages: object) => (key.split('.').reduce<never>(
+        (held, step) => held[step], messages as never) as unknown as string)
+        .split('|').map(branch => branch.trim())
+
+      expect([key, at(fr).length]).toEqual([key, at(en).length])
+      expect([key, [...at(en), ...at(fr)].filter(branch => !branch)]).toEqual([key, []])
+    }
+  })
+
+  /**
    * A Cut's three times are read by one rule — `isTime` takes a whole number of
    * milliseconds — so the three refusals it comes back as name one unit. Two of them
    * said seconds, which let `2500` through a sentence saying it should not pass and
