@@ -42,4 +42,22 @@ describe('the message files', () => {
       expect([key, named(at(fr)).sort()]).toEqual([key, named(at(en)).sort()])
     }
   })
+
+  /**
+   * A Cut's three times are read by one rule — `isTime` takes a whole number of
+   * milliseconds — so the three refusals it comes back as name one unit. Two of them
+   * said seconds, which let `2500` through a sentence saying it should not pass and
+   * refused `1500.5` with one that does not explain why. Held here rather than only
+   * in the end-to-end suite, which reads the English alone and asks for a database.
+   */
+  it('name milliseconds in each refusal a Cut’s times come back as', () => {
+    const files = [['en', en.refusals], ['fr', fr.refusals]] as const
+
+    for (const [language, refusals] of files) {
+      for (const key of ['cutAfter', 'cutOver', 'exitsAfter'] as const) {
+        expect([language, key, refusals[key]]).toEqual(
+          [language, key, expect.stringContaining('millisecond')])
+      }
+    }
+  })
 })
