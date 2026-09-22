@@ -85,6 +85,15 @@ const columns = computed(() => inColumns(
  */
 const arrivedAt = computed(() => new Set((story?.exits ?? []).map(exit => exit.toSceneId)))
 
+/**
+ * Every Scene that flows into the next without asking, which the rail marks the
+ * way it marks a Scene nothing arrives at: both are the shape of the Story read
+ * off the drawing rather than assembled out of the panels. See
+ * `docs/adr/0045-the-rail-draws-the-ways-on.md`.
+ */
+const flowsOn = computed(() =>
+  new Set((story?.scenes ?? []).filter(scene => scene.exitsAfter === 0).map(scene => scene.id)))
+
 /** Where every point stands, and how tall the drawing comes out. */
 const drawing = computed(() => drawn(columns.value))
 
@@ -228,6 +237,7 @@ watch(() => sceneWritten, async () => {
           opens: story.openingSceneId === point.id,
           here: point.id === sceneWritten,
           unreached: point.id !== story.openingSceneId && !arrivedAt.has(point.id),
+          flows: flowsOn.has(point.id),
         }"
         @mousedown.prevent
         @click="emit('writeScene', point.id)"
@@ -346,6 +356,21 @@ watch(() => sceneWritten, async () => {
   background: var(--light);
 }
 
+/* .here borders the mark in the same light it fills it with, so on a Scene
+   that is also flows-on the thicker edge below has nothing to be thicker
+   against — the two facts collapse into one and flows-on is lost. The ring
+   needs a colour of its own to read as a ring at all, against the fill inside
+   it and the plate outside it both, so it takes the one colour already
+   proven to clear the plate at this size — `--muted` is what an ordinary
+   mark's own edge is drawn in, above, for exactly that reason. Flowing-on
+   still invents no colour of its own: it falls back to the quiet ring every
+   unmarked Scene already wears. Placed before `.opens.here` below so an
+   Opening Scene that also stands here and flows on keeps its grease pencil —
+   the later, equally specific rule wins the tie. */
+.rail .mark.here.flows {
+  border-color: var(--muted);
+}
+
 /* Both at once — the Story opens on the Scene being written — keeps the grease
    pencil on the edge and the light inside, so neither fact is lost to the other. */
 .rail .mark.opens.here {
@@ -357,6 +382,17 @@ watch(() => sceneWritten, async () => {
    looking rather than reading. */
 .rail .mark.unreached {
   border-style: dashed;
+}
+
+/* A Scene that flows into the next without asking, read on the edge the way the
+   loose end above it is rather than in a colour of its own: a line already
+   carries weight as a second channel next to colour — `.ways path.lit` is
+   heavier than a quiet one — and the edge here doubles for the same reason,
+   legible under `forced-colors` and needing no motion to say it. The document
+   says the same under the Scene's name and a Remark says it in a sentence; this
+   is for whoever is looking rather than reading. */
+.rail .mark.flows {
+  border-width: 2px;
 }
 
 /* On a phone the rail is a strip the drawing scrolls sideways through, and the

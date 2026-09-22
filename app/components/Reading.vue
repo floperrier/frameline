@@ -441,6 +441,39 @@ watch([at, paused, hidden, heldFor], () => {
 onBeforeUnmount(() => clearTimeout(holding.value))
 
 /**
+ * The ways on, in the three states a Scene may offer them in. Standing until one
+ * is taken is null and is every Story written before this existed. A number is
+ * the time they stand, after which the first one still offered is taken — which
+ * is the one already holding focus and the one Enter would press, so the order
+ * the Author wrote them in is the whole of what says which. Nought is the Scene
+ * flowing into the next without asking, and there they are never painted at all.
+ */
+const standing = computed(() => (shown.value.exits.length ? scene.value?.exitsAfter ?? null : null))
+const asking = computed(() => shown.value.exits.length > 0 && standing.value !== 0)
+
+const expiring = ref<ReturnType<typeof setTimeout>>()
+
+watch([at, paused, hidden, standing], () => {
+  clearTimeout(expiring.value)
+  // Immediate, like the hold above, and guarded the same way: the server draws a
+  // flowing Scene's Path once and answers, and a timer set from that render would
+  // fire into a request already gone, with no `onBeforeUnmount` left to clear it.
+  if (!import.meta.client) return
+
+  const first = shown.value.exits[0]
+  if (!first || paused.value || hidden.value) return
+  if (standing.value === null) return
+
+  // Always through the clock, nought included: a `setTimeout` of nought is still a
+  // macrotask, landing after the `onMounted` above by construction, so the opening
+  // beat of a flowing Scene draws its seed before anything moves the Path off it.
+  const takeIt = () => passBy(first.cutOver, first.cutThrough, take(at.value, first))
+  expiring.value = setTimeout(takeIt, standing.value)
+}, { immediate: true })
+
+onBeforeUnmount(() => clearTimeout(expiring.value))
+
+/**
  * Whether anything in this Story moves by itself, which is whether the Reader is
  * given the control that stops it. WCAG 2.2.2 asks for a pause the moment
  * something advances on its own and asks for nothing where nothing does, so a
@@ -561,7 +594,7 @@ const clocked = computed(() => story.scenes.some(scene =>
 
     <!-- The ways on go under the frame rather than over it, and carry no eyebrow
          of their own: the edge above has already named the Scene they leave. -->
-    <ul v-if="shown.exits.length" ref="exits" class="exits">
+    <ul v-if="asking" ref="exits" class="exits">
       <li v-for="exit in shown.exits" :key="exit.id">
         <!-- What the Author wrote on the Exit, so it carries the Story's Language
              like the beat above it does. -->
@@ -582,6 +615,23 @@ const clocked = computed(() => story.scenes.some(scene =>
         <slot name="ordering" :exit="exit" />
       </li>
     </ul>
+
+    <!-- The time the ways on stand, drained by a bar keyed on the Path so a fresh
+         arrival restarts it rather than resuming one already spent. The sentence
+         beside it says how long they stand — true for the whole of the stand, not
+         a reading of what is left — so it carries no `role="timer"`, which would
+         claim a countdown this paragraph never is. -->
+    <div
+      v-if="standing"
+      :key="`${at.taken.length}-${at.shot}`"
+      class="expiring"
+      :style="{ '--standing': `${standing}ms` }"
+    >
+      <span class="drain" :class="{ stopped: paused || hidden }" aria-hidden="true" />
+      <p class="visually-hidden">
+        {{ $t('reading.waysOnStandFor', { count: standing / 1000 }) }}
+      </p>
+    </div>
 
     <!-- In the document before it has anything to say: a live region announces
          a change to a node it already holds, never a node that arrives with its
@@ -860,6 +910,55 @@ figcaption {
 
 .exits .splice:hover {
   background: var(--steel-lit);
+}
+
+/* The time the ways on stand: a track the width of the column, and a bar drained
+   out of it at the pace the Author wrote — the same edge-and-grease pair the
+   ticks over the frame are read in, so a Reader who has met one progress already
+   reads the other. */
+.expiring {
+  block-size: 3px;
+  background: var(--edge);
+  overflow: hidden;
+}
+
+.drain {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  background: var(--grease);
+  transform-origin: left;
+  animation: drain var(--standing) linear forwards;
+}
+
+/* Full rather than paused mid-drain: the clock behind this bar is thrown away and
+   restarted at the full duration on resume (see the watch above), not picked back
+   up from where it stood, so a bar resumed from six seconds left would be showing
+   a stand the clock is about to give ten again. Same answer as the reduced-motion
+   rule below, and the same reason — removing `animation: none` later starts a new
+   animation rather than continuing the old one, so this also restarts the bar. */
+.drain.stopped {
+  animation: none;
+}
+
+@keyframes drain {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* The clock is the work and the bar is the decoration on it: the time still runs
+   underneath, but nothing here is asked to watch it counting down. Overrides
+   `frameline.css`'s own answer to the same query, which would otherwise still run
+   the animation — over a duration cut to nothing, landing the bar drained rather
+   than full. */
+@media (prefers-reduced-motion: reduce) {
+  .drain {
+    animation: none;
+  }
 }
 
 .resumed,

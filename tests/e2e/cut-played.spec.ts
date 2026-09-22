@@ -1,7 +1,5 @@
 import { expect } from '@playwright/test'
-import { live, seedPublished, test, writeStory } from './author'
-import type { APIRequestContext, Page } from '@playwright/test'
-import type { StoryInEditor } from '../../shared/utils/scenes'
+import { opened, test } from './author'
 
 /**
  * The Cut read where it is obeyed: a Scene whose run is cut after a time plays
@@ -12,7 +10,8 @@ import type { StoryInEditor } from '../../shared/utils/scenes'
  *
  * Read through the Reader's own door, on a Story published past the API: the
  * Reading is one component behind both doors, so what is proved here is proved of
- * an Author's Preview as well.
+ * an Author's Preview as well. `opened`, shared with every other spec that reads a
+ * Story this way, is `./author`'s.
  *
  * Three kinds of test, and each keeps the time its assertion asks for.
  *
@@ -31,26 +30,10 @@ import type { StoryInEditor } from '../../shared/utils/scenes'
  * a schedule of its own — a CSS transition, and the frames Vue counts it in — and
  * a fake clock freezes the very thing being looked at.
  */
-async function opened(
-  page: Page,
-  request: APIRequestContext,
-  write: (scenes: StoryInEditor['scenes']) => Promise<void>,
-) {
-  const story = await writeStory(request)
-  const { scenes } = await (await request.get(`/api/stories/${story.id}`))
-    .json() as StoryInEditor
-
-  await write(scenes)
-  await seedPublished(story)
-  await page.goto(`/read/${story.id}`)
-  // The clock is started by the component that holds the Path, so a page that has
-  // loaded and not yet been attached to is a page nothing is holding a beat on.
-  await live(page)
-}
 
 test('the clock makes the cut the press would have made, and the press cuts ahead of it',
   async ({ page, request }) => {
-    await opened(page, request, async (scenes) => {
+    await opened(page, request, async (_, scenes) => {
       // The Scene holds each Shot of its run for half a second, and its second
       // Shot answers for itself with a time no spec would wait out: what puts the
       // ways on on screen there can only be the press.
@@ -82,7 +65,7 @@ test('the Reader stops the clock, and stepping back stops it for them',
     // suite and the raciest — see issues #287 and #325. Installed before the page
     // is opened, so the hold the Reading arms as it mounts is on this clock too.
     await page.clock.install()
-    await opened(page, request, async (scenes) => {
+    await opened(page, request, async (_, scenes) => {
       await request.patch(`/api/scenes/${scenes[0]!.id}`, { data: { cutAfter: 10_000 } })
     })
 
@@ -136,7 +119,7 @@ test('a Story opened into a tab nobody is looking at holds its beat',
       })
     })
 
-    await opened(page, request, async (scenes) => {
+    await opened(page, request, async (_, scenes) => {
       await request.patch(`/api/scenes/${scenes[0]!.id}`, { data: { cutAfter: 2000 } })
     })
 
@@ -163,7 +146,7 @@ test('one beat dissolves into the next, or the passage is made through black',
   async ({ page, request }) => {
     const frames = page.locator('.frame')
 
-    await opened(page, request, async (scenes) => {
+    await opened(page, request, async (_, scenes) => {
       // Three seconds of passage over a beat held for half a second: long enough
       // that two frames on screen at once is a fact a spec can read. The beat
       // arriving waits for the press, so the one passage is the only one — an
@@ -189,7 +172,7 @@ test('one beat dissolves into the next, or the passage is made through black',
     // The other passage an Author can write over the same clock: the beat leaving
     // and the beat arriving take half the duration each, either side of a room
     // with nothing in it.
-    await opened(page, request, async (scenes) => {
+    await opened(page, request, async (_, scenes) => {
       await request.patch(`/api/scenes/${scenes[0]!.id}`, {
         data: { cutAfter: 500, cutOver: 3000, cutThrough: 'black' },
       })
@@ -205,7 +188,7 @@ test('a Reader who asked for less motion is given the rhythm without the passage
     // Asked of the browser rather than of the run, because `reducedMotion` handed
     // to `test.use` never reaches the context this suite seals its own cookie into.
     await page.emulateMedia({ reducedMotion: 'reduce' })
-    await opened(page, request, async (scenes) => {
+    await opened(page, request, async (_, scenes) => {
       await request.patch(`/api/scenes/${scenes[0]!.id}`, {
         data: { cutAfter: 500, cutOver: 3000, cutThrough: 'black' },
       })

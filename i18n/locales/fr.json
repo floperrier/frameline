@@ -338,7 +338,8 @@
     "showTranscript": "Afficher la Transcription",
     "hideTranscript": "Masquer la Transcription",
     "sceneTranscript": "Le Son tenu sous la Scène",
-    "shotTranscript": "Le Son que frappe le Plan"
+    "shotTranscript": "Le Son que frappe le Plan",
+    "waysOnStandFor": "Les Sorties restent proposées pendant une seconde. | Les Sorties restent proposées pendant {count} secondes."
   },
   "read": {
     "eyebrow": "Un Récit Frameline",

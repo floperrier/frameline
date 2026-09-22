@@ -338,7 +338,8 @@
     "showTranscript": "Show the Transcript",
     "hideTranscript": "Hide the Transcript",
     "sceneTranscript": "What the Scene is heard under",
-    "shotTranscript": "What the Shot strikes with"
+    "shotTranscript": "What the Shot strikes with",
+    "waysOnStandFor": "The Exits stand for one second. | The Exits stand for {count} seconds."
   },
   "read": {
     "eyebrow": "A Frameline Story",

@@ -988,6 +988,7 @@ test('the Graph is drawn from the Story, and redrawn as the Story changes', asyn
   await drawExit(request, arrival!.id, platform!.id)
   await drawExit(request, arrival!.id, bar!.id)
   await drawExit(request, platform!.id, tunnel!.id)
+  await request.patch(`/api/scenes/${tunnel!.id}`, { data: { exitsAfter: 0 } })
 
   await page.goto(`/stories/${story.id}`)
 
@@ -1039,6 +1040,9 @@ test('the Graph is drawn from the Story, and redrawn as the Story changes', asyn
   expect((await at('The loose end')).y).toBeGreaterThan((await at('The tunnel')).y)
   await expect(mark('The arrival')).toHaveClass(/opens/)
   await expect(mark('The loose end')).toHaveClass(/unreached/)
+  // Ways on that stand for no time flow into the next Scene without asking, which
+  // the rail draws on the mark rather than in a word.
+  await expect(mark('The tunnel')).toHaveClass(/flows/)
 
   // What the rail says with an edge, the document says in a sentence under the
   // Scene's own name — which is the whole reason the rail can be left out of the
