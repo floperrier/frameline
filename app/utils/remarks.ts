@@ -82,6 +82,7 @@ export function remarks(story: StoryInEditor, say: Phrase): Remark[] {
   const found: Remark[] = []
   const arrivedAt = new Set(story.exits.map(exit => exit.toSceneId))
   const names = namesOnTheBench(story, say)
+  const opening = story.openingSceneId
 
   // A Story with no Scene at all is a Story nobody has started, not one with
   // something wrong: the bench says so itself, and the guided path asks for the
@@ -98,8 +99,18 @@ export function remarks(story: StoryInEditor, say: Phrase): Remark[] {
 
     // A Scene whose ways on stand for no time flows into the next without
     // asking — docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md —
-    // and one with no way on at all ends the Reading there and then.
-    if (scene.exitsAfter === 0 && !exitsFrom(story.exits, scene.id).length) {
+    // and strands a Reading there only where none of its Exits could ever be
+    // handed to one: the same question `reachedWithout` asks for
+    // `exitNeverTaken`, asked here of every Exit a Scene offers at once rather
+    // than of one at a time. A Scene not itself reached from the opening is
+    // left alone — `sceneUnreached` already says the truer thing about it.
+    if (
+      scene.exitsAfter === 0
+      && opening
+      && reaches(story.exits, opening, scene.id)
+      && exitsFrom(story.exits, scene.id)
+        .every(exit => !reachedWithout(story, opening, scene.id, exit.toSceneId))
+    ) {
       found.push({ name: 'sceneFlowsNowhere', sceneId: scene.id, said })
     }
 

@@ -429,6 +429,21 @@ describe('the Cut', () => {
     expect(named(story)).not.toContain('sceneFlowsNowhere')
   })
 
+  /**
+   * A Scene whose only Exit leads back to a Scene a Reading standing there has
+   * always already entered flows on and strands the Reader just the same as one
+   * with no Exit at all — the Exit exists on the row but is never once handed
+   * to anybody, which is the same fact `exitNeverTaken` says of it.
+   */
+  it('remarks on a Scene that flows on whose only Exit is never offered', () => {
+    const story = onTheBench([
+      { name: 'One' },
+      { name: 'Two', exitsAfter: 0 },
+    ], { exits: [['One', 'Two'], ['Two', 'One']] })
+
+    expect(named(story)).toContain('sceneFlowsNowhere')
+  })
+
   // 200 words a minute is about 15 characters a second, so 400 characters need
   // some 27 seconds and a Shot standing for one is plainly unreadable.
   it('remarks on a Shot that stands for less time than its text takes to read', () => {
