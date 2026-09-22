@@ -10,6 +10,9 @@ import {
 import type { Work } from '../../demonstration/work.ts'
 import {
   CONDITIONS_MAX,
+  CUT_AFTER_MAX,
+  CUT_OVER_MAX,
+  EXITS_AFTER_MAX,
   EXIT_TEXT_MAX_LENGTH,
   FLAGS_PER_SCENE,
   SCENE_NAME_MAX_LENGTH,
@@ -17,6 +20,7 @@ import {
   SHOT_IMAGE_MAX_BYTES,
   SHOT_TEXT_MAX_LENGTH,
   imageTypeOf,
+  isTime,
 } from '../../shared/utils/scenes.ts'
 import type { Condition } from '../../shared/utils/scenes.ts'
 import { STORY_LANGUAGES, STORY_TITLE_MAX_LENGTH } from '../../shared/utils/stories.ts'
@@ -40,6 +44,14 @@ function conditionsOf(work: Work) {
     ...work.exits.flatMap(exit => exit.when ?? []),
     ...work.scenes.flatMap(scene => scene.shots.flatMap(shot => shot.when ?? [])),
   ]
+}
+
+/**
+ * Whether one of a Cut's times is one the door it is written through will take:
+ * a whole number of milliseconds within the cap, or nothing said at all.
+ */
+function within(held: number | null | undefined, max: number) {
+  return held === undefined || held === null || isTime(held, max)
 }
 
 /** Where a Scene comes in the work, which is how a Scene is named without its name. */
@@ -69,29 +81,42 @@ function shapeOfCondition(work: Work, condition: Condition) {
 /**
  * A whole Sample with every word taken out of it: how many Scenes, how many
  * Shots in each, which image each Shot shows, what each carries by way of
- * Conditions, and which Scene leads to which. Two Samples that agree here are
- * the same work in two languages.
+ * Conditions, how each is cut, and which Scene leads to which. Two Samples that
+ * agree here are the same work in two languages.
+ *
+ * The Cut is read as the value itself rather than as whether there is one,
+ * because the three states of a time each mean something different and nought
+ * is one of them — a Sample held until the press in one language and cut after
+ * nine seconds in the other is not the same work twice.
  */
 function shapeOf(work: Work) {
   return {
     language: Boolean(work.language),
     opening: placeOf(work, work.opening ?? ''),
     scenes: work.scenes.map(scene => ({
-      at: scene.at,
       sets: Object.keys(scene.sets ?? {}).length,
       sound: scene.sound,
       transcribed: Boolean(scene.transcript),
+      cutAfter: scene.cutAfter,
+      cutOver: scene.cutOver,
+      cutThrough: scene.cutThrough,
+      exitsAfter: scene.exitsAfter,
       shots: scene.shots.map(shot => ({
         image: shot.image,
         described: Boolean(shot.description),
         sound: shot.sound,
         transcribed: Boolean(shot.transcript),
+        cutAfter: shot.cutAfter,
+        cutOver: shot.cutOver,
+        cutThrough: shot.cutThrough,
         when: (shot.when ?? []).map(condition => shapeOfCondition(work, condition)),
       })),
     })),
     exits: work.exits.map(exit => ({
       from: placeOf(work, exit.from),
       to: placeOf(work, exit.to),
+      cutOver: exit.cutOver,
+      cutThrough: exit.cutThrough,
       when: (exit.when ?? []).map(condition => shapeOfCondition(work, condition)),
     })),
   }
@@ -247,16 +272,28 @@ describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLan
     for (const exit of sample.exits) {
       expect(exit.text.length).toBeLessThanOrEqual(EXIT_TEXT_MAX_LENGTH)
       expect(exit.when?.length ?? 0).toBeLessThanOrEqual(CONDITIONS_MAX)
+      expect(within(exit.cutOver, CUT_OVER_MAX)).toBe(true)
     }
 
     for (const scene of sample.scenes) {
       expect(scene.name.length).toBeLessThanOrEqual(SCENE_NAME_MAX_LENGTH)
       expect(Object.keys(scene.sets ?? {}).length).toBeLessThanOrEqual(FLAGS_PER_SCENE)
 
+      // Nought is a sentinel where a Shot writes it and where the ways on do,
+      // and a refusal on a Scene's own run — there is no *as the Scene says*
+      // above a Scene. Said here rather than found out halfway through writing
+      // the work into an instance.
+      expect(within(scene.cutAfter, CUT_AFTER_MAX)).toBe(true)
+      expect(scene.cutAfter).not.toBe(0)
+      expect(within(scene.cutOver, CUT_OVER_MAX)).toBe(true)
+      expect(within(scene.exitsAfter, EXITS_AFTER_MAX)).toBe(true)
+
       for (const shot of scene.shots) {
         expect(shot.text.length).toBeLessThanOrEqual(SHOT_TEXT_MAX_LENGTH)
         expect((shot.description ?? '').length).toBeLessThanOrEqual(SHOT_DESCRIPTION_MAX_LENGTH)
         expect(shot.when?.length ?? 0).toBeLessThanOrEqual(CONDITIONS_MAX)
+        expect(within(shot.cutAfter, CUT_AFTER_MAX)).toBe(true)
+        expect(within(shot.cutOver, CUT_OVER_MAX)).toBe(true)
       }
     }
   })

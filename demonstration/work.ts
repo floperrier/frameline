@@ -16,7 +16,7 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { SHOT_IMAGE_MAX_BYTES } from '../shared/utils/scenes.ts'
-import type { Condition, Flags } from '../shared/utils/scenes.ts'
+import type { Condition, CutThrough, Flags } from '../shared/utils/scenes.ts'
 import type { StoryLanguage } from '../shared/utils/stories.ts'
 
 const run = promisify(execFile)
@@ -67,6 +67,16 @@ export type Shot = {
   sound?: string
   /** What that Sound makes heard, in the language the work is written in. */
   transcript?: string
+  /**
+   * This Shot's own answer about how it leaves the screen, where it answers at
+   * all: saying nothing is *as the Scene says*, a `cutAfter` of nought is *held
+   * until the press*, and a `cutOver` of nought is a hard cut, under which
+   * `cutThrough` says nothing. See
+   * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
+   */
+  cutAfter?: number
+  cutOver?: number
+  cutThrough?: CutThrough
 }
 
 /**
@@ -93,8 +103,31 @@ export type Work = {
     /** The Sound the Scene is heard under, named as one of the library's files. */
     sound?: string
     transcript?: string
+    /**
+     * How the Shots of this Scene's run are cut, and how long its ways on
+     * stand. Saying nothing is the run every work here was written as before
+     * the Cut existed: each beat held until the press, cut hard, with the ways
+     * on standing until one is taken. `exitsAfter` of nought is the Scene
+     * flowing into the next without asking; a Scene's `cutAfter` is refused it,
+     * because a Scene has no *as the Scene says* to fall back to.
+     */
+    cutAfter?: number
+    cutOver?: number
+    cutThrough?: CutThrough
+    exitsAfter?: number | null
   }[]
-  exits: { from: string, to: string, text: string, when?: Condition[] }[]
+  /**
+   * An Exit's own Cut is how the passage it makes is made, never when: an Exit
+   * is taken rather than held, and there is no Scene above it to say otherwise.
+   */
+  exits: {
+    from: string
+    to: string
+    text: string
+    when?: Condition[]
+    cutOver?: number
+    cutThrough?: CutThrough
+  }[]
 }
 
 /**

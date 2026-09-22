@@ -55,6 +55,13 @@ export async function plantSample(
         createdAt: new Date(Date.now() + order),
         sound: scene.sound ? await sound(scene.sound) : null,
         transcript: scene.transcript ?? '',
+        // A field the Sample does not name is `undefined`, which the driver
+        // writes as the column's own default, so a Sample carrying no Cut is
+        // planted exactly as it was before the Cut existed.
+        cutAfter: scene.cutAfter,
+        cutOver: scene.cutOver,
+        cutThrough: scene.cutThrough,
+        exitsAfter: scene.exitsAfter,
       }))))
       .returning({ id: scenes.id, name: scenes.name })
 
@@ -80,6 +87,9 @@ export async function plantSample(
         image: typeof shot.image === 'string' ? await image(shot.image) : null,
         sound: shot.sound ? await sound(shot.sound) : null,
         transcript: shot.transcript ?? '',
+        cutAfter: shot.cutAfter,
+        cutOver: shot.cutOver,
+        cutThrough: shot.cutThrough,
       })))))
 
     // The Place an Exit takes among the ways on leaving its Scene is the order the
@@ -97,6 +107,8 @@ export async function plantSample(
         text: exit.text,
         position: place,
         conditions: (exit.when ?? []).map(identified),
+        cutOver: exit.cutOver,
+        cutThrough: exit.cutThrough,
       }
     }))
 
