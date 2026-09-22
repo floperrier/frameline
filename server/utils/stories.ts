@@ -168,6 +168,9 @@ export async function readStoryLanguage(event: H3Event): Promise<StoryLanguage> 
  * and the Exits that join them. Shared because an Author's Story and a Reader's
  * are the same graph read by two different doors — a Preview and a Reading play
  * the same Story, so they cannot be assembled by two queries that could drift.
+ * What it selects is the bench's own, and the Reader's door narrows it to the
+ * fields a Reading reads: a column added here for the editor's sake reaches
+ * `/api/stories/[id]` and stops there, until `/api/read/[id]` names it too.
  */
 export async function readStoryGraph(storyId: string) {
   // One pass over the join, so a Scene with no Shots still arrives (the Shot

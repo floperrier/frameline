@@ -1,6 +1,6 @@
 import type { Browser, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { test, writeStory } from './author'
+import { seedPublished, test, writeStory } from './author'
 
 /**
  * Someone arriving at the public link for the first time: their own context, so
@@ -93,4 +93,21 @@ test('a Story with no opening Scene cannot be published', async ({ page, request
     'A Story needs an opening Scene before it can be published. '
     + 'Write a Scene on the Graph and mark it as the one to start on.')
   await expect(page.getByRole('button', { name: 'Publish this Story', exact: true })).toBeVisible()
+})
+
+test('the public link hands a Scene over by the fields the Reader\'s door names', async ({ request }) => {
+  const story = await writeStory(request)
+  await seedPublished(story)
+
+  const read = await (await request.get(`/api/read/${story.id}`)).json()
+
+  // Held as the whole set rather than as an absence: `readStoryGraph` selects
+  // nothing editor-only today, so a test naming what must not be here would go
+  // on passing with the narrowing taken out again. A column added to that query
+  // for the bench arrives here as a name nobody listed, and one a Reading is
+  // meant to have has to be named at the Reader's door and in this list at once.
+  expect(Object.keys(read.scenes[0]).sort()).toEqual([
+    'cutAfter', 'cutOver', 'cutThrough', 'exitsAfter', 'id', 'name', 'sets',
+    'shots', 'sound', 'soundLoops', 'soundOfSceneId', 'transcript',
+  ])
 })

@@ -43,21 +43,33 @@ export default defineEventHandler(async (event) => {
   const { scenes, exits } = await readStoryGraph(id)
 
   // Where the Author put a Scene's node in the graph is none of a Reading's
-  // business, so it does not leave the editor.
-  //
-  // Whether the Story carries a Sound anywhere, which is what makes the title
-  // card a control: a Reader who presses it consents to being played something,
-  // and a browser will not play into a page nobody has touched. Read off the
-  // addresses the graph already carries, so no query touches the bytes.
+  // business, so it does not leave the editor. `readStoryGraph` is read by both
+  // doors, so what keeps it in is this door naming the fields a Scene leaves by,
+  // and not that query happening to select nothing else: a column added there
+  // for the bench stays behind it until somebody names it here, and a name added
+  // here that a Reading has no business with is refused by `StoryToShow`, which
+  // is the shape the Reader's page reads the answer as.
   //
   // The Cut is part of `readStoryGraph` itself now, so a Scene and a Shot
   // arrive already carrying it — nothing here resolves it, that is `cut()`'s
   // job for whoever plays the Reading.
+  const forTheReading = scenes.map(({
+    id, name, sets, shots, sound, soundOfSceneId, transcript, soundLoops,
+    cutAfter, cutOver, cutThrough, exitsAfter,
+  }): StoryToShow['scenes'][number] => ({
+    id, name, sets, shots, sound, soundOfSceneId, transcript, soundLoops,
+    cutAfter, cutOver, cutThrough, exitsAfter,
+  }))
+
+  // Whether the Story carries a Sound anywhere, which is what makes the title
+  // card a control: a Reader who presses it consents to being played something,
+  // and a browser will not play into a page nobody has touched. Read off the
+  // addresses the graph already carries, so no query touches the bytes.
   return {
     ...story,
     cover: coverUrl(story.cover),
-    carriesSound: carriesSound({ scenes }),
-    scenes,
+    carriesSound: carriesSound({ scenes: forTheReading }),
+    scenes: forTheReading,
     exits,
   }
 })
