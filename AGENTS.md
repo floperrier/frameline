@@ -5,25 +5,56 @@ Read `CONTEXT.md` before touching anything — the glossary is binding.
 
 ## Agent skills
 
-Skills come from the plugins `.claude/settings.json` enables — the Neon ones
-from `neon-postgres@neon`, whose marketplace the same file declares so a clone
-can install it. Nothing is vendored into the repository, so there is no copy
-here to update.
+Orca opens a worktree off `origin/dev`, Claude Code runs in it, and
+`/pstack:poteto-mode` picks the playbook that carries the change through
+`pnpm typecheck`, `pnpm test` and the running app (see **Tests** and **Running
+the app** below) to a pull request. pstack is installed
+in the user's scope and not declared here, because it serves every repository and
+not this one. `.claude/settings.json` declares only this project's own plugin,
+the Neon skills from `neon-postgres@neon`, with the marketplace a clone needs to
+install them. Nothing is vendored into the repository.
+
+### Where this repository overrides pstack
+
+pstack's playbooks assume another repository's habits, and four of their defaults
+are the opposite of this one's. Where the two disagree, this file wins.
+
+- **pstack's `main` is `dev` here.** Every worktree branches from `dev` and every
+  pull request targets it. `main` is production, and only a promotion reaches it.
+- **A title is a sentence, not a Conventional Commit.** The pull request's title
+  becomes the squashed commit on `dev`, and that history reads one sentence per
+  change: `git log --oneline dev`. No `feat(scope):` prefix.
+- **The body is the repository's template.** `pnpm pr` fills it from
+  `.github/pull_request_template.md`, with `Closes #<n>` taken from the branch
+  name, and that line is what closes the issue on merge. pstack's list of
+  sections does not replace it.
+- **A pull request is done when it is green, not when it is open.** `e2e` runs
+  on pull requests alone, so watch `check` and `e2e` and fix a red one before
+  calling the work finished. pstack's "opening a PR does not start a babysit"
+  does not hold here.
 
 ### Issue tracker
 
 Issues and specs live in GitHub Issues for `floperrier/frameline`, via the `gh`
-CLI. See `docs/agents/issue-tracker.md`.
+CLI. `docs/agents/issue-tracker.md` has the commands. Its sections on `/triage`
+and `/wayfinder` are left over from mattpocock/skills, which is no longer
+enabled, and nothing reads them. An issue that waits on another says so with
+GitHub's native issue dependency, which the agent loop reads to keep it out of
+its queue.
 
 ### Triage labels
 
-The seven canonical triage roles — two of category, five of state — each label
-string equal to its name. See `docs/agents/triage-labels.md`.
+A triaged issue carries two labels, one saying what it is and one saying where it
+has got to. `docs/agents/triage-labels.md` lists the seven.
 
 ### Domain docs
 
-Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See
-`docs/agents/domain.md`.
+Single-context: `CONTEXT.md` and `docs/adr/` at the repo root, and no
+`CONTEXT-MAP.md`. Read the ADRs that touch an area before working in it. Name a
+domain concept with the word `CONTEXT.md` gives it, in an issue title, a test
+name or a commit, and never with a word it lists as avoided. A change that
+contradicts an accepted ADR names that ADR in its pull request rather than
+overriding it silently.
 
 ## Design
 
@@ -36,7 +67,7 @@ The widths the interface folds at are the one thing a token cannot carry, becaus
 a custom property cannot be read inside a media query. They are declared as
 custom media queries in `app/assets/css/folds.css` — names and no rules — and
 reached by name from the scoped block of every surface that folds at one. See
-`docs/adr/0042-the-scene-is-written-where-it-stands.md` and
+`docs/adr/0006-two-rooms-one-language.md` and
 `docs/adr/0041-the-graph-is-drawn-from-the-story.md`.
 
 ## Git flow
@@ -74,10 +105,10 @@ with the `_Affiché_` word carrying its own capital: *Ajouter un Plan*, *Fermer 
 panneau*.
 
 What makes it worth settling is the bar of Commands —
-`docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md`. Matching
-there ignores case, so nothing breaks; but the bar is the one surface that reads
-every label in the product side by side, and a list where half the acts are
-titled and half are not is the mixed convention on show.
+`docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`.
+Matching there ignores case, so nothing breaks; but the bar is the one surface
+that reads every label in the product side by side, and a list where half the
+acts are titled and half are not is the mixed convention on show.
 
 The server reads the same two files. A refusal still travels as a phrase in the
 response body — `docs/adr/0009-a-refusal-travels-in-the-body.md` — and
@@ -105,7 +136,7 @@ outright: the migration snapshots are the generator's to write.
 
 `pnpm test` runs the Vitest suite over the modules that are pure functions: the
 Reading engine, what a Shot's image is read to be, the Conditions a request is
-allowed to write, the sequence of Places it renumbers a Scene by, the Scenes a
+allowed to write, the sequence of Places it renumbers a Scene by, the Scenes an
 Exit may land on, the columns a Story falls into and the order it is written in,
 the two message
 files held against each other, the language a refusal is phrased in, the Steps the

@@ -1,8 +1,8 @@
+---
+status: accepted
+---
+
 # A Story is presented by one of its own frames
-
-## Status
-
-Accepted.
 
 ## Context
 

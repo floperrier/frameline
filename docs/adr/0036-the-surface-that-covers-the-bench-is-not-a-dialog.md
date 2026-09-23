@@ -63,8 +63,8 @@ as the bench.
 The Escape handler is the other thing that had to be read again rather than
 inherited. `letGoOnEscape` refuses to close the writing while
 `document.querySelector('dialog:modal')` finds anything — recorded in
-`docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md` as the fact
-being the browser's own. A panel that became a modal dialog would be found by
+`docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md` as
+the fact being the browser's own. A panel that became a modal dialog would be found by
 that query and would refuse to close itself. It could be worked around; that it
 needs working around is the shape being wrong.
 

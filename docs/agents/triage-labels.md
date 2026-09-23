@@ -1,27 +1,21 @@
 # Triage Labels
 
-The skills speak in terms of seven canonical triage roles: two that say what a
-thing is, and five that say where it has got to. This file maps those roles to
-the actual label strings used in this repo's issue tracker. A triaged issue
-carries exactly one of each.
+A triaged issue carries exactly two labels: one from each table below. The first
+says what the issue is, and the second says where it has got to.
 
 What it is:
 
-| Label in mattpocock/skills | Label in our tracker | Meaning                                  |
-| -------------------------- | -------------------- | ---------------------------------------- |
-| `bug`                      | `bug`                | Something is broken                      |
-| `enhancement`              | `enhancement`        | A new feature or an improvement          |
+| Label         | Meaning                         |
+| ------------- | ------------------------------- |
+| `bug`         | Something is broken             |
+| `enhancement` | A new feature or an improvement |
 
 Where it has got to:
 
-| Label in mattpocock/skills | Label in our tracker | Meaning                                  |
-| -------------------------- | -------------------- | ---------------------------------------- |
-| `needs-triage`             | `needs-triage`       | Maintainer needs to evaluate this issue  |
-| `needs-info`               | `needs-info`         | Waiting on reporter for more information |
-| `ready-for-agent`          | `ready-for-agent`    | Fully specified, ready for an AFK agent  |
-| `ready-for-human`          | `ready-for-human`    | Requires human implementation            |
-| `wontfix`                  | `wontfix`            | Will not be actioned                     |
-
-When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from the table it belongs to.
-
-Edit the right-hand columns to match whatever vocabulary you actually use.
+| Label             | Meaning                                                |
+| ----------------- | ------------------------------------------------------ |
+| `needs-triage`    | Maintainer needs to evaluate this issue                |
+| `needs-info`      | Waiting on reporter for more information               |
+| `ready-for-agent` | Fully specified, ready for an agent working unattended |
+| `ready-for-human` | Requires human implementation                          |
+| `wontfix`         | Will not be actioned                                   |

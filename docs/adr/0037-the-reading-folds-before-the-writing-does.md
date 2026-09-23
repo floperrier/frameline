@@ -134,8 +134,8 @@ merely marked.** It reads the controls carrying `data-command` off the page, and
 a fold takes a column away by hiding it, so the acts inside that column go with
 it. The bar now asks the browser whether each control is drawn rather than
 working it out from a width — see
-`docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md`, whose claim
-is that the bar offers nothing the bench does not. Visually hidden controls,
+`docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`,
+whose claim is that the bar offers nothing the bench does not. Visually hidden controls,
 which are on screen for a hand on the keyboard, still count as drawn.
 
 **Writing begins on the Scene, and leaving it goes through the Scene.** Which of
