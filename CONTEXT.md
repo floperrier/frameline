@@ -59,9 +59,11 @@ _Avoid_: alt, alt text, label, caption, tooltip, legend
 The one sound a Scene or a Shot carries. A Scene's is held under the run and
 crosses the cut between its Shots; a Shot's strikes with the beat and is gone. A
 Scene's is either held in a loop until the Scene is left, or played once and the
-Scene silent after; a Shot's does neither. It is deposited on the row that plays
-it, and a Scene may instead name a Scene that carries one — never a Scene that is
-itself naming — the way a Cover is named among the Images the Shots already carry.
+Scene silent after; a Shot's does neither. A Reading that ends in a Scene never
+leaves it, so a loop there plays out the pass it is in and stops. It is
+deposited on the row that plays it, and a Scene may instead name a Scene that
+carries one — never a Scene that is itself naming — the way a Cover is named
+among the Images the Shots already carry.
 _Affiché_: Son
 _Avoid_: audio, track, clip, soundtrack, sfx, cue, ambience, bande-son, piste,
 ambiance, musique, bruitage
@@ -74,10 +76,13 @@ or through black. A Scene says how its run is cut, a Shot may say otherwise,
 and a Shot that says nothing is cut as its Scene says — the shape an Exit's
 *steps back* already has. An Exit carries one too — how the passage from the
 Scene it leaves to the Scene it lands on is made, never when, because an Exit is
-taken rather than held. A Shot whose text arrives in its own time is held for
-its time once the text has arrived, so the clock never cuts a text short, and a
-press made while the text is still arriving shows the rest of it rather than
-cutting.
+taken rather than held. The last Shot of a Reading has nothing to be cut to. A
+Cut through black takes it to black over the whole of its time and leaves the
+screen there; a hard cut or a dissolve leave it standing, because a dissolve with
+nothing to dissolve into is a fade to black the Author did not choose. A Shot
+whose text arrives in its own time is held for its time once the text has
+arrived, so the clock never cuts a text short, and a press made while the text
+is still arriving shows the rest of it rather than cutting.
 _Affiché_: Coupe
 _Avoid_: transition, timing, duration, delay, autoplay, timer, slideshow,
 durée, minuterie, défilement
@@ -281,7 +286,12 @@ _Avoid_: variable, switch, toggle, key, drapeau
 One traversal of a published Story by one Reader, carrying its own State. Kept in
 the Reader's browser between visits and nowhere else, so a Reader who leaves comes
 back to where they stood — see
-`docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md`.
+`docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md`. A Reading ends where
+the Scene it stands in has played its last Shot and offers no Exit. That last
+Shot is the ending. It is shown whole, it leaves the screen by its own Cut, and
+the interface sets no sentence of its own beside it. A Story that wants the end
+said says it in a Shot, in its own words and its own Language. See
+`docs/adr/0053-a-reading-ends-on-its-last-shot.md`.
 _Affiché_: Lecture
 _Avoid_: session, playthrough, run, visit
 

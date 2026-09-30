@@ -22,11 +22,20 @@ async function readToTheEnd(page: Page) {
   await page.getByRole('button', { name: 'Next Shot' }).click()
   await page.getByRole('button', { name: 'Follow her out' }).click()
   await expect(page.getByText('Smoke, and no one she knows.')).toBeVisible()
-  await page.getByRole('button', { name: 'Next Shot' }).click()
-  await expect(page.getByRole('status')).toHaveText('The path ends here.')
+  const next = page.getByRole('button', { name: 'Next Shot' })
+  const weight = await next.evaluate(el => getComputedStyle(el).backgroundColor)
+  await next.click()
+  await expect(page.getByRole('status')).toHaveText('The Reading ends here.')
   // The button that was pressed is gone, so reading again from the start takes
   // the focus it held — the move an ending is for, and not the step back beside it.
-  await expect(page.getByRole('button', { name: 'Read Again from the Start' })).toBeFocused()
+  const again = page.getByRole('button', { name: 'Read Again from the Start' })
+  await expect(again).toBeFocused()
+  // And with no sentence of the interface's on the screen, the controls are what
+  // say the Reading has ended: reading again is drawn with the weight the press
+  // it replaces had. The pointer is taken off it first, since a hover is a
+  // weight of its own.
+  await page.mouse.move(0, 0)
+  await expect(again).toHaveCSS('background-color', weight)
 }
 
 /**
@@ -63,7 +72,7 @@ test('an Author publishes a Story and a Reader reads it at the public link', asy
   // a Reading carries its own State and shares it with nobody.
   const other = await readerAt(browser, publicLink)
   await expect(other.page.getByText('A door opens.')).toBeVisible()
-  await expect(reader.page.getByRole('status')).toHaveText('The path ends here.')
+  await expect(reader.page.getByRole('status')).toHaveText('The Reading ends here.')
 
   // Unpublishing takes the link away from everyone who had it.
   await page.getByRole('button', { name: 'Unpublish this Story' }).click()

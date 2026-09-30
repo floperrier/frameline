@@ -65,7 +65,7 @@ test('a Reader who leaves a Story comes back to where they stood', async ({ page
   await reading.getByRole('button', { name: 'Next Shot' }).click()
   await reading.getByRole('button', { name: 'Follow her out' }).click()
   await reading.getByRole('button', { name: 'Next Shot' }).click()
-  await expect(reading.getByRole('status')).toHaveText('The path ends here.')
+  await expect(reading.getByRole('status')).toHaveText('The Reading ends here.')
   await reading.reload()
   await expect(reading.getByText('A door opens.')).toBeVisible()
   await expect(pickedUp(reading)).toHaveCount(0)
@@ -137,7 +137,7 @@ test('a Reader who finishes a Story is led on to its Author and to the Catalogue
   await reading.getByRole('button', { name: 'Next Shot' }).click()
   await reading.getByRole('button', { name: 'Follow her out' }).click()
   await reading.getByRole('button', { name: 'Next Shot' }).click()
-  await expect(reading.getByRole('status')).toHaveText('The path ends here.')
+  await expect(reading.getByRole('status')).toHaveText('The Reading ends here.')
 
   await reading.getByRole('link', { name: 'Find Stories in the Catalogue' }).click()
   await expect(reading).toHaveURL(`${baseURL}/catalogue`)
@@ -200,7 +200,9 @@ test('a Reader steps back a beat, inside a Scene and across the Exit they took',
   await reading.getByRole('button', { name: 'Follow her out' }).click()
   await expect(reading.getByText('Smoke, and no one she knows.')).toBeVisible()
   await reading.getByRole('button', { name: 'Next Shot' }).click()
-  await expect(reading.getByRole('status').filter({ hasText: 'The path ends here.' })).toBeVisible()
+  // Asked of the text alone: the sentence is drawn for nobody who is looking, and
+  // `toBeVisible` would pass on it only because a box clipped to a pixel counts.
+  await expect(reading.getByRole('status').filter({ hasText: 'The Reading ends here.' })).toHaveCount(1)
 })
 
 test('an Exit the Author closed is not crossed backwards, and the Scene behind it still is', async ({ page, request, browser, baseURL }) => {

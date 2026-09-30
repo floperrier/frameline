@@ -131,13 +131,14 @@ const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () =>
 // named here carries bytes of its own, which the request boundary is what holds.
 //
 // `transcript` is what the Sound makes heard, for a Reader who cannot hear it,
-// and `sound_loops` whether it is held in a loop until the Scene is left or
-// played once and the Scene silent after. Both belong to the bytes and are read
-// off the row carrying them, so a Scene that names another never has its own
-// read: the same rain is transcribed once. Not null with a default apiece,
-// because a rollback leaves the old code inserting Scenes that name neither —
-// see `docs/adr/0002-the-schema-moves-with-the-deploy.md`. A deposited Sound
-// loops until the Author says otherwise, which is what a bed usually is.
+// and `sound_loops` whether it is held in a loop until the Scene is left or the
+// Reading ends there, or played once and the Scene silent after. Both belong to
+// the bytes and are read off the row carrying them, so a Scene that names
+// another never has its own read: the same rain is transcribed once. Not null
+// with a default apiece, because a rollback leaves the old code inserting Scenes
+// that name neither — see `docs/adr/0002-the-schema-moves-with-the-deploy.md`.
+// A deposited Sound loops until the Author says otherwise, which is what a bed
+// usually is.
 //
 // `cut_after` is how long each Shot of the run stands before the cut is made,
 // in milliseconds, and null is the run that waits for the press — which is every

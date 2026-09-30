@@ -160,7 +160,7 @@ export async function readTranscript(event: H3Event) {
   return written
 }
 
-/** Whether the Scene's Sound is held in a loop until the Scene is left, or played once. */
+/** Whether the Scene's Sound is held in a loop until the Scene is left or the Reading ends, or played once. */
 export async function readSoundLoops(event: H3Event) {
   const body = await readBody<{ soundLoops?: unknown }>(event)
 

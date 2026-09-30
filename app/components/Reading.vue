@@ -259,7 +259,8 @@ function passBy(over: number, through: CutThrough, to: Path, byClock = false) {
  * lengthening a dissolve between two Shots is not to be lengthening the way out
  * of the Scene without being told. The end of the run is the frame standing
  * still, and the Author's passage is spent once, on the Exit taken. See issue
- * #332.
+ * #332. At an ending there is no Exit to make one, and the last Shot's own Cut is
+ * made once the move is, on the frame left standing: see `ending` below.
  *
  * Asked of the Shot on screen and the Scene it belongs to without either being
  * checked, because the one control that calls this is drawn only while a Shot is
@@ -272,6 +273,25 @@ function passOn(byClock = false) {
 
   return passBy(made.over, made.through, advance(at.value), byClock)
 }
+
+/**
+ * How the Reading leaves the screen at its ending, and nothing before it. The move
+ * into the ending is cut hard like every end of a run, and the last Shot is shown
+ * whole; what its own Cut says is then made on the frame that stands, since at an
+ * ending there is no Exit to make a passage out and nothing to be cut to. Through
+ * black over a time, the frame goes to black over the whole of it — nothing comes
+ * in, so nothing takes the other half — and stays there. A hard cut has nothing to
+ * be, and a dissolve with nothing to dissolve into would be a fade to black the
+ * Author did not write, so both leave the frame standing.
+ *
+ * Read off `cut()` for the Shot the frame holds and set on the frame itself: the
+ * gate's `--cut-over` is the passage's, and the move into the ending made none.
+ * See `docs/adr/0053-a-reading-ends-on-its-last-shot.md`.
+ */
+const ending = computed(() => (shown.value.ended && scene.value && held.value
+  ? cut(scene.value, held.value)
+  : undefined))
+const toBlack = computed(() => ending.value?.through === 'black' && ending.value.over > 0)
 
 /**
  * A beat still fading out is no longer a beat: it is on screen for whoever is
@@ -378,10 +398,18 @@ watch(transcribed, now => keepFlag(TRANSCRIPT_SHOWN, now))
  * the carrier changes — B naming A, A naming B and both naming C are one Sound —
  * and nothing records where it had got to, so a crossing into another carrier
  * starts that one from the beginning, forwards or backwards alike. Held in a loop
- * it repeats until the Scene is left; played once it falls silent and the Scene
- * stays silent, which is the element's own `ended` and nothing this has to do.
- * Runs whether or not sound is on — muting is `.muted` above, not a reason to
- * tear the source down and restart it on the next press.
+ * it repeats until the Scene is left or the Reading ends; played once it falls
+ * silent and the Scene stays silent, which is the element's own `ended` and
+ * nothing this has to do. Runs whether or not sound is on — muting is `.muted`
+ * above, not a reason to tear the source down and restart it on the next press.
+ *
+ * A Reading that ends in a Scene never leaves it, so at the ending the loop is let
+ * go of and the bed plays out the pass it is in and stops by itself — no envelope
+ * and no second audio pipeline, which iOS would need for a fade. Stepping back off
+ * the ending gives the loop back, and a bed that played out while the Reader
+ * stood there is played again from its beginning, which is where any bed starts:
+ * the one case of a carrier held across a move that is not left alone. See
+ * `docs/adr/0053-a-reading-ends-on-its-last-shot.md`.
  *
  * A function rather than only a watch callback, for the reason `strikeShot` is
  * one: a Preview is mounted afresh over a Path the bench was already holding, so
@@ -397,8 +425,12 @@ function holdBed(now: Heard | undefined, before?: Heard) {
     return
   }
 
-  element.loop = now.loops
-  if (heldAcross(before, now) && element.getAttribute('src') === now.sound) return
+  // Read before the loop is given back, because an element that loops never
+  // reads as ended.
+  const playedOut = element.ended
+  element.loop = now.loops && !shown.value.ended
+  const replayed = element.loop && playedOut
+  if (heldAcross(before, now) && element.getAttribute('src') === now.sound && !replayed) return
 
   element.src = now.sound
   element.currentTime = 0
@@ -412,7 +444,7 @@ function holdBed(now: Heard | undefined, before?: Heard) {
   element.play().catch(() => {})
 }
 
-watch(heard, holdBed)
+watch([heard, () => shown.value.ended], ([now], [before]) => holdBed(now, before))
 
 /**
  * The strike, which plays as the beat plays and is gone. Keyed on the Path rather
@@ -425,11 +457,16 @@ watch(heard, holdBed)
  * A function rather than only a watch callback, because one transition into a
  * drawn Path — the opening beat, in `onMounted` above — moves nothing this key
  * can see change and would otherwise never strike at all.
+ *
+ * Stopped by the next beat and by nothing else. The move that ends a run is no
+ * beat, and the frame still holds the Shot there — behind the ways on or at the
+ * ending alike — so its Sound goes on to its end rather than being cut short by
+ * the press the Reader made to move on.
  */
 function strikeShot() {
   const element = strike.value
   const sound = shown.value.shot?.sound
-  if (!element) return
+  if (!element || !shown.value.shot) return
 
   if (!sound) {
     element.pause()
@@ -865,9 +902,9 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
             ref="frame"
             :key="`${at.taken.length}-${at.shot}`"
             class="frame"
-            :class="{ 'pushed-back': !shown.shot }"
+            :class="{ 'pushed-back': !shown.shot && !shown.ended, 'ends': shown.ended, 'to-black': toBlack }"
             :lang="story.language"
-            :style="{ '--wait': `${wait}ms` }"
+            :style="{ '--wait': `${wait}ms`, '--end-over': toBlack ? `${ending!.over}ms` : undefined }"
             tabindex="-1"
           >
             <!-- The image and the text are one beat, so the Reader moves past both
@@ -958,19 +995,20 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
       <!-- What a Reader who cannot hear is owed. Always in the document: hidden it
            is `visually-hidden` and still read, never taken out of the
            accessibility tree and never announced in a live region, which would
-           trample the reading. -->
-      <div v-if="heard?.transcript || shown.shot?.transcript" class="heard">
+           trample the reading. The Shot's is the Shot the frame holds, so it
+           stays past the end of the run the way that Shot's Sound does. -->
+      <div v-if="heard?.transcript || held.transcript" class="heard">
         <p v-if="heard?.transcript" class="transcript" :class="{ 'visually-hidden': !transcribed }">
           <span class="eyebrow">{{ $t('reading.sceneTranscript') }}</span>
           <span :lang="story.language">{{ heard.transcript }}</span>
         </p>
         <p
-          v-if="shown.shot?.transcript"
+          v-if="held.transcript"
           class="transcript"
           :class="{ 'visually-hidden': !transcribed }"
         >
           <span class="eyebrow">{{ $t('reading.shotTranscript') }}</span>
-          <span :lang="story.language">{{ shown.shot.transcript }}</span>
+          <span :lang="story.language">{{ held.transcript }}</span>
         </p>
       </div>
     </template>
@@ -1044,8 +1082,11 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
 
     <!-- In the document before it has anything to say: a live region announces
          a change to a node it already holds, never a node that arrives with its
-         sentence inside it. -->
-    <p class="ended trail" role="status">{{ shown.ended ? $t('reading.ended') : '' }}</p>
+         sentence inside it. Said to whoever reads by ear and seen by nobody: any
+         sentence the interface set on the screen here would be the product
+         speaking over the Author's last frame, in the Locale rather than in the
+         Story's Language. A Story that wants the end said says it in a Shot. -->
+    <p class="ended visually-hidden" role="status">{{ shown.ended ? $t('reading.ended') : '' }}</p>
 
     <!-- What the Reader is given over the Reading itself: the clock stopped, the
          one refusal of the Sound, and the words for whoever cannot hear it. All
@@ -1067,7 +1108,7 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
         {{ sounding ? $t('reading.soundOff') : $t('reading.soundOn') }}
       </button>
       <button
-        v-if="heardAtAll && (heard?.transcript || shown.shot?.transcript)"
+        v-if="heardAtAll && (heard?.transcript || held?.transcript)"
         type="button"
         class="trail"
         @click="transcribed = !transcribed"
@@ -1094,12 +1135,23 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
          moved: the two agreed until an Exit could refuse to be crossed
          backwards, and where one does the Reader is left with the Story to read
          again and no beat behind. Nothing says why. A door that has closed says
-         nothing, and a Story that wants it said says it in a Shot. -->
+         nothing, and a Story that wants it said says it in a Shot.
+
+         At the ending, and only there, reading again is drawn with the weight
+         *Next Shot* had: nothing of the interface's is said on the screen there,
+         so the controls are what tell a Reader who is looking that the Reading
+         has ended, and a trail on every screen once the Reading has moved would
+         tell them nothing. -->
     <p v-if="moved(at)" class="back">
       <button v-if="behind" type="button" class="trail" @click="stepBack">
         {{ $t('reading.back') }}
       </button>
-      <button ref="again" type="button" class="trail" @click="passBy(0, 'image', opening())">
+      <button
+        ref="again"
+        type="button"
+        :class="{ trail: !shown.ended }"
+        @click="passBy(0, 'image', opening())"
+      >
         {{ $t('reading.again') }}
       </button>
     </p>
@@ -1232,9 +1284,31 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
    to stay as readable as it was to whoever is reading it while they choose, and a
    dimmed serif is the one thing on this page that cannot afford to be. The image
    is its whole box, the sheets an Effect lays over it included, which dims to
-   exactly what the image alone did: the box is the room the image is set on. */
-.frame.pushed-back {
+   exactly what the image alone did: the box is the room the image is set on.
+
+   The frame a Reading ends on is not arriving either, so it keeps the one part of
+   the push back that is not a dimming and none of the rest: there is no choice to
+   set it behind, and the last Shot is the ending, shown whole. */
+.frame.pushed-back,
+.frame.ends {
   animation: none;
+}
+
+/* Where the last Shot's Cut is through black, the ending goes to black over the
+   whole of the time the Author wrote and stays there, on the room the Reading is
+   drawn on. The frame keeps its box as it fades, so nothing under it moves, and
+   stays in the accessibility tree, since its words are what the Story ended on.
+   A Reader who asked for less motion is given the black at once: `frameline.css`
+   takes the duration to nothing and the fill leaves the end state standing,
+   because the black is the work and the fade is the decoration on it. */
+.frame.to-black {
+  animation: to-black var(--end-over) ease forwards;
+}
+
+@keyframes to-black {
+  to {
+    opacity: 0;
+  }
 }
 
 .frame.pushed-back .picture {
@@ -1804,44 +1878,29 @@ figcaption [data-effect="tremor"] {
   }
 }
 
-.resumed,
-.ended {
+.resumed {
   display: flex;
   align-items: center;
   gap: var(--s3);
   font-size: 0.8125rem;
 }
 
-/* The tail sample either side of the ending, which is what the end of a reel
-   looks like — and either side of a Reading picked up, which is the same splice
-   seen from the other end: the film was cut here, and here it runs on. */
+/* The tail sample either side of a Reading picked up, which is a splice: the
+   film was cut here, and here it runs on. */
 .resumed::before,
-.resumed::after,
-.ended::before,
-.ended::after {
+.resumed::after {
   content: '';
   flex: 1;
   block-size: 1px;
   background: var(--edge);
 }
 
-/* Nothing to say yet: out of the column's flow, so the gap either side of it
-   goes too, and not `display: none`, which would take it out of the
-   accessibility tree and bring the silence back. */
-.ended:empty {
-  position: absolute;
-  opacity: 0;
-}
-
-.ended:empty::before,
-.ended:empty::after {
-  content: none;
-}
-
 /* The clock stopped, the one refusal and the Transcript's own switch, and
    stepping back a beat or reading the Story again from the start: all of them are
    the same quiet trail, none of them a control the Story is read with, so
-   `.given` shares `.back`'s rules rather than repeating them. */
+   `.given` shares `.back`'s rules rather than repeating them. Keyed on the trail
+   in `.back`, because reading again at the ending is drawn as a button and keeps
+   the border and the ground every button has. */
 .given,
 .back {
   display: flex;
@@ -1853,13 +1912,13 @@ figcaption [data-effect="tremor"] {
 }
 
 .given button,
-.back button {
+.back .trail {
   border-color: transparent;
   background: none;
 }
 
 .given button:hover,
-.back button:hover {
+.back .trail:hover {
   border-color: transparent;
   background: none;
   color: var(--paper);
