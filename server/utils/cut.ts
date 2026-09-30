@@ -18,8 +18,9 @@ import type { CutThrough } from '../../shared/utils/scenes'
  * answering as its Scene says — so nought stands outside the floor rather than
  * under it, and this refuses everything else and says nothing about which. The
  * refusal travels in the body: `docs/adr/0009-a-refusal-travels-in-the-body.md`.
+ * Exported because `arrival.ts` reads a text's times through it too.
  */
-async function readTime(
+export async function readTime(
   event: H3Event, field: string, min: number, max: number, refusal: string, nullable: boolean,
 ) {
   const body = await readBody<Record<string, unknown>>(event)

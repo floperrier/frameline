@@ -32,6 +32,11 @@ type Written = {
   cutOver?: Scene['cutOver']
   cutThrough?: Scene['cutThrough']
   exitsAfter?: Scene['exitsAfter']
+  textAfter?: Scene['textAfter']
+  textBy?: Scene['textBy']
+  textPace?: Scene['textPace']
+  textOver?: Scene['textOver']
+  textStays?: Scene['textStays']
 }
 
 /**
@@ -66,6 +71,11 @@ function onTheBench(
       cutOver: scene.cutOver ?? 0,
       cutThrough: scene.cutThrough ?? 'image',
       exitsAfter: scene.exitsAfter ?? null,
+      textAfter: scene.textAfter ?? 0,
+      textBy: scene.textBy ?? 'whole',
+      textPace: scene.textPace ?? 15,
+      textOver: scene.textOver ?? 0,
+      textStays: scene.textStays ?? null,
       shots: (scene.shots ?? [{ text: 'A door opens.' }]).map((shot, at) => ({
         id: `${idOf(scene)}-${at}`,
         text: '',
@@ -81,6 +91,11 @@ function onTheBench(
         imageLasts: null,
         textArrives: null,
         textLasts: null,
+        textAfter: null,
+        textBy: null,
+        textPace: null,
+        textOver: null,
+        textStays: null,
         ...shot,
       })),
     })) as StoryInEditor['scenes'],
@@ -454,21 +469,42 @@ describe('the Cut', () => {
     const text = 'x'.repeat(400)
     const story = onTheBench([{ name: 'One', cutAfter: 1000, shots: [{ text }] }])
 
-    expect(named(story)).toContain('shotStandsTooBriefly')
+    expect(named(story)).toContain('textShownTooBriefly')
   })
 
   it('says nothing of a Shot given the time its text takes', () => {
     const text = 'x'.repeat(400)
     const story = onTheBench([{ name: 'One', cutAfter: 40_000, shots: [{ text }] }])
 
-    expect(named(story)).not.toContain('shotStandsTooBriefly')
+    expect(named(story)).not.toContain('textShownTooBriefly')
   })
 
   it('says nothing of a Shot nothing is timing', () => {
     const text = 'x'.repeat(400)
     const story = onTheBench([{ name: 'One', cutAfter: null, shots: [{ text }] }])
 
-    expect(named(story)).not.toContain('shotStandsTooBriefly')
+    expect(named(story)).not.toContain('textShownTooBriefly')
+  })
+
+  it('remarks on a text that leaves before it can be read, even under the press', () => {
+    const text = 'x'.repeat(100)
+    const story = onTheBench([
+      { name: 'One', cutAfter: null, textStays: 1000, shots: [{ text }] },
+    ])
+
+    expect(named(story)).toContain('textShownTooBriefly')
+  })
+
+  // Twenty words at five characters a second take nineteen seconds to arrive, and
+  // the Reader has read all but the last of them by then: two seconds of hold is
+  // plenty, though the text as a whole takes six and a half to read.
+  it('says nothing of a text read while it arrives, word by word', () => {
+    const text = Array(20).fill('word').join(' ')
+    const story = onTheBench([{
+      name: 'One', cutAfter: 2000, textBy: 'word', textPace: 5, shots: [{ text }],
+    }])
+
+    expect(named(story)).not.toContain('textShownTooBriefly')
   })
 })
 

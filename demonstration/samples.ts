@@ -4,8 +4,8 @@
  * diagram of the product; and the whole language already working, so an Author
  * meets a Flag set on entry, a Condition on a Shot testing it, a Condition
  * asking whether a Scene has been entered, a run cut by the clock with one beat
- * held against it, and a dissolve on the way out, before being asked to write
- * any of them.
+ * held against it, a dissolve on the way out, and a Scene whose words arrive one at
+ * a time a second after its Image, before being asked to write any of them.
  *
  * There is one Sample per Language and nothing translates between them, which is
  * why they sit here beside *Reel Change* rather than in `i18n/locales`: a Sample
@@ -231,8 +231,8 @@ const ENGLISH: Work = {
       sound: 'rain.m4a',
       transcript: 'Rain on the street, steady, under everything.',
       // The opening Scene is cut by the clock, so an Author meets a Story that
-      // moves on its own before being asked to write one — and meets the press
-      // still cutting early, because it always does.
+      // moves on its own before being asked to write one — and meets a press that
+      // shows the rest of a text still arriving before it cuts.
       //
       // Twelve seconds is the longest beat of either Sample read whole, because
       // a Scene is entered once and this is the screen that says what a Shot is:
@@ -277,10 +277,14 @@ const ENGLISH: Work = {
     {
       name: 'What an Exit offers',
       sets: { exit: 'taken' },
+      textAfter: 1000,
+      textBy: 'word',
+      textOver: 200,
       shots: [
         {
           text: 'You took an Exit to get here. An Exit is a way on, offered at the end of a '
-            + 'Scene, and a Story branches nowhere else.',
+            + 'Scene, and a Story branches nowhere else. In this Scene the words arrive a '
+            + 'second late and one at a time, because the Scene says so.',
           description: 'One panel on the left, and two lines leaving its edge for two panels '
             + 'on the right.',
           image: 'an-exit',
@@ -401,11 +405,15 @@ const FRENCH: Work = {
     {
       name: 'Ce qu’offre une Sortie',
       sets: { sortie: 'prise' },
+      textAfter: 1000,
+      textBy: 'word',
+      textOver: 200,
       shots: [
         {
           text: 'Vous avez pris une Sortie pour venir ici. Une Sortie est un passage vers une '
             + 'autre Scène, offert à la fin de celle qu’on quitte, et un Récit ne bifurque '
-            + 'nulle part ailleurs.',
+            + 'nulle part ailleurs. Dans cette Scène, les mots arrivent avec une seconde de '
+            + 'retard, un par un, parce que la Scène le dit.',
           description: 'Un panneau à gauche, et deux traits qui quittent son bord vers deux '
             + 'panneaux à droite.',
           image: 'an-exit',

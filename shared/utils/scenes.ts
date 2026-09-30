@@ -125,6 +125,47 @@ export function flickers(shot: Pick<Shot, 'image' | 'imageLasts' | 'textLasts'>)
 }
 
 /**
+ * How fast a Reader reads, at about 200 words a minute — a measured rate rather
+ * than an invented one. It is the pace a text arrives at where a Scene says
+ * nothing, which is why it is here rather than beside the Remark that first
+ * read it: the schema's default reads it too, so the pace a text arrives at by
+ * default and the pace the bench reckons it is read at cannot come apart. See
+ * `app/utils/remarks.ts` for the margin the bench complains at.
+ */
+export const CHARACTERS_A_SECOND = 15
+
+/**
+ * What a Shot's text arrives by: all at once, or a line, a word or a letter at a
+ * time. A line is a line break the Author typed, a word a run of anything but
+ * white space as `wordsOf` counts it, and a letter a grapheme.
+ */
+export type TextBy = 'whole' | 'line' | 'word' | 'letter'
+export const TEXT_BYS: readonly TextBy[] = ['whole', 'line', 'word', 'letter']
+
+/**
+ * What a text's times are capped at, in milliseconds, and the pace it arrives at,
+ * in characters a second. An Image alone for longer than ten seconds is two beats,
+ * which two Shots already write; past sixty characters a second a 60 Hz screen
+ * draws more than a letter a frame; a part taking longer than three seconds to
+ * appear is invisible for longer than a line takes to read; and a text staying
+ * longer than a minute stays. See `docs/adr/0052-a-text-arrives-in-its-own-time.md`.
+ */
+export const TEXT_AFTER_MAX = 10_000
+export const TEXT_PACE_MIN = 1
+export const TEXT_PACE_MAX = 60
+export const TEXT_OVER_MAX = 3_000
+export const TEXT_STAYS_MAX = 60_000
+
+/**
+ * Whether a value is a pace this product writes: a whole number of characters a
+ * second within bounds.
+ */
+export function isPace(held: unknown): held is number {
+  return typeof held === 'number' && Number.isInteger(held)
+    && held >= TEXT_PACE_MIN && held <= TEXT_PACE_MAX
+}
+
+/**
  * The longest Description an Image may carry. A Description says what one frame
  * shows, in the sentence an editor would say it in, so it is capped near an Exit's
  * line rather than near a Shot's text: prose about the image is the Shot's text,
@@ -364,6 +405,16 @@ export type Shot = {
   /** The same of the whole text. */
   textArrives: Arrival | null
   textLasts: Lasting | null
+  /**
+   * How this Shot's text arrives and how long it stays, each null being *as the
+   * Scene says*. A `textStays` of nought is this text staying until the Cut, the
+   * one answer a Shot under a Scene whose texts leave has no other way to give.
+   */
+  textAfter: number | null
+  textBy: TextBy | null
+  textPace: number | null
+  textOver: number | null
+  textStays: number | null
 }
 export type Scene = {
   id: string
@@ -382,6 +433,16 @@ export type Scene = {
   cutOver: number
   cutThrough: CutThrough
   exitsAfter: number | null
+  /**
+   * How the texts of this Scene's run arrive — after a time, by a unit, at a pace,
+   * over a time — and how long they stay, null being until the Cut. See
+   * `docs/adr/0052-a-text-arrives-in-its-own-time.md`.
+   */
+  textAfter: number
+  textBy: TextBy
+  textPace: number
+  textOver: number
+  textStays: number | null
 }
 export type Exit = {
   id: string

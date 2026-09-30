@@ -15,6 +15,11 @@
  * are each written where the film already asked for one, and each says so where
  * it stands — see
  * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
+ *
+ * Three texts arrive in their own time, each where the film asks: the opening beam
+ * crosses the booth alone and the line fades up onto it, as a title does; the
+ * coat's line fades away and leaves the coat alone; and the last words walk — see
+ * `docs/adr/0052-a-text-arrives-in-its-own-time.md`.
  */
 
 import type { Work } from './work.ts'
@@ -45,6 +50,10 @@ export const REEL_CHANGE: Work = {
   scenes: [
     {
       name: 'The booth',
+      // The beam crosses the booth alone, and the text fades up onto it. The setting
+      // is the Scene's, so the second Shot of the booth waits and fades up too.
+      textAfter: 1500,
+      textOver: 1200,
       shots: [
         {
           text: 'The last show has run out. Down in the house the seats fold up on their own, '
@@ -281,6 +290,9 @@ export const REEL_CHANGE: Work = {
         },
         {
           text: 'The coat is still warm.',
+          // The line fades up with the coat, fades away, and leaves the coat alone.
+          textStays: 2500,
+          textOver: 800,
           description: 'The coat filling the whole frame, close enough that nothing is left of it '
             + 'but its folds and one warm edge of lamplight.',
           // A heart at seventy-five.
@@ -326,6 +338,10 @@ export const REEL_CHANGE: Work = {
         },
         {
           text: 'Somewhere below it, a coat, going away from the cinema, unhurried.',
+          // The words walk, and the last of them arrives five seconds and a half in.
+          textBy: 'word',
+          textPace: 10,
+          textOver: 400,
           description: 'The boulevard from above at first light: a woman small on the pavement, '
             + 'walking away, her long shadow laid across it.',
           image: {
