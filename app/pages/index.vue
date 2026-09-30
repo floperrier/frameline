@@ -28,11 +28,12 @@ const landingStory = useRuntimeConfig().public.landingStory
       <!-- The thesis, and the one thing worth showing before anyone signs in: a
            Story is a beat, and then what the Reader may take. It is a specimen and
            not a Reading, so nothing here is a control — a visitor cannot take a
-           Exit that leads nowhere. -->
+           Exit that leads nowhere. It shows what a Reading shows and nothing
+           more, so the Scene the beat belongs to goes unnamed here as it does
+           there. -->
       <figure class="specimen">
         <figcaption class="eyebrow">{{ $t('landing.specimen') }}</figcaption>
         <div class="frame">
-          <p class="eyebrow">{{ $t('landing.specimenScene') }}</p>
           <p class="shot">{{ $t('landing.specimenShot') }}</p>
         </div>
         <ul class="exits">

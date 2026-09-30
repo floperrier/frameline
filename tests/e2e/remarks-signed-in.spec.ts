@@ -56,7 +56,11 @@ async function whole(request: APIRequestContext) {
     scenes.push(await (await request.post(
       `/api/stories/${story.id}/scenes`, { data: { name } })).json())
   }
-  await request.post(`/api/scenes/${scenes[0]!.id}/exits`, { data: { toSceneId: scenes[1]!.id } })
+  // Phrased, because an Exit with no words is offered by the name of the Scene it
+  // leads to, and that is a Remark of its own.
+  const exit = await (await request.post(
+    `/api/scenes/${scenes[0]!.id}/exits`, { data: { toSceneId: scenes[1]!.id } })).json()
+  await request.patch(`/api/exits/${exit.id}`, { data: { text: 'Get off' } })
   for (const scene of scenes) {
     const shot = await (await request.post(`/api/scenes/${scene.id}/shots`)).json()
     await request.patch(`/api/shots/${shot.id}`, {

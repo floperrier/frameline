@@ -555,6 +555,26 @@ describe('a flash from white the Reading withholds', () => {
   })
 })
 
+describe('an Exit nobody has phrased', () => {
+  /**
+   * An Exit with no words is offered by the Scene it leads to, which is the one
+   * place a Reader is shown a Scene's name — and the bench's own name at that,
+   * since a split draws the Exit joining its two halves with nothing on it.
+   */
+  it('says so of the Exit with no words, by the Scene it leaves and its Place', () => {
+    const story = onTheBench(
+      [{ name: 'The street' }, { name: 'The bar' }],
+      { exits: [['The street', 'The bar'], ['The street', 'The bar']] },
+    )
+    expect(named(story)).not.toContain('exitUnphrased')
+
+    story.exits[1]!.text = ' '
+    expect(remarks(story, says)).toEqual([
+      { name: 'exitUnphrased', sceneId: 'The street', said: { scene: 'The street', place: 2 } },
+    ])
+  })
+})
+
 describe('every Remark has a sentence in both languages', () => {
   it('is written under its own name in the message files', () => {
     const story = onTheBench([

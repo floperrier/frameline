@@ -211,6 +211,17 @@ export function remarks(story: StoryInEditor, say: Phrase): Remark[] {
         }
       }
     })
+
+    // An Exit nobody phrased is offered by the name of the Scene it leads to,
+    // which is the one place a Reader is shown a Scene's name — the bench's own,
+    // where a split drew it. Said by the Exit's Place and never by where it
+    // leads: the bench numbers a name two Scenes share, and quoting that would
+    // quote a button no Reader sees.
+    exitsFrom(story.exits, scene.id).forEach((exit, place) => {
+      if (!exit.text.trim()) {
+        found.push({ name: 'exitUnphrased', sceneId: scene.id, said: { ...said, place: place + 1 } })
+      }
+    })
   }
 
   return [

@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test'
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { opened, test } from './author'
 
 /**
@@ -196,6 +196,33 @@ test('a Story opened into a tab nobody is looking at holds its beat',
     await expect(page.getByText('She steps out.')).toBeVisible()
   })
 
+/**
+ * What the frame is running, and the animation it is written to run. The name is
+ * read as well as the animations because an animation that has played out leaves
+ * the list, and the name stays: an arrival the product drew over every beat is
+ * caught whether or not it was still running when it was asked.
+ */
+function drawnWith(frame: Locator) {
+  return frame.evaluate(one => ({
+    text: one.querySelector('.shot')?.textContent?.trim(),
+    running: one.getAnimations().map(animation => animation.constructor.name),
+    named: getComputedStyle(one).animationName,
+  }))
+}
+
+test('a hard cut is hard, and the beat arrives whole in the tick the one before it leaves',
+  async ({ page, request }) => {
+    await opened(page, request, async () => {})
+
+    await expect(page.getByText('A door opens.')).toBeVisible()
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+
+    // Read in the evaluate straight after the press, which is within the 320 ms
+    // the arrival nobody wrote used to fade the beat up over.
+    expect(await drawnWith(page.locator('.frame')))
+      .toEqual({ text: 'She steps out.', running: [], named: 'none' })
+  })
+
 test('one beat dissolves into the next, or the passage is made through black',
   async ({ page, request }) => {
     const frames = page.locator('.frame')
@@ -220,6 +247,11 @@ test('one beat dissolves into the next, or the passage is made through black',
     // for the whole of it.
     await expect(page.locator('.gate')).toHaveAttribute('style', /3000ms/)
     await expect.poll(() => frames.count()).toBe(2)
+
+    // And the beat arriving is faded up by the Author's passage and by nothing
+    // else: no second instruction over the same frame, and no rise no Cut says.
+    expect(await drawnWith(page.locator('.frame:not(.dissolve-leave-active)')))
+      .toEqual({ text: 'She steps out.', running: ['CSSTransition'], named: 'none' })
     await expect(page.getByText('She steps out.')).toBeVisible()
     await expect.poll(() => frames.count()).toBe(1)
 
@@ -263,8 +295,8 @@ test('the end of a run is no passage, and the Scene is left over the Exit\'s own
     await expect(frames).toHaveCount(1)
 
     // And the move that ends the run is not a passage at all: nothing leaves the
-    // screen there, so the beat is not thrown a second time and the frame is the
-    // one that was already standing, pushed back behind the ways on. See issue
+    // screen there, so nothing arrives and the frame is the one that was
+    // already standing, pushed back behind the ways on. See issue
     // #332 — a second fade here is a Scene going to black and coming back to the
     // image it went out on.
     await page.getByRole('button', { name: 'Next Shot' }).click()

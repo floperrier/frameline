@@ -49,17 +49,23 @@ test('an Author plays their own Story beside the Scene they are writing',
     const story = await writeStory(request)
     const { scenes } = await scenesOf(request, story.id)
     const preview = await writing(page, story.id, scenes[0]!.id)
+    const bench = benchIn(page)
 
     // One Shot at a time, and nothing to take while the Scene still has Shots.
+    // Where the reading stands is said on the bench, in the words the writing
+    // names the same Shot by, and never on the frame a Reader is shown.
     await expect(preview.getByText('A door opens.')).toBeVisible()
+    await expect(bench.getByText('Shot 1 of The street', { exact: true })).toBeVisible()
     await expect(preview.getByRole('button', { name: 'Follow her out' })).toBeHidden()
     await preview.getByRole('button', { name: 'Next Shot' }).click()
     await expect(preview.getByText('She steps out.')).toBeVisible()
+    await expect(bench.getByText('Shot 2 of The street', { exact: true })).toBeVisible()
 
     // The Exit is offered at the end of the Scene, and taking it moves the Reading.
     await preview.getByRole('button', { name: 'Next Shot' }).click()
     await preview.getByRole('button', { name: 'Follow her out' }).click()
     await expect(preview.getByText('Smoke, and no one she knows.')).toBeVisible()
+    await expect(bench.getByText('Shot 1 of The bar', { exact: true })).toBeVisible()
 
     // The bar has no Exit out of it, so the Reading ends there, and says so to
     // whoever reads by ear and to nobody else: in a live region that was in the
@@ -375,7 +381,7 @@ test('stepping back and reading again are offered only once the Reading has move
       await bench.getByRole('button', { name: 'Draw Again' }).click()
     }
     expect(await drawn()).not.toBe(first)
-    await expect(preview.getByText('Shot 1 of 2')).toBeVisible()
+    await expect(bench.getByText('Shot 1 of The street', { exact: true })).toBeVisible()
     await expect(again).toBeHidden()
 
     // One press, and there is a beat behind and a Reading to go back to the start
@@ -614,7 +620,7 @@ test('an Author writes a Condition about a Scene, and watches it hold and not ho
     await page.getByRole('button', { name: 'Read the Story' }).click()
     const preview = previewIn(page)
     const bench = benchIn(page)
-    await expect(preview.getByText('Shot 1 of 1')).toBeVisible()
+    await expect(bench.getByText('Shot 1 of The bar', { exact: true })).toBeVisible()
     await expect(bench.getByText('needs The yard to have been entered, and it has not'))
       .toBeVisible()
 
@@ -623,7 +629,7 @@ test('an Author writes a Condition about a Scene, and watches it hold and not ho
     await preview.getByRole('button', { name: 'Next Shot' }).click()
     await backAndRoundTheYard(preview)
     await preview.getByRole('button', { name: 'Next Shot' }).click()
-    await expect(preview.getByText('Shot 2 of 2')).toBeVisible()
+    await expect(bench.getByText('Shot 2 of The bar', { exact: true })).toBeVisible()
     await expect(preview.locator('figure').getByText('You came in the back way.')).toBeVisible()
     await expect(bench.getByText('needs The yard to have been entered')).toBeHidden()
   })
@@ -649,6 +655,13 @@ test('a Reader of the published Story is shown none of the bench',
     await expect(reader.getByText('coat')).toHaveCount(0)
     await expect(reader.getByText('Stay outside')).toHaveCount(0)
     await expect(reader.getByRole('button', { name: /^Move / })).toHaveCount(0)
+
+    // Nor where the reading stands: the Scene a Shot belongs to, its Place and
+    // how many Shots the run holds are how the Story is built, and a Reader is
+    // shown what the Author wrote.
+    await expect(reader.getByText('The street', { exact: true })).toHaveCount(0)
+    await expect(reader.getByText('The bar', { exact: true })).toHaveCount(0)
+    await expect(reader.getByText(/Shot \d/)).toHaveCount(0)
   })
 
 test('a Scene says something different to a Reading that came the other way',
@@ -670,13 +683,13 @@ test('a Scene says something different to a Reading that came the other way',
     const bench = benchIn(page)
     const frame = preview.locator('figure')
 
-    // Walking straight in, the bar is the one Shot it always was: the run is
-    // counted without the Shot this Reading is not being played, and the bench
-    // says which one that is and why.
+    // Walking straight in, the bar is the one Shot it always was: the run plays
+    // without the Shot this Reading is not being played, and the bench says
+    // which one that is and why.
     await preview.getByRole('button', { name: 'Next Shot' }).click()
     await preview.getByRole('button', { name: 'Next Shot' }).click()
     await preview.getByRole('button', { name: 'Follow her out' }).click()
-    await expect(preview.getByText('Shot 1 of 1')).toBeVisible()
+    await expect(bench.getByText('Shot 1 of The bar', { exact: true })).toBeVisible()
     await expect(bench.locator('s').filter({ hasText: 'You came in the back way.' }))
       .toBeVisible()
     await expect(bench.getByText('needs The yard to have been entered, and it has not'))
@@ -693,7 +706,7 @@ test('a Scene says something different to a Reading that came the other way',
     // was one, and nothing left on the bench to explain.
     await backAndRoundTheYard(preview)
     await preview.getByRole('button', { name: 'Next Shot' }).click()
-    await expect(preview.getByText('Shot 2 of 2')).toBeVisible()
+    await expect(bench.getByText('Shot 2 of The bar', { exact: true })).toBeVisible()
     await expect(frame.getByText('You came in the back way.')).toBeVisible()
     await expect(bench.getByText('Shots this Reading is not played')).toBeHidden()
   })
@@ -730,8 +743,10 @@ test('a Scene draws one of several values, and the Author draws it again',
     await expect(bench.getByText(/weather = (rain|sun|haze)/)).toBeVisible()
 
     // The Scene is three beats long, not five: the two variants that were not
-    // drawn are out of the run rather than gaps in it.
-    await expect(preview.getByText('Shot 1 of 3')).toBeVisible()
+    // drawn are out of the run rather than gaps in it, and the bench lists
+    // exactly those two as the Shots this Reading is not played.
+    await expect(bench.getByText('Shot 1 of The street', { exact: true })).toBeVisible()
+    await expect(bench.locator('s')).toHaveCount(2)
     await preview.getByRole('button', { name: 'Next Shot' }).click()
     await preview.getByRole('button', { name: 'Next Shot' }).click()
 
@@ -753,7 +768,10 @@ test('a Scene draws one of several values, and the Author draws it again',
       return await played()
     }).not.toBe(first)
 
-    await expect(preview.getByText('Shot 3 of 3')).toBeVisible()
+    // Named on the bench by the Place the variant drawn holds in the Scene as
+    // written, which is the order the variants were written in above.
+    const place = ['rain', 'sun', 'haze'].indexOf((await drawn())!) + 3
+    await expect(bench.getByText(`Shot ${place} of The street`, { exact: true })).toBeVisible()
     expect((await played()).toLowerCase()).toContain(await drawn())
   })
 
@@ -801,7 +819,7 @@ test('turning the middle of the bench over and back resumes the Reading the Auth
       await page.getByRole('button', { name: 'Read the Story' }).click()
 
       await expect(preview.getByText('She steps out.')).toBeVisible()
-      await expect(preview.getByText('Shot 2 of 2')).toBeVisible()
+      await expect(benchIn(page).getByText('Shot 2 of The street', { exact: true })).toBeVisible()
       expect(await drawnIn(page)).toBe(weather)
     }
 
@@ -971,7 +989,7 @@ test('the bench keeps no Reading between sessions', async ({ page, request }) =>
   await page.reload()
   const again = await readTheStory(page)
   await expect(again.getByText('A door opens.')).toBeVisible()
-  await expect(again.getByText('Shot 1 of 2')).toBeVisible()
+  await expect(benchIn(page).getByText('Shot 1 of The street', { exact: true })).toBeVisible()
   await expect(again.getByRole('button', { name: 'Read Again from the Start' })).toHaveCount(0)
 
   // And nothing was written into the browser for a bench to read back.

@@ -24,6 +24,12 @@ once the move is, on the frame left standing — to black over the whole of its
 time, or standing where it is hard or a dissolve. What that completes is the
 consequence *The end of a run is not a passage*, whose move stays hard.
 
+Amended in issue #349, by `docs/adr/0054-the-reader-is-shown-what-the-author-wrote.md`:
+the fade and rise every beat arrived through, which no Cut wrote, is gone, so a
+hard cut is seen as one and every Story written before the Cut now arrives hard
+at every beat. What that amends is the consequence *Every Story written so far
+reads exactly as it read*, for the arrival alone.
+
 A Story is watched as well as read, and until now every cut in one was made by
 the Reader's hand and made hard. What an editor has and an Author here did not
 is when a Shot leaves the screen, and how it leaves it.

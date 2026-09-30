@@ -328,24 +328,12 @@ function stepBack() {
 
 const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, scene.name])))
 
-/** The Scene the Reading stands in, so the frame can say where the Reader is. */
+/**
+ * The Scene the Reading stands in, which the cut, the hold and the stand are read
+ * against. Never shown: a Reader is told nothing of the Scene a Shot belongs to —
+ * see `docs/adr/0054-the-reader-is-shown-what-the-author-wrote.md`.
+ */
 const scene = computed(() => story.scenes.find(({ id }) => id === shown.value.sceneId))
-
-/**
- * The run the frame counts against, and how much of the Scene is still to play.
- * It comes from the engine rather than from the Scene, which is the one thing
- * the Scene cannot say for itself: a Shot whose Conditions this Reading fails is
- * not in its run, so "Shot 2 of 3" counts the beats being shown and no others.
- */
-const run = computed(() => shown.value.run)
-
-/**
- * Which Shot of the run the frame holds, numbered from one for the Reader as the
- * editor numbers them for the Author. Once the Scene has played out the Path
- * has walked past the last Shot and the frame is still holding it, so the count
- * stops at the length of the run: every tick lit, and the run said to be over.
- */
-const place = computed(() => Math.min(at.value.shot + 1, run.value.length))
 
 /**
  * The Shot the frame holds: the one on screen while the Scene plays, and the last
@@ -354,7 +342,7 @@ const place = computed(() => Math.min(at.value.shot + 1, run.value.length))
  * ways on. A Scene nobody has written a Shot into leaves the frame nothing to
  * hold, and nothing is invented to stand in for one.
  */
-const held = computed(() => shown.value.shot ?? run.value.at(-1))
+const held = computed(() => shown.value.shot ?? shown.value.run.at(-1))
 
 /** An Exit nobody has phrased yet is offered by where it arrives. */
 function offered(exit: Exit) {
@@ -363,7 +351,7 @@ function offered(exit: Exit) {
 
 /**
  * The two elements the Story is heard on, held outside everything the Path keys:
- * the frame is thrown afresh on every beat, and a bed inside it would be a bed
+ * the frame is drawn afresh on every beat, and a bed inside it would be a bed
  * that restarts on every press. The bed crosses the cut and the strike does not.
  */
 const bed = useTemplateRef<HTMLAudioElement>('bed')
@@ -449,7 +437,7 @@ watch([heard, () => shown.value.ended], ([now], [before]) => holdBed(now, before
 /**
  * The strike, which plays as the beat plays and is gone. Keyed on the Path rather
  * than on the Shot, so a Shot played again strikes again — it is the same key the
- * frame is thrown by. Plays whether or not sound is on, for the same reason the
+ * frame is drawn by. Plays whether or not sound is on, for the same reason the
  * bed does: muting is `.muted`, read by the element itself, and set here before
  * the play as well as by the watch above — the press that turns sound off can
  * come after the mount this strikes from and before the watch has set anything.
@@ -578,7 +566,7 @@ function textArrived(event: AnimationEvent) {
  * Two things bring that about. The server draws the beat too, and a browser
  * starts the arrival as it paints that page, before this component has hydrated
  * and is listening for the end of it. And the beat can change under the frame
- * without the frame being thrown again — another Shot found at the same position,
+ * without the frame being drawn again — another Shot found at the same position,
  * or the Author changing what arrives last — so the part that is last now may be
  * one whose arrival ended a while ago. So the page is asked as this mounts, and
  * after each of those changes is drawn: nothing still running on the last part is
@@ -883,16 +871,18 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
         <!-- A hard cut is not a passage: `css` false takes the whole transition
              out of the way, so the beat leaving is gone in the same tick rather
              than lying over the next one at nothing for as long as the browser
-             takes to agree it has finished. Every Story written before the Cut is
-             one of these, and every one of them cuts exactly as it always did. -->
+             takes to agree it has finished. The beat arriving is drawn whole in
+             that tick, with nothing of the product's laid over it, so nought is
+             seen as the hard cut it says — see
+             `docs/adr/0054-the-reader-is-shown-what-the-author-wrote.md`. -->
         <Transition
           :name="passing.through === 'black' ? 'through-black' : 'dissolve'"
           :css="passing.over > 0"
           @leave="leaving"
         >
-          <!-- Keyed on the Path, so arriving at a Shot draws the frame again:
-               each beat is thrown onto the screen rather than swapped into it, and
-               reading a Scene again throws its first frame again. -->
+          <!-- Keyed on the Path, so arriving at a Shot draws the frame afresh:
+               the passage and the focus both need a new element at every beat,
+               and reading a Scene again draws its first frame again. -->
           <!-- The frame holds nothing but the Author's own work — the image, what
                it shows, and the beat — so the whole of it is announced in the
                Story's Language whatever language the chrome around it is read in.
@@ -902,7 +892,7 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
             ref="frame"
             :key="`${at.taken.length}-${at.shot}`"
             class="frame"
-            :class="{ 'pushed-back': !shown.shot && !shown.ended, 'ends': shown.ended, 'to-black': toBlack }"
+            :class="{ 'pushed-back': !shown.shot && !shown.ended, 'to-black': toBlack }"
             :lang="story.language"
             :style="{ '--wait': `${wait}ms`, '--end-over': toBlack ? `${ending!.over}ms` : undefined }"
             tabindex="-1"
@@ -980,18 +970,6 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
         </Transition>
       </div>
 
-      <!-- Where the beat sits in the run: the Scene's name, and one tick a Shot
-           with the Shot on screen lit. The edge of the film, read the way an
-           editor reads it — and the only thing on the page that says how much of
-           the Scene is left, every tick lit once the run is behind the Reader. -->
-      <div class="edge">
-        <p class="eyebrow" :lang="story.language">{{ scene?.name }}</p>
-        <p class="counting">{{ $t('reading.shotOf', { place, of: run.length }) }}</p>
-        <ol aria-hidden="true" class="ticks">
-          <li v-for="(_, tick) in run.length" :key="tick" :class="{ lit: tick < place }" />
-        </ol>
-      </div>
-
       <!-- What a Reader who cannot hear is owed. Always in the document: hidden it
            is `visually-hidden` and still read, never taken out of the
            accessibility tree and never announced in a live region, which would
@@ -1043,7 +1021,7 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
     <p v-if="clocked" class="visually-hidden" role="status">{{ waysOnSay }}</p>
 
     <!-- The ways on go under the frame rather than over it, and carry no eyebrow
-         of their own: the edge above has already named the Scene they leave. -->
+         of their own: a Reader is told nothing of the Scene they leave. -->
     <ul v-if="asking" ref="exits" class="exits">
       <li v-for="exit in shown.exits" :key="exit.id">
         <!-- What the Author wrote on the Exit, so it carries the Story's Language
@@ -1174,7 +1152,6 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
    an illustration with a caption under it. */
 .frame {
   overflow: clip;
-  animation: thrown 320ms ease-out;
 }
 
 /* A passage is two frames on screen at once, and the room is the size of the one
@@ -1187,16 +1164,12 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
 }
 
 /* The beat leaving is `inert` from the moment it starts to go, which is what
-   takes it out of reach of a press as well as out of the reading. The throw is
-   an arrival and nothing else, so it is taken off a frame on its way out — and
-   with it the 320ms a browser would otherwise hold the frame on for, over and
-   above the duration the Author wrote. */
+   takes it out of reach of a press as well as out of the reading. */
 .dissolve-leave-active,
 .through-black-leave-active {
   position: absolute;
   inset-block-start: 0;
   inset-inline: 0;
-  animation: none;
 }
 
 /* Its Effects stop where they stood rather than going: a beat leaving is a beat
@@ -1275,25 +1248,6 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
   }
 }
 
-/* The Scene has played out and the frame it ended on is held behind the ways on:
-   the same beat, pushed back into the room so that what is being asked of the
-   Reader is the lit thing on screen. It is not arriving, so it is not thrown a
-   second time — the Path has moved past the last Shot and the frame has not.
-
-   The image takes the push back and the prose only half of it: the last beat has
-   to stay as readable as it was to whoever is reading it while they choose, and a
-   dimmed serif is the one thing on this page that cannot afford to be. The image
-   is its whole box, the sheets an Effect lays over it included, which dims to
-   exactly what the image alone did: the box is the room the image is set on.
-
-   The frame a Reading ends on is not arriving either, so it keeps the one part of
-   the push back that is not a dimming and none of the rest: there is no choice to
-   set it behind, and the last Shot is the ending, shown whole. */
-.frame.pushed-back,
-.frame.ends {
-  animation: none;
-}
-
 /* Where the last Shot's Cut is through black, the ending goes to black over the
    whole of the time the Author wrote and stays there, on the room the Reading is
    drawn on. The frame keeps its box as it fades, so nothing under it moves, and
@@ -1311,6 +1265,18 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
   }
 }
 
+/* The Scene has played out and the frame it ended on is held behind the ways on:
+   the same beat, pushed back into the room so that what is being asked of the
+   Reader is the lit thing on screen.
+
+   The image takes the push back and the prose only half of it: the last beat has
+   to stay as readable as it was to whoever is reading it while they choose, and a
+   dimmed serif is the one thing on this page that cannot afford to be. The image
+   is its whole box, the sheets an Effect lays over it included, which dims to
+   exactly what the image alone did: the box is the room the image is set on.
+
+   The frame a Reading ends on is not pushed back at all: there is no choice to
+   set it behind, and the last Shot is the ending, shown whole. */
 .frame.pushed-back .picture {
   opacity: 0.5;
 }
@@ -1728,42 +1694,7 @@ figcaption [data-effect="tremor"] {
   }
 }
 
-/* The edge of the film: the Scene the beat belongs to at the leading end, and at
-   the trailing end how far into its run the Reader is — the count and the ticks
-   reading the same fact twice, once in words and once as the length of film that
-   is left. */
-.edge {
-  display: flex;
-  align-items: center;
-  gap: var(--s3);
-}
-
-.counting {
-  margin-inline-start: auto;
-  color: var(--muted);
-  font-family: var(--data);
-  font-size: 0.75rem;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-/* One tick a Shot, filled up to the one on screen. */
-.ticks {
-  display: flex;
-  gap: 3px;
-}
-
-.ticks li {
-  inline-size: 10px;
-  block-size: 2px;
-  background: var(--edge);
-}
-
-.ticks .lit {
-  background: var(--grease);
-}
-
-/* The Transcript sits under the edge rather than over the image, so it never
+/* The Transcript sits under the frame rather than over the image, so it never
    pushes the frame around on arrival: on or off, the beat is where it was. */
 .heard {
   display: grid;
@@ -1830,9 +1761,7 @@ figcaption [data-effect="tremor"] {
 }
 
 /* The time the ways on stand: a track the width of the column, and a bar drained
-   out of it at the pace the Author wrote — the same edge-and-grease pair the
-   ticks over the frame are read in, so a Reader who has met one progress already
-   reads the other. */
+   out of it at the pace the Author wrote, in the edge-and-grease pair. */
 .expiring {
   block-size: 3px;
   background: var(--edge);
@@ -1922,12 +1851,5 @@ figcaption [data-effect="tremor"] {
   border-color: transparent;
   background: none;
   color: var(--paper);
-}
-
-@keyframes thrown {
-  from {
-    opacity: 0;
-    translate: 0 6px;
-  }
 }
 </style>

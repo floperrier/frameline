@@ -40,7 +40,6 @@
     "signInWithGitHub": "Sign In with GitHub",
     "signInWithGoogle": "Sign In with Google",
     "specimen": "What a Reader is shown",
-    "specimenScene": "The street",
     "specimenShot": "The door gives on the third push. Rain, and the neon of the bar opposite, already lit at four in the afternoon.",
     "specimenExitOne": "Cross to the bar",
     "specimenExitTwo": "Stay in the doorway until it eases",
@@ -350,6 +349,7 @@
     "exitUnofferable": "The Exit {place} out of {scene} is offered only when {flag} holds “{is}”, which no Scene ever sets it to.",
     "shotUnplayable": "Shot {place} of {scene} plays only when {flag} holds “{is}”, which no Scene ever sets it to.",
     "exitNeverTaken": "The Exit {place} out of {scene} leads back to a Scene a Reading arriving here has already been through, so no Reader is ever offered it.",
+    "exitUnphrased": "The Exit {place} out of {scene} has no words of its own, so wherever it is offered a Reader is shown the name of the Scene it leads to.",
     "sceneFlowsNowhere": "{scene} flows on without asking, and has no way on to flow to — a Reading ends there.",
     "textShownTooBriefly": "The text of Shot {place} of {scene} is on screen for less time than it takes to read.",
     "flashWithheld": "Shot {place} of {scene} arrives from white straight after a Shot that flickers or stands less than a second, so a Reading does not show the flash."
@@ -378,7 +378,6 @@
     "needsNotEntered": "needs {scene} not to have been entered, and it has"
   },
   "reading": {
-    "shotOf": "Shot {place} of {of}",
     "next": "Next Shot",
     "showWholeText": "Show the Whole Text",
     "back": "Step Back",

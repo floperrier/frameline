@@ -936,16 +936,16 @@ for (const spoken of [
           expect({ width, twice: await saidTwiceOn(page.locator('.writing')) })
             .toEqual({ width, twice: [] })
 
-          // Fifteen sentences on this Story: a beat nobody wrote and an Image nobody
+          // Eighteen sentences on this Story: a beat nobody wrote and an Image nobody
           // described in each of the four Scenes, the one Scene nothing arrives at,
-          // the four beats waiting on a dead pair, and the two ways on waiting on the
-          // same. Opened only where the fold left it closed: a `<summary>` toggles,
+          // the four beats waiting on a dead pair, the two ways on waiting on the
+          // same, and the three ways on nobody phrased. Opened only where the fold left it closed: a `<summary>` toggles,
           // and above the fold the list is already open beside the document.
           const found = page.locator('.found')
           if (!await found.evaluate(one => (one as HTMLDetailsElement).open)) {
             await found.locator('summary').click()
           }
-          await expect(found.getByRole('listitem')).toHaveCount(15)
+          await expect(found.getByRole('listitem')).toHaveCount(18)
           expect({ width, twice: await saidTwiceOn(found) }).toEqual({ width, twice: [] })
 
           // The Story's edge, with the Cover's frames opened over the table and
