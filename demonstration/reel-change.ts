@@ -11,10 +11,12 @@
  * dark room with one lit thing in it is an image either way.
  *
  * Almost every cut in it is made by the Reader's hand and made hard, which is
- * how the whole work read before a Cut could be written. The four that are not
+ * how the whole work read before a Cut could be written. The five that are not
  * are each written where the film already asked for one, and each says so where
  * it stands — see
- * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
+ * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`. The last of
+ * them is the ending, where the coat goes to black — see
+ * `docs/adr/0053-a-reading-ends-on-its-last-shot.md`.
  *
  * Three texts arrive in their own time, each where the film asks: the opening beam
  * crosses the booth alone and the line fades up onto it, as a title does; the
@@ -342,6 +344,12 @@ export const REEL_CHANGE: Work = {
           textBy: 'word',
           textPace: 10,
           textOver: 400,
+          // The work ends on this beat, and a film ends on black: the coat goes to
+          // it over three seconds once the Reader presses past it, and the black
+          // is where the Reading stops. Said on the Shot rather than on Daybreak,
+          // so the cut between the Scene's two Shots stays hard.
+          cutOver: 3000,
+          cutThrough: 'black',
           description: 'The boulevard from above at first light: a woman small on the pavement, '
             + 'walking away, her long shadow laid across it.',
           image: {

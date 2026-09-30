@@ -456,6 +456,47 @@ test('the Sound holds across the cut where both Scenes are heard under one carri
   await expect.poll(() => playedFor(page)).toBeGreaterThan(before)
 })
 
+/** What the bed is doing: whether it loops, whether it plays, and whether it has played out. */
+function bedIs(page: Page) {
+  return page.evaluate(() => {
+    const bed = document.querySelector<HTMLAudioElement>('[data-sound="scene"]')!
+
+    return { loop: bed.loop, paused: bed.paused, ended: bed.ended }
+  })
+}
+
+test('a bed held in a loop plays out its pass at the ending, and a step back gives the loop back',
+  async ({ page, request }) => {
+    const story = await heardStory(request, { named: true })
+
+    await page.goto(`/read/${story.id}`)
+    await page.getByRole('button', { name: 'Begin' }).click()
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await page.getByRole('button', { name: 'Follow her out' }).click()
+    await expect(page.getByText('Smoke, and no one she knows.')).toBeVisible()
+
+    // The bar is heard under the street's bed, which loops. Pressed early in a
+    // pass, so what is read at the ending is a pass still playing rather than one
+    // that ran out a moment after the press.
+    await expect.poll(() => bedIs(page)).toEqual({ loop: true, paused: false, ended: false })
+    await expect.poll(() => playedFor(page)).toBeLessThan(1.5)
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await expect(page.getByRole('status').and(page.locator('.ended')))
+      .toHaveText('The Reading ends here.')
+
+    // A Reading that ends in a Scene never leaves it, so the loop stops looping
+    // there and the bed finishes the pass it is in — the three seconds the file
+    // lasts, at the most — and stops by itself.
+    expect(await bedIs(page)).toEqual({ loop: false, paused: false, ended: false })
+    await expect.poll(() => bedIs(page)).toMatchObject({ ended: true })
+
+    // A step back lands on the last Shot, where the Reading has not ended: the
+    // loop is back, and the bed that played out is played again from its start.
+    await page.getByRole('button', { name: 'Step Back' }).click()
+    await expect.poll(() => bedIs(page)).toEqual({ loop: true, paused: false, ended: false })
+  })
+
 test('sound turned off stays off across a reload, and the Path is intact beside it', async ({ page, request }) => {
   const story = await heardStory(request)
 
@@ -548,6 +589,43 @@ test('muting reaches a Shot already striking, not only the next beat', async ({ 
   // The same element, still running: muting is not a pause.
   expect((await struck(page))?.paused).toBe(false)
 })
+
+test('the last Shot\'s own Sound plays out past the ending rather than being cut off by it',
+  async ({ page, request }) => {
+    const story = await writeStory(request)
+    const [, bar] = (await reread(request, story.id)).scenes
+    await request.put(`/api/shots/${bar!.shots[0]!.id}/sound`, { data: A_SOUND })
+    await seedPublication(story)
+
+    // Every pause the strike makes, said as the Sound played out to its end or as
+    // cut off before it. Media events do not bubble, so they are caught on the
+    // way down instead.
+    await page.addInitScript(() => {
+      const heard: string[] = []
+      Object.assign(window, { heard })
+      for (const type of ['pause', 'ended']) {
+        document.addEventListener(type, (event) => {
+          const element = event.target as HTMLAudioElement
+          if (element.dataset.sound !== 'shot') return
+          heard.push(type === 'pause' && element.currentTime < element.duration - 0.1 ? 'cut off' : type)
+        }, true)
+      }
+    })
+
+    await page.goto(`/read/${story.id}`)
+    await page.getByRole('button', { name: 'Begin' }).click()
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await page.getByRole('button', { name: 'Follow her out' }).click()
+    await expect.poll(async () => (await struck(page))?.paused).toBe(false)
+
+    // The press past the last Shot is no beat, so it strikes nothing and stops
+    // nothing: the frame still holds the Shot, and the Shot is heard to its end.
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    const heard = () => page.evaluate(() => (window as unknown as { heard: string[] }).heard)
+    await expect.poll(heard).toContain('ended')
+    expect(await heard()).not.toContain('cut off')
+  })
 
 test('the Transcript is in the page whether it is shown or not', async ({ page, request }) => {
   const story = await heardStory(request, { transcript: 'Rain on a tin roof.' })

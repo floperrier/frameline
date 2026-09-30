@@ -18,6 +18,12 @@ the press in the same paragraph.
 Amended in issue #356: a time a clock runs is held to half a second above
 nought, which the Consequences below carry.
 
+Amended in issue #353, by `docs/adr/0053-a-reading-ends-on-its-last-shot.md`: at
+an ending, where no Exit can make a passage out, the last Shot's own Cut is made
+once the move is, on the frame left standing — to black over the whole of its
+time, or standing where it is hard or a dissolve. What that completes is the
+consequence *The end of a run is not a passage*, whose move stays hard.
+
 A Story is watched as well as read, and until now every cut in one was made by
 the Reader's hand and made hard. What an editor has and an Author here did not
 is when a Shot leaves the screen, and how it leaves it.

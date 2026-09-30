@@ -61,18 +61,21 @@ test('an Author plays their own Story beside the Scene they are writing',
     await preview.getByRole('button', { name: 'Follow her out' }).click()
     await expect(preview.getByText('Smoke, and no one she knows.')).toBeVisible()
 
-    // The bar has no Exit out of it, so the Reader is told the path ends there —
-    // in a live region that was in the document, empty and drawing nothing,
-    // before it had anything to say: a screen reader announces the change to a
-    // node it already holds, never a node arriving with its sentence inside it.
+    // The bar has no Exit out of it, so the Reading ends there, and says so to
+    // whoever reads by ear and to nobody else: in a live region that was in the
+    // document, empty, before it had anything to say — a screen reader announces
+    // the change to a node it already holds, never a node arriving with its
+    // sentence inside it.
     const ending = preview.getByRole('status').and(preview.locator('.ended'))
     const region = await ending.elementHandle()
     await expect(ending).toBeEmpty()
-    await expect(ending).toHaveCSS('opacity', '0')
     await preview.getByRole('button', { name: 'Next Shot' }).click()
-    await expect(ending).toHaveText('The path ends here.')
+    await expect(ending).toHaveText('The Reading ends here.')
     // Same node, so the sentence was a change and not an arrival.
     expect(await ending.evaluate((el, held) => el === held, region)).toBe(true)
+    // And it takes no room on the screen: nothing of the interface's is set under
+    // the Author's last frame.
+    expect((await ending.boundingBox())!.height).toBeLessThanOrEqual(1)
     // The last press took its own button away, so focus lands on the one left.
     const again = preview.getByRole('button', { name: 'Read Again from the Start' })
     await expect(again).toBeFocused()
@@ -424,13 +427,13 @@ test('a Story that ends where it opens offers reading it again with the ending',
     const again = preview.getByRole('button', { name: 'Read Again from the Start' })
 
     // One Shot and no way out, so the first press is the whole Story: the offer
-    // is not there to be pressed before it and is there the moment the path ends,
+    // is not there to be pressed before it and is there the moment the Reading ends,
     // taking the focus the press took away with its own button — #221 unchanged
     // on the Story that reaches the ending soonest.
     await expect(again).toHaveCount(0)
     await preview.getByRole('button', { name: 'Next Shot' }).click()
     await expect(preview.getByRole('status').and(preview.locator('.ended')))
-      .toHaveText('The path ends here.')
+      .toHaveText('The Reading ends here.')
     await expect(again).toBeVisible()
     await expect(again).toBeFocused()
   })
