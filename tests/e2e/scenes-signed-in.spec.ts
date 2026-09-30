@@ -162,8 +162,10 @@ async function sweptUnder(page: Page, sceneId: string, winds = 60, step = 8) {
         // A control the interface hides from the eye — the field an Image is
         // chosen in, which its own label is drawn in place of — is not a control
         // a pointer is aimed at, and the point at its middle is a point in
-        // whatever stands over it.
+        // whatever stands over it. Nor is one a shut fold keeps undrawn, whose box
+        // is nothing and whose middle is a point in whatever stands at the corner.
         if (control.classList.contains('visually-hidden')) continue
+        if (!control.checkVisibility()) continue
 
         const box = control.getBoundingClientRect()
         const middle = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
