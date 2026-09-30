@@ -7,8 +7,10 @@ import { cut } from '../../shared/utils/reading.ts'
 import type { SceneToRead } from '../../shared/utils/reading.ts'
 import {
   CUT_AFTER_MAX,
+  CUT_AFTER_MIN,
   CUT_OVER_MAX,
   EXITS_AFTER_MAX,
+  EXITS_AFTER_MIN,
   isArrival,
   isLasting,
   isTime,
@@ -44,10 +46,11 @@ const WORKS: [string, Work][] = [
 
 /**
  * Whether one of a Cut's times is one the door it is written through will take:
- * a whole number of milliseconds within the cap, or nothing said at all.
+ * a whole number of milliseconds between the floor and the cap, the nought each
+ * of them takes as a sentence, or nothing said at all.
  */
-function within(held: number | undefined, max: number) {
-  return held === undefined || isTime(held, max)
+function within(held: number | undefined, max: number, min = 0) {
+  return held === undefined || held === 0 || isTime(held, max, min)
 }
 
 /**
@@ -77,16 +80,16 @@ describe.each(WORKS)('the Cut %s is written with', (_name: string, work: Work) =
     for (const exit of work.exits) expect(within(exit.cutOver, CUT_OVER_MAX)).toBe(true)
 
     for (const scene of work.scenes) {
-      expect(within(scene.cutAfter, CUT_AFTER_MAX)).toBe(true)
+      expect(within(scene.cutAfter, CUT_AFTER_MAX, CUT_AFTER_MIN)).toBe(true)
       // Nought is a sentinel where a Shot writes it and where the ways on do,
       // and a refusal on a Scene's own run: there is no *as the Scene says*
       // above a Scene for it to mean.
       expect(scene.cutAfter).not.toBe(0)
       expect(within(scene.cutOver, CUT_OVER_MAX)).toBe(true)
-      expect(within(scene.exitsAfter, EXITS_AFTER_MAX)).toBe(true)
+      expect(within(scene.exitsAfter, EXITS_AFTER_MAX, EXITS_AFTER_MIN)).toBe(true)
 
       for (const shot of scene.shots) {
-        expect(within(shot.cutAfter, CUT_AFTER_MAX)).toBe(true)
+        expect(within(shot.cutAfter, CUT_AFTER_MAX, CUT_AFTER_MIN)).toBe(true)
         expect(within(shot.cutOver, CUT_OVER_MAX)).toBe(true)
       }
     }

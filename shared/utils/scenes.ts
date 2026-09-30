@@ -15,10 +15,18 @@ export const SHOT_TEXT_MAX_LENGTH = 2000
  * seconds is a Scene of its own, and a choice left standing longer than a minute
  * is not under a clock. See
  * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
+ *
+ * And what the two a clock runs are held to above nought. A clock cutting sooner
+ * than half a second changes the screen more than twice in one, which over a
+ * white Image and a black one is past the three flashes WCAG 2.3.1 allows; at
+ * half a second it is one flash a second whatever the Images are. A cut's own
+ * length has no floor, because a dissolve makes the screen change no more often.
  */
 export const CUT_AFTER_MAX = 60_000
 export const CUT_OVER_MAX = 5_000
 export const EXITS_AFTER_MAX = 60_000
+export const CUT_AFTER_MIN = 500
+export const EXITS_AFTER_MIN = 500
 
 /** What a cut passes through: the outgoing Shot, or black. */
 export type CutThrough = 'image' | 'black'
@@ -26,12 +34,12 @@ export const CUT_THROUGHS: readonly CutThrough[] = ['image', 'black']
 
 /**
  * Whether a value is a time this product writes: a whole number of milliseconds
- * from nought to the cap. Here rather than at the request boundary because the
+ * from its floor to its cap. Here rather than at the request boundary because the
  * bench holds a field to exactly what the server will take, and one function is
  * how the two cannot come apart.
  */
-export function isTime(held: unknown, max: number): held is number {
-  return typeof held === 'number' && Number.isInteger(held) && held >= 0 && held <= max
+export function isTime(held: unknown, max: number, min = 0): held is number {
+  return typeof held === 'number' && Number.isInteger(held) && held >= min && held <= max
 }
 
 /**
@@ -91,7 +99,7 @@ export function isArrival(held: unknown, carrier: EffectCarrier): held is Arriva
   return isObject(held)
     && holdsExactly(held, ['effect', 'over', 'strength'])
     && ARRIVALS[carrier].includes(held.effect as string)
-    && isTime(held.over, ARRIVES_OVER_MAX) && held.over >= ARRIVES_OVER_MIN
+    && isTime(held.over, ARRIVES_OVER_MAX, ARRIVES_OVER_MIN)
     && STRENGTHS.includes(held.strength as Strength)
 }
 
@@ -102,7 +110,7 @@ export function isLasting(held: unknown, carrier: EffectCarrier): held is Lastin
 
   return holdsExactly(held, paced ? ['effect', 'every', 'strength'] : ['effect', 'strength'])
     && LASTINGS[carrier].includes(held.effect as string)
-    && (!paced || (isTime(held.every, LASTS_EVERY_MAX) && held.every >= LASTS_EVERY_MIN))
+    && (!paced || isTime(held.every, LASTS_EVERY_MAX, LASTS_EVERY_MIN))
     && STRENGTHS.includes(held.strength as Strength)
 }
 

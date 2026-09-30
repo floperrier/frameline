@@ -157,7 +157,10 @@ test('an image is as reachable as the Story it belongs to', async ({ baseURL, pl
 
   // Built by hand rather than taken from the fixtures: those carry the Author's
   // sealed session, and the whole question here is what someone without one sees.
-  const stranger = await playwright.request.newContext({ baseURL, extraHTTPHeaders: {} })
+  // It closes each connection behind it as they do, and for their reason.
+  const stranger = await playwright.request.newContext({
+    baseURL, extraHTTPHeaders: { connection: 'close' },
+  })
   const url = `/api/shots/${shots[0]!.id}/image`
   expect((await stranger.get(url)).status()).toBe(404)
 

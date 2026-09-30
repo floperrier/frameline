@@ -504,13 +504,13 @@ test('an Author sets a Flag and marks the Opening Scene by naming them', async (
   // way out: a reload on top of an unfinished request cancels it, and the bench
   // comes back saying what the Story never heard. The reload is here to prove the
   // mark was kept rather than drawn, so it has to happen after the keeping.
-  const bar = await (await page.request.get(`/api/stories/${story.id}`)).json()
+  const bar = await (await request.get(`/api/stories/${story.id}`)).json()
     .then((read: { scenes: { id: string, name: string }[] }) =>
       read.scenes.find(scene => scene.name === 'The bar')!)
   const opens = page.getByRole('group', { name: 'Writing The bar' }).locator('.opening')
   await expect(opens).toHaveText(/^Opening Scene/)
   await expect
-    .poll(async () => (await (await page.request.get(`/api/stories/${story.id}`)).json())
+    .poll(async () => (await (await request.get(`/api/stories/${story.id}`)).json())
       .openingSceneId)
     .toBe(bar.id)
 
@@ -551,7 +551,7 @@ test('the bar reaches every act of the bench at the width of a phone', async ({ 
   await openByKey(page)
   await typing(page).fill('Publish')
   await offered(page).click()
-  await expect.poll(() => page.request.get(`/api/stories/${story.id}`)
+  await expect.poll(() => request.get(`/api/stories/${story.id}`)
     .then(read => read.json())
     .then(read => Boolean(read.publishedAt))).toBe(true)
 })

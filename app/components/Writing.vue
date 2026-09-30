@@ -874,8 +874,8 @@ const A_TIME_OFFERED = 10_000
  * the millisecond the column would hold rather than the number in the box, so a
  * tenth of one is the nought it rounds to.
  *
- * A time past its cap is written and refused by its own phrase, because a refusal
- * says more than a field that silently kept what it had. A nought has no refusal
+ * A time past its cap or under its floor is written and refused by its own
+ * phrase, because a refusal says more than a field that silently kept what it had. A nought has no refusal
  * to be given, because the doors take it: it is what a Shot's `cutAfter` and a
  * Scene's `exitsAfter` and `cutOver` hold when the answer above says so, and no
  * door can tell one typed here from one picked there. A Scene's `cutAfter` is the
@@ -1531,7 +1531,7 @@ function writeConditions(
             <input
               type="number"
               inputmode="decimal"
-              min="0.5"
+              :min="CUT_AFTER_MIN / 1000"
               :max="CUT_AFTER_MAX / 1000"
               step="0.5"
               :value="held.scene.cutAfter / 1000"
@@ -1593,7 +1593,7 @@ function writeConditions(
             <input
               type="number"
               inputmode="decimal"
-              min="0.5"
+              :min="EXITS_AFTER_MIN / 1000"
               :max="EXITS_AFTER_MAX / 1000"
               step="0.5"
               :value="held.scene.exitsAfter / 1000"
@@ -1831,7 +1831,7 @@ function writeConditions(
                     <input
                       type="number"
                       inputmode="decimal"
-                      min="0.5"
+                      :min="CUT_AFTER_MIN / 1000"
                       :max="CUT_AFTER_MAX / 1000"
                       step="0.5"
                       :value="shot.cutAfter / 1000"

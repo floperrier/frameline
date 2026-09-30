@@ -176,6 +176,13 @@
       "when": 1790785107507,
       "tag": "0024_noisy_orphan",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1790801814461,
+      "tag": "0025_a_clock_holds_half_a_second",
+      "breakpoints": true
     }
   ]
 }

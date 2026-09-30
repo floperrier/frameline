@@ -122,6 +122,7 @@ test('a Story that is past every step is guided not at all', async ({ page, auth
 test('an Author who deleted the Scene their Story opened on is sent to the mark', async ({
   page,
   author,
+  request,
 }) => {
   const story = await seedStory(author, 'A Story')
   const [arrival, platform, bar] = await seedScenes(
@@ -137,7 +138,7 @@ test('an Author who deleted the Scene their Story opened on is sent to the mark'
     const [shot] = await readShots(scene!.id)
     await seedShotConditions(shot!.id, [{ flag: 'courage', is: 'high' }])
   }
-  await page.request.post(`/api/scenes/${arrival!.id}/opening`)
+  await request.post(`/api/scenes/${arrival!.id}/opening`)
 
   await page.goto(`/stories/${story.id}`)
   await expect(bubble(page)).toContainText(/That is a Story that works/)
@@ -186,6 +187,7 @@ test('an Author who knows what they are doing waves the guidance away', async ({
 test('the bench walks an Author from a bare Story to a published one', async ({
   page,
   author,
+  request,
 }) => {
   const story = await seedStory(author, 'A Story')
   // A window tall enough to hold the first Scene down to the way on written at its
@@ -238,7 +240,7 @@ test('the bench walks an Author from a bare Story to a published one', async ({
 
   // Born under the name typed, already joined, and drawn on the Graph at once.
   await expect(sceneNode(page, 'The platform')).toHaveCount(1)
-  const read = await (await page.request.get(`/api/stories/${story.id}`)).json()
+  const read = await (await request.get(`/api/stories/${story.id}`)).json()
   const arrival = read.scenes.find((scene: { name: string }) => scene.name === 'The arrival')
 
   // A Flag on the first Scene, in the list the light moves to once the caret is
@@ -418,6 +420,7 @@ test('the light follows its target as the document grows above it', async ({
 test('the guidance reaches every part of the bench at the width of a phone', async ({
   page,
   author,
+  request,
 }) => {
   const story = await seedStory(author, 'A Story')
   const arrival = await seedScene(story, 'The arrival')
@@ -471,7 +474,7 @@ test('the guidance reaches every part of the bench at the width of a phone', asy
   // The Story is past both of those, and what is left to point at is the Publish
   // in the header, which is on screen at every width.
   await seedShotConditions(platform.shots[0]!.id, [{ flag: 'courage', is: 'high' }])
-  await page.request.post(`/api/scenes/${arrival.id}/opening`)
+  await request.post(`/api/scenes/${arrival.id}/opening`)
   await page.reload()
   await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
   await expect(bubble(page)).toContainText(/That is a Story that works/)
