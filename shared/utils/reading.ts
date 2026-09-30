@@ -179,6 +179,26 @@ export function movesItself(story: StoryToRead) {
 }
 
 /**
+ * Whether a Shot carries an Effect that lasts, on its Image or on its text. The
+ * Image's slot counts only where the Shot has an Image: the Reading draws it
+ * nowhere else, and the bench hides it with the Image, so a Lasting left behind
+ * by an Image taken away is one nobody sees and nobody can clear — and a Pause
+ * given over it would be a control over nothing that moves.
+ */
+export function lastsOn(shot: Pick<Shot, 'image' | 'imageLasts' | 'textLasts'>) {
+  return (!!shot.image && !!shot.imageLasts) || !!shot.textLasts
+}
+
+/**
+ * Whether any Shot carries an Effect that lasts, which WCAG 2.2.2 owes a pause
+ * over: it moves by itself for as long as its beat stands. It says *can*, never
+ * *does*, for the reason `movesItself` gives.
+ */
+export function lasting(story: StoryToRead) {
+  return story.scenes.some(scene => scene.shots.some(lastsOn))
+}
+
+/**
  * Why an Exit is not on offer, or a Shot not played: one line for each test it
  * carries that this State fails, saying what the test asked for and what the
  * State actually holds. For

@@ -188,7 +188,11 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   author,
 }) => {
   const story = await seedStory(author, 'A Story')
-  await page.setViewportSize({ width: 1280, height: 1100 })
+  // A window tall enough to hold the first Scene down to the way on written at its
+  // foot, because this walk is about which control is lit and not about a target
+  // carried off the window — the specs below pose that. A beat says what it does
+  // with its text as well as how it is cut, so one beat is already a deep row.
+  await page.setViewportSize({ width: 1280, height: 1300 })
   await page.goto(`/stories/${story.id}`)
 
   // Made, and the light is on the one control that makes a Scene out of nothing.

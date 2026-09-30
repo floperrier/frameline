@@ -82,9 +82,10 @@ export async function readShotImage(event: H3Event) {
  * What a PATCH may change about a Shot: its text, the Description of the image it
  * carries, the Transcript of the Sound it strikes with, and its own Cut — cut
  * after a time or at the press, over a duration or hard, through the image or
- * through black. Each is read only where the body names it — the shape
- * `readStoryChanges` has — so the Transcript written beside a Sound does not
- * have to carry the beat's text along with it.
+ * through black — and its four Effects, on the Image and on the text, as it
+ * arrives and while it stands. Each is read only where the body names it — the
+ * shape `readStoryChanges` has — so the Transcript written beside a Sound does
+ * not have to carry the beat's text along with it.
  *
  * A body naming none is refused as the text being asked for, which is what a
  * request that would erase the Shot is missing.
@@ -97,6 +98,10 @@ export async function readShotChanges(event: H3Event) {
     cutAfter?: unknown
     cutOver?: unknown
     cutThrough?: unknown
+    imageArrives?: unknown
+    imageLasts?: unknown
+    textArrives?: unknown
+    textLasts?: unknown
   }>(event)
   const changes: {
     text?: string
@@ -105,6 +110,10 @@ export async function readShotChanges(event: H3Event) {
     cutAfter?: number | null
     cutOver?: number | null
     cutThrough?: CutThrough | null
+    imageArrives?: Arrival | null
+    imageLasts?: Lasting | null
+    textArrives?: Arrival | null
+    textLasts?: Lasting | null
   } = {}
 
   if (body?.text !== undefined) changes.text = await readShotText(event)
@@ -115,6 +124,11 @@ export async function readShotChanges(event: H3Event) {
   if (body?.cutAfter !== undefined) changes.cutAfter = await readCutAfter(event)
   if (body?.cutOver !== undefined) changes.cutOver = await readCutOver(event)
   if (body?.cutThrough !== undefined) changes.cutThrough = await readCutThrough(event)
+  // An Effect is a whole object or null, and null is none rather than a refusal.
+  if (body?.imageArrives !== undefined) changes.imageArrives = await readArrival(event, 'imageArrives')
+  if (body?.imageLasts !== undefined) changes.imageLasts = await readLasting(event, 'imageLasts')
+  if (body?.textArrives !== undefined) changes.textArrives = await readArrival(event, 'textArrives')
+  if (body?.textLasts !== undefined) changes.textLasts = await readLasting(event, 'textLasts')
   if (!Object.keys(changes).length) await readShotText(event)
 
   return changes

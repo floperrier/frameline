@@ -274,8 +274,13 @@ export async function seedChain(story: Story, names: string[]) {
  * for. A Scene whose mark is already lit is left alone, because pressing it would
  * be asking to go where the caret already is. See
  * `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ *
+ * The server draws the first Scene lit, so a mark lit is no sign that anything
+ * answers yet: the page is waited on until it is `live` below, or the press the
+ * caller makes next lands on a button the browser has not taken over.
  */
 export async function writeScene(page: Page, name: string) {
+  await live(page)
   const mark = sceneNode(page, name)
   await expect(mark).toBeVisible()
   if (!(await mark.getAttribute('class'))?.split(' ').includes('here')) await mark.click()

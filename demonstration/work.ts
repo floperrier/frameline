@@ -16,7 +16,7 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { SHOT_IMAGE_MAX_BYTES } from '../shared/utils/scenes.ts'
-import type { Condition, CutThrough, Flags } from '../shared/utils/scenes.ts'
+import type { Arrival, Condition, CutThrough, Flags, Lasting } from '../shared/utils/scenes.ts'
 import type { StoryLanguage } from '../shared/utils/stories.ts'
 
 const run = promisify(execFile)
@@ -77,6 +77,14 @@ export type Shot = {
   cutAfter?: number
   cutOver?: number
   cutThrough?: CutThrough
+  /**
+   * What the Image and the text play as the beat arrives and while it stands;
+   * saying nothing is none. See the `Effect` of `CONTEXT.md`.
+   */
+  imageArrives?: Arrival
+  imageLasts?: Lasting
+  textArrives?: Arrival
+  textLasts?: Lasting
 }
 
 /**

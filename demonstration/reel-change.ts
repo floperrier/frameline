@@ -56,6 +56,11 @@ export const REEL_CHANGE: Work = {
           // how that hour is written, and it is the first cut of the work so
           // that the hard ones upstairs read as hard.
           cutOver: 1200,
+          // The screen the film has run off, and the lamp still flickering in the
+          // beam. Nothing comes before this beat to withhold the flash, and the
+          // dissolve above pauses the flicker.
+          imageArrives: { effect: 'from-white', over: 2000, strength: 'strong' },
+          imageLasts: { effect: 'flicker', strength: 'slight' },
           image: {
             ground: [ROOM, '#050605'],
             glow: [{ colour: LAMP, draw: 'polygon 1060,90 1600,300 1600,790 1000,900', blur: 40 }],
@@ -133,6 +138,8 @@ export const REEL_CHANGE: Work = {
         {
           text: 'Two hundred feet of somebody else’s house: rows, a brass rail, '
             + 'a lit sign over a door.',
+          // Grain marks this as footage, not the house the Reader stands in later.
+          imageLasts: { effect: 'grain', strength: 'marked' },
           description: 'A cinema house projected on the screen: four curved rows of seats, a brass '
             + 'rail along the front, and a lit sign burning above a door at the right.',
           image: {
@@ -158,6 +165,9 @@ export const REEL_CHANGE: Work = {
           // for two beats and stops dead on this one, and nothing moves again
           // until the Reader moves it — after which there is nothing to decide.
           cutAfter: 0,
+          // Attention finding the woman in row nine, in the same grain.
+          imageArrives: { effect: 'from-blur', over: 1600, strength: 'marked' },
+          imageLasts: { effect: 'grain', strength: 'marked' },
           image: {
             ground: ['#171b19', '#070908'],
             glow: [{ colour: PAPER, draw: 'ellipse 700,700 620,340 0,360', blur: 90, opacity: 0.38 }],
@@ -273,6 +283,8 @@ export const REEL_CHANGE: Work = {
           text: 'The coat is still warm.',
           description: 'The coat filling the whole frame, close enough that nothing is left of it '
             + 'but its folds and one warm edge of lamplight.',
+          // A heart at seventy-five.
+          textLasts: { effect: 'pulse', every: 800, strength: 'slight' },
           image: {
             ground: ['#100c0a', '#040303'],
             glow: [{ colour: LAMP, draw: 'ellipse 820,520 300,200 0,360', blur: 110, opacity: 0.75 }],

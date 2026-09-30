@@ -244,7 +244,27 @@
     "exitsForATime": "For a time",
     "exitsNotAtAll": "Not at all — the Scene flows on",
     "secondsTheExitsStand": "Seconds the Exits of {name} stand",
-    "secondsUnit": "s"
+    "secondsUnit": "s",
+    "imageArrives": "As the Image arrives",
+    "imageLasts": "While the Image is on screen",
+    "textArrives": "As the text arrives",
+    "textLasts": "While the text is on screen",
+    "noEffect": "No Effect",
+    "effectShake": "A shake",
+    "effectFromBlur": "From a blur",
+    "effectFromWhite": "From white",
+    "effectIntoColour": "From black and white to colour",
+    "effectOutOfColour": "From colour to black and white",
+    "effectClosingIn": "The edges closing in",
+    "effectFlicker": "A flicker",
+    "effectPulse": "A pulse",
+    "effectTremor": "A tremor",
+    "effectGrain": "Film grain",
+    "strengthSlight": "Slight",
+    "strengthMarked": "Marked",
+    "strengthStrong": "Strong",
+    "effectSeconds": "Seconds",
+    "effectStrength": "Strength"
   },
   "conditions": {
     "ofCarrier": "of {carrier}",
@@ -301,7 +321,8 @@
     "shotUnplayable": "Shot {place} of {scene} plays only when {flag} holds “{is}”, which no Scene ever sets it to.",
     "exitNeverTaken": "The Exit {place} out of {scene} leads back to a Scene a Reading arriving here has already been through, so no Reader is ever offered it.",
     "sceneFlowsNowhere": "{scene} flows on without asking, and has no way on to flow to — a Reading ends there.",
-    "shotStandsTooBriefly": "Shot {place} of {scene} stands for less time than its text takes to read."
+    "shotStandsTooBriefly": "Shot {place} of {scene} stands for less time than its text takes to read.",
+    "flashWithheld": "Shot {place} of {scene} arrives from white straight after a Shot that flickers or stands less than a second, so a Reading does not show the flash."
   },
   "preview": {
     "nobodyElse": "Nobody else can reach this",
@@ -440,6 +461,8 @@
     "cutAfterNought": "A Scene holds its Shots for a time or until the Reader presses, and nought is neither.",
     "cutOver": "A Cut takes a whole number of milliseconds, up to five seconds.",
     "cutThrough": "A Cut is made in a dissolve or in a fade to black.",
-    "exitsAfter": "The Exits are offered for a whole number of milliseconds, up to a minute."
+    "exitsAfter": "The Exits are offered for a whole number of milliseconds, up to a minute.",
+    "effectArrives": "An Effect as the Image or the words arrive is one offered for them, lasts a whole number of milliseconds from 100 to 5000, and is slight, marked or strong.",
+    "effectLasts": "An Effect while the Image or the words are on screen is one offered for them, with a round of a whole number of milliseconds from 200 to 4000 where it has one, and is slight, marked or strong."
   }
 }

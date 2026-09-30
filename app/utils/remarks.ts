@@ -24,10 +24,11 @@
  * (`app/utils/steps.ts`) and for the same reasons: it cannot disagree with the
  * screen, it survives a reload, and nothing stores it.
  */
-import { exitsFrom, namesOnTheBench, reaches } from '../../shared/utils/scenes'
+import { exitsFrom, flickers, namesOnTheBench, reaches } from '../../shared/utils/scenes'
 import type { Condition, Scene, StoryInEditor } from '../../shared/utils/scenes'
 import type { Phrase } from '../../shared/utils/phrases'
 import { cut } from '../../shared/utils/reading'
+import { FLASHES_APART } from './flashes'
 
 /**
  * How fast a Reader reads, at about 200 words a minute — a measured rate rather
@@ -164,6 +165,19 @@ export function remarks(story: StoryInEditor, say: Phrase): Remark[] {
         const takesToRead = (shot.text.length / CHARACTERS_A_SECOND) * 1000
         if (after !== null && after < takesToRead * BRIEF_ENOUGH_TO_SAY_SO) {
           found.push({ name: 'shotStandsTooBriefly', sceneId: scene.id, said: atPlace })
+        }
+      }
+
+      // A flash from white is withheld after a flicker or a beat standing under a
+      // second (`app/utils/flashes.ts`), so the Author is told the Reading will
+      // not show what they wrote. A Scene's first Shot follows whatever the
+      // Reading chose, and a Shot held until the press follows the Reader's pace,
+      // which is not a fact of the Story.
+      const before = scene.shots[place - 1]
+      if (before && shot.image && shot.imageArrives?.effect === 'from-white') {
+        const { after } = cut(scene, before)
+        if (flickers(before) || (after !== null && after < FLASHES_APART)) {
+          found.push({ name: 'flashWithheld', sceneId: scene.id, said: atPlace })
         }
       }
     })

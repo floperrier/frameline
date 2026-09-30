@@ -247,12 +247,17 @@ const ENGLISH: Work = {
           description: 'Three panels in a row on a dark bench, the first of them lit: a Scene '
             + 'as the run of Shots it is.',
           image: 'a-scene',
+          // The first beat an Author is shown finds its focus, the same way in both
+          // Samples, so that an Effect is met before it is asked of them.
+          imageArrives: { effect: 'from-blur', over: 1500, strength: 'marked' },
         },
         {
           text: 'This Shot has no Image. A Shot may be text alone, or an Image alone — what '
             + 'it may not be is neither.',
           sound: 'door-close.m4a',
           transcript: 'A door closes.',
+          // The words take the blow of the door they are struck with.
+          textArrives: { effect: 'shake', over: 500, strength: 'slight' },
         },
         {
           text: 'A Story is read forwards. You will stand in each Scene at most once, so the '
@@ -369,12 +374,17 @@ const FRENCH: Work = {
           description: 'Trois panneaux alignés sur un établi sombre, le premier éclairé : une '
             + 'Scène comme la suite de Plans qu’elle est.',
           image: 'a-scene',
+          // The first beat an Author is shown finds its focus, the same way in both
+          // Samples, so that an Effect is met before it is asked of them.
+          imageArrives: { effect: 'from-blur', over: 1500, strength: 'marked' },
         },
         {
           text: 'Ce Plan n’a pas d’Image. Un Plan peut n’être que du texte, ou qu’une '
             + 'Image seule — ce qu’il ne peut pas être, c’est ni l’un ni l’autre.',
           sound: 'door-close.m4a',
           transcript: 'Une porte se ferme.',
+          // Le même geste à la même place : les mots reçoivent le coup de la porte.
+          textArrives: { effect: 'shake', over: 500, strength: 'slight' },
         },
         {
           text: 'Un Récit se lit vers l’avant. Vous ne vous tiendrez au plus qu’une fois dans '
