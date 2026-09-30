@@ -45,7 +45,11 @@ test('a Scene says how its texts arrive, and the Story comes back holding it',
       { exact: true })
 
     // Every Story written so far has its text land with the Image, whole, at once
-    // and until the Cut, so that is what the section says before an Author does.
+    // and until the Cut, so that is what the section says before an Author does —
+    // folded, because a Scene that says only that spends a line on it.
+    await expect(arrives).toBeHidden()
+    await page.locator('summary', { hasText: 'How the texts arrive The street' }).click()
+    await expect(arrives).toBeVisible()
     await expect(arrives).toHaveValue('image')
     await expect(comes).toHaveValue('whole')
     await expect(appears).toHaveValue('once')
@@ -77,8 +81,10 @@ test('a Scene says how its texts arrive, and the Story comes back holding it',
     await stays.selectOption('For a time')
     await expect.poll(async () => (await sceneOf()).textStays).toBe(3000)
 
+    // A Scene that says otherwise is drawn open, so what it says is read unasked.
     await page.reload()
     await live(page)
+    await expect(arrives).toBeVisible()
     await expect(arrives).toHaveValue('time')
     await expect(wait).toHaveValue('2.5')
     await expect(comes).toHaveValue('word')
@@ -87,6 +93,15 @@ test('a Scene says how its texts arrive, and the Story comes back holding it',
 
     await stays.selectOption('Until the Cut')
     await expect.poll(async () => (await sceneOf()).textStays).toBeNull()
+
+    // And back at every default, the fields stay where the hand is.
+    await arrives.selectOption('With the Image')
+    await comes.selectOption('All at once')
+    await expect.poll(async () => {
+      const { textAfter, textBy, textOver, textStays } = await sceneOf()
+      return { textAfter, textBy, textOver, textStays }
+    }).toEqual({ textAfter: 0, textBy: 'whole', textOver: 0, textStays: null })
+    await expect(arrives).toBeVisible()
   })
 
 test('a Shot answers as its Scene says until it answers for itself',
@@ -101,7 +116,13 @@ test('a Shot answers as its Scene says until it answers for itself',
     const stays = row('This Shot’s text stays')
     const pace = page.getByLabel(
       'Pace of the text of Shot 1 of The street, in characters a second', { exact: true })
+    const fold = page.locator('summary', {
+      hasText: 'How this Shot’s text arrives Shot 1 of The street',
+    })
 
+    // A beat that answers as its Scene says keeps the row folded under its words.
+    await expect(arrives).toBeHidden()
+    await fold.click()
     for (const select of [arrives, comes, appears, stays]) {
       await expect(select).toHaveValue('scene')
     }
@@ -116,23 +137,29 @@ test('a Shot answers as its Scene says until it answers for itself',
 
     await page.reload()
     await live(page)
+    await expect(stays).toBeVisible()
     await expect(stays).toHaveValue('cut')
     await expect(comes).toHaveValue('letter')
 
+    // The unit wrote the brief fade beside it, so the fade is answered back too.
     await comes.selectOption('As the Scene says')
+    await appears.selectOption('As the Scene says')
     await stays.selectOption('As the Scene says')
     await expect.poll(async () => {
-      const { textBy, textPace, textStays } = await shotOf()
-      return { textBy, textPace, textStays }
-    }).toEqual({ textBy: null, textPace: null, textStays: null })
+      const { textBy, textPace, textOver, textStays } = await shotOf()
+      return { textBy, textPace, textOver, textStays }
+    }).toEqual({ textBy: null, textPace: null, textOver: null, textStays: null })
     await expect(pace).toHaveCount(0)
+    await expect(arrives).toBeVisible()
 
-    // A beat with no words has nothing to arrive, so it carries no row.
+    // A beat with no words has nothing to arrive, so it carries no row; one back at
+    // its Scene's answers is folded again once the page is drawn afresh.
     const empty = await (await request.post(`/api/scenes/${scene.id}/shots`)).json()
     await page.reload()
     await live(page)
     await expect(page.locator(`#shot-text-after-${empty.id}`)).toHaveCount(0)
-    await expect(arrives).toBeVisible()
+    await expect(fold).toBeVisible()
+    await expect(arrives).toBeHidden()
   })
 
 test('the doors take the fields their own row holds, and refuse what is not one',
