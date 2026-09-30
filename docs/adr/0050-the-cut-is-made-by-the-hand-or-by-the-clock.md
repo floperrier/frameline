@@ -4,6 +4,12 @@ status: accepted
 
 # The Cut is made by the hand or by the clock
 
+Amended in issue #360, by `docs/adr/0051-an-effect-is-said-of-one-beat.md`: the
+pause is drawn wherever an Effect lasts as well as wherever a clock runs, and it
+stops every Effect too, which resumes where it stood while a hold still starts
+again from the beginning of its time. What that amends is the pause in the
+paragraph beginning *What the Reader is owed*. Everything else here stands.
+
 A Story is watched as well as read, and until now every cut in one was made by
 the Reader's hand and made hard. What an editor has and an Author here did not
 is when a Shot leaves the screen, and how it leaves it.

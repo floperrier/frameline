@@ -35,6 +35,88 @@ export function isTime(held: unknown, max: number): held is number {
 }
 
 /**
+ * What may happen to a Shot's Image or to its whole text, each named where it
+ * means something: an Arrival plays once as the beat arrives, over a time, and a
+ * Lasting plays for as long as it stands. The text is offered fewer than the
+ * Image because a blur and a shake are read on words, while white, colour, a
+ * vignette and grain are said of a picture.
+ */
+export type Strength = 'slight' | 'marked' | 'strong'
+export const STRENGTHS: readonly Strength[] = ['slight', 'marked', 'strong']
+
+export const IMAGE_ARRIVALS = ['shake', 'from-blur', 'from-white', 'into-colour', 'out-of-colour', 'closing-in'] as const
+export const TEXT_ARRIVALS = ['shake', 'from-blur'] as const
+export const IMAGE_LASTINGS = ['flicker', 'pulse', 'tremor', 'grain'] as const
+export const TEXT_LASTINGS = ['flicker', 'pulse', 'tremor'] as const
+
+export type Arrival = { effect: (typeof IMAGE_ARRIVALS)[number], over: number, strength: Strength }
+
+/** A flicker keeps one pace and grain has none to tell, so neither carries a round. */
+export type Lasting =
+  | { effect: 'pulse' | 'tremor', every: number, strength: Strength }
+  | { effect: 'flicker' | 'grain', strength: Strength }
+
+export type EffectCarrier = 'image' | 'text'
+
+/**
+ * What an Effect's time is held between, in milliseconds. Under a tenth of a
+ * second an arrival is six frames nobody sees, and one that stops by five seconds
+ * never needs the pause WCAG 2.2.2 asks for; under a fifth of a second a round is
+ * a buzz and not a rhythm, and past four seconds it is not read as one at all.
+ */
+export const ARRIVES_OVER_MIN = 100
+export const ARRIVES_OVER_MAX = 5_000
+export const LASTS_EVERY_MIN = 200
+export const LASTS_EVERY_MAX = 4_000
+
+const ARRIVALS: Record<EffectCarrier, readonly string[]> = { image: IMAGE_ARRIVALS, text: TEXT_ARRIVALS }
+const LASTINGS: Record<EffectCarrier, readonly string[]> = { image: IMAGE_LASTINGS, text: TEXT_LASTINGS }
+const PACED: readonly string[] = ['pulse', 'tremor']
+
+/** Whether an object holds exactly these keys, so a key its effect does not take is refused rather than stored. */
+function holdsExactly(held: object, keys: readonly string[]) {
+  const own = Object.keys(held)
+  return own.length === keys.length && keys.every(key => own.includes(key))
+}
+
+function isObject(held: unknown): held is Record<string, unknown> {
+  return typeof held === 'object' && held !== null && !Array.isArray(held)
+}
+
+/**
+ * Whether a value is an Arrival offered to this carrier. Here for the reason
+ * `isTime` is, so the bench and the door cannot disagree.
+ */
+export function isArrival(held: unknown, carrier: EffectCarrier): held is Arrival {
+  return isObject(held)
+    && holdsExactly(held, ['effect', 'over', 'strength'])
+    && ARRIVALS[carrier].includes(held.effect as string)
+    && isTime(held.over, ARRIVES_OVER_MAX) && held.over >= ARRIVES_OVER_MIN
+    && STRENGTHS.includes(held.strength as Strength)
+}
+
+/** Whether a value is a Lasting offered to this carrier, with a round exactly where its effect has one. */
+export function isLasting(held: unknown, carrier: EffectCarrier): held is Lasting {
+  if (!isObject(held)) return false
+  const paced = PACED.includes(held.effect as string)
+
+  return holdsExactly(held, paced ? ['effect', 'every', 'strength'] : ['effect', 'strength'])
+    && LASTINGS[carrier].includes(held.effect as string)
+    && (!paced || (isTime(held.every, LASTS_EVERY_MAX) && held.every >= LASTS_EVERY_MIN))
+    && STRENGTHS.includes(held.strength as Strength)
+}
+
+/**
+ * Whether the Image or the text of a Shot flickers, which the flash rule and the
+ * Remark both read. The Image's slot counts only where the Shot has an Image, as
+ * `lastsOn` reads it and for its reason: a flicker nothing draws flashes nothing,
+ * and would withhold the next white for a light nobody saw.
+ */
+export function flickers(shot: Pick<Shot, 'image' | 'imageLasts' | 'textLasts'>) {
+  return (!!shot.image && shot.imageLasts?.effect === 'flicker') || shot.textLasts?.effect === 'flicker'
+}
+
+/**
  * The longest Description an Image may carry. A Description says what one frame
  * shows, in the sentence an editor would say it in, so it is capped near an Exit's
  * line rather than near a Shot's text: prose about the image is the Shot's text,
@@ -268,6 +350,12 @@ export type Shot = {
   cutAfter: number | null
   cutOver: number | null
   cutThrough: CutThrough | null
+  /** What the Image plays as the beat arrives, and while it stands; null is none. */
+  imageArrives: Arrival | null
+  imageLasts: Lasting | null
+  /** The same of the whole text. */
+  textArrives: Arrival | null
+  textLasts: Lasting | null
 }
 export type Scene = {
   id: string

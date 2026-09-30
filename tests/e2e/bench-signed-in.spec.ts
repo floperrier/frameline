@@ -328,12 +328,16 @@ test('draws a row\'s marks at the weight of the words until the hand arrives at 
     // so the Sound's own controls come before the acts, on the same side of the
     // words as the Description, because the Transcript sits under the Sound as the
     // Description sits under the Image. The Cut comes after both, because it is
-    // what the beat does at its end rather than what it carries.
+    // what the beat does at its end rather than what it carries, and the Effects
+    // after the Cut, because they are how it is drawn — see
+    // `docs/adr/0051-an-effect-is-said-of-one-beat.md`.
     //
     // This beat carries neither Image nor Sound, so neither thing said of them is
     // drawn, and *Listen* and *Take This Sound* are disabled until the `<select>`
     // is standing on something — a disabled control is no tab stop, which is two
-    // stops a row this row does not spend.
+    // stops a row this row does not spend. The Image's two Effects wait for an
+    // Image as its Description does, and an Effect's time and strength for an
+    // Effect, so the text's two `<select>`s are all the Effects spend.
     await page.mouse.move(0, 0)
     await beat.locator('textarea').focus()
 
@@ -342,6 +346,8 @@ test('draws a row\'s marks at the weight of the words until the hand arrives at 
       beat.getByLabel('Upload a Sound for Shot 2 of Scene 1'),
       beat.getByLabel('This Shot is cut Shot 2 of Scene 1', { exact: true }),
       beat.getByLabel('The Cut is made Shot 2 of Scene 1', { exact: true }),
+      beat.getByLabel('As the text arrives Shot 2 of Scene 1', { exact: true }),
+      beat.getByLabel('While the text is on screen Shot 2 of Scene 1', { exact: true }),
       beat.getByRole('button', { name: 'Add a Condition to Shot 2 of Scene 1' }),
       beat.getByRole('button', { name: 'Split Scene 1 before Shot 2' }),
       beat.getByRole('button', { name: 'Move Earlier Shot 2 of Scene 1' }),

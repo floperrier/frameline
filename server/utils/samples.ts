@@ -90,6 +90,10 @@ export async function plantSample(
         cutAfter: shot.cutAfter,
         cutOver: shot.cutOver,
         cutThrough: shot.cutThrough,
+        imageArrives: shot.imageArrives ?? null,
+        imageLasts: shot.imageLasts ?? null,
+        textArrives: shot.textArrives ?? null,
+        textLasts: shot.textLasts ?? null,
       })))))
 
     // The Place an Exit takes among the ways on leaving its Scene is the order the

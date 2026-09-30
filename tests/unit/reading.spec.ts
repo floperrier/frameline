@@ -3,7 +3,7 @@ import type { Condition, Sets } from '../../shared/utils/scenes'
 import { CUT_OVER_MAX, isTime } from '../../shared/utils/scenes'
 import type { Path, State, StoryToRead } from '../../shared/utils/reading'
 import {
-  advance, back, cut, moved, movesItself, opening, pathTo, reading, resumes, take, unmet,
+  advance, back, cut, lasting, moved, movesItself, opening, pathTo, reading, resumes, take, unmet,
 } from '../../shared/utils/reading'
 import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
 import type { Phrase } from '../../shared/utils/phrases'
@@ -65,6 +65,10 @@ function story(
           cutAfter: null,
           cutOver: null,
           cutThrough: null,
+          imageArrives: null,
+          imageLasts: null,
+          textArrives: null,
+          textLasts: null,
         }
       }),
     })),
@@ -1038,6 +1042,7 @@ describe('cut', () => {
     id: 's', text: '', position: 0, image: null, description: '',
     conditions: [], sound: null, transcript: '',
     cutAfter: null, cutOver: null, cutThrough: null,
+    imageArrives: null, imageLasts: null, textArrives: null, textLasts: null,
   }
 
   it('is the Scene\'s where the Shot says nothing', () => {
@@ -1064,6 +1069,40 @@ describe('cut', () => {
 
   it('holds a Shot that answers over a Scene that waits', () => {
     expect(cut({ ...scene, cutAfter: null }, { ...shot, cutAfter: 2500 }).after).toBe(2500)
+  })
+})
+
+describe('lasting', () => {
+  const plain = story({ Street: ['A door opens.'] })
+
+  /** The same Story with its one Shot carrying what is said of it. */
+  function carrying(says: Partial<StoryToRead['scenes'][number]['shots'][number]>) {
+    return {
+      ...plain,
+      scenes: plain.scenes.map(scene => ({
+        ...scene, shots: scene.shots.map(shot => ({ ...shot, ...says })),
+      })),
+    }
+  }
+
+  it('is nothing where no Effect is written', () => {
+    expect(lasting(plain)).toBe(false)
+  })
+
+  it('is nothing where the only Effect is an arrival', () => {
+    expect(lasting(carrying({ imageArrives: { effect: 'shake', over: 500, strength: 'marked' } })))
+      .toBe(false)
+  })
+
+  it('reads a lasting Effect on the Image, and one on the text', () => {
+    expect(lasting(carrying({ image: '/api/shots/a/image', imageLasts: { effect: 'grain', strength: 'slight' } })))
+      .toBe(true)
+    expect(lasting(carrying({ textLasts: { effect: 'pulse', every: 800, strength: 'slight' } })))
+      .toBe(true)
+  })
+
+  it('is nothing where the lasting Effect is on an Image the Shot does not have', () => {
+    expect(lasting(carrying({ imageLasts: { effect: 'grain', strength: 'slight' } }))).toBe(false)
   })
 })
 

@@ -26,6 +26,9 @@ import { useDb } from '../../../db'
  * beats had stopped working. The record names the Shots and the Exits and is
  * silent here; this is the reading that leaves the copy an ordinary Scene.
  *
+ * The Shots are copied with their four Effects. A Shot's own Cut is not copied
+ * yet, which is #344's to fix.
+ *
  * Nothing says it is a copy. There is no origin on the row, and the name is the
  * original's verbatim — what tells two Scenes of one name apart is the number
  * the bench draws, `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`,
@@ -50,9 +53,11 @@ export default defineEventHandler(async (event) => {
     ),
     copied as (
       insert into shots
-        (scene_id, text, position, image, description, sound, transcript, conditions)
+        (scene_id, text, position, image, description, sound, transcript, conditions,
+         image_arrives, image_lasts, text_arrives, text_lasts)
       select made.id, shots.text, shots.position, shots.image, shots.description,
-             shots.sound, shots.transcript, shots.conditions
+             shots.sound, shots.transcript, shots.conditions,
+             shots.image_arrives, shots.image_lasts, shots.text_arrives, shots.text_lasts
       from made, shots
       where shots.scene_id = ${id}::uuid
       returning id
