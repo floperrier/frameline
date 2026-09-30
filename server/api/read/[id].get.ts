@@ -52,13 +52,16 @@ export default defineEventHandler(async (event) => {
   //
   // The Cut is part of `readStoryGraph` itself now, so a Scene and a Shot
   // arrive already carrying it — nothing here resolves it, that is `cut()`'s
-  // job for whoever plays the Reading.
+  // job for whoever plays the Reading. The text's arrival arrives the same way,
+  // resolved by `textArrival()`.
   const forTheReading = scenes.map(({
     id, name, sets, shots, sound, soundOfSceneId, transcript, soundLoops,
     cutAfter, cutOver, cutThrough, exitsAfter,
+    textAfter, textBy, textPace, textOver, textStays,
   }): StoryToShow['scenes'][number] => ({
     id, name, sets, shots, sound, soundOfSceneId, transcript, soundLoops,
     cutAfter, cutOver, cutThrough, exitsAfter,
+    textAfter, textBy, textPace, textOver, textStays,
   }))
 
   // Whether the Story carries a Sound anywhere, which is what makes the title

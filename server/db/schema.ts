@@ -12,7 +12,8 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
-import type { Arrival, Condition, CutThrough, Lasting, Sets } from '../../shared/utils/scenes'
+import { CHARACTERS_A_SECOND } from '../../shared/utils/scenes'
+import type { Arrival, Condition, CutThrough, Lasting, Sets, TextBy } from '../../shared/utils/scenes'
 
 // `name` is the Name an Author appears under wherever somebody else meets them:
 // beside a Listed Story, on their Profile. It arrives from the provider they
@@ -156,6 +157,15 @@ const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () =>
 // asking. Three states of one fact rather than a flag beside a duration, which
 // could contradict it. See
 // `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
+//
+// `text_after`, `text_by`, `text_pace`, `text_over` and `text_stays` are how the
+// texts of the run arrive, the Cut's shape column for column: after a time, by a
+// unit, at a pace, over a time, and for how long they stay. Nought after is with
+// the Image and nought over is at once; a null stay is until the Cut. Every one
+// is defaulted or nullable, because the schema moves before the deploy — see
+// `docs/adr/0002-the-schema-moves-with-the-deploy.md` — and the defaults are
+// every Story written so far, reading exactly as it read. See
+// `docs/adr/0052-a-text-arrives-in-its-own-time.md`.
 export const scenes = pgTable('scenes', {
   id: uuid('id').primaryKey().defaultRandom(),
   storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
@@ -172,6 +182,11 @@ export const scenes = pgTable('scenes', {
   cutOver: integer('cut_over').notNull().default(0),
   cutThrough: text('cut_through').$type<CutThrough>().notNull().default('image'),
   exitsAfter: integer('exits_after'),
+  textAfter: integer('text_after').notNull().default(0),
+  textBy: text('text_by').$type<TextBy>().notNull().default('whole'),
+  textPace: integer('text_pace').notNull().default(CHARACTERS_A_SECOND),
+  textOver: integer('text_over').notNull().default(0),
+  textStays: integer('text_stays'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
@@ -222,6 +237,15 @@ export const scenes = pgTable('scenes', {
 // strength would leave a time beside no effect, a pair that can disagree — see
 // `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
 //
+// `text_after`, `text_by`, `text_pace`, `text_over` and `text_stays` are this
+// Shot's own answer about how its text arrives, the Cut's shape column for
+// column, and null on each is *as the Scene says*. A `text_stays` of nought is
+// *stays until the Cut*, the one answer a Shot under a Scene whose texts leave
+// has no other way to give. Every one is nullable, so the schema can move before
+// the deploy — `docs/adr/0002-the-schema-moves-with-the-deploy.md` — and every
+// Shot written so far says nothing. See
+// `docs/adr/0052-a-text-arrives-in-its-own-time.md`.
+//
 // `conditions` are the flat tests the Shot plays under, all of which must hold;
 // an empty list is a Shot every Reading sees. Held as jsonb, validated at the
 // request boundary and naming a Scene by an id no foreign key reaches, for the
@@ -251,6 +275,11 @@ export const shots = pgTable('shots', {
   imageLasts: jsonb('image_lasts').$type<Lasting>(),
   textArrives: jsonb('text_arrives').$type<Arrival>(),
   textLasts: jsonb('text_lasts').$type<Lasting>(),
+  textAfter: integer('text_after'),
+  textBy: text('text_by').$type<TextBy>(),
+  textPace: integer('text_pace'),
+  textOver: integer('text_over'),
+  textStays: integer('text_stays'),
   conditions: jsonb('conditions').$type<Condition[]>().notNull().default([]),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })

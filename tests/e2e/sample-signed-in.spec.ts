@@ -46,6 +46,9 @@ test('a new account arrives with a Sample in it', async ({ page, request, author
   expect(story.publishedAt).not.toBeNull()
   expect(story.exits).toHaveLength(SAMPLES.en.exits.length)
   expect(story.scenes[1].sets).toEqual(SAMPLES.en.scenes[1]!.sets)
+  // The words of that Scene arrive in their own time, so the five columns that
+  // say so have to have been planted with it.
+  expect(story.scenes[1]).toMatchObject({ textAfter: 1000, textBy: 'word', textOver: 200 })
   expect(story.scenes.flatMap((scene: { shots: { conditions: unknown[] }[] }) =>
     scene.shots.flatMap(shot => shot.conditions)).length).toBeGreaterThan(0)
 

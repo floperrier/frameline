@@ -33,7 +33,12 @@ _Avoid_: passage, knot, node, chapter, page, card, séquence
 **Shot**:
 The atomic unit of a Story — an Image and its text, shown to the Reader as a single
 beat. Either may stand alone, but a Shot with neither is one the Author has not
-written yet.
+written yet. Its text need not land with its Image. It may arrive a time after
+it, whole or a line, a word or a letter at a time, at a pace the Author writes in
+characters a second, each part appearing at once or over a time of its own, and it
+may leave before the Image does. A Scene says how the texts of its run arrive, a
+Shot may say otherwise, and a Shot that says nothing does as its Scene says.
+However its text arrives, a Reader by ear is given all of it as the Shot lands.
 _Affiché_: Plan
 _Avoid_: panel, slide, frame, beat, step, séquence
 
@@ -69,7 +74,10 @@ or through black. A Scene says how its run is cut, a Shot may say otherwise,
 and a Shot that says nothing is cut as its Scene says — the shape an Exit's
 *steps back* already has. An Exit carries one too — how the passage from the
 Scene it leaves to the Scene it lands on is made, never when, because an Exit is
-taken rather than held.
+taken rather than held. A Shot whose text arrives in its own time is held for
+its time once the text has arrived, so the clock never cuts a text short, and a
+press made while the text is still arriving shows the rest of it rather than
+cutting.
 _Affiché_: Coupe
 _Avoid_: transition, timing, duration, delay, autoplay, timer, slideshow,
 durée, minuterie, défilement

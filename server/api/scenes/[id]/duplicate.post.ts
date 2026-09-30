@@ -6,10 +6,11 @@ import { useDb } from '../../../db'
  * their text, their Image, its Description, the Sound each strikes with and its
  * Transcript, their Conditions and their order — the Sound the Scene itself is
  * heard under, whether that is bytes of its own or the Scene it takes them from,
- * with the Transcript and the loop that belong to those bytes — and the Flags
- * that Scene sets on entry, under the same name and with none of its ways on.
- * From the moment it exists it is an ordinary Scene: renameable, rewritable, and
- * a place new ways on are written from.
+ * with the Transcript and the loop that belong to those bytes — how its texts
+ * arrive, the Scene's own and each Shot's — and the Flags that Scene sets on
+ * entry, under the same name and with none of its ways on. From the moment it
+ * exists it is an ordinary Scene: renameable, rewritable, and a place new ways on
+ * are written from.
  *
  * Copying `sound_of_scene_id` verbatim keeps the one hop of
  * `docs/adr/0049-a-sound-is-carried-by-what-plays-it.md`: the copy names whatever
@@ -46,18 +47,27 @@ export default defineEventHandler(async (event) => {
 
   const { rows } = await useDb().execute<Scene>(sql`
     with made as (
-      insert into scenes (story_id, name, sets, sound, sound_of_scene_id, transcript, sound_loops)
-      select story_id, name, sets, sound, sound_of_scene_id, transcript, sound_loops from scenes
+      insert into scenes (
+        story_id, name, sets, sound, sound_of_scene_id, transcript, sound_loops,
+        text_after, text_by, text_pace, text_over, text_stays
+      )
+      select story_id, name, sets, sound, sound_of_scene_id, transcript, sound_loops,
+        text_after, text_by, text_pace, text_over, text_stays
+      from scenes
       where id = ${id}::uuid and id in (${scenesOf(author.id)})
       returning id, name, sets
     ),
     copied as (
-      insert into shots
-        (scene_id, text, position, image, description, sound, transcript, conditions,
-         image_arrives, image_lasts, text_arrives, text_lasts)
+      insert into shots (
+        scene_id, text, position, image, description, sound, transcript, conditions,
+        image_arrives, image_lasts, text_arrives, text_lasts,
+        text_after, text_by, text_pace, text_over, text_stays
+      )
       select made.id, shots.text, shots.position, shots.image, shots.description,
              shots.sound, shots.transcript, shots.conditions,
-             shots.image_arrives, shots.image_lasts, shots.text_arrives, shots.text_lasts
+             shots.image_arrives, shots.image_lasts, shots.text_arrives, shots.text_lasts,
+             shots.text_after, shots.text_by, shots.text_pace, shots.text_over,
+             shots.text_stays
       from made, shots
       where shots.scene_id = ${id}::uuid
       returning id

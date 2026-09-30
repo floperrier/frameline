@@ -454,6 +454,132 @@ watch(() => `${at.value.taken.length}-${at.value.shot}`, strikeShot, { flush: 'p
 const { paused, stopped, clock } = useClock()
 
 /**
+ * How the text of the beat on screen arrives, resolved against its Scene the way
+ * its Cut is: the wait after the Image lands, what it comes by and at what pace,
+ * how long each part takes to appear, and how long the whole of it stays. See
+ * `docs/adr/0052-a-text-arrives-in-its-own-time.md`.
+ */
+const arrival = computed(() => shown.value.shot && scene.value
+  ? textArrival(scene.value, shown.value.shot)
+  : undefined)
+
+/**
+ * Whether it arrives in its own time rather than landing whole with its Image.
+ * Every Story written before this lands its texts whole and at once, and every one
+ * of them is drawn exactly as it was: no animation, no pair of names on the press.
+ */
+const ownTime = computed(() =>
+  !!shown.value.shot && !!scene.value && textArrives(scene.value, shown.value.shot))
+
+/**
+ * The beat on screen: where the Path stands, and which Shot it found there. The
+ * two can come apart, because the Shot at a position is the engine's to say — the
+ * opening beat is drawn on the server under no seed and again here under the
+ * Reader's, and a Scene whose Flag decides its first Shot may find another one
+ * there, as may an Author drawing again in a Preview — and a text belongs to its
+ * Shot rather than to the place the Shot is found at.
+ */
+const onScreen = computed(() =>
+  `${at.value.taken.length}-${at.value.shot}-${shown.value.shot?.id}`)
+
+/**
+ * Whether the text of the beat has all arrived, and whether it has left. Both
+ * belong to the beat and are reset as it changes: a text landing whole and at
+ * once is whole from the landing, and a paused Reader reads by hand, so is given
+ * every text whole. `left` is not reset where no Shot is on screen, so the frame
+ * held behind the ways on shows the text as it was when the run ended.
+ */
+const whole = ref(true)
+const left = ref(false)
+
+watch(onScreen, () => {
+  whole.value = paused.value || !ownTime.value
+  if (shown.value.shot) left.value = false
+}, { immediate: true })
+
+/** Whether a text is arriving on screen now, which is what draws it arriving. */
+const arriving = computed(() => !!shown.value.shot && !whole.value)
+
+// A Reader who pauses mid-arrival is shown the rest: half a text cannot be read.
+watch(paused, (now) => {
+  if (now) whole.value = true
+})
+
+/**
+ * The beat's text cut into what it arrives by, or nothing where it arrives whole.
+ * One leaf today, handed to the engine the way a text of many would be, so what
+ * the Reading draws and what the bench reckons are cut at the same edges.
+ */
+const cutUp = computed(() => ownTime.value && arrival.value!.by !== 'whole'
+  ? pieces([shown.value.shot!.text], arrival.value!.by)[0]!
+  : undefined)
+
+/**
+ * Which piece arrives last, or -1 where the caption itself is the last to arrive:
+ * a text that is one word, or one line, has no unit after the one the caption
+ * brings with it, and a piece at nought is not faded twice.
+ */
+const lastAt = computed(() => cutUp.value?.findLastIndex(piece => !!piece.from) ?? -1)
+
+/**
+ * The last part to arrive has painted, so the hold can start on what was seen.
+ * Asked of the frame on screen only: a frame still fading out under a passage is
+ * a beat that has already gone, and the end of its text says nothing of this one.
+ */
+function textArrived(event: AnimationEvent) {
+  const part = event.target as Element
+  if (frame.value?.contains(part) && part.hasAttribute('data-last')) whole.value = true
+}
+
+/**
+ * Whether the text has finished arriving without anybody hearing it end, which
+ * `animationend` alone cannot say: an animation that has ended never ends again,
+ * so a last part whose arrival was over by the time it became the last would
+ * leave the text arriving for ever — the hold never armed, and a press that seems
+ * broken.
+ *
+ * Two things bring that about. The server draws the beat too, and a browser
+ * starts the arrival as it paints that page, before this component has hydrated
+ * and is listening for the end of it. And the beat can change under the frame
+ * without the frame being thrown again — another Shot found at the same position,
+ * or the Author changing what arrives last — so the part that is last now may be
+ * one whose arrival ended a while ago. So the page is asked as this mounts, and
+ * after each of those changes is drawn: nothing still running on the last part is
+ * a text that is whole. A beat just drawn is not mistaken for one, because an
+ * arrival waiting to start is still running.
+ */
+function settle() {
+  if (!arriving.value) return
+  if (!frame.value?.querySelector('[data-last]')?.getAnimations().length) {
+    whole.value = true
+  }
+}
+
+onMounted(settle)
+watch([onScreen, lastAt, ownTime], settle, { flush: 'post' })
+
+// A tab nobody is looking at may not recalculate styles, and then the `paused` the
+// arrival is given as the tab hides is never applied: the arrival would run on
+// behind the Reader's back instead of resuming where it stood. Asking the page for
+// the animations makes it recalculate them, so the pause takes hold as it is set.
+watch(stopped, () => {
+  if (arriving.value) {
+    frame.value?.querySelector('figcaption')?.getAnimations({ subtree: true })
+  }
+}, { flush: 'post' })
+
+/**
+ * The press under the frame: where the text is still arriving it shows the rest,
+ * and only then does it cut. The Path does not move, so the focus stays. This
+ * amends `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`'s press
+ * that always cuts — see `docs/adr/0052-a-text-arrives-in-its-own-time.md`.
+ */
+function pressed() {
+  if (whole.value) return passOn()
+  whole.value = true
+}
+
+/**
  * The two things a press of that control means, and they are not symmetrical.
  * Stopping is the Reader asking to be left where they are, so the focus stays on
  * the control they stopped the clock with — it is the control they will press
@@ -481,15 +607,33 @@ function pauseOrResume() {
  * *at the press* to *after a time* has changed the hold on the beat in front of
  * them, and what the clock reads is what restarts it. How the cut is then made is
  * `passOn`'s alone, read at the move like every other passage.
+ *
+ * The hold counts from the text having arrived rather than from the Image landing,
+ * so the clock never cuts a text short and never makes the first press, the one
+ * that shows the rest: it arms only once the text is whole, which is the moment
+ * `whole` turns and this is read again.
  */
 clock(() => {
   const beat = shown.value.shot
-  if (!beat || !scene.value) return
+  if (!beat || !scene.value || !whole.value) return
 
   const { after } = cut(scene.value, beat)
   if (after === null) return
 
   return { after, press: () => passOn(true) }
+})
+
+/**
+ * The stay: a whole text whose Shot says it leaves is taken off by the clock
+ * after its time, and the Image stands alone until the Cut. Where the hold is
+ * shorter than the stay, the cut takes the text with the Image.
+ */
+clock(() => {
+  const stays = arrival.value?.stays
+  if (!shown.value.shot?.text.trim() || !whole.value || left.value) return
+  if (stays === undefined || stays === null) return
+
+  return { after: stays, press: () => { left.value = true } }
 })
 
 /**
@@ -651,8 +795,8 @@ function drawnAs(effect: Arrival | Lasting | null | undefined): Record<string, u
 
 const imageArrival = computed(() => (overlaid(held.value?.imageArrives) ? {} : drawnAs(held.value?.imageArrives)))
 const imageLasting = computed(() => (overlaid(held.value?.imageLasts) ? {} : drawnAs(held.value?.imageLasts)))
-const textArrival = computed(() => drawnAs(held.value?.textArrives))
-const textLasting = computed(() => drawnAs(held.value?.textLasts))
+const captionArrival = computed(() => drawnAs(held.value?.textArrives))
+const captionLasting = computed(() => drawnAs(held.value?.textLasts))
 
 /**
  * The overlay the Image's arrival is drawn on, where it is one. A flash from white
@@ -726,8 +870,14 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
             :style="{ '--wait': `${wait}ms` }"
             tabindex="-1"
           >
-            <!-- The image and the text are one beat, so they arrive together and
-                 the Reader moves past both at once.
+            <!-- The image and the text are one beat, so the Reader moves past both
+                 at once. The text may come after the image in its own time — a wait,
+                 then whole or a line, a word or a letter at a time — but it is in
+                 the accessibility tree from the landing: opacity leaves the tree
+                 alone, and a text cut into parts is drawn twice, the parts hidden
+                 from it and an unsplit copy read, because some screen readers read
+                 one span at a time and would spell the sentence out. A Reader by ear
+                 has every word as the Shot lands, the Description first.
 
                  `alt` is the image's Description and nothing else: the Shot's text
                  is never used as one, because the text carries the beat and is read
@@ -754,10 +904,38 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
               <div v-if="arrivalOverlay" class="overlay" v-bind="arrivalOverlay" aria-hidden="true" />
               <div v-if="lastingOverlay" class="overlay" v-bind="lastingOverlay" aria-hidden="true" />
             </div>
-            <figcaption>
-              <div class="arrives" v-bind="textArrival">
-                <div class="lasts" v-bind="textLasting">
-                  <p class="shot">{{ held.text }}</p>
+            <figcaption
+              v-if="shown.shot || !left"
+              :class="{
+                arriving,
+                stopped: arriving && stopped,
+                left: shown.shot && left,
+              }"
+              :style="arrival && {
+                '--after': `${arrival.after}ms`,
+                '--text-over': `${arrival.over}ms`,
+                '--wait': arriving ? 'calc(var(--cut-over, 0ms) + var(--after))' : undefined,
+              }"
+              :data-last="arriving && lastAt < 0 ? '' : undefined"
+              @animationend="textArrived"
+            >
+              <div class="arrives" v-bind="captionArrival">
+                <div class="lasts" v-bind="captionLasting">
+                  <p class="shot">
+                    <template v-if="cutUp">
+                      <span aria-hidden="true"><span
+                        v-for="(piece, index) in cutUp"
+                        :key="index"
+                        :class="{ unit: piece.from }"
+                        :style="piece.from
+                          ? { '--at': `${Math.round((piece.from / arrival!.pace) * 1000)}ms` }
+                          : undefined"
+                        :data-last="arriving && index === lastAt ? '' : undefined"
+                      >{{ piece.text }}</span></span>
+                      <span class="visually-hidden">{{ held.text }}</span>
+                    </template>
+                    <template v-else>{{ held.text }}</template>
+                  </p>
                 </div>
               </div>
             </figcaption>
@@ -799,8 +977,16 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
 
     <!-- The one control the frame carries, and only while there is a Shot left to
          ask for: the frame held behind the ways on asks for nothing. -->
-    <button v-if="shown.shot" type="button" class="next" @click="passOn()">
-      {{ $t('reading.next') }}
+    <button v-if="shown.shot" type="button" class="next" @click="pressed">
+      <!-- Named for what its press does: the rest of the text while it is still
+           arriving, the next beat after. Both names share one cell so the width
+           holds, and only a beat whose text arrives in its own time is given the
+           pair — every other beat keeps the one name it always had. -->
+      <template v-if="ownTime">
+        <span :class="{ idle: whole }">{{ $t('reading.showWholeText') }}</span>
+        <span :class="{ idle: !whole }">{{ $t('reading.next') }}</span>
+      </template>
+      <template v-else>{{ $t('reading.next') }}</template>
     </button>
 
     <!-- What tells a Reader who cannot see the ways on that they are being asked,
@@ -1007,10 +1193,19 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
 /* The hold stays — it is the rhythm of the work and not a decoration — and every
    passage goes. `frameline.css` already takes each duration to nothing for
    anyone who has asked for that; the wait between the two halves above is the one
-   thing a duration cut to nothing leaves standing, so it is cut here. */
+   thing a duration cut to nothing leaves standing, so it is cut here.
+
+   And a text does not wait for a passage that takes no time, so the passage is
+   taken out of what its arrival counts from. The same rule takes the time each
+   part takes to appear to nothing and leaves the delays, so the wait, the cadence
+   and the stay stand: they are when the words come, which is the work's. */
 @media (prefers-reduced-motion: reduce) {
   .through-black-enter-active {
     transition-delay: 0ms;
+  }
+
+  .frame {
+    --cut-over: 0ms;
   }
 }
 
@@ -1410,6 +1605,55 @@ figcaption [data-effect="tremor"] {
   }
 }
 
+/* A text arriving in its own time: the caption fades up after its wait, counted
+   from the Image landing, and each unit after it at the characters before it
+   over the pace. A part not yet arrived keeps its room at opacity nought, so
+   nothing moves as the words come, and it does not rise into place either, since
+   how the words look is not when they come. A duration of nought still hides a
+   part through its delay and still ends, which is what tells the hold the text is
+   whole. The text's own Effects are given the caption's wait as their `--wait`
+   while it arrives, so they play as it appears rather than unseen before it. */
+.arriving,
+.arriving .unit {
+  animation: arrive var(--text-over) ease backwards;
+}
+
+.arriving {
+  animation-delay: calc(var(--cut-over, 0ms) + var(--after));
+}
+
+.arriving .unit {
+  animation-delay: calc(var(--cut-over, 0ms) + var(--after) + var(--at));
+}
+
+/* The text leaving whole over the same time it took to appear, so a title that
+   faded up fades out. */
+.left {
+  animation: leave var(--text-over) ease forwards;
+}
+
+/* A hidden tab stops an arrival where it stood, and the tab looked at again
+   resumes it from there, because an arrival is drawn rather than timed. Only an
+   arrival is held, and while one runs the clock can only be stopped by a hidden
+   tab, because the pause shows the whole text. A text leaving goes on leaving,
+   so a Reader who pauses during its fade is not left half of it. */
+.arriving.stopped,
+.arriving.stopped .unit {
+  animation-play-state: paused;
+}
+
+@keyframes arrive {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes leave {
+  to {
+    opacity: 0;
+  }
+}
+
 /* The edge of the film: the Scene the beat belongs to at the leading end, and at
    the trailing end how far into its run the Reader is — the count and the ticks
    reading the same fact twice, once in words and once as the length of film that
@@ -1461,8 +1705,21 @@ figcaption [data-effect="tremor"] {
 }
 
 .next {
+  display: inline-grid;
   justify-self: start;
   padding-inline: var(--s4);
+}
+
+/* The two names the press is given where a text arrives, laid in the one cell so
+   the button is as wide as the longer of them whichever is said: a control that
+   changed its width as the words came would move under the hand reaching for it.
+   The idle one keeps its room and is out of the accessible name. */
+.next > span {
+  grid-area: 1 / 1;
+}
+
+.next > .idle {
+  visibility: hidden;
 }
 
 /* The Exits on offer, as a splice list: a grease-pencil mark and the line the

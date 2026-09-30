@@ -16,7 +16,9 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { SHOT_IMAGE_MAX_BYTES } from '../shared/utils/scenes.ts'
-import type { Arrival, Condition, CutThrough, Flags, Lasting } from '../shared/utils/scenes.ts'
+import type {
+  Arrival, Condition, CutThrough, Flags, Lasting, TextBy,
+} from '../shared/utils/scenes.ts'
 import type { StoryLanguage } from '../shared/utils/stories.ts'
 
 const run = promisify(execFile)
@@ -85,6 +87,16 @@ export type Shot = {
   imageLasts?: Lasting
   textArrives?: Arrival
   textLasts?: Lasting
+  /**
+   * This Shot's own answer about how its text arrives, where it answers at all:
+   * saying nothing is *as the Scene says*, and a `textStays` of nought is *until
+   * the Cut*. See `docs/adr/0052-a-text-arrives-in-its-own-time.md`.
+   */
+  textAfter?: number
+  textBy?: TextBy
+  textPace?: number
+  textOver?: number
+  textStays?: number
 }
 
 /**
@@ -128,6 +140,17 @@ export type Work = {
     cutOver?: number
     cutThrough?: CutThrough
     exitsAfter?: number
+    /**
+     * How the texts of this Scene's run arrive. Saying nothing is every work
+     * before this one: each text landing with its Image, whole and at once, and
+     * staying until the Cut. A Scene's `textStays` is refused nought, because a
+     * Scene has no *as the Scene says* to fall back to.
+     */
+    textAfter?: number
+    textBy?: TextBy
+    textPace?: number
+    textOver?: number
+    textStays?: number
   }[]
   /**
    * An Exit's own Cut is how the passage it makes is made, never when: an Exit

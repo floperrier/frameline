@@ -10,6 +10,11 @@ stops every Effect too, which resumes where it stood while a hold still starts
 again from the beginning of its time. What that amends is the pause in the
 paragraph beginning *What the Reader is owed*. Everything else here stands.
 
+Amended in issue #358, by `docs/adr/0052-a-text-arrives-in-its-own-time.md`: a
+press made while a text is still arriving shows the rest of it rather than
+cutting, and the hold counts from the text having arrived. What that amends is
+the press in the same paragraph.
+
 Amended in issue #356: a time a clock runs is held to half a second above
 nought, which the Consequences below carry.
 
@@ -66,7 +71,9 @@ restarts the Shot it lands on, a visit resumed from the browser restarts the
 Shot it resumes at, and a Shot played again stands again for its whole time.
 
 **What the Reader is owed.** The press always cuts early, so a Reader ahead of
-the clock is never made to wait for it. A pause stands beside the mute, which is
+the clock is never made to wait for it — *amended by `0052`: a press made while
+a text is still arriving shows the rest of it first, and cuts on the next, under
+the name of what it does.* A pause stands beside the mute, which is
 what WCAG 2.2.2 asks the moment anything advances by itself; the pacing is the
 work rather than an ornament on it, which is the exception 2.2.1 grants where
 timing is essential. `prefers-reduced-motion` reads every `cut_over` as nought

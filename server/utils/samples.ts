@@ -62,6 +62,11 @@ export async function plantSample(
         cutOver: scene.cutOver,
         cutThrough: scene.cutThrough,
         exitsAfter: scene.exitsAfter,
+        textAfter: scene.textAfter,
+        textBy: scene.textBy,
+        textPace: scene.textPace,
+        textOver: scene.textOver,
+        textStays: scene.textStays,
       }))))
       .returning({ id: scenes.id, name: scenes.name })
 
@@ -94,6 +99,11 @@ export async function plantSample(
         imageLasts: shot.imageLasts ?? null,
         textArrives: shot.textArrives ?? null,
         textLasts: shot.textLasts ?? null,
+        textAfter: shot.textAfter,
+        textBy: shot.textBy,
+        textPace: shot.textPace,
+        textOver: shot.textOver,
+        textStays: shot.textStays,
       })))))
 
     // The Place an Exit takes among the ways on leaving its Scene is the order the
