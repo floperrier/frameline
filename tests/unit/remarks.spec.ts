@@ -77,6 +77,10 @@ function onTheBench(
         cutAfter: null,
         cutOver: null,
         cutThrough: null,
+        imageArrives: null,
+        imageLasts: null,
+        textArrives: null,
+        textLasts: null,
         ...shot,
       })),
     })) as StoryInEditor['scenes'],
@@ -465,6 +469,53 @@ describe('the Cut', () => {
     const story = onTheBench([{ name: 'One', cutAfter: null, shots: [{ text }] }])
 
     expect(named(story)).not.toContain('shotStandsTooBriefly')
+  })
+})
+
+describe('a flash from white the Reading withholds', () => {
+  const white = { text: 'A.', image: '/i', imageArrives: { effect: 'from-white', over: 1200, strength: 'marked' } }
+  const flicker = { image: '/i', imageLasts: { effect: 'flicker', strength: 'slight' } }
+
+  it('is said of a Shot arriving after a Shot that flickers', () => {
+    const story = onTheBench([{ name: 'One', shots: [flicker, white] as never }])
+
+    expect(named(story)).toContain('flashWithheld')
+  })
+
+  // The Reading draws no flicker on an Image the Shot does not have, so it
+  // withholds nothing after one, and neither does the Remark.
+  it('is not said after a flicker on an Image the Shot before does not have', () => {
+    const story = onTheBench([{ name: 'One', shots: [{ ...flicker, image: null }, white] as never }])
+
+    expect(named(story)).not.toContain('flashWithheld')
+  })
+
+  it('is said of a Shot arriving after a Shot cut after half a second', () => {
+    const story = onTheBench([{ name: 'One', shots: [{ cutAfter: 500 }, white] as never }])
+
+    expect(named(story)).toContain('flashWithheld')
+  })
+
+  it('is not said after a Shot held until the press', () => {
+    const scene = { name: 'One', shots: [{}, white] as never }
+
+    expect(named(onTheBench([scene]))).not.toContain('flashWithheld')
+    expect(named(onTheBench([{ ...scene, cutAfter: 0 }]))).not.toContain('flashWithheld')
+    expect(named(onTheBench([{ ...scene, shots: [{ cutAfter: 0 }, white] as never }])))
+      .not.toContain('flashWithheld')
+  })
+
+  it('is not said of a Scene’s first Shot', () => {
+    const story = onTheBench([{ name: 'One', shots: [white] as never }])
+
+    expect(named(story)).not.toContain('flashWithheld')
+  })
+
+  it('is not said of a Shot arriving from white with no Image', () => {
+    const bare = { ...white, image: null }
+    const story = onTheBench([{ name: 'One', shots: [flicker, bare] as never }])
+
+    expect(named(story)).not.toContain('flashWithheld')
   })
 })
 

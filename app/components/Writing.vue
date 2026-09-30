@@ -925,6 +925,104 @@ function writeShotCut(
   return writing(scene, shot.id, () => send(`/api/shots/${shot.id}`, { method: 'PATCH', body }))
 }
 
+type EffectSlot = 'imageArrives' | 'imageLasts' | 'textArrives' | 'textLasts'
+
+/**
+ * The four sentences a beat says about its Effects, in the order they are read:
+ * the Image arriving and staying, then the text arriving and staying. A slot
+ * whose Effects are an arrival takes a time always, and one whose are a lasting
+ * only where the Effect has a round.
+ */
+const EFFECT_SLOTS: {
+  slot: EffectSlot, image: boolean, arrives: boolean, effects: readonly string[]
+}[] = [
+  { slot: 'imageArrives', image: true, arrives: true, effects: IMAGE_ARRIVALS },
+  { slot: 'imageLasts', image: true, arrives: false, effects: IMAGE_LASTINGS },
+  { slot: 'textArrives', image: false, arrives: true, effects: TEXT_ARRIVALS },
+  { slot: 'textLasts', image: false, arrives: false, effects: TEXT_LASTINGS },
+]
+
+/** The message each Effect is offered under. */
+const EFFECT_LABELS: Record<string, string> = {
+  'shake': 'effectShake',
+  'from-blur': 'effectFromBlur',
+  'from-white': 'effectFromWhite',
+  'into-colour': 'effectIntoColour',
+  'out-of-colour': 'effectOutOfColour',
+  'closing-in': 'effectClosingIn',
+  'flicker': 'effectFlicker',
+  'pulse': 'effectPulse',
+  'tremor': 'effectTremor',
+  'grain': 'effectGrain',
+}
+
+/**
+ * Where a time starts on the Effect that has one, as `CUT_MADE` starts a
+ * dissolve: an Author writes over it in the field beside the answer. Each is
+ * about as long as the movement reads — a shake is a jolt, a colour is a change
+ * the eye follows — and a round is how often a pulse or a tremor comes again.
+ */
+const EFFECT_STARTS: Record<string, number> = {
+  'shake': 500,
+  'from-blur': 1500,
+  'from-white': 1200,
+  'into-colour': 3000,
+  'out-of-colour': 3000,
+  'closing-in': 2500,
+  'pulse': 900,
+  'tremor': 400,
+}
+
+/** The time an Effect holds, which is nothing for a flicker and for grain. */
+function effectTime(effect: Arrival | Lasting) {
+  return 'over' in effect ? effect.over : 'every' in effect ? effect.every : undefined
+}
+
+/**
+ * What a Shot says about one of its Effects. Choosing writes the whole object,
+ * with the strength the slot already had or *Marked*, because a half-written
+ * Effect is one the door refuses; *No Effect* writes null.
+ */
+function writeShotEffect(
+  scene: Scene,
+  shot: Shot,
+  body: Partial<Pick<Shot, EffectSlot>>,
+) {
+  Object.assign(shot, body)
+
+  return writing(scene, shot.id, () => send(`/api/shots/${shot.id}`, { method: 'PATCH', body }))
+}
+
+function writeShotEffectChosen(scene: Scene, shot: Shot, slot: EffectSlot, effect: string) {
+  if (!effect) return writeShotEffect(scene, shot, { [slot]: null })
+
+  const strength = shot[slot]?.strength ?? 'marked'
+  const start = EFFECT_STARTS[effect]
+  const body = start === undefined
+    ? { effect, strength }
+    : { effect, [slot.endsWith('Arrives') ? 'over' : 'every']: start, strength }
+
+  return writeShotEffect(scene, shot, { [slot]: body })
+}
+
+function writeShotEffectTime(scene: Scene, shot: Shot, slot: EffectSlot, event: Event) {
+  const held = shot[slot]
+  const time = held && effectTime(held)
+  const written = secondsWritten(event, time ?? null)
+  if (!held || written === undefined) return
+
+  return writeShotEffect(scene, shot, {
+    [slot]: { ...held, [slot.endsWith('Arrives') ? 'over' : 'every']: written },
+  })
+}
+
+function writeShotEffectStrength(scene: Scene, shot: Shot, slot: EffectSlot, strength: string) {
+  const held = shot[slot]
+  if (!held) return
+
+  return writeShotEffect(scene, shot, { [slot]: { ...held, strength: strength as Strength } })
+}
+
 function writeExitCut(
   scene: Scene, exit: Exit, body: Partial<Pick<Exit, 'cutOver' | 'cutThrough'>>,
 ) {
@@ -1786,6 +1884,72 @@ function writeConditions(
                     <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
                   </template>
                 </p>
+              </div>
+
+              <!-- What this beat does as its Image and its text arrive and while they
+                   stay, drawn on every beat for the Cut's reason: a run where one
+                   Shot shakes is read by seeing the row that differs. The Image's
+                   two wait for an Image, as the Description does. No Command is
+                   marked here, because every control is a `<select>` or a field. -->
+              <div class="cut">
+                <template v-for="slot in EFFECT_SLOTS" :key="slot.slot">
+                  <p v-if="!slot.image || shot.image" class="cutting">
+                    <label
+                      :id="`shot-${slot.slot}-label-${shot.id}`"
+                      class="eyebrow"
+                      :for="`shot-${slot.slot}-${shot.id}`"
+                    >
+                      {{ $t(`editor.${slot.slot}`) }}
+                      <span class="visually-hidden">
+                        {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                      </span>
+                    </label>
+                    <select
+                      :id="`shot-${slot.slot}-${shot.id}`"
+                      :value="shot[slot.slot]?.effect ?? ''"
+                      @change="writeShotEffectChosen(
+                        held.scene, shot, slot.slot, ($event.target as HTMLSelectElement).value)"
+                    >
+                      <option value="">{{ $t('editor.noEffect') }}</option>
+                      <option v-for="effect in slot.effects" :key="effect" :value="effect">
+                        {{ $t(`editor.${EFFECT_LABELS[effect]}`) }}
+                      </option>
+                    </select>
+                    <template v-if="shot[slot.slot]">
+                      <template v-if="effectTime(shot[slot.slot]!) !== undefined">
+                        <span :id="`shot-${slot.slot}-seconds-${shot.id}`" class="visually-hidden">
+                          {{ $t('editor.effectSeconds') }}
+                        </span>
+                        <input
+                          type="number"
+                          inputmode="decimal"
+                          :min="(slot.arrives ? ARRIVES_OVER_MIN : LASTS_EVERY_MIN) / 1000"
+                          :max="(slot.arrives ? ARRIVES_OVER_MAX : LASTS_EVERY_MAX) / 1000"
+                          step="0.1"
+                          :value="effectTime(shot[slot.slot]!)! / 1000"
+                          :aria-labelledby="
+                            `shot-${slot.slot}-label-${shot.id} shot-${slot.slot}-seconds-${shot.id}`"
+                          @change="writeShotEffectTime(held.scene, shot, slot.slot, $event)"
+                        >
+                        <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
+                      </template>
+                      <span :id="`shot-${slot.slot}-strength-${shot.id}`" class="visually-hidden">
+                        {{ $t('editor.effectStrength') }}
+                      </span>
+                      <select
+                        :value="shot[slot.slot]!.strength"
+                        :aria-labelledby="
+                          `shot-${slot.slot}-label-${shot.id} shot-${slot.slot}-strength-${shot.id}`"
+                        @change="writeShotEffectStrength(
+                          held.scene, shot, slot.slot, ($event.target as HTMLSelectElement).value)"
+                      >
+                        <option v-for="strength in STRENGTHS" :key="strength" :value="strength">
+                          {{ $t(`editor.strength${strength[0]!.toUpperCase()}${strength.slice(1)}`) }}
+                        </option>
+                      </select>
+                    </template>
+                  </p>
+                </template>
               </div>
 
               <div class="beneath">

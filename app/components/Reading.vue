@@ -116,6 +116,11 @@ onMounted(() => {
  * carries the seed of none, and those are the three things `UNDRAWN` is.
  */
 onMounted(() => {
+  // The frame the server drew has stood on screen, playing its Effects, since the
+  // page was first painted, so the flash rule counts it before anything below can
+  // put another in its place: a Reading picked up from a kept Path throws its
+  // resumed beat a moment after the opening one has flashed.
+  if (painted) arrive()
   const before = kept()
   resumed.value = before !== undefined
   if (before) at.value = before
@@ -132,6 +137,19 @@ onMounted(() => {
   // guard in `holdBed` makes the next crossing into the same carrier a no-op,
   // so nothing started here is restarted.
   holdBed(heard.value)
+  // Drawn here in the browser instead, the frame this mount leaves is counted as
+  // it is painted, and only if it is still the frame then: a Preview is routed to
+  // the Scene being written in the same flush it mounts in, so the beat it mounted
+  // on is never seen, and counting it would withhold the routed beat's white for a
+  // flash nobody saw. A frame the key's watch below has counted already is not
+  // counted twice, and a tab nobody is looking at paints nothing until somebody
+  // does, which is when its frame is first seen.
+  if (!painted) {
+    const mounted = `${at.value.taken.length}-${at.value.shot}`
+    requestAnimationFrame(() => {
+      if (!arrived && `${at.value.taken.length}-${at.value.shot}` === mounted) arrive()
+    })
+  }
 })
 
 /**
@@ -185,6 +203,9 @@ async function moveTo(to: Path, byClock = false) {
   const was = document.activeElement
   const theirs = byClock && !!was && was !== document.body && !frame.value?.contains(was)
 
+  // Read before the Path moves too, since it is the move and not the beat that
+  // says whether an arrival is seen: see `arrives` below.
+  arrives.value = !paused.value
   at.value = to
   resumed.value = false
   await nextTick()
@@ -526,8 +547,126 @@ clock(() => {
  * Story is asked rather than the Reading, so the control is on screen from the
  * opening beat of a Story whose clock runs three Scenes later: a pause that
  * arrived with the thing it stops would be a pause nobody could reach in time.
+ *
+ * A clock is not the only thing that moves by itself. An Effect that lasts goes
+ * on for as long as its beat stands, which is the motion 2.2.2 owes a pause over
+ * just as surely, so `lasts` gives the same control for the same reason. It is a
+ * second answer rather than a wider `clocked`, because `clocked` also says
+ * whether the ways on are told how long they stand, and that is a clock's alone.
  */
 const clocked = computed(() => movesItself(story))
+const lasts = computed(() => lasting(story))
+
+/**
+ * Whether the beat on screen is seen arriving, which is whether its arrival
+ * plays. Read at the move, from the pause: a beat arriving while the clock runs
+ * plays it — the opening beat, a Reading picked up and a Reading started again
+ * among them — and a beat the Reader lands on with the clock stopped does not,
+ * because a stopped arrival holds its first frame, and the first frame of a flash
+ * from white or of a blur coming clear is a screen with nothing on it. That is a
+ * step back, which stops the clock first, and any press while it is stopped. The
+ * frame held behind the ways on is drawn afresh without arriving, so it plays
+ * none either, and its lasting Effects go on.
+ *
+ * A beat that does not arrive is drawn in the state its arrival ends in, which is
+ * every Effect's own style with its animation taken off: see `[data-rest]`.
+ */
+const arrives = ref(true)
+const atRest = computed(() => !arrives.value || !shown.value.shot)
+
+/**
+ * The flash rule, as the Reading keeps it: the frame drawn last, and whether the
+ * flash from white on the frame on screen is withheld. See `app/utils/flashes.ts`.
+ *
+ * Every frame put on screen is recorded, the one pushed back behind the ways on
+ * included, because a frame that is recorded and plays nothing can only withhold
+ * more — and a frame replaced before it was ever painted is not, because a white
+ * withheld for a flash nobody saw is a white the Author wrote and nobody sees.
+ * Each is recorded when its Effects start rather than when the move is made,
+ * which is later by the half of a passage through black the arriving frame waits
+ * out, and time the Effects stood stopped is not counted as time they stood: a
+ * white held in a tab nobody is looking at is a white seen the moment somebody
+ * does. Kept out of reactivity, because nothing on screen is drawn from it.
+ */
+let arrived: Arrived | undefined
+const whiteWithheld = ref(false)
+
+/**
+ * Whether this Reading takes over a frame the server drew, which the browser has
+ * painted and whose Effects have played since. Read as the component is set up,
+ * which happens inside hydration or not at all, rather than in the mounted hook:
+ * a hydrated component's mounted hooks run out of the Suspense resolving, which
+ * is also what Nuxt clears the flag on, so which of the two goes first is theirs
+ * to order and not something the flash rule should stand on.
+ */
+const painted = useNuxtApp().isHydrating
+
+/** How long the arriving frame's Effects wait, which is the half of a passage through black it waits too. */
+const wait = computed(() => (passing.value.through === 'black' ? passing.value.over / 2 : 0))
+
+function arrive() {
+  const now = performance.now() + wait.value
+  whiteWithheld.value = withholdsFlash(arrived, now)
+  arrived = { at: now, flickers: !!held.value && flickers(held.value) }
+}
+
+// Before the frame is drawn, so a white the rule withholds is never painted at all.
+watch(() => `${at.value.taken.length}-${at.value.shot}`, arrive)
+
+let stoppedSince = 0
+
+watch(stopped, (now) => {
+  if (now) stoppedSince = performance.now()
+  else if (arrived) arrived.at += performance.now() - stoppedSince
+})
+
+/**
+ * The Image's Effects that are drawn over it rather than on it: a sheet of white,
+ * the edges closing in, and grain, none of which a filter or a transform of the
+ * picture can paint.
+ */
+const OVERLAID: readonly string[] = ['from-white', 'closing-in', 'grain']
+
+function overlaid(effect: Arrival | Lasting | null | undefined): effect is Arrival | Lasting {
+  return !!effect && OVERLAID.includes(effect.effect)
+}
+
+/**
+ * What one slot is drawn with: its Effect and its strength, the time it plays
+ * over or its round, and whether it is at rest. Nothing where the slot is empty,
+ * so a beat without an Effect is the beat every Story was drawn as before.
+ */
+function drawnAs(effect: Arrival | Lasting | null | undefined): Record<string, unknown> {
+  if (!effect) return {}
+
+  return {
+    'data-effect': effect.effect,
+    'data-strength': effect.strength,
+    'data-rest': 'over' in effect && atRest.value ? '' : undefined,
+    style: 'over' in effect
+      ? { '--over': `${effect.over}ms` }
+      : 'every' in effect ? { '--every': `${effect.every}ms` } : undefined,
+  }
+}
+
+const imageArrival = computed(() => (overlaid(held.value?.imageArrives) ? {} : drawnAs(held.value?.imageArrives)))
+const imageLasting = computed(() => (overlaid(held.value?.imageLasts) ? {} : drawnAs(held.value?.imageLasts)))
+const textArrival = computed(() => drawnAs(held.value?.textArrives))
+const textLasting = computed(() => drawnAs(held.value?.textLasts))
+
+/**
+ * The overlay the Image's arrival is drawn on, where it is one. A flash from white
+ * is not drawn at all where it would not be seen arriving or where the flash rule
+ * withholds it: its end state is no white, and a sheet of nothing is no sheet.
+ */
+const arrivalOverlay = computed(() => {
+  const effect = held.value?.imageArrives
+  if (!overlaid(effect)) return undefined
+  if (effect.effect === 'from-white' && (atRest.value || whiteWithheld.value)) return undefined
+  return drawnAs(effect)
+})
+
+const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnAs(held.value?.imageLasts) : undefined))
 </script>
 
 <template>
@@ -554,8 +693,12 @@ const clocked = computed(() => movesItself(story))
            leaves them over each other and a passage through black takes the room
            down to nothing between them — either way it is the beat leaving that
            says how, which is why the duration is set at the move and not read off
-           what arrives. -->
-      <div class="gate" :style="{ '--cut-over': `${passing.over}ms` }">
+           what arrives.
+
+           Stopped, it stops every Effect in it where it stood, and they resume
+           from there: the hold restarts, but a restarted arrival replays a flash
+           nobody wrote and a restarted flicker dips too soon. -->
+      <div class="gate" :class="{ stopped }" :style="{ '--cut-over': `${passing.over}ms` }">
         <!-- A hard cut is not a passage: `css` false takes the whole transition
              out of the way, so the beat leaving is gone in the same tick rather
              than lying over the next one at nothing for as long as the browser
@@ -580,6 +723,7 @@ const clocked = computed(() => movesItself(story))
             class="frame"
             :class="{ 'pushed-back': !shown.shot }"
             :lang="story.language"
+            :style="{ '--wait': `${wait}ms` }"
             tabindex="-1"
           >
             <!-- The image and the text are one beat, so they arrive together and
@@ -590,9 +734,32 @@ const clocked = computed(() => movesItself(story))
                  out beside the image anyway. An Image nobody has described falls
                  back to empty, which is what keeps a screen reader from announcing
                  a frame it has nothing to say about. -->
-            <img v-if="held.image" :src="held.image" :alt="held.description">
+            <!-- One element for each owner of a property, so no two of them write
+                 one element's `transform` or `animation`: the arrival wraps what
+                 lasts, and what lasts wraps whatever moves the frame over the Image
+                 later, so a shake keeps its reach whatever the frame does inside it.
+                 The wrappers are drawn on every beat and carry an Effect only where
+                 there is one, so a beat without one is the beat it always was. What
+                 no filter or transform of the picture can paint — a sheet of white,
+                 the edges closing in, grain — lies over it, fixed to the box and
+                 kept from the accessibility tree, since an Effect is never
+                 announced: it would narrate the decoration over the Author's
+                 sentence. -->
+            <div v-if="held.image" class="picture">
+              <div class="arrives" v-bind="imageArrival">
+                <div class="lasts" v-bind="imageLasting">
+                  <img :src="held.image" :alt="held.description">
+                </div>
+              </div>
+              <div v-if="arrivalOverlay" class="overlay" v-bind="arrivalOverlay" aria-hidden="true" />
+              <div v-if="lastingOverlay" class="overlay" v-bind="lastingOverlay" aria-hidden="true" />
+            </div>
             <figcaption>
-              <p class="shot">{{ held.text }}</p>
+              <div class="arrives" v-bind="textArrival">
+                <div class="lasts" v-bind="textLasting">
+                  <p class="shot">{{ held.text }}</p>
+                </div>
+              </div>
             </figcaption>
           </figure>
         </Transition>
@@ -643,11 +810,12 @@ const clocked = computed(() => movesItself(story))
          virtual cursor forward, which is walking it while the clock runs. A
          status, so it is heard where it is rather than found, and in the document
          before it has anything to say — the way `ended` below is, and for the
-         same reason. Drawn only where a clock can run at all, as the pause below
-         it is: a Story read entirely by the hand never strands a Reader, because
-         every arrival on it is a press of theirs. Still not a timer: it says how
-         long the ways on stand, true for the whole of the stand, and never counts
-         anything down. -->
+         same reason. Drawn only where a clock can run at all, which is one of the
+         two places the pause below is drawn: a Story read entirely by the hand
+         never strands a Reader, because every arrival on it is a press of theirs,
+         and an Effect that lasts moves the beat but never the Reading on. Still
+         not a timer: it says how long the ways on stand, true for the whole of the
+         stand, and never counts anything down. -->
     <p v-if="clocked" class="visually-hidden" role="status">{{ waysOnSay }}</p>
 
     <!-- The ways on go under the frame rather than over it, and carry no eyebrow
@@ -700,11 +868,13 @@ const clocked = computed(() => movesItself(story))
 
          The pause comes first because it is the one control over something
          already happening, and it is drawn only where something can happen: a
-         Story nobody wrote a time into is read entirely by the hand, and a
-         control over a clock that never runs would do nothing — the way a Story
-         carrying no Sound is given no title card to press. -->
-    <p v-if="clocked || heardAtAll" class="given">
-      <button v-if="clocked" type="button" class="trail" @click="pauseOrResume">
+         clock, or an Effect that lasts, which moves by itself for as long as its
+         beat stands. A Story nobody wrote a time or a lasting Effect into is read
+         entirely by the hand, and a control over nothing that ever moves would do
+         nothing — the way a Story carrying no Sound is given no title card to
+         press. -->
+    <p v-if="clocked || lasts || heardAtAll" class="given">
+      <button v-if="clocked || lasts" type="button" class="trail" @click="pauseOrResume">
         {{ paused ? $t('reading.resume') : $t('reading.pause') }}
       </button>
       <button v-if="heardAtAll" type="button" class="trail" @click="sounding = !sounding">
@@ -791,6 +961,16 @@ const clocked = computed(() => movesItself(story))
   animation: none;
 }
 
+/* Its Effects stop where they stood rather than going: a beat leaving is a beat
+   that dips no more, so two frames on screen never flicker at once and the frame
+   arriving is the only one whose flashes count. Taking them off would be worse, a
+   frame changing under the passage — a grey going back to colour, a white
+   thrown back up. */
+.dissolve-leave-active [data-effect],
+.through-black-leave-active [data-effect] {
+  animation-play-state: paused;
+}
+
 /* A dissolve is the two frames over each other for the whole of the duration the
    Author wrote. Nought — a hard cut, and every Story that says nothing — is a
    transition of no duration, which is the beat swapped for the next one exactly
@@ -834,6 +1014,20 @@ const clocked = computed(() => movesItself(story))
   }
 }
 
+/* A Reader who asked for less motion sees no Effect move, only the state it
+   leaves: nothing at all of most of them, the grey of `out-of-colour` and the
+   edges of `closing-in` from the start, and grain standing still — each is its
+   own style with the animation off, which is what the Effects below are written
+   to leave. `frameline.css` cutting every duration to nothing is not enough here:
+   it still starts each animation, and a first keyframe painted even once is a
+   white screen for `from-white`, held for as long as a passage through black
+   delays it. So the animation is taken off outright. */
+@media (prefers-reduced-motion: reduce) {
+  .frame [data-effect] {
+    animation: none;
+  }
+}
+
 /* The Scene has played out and the frame it ended on is held behind the ways on:
    the same beat, pushed back into the room so that what is being asked of the
    Reader is the lit thing on screen. It is not arriving, so it is not thrown a
@@ -841,12 +1035,14 @@ const clocked = computed(() => movesItself(story))
 
    The image takes the push back and the prose only half of it: the last beat has
    to stay as readable as it was to whoever is reading it while they choose, and a
-   dimmed serif is the one thing on this page that cannot afford to be. */
+   dimmed serif is the one thing on this page that cannot afford to be. The image
+   is its whole box, the sheets an Effect lays over it included, which dims to
+   exactly what the image alone did: the box is the room the image is set on. */
 .frame.pushed-back {
   animation: none;
 }
 
-.frame.pushed-back img {
+.frame.pushed-back .picture {
   opacity: 0.5;
 }
 
@@ -870,13 +1066,348 @@ img {
   max-block-size: min(60vh, 32rem);
   object-fit: contain;
   background: var(--room);
-  /* The image and the text below it are one surface, so the hairline between
-     them is the only thing that separates them. */
+}
+
+/* The Image's box, which its Effects are clipped to: a shake, a pulse or a tremor
+   moves the picture inside it and never the gate around it, and where one uncovers
+   an edge it uncovers the room, as either side of a narrow image already does.
+   The image and the text below it are one surface, so the hairline between them
+   is the only thing that separates them — drawn on the box rather than on the
+   image, so an Effect that moves or blurs the picture leaves it where it was.
+
+   It is also what the Image's Effects are measured against, so a blur of 4% is 4%
+   of the frame it blurs whatever the room makes of the frame's width; it never
+   took its width from the image, so being measured moves nothing. The words are
+   measured against the letter instead: measuring the caption would stop a word too
+   long for the line from widening it, and a word clipped is a word lost. */
+.picture {
+  position: relative;
+  overflow: clip;
+  container-type: inline-size;
+  background: var(--room);
   border-block-end: 1px solid var(--edge);
 }
 
 figcaption {
   padding: var(--s5) clamp(var(--s4), 4vw, var(--s5));
+}
+
+/* Fixed to the box whatever moves the picture under it, and never in the way of
+   a press. */
+.overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* What every Effect shares, and why each is written the way it is.
+
+   An arrival's own style is the state it ends in, and its animation starts from
+   the state it arrives out of and fills both ways: waiting, it holds its first
+   frame, and ended, its last, which is its own style again. So taking the
+   animation off — a beat drawn at rest, a Reader who asked for less motion —
+   always leaves the beat as the arrival would have. A lasting Effect's first frame
+   is its rest, so one drawn stopped starts still.
+
+   An Effect waits for its frame: the half of a passage through black the frame
+   waits too, and nothing under any other.
+
+   Every Effect is keyed on the attribute alone and set in one `animation`, so each
+   rule that rests, stops or delays one outranks it wherever it is written: the
+   shorthand resets every longhand, and these must win over it. */
+.frame [data-effect] {
+  animation-delay: var(--wait, 0ms);
+  animation-fill-mode: both;
+}
+
+/* A beat the Reader is not shown arriving — a step back, a press while the clock
+   is stopped, the frame held behind the ways on — is drawn in the state its
+   arrival ends in, which is the Effect's own style with the animation off. */
+[data-effect][data-rest] {
+  animation: none;
+}
+
+/* The Pause and a tab nobody is looking at stop every Effect where it stands
+   rather than taking it off, so each resumes from there: a restarted arrival
+   would replay a flash nobody wrote, and a restarted flicker dips too soon. */
+.stopped [data-effect] {
+  animation-play-state: paused;
+}
+
+/* An Effect's three degrees, written with it as the three columns they are, and
+   the one its strength reads. */
+[data-strength="slight"] {
+  --degree: var(--slight);
+}
+
+[data-strength="marked"] {
+  --degree: var(--marked);
+}
+
+[data-strength="strong"] {
+  --degree: var(--strong);
+}
+
+/* A jolt dying away, by a share of the width and of the height, overscaled on the
+   Image by twice its reach so no edge of the picture shows while it jolts. Words
+   have no edge to show. */
+[data-effect="shake"] {
+  --slight: 0.005;
+  --marked: 0.015;
+  --strong: 0.03;
+
+  animation: shake var(--over) linear;
+}
+
+.picture [data-effect="shake"] {
+  --overscale: calc(1 + 2 * var(--degree));
+}
+
+@keyframes shake {
+  0% {
+    translate: 0;
+    scale: var(--overscale, 1);
+  }
+  8% {
+    translate: calc(var(--degree) * -100%) calc(var(--degree) * 60%);
+  }
+  20% {
+    translate: calc(var(--degree) * 90%) calc(var(--degree) * -50%);
+  }
+  34% {
+    translate: calc(var(--degree) * -60%) calc(var(--degree) * 35%);
+  }
+  50% {
+    translate: calc(var(--degree) * 40%) calc(var(--degree) * -20%);
+  }
+  66% {
+    translate: calc(var(--degree) * -20%) calc(var(--degree) * 10%);
+  }
+  80% {
+    translate: calc(var(--degree) * 8%) 0;
+    scale: var(--overscale, 1);
+  }
+  100% {
+    translate: 0;
+    scale: 1;
+  }
+}
+
+/* From its strength to sharp: a share of the frame's width on the Image, and of
+   the letter on the words. */
+[data-effect="from-blur"] {
+  --slight: 0.5cqi;
+  --marked: 1.5cqi;
+  --strong: 4cqi;
+
+  animation: from-blur var(--over) ease-out;
+}
+
+figcaption [data-effect="from-blur"] {
+  --slight: 0.15em;
+  --marked: 0.4em;
+  --strong: 1em;
+}
+
+@keyframes from-blur {
+  from {
+    filter: blur(var(--degree));
+  }
+}
+
+/* A sheet of paper fading off the Image, and at rest no sheet at all. */
+[data-effect="from-white"] {
+  --slight: 0.4;
+  --marked: 0.7;
+  --strong: 1;
+
+  opacity: 0;
+  background: var(--paper);
+  animation: from-white var(--over) ease-out;
+}
+
+@keyframes from-white {
+  from {
+    opacity: var(--degree);
+  }
+}
+
+/* The grey the Image arrives out of, or the grey it arrives at and keeps. */
+[data-effect="into-colour"],
+[data-effect="out-of-colour"] {
+  --slight: 0.4;
+  --marked: 0.7;
+  --strong: 1;
+}
+
+[data-effect="into-colour"] {
+  animation: into-colour var(--over) ease-in-out;
+}
+
+@keyframes into-colour {
+  from {
+    filter: grayscale(var(--degree));
+  }
+}
+
+[data-effect="out-of-colour"] {
+  filter: grayscale(var(--degree));
+  animation: out-of-colour var(--over) ease-in-out;
+}
+
+@keyframes out-of-colour {
+  from {
+    filter: grayscale(0);
+  }
+}
+
+/* A falloff to the room, scaled in from past the edges of the box and kept. */
+[data-effect="closing-in"] {
+  --slight: 30%;
+  --marked: 55%;
+  --strong: 80%;
+
+  background: radial-gradient(
+    closest-side,
+    transparent 45%,
+    color-mix(in oklab, var(--room) var(--degree), transparent)
+  );
+  animation: closing-in var(--over) ease-in-out;
+}
+
+@keyframes closing-in {
+  from {
+    opacity: 0;
+    scale: 1.6;
+  }
+}
+
+/* The one flicker every flickering carrier keeps. Its pattern is fixed, and
+   `tests/unit/effects.spec.ts` reads it out of this file: dips 120 ms long at 400,
+   1100, 1600 and 2700 ms into a 3200 ms round, so no two start under half a
+   second apart and none in the first 400 ms of a beat, and whatever arrives next
+   dips no sooner than 400 ms after it. That is what keeps a run of flickering
+   beats to three flashes in a second, so it takes no pace from the Author and
+   none may be added to it here. */
+[data-effect="flicker"] {
+  --slight: 0.8;
+  --marked: 0.55;
+  --strong: 0.3;
+  --dip: var(--degree);
+
+  animation: flicker 3200ms linear infinite;
+}
+
+@keyframes flicker {
+  0%, 12.5%, 16.25%, 34.375%, 38.125%, 50%, 53.75%, 84.375%, 88.125%, 100% { opacity: 1 }
+  14.375%, 36.25%, 51.875%, 86.25% { opacity: var(--dip) }
+}
+
+/* A double beat and a rest, each round. */
+[data-effect="pulse"] {
+  --slight: 1.01;
+  --marked: 1.025;
+  --strong: 1.05;
+
+  animation: pulse var(--every) ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  36%,
+  100% {
+    scale: 1;
+  }
+  12% {
+    scale: var(--degree);
+  }
+  20% {
+    scale: calc(1 + (var(--degree) - 1) * 0.4);
+  }
+  26% {
+    scale: calc(1 + (var(--degree) - 1) * 0.75);
+  }
+}
+
+/* An unsteady jitter each round: a share of the frame's width on the Image, and
+   on the words a share of the letter, which is what they are read at. */
+[data-effect="tremor"] {
+  --slight: 0.25cqi;
+  --marked: 0.6cqi;
+  --strong: 1.2cqi;
+
+  animation: tremor var(--every) linear infinite;
+}
+
+figcaption [data-effect="tremor"] {
+  --slight: 0.03em;
+  --marked: 0.06em;
+  --strong: 0.12em;
+}
+
+@keyframes tremor {
+  0%,
+  100% {
+    translate: 0;
+  }
+  10% {
+    translate: calc(var(--degree) * -0.8) calc(var(--degree) * 0.3);
+  }
+  22% {
+    translate: calc(var(--degree) * 0.6) calc(var(--degree) * -0.7);
+  }
+  35% {
+    translate: calc(var(--degree) * -0.3) calc(var(--degree) * 0.9);
+  }
+  47% {
+    translate: var(--degree) calc(var(--degree) * -0.2);
+  }
+  60% {
+    translate: calc(var(--degree) * -0.9) calc(var(--degree) * -0.5);
+  }
+  74% {
+    translate: calc(var(--degree) * 0.4) calc(var(--degree) * 0.6);
+  }
+  87% {
+    translate: calc(var(--degree) * -0.5) calc(var(--degree) * -0.3);
+  }
+}
+
+/* Grain is a sheet because a filter cannot make noise: one tile of it, painted
+   once on a sheet twice the box's size and moved to another offset 24 times a
+   second, which costs the compositor a layer and repaints nothing. It lies over
+   the Image and under the words, which are not on the film. Standing still, it
+   is still grain. */
+[data-effect="grain"] {
+  --slight: 0.06;
+  --marked: 0.12;
+  --strong: 0.2;
+
+  inset: -50%;
+  opacity: var(--degree);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)'/%3E%3C/svg%3E");
+  animation: grain 250ms steps(1) infinite;
+}
+
+@keyframes grain {
+  0% {
+    translate: 0;
+  }
+  16.667% {
+    translate: -9% 6%;
+  }
+  33.333% {
+    translate: 7% -11%;
+  }
+  50% {
+    translate: -13% -4%;
+  }
+  66.667% {
+    translate: 11% 9%;
+  }
+  83.333% {
+    translate: -4% 13%;
+  }
 }
 
 /* The edge of the film: the Scene the beat belongs to at the leading end, and at

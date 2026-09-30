@@ -9,6 +9,8 @@ import {
   CUT_AFTER_MAX,
   CUT_OVER_MAX,
   EXITS_AFTER_MAX,
+  isArrival,
+  isLasting,
   isTime,
 } from '../../shared/utils/scenes.ts'
 import type { Shot } from '../../shared/utils/scenes.ts'
@@ -102,4 +104,49 @@ describe.each(WORKS)('the Cut %s is written with', (_name: string, work: Work) =
       }
     }
   })
+})
+
+/** Every Effect a work writes, with the carrier it is offered to. */
+function effectsOf(work: Work) {
+  const shots = work.scenes.flatMap(scene => scene.shots)
+
+  return {
+    arrivals: shots.flatMap(shot => [
+      ...(shot.imageArrives ? [{ held: shot.imageArrives, carrier: 'image' as const }] : []),
+      ...(shot.textArrives ? [{ held: shot.textArrives, carrier: 'text' as const }] : []),
+    ]),
+    lastings: shots.flatMap(shot => [
+      ...(shot.imageLasts ? [{ held: shot.imageLasts, carrier: 'image' as const }] : []),
+      ...(shot.textLasts ? [{ held: shot.textLasts, carrier: 'text' as const }] : []),
+    ]),
+    image: shots.filter(shot => shot.imageArrives || shot.imageLasts).length,
+    text: shots.filter(shot => shot.textArrives || shot.textLasts).length,
+  }
+}
+
+describe.each(WORKS)('the Effects %s is written with', (_name: string, work: Work) => {
+  it('writes no Effect the door it is written through would refuse', () => {
+    const { arrivals, lastings } = effectsOf(work)
+
+    for (const { held, carrier } of arrivals) expect(isArrival(held, carrier)).toBe(true)
+    for (const { held, carrier } of lastings) expect(isLasting(held, carrier)).toBe(true)
+  })
+})
+
+describe('the Effects the works carry', () => {
+  it('gives Reel Change exactly one flicker', () => {
+    const { lastings } = effectsOf(REEL_CHANGE)
+
+    expect(lastings.filter(({ held }) => held.effect === 'flicker')).toHaveLength(1)
+  })
+
+  it.each([['en', SAMPLES.en], ['fr', SAMPLES.fr]] as const)(
+    'gives the Sample in %s one Image Effect and one text Effect',
+    (_language, work) => {
+      const { image, text } = effectsOf(work)
+
+      expect(image).toBe(1)
+      expect(text).toBe(1)
+    },
+  )
 })

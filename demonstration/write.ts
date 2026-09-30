@@ -86,6 +86,10 @@ for (const scene of work.scenes) {
       cutAfter: shot.cutAfter,
       cutOver: shot.cutOver,
       cutThrough: shot.cutThrough,
+      imageArrives: shot.imageArrives,
+      imageLasts: shot.imageLasts,
+      textArrives: shot.textArrives,
+      textLasts: shot.textLasts,
     })
     const image = await imageOf(shot)
     if (image) await attach(shotId, image)

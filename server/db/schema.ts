@@ -12,7 +12,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
-import type { Condition, CutThrough, Sets } from '../../shared/utils/scenes'
+import type { Arrival, Condition, CutThrough, Lasting, Sets } from '../../shared/utils/scenes'
 
 // `name` is the Name an Author appears under wherever somebody else meets them:
 // beside a Listed Story, on their Profile. It arrives from the provider they
@@ -214,6 +214,14 @@ export const scenes = pgTable('scenes', {
 // for no time would not be seen at all, so nought cannot mean a duration. See
 // `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
 //
+// `image_arrives`, `image_lasts`, `text_arrives` and `text_lasts` are the Effects
+// the Shot's Image and its whole text play, once as the beat arrives and while it
+// stands, and null on each is none, which is every Shot written before they
+// existed. Each is a whole Effect or null, held as jsonb and validated at the
+// request boundary, because a column apiece for the effect, the time and the
+// strength would leave a time beside no effect, a pair that can disagree — see
+// `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
+//
 // `conditions` are the flat tests the Shot plays under, all of which must hold;
 // an empty list is a Shot every Reading sees. Held as jsonb, validated at the
 // request boundary and naming a Scene by an id no foreign key reaches, for the
@@ -239,6 +247,10 @@ export const shots = pgTable('shots', {
   cutAfter: integer('cut_after'),
   cutOver: integer('cut_over'),
   cutThrough: text('cut_through').$type<CutThrough>(),
+  imageArrives: jsonb('image_arrives').$type<Arrival>(),
+  imageLasts: jsonb('image_lasts').$type<Lasting>(),
+  textArrives: jsonb('text_arrives').$type<Arrival>(),
+  textLasts: jsonb('text_lasts').$type<Lasting>(),
   conditions: jsonb('conditions').$type<Condition[]>().notNull().default([]),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })

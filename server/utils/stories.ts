@@ -203,6 +203,10 @@ export async function readStoryGraph(storyId: string) {
       shotCutAfter: shots.cutAfter,
       shotCutOver: shots.cutOver,
       shotCutThrough: shots.cutThrough,
+      imageArrives: shots.imageArrives,
+      imageLasts: shots.imageLasts,
+      textArrives: shots.textArrives,
+      textLasts: shots.textLasts,
     })
     .from(scenes)
     .leftJoin(shots, eq(shots.sceneId, scenes.id))
@@ -244,6 +248,10 @@ export async function readStoryGraph(storyId: string) {
         cutAfter: row.shotCutAfter,
         cutOver: row.shotCutOver,
         cutThrough: row.shotCutThrough,
+        imageArrives: row.imageArrives,
+        imageLasts: row.imageLasts,
+        textArrives: row.textArrives,
+        textLasts: row.textLasts,
       })
     }
   }
