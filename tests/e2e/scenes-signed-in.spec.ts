@@ -862,14 +862,25 @@ test('renumbering and taking away a way on leave the words where the hand left t
     // nothing else; taking one away can only lengthen a Scene's distance or leave
     // it unreached, and a Scene nothing reaches is read after every column the
     // opening does. Both happen under the Author's hands, never over them.
+    //
+    // Each act is waited for on the page as well as in the Story, because the
+    // server holds the new order before the page has read it back and drawn it.
+    // Measured on the Story alone, the first measure was taken before anything had
+    // moved, and the press after it landed on rows being drawn in their new order:
+    // the button under the pointer was another row's, Playwright tried again, and
+    // its second try scrolls the button to the foot of the document — smoothly,
+    // which is the document's own scroll behaviour — and carries the words down
+    // with it. The press moved them, and nothing the bench did.
     await moveLaterButton.click()
     await expect.poll(async () => (await readExits(fifth.id)).map(way => way.toSceneId))
       .toEqual([scenes[6]!.id, scenes[5]!.id, scenes[7]!.id])
+    await expect(deleteButton).toHaveAccessibleName('Delete the Exit 1 to Seven, out of Five')
     await expect.poll(async () => Math.abs((await writing.boundingBox())!.y - before))
       .toBeLessThanOrEqual(2)
 
     await deleteButton.click()
     await expect.poll(async () => (await readExits(fifth.id)).length).toBe(2)
+    await expect(deleteButton).toHaveCount(0)
     await expect.poll(async () => Math.abs((await writing.boundingBox())!.y - before))
       .toBeLessThanOrEqual(2)
     await expect(writing).toBeInViewport()

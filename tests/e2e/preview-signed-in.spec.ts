@@ -360,13 +360,18 @@ test('stepping back and reading again are offered only once the Reading has move
     // The draw an Author wanted the first frame redrawn for still redraws it,
     // with the offer absent: a reroll is another seed and not a move, so what it
     // leaves behind is the same first beat and the same tab order.
+    //
+    // A draw between two values drawn again comes out the same half the time, so
+    // what is claimed is that some draw comes out otherwise — asked of a number of
+    // draws and not of five seconds, which a slow runner spent on six or seven of
+    // them and lost about one run in a hundred to a coin landing the same way.
     const drawn = async () =>
       ((await bench.getByText(/weather = /).innerText()).match(/rain|sun/) ?? [])[0]
     const first = await drawn()
-    await expect.poll(async () => {
+    for (let draws = 0; draws < 30 && await drawn() === first; draws++) {
       await bench.getByRole('button', { name: 'Draw Again' }).click()
-      return await drawn()
-    }).not.toBe(first)
+    }
+    expect(await drawn()).not.toBe(first)
     await expect(preview.getByText('Shot 1 of 2')).toBeVisible()
     await expect(again).toBeHidden()
 
