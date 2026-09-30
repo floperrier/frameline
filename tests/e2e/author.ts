@@ -78,6 +78,22 @@ export const test = base.extend<{ author: Author, otherAuthor: Author, guided: b
   extraHTTPHeaders: async ({ author }, use) => {
     await use({ cookie: `nuxt-session=${await sealAuthorSession(author)}` })
   },
+
+  // One connection per request. Playwright sends every API request a worker makes
+  // through one keep-alive agent that sets no idle limit of its own — Node heeds
+  // the server's `Keep-Alive: timeout=5` only on an agent that has one — so the
+  // socket one test left idle is the one the next test's first request is written
+  // on. When that gap is the server's own, six seconds with its grace, and the
+  // server is busy rendering for three other browsers, its timer closes the socket
+  // under a request that has just arrived: `read ECONNRESET`, on a POST nothing may
+  // send again. A connection closed behind its response is never left idle.
+  request: async ({ playwright, extraHTTPHeaders }, use) => {
+    const request = await playwright.request.newContext({
+      extraHTTPHeaders: { ...extraHTTPHeaders, connection: 'close' },
+    })
+    await use(request)
+    await request.dispose()
+  },
 })
 
 /** Seeds an Author for the length of one test, and takes them away after it. */

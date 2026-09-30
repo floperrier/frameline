@@ -10,6 +10,9 @@ stops every Effect too, which resumes where it stood while a hold still starts
 again from the beginning of its time. What that amends is the pause in the
 paragraph beginning *What the Reader is owed*. Everything else here stands.
 
+Amended in issue #356: a time a clock runs is held to half a second above
+nought, which the Consequences below carry.
+
 A Story is watched as well as read, and until now every cut in one was made by
 the Reader's hand and made hard. What an editor has and an Author here did not
 is when a Shot leaves the screen, and how it leaves it.
@@ -149,6 +152,15 @@ carries.
   the reach over the way out that this document refused it above. So that one
   move is cut hard whatever the run says, and the passage out of a Scene is the
   Exit's own, made once. See issue #332.
+- **A clock is held to half a second.** A `cut_after` or an `exits_after` other
+  than nought is `CUT_AFTER_MIN` or `EXITS_AFTER_MIN` at the least, both 500,
+  and the doors refuse anything under it in the phrase that names the floor. A
+  run cut sooner changes the screen more than twice a second, and over a white
+  Image and a black one that is past the three flashes WCAG 2.3.1 allows; at half
+  a second it is one flash a second whatever the Images are. Nought keeps its
+  meaning on both, since it is not a duration, and `cut_over` has no floor,
+  because a dissolve makes the screen change no more often. Migration `0025`
+  raised every time written under the floor to it.
 - Every Story written so far reads exactly as it read. `cut_after` and
   `exits_after` default to null, `cut_over` to 0 and `cut_through` to `image`,
   which is a run that waits for the press, cut hard, with its ways on standing

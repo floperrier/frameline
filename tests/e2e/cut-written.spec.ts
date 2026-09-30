@@ -1,8 +1,17 @@
 import { expect } from '@playwright/test'
 import { live, test, writeStory } from './author'
-import { CUT_AFTER_MAX, CUT_OVER_MAX, EXITS_AFTER_MAX } from '../../shared/utils/scenes'
+import {
+  CUT_AFTER_MAX,
+  CUT_AFTER_MIN,
+  CUT_OVER_MAX,
+  EXITS_AFTER_MAX,
+  EXITS_AFTER_MIN,
+} from '../../shared/utils/scenes'
 import type { APIRequestContext, Page } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
+
+/** What a Shot's time and a Scene's run are refused in, out of bounds either way. */
+const aTime = 'A Shot stands for a whole number of milliseconds, from half a second up to a minute.'
 
 /**
  * The Cut written where the Scene, the Shot and the Exit are written: when a Shot
@@ -88,6 +97,17 @@ test('a Scene says when its Shots are cut and how long its ways on stand',
     await stands.fill('0')
     await stands.blur()
     await expect(when).toHaveValue('clock')
+    await expect(stands).toHaveValue('2.5')
+    await expect.poll(async () => (await reread(request, story.id)).scenes[0]!.cutAfter)
+      .toBe(2500)
+
+    // A tenth of a second is a duration, and one no clock is let cut at: over a
+    // white Image and a black one it flashes past the three a second WCAG 2.3.1
+    // allows. So it is written and refused in the phrase that names the floor, and
+    // the Scene keeps the time it held — issue #356.
+    await stands.fill('0.1')
+    await stands.blur()
+    await expect(page.getByRole('alert')).toHaveText(`In “The street”: ${aTime}`)
     await expect(stands).toHaveValue('2.5')
     await expect.poll(async () => (await reread(request, story.id)).scenes[0]!.cutAfter)
       .toBe(2500)
@@ -236,10 +256,10 @@ test('the three doors take the fields their own row holds, and refuse what is no
       expect([door, (await answer.json()).message]).toEqual([door, said])
     }
 
-    const aTime = 'A Shot stands for a whole number of milliseconds, up to a minute.'
     const aCut = 'A Cut takes a whole number of milliseconds, up to five seconds.'
     const aKind = 'A Cut is made in a dissolve or in a fade to black.'
-    const offered = 'The Exits are offered for a whole number of milliseconds, up to a minute.'
+    const offered =
+      'The Exits are offered for a whole number of milliseconds, from half a second up to a minute.'
 
     // A Scene and an Exit answer for their own cut with nothing above them, so
     // neither column takes the null a Shot may leave — and both doors refuse it
@@ -269,6 +289,14 @@ test('the three doors take the fields their own row holds, and refuse what is no
     // below it is not a duration at all.
     await refuses(shot, { cutAfter: -1 }, aTime)
     await refuses(exit, { cutOver: -1 }, aCut)
+
+    // And one under each floor a clock is held to, which keeps a run cut by it to
+    // two changes a second whatever its Images are — issue #356. A Shot's nought
+    // stays the sentence it is, and so does the ways on's.
+    await refuses(scene, { cutAfter: CUT_AFTER_MIN - 1 }, aTime)
+    await refuses(shot, { cutAfter: CUT_AFTER_MIN - 1 }, aTime)
+    await refuses(scene, { exitsAfter: EXITS_AFTER_MIN - 1 }, offered)
+    expect((await request.patch(scene, { data: { exitsAfter: 0 } })).status()).toBe(200)
 
     // A time is a whole number of milliseconds, so a fraction of one is refused
     // rather than rounded — the field writes whole milliseconds and the column

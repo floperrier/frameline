@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { Condition, Sets } from '../../shared/utils/scenes'
-import { CUT_OVER_MAX, isTime } from '../../shared/utils/scenes'
+import {
+  CUT_AFTER_MAX,
+  CUT_AFTER_MIN,
+  CUT_OVER_MAX,
+  EXITS_AFTER_MAX,
+  EXITS_AFTER_MIN,
+  isTime,
+} from '../../shared/utils/scenes'
 import type { Path, State, StoryToRead } from '../../shared/utils/reading'
 import {
   advance, back, cut, lasting, moved, movesItself, opening, pathTo, reading, resumes, take, unmet,
@@ -1178,5 +1185,18 @@ describe('isTime', () => {
     for (const held of [-1, CUT_OVER_MAX + 1, 1.5, '800', null, undefined, NaN]) {
       expect(isTime(held, CUT_OVER_MAX)).toBe(false)
     }
+  })
+
+  // A clock cutting sooner than half a second changes the screen more than twice
+  // in one, which over a white Image and a black one is past the three flashes
+  // WCAG 2.3.1 allows: issue #356.
+  it('holds a time to its floor, and nought with it', () => {
+    expect(isTime(CUT_AFTER_MIN, CUT_AFTER_MAX, CUT_AFTER_MIN)).toBe(true)
+    expect(isTime(CUT_AFTER_MAX, CUT_AFTER_MAX, CUT_AFTER_MIN)).toBe(true)
+
+    for (const held of [0, 100, CUT_AFTER_MIN - 1]) {
+      expect(isTime(held, CUT_AFTER_MAX, CUT_AFTER_MIN)).toBe(false)
+    }
+    expect(isTime(EXITS_AFTER_MIN - 1, EXITS_AFTER_MAX, EXITS_AFTER_MIN)).toBe(false)
   })
 })
