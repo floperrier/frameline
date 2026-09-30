@@ -325,7 +325,12 @@ test('the bench walks an Author from a bare Story to a published one', async ({
  * question further down, and this one is which control.
  */
 async function lights(page: Page, target: Locator) {
-  await expect(target).toBeVisible()
+  // On the screen, and not merely drawn: a target under the foot of the window or
+  // wound out of the document is lit by nothing — the Step goes adrift — so one a
+  // taller row has pushed off the window is said as that, rather than as a light
+  // waited five seconds for. That is how the walk below went red on the branches
+  // that gave a Shot another row, and read as chance.
+  await expect(target).toBeInViewport()
   // The target is read until it holds still before it is read for the comparison,
   // because the bench moves under it — the document scrolls beside it, the graph
   // is pulled back — and a rectangle read while it is still on its way would be
