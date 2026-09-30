@@ -230,10 +230,10 @@ export async function readNamedSound(event: H3Event, sceneId: string) {
 
 /**
  * What a PATCH may change about a Scene: its name, the three things that are
- * said about the Sound it is heard under, and its Cut — how its run is cut and
- * how long its ways on stand. Each is read only where the body names it, so the
- * bench can write the one field the Author touched without carrying the others
- * along — the shape `readStoryChanges` already has.
+ * said about the Sound it is heard under, its Cut — how its run is cut and how
+ * long its ways on stand — and how its texts arrive. Each is read only where the
+ * body names it, so the bench can write the one field the Author touched without
+ * carrying the others along — the shape `readStoryChanges` already has.
  *
  * A body naming none is refused as a name being asked for: the name is the one
  * thing a Scene cannot be without, so that is what an empty change is missing.
@@ -248,6 +248,11 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
     cutOver?: unknown
     cutThrough?: unknown
     exitsAfter?: unknown
+    textAfter?: unknown
+    textBy?: unknown
+    textPace?: unknown
+    textOver?: unknown
+    textStays?: unknown
   }>(event)
   const changes: {
     name?: string
@@ -259,6 +264,11 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
     cutOver?: number
     cutThrough?: CutThrough
     exitsAfter?: number | null
+    textAfter?: number
+    textBy?: TextBy
+    textPace?: number
+    textOver?: number
+    textStays?: number | null
   } = {}
 
   if (body?.name !== undefined) changes.name = await readSceneName(event)
@@ -296,6 +306,28 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
     changes.cutThrough = await readCutThrough(event, { nullable: false })
   }
   if (body?.exitsAfter !== undefined) changes.exitsAfter = await readExitsAfter(event)
+  // How the texts of the run arrive, each landing on its own. The first four
+  // take no null on a Scene, which has nothing above it to defer to, and its
+  // stay is refused the nought a Shot keeps for *until the Cut* — the Scene's
+  // own word for that is null, and one fact in two shapes is what
+  // `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md` refused of
+  // `cut_after`. See `docs/adr/0051-a-text-arrives-in-its-own-time.md`.
+  if (body?.textAfter !== undefined) {
+    changes.textAfter = await readTextAfter(event, { nullable: false })
+  }
+  if (body?.textBy !== undefined) changes.textBy = await readTextBy(event, { nullable: false })
+  if (body?.textPace !== undefined) {
+    changes.textPace = await readTextPace(event, { nullable: false })
+  }
+  if (body?.textOver !== undefined) {
+    changes.textOver = await readTextOver(event, { nullable: false })
+  }
+  if (body?.textStays !== undefined) {
+    changes.textStays = await readTextStays(event)
+    if (changes.textStays === 0) {
+      throw createError({ statusCode: 400, message: saying(event)('refusals.textStaysNought') })
+    }
+  }
   // Which is a name asked for, by the reader that phrases the refusal.
   if (!Object.keys(changes).length) await readSceneName(event)
 

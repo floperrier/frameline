@@ -1,17 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import { CHARACTERS_A_SECOND } from '../../app/utils/remarks.ts'
 import { REEL_CHANGE } from '../../demonstration/reel-change.ts'
 import { SAMPLES } from '../../demonstration/samples.ts'
 import type { Work } from '../../demonstration/work.ts'
-import { cut } from '../../shared/utils/reading.ts'
-import type { SceneToRead } from '../../shared/utils/reading.ts'
+import { textOnScreen } from '../../app/utils/remarks.ts'
 import {
   CUT_AFTER_MAX,
   CUT_OVER_MAX,
+  CHARACTERS_A_SECOND,
   EXITS_AFTER_MAX,
+  TEXT_AFTER_MAX,
+  TEXT_BYS,
+  TEXT_OVER_MAX,
+  TEXT_STAYS_MAX,
+  isPace,
   isTime,
 } from '../../shared/utils/scenes.ts'
-import type { Shot } from '../../shared/utils/scenes.ts'
+import type { Scene, Shot } from '../../shared/utils/scenes.ts'
 
 /**
  * The Cut the two works this repository carries are written with — *Reel Change*
@@ -49,23 +53,33 @@ function within(held: number | undefined, max: number) {
 }
 
 /**
- * One beat as the engine resolves it. A work leaves out what it has nothing to
- * say about, so the columns' own defaults are put back before `cut()` is asked —
- * and it is `cut()` that is asked, the same function the Reading plays a beat by
- * and the bench reads one with, rather than a second statement of the same rule
- * that could come to disagree with it.
+ * One Shot's text as the bench reckons it. A work leaves out what it has nothing
+ * to say about, so the columns' own defaults are put back before `textOnScreen()`
+ * is asked — the same function the bench reads a Shot with, rather than a second
+ * statement of the same rule that could come to disagree with it.
  */
 function heldFor(scene: Work['scenes'][number], shot: Work['scenes'][number]['shots'][number]) {
-  return cut(
+  return textOnScreen(
     {
       cutAfter: scene.cutAfter ?? null,
       cutOver: scene.cutOver ?? 0,
       cutThrough: scene.cutThrough ?? 'image',
-    } as SceneToRead,
+      textAfter: scene.textAfter ?? 0,
+      textBy: scene.textBy ?? 'whole',
+      textPace: scene.textPace ?? CHARACTERS_A_SECOND,
+      textOver: scene.textOver ?? 0,
+      textStays: scene.textStays ?? null,
+    } as Scene,
     {
+      text: shot.text,
       cutAfter: shot.cutAfter ?? null,
       cutOver: shot.cutOver ?? null,
       cutThrough: shot.cutThrough ?? null,
+      textAfter: shot.textAfter ?? null,
+      textBy: shot.textBy ?? null,
+      textPace: shot.textPace ?? null,
+      textOver: shot.textOver ?? null,
+      textStays: shot.textStays ?? null,
     } as Shot,
   )
 }
@@ -90,16 +104,65 @@ describe.each(WORKS)('the Cut %s is written with', (_name: string, work: Work) =
     }
   })
 
-  it('stands every beat for at least as long as its text takes to read', () => {
+  it('writes no arrival the door it is written through would refuse', () => {
     for (const scene of work.scenes) {
-      for (const shot of scene.shots) {
-        const { after } = heldFor(scene, shot)
-        // A beat waiting for the press stands for as long as the Reader wants,
-        // which is the one answer this can have nothing to say about.
-        if (after === null) continue
+      expect(within(scene.textAfter, TEXT_AFTER_MAX)).toBe(true)
+      expect(within(scene.textOver, TEXT_OVER_MAX)).toBe(true)
+      expect(within(scene.textStays, TEXT_STAYS_MAX)).toBe(true)
+      // A Scene's stay is refused nought, as its `cutAfter` is.
+      expect(scene.textStays).not.toBe(0)
 
-        expect(after).toBeGreaterThanOrEqual((shot.text.length / CHARACTERS_A_SECOND) * 1000)
+      for (const held of [scene, ...scene.shots]) {
+        expect(within(held.textAfter, TEXT_AFTER_MAX)).toBe(true)
+        expect(within(held.textOver, TEXT_OVER_MAX)).toBe(true)
+        expect(within(held.textStays, TEXT_STAYS_MAX)).toBe(true)
+        expect(held.textPace === undefined || isPace(held.textPace)).toBe(true)
+        expect(held.textBy === undefined || TEXT_BYS.includes(held.textBy)).toBe(true)
       }
     }
+  })
+
+  it('keeps every text on screen for at least as long as it takes to read', () => {
+    for (const scene of work.scenes) {
+      for (const shot of scene.shots) {
+        const { shown, needed } = heldFor(scene, shot)
+        // A text only the Reader takes off stands for as long as they want,
+        // which is the one answer this can have nothing to say about.
+        if (shown === null) continue
+
+        expect(shown).toBeGreaterThanOrEqual(needed)
+      }
+    }
+  })
+})
+
+/** The Shot of the work, in whichever Scene, whose text begins as given. */
+function shotStarting(work: Work, start: string) {
+  return work.scenes
+    .flatMap(scene => scene.shots)
+    .find(shot => shot.text.startsWith(start))
+}
+
+describe('the arrivals the works are written with', () => {
+  it('lets Reel Change’s three texts arrive where the film asks', () => {
+    const booth = REEL_CHANGE.scenes.find(scene => scene.name === 'The booth')
+
+    expect(booth).toMatchObject({ textAfter: 1500, textOver: 1200 })
+    expect(shotStarting(REEL_CHANGE, 'The coat is still warm.'))
+      .toMatchObject({ textStays: 2500, textOver: 800 })
+    expect(shotStarting(REEL_CHANGE, 'Somewhere below it'))
+      .toMatchObject({ textBy: 'word', textPace: 10, textOver: 400 })
+  })
+
+  it.each([
+    ['en', 'What an Exit offers'],
+    ['fr', 'Ce qu’offre une Sortie'],
+  ] as const)('lets the words of the %s Sample arrive a second late, one at a time', (
+    language,
+    name,
+  ) => {
+    const scene = SAMPLES[language].scenes.find(scene => scene.name === name)
+
+    expect(scene).toMatchObject({ textAfter: 1000, textBy: 'word', textOver: 200 })
   })
 })

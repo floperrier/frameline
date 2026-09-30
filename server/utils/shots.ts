@@ -82,9 +82,10 @@ export async function readShotImage(event: H3Event) {
  * What a PATCH may change about a Shot: its text, the Description of the image it
  * carries, the Transcript of the Sound it strikes with, and its own Cut — cut
  * after a time or at the press, over a duration or hard, through the image or
- * through black. Each is read only where the body names it — the shape
- * `readStoryChanges` has — so the Transcript written beside a Sound does not
- * have to carry the beat's text along with it.
+ * through black — and how its text arrives and how long it stays. Each is read
+ * only where the body names it — the shape `readStoryChanges` has — so the
+ * Transcript written beside a Sound does not have to carry the beat's text along
+ * with it.
  *
  * A body naming none is refused as the text being asked for, which is what a
  * request that would erase the Shot is missing.
@@ -97,6 +98,11 @@ export async function readShotChanges(event: H3Event) {
     cutAfter?: unknown
     cutOver?: unknown
     cutThrough?: unknown
+    textAfter?: unknown
+    textBy?: unknown
+    textPace?: unknown
+    textOver?: unknown
+    textStays?: unknown
   }>(event)
   const changes: {
     text?: string
@@ -105,6 +111,11 @@ export async function readShotChanges(event: H3Event) {
     cutAfter?: number | null
     cutOver?: number | null
     cutThrough?: CutThrough | null
+    textAfter?: number | null
+    textBy?: TextBy | null
+    textPace?: number | null
+    textOver?: number | null
+    textStays?: number | null
   } = {}
 
   if (body?.text !== undefined) changes.text = await readShotText(event)
@@ -115,6 +126,11 @@ export async function readShotChanges(event: H3Event) {
   if (body?.cutAfter !== undefined) changes.cutAfter = await readCutAfter(event)
   if (body?.cutOver !== undefined) changes.cutOver = await readCutOver(event)
   if (body?.cutThrough !== undefined) changes.cutThrough = await readCutThrough(event)
+  if (body?.textAfter !== undefined) changes.textAfter = await readTextAfter(event)
+  if (body?.textBy !== undefined) changes.textBy = await readTextBy(event)
+  if (body?.textPace !== undefined) changes.textPace = await readTextPace(event)
+  if (body?.textOver !== undefined) changes.textOver = await readTextOver(event)
+  if (body?.textStays !== undefined) changes.textStays = await readTextStays(event)
   if (!Object.keys(changes).length) await readShotText(event)
 
   return changes

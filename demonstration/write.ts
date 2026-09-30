@@ -61,16 +61,21 @@ for (const scene of work.scenes) {
   written.set(scene.name, id)
   if (scene.sets) await api('PUT', `/api/scenes/${id}/flags`, { sets: scene.sets })
   if (scene.sound) await deposit(`/api/scenes/${id}/sound`, scene.sound)
-  // The Transcript and the Cut come through the Scene's one door, and only what
-  // the work names goes through it: a field the work left out is `undefined`,
-  // which `JSON.stringify` drops from the body, so the column keeps the default
-  // every Story written before the Cut has. A work naming none sends nothing.
+  // The Transcript, the Cut and the arrival of the text come through the Scene's one
+  // door, and only what the work names goes through it: a field the work left out is
+  // `undefined`, which `JSON.stringify` drops from the body, so the column keeps the
+  // default every Story written before the Cut has. A work naming none sends nothing.
   const says = {
     transcript: scene.transcript,
     cutAfter: scene.cutAfter,
     cutOver: scene.cutOver,
     cutThrough: scene.cutThrough,
     exitsAfter: scene.exitsAfter,
+    textAfter: scene.textAfter,
+    textBy: scene.textBy,
+    textPace: scene.textPace,
+    textOver: scene.textOver,
+    textStays: scene.textStays,
   }
 
   if (Object.values(says).some(said => said !== undefined)) {
@@ -86,6 +91,11 @@ for (const scene of work.scenes) {
       cutAfter: shot.cutAfter,
       cutOver: shot.cutOver,
       cutThrough: shot.cutThrough,
+      textAfter: shot.textAfter,
+      textBy: shot.textBy,
+      textPace: shot.textPace,
+      textOver: shot.textOver,
+      textStays: shot.textStays,
     })
     const image = await imageOf(shot)
     if (image) await attach(shotId, image)

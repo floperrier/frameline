@@ -1,4 +1,4 @@
-import type { Condition, CutThrough, Exit, Flags, Sets, Shot } from './scenes'
+import type { Condition, CutThrough, Exit, Flags, Sets, Shot, TextBy } from './scenes'
 import type { Phrase } from './phrases'
 
 /**
@@ -27,6 +27,16 @@ export type StoryToRead = {
     cutOver: number
     cutThrough: CutThrough
     exitsAfter: number | null
+    /**
+     * How the texts of this Scene's run arrive — after a time, by a unit, at a
+     * pace, over a time — and how long they stay, null being until the Cut. See
+     * `docs/adr/0051-a-text-arrives-in-its-own-time.md`.
+     */
+    textAfter: number
+    textBy: TextBy
+    textPace: number
+    textOver: number
+    textStays: number | null
   }[]
   exits: Exit[]
   /**
@@ -150,6 +160,119 @@ export function cut(scene: SceneToRead, shot: Shot): Cut {
 }
 
 /**
+ * How one Shot's text arrives: how long after its Image lands it starts, what it
+ * arrives by, at how many characters a second, how long each part takes to
+ * appear, and how long the whole of it stays once it has arrived, null being
+ * until the Cut.
+ */
+export type TextArrival = {
+  after: number, by: TextBy, pace: number, over: number, stays: number | null
+}
+
+/**
+ * A Shot answers for itself where it says anything, field by field, as `cut()`
+ * does, and the nought a Shot writes to say *this text stays* resolves to no time
+ * at all, so the sentinel never leaves its column. Named for the text, because
+ * *arrival* is already a Reading entering a Scene here. See
+ * `docs/adr/0051-a-text-arrives-in-its-own-time.md`.
+ */
+export function textArrival(scene: SceneToRead, shot: Shot): TextArrival {
+  const stays = shot.textStays === null ? scene.textStays : shot.textStays
+
+  return {
+    after: shot.textAfter ?? scene.textAfter,
+    by: shot.textBy ?? scene.textBy,
+    pace: shot.textPace ?? scene.textPace,
+    over: shot.textOver ?? scene.textOver,
+    stays: stays === 0 ? null : stays,
+  }
+}
+
+/**
+ * Whether a Shot's text reaches the screen in its own time rather than landing
+ * whole with its Image: after a wait, by a unit, or fading up. A text of white
+ * space alone has nothing to arrive.
+ */
+export function textArrives(scene: SceneToRead, shot: Shot) {
+  if (!shot.text.trim()) return false
+  const { after, by, over } = textArrival(scene, shot)
+
+  return after > 0 || by !== 'whole' || over > 0
+}
+
+/**
+ * Whether a Shot's text moves by itself at all: arriving in its own time, or
+ * leaving before the Cut.
+ */
+export function textMoves(scene: SceneToRead, shot: Shot) {
+  return textArrives(scene, shot)
+    || (!!shot.text.trim() && textArrival(scene, shot).stays !== null)
+}
+
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+
+/**
+ * Where each unit of a text starts and ends, in characters. White space is in
+ * none, but it counts in the characters a unit waits for. One function, so what
+ * the Reading draws and what the bench reckons cannot disagree.
+ */
+function unitsOf(text: string, by: TextBy): [number, number][] {
+  if (by === 'whole') return text.trim() ? [[0, text.length]] : []
+
+  const found = by === 'letter'
+    ? [...graphemes.segment(text)]
+        .map(({ segment, index }) => [index, segment] as const)
+    : [...text.matchAll(by === 'line' ? /[^\n]+/g : /\S+/g)]
+        .map(match => [match.index, match[0]] as const)
+
+  return found.filter(([, run]) => /\S/.test(run))
+    .map(([start, run]): [number, number] => [start, start + run.length])
+}
+
+/**
+ * How many characters come before a text's last unit, which is when it has all
+ * arrived.
+ */
+export function lastUnitAt(text: string, by: TextBy) {
+  return unitsOf(text, by).at(-1)?.[0] ?? 0
+}
+
+/** One run of one leaf, and the characters before its unit, or null for white space. */
+export type Piece = { text: string, from: number | null }
+
+/**
+ * A text cut into what it arrives by, one list of pieces per leaf, in document
+ * order. The leaves are joined and the units found over the whole, so a word
+ * crossing two leaves is two pieces with one `from`. Today a text is one leaf.
+ */
+export function pieces(leaves: string[], by: TextBy): Piece[][] {
+  const units = unitsOf(leaves.join(''), by)
+  let start = 0
+
+  return leaves.map((leaf) => {
+    const end = start + leaf.length
+    const edges = new Set([start, end])
+    for (const [from, to] of units) {
+      if (from > start && from < end) edges.add(from)
+      if (to > start && to < end) edges.add(to)
+    }
+
+    const cut = [...edges].sort((one, other) => one - other)
+    const cutUp = cut.slice(1).map((to, at) => {
+      const from = cut[at]!
+      // ponytail: a search of every unit for every edge, quadratic in the units, which
+      // is fine at SHOT_TEXT_MAX_LENGTH; index the units the day a text is longer.
+      const unit = units.find(([first, last]) => first <= from && from < last)
+
+      return { text: leaf.slice(from - start, to - start), from: unit ? unit[0] : null }
+    })
+
+    start = end
+    return cutUp
+  })
+}
+
+/**
  * Whether anything in this Story moves by itself, which is what the Reader is
  * owed a pause over — WCAG 2.2.2, and
  * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`. A Scene moves
@@ -170,10 +293,13 @@ export function cut(scene: SceneToRead, shot: Shot): Cut {
  * needs. That is the side to be wrong on: a pause withheld from a Reader a clock
  * is carrying is a Reading nobody can stop, and a pause offered where nothing
  * runs is a button that stops a clock nobody started.
+ *
+ * A text arriving in its own time or leaving before the Cut moves the Reading by
+ * itself as surely as a clocked Shot, so it is owed the same pause.
  */
 export function movesItself(story: StoryToRead) {
   return story.scenes.some(scene =>
-    scene.shots.some(shot => cut(scene, shot).after !== null)
+    scene.shots.some(shot => cut(scene, shot).after !== null || textMoves(scene, shot))
     || (scene.exitsAfter !== null
       && story.exits.some(exit => exit.fromSceneId === scene.id)))
 }

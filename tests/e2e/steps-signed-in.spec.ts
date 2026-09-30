@@ -188,7 +188,7 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   author,
 }) => {
   const story = await seedStory(author, 'A Story')
-  await page.setViewportSize({ width: 1280, height: 1100 })
+  await page.setViewportSize({ width: 1280, height: 1700 })
   await page.goto(`/stories/${story.id}`)
 
   // Made, and the light is on the one control that makes a Scene out of nothing.
@@ -380,7 +380,7 @@ test('the light follows its target as the document grows above it', async ({
   // second beat.
   const story = await seedStory(author, 'A Story')
   await seedScene(story, 'The arrival')
-  await page.setViewportSize({ width: 1280, height: 1500 })
+  await page.setViewportSize({ width: 1280, height: 1900 })
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The arrival')
 

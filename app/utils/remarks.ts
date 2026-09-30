@@ -24,27 +24,56 @@
  * (`app/utils/steps.ts`) and for the same reasons: it cannot disagree with the
  * screen, it survives a reload, and nothing stores it.
  */
-import { exitsFrom, namesOnTheBench, reaches } from '../../shared/utils/scenes'
-import type { Condition, Scene, StoryInEditor } from '../../shared/utils/scenes'
+import {
+  CHARACTERS_A_SECOND,
+  exitsFrom,
+  namesOnTheBench,
+  reaches,
+} from '../../shared/utils/scenes'
+import type { Condition, Scene, Shot, StoryInEditor } from '../../shared/utils/scenes'
 import type { Phrase } from '../../shared/utils/phrases'
-import { cut } from '../../shared/utils/reading'
+import { cut, lastUnitAt, textArrival } from '../../shared/utils/reading'
 
 /**
- * How fast a Reader reads, at about 200 words a minute — a measured rate rather
- * than an invented one, and the only number in this file that comes from outside
- * the Story. It is used to notice a Shot nobody could read in the time it stands
- * and for nothing else, and the margin below is wide on purpose: a Remark that
- * fires on a Shot an Author has merely made brisk is a Remark an Author learns to
- * ignore.
+ * The rate a Reader reads at lives in `shared/utils/scenes.ts`, and is used here
+ * to notice a Shot nobody could read in the time it stands and for nothing else.
+ * The margin is wide on purpose: a Remark that fires on a Shot an Author has
+ * merely made brisk is a Remark an Author learns to ignore.
  *
- * The rate is exported and the margin is not. What the bench complains about is
+ * The rate is shared and the margin is not. What the bench complains about is
  * half the reading time, because a Remark an Author learns to ignore is worse
  * than no Remark; what the two works this repository ships hold themselves to is
  * the whole of it, which `tests/unit/works.spec.ts` asks of them. One rate, two
  * standards, and the standards cannot drift apart from the rate.
  */
-export const CHARACTERS_A_SECOND = 15
 const BRIEF_ENOUGH_TO_SAY_SO = 0.5
+
+/**
+ * How long a Shot's whole text is on screen, and how long a Reader needs it
+ * there, in milliseconds. The Reader reads while the text arrives, so the wait
+ * before it counts for nothing and the arrival counts for what it let them read
+ * — but never for the last unit, which arrives last. A text leaving before the
+ * Cut is on screen for its stay, even where the press would hold it longer.
+ * `shown` is null where nothing takes it off but the Reader.
+ *
+ * Time spent appearing is not credited, so this errs toward speaking. Exported
+ * because `tests/unit/works.spec.ts` holds the two works to the whole of it, as
+ * the bench complains at half.
+ */
+export function textOnScreen(scene: Scene, shot: Shot) {
+  const { after } = cut(scene, shot)
+  const { by, pace, stays } = textArrival(scene, shot)
+  const length = shot.text.length
+  const last = lastUnitAt(shot.text, by)
+
+  const needed = Math.max(
+    length / CHARACTERS_A_SECOND - last / pace,
+    (length - last) / CHARACTERS_A_SECOND,
+  ) * 1000
+  const shown = after === null ? stays : stays === null ? after : Math.min(after, stays)
+
+  return { shown, needed }
+}
 
 export type Remark = {
   /**
@@ -155,15 +184,15 @@ export function remarks(story: StoryInEditor, say: Phrase): Remark[] {
         })
       }
 
-      // Resolved against the Scene by `cut()` rather than read off the Shot: a
-      // Shot saying nothing under a Scene cut after a second is exactly the
-      // case worth noticing. A Shot with no text has nothing to read, and is
-      // left to `shotUnwritten` instead.
+      // Resolved against the Scene by `cut()` and `textArrival()` rather than read
+      // off the Shot: a Shot saying nothing under a Scene cut after a second is
+      // exactly the case worth noticing, and so is a text that leaves before it
+      // can be read, even under the press. A Shot with no text has nothing to
+      // read, and is left to `shotUnwritten` instead.
       if (shot.text.trim()) {
-        const { after } = cut(scene, shot)
-        const takesToRead = (shot.text.length / CHARACTERS_A_SECOND) * 1000
-        if (after !== null && after < takesToRead * BRIEF_ENOUGH_TO_SAY_SO) {
-          found.push({ name: 'shotStandsTooBriefly', sceneId: scene.id, said: atPlace })
+        const { shown, needed } = textOnScreen(scene, shot)
+        if (shown !== null && shown < needed * BRIEF_ENOUGH_TO_SAY_SO) {
+          found.push({ name: 'textShownTooBriefly', sceneId: scene.id, said: atPlace })
         }
       }
     })

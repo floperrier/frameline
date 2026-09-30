@@ -108,6 +108,7 @@ test('the public link hands a Scene over by the fields the Reader\'s door names'
   // meant to have has to be named at the Reader's door and in this list at once.
   expect(Object.keys(read.scenes[0]).sort()).toEqual([
     'cutAfter', 'cutOver', 'cutThrough', 'exitsAfter', 'id', 'name', 'sets',
-    'shots', 'sound', 'soundLoops', 'soundOfSceneId', 'transcript',
+    'shots', 'sound', 'soundLoops', 'soundOfSceneId', 'textAfter', 'textBy',
+    'textOver', 'textPace', 'textStays', 'transcript',
   ])
 })

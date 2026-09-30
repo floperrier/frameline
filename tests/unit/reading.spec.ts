@@ -3,7 +3,8 @@ import type { Condition, Sets } from '../../shared/utils/scenes'
 import { CUT_OVER_MAX, isTime } from '../../shared/utils/scenes'
 import type { Path, State, StoryToRead } from '../../shared/utils/reading'
 import {
-  advance, back, cut, moved, movesItself, opening, pathTo, reading, resumes, take, unmet,
+  advance, back, cut, lastUnitAt, moved, movesItself, opening, pathTo, pieces, reading,
+  resumes, take, textArrival, textArrives, textMoves, unmet,
 } from '../../shared/utils/reading'
 import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
 import type { Phrase } from '../../shared/utils/phrases'
@@ -51,6 +52,11 @@ function story(
       cutOver: 0,
       cutThrough: 'image',
       exitsAfter: null,
+      textAfter: 0,
+      textBy: 'whole',
+      textPace: 15,
+      textOver: 0,
+      textStays: null,
       shots: texts.map((written, position) => {
         const [text, conditions] = typeof written === 'string' ? [written, []] : written
         return {
@@ -65,6 +71,11 @@ function story(
           cutAfter: null,
           cutOver: null,
           cutThrough: null,
+          textAfter: null,
+          textBy: null,
+          textPace: null,
+          textOver: null,
+          textStays: null,
         }
       }),
     })),
@@ -1033,11 +1044,13 @@ describe('cut', () => {
     id: 'a', sets: {}, shots: [], sound: null, soundOfSceneId: null,
     transcript: '', soundLoops: true,
     cutAfter: 4000, cutOver: 800, cutThrough: 'image' as const, exitsAfter: null,
+    textAfter: 0, textBy: 'whole' as const, textPace: 15, textOver: 0, textStays: null,
   }
   const shot = {
     id: 's', text: '', position: 0, image: null, description: '',
     conditions: [], sound: null, transcript: '',
     cutAfter: null, cutOver: null, cutThrough: null,
+    textAfter: null, textBy: null, textPace: null, textOver: null, textStays: null,
   }
 
   it('is the Scene\'s where the Shot says nothing', () => {
@@ -1127,6 +1140,14 @@ describe('movesItself', () => {
   it('withholds it where a Scene names a time for ways on it has none of', () => {
     expect(movesItself(written('Alley', { exitsAfter: 10_000 }))).toBe(false)
   })
+
+  it('reads a text that arrives by the word, even where the Scene holds until the press', () => {
+    expect(movesItself(written('Street', { cutAfter: null, textBy: 'word' }))).toBe(true)
+  })
+
+  it('withholds it where every column of the text is at its default', () => {
+    expect(movesItself(byHand)).toBe(false)
+  })
 })
 
 describe('isTime', () => {
@@ -1139,5 +1160,104 @@ describe('isTime', () => {
     for (const held of [-1, CUT_OVER_MAX + 1, 1.5, '800', null, undefined, NaN]) {
       expect(isTime(held, CUT_OVER_MAX)).toBe(false)
     }
+  })
+})
+
+describe('textArrival', () => {
+  const scene = {
+    id: 'a', sets: {}, shots: [], sound: null, soundOfSceneId: null,
+    transcript: '', soundLoops: true,
+    cutAfter: null, cutOver: 0, cutThrough: 'image' as const, exitsAfter: null,
+    textAfter: 1000, textBy: 'word' as const, textPace: 10, textOver: 200, textStays: 3000,
+  }
+  const shot = {
+    id: 's', text: 'A door opens.', position: 0, image: null, description: '',
+    conditions: [], sound: null, transcript: '',
+    cutAfter: null, cutOver: null, cutThrough: null,
+    textAfter: null, textBy: null, textPace: null, textOver: null, textStays: null,
+  }
+
+  it('is the Scene\'s where the Shot says nothing', () => {
+    expect(textArrival(scene, shot))
+      .toEqual({ after: 1000, by: 'word', pace: 10, over: 200, stays: 3000 })
+  })
+
+  it('is the Shot\'s, field by field, where it answers', () => {
+    expect(textArrival(scene, { ...shot, textBy: 'letter', textOver: 0 }))
+      .toEqual({ after: 1000, by: 'letter', pace: 10, over: 0, stays: 3000 })
+  })
+
+  it('reads a Shot\'s nought stay as staying until the Cut', () => {
+    expect(textArrival(scene, { ...shot, textStays: 0 }).stays).toBeNull()
+  })
+
+  it('reads a Scene that keeps its texts as staying, unless its Shot says otherwise', () => {
+    expect(textArrival({ ...scene, textStays: null }, shot).stays).toBeNull()
+    expect(textArrival({ ...scene, textStays: null }, { ...shot, textStays: 2500 }).stays)
+      .toBe(2500)
+  })
+
+  it('moves by itself for a wait, a unit, a fade and a stay, and not otherwise', () => {
+    const still = {
+      ...scene, textAfter: 0, textBy: 'whole' as const, textOver: 0, textStays: null,
+    }
+
+    expect(textMoves(still, shot)).toBe(false)
+    expect(textArrives(still, shot)).toBe(false)
+    expect(textMoves({ ...still, textAfter: 1000 }, shot)).toBe(true)
+    expect(textMoves({ ...still, textBy: 'word' }, shot)).toBe(true)
+    expect(textMoves({ ...still, textOver: 200 }, shot)).toBe(true)
+    expect(textMoves({ ...still, textStays: 3000 }, shot)).toBe(true)
+    expect(textArrives({ ...still, textStays: 3000 }, shot)).toBe(false)
+    // Nothing to arrive: no text, or white space alone.
+    expect(textMoves(scene, { ...shot, text: '' })).toBe(false)
+    expect(textMoves(scene, { ...shot, text: '  \n ' })).toBe(false)
+  })
+})
+
+describe('pieces', () => {
+  it('arrives whole as one piece', () => {
+    expect(pieces(['A door opens.'], 'whole')).toEqual([[{ text: 'A door opens.', from: 0 }]])
+  })
+
+  it('cuts a text by the word, white space counted but in no unit', () => {
+    expect(pieces(['Two  words'], 'word')).toEqual([[
+      { text: 'Two', from: 0 },
+      { text: '  ', from: null },
+      { text: 'words', from: 5 },
+    ]])
+  })
+
+  it('holds a combining accent and an emoji flag as one letter each', () => {
+    expect(pieces(['é🇫🇷'], 'letter'))
+      .toEqual([[{ text: 'é', from: 0 }, { text: '🇫🇷', from: 2 }]])
+  })
+
+  it('gives a word crossing two leaves one from', () => {
+    expect(pieces(['A wo', 'rd'], 'word')).toEqual([
+      [{ text: 'A', from: 0 }, { text: ' ', from: null }, { text: 'wo', from: 2 }],
+      [{ text: 'rd', from: 2 }],
+    ])
+  })
+
+  it('breaks a line at a line-break leaf', () => {
+    expect(pieces(['One line', '\n', 'Another'], 'line')).toEqual([
+      [{ text: 'One line', from: 0 }],
+      [{ text: '\n', from: null }],
+      [{ text: 'Another', from: 9 }],
+    ])
+  })
+
+  it('finds no unit in white space alone', () => {
+    expect(pieces(['  \n '], 'word')).toEqual([[{ text: '  \n ', from: null }]])
+    expect(lastUnitAt('  \n ', 'word')).toBe(0)
+  })
+})
+
+describe('lastUnitAt', () => {
+  it('counts the characters before a text\'s last unit', () => {
+    expect(lastUnitAt('One two three', 'word')).toBe(8)
+    expect(lastUnitAt('a\nbc', 'line')).toBe(2)
+    expect(lastUnitAt('One two three', 'whole')).toBe(0)
   })
 })

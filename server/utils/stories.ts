@@ -190,6 +190,11 @@ export async function readStoryGraph(storyId: string) {
       cutOver: scenes.cutOver,
       cutThrough: scenes.cutThrough,
       exitsAfter: scenes.exitsAfter,
+      textAfter: scenes.textAfter,
+      textBy: scenes.textBy,
+      textPace: scenes.textPace,
+      textOver: scenes.textOver,
+      textStays: scenes.textStays,
       shotId: shots.id,
       text: shots.text,
       position: shots.position,
@@ -203,6 +208,11 @@ export async function readStoryGraph(storyId: string) {
       shotCutAfter: shots.cutAfter,
       shotCutOver: shots.cutOver,
       shotCutThrough: shots.cutThrough,
+      shotTextAfter: shots.textAfter,
+      shotTextBy: shots.textBy,
+      shotTextPace: shots.textPace,
+      shotTextOver: shots.textOver,
+      shotTextStays: shots.textStays,
     })
     .from(scenes)
     .leftJoin(shots, eq(shots.sceneId, scenes.id))
@@ -228,6 +238,11 @@ export async function readStoryGraph(storyId: string) {
         cutOver: row.cutOver,
         cutThrough: row.cutThrough,
         exitsAfter: row.exitsAfter,
+        textAfter: row.textAfter,
+        textBy: row.textBy,
+        textPace: row.textPace,
+        textOver: row.textOver,
+        textStays: row.textStays,
       }
       scenesOfStory.push(scene)
     }
@@ -244,6 +259,11 @@ export async function readStoryGraph(storyId: string) {
         cutAfter: row.shotCutAfter,
         cutOver: row.shotCutOver,
         cutThrough: row.shotCutThrough,
+        textAfter: row.shotTextAfter,
+        textBy: row.shotTextBy,
+        textPace: row.shotTextPace,
+        textOver: row.shotTextOver,
+        textStays: row.shotTextStays,
       })
     }
   }

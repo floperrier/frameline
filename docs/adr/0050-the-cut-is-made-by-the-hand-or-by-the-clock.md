@@ -57,7 +57,9 @@ restarts the Shot it lands on, a visit resumed from the browser restarts the
 Shot it resumes at, and a Shot played again stands again for its whole time.
 
 **What the Reader is owed.** The press always cuts early, so a Reader ahead of
-the clock is never made to wait for it. A pause stands beside the mute, which is
+the clock is never made to wait for it — *amended by `0051`: a press made while
+a text is still arriving shows the rest of it first, and cuts on the next, under
+the name of what it does.* A pause stands beside the mute, which is
 what WCAG 2.2.2 asks the moment anything advances by itself; the pacing is the
 work rather than an ornament on it, which is the exception 2.2.1 grants where
 timing is essential. `prefers-reduced-motion` reads every `cut_over` as nought
