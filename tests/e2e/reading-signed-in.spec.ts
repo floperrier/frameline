@@ -35,7 +35,6 @@ test('a Reader who leaves a Story comes back to where they stood', async ({ page
   await expect(reading.getByText('She steps out.')).toBeVisible()
   await reading.reload()
   await expect(reading.getByText('She steps out.')).toBeVisible()
-  await expect(reading.getByText('Shot 2 of 2')).toBeVisible()
   await expect(pickedUp(reading)).toBeVisible()
 
   await reading.getByRole('button', { name: 'Next Shot' }).click()
@@ -168,12 +167,11 @@ test('a Reader steps back a beat, inside a Scene and across the Exit they took',
   await expect(stepBack).toHaveCount(0)
 
   // One beat on and one beat back, by the keyboard: the frame shows the Shot
-  // before, the count says so, and the control goes away with the beat it undid.
+  // before, and the control goes away with the beat it undid.
   await reading.getByRole('button', { name: 'Next Shot' }).click()
   await expect(reading.getByText('She steps out.')).toBeVisible()
   await stepBack.press('Enter')
   await expect(reading.getByText('A door opens.')).toBeVisible()
-  await expect(reading.getByText('Shot 1 of 2')).toBeVisible()
   await expect(stepBack).toHaveCount(0)
 
   // Out of the Scene by the Exit it offers, and back in by the same one: the
@@ -185,7 +183,6 @@ test('a Reader steps back a beat, inside a Scene and across the Exit they took',
 
   await stepBack.click()
   await expect(reading.getByText('She steps out.')).toBeVisible()
-  await expect(reading.getByText('Shot 2 of 2')).toBeVisible()
   await expect(reading.getByRole('button', { name: 'Follow her out' })).toBeVisible()
 
   // A step back is a move like any other, so it is kept like any other: the

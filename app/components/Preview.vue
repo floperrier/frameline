@@ -115,8 +115,8 @@ const draws = computed(() =>
 /**
  * What the bench calls each Scene, which is what everything this pane says names
  * one by: the two marks that renumber a way on, the Scene the reading has not
- * reached, the Scenes the State says were entered, and the Exits a Condition is
- * hiding. This
+ * reached, where the reading stands, the Scenes the State says were entered, and
+ * the Exits a Condition is hiding. This
  * pane is the bench around the reading and never the reading itself — the frames
  * and the buttons a Reader would press are drawn by `Reading.vue`, in the words
  * the Author wrote — so two Scenes an Author called the same are numbered here
@@ -148,6 +148,32 @@ function placeOf(exit: Exit) {
  * stands nowhere at all, which is a reading with no way on to renumber.
  */
 const standsIn = computed(() => (standing.value ? sceneName(standing.value) : ''))
+
+/** The Scene the reading stands in, as the Author wrote it, which `skipped` reads too. */
+const scene = computed(() => story.scenes.find(({ id }) => id === standing.value))
+
+/**
+ * Where the reading stands, in the words the writing names the same Shot by, and
+ * said here because the Reader's frame says none of it — see
+ * `docs/adr/0054-the-reader-is-shown-what-the-author-wrote.md`. The Shot the
+ * frame holds is named by its Place in the Scene as written rather than in the
+ * run, so a Shot this Reading skips still holds its Place and this line agrees
+ * with the list of skipped Shots under it. Once the run has played out it names
+ * the last Shot of the run, which the frame still holds, and a Scene whose run
+ * holds nothing for this Reading is named alone.
+ *
+ * A plain line and not a live region: the beat is heard as the focus lands on
+ * the frame, and a region saying where it stands at every press would talk over
+ * it.
+ */
+const where = computed(() => {
+  const beat = shown.value.shot ?? shown.value.run.at(-1)
+  const place = scene.value?.shots.findIndex(({ id }) => id === beat?.id) ?? -1
+
+  return place < 0
+    ? standsIn.value
+    : t('editor.shotOfScene', { place: place + 1, scene: standsIn.value })
+})
 
 /**
  * The order the ways on are offered in, set here because this is the one screen
@@ -195,17 +221,16 @@ const hidden = computed(() => {
 /**
  * The Shots of that Scene this Reading is not playing, named by the Place they
  * hold in the Scene the Author wrote — which is the number the writing surface
- * shows them under, and not the one the Reader's frame counts, because a skipped
+ * shows them under, and the one `where` names the Shot on screen by: a skipped
  * Shot has no place in the run at all. Standing beside the ways on for the same
  * reason: what a Condition is hiding is what an Author came to the reading to
  * find out.
  */
 const skipped = computed(() => {
   const now = shown.value
-  const scene = story.scenes.find(({ id }) => id === now.sceneId)
-  if (!scene) return []
+  if (!scene.value) return []
 
-  return scene.shots
+  return scene.value.shots
     .map((shot, place) => ({ shot, place: place + 1 }))
     .filter(({ shot }) => !holds(shot.conditions, now.state))
 })
@@ -306,6 +331,8 @@ function why(conditions: Condition[]) {
           <span class="eyebrow">{{ $t('preview.bench') }}</span>
           <span class="aside">{{ $t('preview.benchNote') }}</span>
         </p>
+
+        <p v-if="where">{{ where }}</p>
 
         <!-- The one control on the bench, and no part of the Story: the same
              Reading at the same Path, read against another draw. Nothing moves,

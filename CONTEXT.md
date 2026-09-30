@@ -317,7 +317,13 @@ _Affiché_: Auteur
 _Avoid_: user, creator, owner, writer, director, member, community member
 
 **Reader**:
-Anyone who plays a published Story. Needs no account.
+Anyone who plays a published Story. Needs no account. Shown what the Author wrote
+and nothing the bench works by: never the name of the Scene a Shot belongs to,
+never a Shot's Place, never how many Shots a run holds. Each of those would tell
+somebody reading the Story how it is built, which is why a Comment is never said
+of one Scene or Shot either. A Scene's name reaches a Reader in one place only, an
+Exit its Author has left without words, which is offered by the Scene it leads to
+rather than not offered at all.
 _Affiché_: Lecteur
 _Avoid_: user, player, viewer, visitor, audience
 

@@ -40,7 +40,6 @@
     "signInWithGitHub": "Se connecter avec GitHub",
     "signInWithGoogle": "Se connecter avec Google",
     "specimen": "Ce qui est montré à la lecture",
-    "specimenScene": "La rue",
     "specimenShot": "La porte cède à la troisième poussée. La pluie, et le néon du bar d'en face, déjà allumé à quatre heures de l'après-midi.",
     "specimenExitOne": "Traverser jusqu'au bar",
     "specimenExitTwo": "Rester sous le porche le temps que ça se calme",
@@ -350,6 +349,7 @@
     "exitUnofferable": "La Sortie {place} depuis {scene} n’est offerte que si {flag} vaut « {is} », valeur qu’aucune Scène ne lui donne.",
     "shotUnplayable": "Le Plan {place} de {scene} ne joue que si {flag} vaut « {is} », valeur qu’aucune Scène ne lui donne.",
     "exitNeverTaken": "La Sortie {place} de {scene} ramène à une Scène qu’une Lecture arrivée ici a déjà traversée : aucun Lecteur ne se la voit jamais offrir.",
+    "exitUnphrased": "La Sortie {place} depuis {scene} n’a pas de mots à elle : là où elle est offerte, le Lecteur lit le nom de la Scène où elle mène.",
     "sceneFlowsNowhere": "{scene} passe à la suivante sans demander, et n’a aucune Sortie où aller — une Lecture s’arrête là.",
     "textShownTooBriefly": "Le texte du Plan {place} de {scene} reste à l’écran moins longtemps qu’il n’en faut pour le lire.",
     "flashWithheld": "Le Plan {place} de {scene} arrive depuis le blanc juste après un Plan qui vacille ou qui tient moins d’une seconde, si bien qu’une Lecture ne montre pas l’éclair."
@@ -378,7 +378,6 @@
     "needsNotEntered": "demande que {scene} n’ait pas été entrée, et elle l’a été"
   },
   "reading": {
-    "shotOf": "Plan {place} sur {of}",
     "next": "Plan suivant",
     "showWholeText": "Afficher tout le texte",
     "back": "Revenir en arrière",
