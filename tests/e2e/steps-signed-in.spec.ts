@@ -193,11 +193,10 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   const story = await seedStory(author, 'A Story')
   // A window tall enough to hold the first Scene down to the way on written at its
   // foot, because this walk is about which control is lit and not about a target
-  // carried off the window — the specs below pose that. A beat says what it does
-  // with its text as well as how it is cut, and how it is laid out, so one beat is
-  // already a deep row. How its texts arrive is folded while it says only the
-  // defaults, and costs a line; the Scene's Layout section costs another.
-  await page.setViewportSize({ width: 1280, height: 1450 })
+  // carried off the window — the specs below pose that. The window every Step held
+  // in before the Scene's head and a beat's row grew their choices: both fold them
+  // to one line since #401 and #400.
+  await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto(`/stories/${story.id}`)
 
   // Made, and the light is on the one control that makes a Scene out of nothing.
@@ -394,7 +393,7 @@ test('the light follows its target as the document grows above it', async ({
   // second beat.
   const story = await seedStory(author, 'A Story')
   await seedScene(story, 'The arrival')
-  await page.setViewportSize({ width: 1280, height: 1800 })
+  await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The arrival')
 

@@ -24,7 +24,7 @@ test('the Movement written on a Scene reads back, and Not at all keeps the direc
     const first = async () => (await reread(request, story.id)).scenes[0]!
 
     await page.goto(`/stories/${story.id}?scene=${street.id}`)
-    await live(page)
+    await unfold(page, 'The street')
 
     const moves = page.getByLabel('The Images move The street', { exact: true })
     const by = page.getByLabel('Percent the Images of The street move by', { exact: true })
@@ -55,7 +55,7 @@ test('the Movement written on a Scene reads back, and Not at all keeps the direc
     await expect.poll(async () => (await first()).movementOver).toBe(2500)
 
     await page.reload()
-    await live(page)
+    await unfold(page, 'The street')
     await expect(moves).toHaveValue('closer')
     await expect(by).toHaveValue('25')
     await expect(over).toHaveValue('2.5')

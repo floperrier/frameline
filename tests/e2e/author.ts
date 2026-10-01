@@ -382,16 +382,18 @@ export async function writeShot(box: Locator, text: string) {
 
 /**
  * Opens what a Shot plays as, which its row keeps folded under one line since
- * #401: the Sound picker, the Cut, the Layout, the Movement, the Effects and how
- * its text arrives. A fold already open is left alone, because a `<summary>`
- * toggles and a second press would shut it. Found by the row the Shot's words
- * are named in, `Shot 2 of The street`, and handed back for a caller that reads
+ * #401 — the Sound picker, the Cut, the Layout, the Movement, the Effects and how
+ * its text arrives — or how a Scene plays, which its head keeps folded the same
+ * way since #400. A fold already open is left alone, because a `<summary>`
+ * toggles and a second press would shut it. Found by the name its line carries,
+ * `Shot 2 of The street` or `The street`, and handed back for a caller that reads
  * what it holds.
  */
-export async function unfold(page: Page, shot: string) {
+export async function unfold(page: Page, named: string) {
   await live(page)
-  const fold = page.locator('[data-shot]', { has: page.getByRole('textbox', { name: shot, exact: true }) })
-    .locator('details.plays')
+  const fold = page.locator('details.plays', {
+    has: page.locator('summary > .visually-hidden').getByText(named, { exact: true }),
+  })
   if (!await fold.evaluate(details => (details as HTMLDetailsElement).open)) {
     await fold.locator('summary').click()
   }

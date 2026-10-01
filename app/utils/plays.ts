@@ -76,3 +76,41 @@ export function playsAs(shot: Shot, scene: Pick<Scene, 'movementBy' | 'textPace'
 
   return parts.join(' · ') || say('editor.playsAsScene')
 }
+
+/**
+ * How a Scene plays, said on the one line its head folds the choosing under —
+ * issue #400, by `0061`'s rule. A Scene has no *As the Scene says* to fall back on:
+ * its answers are what every Shot of its run does, so the four that change every
+ * Shot's look and pace are always said, in #401's words. How its Exits are offered
+ * and how its texts arrive are said only where they depart from what a new Scene
+ * is written with, so a Scene that says nothing about them spends no words on
+ * them. The parts follow the fold's order. Its Sound is never a part: one it is
+ * heard under stands open above the fold, and silence needs no word.
+ */
+export function scenePlaysAs(scene: Scene, say: Phrase) {
+  const parts: string[] = []
+  const said = (key: string, values?: Record<string, number>) => parts.push(say(`editor.${key}`, values))
+
+  if (scene.cutAfter === null) said('playsCutAtThePress')
+  else said('playsCutAfter', { seconds: scene.cutAfter / 1000 })
+  if (!scene.cutOver) said('playsCutHard')
+  else said(scene.cutThrough === 'black' ? 'playsFadeToBlack' : 'playsDissolve', { seconds: scene.cutOver / 1000 })
+  if (scene.exitsAfter !== null) {
+    said(scene.exitsAfter ? 'playsExitsFor' : 'playsExitsNone', { seconds: scene.exitsAfter / 1000 })
+  }
+
+  if (scene.textAfter) said('playsTextAfter', { seconds: scene.textAfter / 1000 })
+  if (scene.textBy !== 'whole') said(`playsTextBy${capital(scene.textBy)}`, { pace: scene.textPace })
+  if (scene.textOver) said('playsTextOver', { seconds: scene.textOver / 1000 })
+  if (scene.textStays !== null) said('playsTextStays', { seconds: scene.textStays / 1000 })
+
+  said(scene.layout === 'full' ? 'playsFull' : 'playsInset')
+
+  if (!scene.movementBy) said('playsStill')
+  else {
+    said(`plays${capital(scene.movementDirection)}`, { percent: scene.movementBy })
+    if (scene.movementOver) said('playsMovesOver', { seconds: scene.movementOver / 1000 })
+  }
+
+  return parts.join(' · ')
+}
