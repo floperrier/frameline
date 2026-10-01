@@ -9,12 +9,14 @@ import {
   EXITS_AFTER_MIN,
   isTime,
   LAYOUTS,
+  MOVEMENT_DIRECTIONS,
+  MOVEMENT_OVER_UNTIMED,
   cropPosition,
 } from '../../shared/utils/scenes'
 import type { Path, State, StoryToRead } from '../../shared/utils/reading'
 import {
-  advance, back, cut, lastUnitAt, layout, lasting, moved, movesItself, opening, pathTo, pieces,
-  reading, resumes, take, textArrival, textArrives, textMoves, unmet,
+  advance, back, cut, lastUnitAt, layout, lasting, moved, movement, movementEnds, movesItself, opening, pathTo,
+  pieces, reading, resumes, take, textArrival, textArrives, textMoves, timed, unmet,
 } from '../../shared/utils/reading'
 import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
 import type { Phrase } from '../../shared/utils/phrases'
@@ -63,6 +65,9 @@ function story(
       cutThrough: 'image',
       exitsAfter: null,
       layout: 'inset',
+      movementBy: 0,
+      movementDirection: 'closer',
+      movementOver: 0,
       textAfter: 0,
       textBy: 'whole',
       textPace: 15,
@@ -95,6 +100,9 @@ function story(
           textPace: null,
           textOver: null,
           textStays: null,
+          movementBy: null,
+          movementDirection: null,
+          movementOver: null,
         }
       }),
     })),
@@ -1063,6 +1071,7 @@ describe('cut', () => {
     id: 'a', sets: {}, shots: [], sound: null, soundOfSceneId: null,
     transcript: '', soundLoops: true,
     cutAfter: 4000, cutOver: 800, cutThrough: 'image' as const, exitsAfter: null, layout: 'inset' as const,
+    movementBy: 0, movementDirection: 'closer' as const, movementOver: 0,
     textAfter: 0, textBy: 'whole' as const, textPace: 15, textOver: 0, textStays: null,
   }
   const shot = {
@@ -1071,6 +1080,7 @@ describe('cut', () => {
     cutAfter: null, cutOver: null, cutThrough: null, layout: null, cropX: 50, cropY: 50,
     imageArrives: null, imageLasts: null, textArrives: null, textLasts: null,
     textAfter: null, textBy: null, textPace: null, textOver: null, textStays: null,
+    movementBy: null, movementDirection: null, movementOver: null,
   }
 
   it('is the Scene\'s where the Shot says nothing', () => {
@@ -1138,6 +1148,117 @@ describe('lasting', () => {
     expect(lasting(carrying({ formatted: marked }))).toBe(true)
     const arriving = formatted(line(styled('word', { type: 'arrives', attrs: { effect: 'scramble', over: 1200, strength: 'slight' } })))
     expect(lasting(carrying({ formatted: arriving }))).toBe(false)
+  })
+})
+
+describe('movement', () => {
+  const plain = story({ Street: ['A door opens.'] })
+  const image = '/api/shots/a/image'
+
+  /** The one Scene of `plain`, saying what it says, and its one Shot carrying an Image and saying what it says. */
+  function standing(
+    sceneSays: Partial<StoryToRead['scenes'][number]> = {},
+    shotSays: Partial<StoryToRead['scenes'][number]['shots'][number]> = {},
+  ) {
+    const scene = { ...plain.scenes[0]!, ...sceneSays }
+    return { scene, shot: { ...scene.shots[0]!, image, ...shotSays } }
+  }
+
+  const moving = { movementBy: 20, movementDirection: 'left' as const, movementOver: 3000 }
+
+  it('moves a Shot that says nothing as its Scene says', () => {
+    const { scene, shot } = standing(moving)
+    expect(movement(scene, shot)).toEqual({ direction: 'left', by: 20, over: 3000, held: false })
+  })
+
+  it('lets a Shot answer each field for itself', () => {
+    const { scene, shot } = standing(moving, { movementDirection: 'up' })
+    expect(movement(scene, shot)).toEqual({ direction: 'up', by: 20, over: 3000, held: false })
+    const further = standing(moving, { movementBy: 35 })
+    expect(movement(further.scene, further.shot))
+      .toEqual({ direction: 'left', by: 35, over: 3000, held: false })
+    const timedOwn = standing(moving, { movementOver: 500 })
+    expect(movement(timedOwn.scene, timedOwn.shot))
+      .toEqual({ direction: 'left', by: 20, over: 500, held: false })
+  })
+
+  it('holds still a Scene that moves by nought, a Shot that answers nought, and a Shot with no Image', () => {
+    const still = standing()
+    expect(movement(still.scene, still.shot)).toBeNull()
+    const held = standing(moving, { movementBy: 0 })
+    expect(movement(held.scene, held.shot)).toBeNull()
+    const bare = standing(moving, { image: null })
+    expect(movement(bare.scene, bare.shot)).toBeNull()
+  })
+
+  it('reads an over of nought as the hold where the clock cuts, and as the stand-in where the Reader does', () => {
+    const clocked = standing({ ...moving, movementOver: 0, cutAfter: 4000 })
+    expect(movement(clocked.scene, clocked.shot)!.over).toBe(4000)
+    const pressed = standing({ ...moving, movementOver: 0, cutAfter: null })
+    expect(movement(pressed.scene, pressed.shot)!.over).toBe(MOVEMENT_OVER_UNTIMED)
+    const waits = standing({ ...moving, movementOver: 0, cutAfter: 4000 }, { cutAfter: 0 })
+    expect(movement(waits.scene, waits.shot)!.over).toBe(MOVEMENT_OVER_UNTIMED)
+  })
+
+  it('says the time is the hold only where it is the hold the clock cuts at', () => {
+    const clocked = standing({ ...moving, movementOver: 0, cutAfter: 4000 })
+    expect(movement(clocked.scene, clocked.shot)!.held).toBe(true)
+    // The stand-in, and a time the Scene or the Shot wrote under a clock, are not.
+    const pressed = standing({ ...moving, movementOver: 0, cutAfter: null })
+    expect(movement(pressed.scene, pressed.shot)!.held).toBe(false)
+    const written = standing({ ...moving, cutAfter: 4000 })
+    expect(movement(written.scene, written.shot)!.held).toBe(false)
+    const own = standing({ ...moving, movementOver: 0, cutAfter: 4000 }, { movementOver: 2000 })
+    expect(movement(own.scene, own.shot)!.held).toBe(false)
+  })
+})
+
+describe('movementEnds', () => {
+  const centre = { cropX: 50, cropY: 50 }
+
+  /** A transform this writes, read back as the fraction it shifts by and the scale. */
+  function read(transform: string) {
+    const scale = Number(/scale\(([\d.]+)\)/.exec(transform)![1])
+    const shifted = /translate\((-?[\d.e-]+)%?, (-?[\d.e-]+)%?\)/.exec(transform)
+    return { scale, x: shifted ? Number(shifted[1]) / 100 : 0, y: shifted ? Number(shifted[2]) / 100 : 0 }
+  }
+
+  it('grows about the point to come closer, and shrinks back to draw away', () => {
+    expect(movementEnds({ direction: 'closer', by: 15 }, centre))
+      .toEqual({ from: 'scale(1)', to: 'scale(1.15)' })
+    expect(movementEnds({ direction: 'away', by: 15 }, centre))
+      .toEqual({ from: 'scale(1.15)', to: 'scale(1)' })
+  })
+
+  it('ends a crossing to the left where one to the right starts', () => {
+    const left = movementEnds({ direction: 'left', by: 20 }, centre)
+    const right = movementEnds({ direction: 'right', by: 20 }, centre)
+    expect(left.to).toBe(right.from)
+    expect(left.from).toBe(right.to)
+  })
+
+  it('keeps the point inside the frame and the Image covering it, at both ends, everywhere', () => {
+    const near = 1e-9
+    for (const direction of MOVEMENT_DIRECTIONS) {
+      for (const by of [1, 15, 50]) {
+        for (let at = 0; at <= 100; at += 10) {
+          const point = { cropX: at, cropY: 100 - at }
+          for (const end of Object.values(movementEnds({ direction, by }, point))) {
+            expect(end).not.toContain('NaN')
+            const { scale, x, y } = read(end)
+            expect(scale).toBeGreaterThanOrEqual(1)
+            for (const [shift, along] of [[x, point.cropX / 100], [y, point.cropY / 100]] as const) {
+              // Covering: the grown Image's two edges stay outside the frame's.
+              expect(shift).toBeLessThanOrEqual(along * (scale - 1) + near)
+              expect(shift).toBeGreaterThanOrEqual(-(1 - along) * (scale - 1) - near)
+              // The point stays inside the frame.
+              expect(along + shift).toBeGreaterThanOrEqual(-near)
+              expect(along + shift).toBeLessThanOrEqual(1 + near)
+            }
+          }
+        }
+      }
+    }
   })
 })
 
@@ -1209,6 +1330,23 @@ describe('movesItself', () => {
   it('withholds it where every column of the text is at its default', () => {
     expect(movesItself(byHand)).toBe(false)
   })
+  /** `byHand` with the first Shot of the street carrying an Image that comes closer. */
+  function closing(image: string | null = '/api/shots/a/image') {
+    return written('Street', {
+      shots: byHand.scenes[0]!.shots.map((shot, at) => (at === 0
+        ? { ...shot, image, movementBy: 20, movementDirection: 'closer' as const }
+        : shot)),
+    })
+  }
+
+  it('reads a hand-read Story with one Image that moves, which no clock does', () => {
+    expect(movesItself(closing())).toBe(true)
+    expect(timed(closing())).toBe(false)
+  })
+
+  it('withholds it where the Shot that moves has no Image to move', () => {
+    expect(movesItself(closing(null))).toBe(false)
+  })
 })
 
 describe('isTime', () => {
@@ -1242,6 +1380,7 @@ describe('layout', () => {
     id: 'a', sets: {}, shots: [], sound: null, soundOfSceneId: null,
     transcript: '', soundLoops: true,
     cutAfter: null, cutOver: 0, cutThrough: 'image' as const, exitsAfter: null, layout: 'inset' as const,
+    movementBy: 0, movementDirection: 'closer' as const, movementOver: 0,
     textAfter: 0, textBy: 'whole' as const, textPace: 15, textOver: 0, textStays: null,
   }
   const shot = {
@@ -1250,6 +1389,7 @@ describe('layout', () => {
     cutAfter: null, cutOver: null, cutThrough: null, layout: null, cropX: 50, cropY: 50,
     imageArrives: null, imageLasts: null, textArrives: null, textLasts: null,
     textAfter: null, textBy: null, textPace: null, textOver: null, textStays: null,
+    movementBy: null, movementDirection: null, movementOver: null,
   }
 
   it('lays a Shot that says nothing out as its Scene says', () => {
@@ -1276,6 +1416,7 @@ describe('textArrival', () => {
     id: 'a', sets: {}, shots: [], sound: null, soundOfSceneId: null,
     transcript: '', soundLoops: true,
     cutAfter: null, cutOver: 0, cutThrough: 'image' as const, exitsAfter: null, layout: 'inset' as const,
+    movementBy: 0, movementDirection: 'closer' as const, movementOver: 0,
     textAfter: 1000, textBy: 'word' as const, textPace: 10, textOver: 200, textStays: 3000,
   }
   const shot = {
@@ -1283,6 +1424,7 @@ describe('textArrival', () => {
     conditions: [], sound: null, transcript: '',
     cutAfter: null, cutOver: null, cutThrough: null, layout: null, cropX: 50, cropY: 50,
     textAfter: null, textBy: null, textPace: null, textOver: null, textStays: null,
+    movementBy: null, movementDirection: null, movementOver: null,
   }
 
   it('is the Scene\'s where the Shot says nothing', () => {

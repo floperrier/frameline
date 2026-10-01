@@ -548,14 +548,15 @@ test('everything a Scene holds is on the surface at once, each part counted',
     // so what is asked about one Scene is asked of that Scene's own section.
     const arrival = written(page, 'The arrival')
 
-    // The seven parts of a Scene, in the order a Reader meets them, each headed
+    // The eight parts of a Scene, in the order a Reader meets them, each headed
     // and counted where it starts: the Flags set on entry, what it is heard
     // under, how its run is cut, how its texts arrive, how its Shots are laid
-    // out, the run of beats, the ways on.
-    await expect(arrival.locator('.held > h3'))
-      .toHaveText([/Flags\s*1/, 'Sound', 'Cut', 'Text', 'Layout', /Shots\s*2/, /Exits\s*1/])
+    // out, how its Images move, the run of beats, the ways on.
+    await expect(arrival.locator('.held > h3')).toHaveText([
+      /Flags\s*1/, 'Sound', 'Cut', 'Text', 'Layout', 'Movement', /Shots\s*2/, /Exits\s*1/,
+    ])
 
-    // And all seven are on the surface together, which is what taking the tabs
+    // And all eight are on the surface together, which is what taking the tabs
     // out bought: a Condition and the Flags that satisfy it are read at once.
     await expect(arrival.getByRole('textbox', { name: 'Shot 1 of The arrival', exact: true }))
       .toBeVisible()
@@ -566,7 +567,7 @@ test('everything a Scene holds is on the surface at once, each part counted',
 
     // The count follows the Story rather than the page it was drawn on.
     await arrival.getByRole('button', { name: 'Add a Shot' }).click()
-    await expect(arrival.locator('.held > h3').nth(5)).toHaveText(/Shots\s*3/)
+    await expect(arrival.locator('.held > h3').nth(6)).toHaveText(/Shots\s*3/)
   })
 
 test('a Scene is typed as one document, beat after beat', async ({ page, request }) => {

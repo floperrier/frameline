@@ -984,6 +984,99 @@ function writeShotLayout(scene: Scene, shot: Shot, answer: string) {
     send(`/api/shots/${shot.id}`, { method: 'PATCH', body: { layout } }))
 }
 
+/**
+ * Where a Movement starts when the Author chooses a direction for an Image held
+ * still: fifteen percent of the frame, as *A dissolve* starts at 800 ms — the
+ * number is where the field starts and not what it is.
+ */
+const MOVEMENT_BY_START = 15
+
+type MovementSaid = Partial<Pick<Shot, 'movementBy' | 'movementDirection' | 'movementOver'>>
+
+/**
+ * What a Scene or a Shot says about how its Images move, one function a carrier
+ * as the Cut's are and for the same reason, written on the row before the request
+ * leaves. A Scene's body never holds a null and is typed as a Shot's all the same:
+ * the door refuses what the column cannot hold.
+ */
+function writeSceneMovement(scene: Scene, body: MovementSaid) {
+  if (!wholeCut(body)) return
+  Object.assign(scene, body)
+
+  return writing(scene, scene.id, () => send(`/api/scenes/${scene.id}`, { method: 'PATCH', body }))
+}
+
+function writeShotMovement(scene: Scene, shot: Shot, body: MovementSaid) {
+  if (!wholeCut(body)) return
+  Object.assign(shot, body)
+
+  return writing(scene, shot.id, () => send(`/api/shots/${shot.id}`, { method: 'PATCH', body }))
+}
+
+/**
+ * How an Image moves, read off the two columns that say it: still where it moves
+ * by nought, whatever direction stands — *Not at all* leaves it, as *Hard* leaves
+ * `cut_through` — its direction otherwise, and on a Shot that says nothing, *as
+ * the Scene says*.
+ */
+function movementKind(carrier: { movementBy: number | null, movementDirection: MovementDirection | null }) {
+  if (carrier.movementBy === 0) return 'still'
+
+  return carrier.movementDirection ?? 'scene'
+}
+
+/** How long it takes: as the Scene says, as long as its Shot is on screen, or a time of its own. */
+function movementTakesKind(carrier: { movementOver: number | null }) {
+  if (carrier.movementOver === null) return 'scene'
+
+  return carrier.movementOver === 0 ? 'whole' : 'time'
+}
+
+/** And what each answer writes, the Scene's and then the Shot's. */
+function writeSceneMoves(scene: Scene, answer: string) {
+  return writeSceneMovement(scene, answer === 'still'
+    ? { movementBy: 0 }
+    : { movementDirection: answer as MovementDirection, movementBy: scene.movementBy || MOVEMENT_BY_START })
+}
+
+function writeSceneMovementTakes(scene: Scene, answer: string) {
+  return writeSceneMovement(scene, { movementOver: answer === 'whole' ? 0 : MOVEMENT_OVER_UNTIMED })
+}
+
+function writeShotMoves(scene: Scene, shot: Shot, answer: string) {
+  if (answer === 'scene') {
+    return writeShotMovement(scene, shot, { movementBy: null, movementDirection: null })
+  }
+  if (answer === 'still') return writeShotMovement(scene, shot, { movementBy: 0 })
+
+  return writeShotMovement(scene, shot, {
+    movementDirection: answer as MovementDirection,
+    movementBy: shot.movementBy || MOVEMENT_BY_START,
+  })
+}
+
+function writeShotMovementTakes(scene: Scene, shot: Shot, answer: string) {
+  return writeShotMovement(scene, shot, {
+    movementOver: answer === 'scene' ? null : answer === 'whole' ? 0 : MOVEMENT_OVER_UNTIMED,
+  })
+}
+
+/**
+ * A field of percent read back as the amount, by `secondsWritten`'s rule: nought
+ * is handed back, because *Not at all* is what says it, and an empty field is no
+ * change. Anything else is written, and refused by its phrase where it is out of
+ * bounds, as the pace is.
+ */
+function percentWritten(event: Event, stood: number | null) {
+  const field = event.target as HTMLInputElement
+  const written = field.valueAsNumber
+
+  if (written) return written
+  if (stood && !Number.isNaN(written)) field.value = String(stood)
+
+  return undefined
+}
+
 type EffectSlot = 'imageArrives' | 'imageLasts' | 'textArrives' | 'textLasts'
 
 /**
@@ -1959,6 +2052,75 @@ function writeConditions(
         </p>
       </section>
 
+      <!-- How the Scene's Images move while their Shots are on screen, and for how
+           long. After the Layout and before the run, because it moves the Image
+           inside the frame the Layout gives — and a Shot may answer otherwise on its
+           own row. No Command is marked: `CONTEXT.md` exempts what no press opens. -->
+      <section class="held movement">
+        <h3>{{ $t('editor.movementHeld') }}</h3>
+
+        <p class="cutting">
+          <label class="eyebrow" :for="`movement-${held.scene.id}`">
+            {{ $t('editor.imagesMove') }}
+            <span class="visually-hidden">{{ held.name }}</span>
+          </label>
+          <select
+            :id="`movement-${held.scene.id}`"
+            :value="movementKind(held.scene)"
+            @change="writeSceneMoves(held.scene, ($event.target as HTMLSelectElement).value)"
+          >
+            <option value="still">{{ $t('editor.movementStill') }}</option>
+            <option v-for="direction in MOVEMENT_DIRECTIONS" :key="direction" :value="direction">
+              {{ $t(`editor.movement${direction[0]!.toUpperCase()}${direction.slice(1)}`) }}
+            </option>
+          </select>
+          <template v-if="held.scene.movementBy > 0">
+            <input
+              type="number"
+              inputmode="numeric"
+              min="1"
+              :max="MOVEMENT_BY_MAX"
+              step="1"
+              :value="held.scene.movementBy"
+              :aria-label="$t('editor.percentTheImagesMove', { name: held.name })"
+              @change="writeSceneMovement(
+                held.scene, { movementBy: percentWritten($event, held.scene.movementBy) })"
+            >
+            <span class="unit" aria-hidden="true">{{ $t('editor.percentUnit') }}</span>
+          </template>
+        </p>
+
+        <p v-if="held.scene.movementBy > 0" class="cutting">
+          <label class="eyebrow" :for="`movement-over-${held.scene.id}`">
+            {{ $t('editor.movementTakes') }}
+            <span class="visually-hidden">{{ held.name }}</span>
+          </label>
+          <select
+            :id="`movement-over-${held.scene.id}`"
+            :value="held.scene.movementOver === 0 ? 'whole' : 'time'"
+            @change="writeSceneMovementTakes(
+              held.scene, ($event.target as HTMLSelectElement).value)"
+          >
+            <option value="whole">{{ $t('editor.movementWholeTime') }}</option>
+            <option value="time">{{ $t('editor.movementATime') }}</option>
+          </select>
+          <template v-if="held.scene.movementOver > 0">
+            <input
+              type="number"
+              inputmode="decimal"
+              min="0.1"
+              :max="MOVEMENT_OVER_MAX / 1000"
+              step="0.1"
+              :value="held.scene.movementOver / 1000"
+              :aria-label="$t('editor.secondsTheMovementTakes', { name: held.name })"
+              @change="writeSceneMovement(
+                held.scene, { movementOver: secondsWritten($event, held.scene.movementOver) })"
+            >
+            <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
+          </template>
+        </p>
+      </section>
+
       <!-- The run: one row a beat, its Place in the margin, the thumbnail and the
            words side by side, the Description under them where there is an Image to
            describe, and what the beat plays under sharing its last line with the
@@ -2287,6 +2449,87 @@ function writeConditions(
                       {{ $t(`editor.layout${layout === 'full' ? 'Full' : 'Inset'}`) }}
                     </option>
                   </select>
+                </p>
+              </div>
+
+              <!-- What this beat says about how its Image moves, drawn only where the
+                   Shot has an Image, as the Description is, and its columns survive
+                   the Image's removal. -->
+              <div v-if="shot.image" class="moved">
+                <p class="cutting">
+                  <label class="eyebrow" :for="`shot-movement-${shot.id}`">
+                    {{ $t('editor.imageMoves') }}
+                    <span class="visually-hidden">
+                      {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                    </span>
+                  </label>
+                  <select
+                    :id="`shot-movement-${shot.id}`"
+                    :value="movementKind(shot)"
+                    @change="writeShotMoves(
+                      held.scene, shot, ($event.target as HTMLSelectElement).value)"
+                  >
+                    <option value="scene">{{ $t('editor.asTheSceneSays') }}</option>
+                    <option value="still">{{ $t('editor.movementStill') }}</option>
+                    <option v-for="direction in MOVEMENT_DIRECTIONS" :key="direction" :value="direction">
+                      {{ $t(`editor.movement${direction[0]!.toUpperCase()}${direction.slice(1)}`) }}
+                    </option>
+                  </select>
+                  <template v-if="shot.movementBy">
+                    <input
+                      type="number"
+                      inputmode="numeric"
+                      min="1"
+                      :max="MOVEMENT_BY_MAX"
+                      step="1"
+                      :value="shot.movementBy"
+                      :aria-label="$t('editor.percentThisImageMoves', {
+                        place: place + 1,
+                        scene: held.name,
+                      })"
+                      @change="writeShotMovement(held.scene, shot, {
+                        movementBy: percentWritten($event, shot.movementBy),
+                      })"
+                    >
+                    <span class="unit" aria-hidden="true">{{ $t('editor.percentUnit') }}</span>
+                  </template>
+                </p>
+
+                <p v-if="(shot.movementBy ?? held.scene.movementBy) > 0" class="cutting">
+                  <label class="eyebrow" :for="`shot-movement-over-${shot.id}`">
+                    {{ $t('editor.movementTakes') }}
+                    <span class="visually-hidden">
+                      {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                    </span>
+                  </label>
+                  <select
+                    :id="`shot-movement-over-${shot.id}`"
+                    :value="movementTakesKind(shot)"
+                    @change="writeShotMovementTakes(
+                      held.scene, shot, ($event.target as HTMLSelectElement).value)"
+                  >
+                    <option value="scene">{{ $t('editor.asTheSceneSays') }}</option>
+                    <option value="whole">{{ $t('editor.movementWholeTime') }}</option>
+                    <option value="time">{{ $t('editor.movementATime') }}</option>
+                  </select>
+                  <template v-if="shot.movementOver">
+                    <input
+                      type="number"
+                      inputmode="decimal"
+                      min="0.1"
+                      :max="MOVEMENT_OVER_MAX / 1000"
+                      step="0.1"
+                      :value="shot.movementOver / 1000"
+                      :aria-label="$t('editor.secondsThisMovementTakes', {
+                        place: place + 1,
+                        scene: held.name,
+                      })"
+                      @change="writeShotMovement(held.scene, shot, {
+                        movementOver: secondsWritten($event, shot.movementOver),
+                      })"
+                    >
+                    <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
+                  </template>
                 </p>
               </div>
 
@@ -3248,16 +3491,19 @@ function writeConditions(
 .beat > .transcribed,
 .beat > .cut,
 .beat > .laid,
+.beat > .moved,
 .beat > .arrives {
   grid-column: 1 / -1;
 }
 
-/* What the beat says about its own Cut, and about how its text arrives: the answers
-   side by side while they fit, one under the other where they do not. Set further
-   apart than anything else on the row, because each of the two is a label and its
-   answer and the eye has to read where one sentence ends and the next starts. */
+/* What the beat says about its own Cut, Layout and Movement, and about how its
+   text arrives: the answers side by side while they fit, one under the other where
+   they do not. Set further apart than anything else on the row, because each is a
+   label and its answer and the eye has to read where one sentence ends and the
+   next starts. */
 .beat > .cut,
 .beat > .laid,
+.beat > .moved,
 .arrives > .answers {
   display: flex;
   flex-wrap: wrap;

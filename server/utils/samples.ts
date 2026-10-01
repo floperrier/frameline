@@ -60,6 +60,9 @@ export async function plantSample(
         // writes as the column's own default, so a Sample carrying no Cut is
         // planted exactly as it was before the Cut existed.
         layout: scene.layout ?? 'inset',
+        movementBy: scene.movementBy ?? 0,
+        movementDirection: scene.movementDirection ?? 'closer',
+        movementOver: scene.movementOver ?? 0,
         cutAfter: scene.cutAfter,
         cutOver: scene.cutOver,
         cutThrough: scene.cutThrough,
@@ -98,6 +101,9 @@ export async function plantSample(
         layout: shot.layout ?? null,
         cropX: shot.cropX ?? 50,
         cropY: shot.cropY ?? 50,
+        movementBy: shot.movementBy ?? null,
+        movementDirection: shot.movementDirection ?? null,
+        movementOver: shot.movementOver ?? null,
         cutAfter: shot.cutAfter,
         cutOver: shot.cutOver,
         cutThrough: shot.cutThrough,

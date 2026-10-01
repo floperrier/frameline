@@ -4,9 +4,10 @@
  * diagram of the product; and the whole language already working, so an Author
  * meets a Flag set on entry, a Condition on a Shot testing it, a Condition
  * asking whether a Scene has been entered, a run cut by the clock with one beat
- * held against it, a dissolve on the way out, a Scene whose words arrive one at a
- * time a second after its Image, and an ending that goes to black while the room
- * tone under it plays out its pass, before being asked to write any of them.
+ * held against it, a dissolve on the way out, an Image that moves, a Scene whose
+ * words arrive one at a time a second after its Image, and an ending that goes
+ * to black while the room tone under it plays out its pass, before being asked
+ * to write any of them.
  *
  * There is one Sample per Language and nothing translates between them, which is
  * why they sit here beside *Reel Change* rather than in `i18n/locales`: a Sample
@@ -278,6 +279,10 @@ const ENGLISH: Work = {
           // The first beat an Author is shown finds its focus, the same way in both
           // Samples, so that an Effect is met before it is asked of them.
           imageArrives: { effect: 'from-blur', over: 1500, strength: 'marked' },
+          // And comes closer to the lit panel over the Scene's twelve seconds, so
+          // that a Movement is met the same way.
+          movementDirection: 'closer',
+          movementBy: 12,
         },
         {
           formatted: formatted(
@@ -330,6 +335,9 @@ const ENGLISH: Work = {
           description: 'One panel on the left, and two lines leaving its edge for two panels '
             + 'on the right.',
           image: 'an-exit',
+          // The Image slides left, from the one panel to the two it leads to.
+          movementDirection: 'left',
+          movementBy: 20,
         },
         {
           formatted: formatted(line(
@@ -454,6 +462,10 @@ const FRENCH: Work = {
           // The first beat an Author is shown finds its focus, the same way in both
           // Samples, so that an Effect is met before it is asked of them.
           imageArrives: { effect: 'from-blur', over: 1500, strength: 'marked' },
+          // Le même geste à la même place : l’Image s’approche du panneau éclairé
+          // pendant les douze secondes de la Scène.
+          movementDirection: 'closer',
+          movementBy: 12,
         },
         {
           formatted: formatted(
@@ -505,6 +517,9 @@ const FRENCH: Work = {
           description: 'Un panneau à gauche, et deux traits qui quittent son bord vers deux '
             + 'panneaux à droite.',
           image: 'an-exit',
+          // L’Image glisse vers la gauche, du panneau seul aux deux où il mène.
+          movementDirection: 'left',
+          movementBy: 20,
         },
         {
           formatted: formatted(line(

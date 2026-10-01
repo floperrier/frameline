@@ -13,7 +13,16 @@ import {
 } from 'drizzle-orm/pg-core'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import { CHARACTERS_A_SECOND } from '../../shared/utils/scenes'
-import type { Arrival, Condition, CutThrough, Lasting, Layout, Sets, TextBy } from '../../shared/utils/scenes'
+import type {
+  Arrival,
+  Condition,
+  CutThrough,
+  Lasting,
+  Layout,
+  MovementDirection,
+  Sets,
+  TextBy,
+} from '../../shared/utils/scenes'
 import type { Align, Face, Formatted } from '../../shared/utils/formatted'
 
 // `name` is the Name an Author appears under wherever somebody else meets them:
@@ -175,6 +184,13 @@ const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () =>
 // the text in the reading column, `full` is the Image covering the room with the
 // text over it. It is defaulted, because the schema moves before the deploy, and
 // `inset` is every Story written so far, reading exactly as it read.
+//
+// `movement_by`, `movement_direction` and `movement_over` are how the Images of
+// the run move while each Shot is on screen: by a whole percent of the frame,
+// nought being held still, which way, and over how many milliseconds, nought
+// being as long as the Shot is on screen. The defaults are every Story already
+// written, whose Images hold still. See
+// `docs/adr/0057-the-image-moves-over-the-time-its-shot-is-on-screen.md`.
 export const scenes = pgTable('scenes', {
   id: uuid('id').primaryKey().defaultRandom(),
   storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
@@ -192,6 +208,9 @@ export const scenes = pgTable('scenes', {
   cutThrough: text('cut_through').$type<CutThrough>().notNull().default('image'),
   exitsAfter: integer('exits_after'),
   layout: text('layout').$type<Layout>().notNull().default('inset'),
+  movementBy: integer('movement_by').notNull().default(0),
+  movementDirection: text('movement_direction').$type<MovementDirection>().notNull().default('closer'),
+  movementOver: integer('movement_over').notNull().default(0),
   textAfter: integer('text_after').notNull().default(0),
   textBy: text('text_by').$type<TextBy>().notNull().default('whole'),
   textPace: integer('text_pace').notNull().default(CHARACTERS_A_SECOND),
@@ -276,6 +295,11 @@ export const scenes = pgTable('scenes', {
 // `object-position` reads. They are never null — the centre is 50, a value — so
 // the two axes cannot disagree about whether a point is said, and 50 by 50 is
 // every Shot written so far, cropped as it was.
+//
+// `movement_by`, `movement_direction` and `movement_over` are the Shot's own
+// answer about how its Image moves, each null being *as the Scene says*. A
+// `movement_by` of nought is this Image held still under a Scene whose Images
+// move, and a `movement_over` of nought is as long as this Shot is on screen.
 export const shots = pgTable('shots', {
   id: uuid('id').primaryKey().defaultRandom(),
   sceneId: uuid('scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
@@ -291,6 +315,9 @@ export const shots = pgTable('shots', {
   layout: text('layout').$type<Layout>(),
   cropX: integer('crop_x').notNull().default(50),
   cropY: integer('crop_y').notNull().default(50),
+  movementBy: integer('movement_by'),
+  movementDirection: text('movement_direction').$type<MovementDirection>(),
+  movementOver: integer('movement_over'),
   formatted: jsonb('formatted').$type<Formatted>(),
   imageArrives: jsonb('image_arrives').$type<Arrival>(),
   imageLasts: jsonb('image_lasts').$type<Lasting>(),

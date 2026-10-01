@@ -56,7 +56,8 @@ An Image carries the point it is cropped around, for wherever a frame of another
 shape cuts it, which is a Shot laid out full, a Cover on a shelf and a print on the
 Contact Sheet. The point is pressed on the Contact Sheet, where the Author is
 looking at the Image, and an Image nobody pressed is cropped around its centre.
-However the frame cuts the Image, the point stays in view.
+It is also the point a Movement comes closer to and draws away from. However the
+frame cuts the Image, and however the Image moves in it, the point stays in view.
 _Affiché_: Image
 _Avoid_: picture, photo, frame, visual, asset, media, photogramme, still
 
@@ -113,6 +114,22 @@ _Affiché_: Mise en page
 _Avoid_: framing, composition, format, template, display, mode, arrangement,
 cadrage, disposition, gabarit, maquette
 
+**Movement**:
+How a Shot's Image moves in the frame while the Shot is on screen. It comes
+closer, growing about the point it is cropped around, or draws away from that
+point to the frame its Layout gives it, or crosses the frame to the left, the
+right, up or down. The Author says how far it goes, as a share of the frame, and
+how long it takes, which is the whole time the Shot is on screen unless they
+write a time. It runs once and rests where it ends. A Scene says how the Images
+of its run move, a Shot may say otherwise, and a Shot that says nothing moves as
+its Scene says, which is the shape the Cut has. A Shot with no Image has nothing
+to move, and a Shot's text never moves. Never a Cut, which takes a Shot off the
+screen. A Movement happens between two Cuts.
+_Affiché_: Mouvement
+_Avoid_: camera, camera movement, pan, tilt, zoom, dolly, tracking, Ken Burns,
+animation, motion, travelling, caméra, mouvement de caméra, panoramique,
+défilement
+
 **Effect**:
 Something that happens to a Shot's Image or to its text, named by the Author
 from a short list, over a time and at a strength they write. It happens once, as
@@ -124,8 +141,8 @@ said of one beat and never of a Scene, because it is an emphasis and not a
 grammar. It underlines what the words say and never says anything alone, so a
 Reader who cannot see it, or who asked for less motion, reads the beat without it
 and loses none of the Story. Never the Cut, which is how one Shot gives way to
-the next, never the movement of the frame over the Image, and never when or how
-fast the words come.
+the next, never a Movement, which moves the Image in the frame, and never when or
+how fast the words come.
 _Affiché_: Effet
 _Avoid_: animation, filter, fx, special effect, transition, filtre, trucage,
 effet spécial

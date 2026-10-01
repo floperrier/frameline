@@ -49,6 +49,9 @@ test('a new account arrives with a Sample in it', async ({ page, request, author
   // The words of that Scene arrive in their own time, so the five columns that
   // say so have to have been planted with it.
   expect(story.scenes[1]).toMatchObject({ textAfter: 1000, textBy: 'word', textOver: 200 })
+  // And its first Image moves, which the three columns of that Shot say.
+  expect(story.scenes[0].shots[0])
+    .toMatchObject({ movementDirection: 'closer', movementBy: 12, movementOver: null })
   expect(story.scenes.flatMap((scene: { shots: { conditions: unknown[] }[] }) =>
     scene.shots.flatMap(shot => shot.conditions)).length).toBeGreaterThan(0)
 

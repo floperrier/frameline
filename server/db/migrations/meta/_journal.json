@@ -204,6 +204,13 @@
       "when": 1790821900295,
       "tag": "0028_a_shots_text_is_formatted_where_it_is_written",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1790847340485,
+      "tag": "0029_the_image_moves_while_its_shot_is_on_screen",
+      "breakpoints": true
     }
   ]
 }
