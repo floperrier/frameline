@@ -524,6 +524,8 @@
     "soundOn": "Rétablir le Son",
     "showTranscript": "Afficher la Transcription",
     "hideTranscript": "Masquer la Transcription",
+    "fullScreen": "Plein écran",
+    "leaveFullScreen": "Quitter le plein écran",
     "sceneTranscript": "Le Son tenu sous la Scène",
     "shotTranscript": "Le Son que frappe le Plan",
     "waysOnStand": "Les Sorties restent proposées jusqu'à ce que vous en preniez une.",

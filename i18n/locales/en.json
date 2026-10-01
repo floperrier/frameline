@@ -524,6 +524,8 @@
     "soundOn": "Turn the Sound On",
     "showTranscript": "Show the Transcript",
     "hideTranscript": "Hide the Transcript",
+    "fullScreen": "Full Screen",
+    "leaveFullScreen": "Leave Full Screen",
     "sceneTranscript": "What the Scene is heard under",
     "shotTranscript": "What the Shot strikes with",
     "waysOnStand": "The Exits stand until you take one.",
