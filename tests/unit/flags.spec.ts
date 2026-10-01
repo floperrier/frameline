@@ -95,6 +95,19 @@ describe('the Flags a request writes', () => {
       .rejects.toThrow('A Flag is a name')
   })
 
+  it('refuses a name holding a brace, and names the brace', async () => {
+    for (const brace of ['{', '}']) {
+      await expect(asking({ sets: { [`a${brace}b`]: 'on' } })).rejects.toMatchObject({
+        statusCode: 400,
+        message: phrase(DEFAULT_LOCALE, 'refusals.flagNameBrace', { brace }),
+      })
+    }
+  })
+
+  it('takes a value holding braces, which is said as text and never read again', async () => {
+    await expect(asking({ sets: { coat: '{x}' } })).resolves.toEqual({ coat: '{x}' })
+  })
+
   it('takes a value holding it, which a line is only ever split on once', async () => {
     await expect(asking({ sets: { weather: ['rain', `sun ${FLAG_SEPARATOR} shine`] } }))
       .resolves.toEqual({ weather: ['rain', `sun ${FLAG_SEPARATOR} shine`] })

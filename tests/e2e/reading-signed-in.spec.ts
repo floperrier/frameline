@@ -259,3 +259,38 @@ test('an Exit the Author closed is not crossed backwards, and the Scene behind i
   await request.patch(`/api/exits/${exits[0].id}`, { data: { stepsBack: null } })
   await expect(stepBack(await inTheBar())).toHaveCount(0)
 })
+
+test('a Reader is told what a Flag holds, and a name this Reading holds nothing for is no words at all', async ({ page, request, browser, baseURL }) => {
+  const story = await writeStory(request)
+  const link = `${baseURL}/read/${story.id}`
+  const { scenes, exits } = await (await request.get(`/api/stories/${story.id}`)).json()
+  const [street, bar] = scenes
+
+  // The street sets the coat and the bar sets a hat this Reading never reaches,
+  // so the way on out of the street says `{hat}` and nothing: it is offered by
+  // where it leads.
+  const platform = await (await request.post(`/api/stories/${story.id}/scenes`, {
+    data: { name: 'The platform' },
+  })).json()
+  await request.put(`/api/scenes/${street.id}/flags`, { data: { sets: { coat: 'red' } } })
+  await request.put(`/api/scenes/${bar.id}/flags`, { data: { sets: { hat: 'grey' } } })
+  await request.patch(`/api/shots/${street.shots[0].id}`, {
+    data: { text: 'A {coat} coat.', description: '' },
+  })
+  await request.delete(`/api/exits/${exits[0].id}`)
+  const way = await (await request.post(`/api/scenes/${street.id}/exits`, {
+    data: { toSceneId: platform.id },
+  })).json()
+  await request.patch(`/api/exits/${way.id}`, { data: { text: '{hat}' } })
+
+  await page.goto(`/stories/${story.id}`)
+  await page.getByRole('button', { name: 'Publish this Story', exact: true }).click()
+  await expect(page.getByRole('link', { name: link })).toBeVisible()
+
+  const { page: reading } = await reader(browser, link)
+  await expect(reading.getByText('A red coat.')).toBeVisible()
+  await reading.getByRole('button', { name: 'Next Shot' }).click()
+  await reading.getByRole('button', { name: 'Next Shot' }).click()
+  await expect(reading.getByRole('button', { name: 'Exit to The platform' })).toBeVisible()
+  await expect(reading.getByText('{hat}')).toHaveCount(0)
+})

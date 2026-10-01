@@ -121,6 +121,34 @@ export function holds(conditions: Condition[], state: State) {
   })
 }
 
+/** A Flag's name between braces, which is how a text says it. Nothing nests. */
+const SAID = /\{([^{}\n]+)\}/g
+
+/**
+ * The names of the Flags some Scene of this Story sets, which are the only names
+ * a text says: any other run between braces is read as it is written, and that is
+ * the whole of the escaping rule. See `docs/adr/0059-a-flag-is-said-by-its-name.md`.
+ */
+export function declaredIn(story: { scenes: { sets: Sets }[] }) {
+  return new Set(story.scenes.flatMap(scene => Object.keys(scene.sets)))
+}
+
+/** Every run a text writes between braces, whether or not a Flag answers to it. */
+export function braced(text: string) {
+  return [...text.matchAll(SAID)].map(([, name]) => name!)
+}
+
+/**
+ * A text as this Reading says it: a declared Flag's name between braces is the
+ * value this State holds, or nothing where it holds none — the absence `holds`
+ * reads too. Exact, case and spaces included, as a Condition reads a name. The
+ * replacement is a function, so a value is said as written and never read again,
+ * for braces or for `String.replace`'s own patterns.
+ */
+export function said(text: string, flags: Flags, declared: ReadonlySet<string>) {
+  return text.replace(SAID, (run, name: string) => (declared.has(name) ? flags[name] ?? '' : run))
+}
+
 /**
  * Whether one Exit is on offer to a Reading standing where it leaves from: every
  * Condition it carries holds, and the Scene it leads to is not one this Reading

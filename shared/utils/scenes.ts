@@ -778,13 +778,14 @@ export function exitCalled(called: ExitOnTheBench | undefined, say: Phrase) {
 
 /**
  * How an Exit is named where it is read rather than edited. An Exit nobody has
- * phrased yet is named by where it lands: an unphrased Exit is half of what a
+ * phrased yet, or one whose words are white space alone, as a said text leaves
+ * it, is named by where it lands: an unphrased Exit is half of what a
  * Preview is for, and a Reading that cannot go on is the worse answer. Shared,
  * because a Preview names the ways on a Condition is hiding in the same breath
  * as the ones on offer, and the two must read alike.
  */
 export function exitNamed(exit: Exit, sceneName: (id: string) => string, say: Phrase) {
-  return exit.text || say('exit.to', { scene: sceneName(exit.toSceneId) })
+  return exit.text.trim() ? exit.text : say('exit.to', { scene: sceneName(exit.toSceneId) })
 }
 
 /**
