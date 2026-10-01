@@ -642,7 +642,10 @@ function attachImage(scene: Scene, shot: Shot, event: Event) {
   return attach(scene, shot, file)
 }
 
-/** The Shot whose thumbnail a file is over, held by id: the read that lands mid-drag replaces every Scene in the Story. */
+/**
+ * The Shot whose thumbnail, or the Scene whose run, a file is over, held by id: the
+ * read that lands mid-drag replaces every Scene in the Story.
+ */
 const fileOver = ref<string>()
 
 function overImage(shot: Shot, event: DragEvent) {
@@ -650,12 +653,12 @@ function overImage(shot: Shot, event: DragEvent) {
   fileOver.value = shot.id
 }
 
-/** Asked of the thumbnail and not what is inside it, or the mark flickers off under a hand that has not gone anywhere. */
-function leaveImage(shot: Shot, event: DragEvent) {
-  const thumbnail = event.currentTarget as HTMLElement
-  if (fileOver.value !== shot.id) return
+/** Asked of the box and not what is inside it, or the mark flickers off under a hand that has not gone anywhere. */
+function leaveFile(over: Shot | Scene, event: DragEvent) {
+  const box = event.currentTarget as HTMLElement
+  if (fileOver.value !== over.id) return
 
-  if (!thumbnail.contains(event.relatedTarget as Node | null)) fileOver.value = undefined
+  if (!box.contains(event.relatedTarget as Node | null)) fileOver.value = undefined
 }
 
 /** The first image among what was dropped is the one taken; a drop with no image at all is still sent, and the endpoint says what an image is. */
@@ -666,6 +669,106 @@ function dropImage(scene: Scene, shot: Shot, event: DragEvent) {
   if (!image) return
 
   return attach(scene, shot, image)
+}
+
+/**
+ * The Scene a handful of Images is being made into Shots in, while it is. One
+ * handful at a time across the document, because the status line saying how far
+ * it has got is one line: the adding controls of every Scene stand disabled
+ * meanwhile, so no beat lands between two of the pictures, and a drop arriving
+ * meanwhile is let go of.
+ */
+const filling = ref<string>()
+
+/** The picker behind *Add Shots from Images*, found by id the way `typeInShot` finds a field. */
+function pickImages(scene: Scene) {
+  document.getElementById(`images-for-${scene.id}`)?.click()
+}
+
+/** Every file chosen, and the picker cleared as `depositedFile` clears it. */
+function addPickedShots(scene: Scene, event: Event) {
+  const picker = event.target as HTMLInputElement
+  const files = [...picker.files ?? []]
+  picker.value = ''
+
+  return addShotsFrom(scene, files)
+}
+
+/**
+ * A file over a Scene's run, which is the list of its Shots and the controls under
+ * it. Files alone: a line of text dragged from one beat into another is the
+ * browser's to carry. A thumbnail stops its own, so a file over one is that Shot's,
+ * and the run stops these, or the page's refusal of a stray file would refuse
+ * this one too.
+ */
+function overRun(scene: Scene, event: DragEvent) {
+  if (!event.dataTransfer?.types.includes('Files')) return
+
+  event.preventDefault()
+  event.stopPropagation()
+  event.dataTransfer.dropEffect = 'copy'
+  fileOver.value = scene.id
+}
+
+function dropOnRun(scene: Scene, event: DragEvent) {
+  if (!event.dataTransfer?.types.includes('Files')) return
+
+  event.preventDefault()
+  event.stopPropagation()
+  fileOver.value = undefined
+  return addShotsFrom(scene, [...event.dataTransfer.files])
+}
+
+/**
+ * A handful of Images, picked or dropped on the run, as as many Shots at the end of
+ * it: in the order of their names, less what a Shot cannot carry — see
+ * `imagesForShots` — and one file after the other, because a new Shot's Place is
+ * read and written in one statement and two of them in flight would race for it.
+ *
+ * One change round the whole handful, so the Story is read back once, at the end,
+ * and no read can land on the files still waiting. A file the server refuses —
+ * bytes that are not what its type said — leaves its Shot a beat with no picture
+ * yet, the files after it carry on, and the refusal is said once the last is
+ * through, where a refused attach is said. A Shot the Scene refuses ends it there,
+ * because the next would be refused too.
+ */
+async function addShotsFrom(scene: Scene, files: File[]) {
+  if (filling.value || !files.length) return
+
+  const { taken, leftOut } = imagesForShots(files)
+  const name = nameOf(scene.id)
+  const added: string[] = []
+
+  if (taken.length) {
+    filling.value = scene.id
+    try {
+      await changing(scene, async () => {
+        let refused: unknown
+        for (const [at, file] of taken.entries()) {
+          announce(t('editor.addingShots', { name, at: at + 1, count: taken.length }))
+          const shot = await send(`/api/scenes/${scene.id}/shots`, { method: 'POST' }) as Shot
+          added.push(shot.id)
+          await send(`/api/shots/${shot.id}/image`, { method: 'PUT', body: file })
+            .catch((error: unknown) => { refused = error })
+        }
+        if (refused) throw refused
+      })
+    }
+    finally {
+      filling.value = undefined
+    }
+  }
+
+  const said = added.length === 1 ? 'editor.oneShotAdded' : added.length ? 'editor.shotsAdded' : 'editor.noShotAdded'
+  announce([
+    t(said, { name, count: added.length }),
+    ...leftOut.map(({ file, why }) => t('editor.imageLeftOut', {
+      file: file.name,
+      why: t(why, { mb: SHOT_IMAGE_MAX_BYTES / 1024 / 1024 }),
+    })),
+  ].join(' '))
+
+  if (added[0]) return typeInShot(added[0])
 }
 
 /**
@@ -2139,8 +2242,17 @@ function writeConditions(
            describe, and what the beat plays under sharing its last line with the
            marks that move and take it away — `0033`'s row, over the whole Story.
            Counted twice: in Shots, which is the count the bench gives of the whole
-           Story beside the document, and in words, which is what a writer asks. -->
-      <section class="held run">
+           Story beside the document, and in words, which is what a writer asks.
+           A handful of Images let go of anywhere on it but a thumbnail becomes as
+           many Shots at its end — see `addShotsFrom`. -->
+      <section
+        class="held run"
+        :class="{ over: fileOver === held.scene.id }"
+        @dragenter="overRun(held.scene, $event)"
+        @dragover="overRun(held.scene, $event)"
+        @dragleave="leaveFile(held.scene, $event)"
+        @drop="dropOnRun(held.scene, $event)"
+      >
         <h3>
           {{ $t('editor.shotsHeld') }}
           <span class="counted">{{ held.counted.shots }}</span>
@@ -2185,7 +2297,7 @@ function writeConditions(
                 :class="{ over: fileOver === shot.id }"
                 @dragenter.prevent.stop="overImage(shot, $event)"
                 @dragover.prevent.stop="overImage(shot, $event)"
-                @dragleave="leaveImage(shot, $event)"
+                @dragleave="leaveFile(shot, $event)"
                 @drop.prevent.stop="dropImage(held.scene, shot, $event)"
               >
                 <img
@@ -2880,10 +2992,14 @@ function writeConditions(
              Scene arrives with no Shot in it. Drawn here or on the beat's own
              field, never both, so the Step that names the two of them in order
              finds one — see `app/utils/steps.ts` and
-             `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md`. -->
+             `docs/adr/0019-the-guided-path-is-anchored-to-the-template.md`.
+
+             Beside it, the beats of a folder of pictures at once: the picker
+             behind it takes several files, and `addShotsFrom` makes each a Shot. -->
         <p class="adds">
           <button
             type="button"
+            :disabled="!!filling"
             :data-step="held.here && !held.scene.shots.length ? 'add-shot' : undefined"
             :data-command="held.here ? $t('editor.addShot') : undefined"
             @click="addShot(held.scene)"
@@ -2893,6 +3009,25 @@ function writeConditions(
               {{ $t('editor.toScene', { name: held.name }) }}
             </span>
           </button>
+          <button
+            type="button"
+            :disabled="!!filling"
+            :data-command="held.here ? $t('editor.addShotsFromImages') : undefined"
+            @click="pickImages(held.scene)"
+          >
+            {{ $t('editor.addShotsFromImages') }}
+            <span class="visually-hidden">
+              {{ $t('editor.toScene', { name: held.name }) }}
+            </span>
+          </button>
+          <input
+            :id="`images-for-${held.scene.id}`"
+            type="file"
+            multiple
+            hidden
+            :accept="SHOT_IMAGE_TYPES.join(',')"
+            @change="addPickedShots(held.scene, $event)"
+          >
         </p>
       </section>
 
@@ -3677,6 +3812,16 @@ function writeConditions(
 /* The beat added by hand, under the run it is added to the end of. */
 .adds {
   display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+/* A handful of files over the run wears the thumbnail's grease pencil, round the
+   whole of it: letting go would add a Shot apiece. */
+.run.over {
+  outline: 1px dashed var(--grease);
+  outline-offset: var(--s2);
+  background: color-mix(in oklab, var(--grease) 6%, var(--bench));
 }
 
 .adds button {

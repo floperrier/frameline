@@ -1,10 +1,10 @@
 import { expect } from '@playwright/test'
 import {
-  ONE_PIXEL, readTheStory, seedScene, seedStory, test, writeScene, writeStory,
+  ONE_PIXEL, readTheStory, seedScene, seedStory, test, toast, writeScene, writeStory,
 } from './author'
 import { SHOT_DESCRIPTION_MAX_LENGTH, SHOT_IMAGE_MAX_BYTES } from '../../shared/utils/scenes'
 import type { APIRequestContext, Page } from '@playwright/test'
-import type { StoryInEditor } from '../../shared/utils/scenes'
+import type { Shot, StoryInEditor } from '../../shared/utils/scenes'
 
 /**
  * One Scene's own section of the document, which is where that Scene is written:
@@ -498,4 +498,142 @@ test('a file dropped anywhere but a thumbnail does not take the editor off the s
   // out, and the page refusing every drop would have taken that away from every
   // field on it.
   expect(await carrying(['dragover', 'drop'], ['text/plain'])).toEqual([false, false])
+})
+
+/**
+ * A PNG that says which file it was, in bytes past the end of the image: the
+ * server reads a file's head to know what it is, and serves back all of it.
+ */
+function png(name: string) {
+  return { name, type: 'image/png', bytes: Buffer.concat([ONE_PIXEL, Buffer.from(name)]) }
+}
+
+/** The same file as a picker is handed one. */
+const picked = ({ name, type, bytes }: ReturnType<typeof png>) => ({ name, mimeType: type, buffer: bytes })
+
+/** The Shots of *The bar*, the Scene of `writeStory` holding one written Shot, read past the page. */
+async function bar(request: APIRequestContext, storyId: string) {
+  const read: StoryInEditor = await (await request.get(`/api/stories/${storyId}`)).json()
+
+  return read.scenes.find(scene => scene.name === 'The bar')!.shots
+}
+
+/** Which file each Shot's image was, read off the bytes it is served with, or `null` where it has none. */
+async function filesOf(request: APIRequestContext, shots: Shot[]) {
+  return Promise.all(shots.map(async shot => shot.image
+    ? (await (await request.get(shot.image)).body()).subarray(ONE_PIXEL.length).toString()
+    : null))
+}
+
+test('several Images picked together become as many Shots, in the order of their names', async ({ page, request }) => {
+  const story = await writeStory(request)
+  await page.goto(`/stories/${story.id}`)
+  await writeScene(page, 'The bar')
+
+  // The control stands beside *Add a Shot*, named for the Scene it adds to.
+  const scene = writing(page, 'The bar')
+  const adding = scene.getByRole('button', { name: 'Add Shots from Images to The bar', exact: true })
+  const addingOne = scene.getByRole('button', { name: 'Add a Shot to The bar', exact: true })
+  await expect(adding).toBeVisible()
+  await expect(addingOne).toBeVisible()
+
+  // The first image is held at the server's door, so the bench can be caught
+  // halfway through the batch.
+  let release!: () => void
+  const held = new Promise<void>((resolve) => { release = resolve })
+  await page.route('**/api/shots/*/image', async (route) => {
+    if (route.request().method() === 'PUT') await held
+    await route.fallback()
+  })
+
+  const opened = page.waitForEvent('filechooser')
+  await adding.click()
+  const chooser = await opened
+  expect(chooser.isMultiple()).toBe(true)
+  await chooser.setFiles([png('b-10.png'), png('b-2.png'), png('b-1.png')].map(picked))
+
+  // Halfway: the status line says how far it has got, and neither control adds
+  // a beat that would land between two of the pictures.
+  await expect(toast(page)).toHaveText('Adding Shots to “The bar”: 1 of 3')
+  await expect(adding).toBeDisabled()
+  await expect(addingOne).toBeDisabled()
+  release()
+
+  await expect(toast(page)).toHaveText('3 Shots added to “The bar”.')
+  await expect(adding).toBeEnabled()
+  await expect(addingOne).toBeEnabled()
+
+  // Ordered by name as a camera numbers its files, after the Shot already there.
+  const shots = await bar(request, story.id)
+  expect(shots.map(shot => shot.text)).toEqual(['Smoke, and no one she knows.', '', '', ''])
+  expect(await filesOf(request, shots)).toEqual([null, 'b-1.png', 'b-2.png', 'b-10.png'])
+
+  // The caret is in the first new beat, under its picture, ready for its words.
+  await expect(page.locator(`#shot-${shots[1]!.id}.ProseMirror`)).toBeFocused()
+
+  // And the Contact Sheet shows them, in their order, each with its Image.
+  await page.getByRole('button', { name: 'See the Contact Sheet' }).click()
+  const drawn = await page.locator('.sheet .frames button').evaluateAll(
+    frames => frames.map(frame => frame.id))
+  const added = shots.slice(1).map(shot => `frame-${shot.id}`)
+  expect(drawn.filter(id => added.includes(id))).toEqual(added)
+  for (const shot of shots.slice(1)) {
+    await expect(page.locator(`#frame-${shot.id} img`)).toHaveAttribute('src', shot.image!)
+  }
+})
+
+test('several Images dropped on a Scene’s run become as many Shots, and a thumbnail still takes one', async ({ page, request }) => {
+  const story = await writeStory(request)
+  await page.goto(`/stories/${story.id}`)
+  await writeScene(page, 'The bar')
+  const run = writing(page, 'The bar').locator('.run')
+
+  const carried = await droppedFiles(page, [png('b-10.png'), png('b-2.png'), png('b-1.png')])
+  await run.dispatchEvent('dragenter', { dataTransfer: carried })
+  await run.dispatchEvent('dragover', { dataTransfer: carried })
+  await expect(run).toHaveClass(/\bover\b/)
+  await run.dispatchEvent('drop', { dataTransfer: carried })
+
+  await expect(toast(page)).toHaveText('3 Shots added to “The bar”.')
+  await expect(run).not.toHaveClass(/\bover\b/)
+  const shots = await bar(request, story.id)
+  expect(await filesOf(request, shots)).toEqual([null, 'b-1.png', 'b-2.png', 'b-10.png'])
+
+  // Let go of on a thumbnail, the same handful fills that one Shot with the first
+  // file the hand was holding, and adds none.
+  const thumbnail = writing(page, 'The bar').locator('.image').first()
+  await thumbnail.dispatchEvent('drop', {
+    dataTransfer: await droppedFiles(page, [png('c-10.png'), png('c-2.png'), png('c-1.png')]),
+  })
+  await expect.poll(async () => filesOf(request, await bar(request, story.id)))
+    .toEqual(['c-10.png', 'b-1.png', 'b-2.png', 'b-10.png'])
+})
+
+test('what a Shot cannot carry is left out by its reason, and the rest are added', async ({ page, request }) => {
+  const story = await writeStory(request)
+  await page.goto(`/stories/${story.id}`)
+  await writeScene(page, 'The bar')
+
+  const opened = page.waitForEvent('filechooser')
+  await writing(page, 'The bar').getByRole('button', { name: 'Add Shots from Images to The bar' }).click()
+  await (await opened).setFiles([
+    { name: 'a.gif', type: 'image/gif', bytes: Buffer.from('GIF89a') },
+    { name: 'big.jpg', type: 'image/jpeg', bytes: Buffer.alloc(3 * 1024 * 1024) },
+    png('b-1.png'),
+    // Called a PNG and not one: only the server can tell, and it refuses that
+    // file alone.
+    { name: 'b-2.png', type: 'image/png', bytes: Buffer.from('Not an image at all') },
+    png('b-3.png'),
+  ].map(picked))
+
+  await expect(toast(page)).toHaveText('3 Shots added to “The bar”. '
+    + 'a.gif was left out: A Shot carries a JPEG, a PNG or a WebP image, and nothing else. '
+    + 'big.jpg was left out: An image cannot weigh more than 2 MB.')
+
+  // The file the server refused is a beat with no picture yet, and the one after
+  // it still carries its own.
+  const shots = await bar(request, story.id)
+  expect(await filesOf(request, shots)).toEqual([null, 'b-1.png', null, 'b-3.png'])
+  await expect(page.getByRole('alert')).toHaveText(
+    'In “The bar”: A Shot carries a JPEG, a PNG or a WebP image, and nothing else.')
 })

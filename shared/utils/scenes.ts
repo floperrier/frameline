@@ -238,6 +238,29 @@ export const SHOT_IMAGE_TYPES = Object.keys(SHOT_IMAGE_SIGNATURES)
  */
 export const SHOT_IMAGE_MAX_BYTES = 2 * 1024 * 1024
 
+/** `IMG_2` before `IMG_10`, and `a` beside `A`: the order a camera or an export numbers its files in. */
+const BY_NAME = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+
+/**
+ * Several files picked or dropped on a Scene at once, as the Shots they become:
+ * in the order of their names rather than the order the system handed them over
+ * in, and without the ones a Shot cannot carry, each left out with the sentence
+ * that says why. Read off the type and the weight the browser reports, which is
+ * a courtesy and not the guard — the server still reads the bytes.
+ */
+export function imagesForShots<File extends { name: string, type: string, size: number }>(files: File[]) {
+  const taken: File[] = []
+  const leftOut: { file: File, why: 'refusals.imageType' | 'refusals.imageHeavy' }[] = []
+
+  for (const file of [...files].sort((one, other) => BY_NAME.compare(one.name, other.name))) {
+    if (!SHOT_IMAGE_TYPES.includes(file.type)) leftOut.push({ file, why: 'refusals.imageType' })
+    else if (file.size > SHOT_IMAGE_MAX_BYTES) leftOut.push({ file, why: 'refusals.imageHeavy' })
+    else taken.push(file)
+  }
+
+  return { taken, leftOut }
+}
+
 /**
  * What an image really is, read from its own first bytes rather than from what the
  * upload said it was. The content type of an upload is the client's to write, and
