@@ -815,6 +815,8 @@ test('a second way on to the same Scene is written by duplicating the first',
     const { story, scenes } = await openGraph(request, ['The arrival', 'The platform'])
     const [from, to] = scenes as [{ id: string }, { id: string }]
     const first = await drawExit(request, from.id, to.id)
+    const crossed = { stepsBack: false, cutOver: 1200, cutThrough: 'black' }
+    await request.patch(`/api/exits/${first.id}`, { data: { ...crossed, text: 'Board it' } })
 
     await page.goto(`/stories/${story.id}`)
 
@@ -833,6 +835,14 @@ test('a second way on to the same Scene is written by duplicating the first',
       { id: first.id, position: 0, conditions: [] },
       { toSceneId: to.id, position: 1, conditions: [] },
     ])
+
+    // How the way on is crossed comes with it — backwards or not, and the
+    // passage it cuts through — since it is crossed into the same Scene; the
+    // words stay behind, because a second way on says something else (#344).
+    const { exits } = await (await request.get(`/api/stories/${story.id}`))
+      .json() as StoryInEditor
+    expect(exits.filter(exit => exit.fromSceneId === from.id))
+      .toMatchObject([{ ...crossed, text: 'Board it' }, { ...crossed, text: '' }])
 
     /**
      * The row of the ways on a Place is offered at, which is where an Exit's
