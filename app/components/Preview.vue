@@ -21,11 +21,13 @@
  * is worked out again from that Path — so a Reader's Reading carries no
  * inspection code to be kept switched off.
  */
-const { story, sceneWritten, change } = defineProps<{
+const { story, sceneWritten, shotRead, change } = defineProps<{
   /** The Story being written, which the reading is computed from as it is typed. */
   story: StoryInEditor
   /** The Scene the reading is stopped on, which is the one on the writing surface. */
   sceneWritten: string
+  /** The Shot of that Scene the reading opens standing on, where a beat's ▶ asked for one. */
+  shotRead?: string
   /** The one holder every write on this page goes through, which the order goes through too. */
   change: Change
 }>()
@@ -68,18 +70,49 @@ const reached = ref(true)
  * Author three Scenes in keeps what those Scenes set, and from the opening when
  * the Scene cannot be reached from where they are. The seed is carried into that
  * second search, because a Path found under another one would be another Reading.
+ *
+ * It hands back the Path that arrives there, because the Path handed down is read
+ * back only once the bench has drawn again, and a stand on a Shot is made from
+ * this one in the same tick.
  */
 function route() {
   if (standing.value === sceneWritten) {
     reached.value = true
-    return
+    return at.value
   }
 
   const found = pathTo(story, at.value, sceneWritten)
     ?? pathTo(story, opening(at.value.seed), sceneWritten)
   reached.value = !!found
   if (found) at.value = found
+  return found
 }
+
+/**
+ * The reading opened from a beat's own ▶: routed to its Scene as any Scene is,
+ * then stood on the beat in the same tick, so the Reading draws that Shot and
+ * none on the way to it. The pane is mounted afresh at every turn of the bench,
+ * so the beat is a frame drawn afresh too, and its arrival, its Movement and its
+ * Effects all play from their start — pressed again on the beat the Path already
+ * stands on, they play again.
+ *
+ * The Shot asked for is remembered once the pane is mounted, which is what lets
+ * the status line say it is not played as a change a screen reader announces.
+ * The ▶ went dark with the writing, so the focus goes to what the Reading
+ * puts the Reader on.
+ */
+const reel = useTemplateRef('reel')
+const asked = ref<string>()
+
+onMounted(async () => {
+  const found = route()
+  if (!shotRead) return
+
+  if (found) at.value = standOn(story, found, shotRead)
+  asked.value = shotRead
+  await nextTick()
+  reel.value?.land()
+})
 
 /**
  * The Reading moved somewhere the writing is not, and the writing asked to
@@ -91,8 +124,6 @@ function route() {
 watch(standing, (now) => {
   if (now && now !== sceneWritten) emit('moved', now)
 })
-
-onMounted(route)
 
 watch(() => sceneWritten, route)
 
@@ -237,6 +268,21 @@ const skipped = computed(() => {
     .filter(({ shot }) => !holds(shot.conditions, now.state))
 })
 
+/**
+ * What the status line says: that the Scene being written is not reached, or that
+ * the Shot a ▶ asked for is one this Path does not play — said in a sentence,
+ * because the reading then stands on the next Shot that plays, and an Author
+ * watching it arrive would otherwise take it for the one they pressed. Nothing
+ * looks for a Path on which it would play. The Shot is among the skipped ones
+ * below too, with the tests it fails.
+ */
+const status = computed(() => {
+  if (!reached.value) return t('preview.notReached', { scene: sceneName(sceneWritten) })
+  const unplayed = skipped.value.find(({ shot }) => shot.id === asked.value)
+
+  return unplayed ? t('preview.notPlayed', { place: unplayed.place, scene: standsIn.value }) : ''
+})
+
 /** Which of the tests a hidden Exit or a skipped Shot carries this State fails, and by what. */
 function why(conditions: Condition[]) {
   return unmet(conditions, shown.value.state, sceneName, id => exitCalled(exits.value.get(id), t), t)
@@ -262,14 +308,15 @@ function why(conditions: Condition[]) {
 
     <template v-else>
       <!-- A Scene nothing leads to yet: the reading stands where it got to, and
-           says so, rather than playing the Scene with no State behind it. The
+           says so, rather than playing the Scene with no State behind it. A Shot
+           asked for that this Path does not play is said here the same way. The
            element is in the document before it has anything to say, on one
            line so that Vue writes nothing at all into it: a live region
            announces a change to a node it already holds, never a node that
            arrives with its sentence inside it. -->
-      <p class="nothing" role="status">{{ reached ? '' : $t('preview.notReached', { scene: sceneName(sceneWritten) }) }}</p>
+      <p class="nothing" role="status">{{ status }}</p>
 
-      <Reading v-model:at="at" :story="story">
+      <Reading ref="reel" v-model:at="at" :story="story">
         <!-- The order the ways on are offered in, set on the buttons as they are
              read. A pair of controls rather than a drag, because an order that
              can only be set with a pointer is an order some Authors cannot set. -->
@@ -581,9 +628,9 @@ function why(conditions: Condition[]) {
   gap: var(--s2);
 }
 
-/* A Story with nowhere to start, or a Scene nothing leads to: a note where the
-   frame would be, in the voice the bench says the same of a Story with no Scene
-   in it. */
+/* A Story with nowhere to start, a Scene nothing leads to, or a Shot asked for
+   that this Path does not play: a note above the frame, in the voice the bench
+   says the same of a Story with no Scene in it. */
 .nothing {
   padding: var(--s3);
   border: 1px dashed var(--edge);

@@ -17,7 +17,7 @@ import {
 import type { Path, State, StoryToRead } from '../../shared/utils/reading'
 import {
   advance, back, braced, cut, declaredIn, lastUnitAt, layout, lasting, moved, movement, movementEnds, movesItself, opening, pathTo,
-  pieces, reading, resumes, said, take, textArrival, textArrives, textMoves, timed, unmet,
+  pieces, reading, resumes, said, standOn, take, textArrival, textArrives, textMoves, timed, unmet,
 } from '../../shared/utils/reading'
 import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
 import type { Phrase } from '../../shared/utils/phrases'
@@ -1193,6 +1193,52 @@ describe('a Reading stopped at one Scene', () => {
 
     expect(pathTo(round, OPENING, 'Cellar')?.taken)
       .toEqual(['exit-1', 'exit-3', 'exit-4', 'exit-6'])
+  })
+})
+
+describe('a Reading stood on one Shot', () => {
+  /**
+   * A Scene of four Shots reached by an Exit, the second of which plays only
+   * where a Flag the Street sets holds: so the Path into the Bar arrives with a
+   * State, and which Shots it plays is that State's to say.
+   */
+  const bar = story(
+    {
+      Street: ['A door opens.'],
+      Bar: ['Smoke.', ['A lighter.', [{ flag: 'lit', is: 'yes' }]], 'Her drink.', 'The door again.'],
+    },
+    [['Street', 'Go in', 'Bar']],
+    'Street',
+    { Street: { lit: 'no' } },
+  )
+  const inTheBar = pathTo(bar, OPENING, 'Bar')!
+
+  it('stands on the Shot, counted in the run the Path plays', () => {
+    const stood = standOn(bar, inTheBar, 'Bar-3')
+
+    expect(stood).toEqual({ ...inTheBar, shot: 2 })
+    expect(reading(bar, stood).shot?.text).toBe('The door again.')
+  })
+
+  it('stands on the next Shot that plays where the one asked for is skipped', () => {
+    expect(reading(bar, standOn(bar, inTheBar, 'Bar-1')).shot?.text).toBe('Her drink.')
+  })
+
+  it('stands on the Exits where nothing after the Shot asked for plays', () => {
+    const ending = story(
+      { Street: ['A door opens.', ['A light goes on.', [{ flag: 'lit', is: 'yes' }]]] },
+      [],
+      'Street',
+      { Street: { lit: 'no' } },
+    )
+    const stood = standOn(ending, OPENING, 'Street-1')
+
+    expect(stood.shot).toBe(1)
+    expect(reading(ending, stood).shot).toBeUndefined()
+  })
+
+  it('leaves the Path where it is for a Shot its Scene does not hold', () => {
+    expect(standOn(bar, inTheBar, 'Street-0')).toBe(inTheBar)
   })
 })
 
