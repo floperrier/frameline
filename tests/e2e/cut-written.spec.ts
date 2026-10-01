@@ -229,6 +229,58 @@ test('an Exit says how the passage out is made, and a hard cut says nothing more
   })
 
 /**
+ * What *Duplicate Scene* and *Split* carry of the Cut, asked of the doors directly
+ * and read back off the Story — issue #344. A copy is the Scene met again, so it
+ * is cut as the Scene was. A split is the same run with one press between its
+ * halves: the second half is cut as the Scene was, its ways on stand as long as
+ * they stood, the press between the two is a press, and what the press cuts
+ * through is what the Shot before it was cut through.
+ */
+test('a Scene duplicated and a Scene split carry the Cut', async ({ request }) => {
+  const story = await writeStory(request)
+  const street = (await reread(request, story.id)).scenes[0]!
+  const [first, second] = street.shots
+  const cutOf = ({ cutAfter, cutOver, cutThrough }: NonNullable<typeof first>) =>
+    ({ cutAfter, cutOver, cutThrough })
+
+  await request.patch(`/api/scenes/${street.id}`, {
+    data: { cutAfter: 3000, cutOver: 800, cutThrough: 'image', exitsAfter: 10_000 },
+  })
+  await request.patch(`/api/shots/${first!.id}`, {
+    data: { cutAfter: 0, cutOver: 1200, cutThrough: 'black' },
+  })
+  const timed = { cutAfter: 3000, cutOver: 800, cutThrough: 'image', exitsAfter: 10_000 }
+
+  const made = await request.post(`/api/scenes/${street.id}/duplicate`)
+  expect(made.status()).toBe(201)
+  const { id: copyId } = await made.json() as { id: string }
+  const copy = (await reread(request, story.id)).scenes.find(scene => scene.id === copyId)!
+  expect(copy).toMatchObject(timed)
+  expect(copy.shots.map(cutOf)).toEqual([
+    { cutAfter: 0, cutOver: 1200, cutThrough: 'black' },
+    { cutAfter: null, cutOver: null, cutThrough: null },
+  ])
+
+  const split = await request.post(`/api/scenes/${street.id}/split`, {
+    data: { shotId: second!.id, name: 'The street, later' },
+  })
+  expect(split.status()).toBe(201)
+  const { id: laterId } = await split.json() as { id: string }
+  const { scenes, exits } = await reread(request, story.id)
+  const sceneOf = (id: string) => scenes.find(scene => scene.id === id)!
+
+  // The Shot that moved says nothing of its own, so it is cut as the Scene said.
+  expect(sceneOf(laterId)).toMatchObject(timed)
+  expect(sceneOf(laterId).shots.map(cutOf)).toEqual([
+    { cutAfter: null, cutOver: null, cutThrough: null },
+  ])
+  expect(sceneOf(street.id)).toMatchObject({ cutAfter: 3000, exitsAfter: null })
+  expect(exits.filter(exit => exit.fromSceneId === street.id)).toMatchObject([
+    { toSceneId: laterId, cutOver: 1200, cutThrough: 'black' },
+  ])
+})
+
+/**
  * The three doors themselves, asked directly rather than through the panel: which
  * field each carrier's row holds, and where a null is a sentence rather than a
  * gap. The panel writes none of these bodies — it offers a `<select>` of the

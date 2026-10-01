@@ -1344,10 +1344,13 @@ function leadExit(scene: Scene, exit: Exit, toSceneId: string) {
  * Writes a second way on to the same Scene, carrying the Conditions of the first:
  * two ways on to one Scene under opposite Conditions is what Conditions on an Exit
  * are for, so it is written on purpose here. The text is not copied — the second
- * is offered under opposite tests and phrased from scratch.
+ * is offered under opposite tests and phrased from scratch. How it is crossed is
+ * copied, backwards or not and the passage it cuts through, since it is crossed
+ * into the same Scene (#344).
  */
 function duplicateExit(scene: Scene, exit: Exit) {
   const conditions = wholeConditions(exit.conditions)
+  const { stepsBack, cutOver, cutThrough } = exit
 
   return changing(scene, async () => {
     const written = await send(`/api/scenes/${scene.id}/exits`, {
@@ -1357,6 +1360,13 @@ function duplicateExit(scene: Scene, exit: Exit) {
 
     if (conditions.length) {
       await send(`/api/exits/${written.id}/conditions`, { method: 'PUT', body: { conditions } })
+    }
+
+    if (stepsBack !== null || cutOver) {
+      await send(`/api/exits/${written.id}`, {
+        method: 'PATCH',
+        body: { stepsBack, cutOver, cutThrough },
+      })
     }
 
     announce(t('editor.exitDuplicated', {

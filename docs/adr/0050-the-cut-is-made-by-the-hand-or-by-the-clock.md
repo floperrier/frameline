@@ -195,3 +195,10 @@ carries.
 - The Contact Sheet is unchanged. A contact sheet is still and silent; `0049`
   refused it a Sound for that reason, and this refuses it a Cut for the same
   one.
+- *Duplicate Scene* copies the Cut: the Scene's four columns and each Shot's
+  three. *Split* gives the second half the Scene's `cut_after`, `cut_over` and
+  `cut_through`, and also its `exits_after`, since the ways on move with that
+  half. The first half goes back to null, so the press between the halves is a
+  press. The Exit that joins them passes through what the Shot before the split
+  was cut through, because the passage out of a Scene is the Exit's own. A copy
+  of an Exit keeps that Exit's passage and its `steps_back`. See issue #344.
