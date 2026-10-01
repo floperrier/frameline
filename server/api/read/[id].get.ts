@@ -25,6 +25,9 @@ export default defineEventHandler(async (event) => {
     .select({
       id: stories.id,
       title: stories.title,
+      // Not drawn on the page: it is what the link is presented by where it is
+      // pasted, which is where the Story meets somebody who has not read it.
+      synopsis: stories.synopsis,
       language: stories.language,
       openingSceneId: stories.openingSceneId,
       stepsBack: stories.stepsBack,

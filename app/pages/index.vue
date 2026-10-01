@@ -8,6 +8,17 @@ const localePath = useLocalePath()
 // than no link. The address carries no locale, like every public link does:
 // `docs/adr/0012-the-public-link-carries-no-locale.md`.
 const landingStory = useRuntimeConfig().public.landingStory
+
+// The product's own address is named by the product alone, and pasted anywhere
+// it is presented by the pitch the page itself opens on.
+const { t } = useI18n()
+
+useHead({ title: 'Frameline', titleTemplate: null })
+useSeoMeta({
+  ogTitle: 'Frameline',
+  description: () => t('landing.pitch'),
+  ogDescription: () => t('landing.pitch'),
+})
 </script>
 
 <template>

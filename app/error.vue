@@ -10,20 +10,23 @@
  * wrong. Nothing is guessed about which Story, because a link to a Story that is
  * gone must not say a Story was ever there.
  */
-defineProps<{ error: { statusCode: number } }>()
+const props = defineProps<{ error: { statusCode: number } }>()
 
 // The error page stands in for the whole app, so it says which language it is in
-// itself: `app.vue` is not what rendered it.
-const { locale } = useI18n()
+// itself: `app.vue` is not what rendered it. The tab is named by the sentence
+// the page says, which names no Story either.
+const { locale, t } = useI18n()
+const said = computed(() =>
+  props.error.statusCode === 404 ? t('refusals.noSuch.story') : t('error.wentWrong'))
 
-useHead({ htmlAttrs: { lang: locale } })
+useHead({ htmlAttrs: { lang: locale }, title: said })
 </script>
 
 <template>
   <main class="room">
     <div class="gone">
       <p class="eyebrow">{{ error.statusCode }}</p>
-      <h1>{{ error.statusCode === 404 ? $t('refusals.noSuch.story') : $t('error.wentWrong') }}</h1>
+      <h1>{{ said }}</h1>
       <NuxtLink class="trail" to="/">{{ $t('error.home') }}</NuxtLink>
     </div>
   </main>
