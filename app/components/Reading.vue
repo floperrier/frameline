@@ -282,7 +282,11 @@ async function moveTo(to: Path, byClock = false) {
   // it in the window at once. Instant, because a jump the Reader asked for is not
   // a motion to be watched, and so there is nothing for reduced motion to take
   // off.
-  if (full.value && !byClock) root.value?.scrollIntoView({ block: 'start' })
+  // Given the whole screen, the Reading is what scrolls, so its head is its own.
+  if (full.value && !byClock) {
+    root.value?.scrollIntoView({ block: 'start' })
+    root.value?.scrollTo(0, 0)
+  }
 }
 
 /**
@@ -829,6 +833,81 @@ function pauseOrResume() {
 }
 
 /**
+ * The keys a Reading is gone on with. Each does what one of the two controls
+ * under the frame does at that moment, and only where that control is drawn:
+ * `Space`, `Enter`, `→` and `PageDown` what *Next Shot* does, `←` and `PageUp`
+ * what *Step Back* does. Every beat lands the focus on the frame, which is no
+ * control, so without them every beat costs a Reader by keyboard a Tab and an
+ * Enter — see issue #391.
+ *
+ * Heard on the document, the way the bar of Commands hears ⌘K, and answered from
+ * inside the Reading. On the page a Reader reads on, the one that keeps the Path,
+ * they are answered from the page itself too. A Preview is one pane of a bench
+ * full of fields, so it answers from inside alone. A field or a control keeps its
+ * own keys: `Space` on an Exit takes that Exit. A key held with a modifier is
+ * never answered either, since that is how the bench's own keys are pressed. The
+ * browser's answer to the key, such as scrolling the page, is taken away only
+ * where the key acted.
+ *
+ * Pressing the picture is still no way on. A Reader pressing it to look at it would
+ * be carried on by accident, and pressing a key is not a way of looking — see
+ * `docs/adr/0055-a-shot-is-laid-out-as-its-scene-says.md`.
+ */
+const GOES_ON = [' ', 'Enter', 'ArrowRight', 'PageDown']
+const STEPS_BACK = ['ArrowLeft', 'PageUp']
+
+function readByKeys(event: KeyboardEvent) {
+  if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+  const on = event.target as HTMLElement
+  if (!root.value?.contains(on) && !(keptFor && on === document.body)) return
+  if (on.isContentEditable || on.matches('button, a, input, textarea, select')) return
+
+  if (GOES_ON.includes(event.key) && shown.value.shot) pressed()
+  else if (STEPS_BACK.includes(event.key) && moved(at.value) && behind.value) stepBack()
+  else return
+  event.preventDefault()
+}
+
+/**
+ * Whether the Reader is offered the whole screen, and whether the Reading has it.
+ * Only a Reader is offered it. A Preview's pane is the room its full Shots are
+ * measured against, and an Author reads where they write — see
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`. It is offered only where
+ * the browser can give an element the screen at all, which Safari on an iPhone
+ * cannot: a control over nothing is not drawn, which is the rule *Pause* follows.
+ * Read once mounted, because the server knows neither the browser nor its screen.
+ *
+ * Followed off `fullscreenchange` rather than set by the press, so leaving with the
+ * browser's own Esc relabels the control too. Arriving there puts the Reader on the
+ * beat, as starting the clock again does: left on the control, the next `Space`
+ * would hand the screen back instead of going on.
+ */
+const fillable = ref(false)
+const filling = ref(false)
+
+function fills() {
+  filling.value = !!root.value && document.fullscreenElement === root.value
+  if (filling.value) land()
+}
+
+function fillOrLeave() {
+  // A browser that refuses refuses quietly: the Reading goes on in its page.
+  if (filling.value) document.exitFullscreen().catch(() => {})
+  else root.value?.requestFullscreen().catch(() => {})
+}
+
+onMounted(() => {
+  fillable.value = !!keptFor && document.fullscreenEnabled
+  document.addEventListener('keydown', readByKeys)
+  document.addEventListener('fullscreenchange', fills)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', readByKeys)
+  document.removeEventListener('fullscreenchange', fills)
+})
+
+/**
  * The hold: where the Cut of the Shot on screen names a time, the clock presses
  * what the hand presses and nothing else — so a Path arrived at by waiting is the
  * Path a hand would have arrived at, over the passage a hand would have made it
@@ -1327,9 +1406,9 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
     <p class="ended visually-hidden" role="status">{{ shown.ended ? $t('reading.ended') : '' }}</p>
 
     <!-- What the Reader is given over the Reading itself: the clock stopped, the
-         one refusal of the Sound, and the words for whoever cannot hear it. All
-         three are the person's rather than the Reading's, so none of them touches
-         the Path.
+         one refusal of the Sound, the words for whoever cannot hear it, and the
+         whole screen. All four are the person's rather than the Reading's, so none
+         of them touches the Path.
 
          The pause comes first because it is the one control over something
          already happening, and it is drawn only where something can happen: a
@@ -1337,8 +1416,10 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
          lasts, which moves by itself for as long as its beat stands. A Story
          nobody wrote a time, a Movement or a lasting Effect into is read entirely
          by the hand, and a control over nothing that ever moves would do nothing
-         — the way a Story carrying no Sound is given no title card to press. -->
-    <p v-if="movesAtAll || lasts || heardAtAll" class="given">
+         — the way a Story carrying no Sound is given no title card to press. The
+         whole screen comes last, because it is the one control that is not over
+         anything the Story does. -->
+    <p v-if="movesAtAll || lasts || heardAtAll || fillable" class="given">
       <button v-if="movesAtAll || lasts" type="button" class="trail" @click="pauseOrResume">
         {{ paused ? $t('reading.resume') : $t('reading.pause') }}
       </button>
@@ -1352,6 +1433,9 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
         @click="transcribed = !transcribed"
       >
         {{ transcribed ? $t('reading.hideTranscript') : $t('reading.showTranscript') }}
+      </button>
+      <button v-if="fillable" type="button" class="trail" @click="fillOrLeave">
+        {{ filling ? $t('reading.leaveFullScreen') : $t('reading.fullScreen') }}
       </button>
     </p>
 
@@ -1450,6 +1534,30 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
 
 .reading.full:has(> .resumed) {
   grid-template-rows: auto minmax(0, 1fr);
+}
+
+/* Given the whole screen, the Reading is the room. It is painted the room's colour
+   over anything the browser would show behind it, and it scrolls itself where
+   what it holds is taller than the screen. Its column stands in the middle of the
+   screen, down as well as across: safely, so a Reading taller than the screen
+   starts at its head rather than above it.
+
+   The browser holds an element in the whole screen at exactly the screen's
+   height, so under a beat laid out full the frame's row is never shorter than
+   what it holds. A text the screen cannot carry makes the Reading scroll rather
+   than lose a line off its foot. */
+.reading:fullscreen {
+  align-content: safe center;
+  overflow-y: auto;
+  background: var(--room);
+}
+
+.reading.full:fullscreen {
+  grid-template-rows: 1fr;
+}
+
+.reading.full:fullscreen:has(> .resumed) {
+  grid-template-rows: auto 1fr;
 }
 
 /* The image and the text share the one gate, because they are one beat and not
