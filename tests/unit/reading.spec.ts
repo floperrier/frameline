@@ -321,6 +321,23 @@ describe('an Exit carrying Conditions', () => {
       .toEqual(['Stay outside'])
   })
 
+  it('reads a Flag named after what every object inherits as one nobody set', () => {
+    // An Author may call a Flag anything, and the Reading holds nothing under a
+    // name until a Scene sets it, whatever a JavaScript object carries by it.
+    for (const flag of ['constructor', 'toString', '__proto__']) {
+      expect(shown(ways([{ flag, is: '' }]), endOfStreet).offered)
+        .toEqual(['Stay outside', 'Go in'])
+    }
+  })
+
+  it('holds a Flag named __proto__ like any other', () => {
+    // Built the way `flagsSet` builds a Scene's Flags, so the name is the Scene's
+    // own key rather than the prototype an object literal would read it as.
+    const sets = Object.fromEntries([['__proto__', 'found']])
+    expect(shown(ways([{ flag: '__proto__', is: 'found' }], { Street: sets }), endOfStreet).offered)
+      .toEqual(['Stay outside', 'Go in'])
+  })
+
   it('asks whether a Scene has been entered, the Scene stood in included', () => {
     const been = ways([{ scene: 'Street', entered: true }])
     expect(shown(been, endOfStreet).offered).toEqual(['Stay outside', 'Go in'])

@@ -589,9 +589,13 @@ export type Shown = {
  *
  * The Exits it crosses are written down too, so a Shot of a Scene and an Exit
  * leaving it see every Exit taken up to and including the one that entered it.
+ *
+ * The Flags are a map with no prototype, because an Author may name a Flag
+ * anything: on `{}`, one named `constructor` would already hold a function, and
+ * one named `__proto__` could never be set.
  */
 function walk(story: StoryToRead, { seed, taken }: Path) {
-  const state: State = { flags: {}, entered: [], taken: [] }
+  const state: State = { flags: Object.create(null), entered: [], taken: [] }
 
   function enter(id: string) {
     state.entered.push(id)
