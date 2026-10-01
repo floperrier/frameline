@@ -1,8 +1,8 @@
 /**
  * What the bench finds when it reads the Story back: the Scenes nothing arrives
  * at, the Shots nobody has written, a Sound nobody transcribed, the Flags set
- * and never tested, the ways on that can never be offered, and the ways on no
- * Reading is ever handed.
+ * and never tested, the ways on that can never be offered, the Conditions the
+ * ways round rule out, and the ways on no Reading is ever handed.
  *
  * A Remark is a reading and never a refusal. Nothing here blocks a write, marks a
  * Story invalid or corrects anything: every one of these is a Story an Author is
@@ -26,9 +26,12 @@
  */
 import {
   CHARACTERS_A_SECOND,
+  exitCalled,
   exitsFrom,
+  exitsOnTheBench,
   namesOnTheBench,
   reaches,
+  sceneNamed,
 } from '../../shared/utils/scenes'
 import type { Condition, Scene, Shot, StoryInEditor } from '../../shared/utils/scenes'
 // Through the alias, as `app/utils/draw.ts` explains: a relative path to a module
@@ -91,8 +94,9 @@ export type Remark = {
    */
   sceneId?: string
   /**
-   * What the sentence names: a Scene, by the name the bench calls it, a Flag, and
-   * the Place a Shot or an Exit holds.
+   * What the sentence names: a Scene, by the name the bench calls it, a Flag, the
+   * Place a Shot or an Exit holds, and the question a Condition asks, phrased
+   * whole as `test`.
    */
   said: Record<string, string | number>
 }
@@ -237,6 +241,7 @@ export function remarks(story: StoryInEditor, say: Phrase): Remark[] {
     ...found,
     ...flagRemarks(story, names),
     ...deadRemarks(story, names),
+    ...neverHoldsRemarks(story, names, say),
     ...neverTakenRemarks(story, names),
   ]
 }
@@ -284,6 +289,77 @@ function neverTakenRemarks(story: StoryInEditor, names: Map<string, string>): Re
             said: { scene: names.get(scene.id)!, place: place + 1 },
           }])
   })
+}
+
+/**
+ * Whether a Condition can hold for a Reading standing in a Scene, going only by
+ * the ways on and never by their Conditions. A Flag is not asked here, and holds.
+ * A Scene asked entered holds where a Reading can have been there and can get from
+ * there to here; asked not entered, where a Reading still gets here with it taken
+ * out of the Story. An Exit asked taken holds where a Reading can reach the Scene
+ * it leaves and get from the one it leads to to here; asked not taken, where a
+ * Reading still gets here without it. An Exit that is gone is never taken, so a
+ * question asking that it was can never hold, and one asking that it was not
+ * always does.
+ */
+function canHold(story: StoryInEditor, opening: string, condition: Condition, sceneId: string) {
+  if ('flag' in condition) return true
+  if ('scene' in condition) {
+    return condition.entered
+      ? reaches(story.exits, opening, condition.scene)
+        && reaches(story.exits, condition.scene, sceneId)
+      : reachedWithout(story, opening, sceneId, condition.scene)
+  }
+
+  const exit = story.exits.find(({ id }) => id === condition.exit)
+  return condition.taken
+    ? !!exit
+      && reaches(story.exits, opening, exit.fromSceneId)
+      && reaches(story.exits, exit.toSceneId, sceneId)
+    : reaches(story.exits.filter(({ id }) => id !== condition.exit), opening, sceneId)
+}
+
+/**
+ * The Shots and the ways on asking a question about a Scene or an Exit that the
+ * ways round rule out: a Scene asked entered that no Reading gets here from, a
+ * Scene asked not entered that every way passes through (the Opening Scene, and
+ * the Scene itself, among them), an Exit asked taken that no Reading is handed
+ * before it gets here, an Exit asked not taken that every way to the Scene takes.
+ *
+ * The rule reads the ways on and never their Conditions, which is safe in the
+ * direction `neverTakenRemarks` already relies on: Conditions only take ways
+ * away, so a Condition this says can never hold can never hold. The other
+ * direction is not asked. A Condition that always holds plays to everyone, which
+ * is a Story and not a slip. A Scene no Reading reaches is left to
+ * `sceneUnreached`, as `neverTakenRemarks` leaves it.
+ */
+function neverHoldsRemarks(
+  story: StoryInEditor,
+  names: Map<string, string>,
+  say: Phrase,
+): Remark[] {
+  const opening = story.openingSceneId
+  if (!opening) return []
+  const exits = exitsOnTheBench(story, names)
+
+  return conditionsOf(story)
+    .filter(([condition, scene]) =>
+      reaches(story.exits, opening, scene.id) && !canHold(story, opening, condition, scene.id))
+    .flatMap(([condition, scene, name, place]) => {
+      if ('flag' in condition) return []
+      const asked = 'scene' in condition
+        ? sceneNamed(names, condition.scene, say)
+        : exitCalled(exits.get(condition.exit), say)
+      const test = say(`remark.${'scene' in condition
+        ? (condition.entered ? 'whenEntered' : 'whenNotEntered')
+        : (condition.taken ? 'whenTaken' : 'whenNotTaken')}`, { asked })
+
+      return [{
+        name: name === 'shotUnplayable' ? 'shotConditionNeverHolds' : 'exitConditionNeverHolds',
+        sceneId: scene.id,
+        said: { scene: names.get(scene.id)!, place, test },
+      }]
+    })
 }
 
 /**
@@ -346,11 +422,9 @@ function flagRemarks(story: StoryInEditor, names: Map<string, string>): Remark[]
  * Flag nothing sets at all is left to `flagRemarks`, which says the more useful
  * thing about it — the two never fire on the same Condition.
  *
- * A visit count is not read here. Whether a Scene can be entered often enough is
- * a question about the ways round the graph rather than about a list of values,
- * and answering it wrongly would be worse than not answering it: an Author who
- * meant a Scene to be unreachable a third time would be told their Story is
- * broken.
+ * A question about a Scene or an Exit is not read here either: it is asked of
+ * the ways round the graph rather than of a list of values, and
+ * `neverHoldsRemarks` reads it.
  *
  * Nor is the empty value, which is not a value at all. A Flag never set reads as
  * empty — `shared/utils/reading.ts`, and the glossary says so of a Flag — so a

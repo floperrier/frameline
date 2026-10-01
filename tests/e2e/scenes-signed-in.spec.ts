@@ -1557,6 +1557,12 @@ test('a Shot’s Conditions are refused where an Exit’s would be', async ({
     data: { conditions: [{ scene: elsewhere.id, entered: true }] },
   })
   expect(outside.status()).toBe(404)
+  // And so is an Exit of theirs, which this Condition cannot ask about.
+  const theirExit = await seedExit(elsewhere.id, elsewhere.id)
+  const outsideExit = await request.put(`/api/shots/${shot!.id}/conditions`, {
+    data: { conditions: [{ exit: theirExit.id, taken: true }] },
+  })
+  expect(outsideExit.status()).toBe(404)
   const theirs = await request.put(`/api/shots/${elsewhere.shots[0]!.id}/conditions`, {
     data: { conditions: [{ flag: 'coat', is: 'on' }] },
   })

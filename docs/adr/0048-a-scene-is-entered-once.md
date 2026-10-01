@@ -118,7 +118,9 @@ used form survives untouched, since "has this Reader been through the kitchen"
 is what the test was almost always for; what goes is "the third time", along
 with `VISITS_MAX` and the phrases that count. State stops being a flat map of
 Flags plus a count per Scene and becomes a flat map of Flags plus the Scenes
-entered. `docs/adr/0004-conditions-stay-flat.md` is amended by this, in the
+entered — and, since
+`docs/adr/0058-a-condition-asks-whether-an-exit-has-been-taken.md`, the Exits
+taken. `docs/adr/0004-conditions-stay-flat.md` is amended by this record, in the
 direction it already argues for: the language gets smaller.
 
 What each stored test becomes follows from that, and settles the migration:

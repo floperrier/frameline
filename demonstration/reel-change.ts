@@ -11,12 +11,12 @@
  * dark room with one lit thing in it is an image either way.
  *
  * Almost every cut in it is made by the Reader's hand and made hard, which is
- * how the whole work read before a Cut could be written. The five that are not
+ * how the whole work read before a Cut could be written. The six that are not
  * are each written where the film already asked for one, and each says so where
  * it stands — see
  * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`. The last of
- * them is the ending, where the coat goes to black — see
- * `docs/adr/0053-a-reading-ends-on-its-last-shot.md`.
+ * them is the ending, where the coat goes to black, or the woman without it —
+ * see `docs/adr/0053-a-reading-ends-on-its-last-shot.md`.
  *
  * Three texts arrive in their own time, each where the film asks: the opening beam
  * crosses the booth alone and the line fades up onto it, as a title does; the
@@ -31,7 +31,7 @@
 
 import { aligned, bar, formatted, line, run } from '../shared/utils/formatted.ts'
 import type { Style } from '../shared/utils/formatted.ts'
-import type { Work } from './work.ts'
+import type { Image, Work } from './work.ts'
 
 /* Seeded from the product's own tokens in `app/assets/css/frameline.css` — the
    room an image is looked at in, the paper the light is, the grease pencil, which
@@ -65,6 +65,29 @@ function rows(from: number, count: number, step: number, inset: number) {
     const y = from + row * step
     return `roundrectangle ${inset + row * 30},${y} ${1600 - inset - row * 30},${y + 58} 16,16`
   }).join(' ')
+}
+
+/**
+ * The boulevard from above at first light, which the work's last beat is shot on
+ * whichever Shot plays it: at that size, no coat is told from none.
+ */
+const BOULEVARD: Image = {
+  ground: ['#8d9694', '#404746'],
+  glow: [{ colour: DAWN, draw: 'ellipse 800,300 900,400 0,360', blur: 90, opacity: 0.5 }],
+  form: [
+    // Seen from the booth window: the far kerb, then her, small on the
+    // pavement, with the low sun laying her shadow across it.
+    { colour: '#39413f', draw: 'rectangle 0,0 1600,150', blur: 10, opacity: 0.6 },
+    { colour: '#2b3231', draw: 'polygon 930,540 1420,760 1330,790 880,570', blur: 22, opacity: 0.45 },
+    {
+      colour: '#121716',
+      draw: 'ellipse 894,348 30,40 0,360 '
+        + 'polygon 828,548 850,400 892,374 932,374 952,402 966,548',
+      blur: 4,
+      opacity: 0.95,
+    },
+  ],
+  grain: 0.8,
 }
 
 export const REEL_CHANGE: Work = {
@@ -414,7 +437,7 @@ export const REEL_CHANGE: Work = {
       name: 'Daybreak',
       shots: [
         {
-          // A card: both ways up arrive at it, and the one through black arrives
+          // A card: every way up arrives at it, and the two through black arrive
           // at a card that is itself the dark.
           formatted: formatted(aligned(
             'centre',
@@ -439,14 +462,17 @@ export const REEL_CHANGE: Work = {
         },
         {
           text: 'Somewhere below it, a coat, going away from the cinema, unhurried.',
+          // Played to every Reader who did not take the coat with them, the
+          // Reader who never came by it included.
+          when: [{ exit: { from: 'The coat', place: 2 }, taken: false }],
           // The words walk, and the last of them arrives five seconds and a half in.
           textBy: 'word',
           textPace: 10,
           textOver: 400,
-          // The work ends on this beat, and a film ends on black: the coat goes to
-          // it over three seconds once the Reader presses past it, and the black
-          // is where the Reading stops. Said on the Shot rather than on Daybreak,
-          // so the cut between the Scene's two Shots stays hard.
+          // The work ends on this beat or on the next, and a film ends on black:
+          // the coat goes to it over three seconds once the Reader presses past
+          // it, and the black is where the Reading stops. Said on the Shot rather
+          // than on Daybreak, so the cuts between the Scene's other Shots stay hard.
           cutOver: 3000,
           cutThrough: 'black',
           // The Image draws away from her as she walks away from the cinema, over
@@ -459,24 +485,28 @@ export const REEL_CHANGE: Work = {
           cropY: 50,
           description: 'The boulevard from above at first light: a woman small on the pavement, '
             + 'walking away, her long shadow laid across it.',
-          image: {
-            ground: ['#8d9694', '#404746'],
-            glow: [{ colour: DAWN, draw: 'ellipse 800,300 900,400 0,360', blur: 90, opacity: 0.5 }],
-            form: [
-              // Seen from the booth window: the far kerb, then her, small on the
-              // pavement, with the low sun laying her shadow across it.
-              { colour: '#39413f', draw: 'rectangle 0,0 1600,150', blur: 10, opacity: 0.6 },
-              { colour: '#2b3231', draw: 'polygon 930,540 1420,760 1330,790 880,570', blur: 22, opacity: 0.45 },
-              {
-                colour: '#121716',
-                draw: 'ellipse 894,348 30,40 0,360 '
-                  + 'polygon 828,548 850,400 892,374 932,374 952,402 966,548',
-                blur: 4,
-                opacity: 0.95,
-              },
-            ],
-            grain: 0.8,
-          },
+          image: BOULEVARD,
+        },
+        {
+          text: 'Somewhere below it, a woman with no coat, going away from the cinema, '
+            + 'unhurried.',
+          // The same beat, for the Reader who took the coat with them, and told the
+          // same way: the words walk, the Image draws away from her, and the work
+          // goes to black on it.
+          when: [{ exit: { from: 'The coat', place: 2 }, taken: true }],
+          textBy: 'word',
+          textPace: 10,
+          textOver: 400,
+          cutOver: 3000,
+          cutThrough: 'black',
+          movementDirection: 'away',
+          movementBy: 30,
+          movementOver: 8000,
+          cropX: 56,
+          cropY: 50,
+          description: 'The boulevard from above at first light: a woman with no coat, small on '
+            + 'the pavement, walking away, her long shadow laid across it.',
+          image: BOULEVARD,
         },
       ],
     },
@@ -513,11 +543,11 @@ export const REEL_CHANGE: Work = {
       // to them, and the night simply ends.
       //
       // It ends rather than stops, so it is a passage and not a cut — but a
-      // short one, and through the image rather than through black. The two ways
-      // up are exclusive, so no Reader ever sees one beside the other: what
-      // separates them has to be legible in the gesture itself, and nine hundred
-      // milliseconds of dissolve is a staircase where two seconds of black is a
-      // night.
+      // short one, and through the image rather than through black. This way up
+      // is never offered beside the two out of The coat, which are offered side
+      // by side: what separates it from them has to be legible in the gesture
+      // itself, and nine hundred milliseconds of dissolve is a staircase where two
+      // seconds of black is a night.
       text: 'Go back up and open the window',
       when: [{ flag: 'reel', is: '' }],
       cutOver: 900,
@@ -531,6 +561,16 @@ export const REEL_CHANGE: Work = {
       // sequence is closed, and this is the only sequence here that closes —
       // the Reader coming up the other way crosses the same night in a dissolve,
       // because they have nothing to have left behind.
+      cutOver: 2000,
+      cutThrough: 'black',
+    },
+    {
+      from: 'The coat',
+      to: 'Daybreak',
+      text: 'Take the coat with you',
+      // Offered second, and through the same black, because the ellipsis closes
+      // the sequence whichever answer closes it. Daybreak remembers which: its
+      // last beat asks whether this way on was taken.
       cutOver: 2000,
       cutThrough: 'black',
     },

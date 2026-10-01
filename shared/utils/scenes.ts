@@ -733,6 +733,49 @@ export function sceneNamed(names: Map<string, string>, sceneId: string, say: Phr
   return names.get(sceneId) ?? say('scene.gone')
 }
 
+/** What the bench calls one Exit: its Place out of the Scene it leaves, and the bench's names for both ends. */
+export type ExitOnTheBench = {
+  place: number
+  from: string
+  scene: string
+  toSceneId: string
+  text: string
+}
+
+/**
+ * Every Exit of the Story, in the order the Story is written in and each Scene's
+ * in its Places. An Exit has no name of its own — see `CONTEXT.md` — so the bench
+ * names it by its Place out of the Scene it leaves: the Places the writing shows
+ * and the Remarks count, because all of them read `exitsFrom`. The names of the
+ * Scenes at both ends are the bench's own, so a Scene called twice is told apart
+ * here as it is everywhere.
+ */
+export function exitsOnTheBench(story: StoryInEditor, names: Map<string, string>) {
+  const called = new Map<string, ExitOnTheBench>()
+  for (const scene of inDocumentOrder(story.scenes, story.exits, story.openingSceneId)) {
+    exitsFrom(story.exits, scene.id).forEach((exit, place) => called.set(exit.id, {
+      place: place + 1,
+      from: names.get(scene.id)!,
+      scene: names.get(exit.toSceneId)!,
+      toSceneId: exit.toSceneId,
+      text: exit.text,
+    }))
+  }
+
+  return called
+}
+
+/** An Exit as an option of the field a Condition names it in. */
+export function exitOption(called: ExitOnTheBench | undefined, say: Phrase) {
+  if (!called) return say('exit.goneOption')
+  return say(called.text ? 'exit.optionSays' : 'exit.option', called)
+}
+
+/** An Exit as a sentence names it. */
+export function exitCalled(called: ExitOnTheBench | undefined, say: Phrase) {
+  return called ? say('exit.called', called) : say('exit.gone')
+}
+
 /**
  * How an Exit is named where it is read rather than edited. An Exit nobody has
  * phrased yet is named by where it lands: an unphrased Exit is half of what a
@@ -811,12 +854,17 @@ export function scenesAExitMayLandOn(scenes: Scene[], exits: Exit[], fromSceneId
 /**
  * A flat test on the State of one Reading, carried by an Exit or by a Shot: the
  * Exit is offered, and the Shot played, only where every test it carries passes.
- * Two things can be tested and nothing else — what a Flag holds, or whether a
- * Scene has been entered — with no arithmetic and no nesting, so a Condition is
- * one row of a form and one comparison in the engine. A Flag that was never set
- * reads as the empty value, which is how a Condition asks for the absence of one.
+ * Three things can be tested and nothing else — what a Flag holds, whether a
+ * Scene has been entered, or whether an Exit has been taken — with no arithmetic
+ * and no nesting, so a Condition is one row of a form and one comparison in the
+ * engine. A Flag that was never set reads as the empty value, which is how a
+ * Condition asks for the absence of one.
  *
- * Two members again. A third stood here for one deploy — the shape a Condition was
+ * The Exit is the Scene's mirror and is no more counted than it: an Exit leaves
+ * one Scene and a Scene is entered once, so an Exit is taken at most once — see
+ * `docs/adr/0048-a-scene-is-entered-once.md`.
+ *
+ * A counting member stood here for one deploy — the shape a Condition was
  * written in while a Reading could enter a Scene again and again — read so that
  * nothing already stored broke before the migration reached it, and written by
  * nothing. #306 rewrote every row and this is the contract half that takes it
@@ -826,6 +874,7 @@ export function scenesAExitMayLandOn(scenes: Scene[], exits: Exit[], fromSceneId
 export type Condition =
   | { flag: string, is: string }
   | { scene: string, entered: boolean }
+  | { exit: string, taken: boolean }
 
 export type StoryInEditor = {
   id: string

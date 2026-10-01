@@ -277,9 +277,9 @@ export const scenes = pgTable('scenes', {
 //
 // `conditions` are the flat tests the Shot plays under, all of which must hold;
 // an empty list is a Shot every Reading sees. Held as jsonb, validated at the
-// request boundary and naming a Scene by an id no foreign key reaches, for the
-// same reasons an Exit's are — see the Exit below. A Shot skipped by one of these
-// is still a linear run and not a branch, so
+// request boundary and naming a Scene or an Exit by an id no foreign key
+// reaches, for the same reasons an Exit's are — see the Exit below. A Shot
+// skipped by one of these is still a linear run and not a branch, so
 // `docs/adr/0001-branching-only-between-scenes.md` is untouched.
 //
 // It defaults to the empty list, which nothing here needs — every Shot is
@@ -341,9 +341,10 @@ export const shots = pgTable('shots', {
 // hold; an empty list is an Exit always offered. Held as jsonb for the same reason
 // as a Scene's Flags: it is read and written whole with the Exit, and the shape is
 // kept by the request boundary rather than by columns. A Condition naming a Scene
-// holds its id in the json, where no foreign key reaches — a Scene deleted out
-// from under it leaves a Condition asking about nowhere, which is a Condition
-// that never passes.
+// or an Exit holds its id in the json, where no foreign key reaches — one deleted
+// out from under it leaves a Condition asking about nowhere. Asked as entered or
+// taken it never passes, because nothing was ever entered or taken there; asked
+// as not entered or not taken it always does, for the same reason.
 //
 // `position` is the Scene's own numbering of the ways on leaving it: 0, 1, 2
 // with no gaps, the same Place a Shot has in its Scene's run. The Reader is

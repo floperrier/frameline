@@ -29,7 +29,12 @@
     "goneOption": "Une Scène disparue"
   },
   "exit": {
-    "to": "Sortie vers {scene}"
+    "to": "Sortie vers {scene}",
+    "called": "la Sortie {place} depuis {from}",
+    "option": "{place} vers {scene}, depuis {from}",
+    "optionSays": "{place} vers {scene}, depuis {from} · « {text} »",
+    "gone": "une Sortie disparue",
+    "goneOption": "Une Sortie disparue"
   },
   "landing": {
     "eyebrow": "Récit interactif, coupé comme un film",
@@ -414,7 +419,11 @@
     "toCarrier": "à {carrier}",
     "called": "Condition {place} de {carrier}",
     "hasBeenEntered": "a été entrée",
-    "hasNotBeenEntered": "n’a pas été entrée"
+    "hasNotBeenEntered": "n’a pas été entrée",
+    "exit": "Sortie",
+    "taken": "prise",
+    "hasBeenTaken": "a été prise",
+    "hasNotBeenTaken": "n’a pas été prise"
   },
   "flags": {
     "called": "Marqueur {place} posé à l'entrée dans {scene}",
@@ -454,6 +463,12 @@
     "flagUnset": "Une Condition de {scene} teste le Marqueur {flag}, et aucune Scène ne le pose.",
     "exitUnofferable": "La Sortie {place} depuis {scene} n’est offerte que si {flag} vaut « {is} », valeur qu’aucune Scène ne lui donne.",
     "shotUnplayable": "Le Plan {place} de {scene} ne joue que si {flag} vaut « {is} », valeur qu’aucune Scène ne lui donne.",
+    "shotConditionNeverHolds": "Le Plan {place} de {scene} ne joue que si {test}, ce qui n’est jamais le cas pour une Lecture qui y arrive.",
+    "exitConditionNeverHolds": "La Sortie {place} depuis {scene} n’est offerte que si {test}, ce qui n’est jamais le cas pour une Lecture qui y arrive.",
+    "whenEntered": "{asked} a été entrée",
+    "whenNotEntered": "{asked} n’a pas été entrée",
+    "whenTaken": "{asked} a été prise",
+    "whenNotTaken": "{asked} n’a pas été prise",
     "exitNeverTaken": "La Sortie {place} de {scene} ramène à une Scène qu’une Lecture arrivée ici a déjà traversée : aucun Lecteur ne se la voit jamais offrir.",
     "exitUnphrased": "La Sortie {place} depuis {scene} n’a pas de mots à elle : là où elle est offerte, le Lecteur lit le nom de la Scène où elle mène.",
     "sceneFlowsNowhere": "{scene} passe à la suivante sans demander, et n’a aucune Sortie où aller — une Lecture s’arrête là.",
@@ -473,6 +488,9 @@
     "noFlagValue": "(rien)",
     "noFlags": "Aucune Scène n'en a encore posé",
     "scenesEntered": "Scènes entrées",
+    "exitsTaken": "Sorties prises",
+    "exitTaken": "La Sortie {place} vers {scene}, depuis {from}",
+    "noExitTaken": "Aucune Sortie prise pour l’instant",
     "noWayBack": "Sans retour",
     "reroll": "Tirer à nouveau",
     "rerollNote": "le même Parcours, un autre tirage",
@@ -481,7 +499,9 @@
     "reading": "Aperçu",
     "notReached": "Rien ne mène encore à {scene}, aucune Lecture n’y arrive donc. L’aperçu ci-dessous reste où il est parvenu.",
     "needsEntered": "demande que {scene} ait été entrée, et elle ne l’a pas été",
-    "needsNotEntered": "demande que {scene} n’ait pas été entrée, et elle l’a été"
+    "needsNotEntered": "demande que {scene} n’ait pas été entrée, et elle l’a été",
+    "needsTaken": "demande que {exit} ait été prise, et elle ne l’a pas été",
+    "needsNotTaken": "demande que {exit} n’ait pas été prise, et elle l’a été"
   },
   "reading": {
     "next": "Plan suivant",
@@ -549,7 +569,7 @@
       "shot": "Un Plan ne peut pas porter plus de {max} Conditions.",
       "exit": "Une Sortie ne peut pas porter plus de {max} Conditions."
     },
-    "badCondition": "Une Condition teste ce que vaut un Marqueur, ou si une Scène a été entrée.",
+    "badCondition": "Une Condition teste ce que vaut un Marqueur, si une Scène a été entrée, ou si une Sortie a été prise.",
     "exitText": "Une Sortie porte un texte.",
     "exitTextLong": "Une Sortie ne peut pas porter plus de {max} caractères.",
     "exitTarget": "Une Sortie arrive sur une Scène.",

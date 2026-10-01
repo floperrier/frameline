@@ -91,9 +91,10 @@ export type StoryToShow = Omit<StoryToRead, 'scenes'> & {
 export type Path = { seed: number, taken: string[], shot: number }
 
 /**
- * Everything one Reading has accumulated: what each Flag holds, and the Scenes it
- * has entered, in the order it entered them. Computed from the Path on every read
- * and kept nowhere, so no two Readings can reach the same State.
+ * Everything one Reading has accumulated: what each Flag holds, the Scenes it has
+ * entered, and the Exits it has taken, each in the order it did. Computed from the
+ * Path on every read — the Exits taken are the Path read back — and kept nowhere,
+ * so no two Readings can reach the same State.
  *
  * Entered rather than counted, because a Reading stands in a Scene at most once
  * and a count of nought or one is a list of names said the long way round — see
@@ -102,7 +103,7 @@ export type Path = { seed: number, taken: string[], shot: number }
  * being written down; the Scenes one Reading has been through are few enough that
  * looking through them costs nothing.
  */
-export type State = { flags: Flags, entered: string[] }
+export type State = { flags: Flags, entered: string[], taken: string[] }
 
 /**
  * Whether the Conditions an Exit or a Shot carries all pass against this State —
@@ -114,7 +115,9 @@ export function holds(conditions: Condition[], state: State) {
   return conditions.every((condition) => {
     if ('flag' in condition) return (state.flags[condition.flag] ?? '') === condition.is
 
-    return state.entered.includes(condition.scene) === condition.entered
+    if ('scene' in condition) return state.entered.includes(condition.scene) === condition.entered
+
+    return state.taken.includes(condition.exit) === condition.taken
   })
 }
 
@@ -438,10 +441,9 @@ export function lasting(story: StoryToRead) {
 /**
  * Why an Exit is not on offer, or a Shot not played: one line for each test it
  * carries that this State fails, saying what the test asked for and what the
- * State actually holds. For
- * an Author's eyes alone — a Reader is never told what they are not being
- * offered — so the Scene a Condition asks about is named rather than shown as the
- * id the Condition holds.
+ * State actually holds. For an Author's eyes alone — a Reader is never told what
+ * they are not being offered — so the Scene or the Exit a Condition asks about is
+ * named rather than shown as the id the Condition holds.
  *
  * Every test is put back through `holds` one at a time rather than read a second
  * time here, so what this says failed and what the engine hid the Exit for cannot
@@ -452,6 +454,7 @@ export function unmet(
   conditions: Condition[],
   state: State,
   sceneName: (id: string) => string,
+  exitName: (id: string) => string,
   say: Phrase,
 ) {
   return conditions.filter(condition => !holds([condition], state)).map((condition) => {
@@ -463,8 +466,14 @@ export function unmet(
       })
     }
 
-    return say(condition.entered ? 'preview.needsEntered' : 'preview.needsNotEntered', {
-      scene: sceneName(condition.scene),
+    if ('scene' in condition) {
+      return say(condition.entered ? 'preview.needsEntered' : 'preview.needsNotEntered', {
+        scene: sceneName(condition.scene),
+      })
+    }
+
+    return say(condition.taken ? 'preview.needsTaken' : 'preview.needsNotTaken', {
+      exit: exitName(condition.exit),
     })
   })
 }
@@ -577,9 +586,12 @@ export type Shown = {
  * its Flags: the draw is made before anything is judged, so the State an Exit or
  * a Shot is held against is the one the Reader arrived with. One arrival is one
  * draw, so the draw is made as the Reading arrives and never again.
+ *
+ * The Exits it crosses are written down too, so a Shot of a Scene and an Exit
+ * leaving it see every Exit taken up to and including the one that entered it.
  */
 function walk(story: StoryToRead, { seed, taken }: Path) {
-  const state: State = { flags: {}, entered: [] }
+  const state: State = { flags: {}, entered: [], taken: [] }
 
   function enter(id: string) {
     state.entered.push(id)
@@ -601,6 +613,7 @@ function walk(story: StoryToRead, { seed, taken }: Path) {
       exit.id === takenId && exit.fromSceneId === sceneId && offered(exit, state))
     if (!exit) break
     sceneId = exit.toSceneId
+    state.taken.push(exit.id)
     enter(sceneId)
     walked++
   }
@@ -732,11 +745,12 @@ export function back(story: StoryToRead, at: Path): Path | undefined {
  *
  * A Scene is passed once for each way it can be arrived at that the ways on
  * further on tell apart, rather than once outright: the Flags held, the Scenes
- * entered that some Condition asks about, and the Scenes entered that are still
- * ahead, which `offered` withholds. Two ways round that agree on all three are
- * offered the same ways on from there to the end, so only the first is searched
- * on; keying on every Scene entered would never merge two, and keying on nothing
- * would extend for ever a Path that `walk` has stopped following.
+ * entered that some Condition asks about, the Scenes entered that are still
+ * ahead, which `offered` withholds, and the Exits taken that some Condition asks
+ * about. Two ways round that agree on all four are offered the same ways on from
+ * there to the end, so only the first is searched on; keying on every Scene
+ * entered would never merge two, and keying on nothing would extend for ever a
+ * Path that `walk` has stopped following.
  */
 export function pathTo(story: StoryToRead, from: Path, sceneId: string): Path | undefined {
   const seen = new Set<string>()
@@ -744,8 +758,10 @@ export function pathTo(story: StoryToRead, from: Path, sceneId: string): Path | 
   // the Exits it takes. A Story an Author is writing is small; measure it the day
   // one is not.
   let edge = [from]
-  const asked = new Set(story.exits.flatMap(exit =>
-    exit.conditions.flatMap(condition => 'scene' in condition ? [condition.scene] : [])))
+  // The Scenes and Exits some way on asks about. Scene and Exit ids are both
+  // uuids, so one set holds both.
+  const asked = new Set(story.exits.flatMap(exit => exit.conditions.flatMap(condition =>
+    'scene' in condition ? [condition.scene] : 'exit' in condition ? [condition.exit] : [])))
 
   // Every Scene the ways on lead to from this one, whatever they ask. Only a Story
   // written before `docs/adr/0048-a-scene-is-entered-once.md` can hold one the
@@ -770,7 +786,7 @@ export function pathTo(story: StoryToRead, from: Path, sceneId: string): Path | 
 
       const onward = ahead(standing)
       const told = state.entered.filter(id => asked.has(id) || onward.includes(id))
-      const arrivedAs = JSON.stringify([standing, state.flags, told])
+      const arrivedAs = JSON.stringify([standing, state.flags, told, state.taken.filter(id => asked.has(id))])
       if (seen.has(arrivedAs)) continue
       seen.add(arrivedAs)
 

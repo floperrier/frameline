@@ -124,6 +124,7 @@ const draws = computed(() =>
  * `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
  */
 const names = computed(() => namesOnTheBench(story, t))
+const exits = computed(() => exitsOnTheBench(story, names.value))
 
 function sceneName(sceneId: string) {
   return sceneNamed(names.value, sceneId, t)
@@ -199,6 +200,7 @@ function moveWay(exit: Exit, step: -1 | 1) {
  */
 const flags = computed(() => Object.entries(shown.value.state.flags))
 const entered = computed(() => shown.value.state.entered)
+const taken = computed(() => shown.value.state.taken)
 
 /** What a Flag holds, and what stands in for a Flag holding the empty value. */
 function held(value: string) {
@@ -237,7 +239,7 @@ const skipped = computed(() => {
 
 /** Which of the tests a hidden Exit or a skipped Shot carries this State fails, and by what. */
 function why(conditions: Condition[]) {
-  return unmet(conditions, shown.value.state, sceneName, t)
+  return unmet(conditions, shown.value.state, sceneName, id => exitCalled(exits.value.get(id), t), t)
 }
 </script>
 
@@ -406,6 +408,25 @@ function why(conditions: Condition[]) {
               </li>
             </ul>
           </div>
+
+          <div>
+            <p class="eyebrow">{{ $t('preview.exitsTaken') }}</p>
+            <!-- The Exits this Reading has taken, in the order it took them: the
+                 Path read back, which is what a question about an Exit asks of.
+                 Each is named the way the bench names it, and beside it the words
+                 the Reader pressed, in the Story's own Language. Every id here is
+                 an Exit the Story still carries, because the walk only pushes
+                 Exits it found, so the lookups cannot miss. -->
+            <ul v-if="taken.length" class="taken">
+              <li v-for="exitId in taken" :key="exitId">
+                {{ $t('preview.exitTaken', exits.get(exitId)!) }}
+                <b :lang="story.language">{{
+                  exitNamed(story.exits.find(exit => exit.id === exitId)!, sceneName, t)
+                }}</b>
+              </li>
+            </ul>
+            <p v-else class="none">{{ $t('preview.noExitTaken') }}</p>
+          </div>
         </div>
       </section>
     </template>
@@ -517,8 +538,8 @@ function why(conditions: Condition[]) {
   color: var(--grease);
 }
 
-/* Two lists side by side where there is room for two, and one under the other in
-   a narrow column. */
+/* Three lists side by side where there is room for them, and one under the other
+   in a narrow column. */
 .state {
   display: grid;
   gap: var(--s4);
@@ -529,7 +550,8 @@ function why(conditions: Condition[]) {
    contrast of a label, the value beside it in the machine's own light. The Scenes
    entered are a list of one thing apiece, so a line of it is only the light half. */
 .flags li,
-.entered li {
+.entered li,
+.taken li {
   display: flex;
   align-items: baseline;
   gap: var(--s2);
@@ -537,7 +559,8 @@ function why(conditions: Condition[]) {
 }
 
 .flags b,
-.entered b {
+.entered b,
+.taken b {
   color: var(--light);
   font-weight: 500;
 }
