@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test'
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
-import { live, opened, test, writeShot, writeStory } from './author'
+import { live, moreStyles, opened, test, writeShot, writeStory } from './author'
 import { formatted, line, run } from '../../shared/utils/formatted'
 import type { Formatted } from '../../shared/utils/formatted'
 import type { Arrival, Lasting, StoryInEditor } from '../../shared/utils/scenes'
@@ -95,6 +95,8 @@ test('Add an Effect over the words selected writes both marks, and Take the Effe
 
     await writeShot(box, 'Nothing here is precious, break it now.')
     await select(box, 'break it')
+    // Both are in the panel under the bar's row since #398.
+    await moreStyles(bar)
     const adding = bar.getByRole('button', { name: 'Add an Effect' })
     await expect(adding).toHaveAttribute('aria-expanded', 'false')
     await adding.click()

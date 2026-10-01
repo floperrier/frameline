@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test'
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import {
-  ONE_PIXEL, live, readTheStory, seedPublished, test, writeShot, writeStory,
+  ONE_PIXEL, live, moreStyles, readTheStory, seedPublished, test, writeShot, writeStory,
 } from './author'
 import { bar, formatted, formattedOf, line, run } from '../../shared/utils/formatted'
 import { REDACTION_HIDES_MAX_LENGTH, SHOT_TEXT_MAX_LENGTH } from '../../shared/utils/scenes'
@@ -100,6 +100,7 @@ test('a run set in the typewriter and a Story set in it are drawn in the typewri
 
     await writeShot(box, 'A door opens.')
     await select(box, 'door')
+    await moreStyles(toolbar(page))
     await toolbar(page).getByRole('combobox', { name: 'Typeface' }).selectOption('Typewriter')
     await expect(box.locator('.face-typewriter')).toHaveText('door')
     await expect(box.locator('.face-typewriter')).toHaveCSS('font-family', typewriter)
@@ -274,6 +275,26 @@ test('the toolbar is one stop, and the stop is the control used last', async ({ 
   await page.keyboard.press('Escape')
   await expect(text).toBeFocused()
 
+  // The arrows walk the row round from *More Styles*, its last control, to the
+  // first; once it is open they walk on into the panel under it, `End` to its last.
+  const more = bar.getByRole('button', { name: 'More Styles' })
+  await page.keyboard.press('Tab')
+  await page.keyboard.press('Home')
+  await page.keyboard.press('ArrowLeft')
+  await expect(more).toBeFocused()
+  await page.keyboard.press('ArrowRight')
+  await expect(bar.getByRole('button', { name: 'Italic' })).toBeFocused()
+  await page.keyboard.press('ArrowLeft')
+  await page.keyboard.press('Enter')
+  await expect(more).toHaveAttribute('aria-expanded', 'true')
+  await expect(more).toBeFocused()
+  await page.keyboard.press('ArrowRight')
+  await expect(bar.getByRole('button', { name: 'Small Capitals' })).toBeFocused()
+  await page.keyboard.press('End')
+  await expect(bar.getByRole('button', { name: 'Take the Effect Off' })).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(text).toBeFocused()
+
   // A select stepped by a key, which on Windows and Linux says a change at every
   // step, takes the step and keeps the focus where the keys are; `Enter` is what
   // puts the caret back. Stepped by hand, because what an arrow does to a closed
@@ -290,6 +311,105 @@ test('the toolbar is one stop, and the stop is the control used last', async ({ 
   await page.keyboard.press('Enter')
   await expect(text).toBeFocused()
 })
+
+/**
+ * The bar is one row of what a writer reaches for while typing, and the rest of a
+ * Shot's styles one labelled press away — issue #398, which amends `docs/adr/0056-
+ * a-shots-text-is-formatted-where-it-is-written.md` in `docs/adr/0062-the-
+ * formatting-bar-is-one-row-and-a-panel.md`.
+ */
+test('the bar is one row, and the keys set what the row no longer draws', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  const { box } = await writing(page, request)
+  const bar = toolbar(page)
+  const more = bar.getByRole('button', { name: /^More Styles/ })
+
+  await writeShot(box, 'A door opens.')
+  expect(await bar.locator('[data-stop]').evaluateAll(stops => stops.map(stop => stop.getAttribute('aria-label'))))
+    .toEqual(['Italic', 'Bold', 'Underline', 'Strikethrough', 'This line is', 'Add a Separator',
+      'Redact the Selection', 'More Styles'])
+  await expect(more).toHaveAttribute('aria-expanded', 'false')
+  expect((await bar.boundingBox())!.height).toBeLessThanOrEqual(48)
+  // Still one row at the narrowest width the bench is held to it.
+  await page.setViewportSize({ width: 1280, height: 900 })
+  expect((await bar.boundingBox())!.height).toBeLessThanOrEqual(48)
+
+  await select(box, 'door')
+  for (const key of ['i', 'b', 'u', 'Shift+s']) await page.keyboard.press(`ControlOrMeta+${key}`)
+  for (const tag of ['em', 'strong', 'u', 's']) await expect(box.locator(tag)).toHaveText('door')
+  await select(box, 'opens')
+  await page.keyboard.press('ControlOrMeta+.')
+  await expect(box.locator('sup')).toHaveText('opens')
+  // A style the panel holds, set by its key with the panel shut, is said on the
+  // control that opens it.
+  await expect(more).toHaveAccessibleName('More Styles, Some Set Here')
+  await select(box, 'A')
+  await page.keyboard.press('ControlOrMeta+,')
+  await expect(box.locator('sub')).toHaveText('A')
+  await page.keyboard.press('ControlOrMeta+Shift+e')
+  await expect(box.locator('p.align-centre')).toHaveCount(1)
+  await expect(more).toHaveAttribute('aria-expanded', 'false')
+})
+
+test('More Styles opens a panel whose every select is labelled, and an ink chosen there is written and said on it',
+  async ({ page, request }) => {
+    const { story, box } = await writing(page, request)
+    const bar = toolbar(page)
+    const more = bar.getByRole('button', { name: /^More Styles/ })
+
+    await writeShot(box, 'A door opens.')
+    await select(box, 'door')
+    await moreStyles(bar)
+    const panel = bar.getByRole('group', { name: 'More Styles' })
+    // Each select drawn under the name it is reached by, so no two read alike. This
+    // Shot has no Image, so where its text stands is read, and offered.
+    for (const label of ['Size', 'Typeface', 'Colour', 'Highlight', 'Letter spacing', 'Language of these words',
+      'Alignment', 'Line spacing', 'Where the text stands']) {
+      await expect(panel.getByText(label, { exact: true })).toBeVisible()
+    }
+
+    await panel.getByLabel('Colour', { exact: true }).selectOption('Rose')
+    await expect(box.locator('.ink-rose')).toHaveText('door')
+    await more.click()
+    await expect(panel).toHaveCount(0)
+
+    // The caret in the inked word, the panel shut: the button says it holds
+    // something, and on the plain words after it, it does not.
+    await box.locator('.ink-rose').click()
+    await expect(more).toHaveAccessibleName('More Styles, Some Set Here')
+    await select(box, 'opens')
+    await expect(more).toHaveAccessibleName('More Styles')
+    await box.blur()
+
+    await expect.poll(async () => (await reread(request, story.id)).scenes[0]!.shots[0]!.formatted)
+      .toMatchObject(formatted(line('A ', run('door', { type: 'colour', attrs: { ink: 'rose', band: false } }), ' opens.')))
+  })
+
+test('the panel stays as the Author left it from Shot to Shot, and a reload brings it back shut',
+  async ({ page, request }) => {
+    const { box } = await writing(page, request)
+    const formatting = (place: number) => page.getByRole('toolbar', { name: `Formatting of Shot ${place} of The street` })
+    const more = (place: number) => formatting(place).getByRole('button', { name: /^More Styles/ })
+
+    await box.click()
+    await moreStyles(formatting(1))
+    // `Enter` opens a Shot under the one being written, and the caret in it.
+    await page.keyboard.press('Enter')
+    await expect(more(2)).toHaveAttribute('aria-expanded', 'true')
+    await expect(formatting(2).getByRole('group', { name: 'More Styles' })).toBeVisible()
+
+    // Shut there, and shut in the Shot pressed next.
+    await more(2).click()
+    await box.click()
+    await expect(more(1)).toHaveAttribute('aria-expanded', 'false')
+    await expect(formatting(1).getByRole('group', { name: 'More Styles' })).toHaveCount(0)
+
+    await moreStyles(formatting(1))
+    await page.reload()
+    await live(page)
+    await box.click()
+    await expect(more(1)).toHaveAttribute('aria-expanded', 'false')
+  })
 
 /**
  * The doors asked directly, for what the editor never sends: it reads the text

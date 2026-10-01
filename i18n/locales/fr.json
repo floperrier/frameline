@@ -385,6 +385,8 @@
     "styleSub": "Indice",
     "redact": "Caviarder la sélection",
     "addSeparator": "Ajouter un séparateur",
+    "moreStyles": "Autres styles",
+    "moreStylesHeld": "Autres styles, certains appliqués ici",
     "size": "Taille",
     "sizeSmall": "Petite",
     "sizeNormal": "Normale",
