@@ -522,8 +522,10 @@ export function opening(seed = Math.floor(Math.random() * 2 ** 32)): Path {
  * Where a Reading stands before a seed has been drawn for it: the opening
  * Path under a seed of none. A screen renders on the server and then again in
  * the browser hydrating it, and a seed drawn twice would be two different
- * Stories either side of that — so the screens start here, and draw once the
- * Reading is in the browser it will stay in.
+ * Stories either side of that — so the screens start here and draw once: the
+ * Reading as it is set up, carrying the seed the server drew to the browser that
+ * hydrates it, and the bench, which renders no Reading on the server, once it is
+ * mounted. See `docs/adr/0060-the-seed-is-carried-to-the-browser.md`.
  */
 export const UNDRAWN: Path = opening(0)
 
