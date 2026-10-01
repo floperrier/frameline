@@ -1,6 +1,6 @@
 import type { Browser, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { seedPublished, test, writeStory } from './author'
+import { begin, seedPublished, test, writeStory } from './author'
 
 /**
  * Someone arriving at the public link for the first time: their own context, so
@@ -16,6 +16,7 @@ async function readerAt(browser: Browser, link: string) {
 
 /** Reads the Story `writeStory` wrote from its first Shot to its ending. */
 async function readToTheEnd(page: Page) {
+  await begin(page)
   await expect(page.getByText('A door opens.')).toBeVisible()
   await page.getByRole('button', { name: 'Next Shot' }).click()
   await expect(page.getByText('She steps out.')).toBeVisible()
@@ -71,6 +72,7 @@ test('an Author publishes a Story and a Reader reads it at the public link', asy
   // A second Reader starts the Story over, and the first stays where they were:
   // a Reading carries its own State and shares it with nobody.
   const other = await readerAt(browser, publicLink)
+  await begin(other.page)
   await expect(other.page.getByText('A door opens.')).toBeVisible()
   await expect(reader.page.getByRole('status')).toHaveText('The Reading ends here.')
 
@@ -85,6 +87,7 @@ test('an Author publishes a Story and a Reader reads it at the public link', asy
   await expect(page.getByRole('link', { name: publicLink })).toBeVisible()
   const again = await readerAt(browser, publicLink)
   expect(again.status).toBe(200)
+  await begin(again.page)
   await expect(again.page.getByText('A door opens.')).toBeVisible()
 })
 

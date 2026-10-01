@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { expect } from '@playwright/test'
-import { live, opened, readTheStory, test, writeStory } from './author'
+import { begin, opened, readTheStory, test, writeStory } from './author'
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
@@ -254,7 +254,7 @@ test('a full Image alone is still the room tall when the Reader is put back on i
 
     await page.getByRole('button', { name: 'Next Shot' }).click()
     await page.reload()
-    await live(page)
+    await begin(page)
 
     await expect(page.getByRole('status').filter({ hasText: 'Picked up where you left off.' }))
       .toBeVisible()

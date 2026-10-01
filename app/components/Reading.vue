@@ -41,15 +41,17 @@ const at = defineModel<Path>('at', { default: () => UNDRAWN })
 
 /**
  * The seed every draw a Scene makes comes out of, drawn once, by whichever side
- * renders the Reading first. The server renders this page too, and draws it there:
- * Nuxt writes it into the payload, and the browser hydrating that page reads the
- * same number back rather than drawing a second, so the opening beat is one Story
- * on both sides of hydration. Drawn twice, a Flag said or tested on the opening
- * beat would read one value as the page is painted and another once it answers —
- * issue #387. A Reading set up in the browser alone, behind a title card, draws it
- * there. It is the one impure moment in a Reading — see
- * `docs/adr/0024-the-seed-belongs-to-the-position.md` and
- * `docs/adr/0060-the-seed-is-carried-to-the-browser.md`.
+ * renders the Reading first. A server rendering it draws it there: Nuxt writes it
+ * into the payload, and the browser hydrating that page reads the same number back
+ * rather than drawing a second, so the opening beat is one Story on both sides of
+ * hydration. Drawn twice, a Flag said or tested on the opening beat would read one
+ * value as the page is painted and another once it answers — issue #387. Every
+ * Reading a Reader opens is set up in the browser alone now, behind its title
+ * card, and draws it there; the carry is kept for a server that renders one again.
+ * It is the one impure moment in a Reading — see
+ * `docs/adr/0024-the-seed-belongs-to-the-position.md`,
+ * `docs/adr/0060-the-seed-is-carried-to-the-browser.md` and
+ * `docs/adr/0063-a-story-opens-on-its-title-card.md`.
  *
  * Drawn for whoever finds the Path still `UNDRAWN`, which is the one Path both
  * holders start at: a bench that holds the Path above the document has drawn it

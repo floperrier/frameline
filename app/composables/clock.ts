@@ -26,11 +26,10 @@ export function useClock() {
 
   onMounted(() => {
     const watching = () => { hidden.value = document.visibilityState === 'hidden' }
-    // Read as the Reading mounts rather than waited for. A silent Story opens with
-    // no press at all, so a link opened into a background tab — a middle click, a
-    // session restored — would start its clock in a room nobody is looking at, and
-    // the Reader would arrive at a Story that had played on without them. The event
-    // says when it changed; only this says what it is.
+    // Read as the Reading mounts rather than waited for. A Reading mounted in a
+    // tab already out of sight would otherwise start its clock in a room nobody is
+    // looking at, and the Reader would come back to a Story that had played on
+    // without them. The event says when it changed; only this says what it is.
     watching()
     document.addEventListener('visibilitychange', watching)
     onBeforeUnmount(() => document.removeEventListener('visibilitychange', watching))

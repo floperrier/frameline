@@ -1,6 +1,6 @@
 import type { Browser, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { forgetName, live, test, writeStory } from './author'
+import { begin, forgetName, test, writeStory } from './author'
 
 /**
  * A Reader with no account, in a browser of their own: no session, no cookie and
@@ -12,6 +12,7 @@ async function reader(browser: Browser, link: string) {
   const context = await browser.newContext()
   const page = await context.newPage()
   await page.goto(link)
+  await begin(page)
   return { context, page }
 }
 
@@ -34,6 +35,7 @@ test('a Reader who leaves a Story comes back to where they stood', async ({ page
   await reading.getByRole('button', { name: 'Next Shot' }).click()
   await expect(reading.getByText('She steps out.')).toBeVisible()
   await reading.reload()
+  await begin(reading)
   await expect(reading.getByText('She steps out.')).toBeVisible()
   await expect(pickedUp(reading)).toBeVisible()
 
@@ -44,6 +46,7 @@ test('a Reader who leaves a Story comes back to where they stood', async ({ page
   await reading.getByRole('button', { name: 'Follow her out' }).click()
   await expect(reading.getByText('Smoke, and no one she knows.')).toBeVisible()
   await reading.reload()
+  await begin(reading)
   await expect(reading.getByText('Smoke, and no one she knows.')).toBeVisible()
   await expect(pickedUp(reading)).toBeVisible()
 
@@ -56,6 +59,7 @@ test('a Reader who leaves a Story comes back to where they stood', async ({ page
   await reading.getByRole('button', { name: 'Read Again from the Start' }).click()
   await expect(reading.getByText('A door opens.')).toBeVisible()
   await reading.reload()
+  await begin(reading)
   await expect(reading.getByText('A door opens.')).toBeVisible()
   await expect(pickedUp(reading)).toHaveCount(0)
 
@@ -66,6 +70,7 @@ test('a Reader who leaves a Story comes back to where they stood', async ({ page
   await reading.getByRole('button', { name: 'Next Shot' }).click()
   await expect(reading.getByRole('status')).toHaveText('The Reading ends here.')
   await reading.reload()
+  await begin(reading)
   await expect(reading.getByText('A door opens.')).toBeVisible()
   await expect(pickedUp(reading)).toHaveCount(0)
 })
@@ -90,6 +95,7 @@ test('a Reader is not put back where the Story has moved from under them', async
   await request.delete(`/api/exits/${exits[0].id}`)
 
   await reading.reload()
+  await begin(reading)
   await expect(reading.getByText('A door opens.')).toBeVisible()
   await expect(pickedUp(reading)).toHaveCount(0)
 })
@@ -115,6 +121,7 @@ test('a Reader who finishes a Story is led on to its Author and to the Catalogue
   const context = await browser.newContext({ baseURL, locale: 'en-US', extraHTTPHeaders: {} })
   const reading = await context.newPage()
   await reading.goto(link)
+  await begin(reading)
 
   await expect(reading.getByText('Favourites and Lists are kept per account')).toBeVisible()
 
@@ -127,8 +134,9 @@ test('a Reader who finishes a Story is led on to its Author and to the Catalogue
   // Story and nothing beside it, and everything else waits under the Exits.
   await expect(reading.locator('.reading').getByRole('link')).toHaveCount(0)
 
-  // Signed as an entry on a shelf is, and the Name is the way to the Author.
-  await expect(reading.getByRole('link', { name: author.name! }))
+  // Signed on the title card as an entry on a shelf is, and the Name is the way
+  // to the Author.
+  await expect(reading.locator('main > header').getByRole('link', { name: author.name! }))
     .toHaveAttribute('href', `/profile/${author.id}`)
 
   // The Story played to its end, and from the ending the Catalogue is one press.
@@ -147,7 +155,7 @@ test('a Reader who finishes a Story is led on to its Author and to the Catalogue
   await forgetName(author)
   await reading.goto(link)
   await expect(reading.getByRole('link', { name: 'Find Stories in the Catalogue' })).toBeVisible()
-  await expect(reading.locator('.onward').getByRole('link', { name: author.name! })).toHaveCount(0)
+  await expect(reading.getByRole('link', { name: author.name! })).toHaveCount(0)
   await expect(reading.getByText(author.email)).toHaveCount(0)
 })
 
@@ -189,6 +197,7 @@ test('a Reader steps back a beat, inside a Scene and across the Exit they took',
   // Reading picked up next visit is the one that stepped back, not the one that
   // was three beats further on.
   await reading.reload()
+  await begin(reading)
   await expect(reading.getByText('She steps out.')).toBeVisible()
   await expect(pickedUp(reading)).toBeVisible()
 
@@ -295,7 +304,7 @@ test('a Reader is told what a Flag holds, and a name this Reading holds nothing 
   await expect(reading.getByText('{hat}')).toHaveCount(0)
 })
 
-test('a draw on the opening beat says one value, before the page answers and after', async ({ page, request, browser, baseURL }) => {
+test('a draw on the opening beat says one value, from the press and after it', async ({ page, request, browser, baseURL }) => {
   const story = await writeStory(request)
   const { scenes } = await (await request.get(`/api/stories/${story.id}`)).json()
   const [street] = scenes
@@ -320,16 +329,19 @@ test('a draw on the opening beat says one value, before the page answers and aft
   await page.getByRole('button', { name: 'Publish this Story', exact: true }).click()
   await expect(page.getByRole('link', { name: link })).toBeVisible()
 
-  // What the server answered with is what the Reader sees until the page is
-  // answering, so the value it says is the one the Reading holds from then on.
+  // The server answers with the title card and no Reading, so nothing it drew
+  // is on screen to disagree with what the browser draws once the press is made.
   const reading = await (await browser.newContext()).newPage()
   const served = await (await reading.goto(link))!.text()
-  const [, city, month] = /You wake up in (\w+) in (\w+)\./.exec(served) ?? []
+  expect(served).not.toMatch(/You wake up in \w+ in \w+\./)
+
+  await begin(reading)
+  const opening = reading.locator('.frame .shot')
+  await expect(opening).toHaveText(/You wake up in \w+ in \w+\./)
+  const [, city, month] = /You wake up in (\w+) in (\w+)\./.exec(await opening.textContent() ?? '') ?? []
   expect(cities).toContain(city)
   expect(months).toContain(month)
 
-  await live(reading)
-  await expect(reading.getByText(`You wake up in ${city} in ${month}.`)).toBeVisible()
   await reading.getByRole('button', { name: 'Next Shot' }).click()
   await expect(reading.getByText(`Still ${city}, still ${month}.`)).toBeVisible()
 })

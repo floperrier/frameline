@@ -11,6 +11,11 @@ the next beat and not by the move that ends its run. What that amends is *held i
 a loop it repeats until the Scene is left*, in the paragraph beginning *What
 crosses the cut*.
 
+Amended in issue #409, by `docs/adr/0063-a-story-opens-on-its-title-card.md`:
+every Story opens on its title card and begins at its press, silent or not. What
+that amends is *A silent Story keeps the page it had*, in the paragraph beginning
+*The press on the title card is the consent*.
+
 A Story is watched as well as read, and until now the only matter it carried was
 a still image and words. A Scene is heard under something, and a beat strikes.
 

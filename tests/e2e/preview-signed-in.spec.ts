@@ -1,7 +1,7 @@
 import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test'
 import type { Condition } from '../../shared/utils/scenes'
 import {
-  ONE_PIXEL, live, readShotConditions, readTheStory, sceneNode, seedPublication, seedScenes, seedStory,
+  ONE_PIXEL, begin, live, readShotConditions, readTheStory, sceneNode, seedPublication, seedScenes, seedStory,
   test, writeShot, writeStory,
 } from './author'
 
@@ -704,6 +704,7 @@ test('a Reader of the published Story is shown none of the bench',
 
     const reader = await (await browser.newContext()).newPage()
     await reader.goto(`${baseURL}/read/${story.id}`)
+    await begin(reader)
 
     // The same engine, the same Shots, the same one way on — and not a word about
     // the State behind them, the ways on it is hiding, or the order they are

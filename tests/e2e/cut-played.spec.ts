@@ -164,8 +164,8 @@ test('a Story opened into a tab nobody is looking at holds its beat',
     // way to open a page that is genuinely not on screen, so the page is made to
     // answer *hidden* from before anything of the Reading has mounted. What is
     // being proved is that the Reading asks at all rather than waiting to be told
-    // — a silent Story opens with no press, so a link followed into the
-    // background would otherwise play itself out in a room nobody is looking at.
+    // — a Reading mounted out of sight would otherwise play itself out in a room
+    // nobody is looking at.
     await page.addInitScript(() => {
       Object.defineProperty(document, 'visibilityState', {
         get: () => 'hidden',
