@@ -56,6 +56,10 @@ export const REEL_CHANGE: Work = {
       // is the Scene's, so the second Shot of the booth waits and fades up too.
       textAfter: 1500,
       textOver: 1200,
+      // The booth is the film's own frame, so it fills the room: a Reader's screen
+      // is cut around what each Image is of rather than around its middle, since
+      // cropped at the centre a phone would show an empty dark booth.
+      layout: 'full',
       shots: [
         {
           text: 'The last show has run out. Down in the house the seats fold up on their own, '
@@ -67,6 +71,9 @@ export const REEL_CHANGE: Work = {
           // how that hour is written, and it is the first cut of the work so
           // that the hard ones upstairs read as hard.
           cutOver: 1200,
+          // The beam lands on the right of the booth.
+          cropX: 84,
+          cropY: 49,
           // The screen the film has run off, and the lamp still flickering in the
           // beam. Nothing comes before this beat to withhold the flash, and the
           // dissolve above pauses the flicker.
@@ -90,6 +97,9 @@ export const REEL_CHANGE: Work = {
         },
         {
           text: 'On the bench, a reel nobody sent, wound the wrong way round.',
+          // The reel lies left of the middle of the frame.
+          cropX: 38,
+          cropY: 52,
           description: 'A film reel lying flat on the bench in cold light, its rings and hub '
             + 'picked out, one warm strip of lamplight down the wall behind it.',
           image: {
@@ -113,7 +123,8 @@ export const REEL_CHANGE: Work = {
       sets: { reel: 'threaded' },
       // Threaded film runs whether or not anybody has a hand on it, so this
       // Scene runs too: its beats are cut by the clock and cut hard, at the even
-      // pace a projector keeps. The last one answers for itself.
+      // pace a projector keeps. The last one answers for itself, and so does the
+      // Image alone.
       //
       // The pace is the longest line of the three read whole and no longer: a
       // montage is brisk, and a beat nobody finishes is not brisk, it is lost.
@@ -147,6 +158,29 @@ export const REEL_CHANGE: Work = {
           },
         },
         {
+          // An Image alone: the film running in the gate, with no words. It is
+          // taken in at a glance, so it answers for its own time.
+          text: '',
+          description: 'The strip of film running through the gate, blurred with speed, '
+            + 'its sprocket holes streaking down both edges in the light of the lamp.',
+          cutAfter: 2000,
+          image: {
+            ground: ['#0d1110', '#040504'],
+            glow: [{ colour: LAMP, draw: 'rectangle 660,0 940,900', blur: 80, opacity: 0.6 }],
+            form: [
+              { colour: '#e8eeea', draw: 'rectangle 700,0 900,900', blur: 14, opacity: 0.8 },
+              {
+                colour: '#0b0d0c',
+                draw: Array.from({ length: 9 }, (_, hole) =>
+                  `roundrectangle 730,${hole * 100 + 10} 770,${hole * 100 + 80} 6,6 `
+                  + `roundrectangle 830,${hole * 100 + 10} 870,${hole * 100 + 80} 6,6`).join(' '),
+                blur: 10,
+              },
+            ],
+            grain: 1.2,
+          },
+        },
+        {
           text: 'Two hundred feet of somebody else’s house: rows, a brass rail, '
             + 'a lit sign over a door.',
           // Grain marks this as footage, not the house the Reader stands in later.
@@ -173,9 +207,14 @@ export const REEL_CHANGE: Work = {
           description: 'The same house closer: three rows of seats, and in the middle of them the '
             + 'head and shoulders of a woman facing the lens, cut off by the bottom of the frame.',
           // Nought is *held until the press*. The run has been going by itself
-          // for two beats and stops dead on this one, and nothing moves again
+          // for three beats and stops dead on this one, and nothing moves again
           // until the Reader moves it — after which there is nothing to decide.
           cutAfter: 0,
+          // The beat the run stops dead on is the one the room should fill, though
+          // the gate stays inset around it. The point is on her head.
+          layout: 'full',
+          cropX: 45,
+          cropY: 52,
           // Attention finding the woman in row nine, in the same grain.
           imageArrives: { effect: 'from-blur', over: 1600, strength: 'marked' },
           imageLasts: { effect: 'grain', strength: 'marked' },
@@ -323,6 +362,11 @@ export const REEL_CHANGE: Work = {
     {
       name: 'Daybreak',
       shots: [
+        {
+          // A card: both ways up arrive at it, and the one through black arrives
+          // at a card that is itself the dark.
+          text: 'Six in the morning.',
+        },
         {
           text: 'The window over the bench gives onto the boulevard, and the boulevard '
             + 'is already grey.',

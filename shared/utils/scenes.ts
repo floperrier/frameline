@@ -32,6 +32,15 @@ export const EXITS_AFTER_MIN = 500
 export type CutThrough = 'image' | 'black'
 export const CUT_THROUGHS: readonly CutThrough[] = ['image', 'black']
 
+/** How a Shot is laid out: in the reading column, or covering the room. */
+export type Layout = 'inset' | 'full'
+export const LAYOUTS: readonly Layout[] = ['inset', 'full']
+
+/** The `object-position` an Image is cropped at, read wherever the product crops one. */
+export function cropPosition({ cropX, cropY }: { cropX: number, cropY: number }) {
+  return `${cropX}% ${cropY}%`
+}
+
 /**
  * Whether a value is a time this product writes: a whole number of milliseconds
  * from its floor to its cap. Here rather than at the request boundary because the
@@ -399,6 +408,15 @@ export type Shot = {
   cutAfter: number | null
   cutOver: number | null
   cutThrough: CutThrough | null
+  /** How this Shot is laid out; null is *as the Scene says*. */
+  layout: Layout | null
+  /**
+   * The point the Image is cropped around, in whole percent across from the
+   * leading edge and down from the top: 50 by 50 is the centre, and what a Shot
+   * is until an Author moves it.
+   */
+  cropX: number
+  cropY: number
   /** What the Image plays as the beat arrives, and while it stands; null is none. */
   imageArrives: Arrival | null
   imageLasts: Lasting | null
@@ -433,6 +451,8 @@ export type Scene = {
   cutOver: number
   cutThrough: CutThrough
   exitsAfter: number | null
+  /** How the Shots of this Scene's run are laid out, each Shot answering for itself where it says. */
+  layout: Layout
   /**
    * How the texts of this Scene's run arrive — after a time, by a unit, at a pace,
    * over a time — and how long they stay, null being until the Cut. See

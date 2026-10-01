@@ -17,7 +17,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { SHOT_IMAGE_MAX_BYTES } from '../shared/utils/scenes.ts'
 import type {
-  Arrival, Condition, CutThrough, Flags, Lasting, TextBy,
+  Arrival, Condition, CutThrough, Flags, Lasting, Layout, TextBy,
 } from '../shared/utils/scenes.ts'
 import type { StoryLanguage } from '../shared/utils/stories.ts'
 
@@ -80,6 +80,15 @@ export type Shot = {
   cutOver?: number
   cutThrough?: CutThrough
   /**
+   * How this Shot is laid out where it answers for itself, and the point its
+   * Image is cropped around, in whole percent across and down. Saying nothing is
+   * *as the Scene says* and the centre, which is what the columns default to. See
+   * `docs/adr/0055-a-shot-is-laid-out-as-its-scene-says.md`.
+   */
+  layout?: Layout
+  cropX?: number
+  cropY?: number
+  /**
    * What the Image and the text play as the beat arrives and while it stands;
    * saying nothing is none. See the `Effect` of `CONTEXT.md`.
    */
@@ -123,6 +132,8 @@ export type Work = {
     /** The Sound the Scene is heard under, named as one of the library's files. */
     sound?: string
     transcript?: string
+    /** How the Shots of this Scene's run are laid out; saying nothing is `inset`. */
+    layout?: Layout
     /**
      * How the Shots of this Scene's run are cut, and how long its ways on
      * stand. Saying nothing is the run every work here was written as before

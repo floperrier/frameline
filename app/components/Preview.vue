@@ -420,9 +420,17 @@ function why(conditions: Condition[]) {
    `docs/adr/0043-a-story-is-written-as-one-document.md`. The reading is at the
    top because that is what the face is for, and the bench is pushed to the foot
    of it — a control desk under a screen, rather than a second card floating
-   halfway down an empty pane. */
+   halfway down an empty pane.
+
+   It is also the room a Shot laid out full covers, so it is a size container and
+   the frame is measured in its units rather than the window's: a frame one window
+   tall would run past the pane's foot. A size container is not sized by what it
+   holds, so the pane is given the height of the scroller it stands in, which is a
+   block and not a column it could grow in, and scrolls what it holds itself. */
 .preview {
   flex: 1;
+  container-type: size;
+  block-size: 100%;
   /* The containing block for what is inside it, for the reason the writing
      surface is one: see `Writing.vue`. */
   position: relative;
@@ -457,9 +465,11 @@ function why(conditions: Condition[]) {
 /* The reading is given the whole of the column's own width, none of the room the
    reading room pads itself out with — down here the desk under it is what ends
    the column — and whatever height is going, with the frame held in the middle of
-   it: a screen hangs in a room rather than resting on the top edge of one. */
+   it: a screen hangs in a room rather than resting on the top edge of one. Never
+   shorter than what it holds, so a Reading laid out full, which says how tall it
+   is at least, still grows past that with a text the room cannot carry. */
 .reading {
-  flex: 1;
+  flex: 1 0 auto;
   align-content: center;
   padding-block-end: 0;
 }

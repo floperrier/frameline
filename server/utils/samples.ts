@@ -58,6 +58,7 @@ export async function plantSample(
         // A field the Sample does not name is `undefined`, which the driver
         // writes as the column's own default, so a Sample carrying no Cut is
         // planted exactly as it was before the Cut existed.
+        layout: scene.layout ?? 'inset',
         cutAfter: scene.cutAfter,
         cutOver: scene.cutOver,
         cutThrough: scene.cutThrough,
@@ -92,6 +93,9 @@ export async function plantSample(
         image: typeof shot.image === 'string' ? await image(shot.image) : null,
         sound: shot.sound ? await sound(shot.sound) : null,
         transcript: shot.transcript ?? '',
+        layout: shot.layout ?? null,
+        cropX: shot.cropX ?? 50,
+        cropY: shot.cropY ?? 50,
         cutAfter: shot.cutAfter,
         cutOver: shot.cutOver,
         cutThrough: shot.cutThrough,

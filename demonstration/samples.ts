@@ -60,9 +60,10 @@ const WAYS_ON = 'polygon 500,436 1060,206 1060,226 500,456 '
   + 'polygon 500,444 1060,674 1060,694 500,464'
 
 /**
- * The images a Sample shows, one per name a Shot may ask for. Five diagrams and
- * no photographs: a run of Shots, the ways on at the end of a Scene, a Flag on
- * its Scene, a test standing in front of a beat, and what one Reading holds.
+ * The images a Sample shows, one per name a Shot may ask for. Seven diagrams and
+ * no photographs: a run of Shots, an Image alone, the ways on at the end of a Scene,
+ * a Flag on its Scene, a test standing in front of a beat, the gap a Shot that does
+ * not play leaves, and what one Reading holds.
  */
 export const SAMPLE_IMAGES: Record<string, Image> = {
   'a-scene': {
@@ -148,6 +149,18 @@ export const SAMPLE_IMAGES: Record<string, Image> = {
       { colour: PAPER, draw: lines(1190, 400, 280), blur: 2, opacity: 0.12 },
     ],
     grain: 0.8,
+  },
+
+  // An Image alone, the beat the card before it says a Shot may be: one lit panel
+  // and not a line of text in it.
+  'an-image': {
+    ground: [BENCH, DARK],
+    glow: [{ colour: LIGHT, draw: panel(480, 250, 640, 400), blur: 80, opacity: 0.45 }],
+    form: [
+      { colour: STEEL, draw: panel(480, 250, 640, 400), blur: 2 },
+      { colour: LIGHT, draw: strip(480, 250, 400), blur: 2, opacity: 0.9 },
+    ],
+    grain: 0.6,
   },
 
   'a-gap': {
@@ -248,6 +261,11 @@ const ENGLISH: Work = {
           description: 'Three panels in a row on a dark bench, the first of them lit: a Scene '
             + 'as the run of Shots it is.',
           image: 'a-scene',
+          // The one Shot that answers otherwise than its Scene, on the first row an
+          // Author reads, with its point on the lit panel of the Image.
+          layout: 'full',
+          cropX: 21,
+          cropY: 50,
           // The first beat an Author is shown finds its focus, the same way in both
           // Samples, so that an Effect is met before it is asked of them.
           imageArrives: { effect: 'from-blur', over: 1500, strength: 'marked' },
@@ -259,6 +277,14 @@ const ENGLISH: Work = {
           transcript: 'A door closes.',
           // The words take the blow of the door they are struck with.
           textArrives: { effect: 'shake', over: 500, strength: 'slight' },
+        },
+        {
+          // The sentence above shown true on the next beat: an Image and no text.
+          text: '',
+          description: 'One lit panel on a dark bench and nothing written in it: a Shot that '
+            + 'is an Image alone.',
+          image: 'an-image',
+          cutAfter: 3000,
         },
         {
           text: 'A Story is read forwards. You will stand in each Scene at most once, so the '
@@ -393,6 +419,11 @@ const FRENCH: Work = {
           description: 'Trois panneaux alignés sur un établi sombre, le premier éclairé : une '
             + 'Scène comme la suite de Plans qu’elle est.',
           image: 'a-scene',
+          // Le même geste à la même place : le Plan qui répond autrement que sa Scène,
+          // son point sur le panneau éclairé de l’Image.
+          layout: 'full',
+          cropX: 21,
+          cropY: 50,
           // The first beat an Author is shown finds its focus, the same way in both
           // Samples, so that an Effect is met before it is asked of them.
           imageArrives: { effect: 'from-blur', over: 1500, strength: 'marked' },
@@ -404,6 +435,14 @@ const FRENCH: Work = {
           transcript: 'Une porte se ferme.',
           // Le même geste à la même place : les mots reçoivent le coup de la porte.
           textArrives: { effect: 'shake', over: 500, strength: 'slight' },
+        },
+        {
+          // La phrase du Plan précédent, montrée vraie au temps suivant : une Image sans texte.
+          text: '',
+          description: 'Un panneau éclairé sur un établi sombre, et rien d’écrit dedans : un '
+            + 'Plan qui n’est qu’une Image.',
+          image: 'an-image',
+          cutAfter: 3000,
         },
         {
           text: 'Un Récit se lit vers l’avant. Vous ne vous tiendrez au plus qu’une fois dans '

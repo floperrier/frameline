@@ -70,7 +70,7 @@ test('deleting the Shot whose Image is the Cover falls back without a word', asy
 
   expect((await request.delete(`/api/shots/${late.id}`)).status()).toBe(200)
   const read = await (await request.get(`/api/read/${story.id}`)).json()
-  expect(read.cover).toBe(`/api/shots/${first.id}/image`)
+  expect(read.cover.image).toBe(`/api/shots/${first.id}/image`)
 })
 
 test('a Cover is one of the Story\'s own Images and nothing else', async ({ request }) => {
@@ -84,4 +84,20 @@ test('a Cover is one of the Story\'s own Images and nothing else', async ({ requ
   const read: StoryInEditor = await (await request.get(`/api/stories/${story.id}`)).json()
   const textOnly = read.scenes[0]!.shots[1]!
   expect((await request.patch(`/api/stories/${story.id}`, { data: { coverShotId: textOnly.id } })).status()).toBe(400)
+})
+
+test('the Cover carries the point its Image is cropped around, on the shelf and on the title card', async ({ page, request }) => {
+  const { story, first } = await storyWithImages(request)
+  expect((await request.patch(`/api/shots/${first.id}`, { data: { cropX: 84, cropY: 49 } })).status()).toBe(200)
+  await request.post(`/api/stories/${story.id}/publish`)
+  await seedListed(story)
+
+  const read = await (await request.get(`/api/read/${story.id}`)).json()
+  expect(read.cover).toEqual({ image: `/api/shots/${first.id}/image`, cropX: 84, cropY: 49 })
+
+  await page.goto('/catalogue')
+  const entry = page.locator('li', { has: page.getByRole('link', { name: story.title, exact: true }) })
+  await expect(entry.locator('img.cover')).toHaveCSS('object-position', '84% 49%')
+  await page.goto(`/read/${story.id}`)
+  await expect(page.locator('header img.cover')).toHaveCSS('object-position', '84% 49%')
 })

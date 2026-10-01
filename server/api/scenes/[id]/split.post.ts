@@ -18,7 +18,9 @@ import { useDb } from '../../../db'
  * as rows, so the Sound each strikes with and its Transcript move with them.
  *
  * The second half arrives its texts as the first did: the new Scene takes the
- * original's five, and the Shots that moved keep theirs as rows.
+ * original's five, and the Shots that moved keep theirs as rows. It is laid out
+ * as the first half is, and the Shots that moved keep their own Layout and the
+ * point their Image is cropped around, which are columns of the rows.
  *
  * This is the act `docs/adr/0001-branching-only-between-scenes.md` said the
  * decision owed: an Author who wants a Story to branch in the middle of a Scene
@@ -44,8 +46,8 @@ export default defineEventHandler(async (event) => {
     with parted as (
       select shots.position, scenes.id as scene_id, scenes.story_id,
         scenes.sound_of_scene_id, scenes.sound is not null as has_sound,
-        scenes.text_after, scenes.text_by, scenes.text_pace, scenes.text_over,
-        scenes.text_stays
+        scenes.layout, scenes.text_after, scenes.text_by, scenes.text_pace,
+        scenes.text_over, scenes.text_stays
       from shots
       join scenes on scenes.id = shots.scene_id
       where shots.id = ${shotId}::uuid
@@ -56,12 +58,12 @@ export default defineEventHandler(async (event) => {
     made as (
       insert into scenes (
         story_id, name, sound_of_scene_id,
-        text_after, text_by, text_pace, text_over, text_stays
+        layout, text_after, text_by, text_pace, text_over, text_stays
       )
       select parted.story_id, ${name},
         coalesce(parted.sound_of_scene_id, case when parted.has_sound then parted.scene_id end),
-        parted.text_after, parted.text_by, parted.text_pace, parted.text_over,
-        parted.text_stays
+        parted.layout, parted.text_after, parted.text_by, parted.text_pace,
+        parted.text_over, parted.text_stays
       from parted
       returning id, name
     ),

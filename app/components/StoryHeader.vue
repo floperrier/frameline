@@ -273,7 +273,11 @@ function unlist() {
               :checked="shot.id === presented"
               @change="nameCover(shot.id)"
             >
-            <img :src="shot.image!" :alt="$t('editor.coverOf', { place, scene })">
+            <img
+              :src="shot.image!"
+              :style="{ objectPosition: cropPosition(shot) }"
+              :alt="$t('editor.coverOf', { place, scene })"
+            >
           </label>
         </div>
         <!-- Offered only while a Cover is named: with none, the Opening Scene is

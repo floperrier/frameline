@@ -328,8 +328,9 @@ test('draws a row\'s marks at the weight of the words until the hand arrives at 
     // so the Sound's own controls come before the acts, on the same side of the
     // words as the Description, because the Transcript sits under the Sound as the
     // Description sits under the Image. The Cut comes after both, because it is
-    // what the beat does at its end rather than what it carries, and the Effects
-    // after the Cut, because they are how it is drawn — see
+    // what the beat does at its end rather than what it carries, then the Layout,
+    // which is how the beat is thrown, and the Effects after both, because they are
+    // how it is drawn — see
     // `docs/adr/0051-an-effect-is-said-of-one-beat.md`.
     //
     // This beat carries neither Image nor Sound, so neither thing said of them is
@@ -346,6 +347,7 @@ test('draws a row\'s marks at the weight of the words until the hand arrives at 
       beat.getByLabel('Upload a Sound for Shot 2 of Scene 1'),
       beat.getByLabel('This Shot is cut Shot 2 of Scene 1', { exact: true }),
       beat.getByLabel('The Cut is made Shot 2 of Scene 1', { exact: true }),
+      beat.getByLabel('This Shot is laid out Shot 2 of Scene 1', { exact: true }),
       beat.getByLabel('As the text arrives Shot 2 of Scene 1', { exact: true }),
       beat.getByLabel('While the text is on screen Shot 2 of Scene 1', { exact: true }),
       beat.getByRole('button', { name: 'Add a Condition to Shot 2 of Scene 1' }),
@@ -718,7 +720,7 @@ test('winds the document back to the Scene the caret is already in', async ({ pa
  * name like any other.
  *
  * A heading is left out on purpose and not by oversight: every Scene's section
- * carries the same three — *Flags*, *Shots*, *Exits* — which
+ * carries the same four — *Layout*, *Flags*, *Shots*, *Exits* — which
  * `docs/adr/0043-a-story-is-written-as-one-document.md` chose over a hundred and
  * twenty named regions, so they repeat by design. So is an option, for the other
  * reason: an option is a value inside one field rather than a control of the

@@ -13,7 +13,7 @@ import {
 } from 'drizzle-orm/pg-core'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import { CHARACTERS_A_SECOND } from '../../shared/utils/scenes'
-import type { Arrival, Condition, CutThrough, Lasting, Sets, TextBy } from '../../shared/utils/scenes'
+import type { Arrival, Condition, CutThrough, Lasting, Layout, Sets, TextBy } from '../../shared/utils/scenes'
 
 // `name` is the Name an Author appears under wherever somebody else meets them:
 // beside a Listed Story, on their Profile. It arrives from the provider they
@@ -167,6 +167,11 @@ const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () =>
 // `docs/adr/0002-the-schema-moves-with-the-deploy.md` — and the defaults are
 // every Story written so far, reading exactly as it read. See
 // `docs/adr/0052-a-text-arrives-in-its-own-time.md`.
+//
+// `layout` is how the Shots of the run are laid out: `inset` is the Image above
+// the text in the reading column, `full` is the Image covering the room with the
+// text over it. It is defaulted, because the schema moves before the deploy, and
+// `inset` is every Story written so far, reading exactly as it read.
 export const scenes = pgTable('scenes', {
   id: uuid('id').primaryKey().defaultRandom(),
   storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
@@ -183,6 +188,7 @@ export const scenes = pgTable('scenes', {
   cutOver: integer('cut_over').notNull().default(0),
   cutThrough: text('cut_through').$type<CutThrough>().notNull().default('image'),
   exitsAfter: integer('exits_after'),
+  layout: text('layout').$type<Layout>().notNull().default('inset'),
   textAfter: integer('text_after').notNull().default(0),
   textBy: text('text_by').$type<TextBy>().notNull().default('whole'),
   textPace: integer('text_pace').notNull().default(CHARACTERS_A_SECOND),
@@ -260,6 +266,13 @@ export const scenes = pgTable('scenes', {
 // the code back alone, so for a while an insert naming no Conditions has to
 // succeed rather than take adding a Shot down with it — see
 // `docs/adr/0002-the-schema-moves-with-the-deploy.md`.
+//
+// `layout` is the Shot's own answer about how it is laid out, null being *as the
+// Scene says*, the way `cut_after` is. `crop_x` and `crop_y` are the point the
+// Image is cropped around, a whole percent across and down, which is the number
+// `object-position` reads. They are never null — the centre is 50, a value — so
+// the two axes cannot disagree about whether a point is said, and 50 by 50 is
+// every Shot written so far, cropped as it was.
 export const shots = pgTable('shots', {
   id: uuid('id').primaryKey().defaultRandom(),
   sceneId: uuid('scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
@@ -272,6 +285,9 @@ export const shots = pgTable('shots', {
   cutAfter: integer('cut_after'),
   cutOver: integer('cut_over'),
   cutThrough: text('cut_through').$type<CutThrough>(),
+  layout: text('layout').$type<Layout>(),
+  cropX: integer('crop_x').notNull().default(50),
+  cropY: integer('crop_y').notNull().default(50),
   imageArrives: jsonb('image_arrives').$type<Arrival>(),
   imageLasts: jsonb('image_lasts').$type<Lasting>(),
   textArrives: jsonb('text_arrives').$type<Arrival>(),
