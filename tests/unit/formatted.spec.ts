@@ -6,7 +6,19 @@ import { describe, expect, it } from 'vitest'
 import { REEL_CHANGE } from '../../demonstration/reel-change.ts'
 import { SAMPLES } from '../../demonstration/samples.ts'
 import { wordsOf } from '../../demonstration/work.ts'
-import { addSeparator, bounds, extensions, lineAs, lineKindOf, pastedText, redact } from '../../app/utils/formatting.ts'
+import {
+  addSeparator,
+  bounds,
+  effectHeld,
+  extensions,
+  lineAs,
+  lineKindOf,
+  pastedText,
+  redact,
+  runEffect,
+  takeEffectOff,
+  wordsSaid,
+} from '../../app/utils/formatting.ts'
 import {
   aligned,
   bar,
@@ -15,6 +27,7 @@ import {
   formattedOf,
   line,
   linesOf,
+  lettersSplit,
   parseFormatted,
   quote,
   run,
@@ -25,7 +38,7 @@ import {
   verse,
 } from '../../shared/utils/formatted.ts'
 import type { Formatted } from '../../shared/utils/formatted.ts'
-import { REDACTION_HIDES_MAX_LENGTH, SHOT_TEXT_MAX_LENGTH } from '../../shared/utils/scenes.ts'
+import { LETTERS_SPLIT_MAX, REDACTION_HIDES_MAX_LENGTH, SHOT_TEXT_MAX_LENGTH } from '../../shared/utils/scenes.ts'
 
 const works = [REEL_CHANGE, SAMPLES.en, SAMPLES.fr]
 const workFormatted = works.flatMap(w => w.scenes.flatMap(s => s.shots.flatMap(shot => shot.formatted ?? [])))
@@ -229,7 +242,8 @@ describe('the boundary', () => {
         const read = parseFormatted(json, 'refuse') as { formatted: Formatted }
         const held = schema.nodeFromJSON(json)
         held.check()
-        expect(held.toJSON()).toEqual(read.formatted)
+        // The editor holds a lasting's absent `every` as null, which the boundary reads as none.
+        expect((parseFormatted(held.toJSON(), 'refuse') as { formatted: Formatted }).formatted).toEqual(read.formatted)
       }
     })
 
@@ -362,6 +376,97 @@ describe('the editor', () => {
     expect(lineKindOf(after)).toBe('source')
     expect(lineAs('source')(stateOf(formatted(quote([line('a')])), 2))).toBe(false)
   })
+
+  describe('an Effect on the words', () => {
+    const tremor = { effect: 'tremor', every: 300, strength: 'slight' } as const
+    const scramble = { type: 'arrives', attrs: { effect: 'scramble', over: 1200, strength: 'slight' } } as const
+
+    it('marks the selection, and the boundary takes what the editor writes', () => {
+      // "break it" is positions 1–9 in a one-line doc.
+      const { written } = act(stateOf(formatted(line('break it now')), 1, 9), runEffect('lasts', tremor))
+      const read = parseFormatted(written, 'refuse')
+      expect('formatted' in read && linesOf(read.formatted)[0]).toEqual([
+        { type: 'text', text: 'break it', marks: [{ type: 'lasts', attrs: tremor }] },
+        { type: 'text', text: ' now' },
+      ])
+    })
+
+    it('writes a flicker the boundary reads without a round', () => {
+      const { written } = act(stateOf(formatted(line('lamp')), 1, 5), runEffect('lasts', { effect: 'flicker', strength: 'slight' }))
+      const read = parseFormatted(written, 'refuse')
+      expect('formatted' in read && linesOf(read.formatted)[0]![0]).toEqual(
+        { type: 'text', text: 'lamp', marks: [{ type: 'lasts', attrs: { effect: 'flicker', strength: 'slight' } }] })
+    })
+
+    it('changes the whole run the caret is in where nothing is selected, its end among it', () => {
+      const marked = formatted(line('a ', run('break it', { type: 'lasts', attrs: tremor }), ' now'))
+      for (const at of [5, 11]) {
+        const { written } = act(stateOf(marked, at), runEffect('lasts', { ...tremor, strength: 'strong' }))
+        expect(linesOf(written)[0]![1]).toMatchObject({ text: 'break it', marks: [{ type: 'lasts', attrs: { strength: 'strong' } }] })
+      }
+    })
+
+    it('takes both Effects off the run the caret is in, each over its own extent', () => {
+      const marked = formatted(line(run('ab ', scramble), run('cd', scramble, { type: 'lasts', attrs: tremor })))
+      const { written } = act(stateOf(marked, 5), takeEffectOff)
+      expect(textOf(written)).toBe('ab cd')
+      expect(linesOf(written)[0]).toEqual([{ type: 'text', text: 'ab cd' }])
+    })
+
+    it('offers neither where the caret is in no run and nothing is selected', () => {
+      expect(wordsSaid(stateOf(formatted(line('plain')), 2))).toBeUndefined()
+      expect(takeEffectOff(stateOf(formatted(line('plain')), 2))).toBe(false)
+    })
+
+    it('reads the run at its head where it writes, so a strength changed keeps its round', () => {
+      // The caret at 3 stands between "a " and "break it".
+      const state = stateOf(formatted(line('a ', run('break it', { type: 'lasts', attrs: tremor }), ' now')), 3)
+      const held = effectHeld(state, 'lasts')
+      expect(held).toEqual(tremor)
+      expect(effectHeld(state, 'arrives')).toBeUndefined()
+      const { written } = act(state, runEffect('lasts', { ...held!, strength: 'strong' }))
+      expect(linesOf(written)[0]![1]).toEqual(
+        { type: 'text', text: 'break it', marks: [{ type: 'lasts', attrs: { ...tremor, strength: 'strong' } }] })
+    })
+
+    it('writes where two runs meet on the run it read, and leaves the other be', () => {
+      const pulse = { effect: 'pulse', every: 900, strength: 'marked' } as const
+      const state = stateOf(formatted(line(run('ab', { type: 'lasts', attrs: tremor }), run('cd', { type: 'lasts', attrs: pulse }))), 3)
+      const held = effectHeld(state, 'lasts')
+      expect(held).toEqual(pulse)
+      const { written } = act(state, runEffect('lasts', { ...held!, strength: 'strong' }))
+      expect(linesOf(written)[0]).toEqual([
+        { type: 'text', text: 'ab', marks: [{ type: 'lasts', attrs: tremor }] },
+        { type: 'text', text: 'cd', marks: [{ type: 'lasts', attrs: { ...pulse, strength: 'strong' } }] },
+      ])
+    })
+
+    // A scramble over "break it now", positions 1–13, and a tremor over "it", 7–9.
+    const nested = formatted(line(run('break ', scramble), run('it', scramble, { type: 'lasts', attrs: tremor }), run(' now', scramble)))
+
+    it('changes one Effect over its own run, not over the other’s', () => {
+      const { written } = act(stateOf(nested, 8), runEffect('lasts', { ...tremor, strength: 'strong' }))
+      expect(linesOf(written)[0]).toEqual([
+        { type: 'text', text: 'break ', marks: [scramble] },
+        { type: 'text', text: 'it', marks: [scramble, { type: 'lasts', attrs: { ...tremor, strength: 'strong' } }] },
+        { type: 'text', text: ' now', marks: [scramble] },
+      ])
+    })
+
+    it('takes one Effect off and keeps the other', () => {
+      expect(linesOf(act(stateOf(nested, 8), runEffect('lasts', null)).written)[0]).toEqual(
+        [{ type: 'text', text: 'break it now', marks: [scramble] }])
+      expect(linesOf(act(stateOf(nested, 8), runEffect('arrives', null)).written)[0]).toEqual([
+        { type: 'text', text: 'break ' },
+        { type: 'text', text: 'it', marks: [{ type: 'lasts', attrs: tremor }] },
+        { type: 'text', text: ' now' },
+      ])
+    })
+
+    it('takes nothing off a run a selection only starts at the end of', () => {
+      expect(takeEffectOff(stateOf(formatted(line(run('ab', { type: 'lasts', attrs: tremor }), 'cd')), 3, 5))).toBe(false)
+    })
+  })
 })
 
 describe('the formatted text of a row', () => {
@@ -384,5 +489,56 @@ describe('the formatted text of a row', () => {
     const stored = doc(para(word('a b', [{ type: 'emphasis' }, { type: 'glow' }])))
     const read = formattedIn({ formatted: stored, text: 'a b' })
     expect(read.content).toEqual([{ type: 'line', attrs: { align: null, leading: null }, content: [run('a b', { type: 'emphasis' })] }])
+  })
+})
+
+describe('a run carrying an Effect', () => {
+  const arrives = (effect: string, over = 1200, strength = 'slight') => ({ type: 'arrives', attrs: { effect, over, strength } })
+  const lasts = (attrs: object) => ({ type: 'lasts', attrs })
+  const letters = (count: number) => 'a'.repeat(count)
+
+  it('takes an arrival and a lasting on the same words, and reads them back as written', () => {
+    const json = doc(para(word('break it', [arrives('scramble'), lasts({ effect: 'tremor', every: 300, strength: 'slight' })])))
+    const read = parseFormatted(json, 'refuse')
+    expect('formatted' in read && read.formatted.content[0]).toMatchObject(json.content[0] as object)
+  })
+
+  it('reads a lasting the editor wrote with an empty round as one without a round', () => {
+    const read = parseFormatted(doc(para(word('lamp', [lasts({ effect: 'flicker', every: null, strength: 'slight' })]))), 'refuse')
+    expect('formatted' in read && linesOf(read.formatted)[0]![0]).toEqual(
+      { type: 'text', text: 'lamp', marks: [{ type: 'lasts', attrs: { effect: 'flicker', strength: 'slight' } }] })
+  })
+
+  it('refuses a wave as an arrival, and a scramble that lasts, in #360’s own phrases', () => {
+    expect(refused(doc(para(word('sea', [arrives('wave')]))))).toBe('effectArrives')
+    expect(refused(doc(para(word('sea', [lasts({ effect: 'scramble', strength: 'slight' })]))))).toBe('effectLasts')
+    expect(refused(doc(para(word('sea', [lasts({ effect: 'pulse', strength: 'slight' })]))))).toBe('effectLasts')
+  })
+
+  it('drops an Effect it does not know from a row read back, and keeps the words', () => {
+    const read = parseFormatted(doc(para(word('sea', [arrives('wave')]))), 'drop')
+    expect('formatted' in read && textOf(read.formatted)).toBe('sea')
+  })
+
+  it('takes 300 letters taken apart, and refuses 301', () => {
+    expect(refused(doc(para(word(letters(LETTERS_SPLIT_MAX), [lasts({ effect: 'wave', every: 1600, strength: 'slight' })]))))).toBeUndefined()
+    expect(refused(doc(para(word(letters(LETTERS_SPLIT_MAX + 1), [lasts({ effect: 'wave', every: 1600, strength: 'slight' })]))))).toBe('lettersSplit')
+  })
+
+  it('counts letters only, a letter under two letter Effects once, and none under a flicker', () => {
+    const value = formatted(line(
+      run('ab cd', { type: 'arrives', attrs: { effect: 'scramble', over: 1200, strength: 'slight' } },
+        { type: 'lasts', attrs: { effect: 'tremor', every: 300, strength: 'slight' } }),
+      run(' lamp', { type: 'lasts', attrs: { effect: 'flicker', strength: 'slight' } }),
+    ))
+    expect(lettersSplit(value)).toBe(4)
+    // 200 letters under two overlapping letter marks are 200.
+    const twice = doc(para(word(letters(200), [arrives('scramble'), lasts({ effect: 'wave', every: 1600, strength: 'slight' })])))
+    expect(refused(twice)).toBeUndefined()
+    expect(lettersSplit((parseFormatted(twice, 'refuse') as { formatted: Formatted }).formatted)).toBe(200)
+  })
+
+  it('refuses two arrivals on one word, as it refuses any style twice', () => {
+    expect(refused(doc(para(word('a', [arrives('shake'), arrives('scramble')]))))).toBe('formatted')
   })
 })

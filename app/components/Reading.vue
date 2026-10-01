@@ -901,6 +901,15 @@ const captionArrival = computed(() => drawnAs(held.value?.textArrives))
 const captionLasting = computed(() => drawnAs(held.value?.textLasts))
 
 /**
+ * Whether a run of the beat's words is taken apart into words or letters, which
+ * draws the text twice, as a text cut into units is: the copy that moves hidden
+ * from the accessibility tree, and the words whole beside it, so a screen reader
+ * reads the sentence as written from the landing and never a stand-in. A run on
+ * its own inline element leaves its text in the tree and needs neither.
+ */
+const apart = computed(() => !!held.value && takesApart(held.value.formatted))
+
+/**
  * The overlay the Image's arrival is drawn on, where it is one. A flash from white
  * is not drawn at all where it would not be seen arriving or where the flash rule
  * withholds it: its end state is no white, and a sheet of nothing is no sheet.
@@ -1051,16 +1060,29 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
               <div class="arrives" v-bind="captionArrival">
                 <div class="lasts" v-bind="captionLasting">
                   <!-- The text as it was formatted, in the face and alignment its
-                       Story is set in. Cut into what it arrives by, it is drawn
-                       twice, as the comment on the frame says: the pieces hidden
-                       from the accessibility tree, and the whole beside them, so a
-                       screen reader hears the styles, the languages and what a bar
-                       hides rather than pieces. -->
-                  <div v-if="cutting" class="shot" v-bind="setIn(story)">
-                    <Formatted aria-hidden="true" :formatted="held.formatted" :cut="cutting" />
+                       Story is set in, each run moving as its Effect says. Cut into
+                       what it arrives by, or with a run taken apart into its words
+                       or its letters, it is drawn twice, as the comment on the
+                       frame says: the pieces hidden from the accessibility tree,
+                       and the whole beside them, so a screen reader hears the
+                       styles, the languages and what a bar hides rather than
+                       pieces, and never a stand-in. -->
+                  <div v-if="cutting || apart" class="shot" v-bind="setIn(story)">
+                    <Formatted
+                      aria-hidden="true"
+                      :formatted="held.formatted"
+                      :cut="cutting"
+                      :moving="drawnAs"
+                    />
                     <Formatted class="visually-hidden" :formatted="held.formatted" />
                   </div>
-                  <Formatted v-else class="shot" v-bind="setIn(story)" :formatted="held.formatted" />
+                  <Formatted
+                    v-else
+                    class="shot"
+                    v-bind="setIn(story)"
+                    :formatted="held.formatted"
+                    :moving="drawnAs"
+                  />
                 </div>
               </div>
             </figcaption>
@@ -1334,8 +1356,8 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
    arriving is the only one whose flashes count. Taking them off would be worse, a
    frame changing under the passage — a grey going back to colour, a white
    thrown back up. */
-.dissolve-leave-active [data-effect],
-.through-black-leave-active [data-effect] {
+.dissolve-leave-active :deep([data-effect]),
+.through-black-leave-active :deep([data-effect]) {
   animation-play-state: paused;
 }
 
@@ -1398,9 +1420,11 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
    to leave. `frameline.css` cutting every duration to nothing is not enough here:
    it still starts each animation, and a first keyframe painted even once is a
    white screen for `from-white`, held for as long as a passage through black
-   delays it. So the animation is taken off outright. */
+   delays it. So the animation is taken off outright. Under less motion, a
+   scramble shows its words from the start, and a wave and a letter's tremor
+   stand still. */
 @media (prefers-reduced-motion: reduce) {
-  .frame [data-effect] {
+  .frame :deep([data-effect]) {
     animation: none;
   }
 }
@@ -1648,7 +1672,7 @@ figcaption {
    Every Effect is keyed on the attribute alone and set in one `animation`, so each
    rule that rests, stops or delays one outranks it wherever it is written: the
    shorthand resets every longhand, and these must win over it. */
-.frame [data-effect] {
+.frame :deep([data-effect]) {
   animation-delay: var(--wait, 0ms);
   animation-fill-mode: both;
 }
@@ -1656,44 +1680,51 @@ figcaption {
 /* A beat the Reader is not shown arriving — a step back, a press while the clock
    is stopped, the frame held behind the ways on — is drawn in the state its
    arrival ends in, which is the Effect's own style with the animation off. */
-[data-effect][data-rest] {
+:deep([data-effect][data-rest]) {
   animation: none;
 }
 
 /* The Pause and a tab nobody is looking at stop every Effect where it stands
    rather than taking it off, so each resumes from there: a restarted arrival
    would replay a flash nobody wrote, and a restarted flicker dips too soon. */
-.stopped [data-effect] {
+.stopped :deep([data-effect]) {
   animation-play-state: paused;
 }
 
 /* An Effect's three degrees, written with it as the three columns they are, and
    the one its strength reads. */
-[data-strength="slight"] {
+:deep([data-strength="slight"]) {
   --degree: var(--slight);
 }
 
-[data-strength="marked"] {
+:deep([data-strength="marked"]) {
   --degree: var(--marked);
 }
 
-[data-strength="strong"] {
+:deep([data-strength="strong"]) {
   --degree: var(--strong);
 }
 
-/* A jolt dying away, by a share of the width and of the height, overscaled on the
-   Image by twice its reach so no edge of the picture shows while it jolts. Words
-   have no edge to show. */
-[data-effect="shake"] {
+/* A jolt dying away, by a share of its reach, which is the width and the height of
+   what jolts, overscaled on the Image by twice its share so no edge of the picture
+   shows while it jolts. Words have no edge to show. A run's word reaches by the em
+   instead: a share of its own width is a fraction of a pixel, and twelve em is
+   about as far as the whole text jolts on a phone. */
+:deep([data-effect="shake"]) {
   --slight: 0.005;
   --marked: 0.015;
   --strong: 0.03;
+  --reach: 100%;
 
   animation: shake var(--over) linear;
 }
 
-.picture [data-effect="shake"] {
+.picture :deep([data-effect="shake"]) {
   --overscale: calc(1 + 2 * var(--degree));
+}
+
+figcaption :deep(.word[data-effect="shake"]) {
+  --reach: 12em;
 }
 
 @keyframes shake {
@@ -1702,22 +1733,22 @@ figcaption {
     scale: var(--overscale, 1);
   }
   8% {
-    translate: calc(var(--degree) * -100%) calc(var(--degree) * 60%);
+    translate: calc(var(--degree) * -1 * var(--reach)) calc(var(--degree) * 0.6 * var(--reach));
   }
   20% {
-    translate: calc(var(--degree) * 90%) calc(var(--degree) * -50%);
+    translate: calc(var(--degree) * 0.9 * var(--reach)) calc(var(--degree) * -0.5 * var(--reach));
   }
   34% {
-    translate: calc(var(--degree) * -60%) calc(var(--degree) * 35%);
+    translate: calc(var(--degree) * -0.6 * var(--reach)) calc(var(--degree) * 0.35 * var(--reach));
   }
   50% {
-    translate: calc(var(--degree) * 40%) calc(var(--degree) * -20%);
+    translate: calc(var(--degree) * 0.4 * var(--reach)) calc(var(--degree) * -0.2 * var(--reach));
   }
   66% {
-    translate: calc(var(--degree) * -20%) calc(var(--degree) * 10%);
+    translate: calc(var(--degree) * -0.2 * var(--reach)) calc(var(--degree) * 0.1 * var(--reach));
   }
   80% {
-    translate: calc(var(--degree) * 8%) 0;
+    translate: calc(var(--degree) * 0.08 * var(--reach)) 0;
     scale: var(--overscale, 1);
   }
   100% {
@@ -1728,7 +1759,7 @@ figcaption {
 
 /* From its strength to sharp: a share of the frame's width on the Image, and of
    the letter on the words. */
-[data-effect="from-blur"] {
+:deep([data-effect="from-blur"]) {
   --slight: 0.5cqi;
   --marked: 1.5cqi;
   --strong: 4cqi;
@@ -1736,7 +1767,7 @@ figcaption {
   animation: from-blur var(--over) ease-out;
 }
 
-figcaption [data-effect="from-blur"] {
+figcaption :deep([data-effect="from-blur"]) {
   --slight: 0.15em;
   --marked: 0.4em;
   --strong: 1em;
@@ -1749,7 +1780,7 @@ figcaption [data-effect="from-blur"] {
 }
 
 /* A sheet of paper fading off the Image, and at rest no sheet at all. */
-[data-effect="from-white"] {
+:deep([data-effect="from-white"]) {
   --slight: 0.4;
   --marked: 0.7;
   --strong: 1;
@@ -1766,14 +1797,14 @@ figcaption [data-effect="from-blur"] {
 }
 
 /* The grey the Image arrives out of, or the grey it arrives at and keeps. */
-[data-effect="into-colour"],
-[data-effect="out-of-colour"] {
+:deep([data-effect="into-colour"]),
+:deep([data-effect="out-of-colour"]) {
   --slight: 0.4;
   --marked: 0.7;
   --strong: 1;
 }
 
-[data-effect="into-colour"] {
+:deep([data-effect="into-colour"]) {
   animation: into-colour var(--over) ease-in-out;
 }
 
@@ -1783,7 +1814,7 @@ figcaption [data-effect="from-blur"] {
   }
 }
 
-[data-effect="out-of-colour"] {
+:deep([data-effect="out-of-colour"]) {
   filter: grayscale(var(--degree));
   animation: out-of-colour var(--over) ease-in-out;
 }
@@ -1795,7 +1826,7 @@ figcaption [data-effect="from-blur"] {
 }
 
 /* A falloff to the room, scaled in from past the edges of the box and kept. */
-[data-effect="closing-in"] {
+:deep([data-effect="closing-in"]) {
   --slight: 30%;
   --marked: 55%;
   --strong: 80%;
@@ -1822,7 +1853,7 @@ figcaption [data-effect="from-blur"] {
    dips no sooner than 400 ms after it. That is what keeps a run of flickering
    beats to three flashes in a second, so it takes no pace from the Author and
    none may be added to it here. */
-[data-effect="flicker"] {
+:deep([data-effect="flicker"]) {
   --slight: 0.8;
   --marked: 0.55;
   --strong: 0.3;
@@ -1837,7 +1868,7 @@ figcaption [data-effect="from-blur"] {
 }
 
 /* A double beat and a rest, each round. */
-[data-effect="pulse"] {
+:deep([data-effect="pulse"]) {
   --slight: 1.01;
   --marked: 1.025;
   --strong: 1.05;
@@ -1864,7 +1895,7 @@ figcaption [data-effect="from-blur"] {
 
 /* An unsteady jitter each round: a share of the frame's width on the Image, and
    on the words a share of the letter, which is what they are read at. */
-[data-effect="tremor"] {
+:deep([data-effect="tremor"]) {
   --slight: 0.25cqi;
   --marked: 0.6cqi;
   --strong: 1.2cqi;
@@ -1872,7 +1903,7 @@ figcaption [data-effect="from-blur"] {
   animation: tremor var(--every) linear infinite;
 }
 
-figcaption [data-effect="tremor"] {
+figcaption :deep([data-effect="tremor"]) {
   --slight: 0.03em;
   --marked: 0.06em;
   --strong: 0.12em;
@@ -1906,12 +1937,120 @@ figcaption [data-effect="tremor"] {
   }
 }
 
+/* A run taken apart breaks a line only between its words, wherever #358's units
+   cut it: the run keeps its line whole and gives each space back the wrap. Each
+   word and each letter is a box a transform can reach. */
+.frame :deep(.apart) {
+  white-space: pre;
+}
+
+.frame :deep(.apart .gap) {
+  white-space: pre-wrap;
+}
+
+.frame :deep(:is(.word, .letter)) {
+  display: inline-block;
+}
+
+/* A box of its own takes no line from the words around it, so a run taken apart
+   under #359's underline or strike would have it drawn under its spaces alone.
+   Each word and each letter draws the line again itself; a word made of letters
+   holds no text outside them to draw it under, so the line is still drawn once. */
+.frame :deep(u :is(.word, .letter)) {
+  text-decoration: underline;
+}
+
+.frame :deep(s :is(.word, .letter)) {
+  text-decoration: line-through;
+}
+
+/* A scramble: the letter is hidden until its Place in the run is reached, over
+   `over`, and its stand-ins lie over it one after another before that, each for
+   an equal share of the wait. Nothing is rewritten and no letter moves, so the
+   line never reflows. At rest and under less motion the letter is all there is. */
+.frame :deep(.letter) {
+  position: relative;
+}
+
+.frame :deep(.stand-in) {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  text-align: center;
+  user-select: none;
+}
+
+:deep([data-effect="scramble"]) {
+  animation: scramble calc(var(--over) * var(--step)) step-end;
+}
+
+:deep([data-effect="scramble"]:where(.stand-in)) {
+  animation: stand-in calc(var(--over) * var(--step) / var(--of)) step-end;
+}
+
+@keyframes scramble {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes stand-in {
+  from,
+  to {
+    opacity: 1;
+  }
+}
+
+/* A wave: each letter rises and falls once a round, a little behind the one
+   before, all of them moving from the start. */
+:deep([data-effect="wave"]) {
+  --slight: 0.08em;
+  --marked: 0.15em;
+  --strong: 0.3em;
+
+  animation: wave var(--every) ease-in-out infinite;
+}
+
+@keyframes wave {
+  0%,
+  100% {
+    translate: 0;
+  }
+  25% {
+    translate: 0 calc(var(--degree) * -1);
+  }
+  75% {
+    translate: 0 var(--degree);
+  }
+}
+
+/* Where each piece of a run starts. It outranks the shorthand every Effect is
+   written in, as the frame's own wait does, and writes neither the name nor the
+   play state, so the rest, the Pause and less motion still take the animation
+   off or stop it. A letter that lasts keeps its phase in the round; an arrival on
+   a word or a letter waits, while the text arrives, for the unit it is in. */
+.frame :deep(.letter[data-effect]) {
+  animation-delay: calc(var(--wait, 0ms) - var(--every) * (1 - var(--phase)));
+}
+
+.frame :deep(:is([data-effect="shake"], [data-effect="scramble"]):is(.word, .glyph)) {
+  animation-delay: calc(var(--wait, 0ms) + var(--piece-at, 0ms));
+}
+
+.frame :deep(.stand-in[data-effect]) {
+  animation-delay: calc(var(--wait, 0ms) + var(--piece-at, 0ms) + var(--over) * var(--step) * var(--k) / var(--of));
+  animation-fill-mode: none;
+}
+
 /* Grain is a sheet because a filter cannot make noise: one tile of it, painted
    once on a sheet twice the box's size and moved to another offset 24 times a
    second, which costs the compositor a layer and repaints nothing. It lies over
    the Image and under the words, which are not on the film. Standing still, it
    is still grain. */
-[data-effect="grain"] {
+:deep([data-effect="grain"]) {
   --slight: 0.06;
   --marked: 0.12;
   --strong: 0.2;
@@ -1964,6 +2103,16 @@ figcaption [data-effect="tremor"] {
 
 .arriving :deep(.unit) {
   animation-delay: calc(var(--cut-over, 0ms) + var(--after) + var(--at));
+}
+
+/* A unit inside a run arriving taken apart lends it its time, and appears at
+   once rather than fading: the run's own arrival is how it comes. */
+.arriving :deep(.unit) {
+  --piece-at: var(--at);
+}
+
+.arriving :deep(.apart-arrives .unit) {
+  animation-timing-function: step-start;
 }
 
 /* The text leaving whole over the same time it took to appear, so a title that

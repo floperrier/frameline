@@ -1,5 +1,6 @@
 import type { Condition, CutThrough, Exit, Flags, Layout, Sets, Shot, TextBy } from './scenes'
 import type { Phrase } from './phrases'
+import { runLastings } from './formatted'
 
 /**
  * A Story as a Reader receives it. Narrower than the Story an Author edits — no
@@ -313,15 +314,30 @@ export function movesItself(story: StoryToRead) {
       && story.exits.some(exit => exit.fromSceneId === scene.id)))
 }
 
+/** What `lastsOn` and `flickers` read of a Shot: its two slots, its Image, and its text's runs. */
+type Lasts = Pick<Shot, 'image' | 'imageLasts' | 'textLasts'> & Partial<Pick<Shot, 'formatted'>>
+
 /**
- * Whether a Shot carries an Effect that lasts, on its Image or on its text. The
- * Image's slot counts only where the Shot has an Image: the Reading draws it
+ * Whether a Shot carries an Effect that lasts, on its Image, on its text, or on a
+ * run of its words. The Image's slot counts only where the Shot has an Image: the Reading draws it
  * nowhere else, and the bench hides it with the Image, so a Lasting left behind
  * by an Image taken away is one nobody sees and nobody can clear — and a Pause
  * given over it would be a control over nothing that moves.
  */
-export function lastsOn(shot: Pick<Shot, 'image' | 'imageLasts' | 'textLasts'>) {
+export function lastsOn(shot: Lasts) {
   return (!!shot.image && !!shot.imageLasts) || !!shot.textLasts
+    || (!!shot.formatted && runLastings(shot.formatted).length > 0)
+}
+
+/**
+ * Whether the Image, the text or a run of the words of a Shot flickers, which the
+ * flash rule and the Remark both read. The Image's slot counts only where the Shot
+ * has an Image, as `lastsOn` reads it and for its reason: a flicker nothing draws
+ * flashes nothing, and would withhold the next white for a light nobody saw.
+ */
+export function flickers(shot: Lasts) {
+  return (!!shot.image && shot.imageLasts?.effect === 'flicker') || shot.textLasts?.effect === 'flicker'
+    || (!!shot.formatted && runLastings(shot.formatted).some(held => held.effect === 'flicker'))
 }
 
 /**

@@ -1,4 +1,5 @@
-import { SHOT_TEXT_MAX_LENGTH, REDACTION_HIDES_MAX_LENGTH } from './scenes'
+import { SHOT_TEXT_MAX_LENGTH, REDACTION_HIDES_MAX_LENGTH, LETTERS_SPLIT_MAX, isArrival, isLasting } from './scenes'
+import type { Arrival, Lasting } from './scenes'
 import { STORY_LANGUAGES } from './stories'
 import type { StoryLanguage } from './stories'
 
@@ -53,6 +54,10 @@ export type Style =
   | { type: 'colour', attrs: { ink: Ink, band: boolean } }
   | { type: 'spacing', attrs: { step: Spacing } }
   | { type: 'language', attrs: { lang: StoryLanguage } }
+  // Two types rather than one with two attributes, so that a scramble over three
+  // words and a tremor over the last two of them can overlap.
+  | { type: 'arrives', attrs: Arrival }
+  | { type: 'lasts', attrs: Lasting }
 
 /** Every line of a formatted text in reading order, as the leaves `textOf` joins. */
 export function linesOf(formatted: Formatted): Inline[][] {
@@ -109,6 +114,40 @@ export function bar(length: number, hides: string): Redaction {
   return { type: 'redaction', attrs: { length, hides } }
 }
 
+/** The Effects that take a run apart letter by letter, which the bound below counts. */
+export const BY_LETTER: readonly string[] = ['scramble', 'wave', 'tremor']
+
+const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+
+/** A text's letters as a reader sees them: graphemes, so an accent is never parted from its letter. */
+export function graphemes(text: string) {
+  return [...segmenter.segment(text)].map(({ segment }) => segment)
+}
+
+/** How many letters a text holds, white space being none. */
+export function lettersIn(text: string) {
+  return graphemes(text).filter(letter => !/^\s+$/u.test(letter)).length
+}
+
+const effectsOf = (inline: Inline) => inline.type === 'text' ? (inline.marks ?? []) : []
+
+/**
+ * How many letters a text's runs take apart, which `LETTERS_SPLIT_MAX` bounds: every
+ * letter under a scramble, a wave or a tremor, and once however many of them it is under.
+ */
+export function lettersSplit(formatted: Formatted) {
+  return linesOf(formatted).flat().reduce((count, inline) => effectsOf(inline).some(mark =>
+    (mark.type === 'arrives' || mark.type === 'lasts') && BY_LETTER.includes(mark.attrs.effect))
+    ? count + lettersIn((inline as Run).text)
+    : count, 0)
+}
+
+/** What the runs of a text play while they stand, which the Pause and the flash rule read. */
+export function runLastings(formatted: Formatted): Lasting[] {
+  return linesOf(formatted).flat().flatMap(inline =>
+    effectsOf(inline).flatMap(mark => mark.type === 'lasts' ? [mark.attrs] : []))
+}
+
 const wordsOf = (words: string | Inline[]): Inline[] => typeof words === 'string' ? inlinesOf([words]) : words
 
 export function quote(lines: Line[], source?: string | Inline[]): Quote {
@@ -134,6 +173,7 @@ export function standing(stands: Stands | null, value: Formatted): Formatted {
 // The boundary.
 
 export type FormattedRefusal = 'formatted' | 'redactionHides' | 'shotTextLong'
+  | 'effectArrives' | 'effectLasts' | 'lettersSplit'
 
 class Refusal extends Error {
   constructor(readonly refusal: FormattedRefusal) {
@@ -201,6 +241,21 @@ export function parseFormatted(
       case 'colour': return { type: 'colour', attrs: attrs(m, { ink: oneOf(INKS), band: flag }) } as Style
       case 'spacing': return { type: 'spacing', attrs: attrs(m, { step: oneOf(SPACINGS) }) } as Style
       case 'language': return { type: 'language', attrs: attrs(m, { lang: oneOf(STORY_LANGUAGES) }) } as Style
+      // A run's Effect is #360's, read by #360's own two calls. The editor declares
+      // a round on every lasting, so one with none is written with it null.
+      case 'arrives': {
+        own(m, ['type', 'attrs'])
+        return isArrival(m.attrs, 'run')
+          ? { type: 'arrives', attrs: { ...m.attrs } } as Style
+          : refuse('effectArrives')
+      }
+      case 'lasts': {
+        own(m, ['type', 'attrs'])
+        const held = isObject(m.attrs) && m.attrs.every === null
+          ? Object.fromEntries(Object.entries(m.attrs).filter(([key]) => key !== 'every'))
+          : m.attrs
+        return isLasting(held, 'run') ? { type: 'lasts', attrs: { ...held } } as Style : refuse('effectLasts')
+      }
       default: return refuse()
     }
   }
@@ -313,6 +368,7 @@ export function parseFormatted(
     const content = children(doc, ['line', 'quote', 'speech', 'verse', 'separator'], block, 1)
     const result = { type: 'doc', attrs: { stands: held }, content } as Formatted
     if (textOf(result).length > SHOT_TEXT_MAX_LENGTH) refuse('shotTextLong')
+    if (lettersSplit(result) > LETTERS_SPLIT_MAX) refuse('lettersSplit')
     return { formatted: result }
   }
   catch (e) {

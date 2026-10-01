@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { flickers, isArrival, isLasting } from '../../shared/utils/scenes'
+import { isArrival, isLasting } from '../../shared/utils/scenes'
+import { flickers } from '../../shared/utils/reading'
+import { formatted, line, run } from '../../shared/utils/formatted'
 
 describe('isArrival', () => {
   it('takes an Arrival offered to its carrier', () => {
@@ -51,5 +53,32 @@ describe('flickers', () => {
   })
   it('is not said of a flicker on an Image the Shot does not have', () => {
     expect(flickers({ image: null, imageLasts: { effect: 'flicker', strength: 'slight' }, textLasts: null })).toBe(false)
+  })
+  it('is said of a Shot whose one flicker is on a run of its words', () => {
+    const flickering = formatted(line('a ', run('lamp', { type: 'lasts', attrs: { effect: 'flicker', strength: 'slight' } })))
+    expect(flickers({ image: null, imageLasts: null, textLasts: null, formatted: flickering })).toBe(true)
+    const waving = formatted(line(run('sea', { type: 'lasts', attrs: { effect: 'wave', every: 1600, strength: 'slight' } })))
+    expect(flickers({ image: null, imageLasts: null, textLasts: null, formatted: waving })).toBe(false)
+  })
+})
+
+describe('a run', () => {
+  it('is offered a scramble and a wave, which neither the Image nor the text is', () => {
+    expect(isArrival({ effect: 'scramble', over: 1200, strength: 'marked' }, 'run')).toBe(true)
+    expect(isLasting({ effect: 'wave', every: 1600, strength: 'slight' }, 'run')).toBe(true)
+    for (const carrier of ['image', 'text'] as const) {
+      expect(isArrival({ effect: 'scramble', over: 1200, strength: 'marked' }, carrier)).toBe(false)
+      expect(isLasting({ effect: 'wave', every: 1600, strength: 'slight' }, carrier)).toBe(false)
+    }
+  })
+  it('keeps the text’s shake, blur, flicker, pulse and tremor, and refuses what is the Image’s', () => {
+    expect(isArrival({ effect: 'from-blur', over: 500, strength: 'slight' }, 'run')).toBe(true)
+    expect(isLasting({ effect: 'tremor', every: 300, strength: 'slight' }, 'run')).toBe(true)
+    expect(isArrival({ effect: 'from-white', over: 500, strength: 'slight' }, 'run')).toBe(false)
+    expect(isLasting({ effect: 'grain', strength: 'slight' }, 'run')).toBe(false)
+  })
+  it('gives a wave a round, as a pulse has', () => {
+    expect(isLasting({ effect: 'wave', strength: 'slight' }, 'run')).toBe(false)
+    expect(isLasting({ effect: 'wave', every: 199, strength: 'slight' }, 'run')).toBe(false)
   })
 })

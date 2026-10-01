@@ -174,7 +174,27 @@ describe.each(WORKS)('the Effects %s is written with', (_name: string, work: Wor
 })
 
 describe('the Effects the works carry', () => {
-  it('gives Reel Change exactly one flicker', () => {
+  it('flickers the green of the sign over the door in Reel Change, in the words', () => {
+    const runs = REEL_CHANGE.scenes.flatMap(scene => scene.shots)
+      .flatMap(shot => shot.formatted ? inlinesOf(shot.formatted) : [])
+    expect(runs).toContainEqual(expect.objectContaining({
+      text: 'the green of the sign over the door',
+      marks: [{ type: 'lasts', attrs: { effect: 'flicker', strength: 'slight' } }],
+    }))
+  })
+
+  it.each([['en', SAMPLES.en, 'break it'], ['fr', SAMPLES.fr, 'cassez']] as const)(
+    'says the Sample in %s’s invitation to take it apart a little unsteadily',
+    (_language, work, words) => {
+      const runs = work.scenes.flatMap(scene => scene.shots).flatMap(shot => shot.formatted ? inlinesOf(shot.formatted) : [])
+      expect(runs).toContainEqual(expect.objectContaining({
+        text: words,
+        marks: expect.arrayContaining([{ type: 'lasts', attrs: { effect: 'tremor', every: 300, strength: 'slight' } }]),
+      }))
+    },
+  )
+
+  it('gives Reel Change exactly one flicker on an Image or a whole text', () => {
     const { lastings } = effectsOf(REEL_CHANGE)
 
     expect(lastings.filter(({ held }) => held.effect === 'flicker')).toHaveLength(1)

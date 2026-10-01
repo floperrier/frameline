@@ -930,37 +930,6 @@ function cutMade(answer: string) {
 const A_TIME_HELD = 4000
 const A_TIME_OFFERED = 10_000
 
-/**
- * A field of seconds read back as the milliseconds the column holds, and nothing
- * at all where it says no duration. Two things say none. A box left empty is an
- * Author in the middle of typing, and it is left as they left it. A nought is not
- * a duration either — a Shot standing for no time is a Shot nobody sees — and it
- * is the answer above the field rather than a value in it: *at the press*, *not at
- * all*, *hard*. Each of those is a sentence a `<select>` writes, and
- * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md` says the sentinel
- * behind it is picked and never typed, so the field hands a typed nought straight
- * back and puts the time the row is still holding in its place. What is judged is
- * the millisecond the column would hold rather than the number in the box, so a
- * tenth of one is the nought it rounds to.
- *
- * A time past its cap or under its floor is written and refused by its own
- * phrase, because a refusal says more than a field that silently kept what it had. A nought has no refusal
- * to be given, because the doors take it: it is what a Shot's `cutAfter` and a
- * Scene's `exitsAfter` and `cutOver` hold when the answer above says so, and no
- * door can tell one typed here from one picked there. A Scene's `cutAfter` is the
- * one nought closed at both ends, because its column cannot hold one at all: the
- * door at `readSceneChanges` refuses it with a phrase of its own.
- */
-function secondsWritten(event: Event, stood: number | null) {
-  const field = event.target as HTMLInputElement
-  const written = Math.round(field.valueAsNumber * 1000)
-
-  if (written) return written
-  if (stood && !Number.isNaN(field.valueAsNumber)) field.value = String(stood / 1000)
-
-  return undefined
-}
-
 /** A body one of those empty fields is in is a body with no change in it. */
 function wholeCut(body: object) {
   return Object.values(body).every(held => held !== undefined)
@@ -1032,46 +1001,9 @@ const EFFECT_SLOTS: {
   { slot: 'textLasts', image: false, arrives: false, effects: TEXT_LASTINGS },
 ]
 
-/** The message each Effect is offered under. */
-const EFFECT_LABELS: Record<string, string> = {
-  'shake': 'effectShake',
-  'from-blur': 'effectFromBlur',
-  'from-white': 'effectFromWhite',
-  'into-colour': 'effectIntoColour',
-  'out-of-colour': 'effectOutOfColour',
-  'closing-in': 'effectClosingIn',
-  'flicker': 'effectFlicker',
-  'pulse': 'effectPulse',
-  'tremor': 'effectTremor',
-  'grain': 'effectGrain',
-}
-
-/**
- * Where a time starts on the Effect that has one, as `CUT_MADE` starts a
- * dissolve: an Author writes over it in the field beside the answer. Each is
- * about as long as the movement reads — a shake is a jolt, a colour is a change
- * the eye follows — and a round is how often a pulse or a tremor comes again.
- */
-const EFFECT_STARTS: Record<string, number> = {
-  'shake': 500,
-  'from-blur': 1500,
-  'from-white': 1200,
-  'into-colour': 3000,
-  'out-of-colour': 3000,
-  'closing-in': 2500,
-  'pulse': 900,
-  'tremor': 400,
-}
-
-/** The time an Effect holds, which is nothing for a flicker and for grain. */
-function effectTime(effect: Arrival | Lasting) {
-  return 'over' in effect ? effect.over : 'every' in effect ? effect.every : undefined
-}
-
 /**
  * What a Shot says about one of its Effects. Choosing writes the whole object,
- * with the strength the slot already had or *Marked*, because a half-written
- * Effect is one the door refuses; *No Effect* writes null.
+ * as `effectWritten` makes it; *No Effect* writes null.
  */
 function writeShotEffect(
   scene: Scene,
@@ -1086,13 +1018,9 @@ function writeShotEffect(
 function writeShotEffectChosen(scene: Scene, shot: Shot, slot: EffectSlot, effect: string) {
   if (!effect) return writeShotEffect(scene, shot, { [slot]: null })
 
-  const strength = shot[slot]?.strength ?? 'marked'
-  const start = EFFECT_STARTS[effect]
-  const body = start === undefined
-    ? { effect, strength }
-    : { effect, [slot.endsWith('Arrives') ? 'over' : 'every']: start, strength }
-
-  return writeShotEffect(scene, shot, { [slot]: body })
+  return writeShotEffect(scene, shot, {
+    [slot]: effectWritten(effect, slot.endsWith('Arrives') ? 'arrives' : 'lasts', shot[slot]?.strength ?? 'marked'),
+  })
 }
 
 function writeShotEffectTime(scene: Scene, shot: Shot, slot: EffectSlot, event: Event) {

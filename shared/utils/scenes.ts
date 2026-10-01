@@ -60,24 +60,38 @@ export function isTime(held: unknown, max: number, min = 0): held is number {
  * means something: an Arrival plays once as the beat arrives, over a time, and a
  * Lasting plays for as long as it stands. The text is offered fewer than the
  * Image because a blur and a shake are read on words, while white, colour, a
- * vignette and grain are said of a picture.
+ * vignette and grain are said of a picture. A run of the words is offered what
+ * the text is, plus the three Effects that take it apart letter by letter.
  */
 export type Strength = 'slight' | 'marked' | 'strong'
 export const STRENGTHS: readonly Strength[] = ['slight', 'marked', 'strong']
 
 export const IMAGE_ARRIVALS = ['shake', 'from-blur', 'from-white', 'into-colour', 'out-of-colour', 'closing-in'] as const
 export const TEXT_ARRIVALS = ['shake', 'from-blur'] as const
+export const RUN_ARRIVALS = ['shake', 'from-blur', 'scramble'] as const
 export const IMAGE_LASTINGS = ['flicker', 'pulse', 'tremor', 'grain'] as const
 export const TEXT_LASTINGS = ['flicker', 'pulse', 'tremor'] as const
+export const RUN_LASTINGS = ['flicker', 'pulse', 'tremor', 'wave'] as const
 
-export type Arrival = { effect: (typeof IMAGE_ARRIVALS)[number], over: number, strength: Strength }
+export type Arrival = {
+  effect: (typeof IMAGE_ARRIVALS | typeof RUN_ARRIVALS)[number], over: number, strength: Strength
+}
 
 /** A flicker keeps one pace and grain has none to tell, so neither carries a round. */
 export type Lasting =
-  | { effect: 'pulse' | 'tremor', every: number, strength: Strength }
+  | { effect: 'pulse' | 'tremor' | 'wave', every: number, strength: Strength }
   | { effect: 'flicker' | 'grain', strength: Strength }
 
-export type EffectCarrier = 'image' | 'text'
+export type EffectCarrier = 'image' | 'text' | 'run'
+
+/**
+ * How many letters one Shot's runs may take apart for a scramble, a wave or a
+ * tremor. Each letter taken apart is an element and, while it moves, a layer, and
+ * three hundred is seven lines at the reading measure — more than any emphasis.
+ * Counted over the whole Shot, a letter under two such marks once, because a cap
+ * per run is a cap many runs add up past.
+ */
+export const LETTERS_SPLIT_MAX = 300
 
 /**
  * What an Effect's time is held between, in milliseconds. Under a tenth of a
@@ -90,9 +104,9 @@ export const ARRIVES_OVER_MAX = 5_000
 export const LASTS_EVERY_MIN = 200
 export const LASTS_EVERY_MAX = 4_000
 
-const ARRIVALS: Record<EffectCarrier, readonly string[]> = { image: IMAGE_ARRIVALS, text: TEXT_ARRIVALS }
-const LASTINGS: Record<EffectCarrier, readonly string[]> = { image: IMAGE_LASTINGS, text: TEXT_LASTINGS }
-const PACED: readonly string[] = ['pulse', 'tremor']
+const ARRIVALS: Record<EffectCarrier, readonly string[]> = { image: IMAGE_ARRIVALS, text: TEXT_ARRIVALS, run: RUN_ARRIVALS }
+const LASTINGS: Record<EffectCarrier, readonly string[]> = { image: IMAGE_LASTINGS, text: TEXT_LASTINGS, run: RUN_LASTINGS }
+const PACED: readonly string[] = ['pulse', 'tremor', 'wave']
 
 /** Whether an object holds exactly these keys, so a key its effect does not take is refused rather than stored. */
 function holdsExactly(held: object, keys: readonly string[]) {
@@ -125,16 +139,6 @@ export function isLasting(held: unknown, carrier: EffectCarrier): held is Lastin
     && LASTINGS[carrier].includes(held.effect as string)
     && (!paced || isTime(held.every, LASTS_EVERY_MAX, LASTS_EVERY_MIN))
     && STRENGTHS.includes(held.strength as Strength)
-}
-
-/**
- * Whether the Image or the text of a Shot flickers, which the flash rule and the
- * Remark both read. The Image's slot counts only where the Shot has an Image, as
- * `lastsOn` reads it and for its reason: a flicker nothing draws flashes nothing,
- * and would withhold the next white for a light nobody saw.
- */
-export function flickers(shot: Pick<Shot, 'image' | 'imageLasts' | 'textLasts'>) {
-  return (!!shot.image && shot.imageLasts?.effect === 'flicker') || shot.textLasts?.effect === 'flicker'
 }
 
 /**

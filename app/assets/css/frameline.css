@@ -627,6 +627,15 @@ kbd {
   word-break: break-all;
 }
 
+/* A run carrying an Effect, as it is written: under a dotted line in the grease
+   pencil, because it is something the Author wrote on the film, and still — the
+   Preview is where an Effect is seen. The Reading never shows `.run`. */
+.shot .run {
+  text-decoration: underline dotted var(--grease);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.2em;
+}
+
 /* The grease-pencil mark a Cut is offered behind, wherever Cuts are listed. */
 .splice::before {
   content: '→';
