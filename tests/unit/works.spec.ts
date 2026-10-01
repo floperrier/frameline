@@ -1,3 +1,5 @@
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { REEL_CHANGE } from '../../demonstration/reel-change.ts'
 import { SAMPLES } from '../../demonstration/samples.ts'
@@ -428,5 +430,22 @@ describe('the formatting the works are written with', () => {
       expect(card.formatted!.content.map(block => block.type)).toEqual(['speech', 'speech'])
       expect(wordsOf(card).length).toBe(length)
     }
+  })
+})
+
+/**
+ * The script either work is written by, run as `AGENTS.md` says: by Node as it
+ * stands, which strips the types and transforms nothing, so an enum, a namespace,
+ * a parameter property or an import without its extension in any module the
+ * script reaches is a script that never starts. Vitest transforms and resolves
+ * what it imports, so only running the script asks the question. Run with no Author it stops at asking for one, which is after every
+ * module has loaded and before anything reaches for a database.
+ */
+describe('the script the works are written by', () => {
+  it('starts on the Node that runs this suite', () => {
+    const script = fileURLToPath(new URL('../../demonstration/write.ts', import.meta.url))
+    const run = spawnSync(process.execPath, [script], { encoding: 'utf8' })
+
+    expect(run.stderr).toContain('Which Author is writing this: --author <email>')
   })
 })

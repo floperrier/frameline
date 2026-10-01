@@ -66,6 +66,11 @@ export default defineNuxtConfig({
       { name: 'Caveat', provider: 'google', weights: [400, 700], preload: false },
     ],
   },
+  // `shared/` is read by Node as it stands too, through the script that writes
+  // the works in `demonstration/`, and Node strips types without transforming
+  // anything: an enum, a namespace or a parameter property there is a script
+  // that never starts, so the typecheck refuses them before Node has to.
+  typescript: { sharedTsConfig: { compilerOptions: { erasableSyntaxOnly: true } } },
   // Port 3000 is taken on this machine, and the OAuth redirect URIs are
   // registered against 3100.
   devServer: { port: 3100 },
