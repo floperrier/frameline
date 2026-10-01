@@ -104,11 +104,12 @@
     "newLanguage": "Langue d'un nouveau Récit",
     "create": "Créer le Récit",
     "none": "Aucun Récit pour l'instant. Nommez-en un ci-dessus, et il s'ouvre prêt pour sa première Scène.",
-    "open": "Ouvrir",
-    "title": "Titre",
-    "rename": "Renommer",
     "confirmDelete": "« {title} » disparaît, et tout ce qui y est écrit.",
-    "deleteStory": "Supprimer le Récit"
+    "deleteStory": "Supprimer le Récit",
+    "notPublished": "Non publié",
+    "listed": "Répertorié",
+    "oneComment": "{count} Commentaire",
+    "manyComments": "{count} Commentaires"
   },
   "editor": {
     "allStories": "Tous les Récits",

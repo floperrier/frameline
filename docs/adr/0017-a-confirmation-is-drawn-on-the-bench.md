@@ -49,7 +49,7 @@ Author's goes.
 
 | Act | Asks | Why |
 | --- | --- | --- |
-| Delete a Récit | **Yes**, naming the Récit, with no counts | It takes the whole work; "everything written in it" is not made truer by arithmetic, and the Stories list carries only ids and titles |
+| Delete a Récit | **Yes**, naming the Récit, with no counts | It takes the whole work; "everything written in it" is not made truer by arithmetic. The Author's shelf of Stories carries a Comment count since #390, and the question still names none of it, for that reason |
 | Delete a Scène | **Yes**, naming its Plans, its ways on and the ways in | Plans and Coupes at both ends go, and the Author named none of them |
 | Delete a Plan | No | Takes only the Plan pointed at; its Photogramme, its Description and its Conditions are the Plan |
 | Delete a Coupe | No | Takes only the Coupe pointed at; its text and its Conditions are the Coupe |
