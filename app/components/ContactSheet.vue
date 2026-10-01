@@ -174,15 +174,16 @@ function walk(event: KeyboardEvent) {
 }
 
 /**
- * The Description, written where the Author is looking at the Image. The same
- * request the writing sends — the text goes with it, because the endpoint takes
- * the pair — so the two readings write one field and neither can be holding a
- * Description the other has not got.
+ * The Description, written where the Author is looking at the Image, to the
+ * endpoint the writing sends it to — so the two readings write one field and
+ * neither can be holding a Description the other has not got. Sent alone: the
+ * endpoint takes each field on its own, and a plain text sent beside it would
+ * take the Shot's formatting away with it.
  */
 function describe(shot: Shot) {
   return write(() => send(`/api/shots/${shot.id}`, {
     method: 'PATCH',
-    body: { text: shot.text, description: shot.description },
+    body: { description: shot.description },
   }))
 }
 
@@ -399,10 +400,12 @@ function move(shot: Shot, axis: 'cropX' | 'cropY', event: Event) {
            the fold can put it beside the frame rather than under it: at the foot of
            the window there is width to spare and no height at all. -->
       <div class="about">
-        <!-- The Shot's words, in the face a Shot's text is set in everywhere. Not
-             at the reading measure, which this column is not wide enough to be and
-             which the writing and the Preview are both for: what these words are
-             here is what the frame beside them is a frame of.
+        <!-- The Shot's words as they were formatted, in the face and alignment
+             its Story is set in, as a Shot's text is set everywhere. Still and
+             silent: nothing here arrives in its own time. Not at the reading
+             measure, which this column is not wide enough to be and which the
+             writing and the Preview are both for: what these words are here is
+             what the frame beside them is a frame of.
 
              A Shot carrying none says so in its own words and not in the Scene's:
              the sentence a band with no frame in it wears — *Nothing is written in
@@ -410,7 +413,13 @@ function move(shot: Shot, axis: 'cropX' | 'cropY', event: Event) {
              Shot exists and its Scene may hold five more, and it offers an act this
              reading does not carry. Beats are added where they stand, in the
              writing. -->
-        <p v-if="shown.shot.text" class="shot" :lang="story.language">{{ shown.shot.text }}</p>
+        <Formatted
+          v-if="shown.shot.text"
+          class="shot"
+          v-bind="setIn(story)"
+          :lang="story.language"
+          :formatted="shown.shot.formatted"
+        />
         <p v-else class="none">{{ $t('editor.noWords') }}</p>
 
         <!-- What the image shows, for a Reader who cannot see it. The one field on

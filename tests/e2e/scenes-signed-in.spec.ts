@@ -4,7 +4,7 @@ import { CONDITIONS_MAX, SCENE_NAME_MAX_LENGTH } from '../../shared/utils/scenes
 import type { StoryInEditor } from '../../shared/utils/scenes'
 import {
   A_SOUND, ONE_PIXEL, writeScene, readExits, readSceneName, readShotConditions, readShots,
-  seedFlags, seedExit, seedScene, seedStory, test, toast,
+  seedFlags, seedExit, seedScene, seedStory, shotText, test, toast, writeShot,
 } from './author'
 
 const noId = '00000000-0000-4000-8000-000000000000'
@@ -158,7 +158,7 @@ async function sweptUnder(page: Page, sceneId: string, winds = 60, step = 8) {
         }
       }
 
-      for (const control of section.querySelectorAll('input, textarea, button, select, a')) {
+      for (const control of section.querySelectorAll('input, [role="textbox"], button, select, a')) {
         // A control the interface hides from the eye — the field an Image is
         // chosen in, which its own label is drawn in place of — is not a control
         // a pointer is aimed at, and the point at its middle is a point in
@@ -425,7 +425,7 @@ test('an Author renumbers the Shots of a Scene from the controls', async ({ page
   // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`, so the reload
   // comes back to it and there is nothing to open again.
   await page.reload()
-  await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('Second')
+  await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveText('Second')
 })
 
 test('a Shot’s three controls are marks on one line', async ({ page, request }) => {
@@ -528,7 +528,7 @@ test('the Story page shows a Scene and the Shots in it', async ({ page, request 
   // the moment the page is: a heading, and the run of Shots under it.
   await expect(page.getByRole('heading', { name: 'The arrival' })).toBeVisible()
   await writeScene(page, 'The arrival')
-  await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('She steps off the train.')
+  await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveText('She steps off the train.')
 
   await page.getByRole('button', { name: 'Add a Shot' }).click()
   await expect(page.getByRole('textbox', { name: 'Shot 2' })).toBeVisible()
@@ -616,7 +616,7 @@ test('a Scene is typed as one document, beat after beat', async ({ page, request
   // Backspace at the head of an empty beat takes it away and puts the caret at
   // the end of the one before, the way it joins two paragraphs anywhere else.
   const second = page.getByRole('textbox', { name: 'Shot 2' })
-  await second.fill('')
+  await writeShot(second, '')
   await second.press('Backspace')
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toBeFocused()
   await expect.poll(() => readShots(scene.id)).toHaveLength(3)
@@ -630,7 +630,7 @@ test('a Scene is typed as one document, beat after beat', async ({ page, request
 
   // Shift held, it writes the second line of one beat rather than a second beat.
   await page.keyboard.press('Shift+Enter')
-  await expect.poll(() => page.getByRole('textbox', { name: 'Shot 1' }).inputValue())
+  await expect.poll(() => shotText(page.getByRole('textbox', { name: 'Shot 1' })))
     .toBe('She steps off the train.\n')
   await expect(page.getByRole('textbox', { name: 'Shot 4' })).toHaveCount(0)
 })
@@ -675,7 +675,7 @@ test('every Scene of the document is written where it stands', async ({ page, re
   // And so is a beat of the second, in the field that beat has of its own: one
   // field per Shot, over the whole document.
   const beat = shot(page, 1, 'The platform')
-  await beat.fill('The platform is bare.')
+  await writeShot(beat, 'The platform is bare.')
   await beat.blur()
   await expect.poll(() => readShots(platform!.id)).toMatchObject([{ text: 'The platform is bare.' }])
 })
@@ -1382,25 +1382,25 @@ test('an Author writes a Story from the page alone', async ({ page, request }) =
     await page.getByRole('button', { name: 'Add a Shot' }).click()
     const beat = shot(page, place + 1)
     await expect(beat).toBeVisible()
-    await beat.fill(line)
+    await writeShot(beat, line)
     await beat.blur()
-    await expect(beat).toHaveValue(line)
+    await expect(beat).toHaveText(line)
   }
 
   await shot(page, 2).click()
   await page.getByRole('button', { name: 'Move Earlier Shot 2' }).click()
-  await expect(shot(page, 1)).toHaveValue('The platform is empty.')
-  await expect(shot(page, 2)).toHaveValue('She steps off the train.')
+  await expect(shot(page, 1)).toHaveText('The platform is empty.')
+  await expect(shot(page, 2)).toHaveText('She steps off the train.')
 
   // What the page shows has to be what was written, not what the page remembers.
   // The Scene being written is in the address since
   // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`, so the reload
   // comes back to it and there is nothing to open again.
   await page.reload()
-  await expect(shot(page, 1)).toHaveValue('The platform is empty.')
+  await expect(shot(page, 1)).toHaveText('The platform is empty.')
 
   await page.getByRole('button', { name: 'Delete Shot 1' }).click()
-  await expect(shot(page, 1)).toHaveValue('She steps off the train.')
+  await expect(shot(page, 1)).toHaveText('She steps off the train.')
   await expect(shot(page, 2)).toHaveCount(0)
 
   // Deleting a Scene takes Shots and Exits with it, so it is asked about first —

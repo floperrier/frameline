@@ -4,6 +4,8 @@ import type { H3Event } from 'h3'
 import { exits, scenes, shots, stories } from '../db/schema'
 import { useDb } from '../db'
 import type { Cover } from '../../shared/utils/stories'
+import { ALIGNS, FACES, formattedIn } from '../../shared/utils/formatted'
+import type { Align, Face } from '../../shared/utils/formatted'
 
 /**
  * Reads a Story title from the request body. A trust boundary: the title
@@ -90,18 +92,24 @@ export async function readStoryChanges(event: H3Event, storyId: string) {
     synopsis?: unknown
     coverShotId?: unknown
     stepsBack?: unknown
+    textFace?: unknown
+    textAlign?: unknown
   }>(event)
   const changes: {
     title?: string
     synopsis?: string
     coverShotId?: string | null
     stepsBack?: boolean
+    textFace?: Face
+    textAlign?: Align
   } = {}
 
   if (body?.title !== undefined) changes.title = await readStoryTitle(event)
   if (body?.synopsis !== undefined) changes.synopsis = await readStorySynopsis(event)
   if (body?.coverShotId !== undefined) changes.coverShotId = await readStoryCover(event, storyId)
   if (body?.stepsBack !== undefined) changes.stepsBack = await readStoryStepsBack(event)
+  if (body?.textFace !== undefined) changes.textFace = await readStoryText(event, 'textFace', FACES)
+  if (body?.textAlign !== undefined) changes.textAlign = await readStoryText(event, 'textAlign', ALIGNS)
   // Which is a title asked for, by the reader that phrases the refusal.
   if (!Object.keys(changes).length) await readStoryTitle(event)
 
@@ -122,6 +130,25 @@ export async function readStoryStepsBack(event: H3Event) {
   }
 
   return body.stepsBack
+}
+
+/**
+ * Reads the face a Story's text is set in, or where its lines stand: one of a
+ * closed list, which is what the select that writes it offers and nothing else.
+ */
+async function readStoryText<T extends string>(
+  event: H3Event,
+  field: 'textFace' | 'textAlign',
+  options: readonly T[],
+) {
+  const body = await readBody<Record<string, unknown>>(event)
+  const held = body?.[field]
+
+  if (!options.includes(held as T)) {
+    throw createError({ statusCode: 400, message: saying(event)(`refusals.${field}`) })
+  }
+
+  return held as T
 }
 
 /**
@@ -218,6 +245,7 @@ export async function readStoryGraph(storyId: string) {
       textStays: scenes.textStays,
       shotId: shots.id,
       text: shots.text,
+      formatted: shots.formatted,
       position: shots.position,
       description: shots.description,
       conditions: shots.conditions,
@@ -279,6 +307,7 @@ export async function readStoryGraph(storyId: string) {
       scene.shots.push({
         id: row.shotId,
         text: row.text!,
+        formatted: formattedIn({ formatted: row.formatted, text: row.text! }),
         position: row.position!,
         image: row.hasImage ? shotImageUrl(row.shotId) : null,
         description: row.description!,

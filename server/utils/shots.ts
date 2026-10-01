@@ -1,4 +1,6 @@
 import type { H3Event } from 'h3'
+import { parseFormatted, textOf } from '../../shared/utils/formatted'
+import type { Formatted } from '../../shared/utils/formatted'
 
 /**
  * Reads a Shot's text. A Shot is added empty and written afterwards, so empty is
@@ -22,6 +24,25 @@ export async function readShotText(event: H3Event) {
   }
 
   return text
+}
+
+/**
+ * Reads a Shot's formatted text, which the boundary parses key by key and which
+ * is refused with the phrase of whichever rule it broke.
+ */
+async function readShotFormatted(event: H3Event) {
+  const body = await readBody<{ formatted?: unknown }>(event)
+  const read = parseFormatted(body?.formatted, 'refuse')
+
+  if ('formatted' in read) return read.formatted
+
+  const say = saying(event)
+  const message = read.refused === 'shotTextLong'
+    ? say('refusals.shotTextLong', { max: SHOT_TEXT_MAX_LENGTH })
+    : read.refused === 'redactionHides'
+      ? say('refusals.redactionHides', { max: REDACTION_HIDES_MAX_LENGTH })
+      : say('refusals.formatted')
+  throw createError({ statusCode: 400, message })
 }
 
 /**
@@ -111,6 +132,7 @@ async function readCrop(event: H3Event, field: 'cropX' | 'cropY') {
 export async function readShotChanges(event: H3Event) {
   const body = await readBody<{
     text?: unknown
+    formatted?: unknown
     description?: unknown
     transcript?: unknown
     cutAfter?: unknown
@@ -131,6 +153,7 @@ export async function readShotChanges(event: H3Event) {
   }>(event)
   const changes: {
     text?: string
+    formatted?: Formatted | null
     description?: string
     transcript?: string
     cutAfter?: number | null
@@ -150,7 +173,20 @@ export async function readShotChanges(event: H3Event) {
     textStays?: number | null
   } = {}
 
-  if (body?.text !== undefined) changes.text = await readShotText(event)
+  // The words are said once: `formatted` carries its plain words with it, and
+  // `text` alone is a plain Shot, which unsets whatever was formatted.
+  if (body?.text !== undefined && body?.formatted !== undefined) {
+    throw createError({ statusCode: 400, message: saying(event)('refusals.shotWordsTwice') })
+  }
+  if (body?.text !== undefined) {
+    changes.text = await readShotText(event)
+    changes.formatted = null
+  }
+  if (body?.formatted !== undefined) {
+    const formatted = await readShotFormatted(event)
+    changes.formatted = formatted
+    changes.text = textOf(formatted)
+  }
   if (body?.description !== undefined) changes.description = await readShotDescription(event)
   if (body?.transcript !== undefined) changes.transcript = await readTranscript(event)
   // A Shot's own three answer as themselves or answer *as the Scene says*, so

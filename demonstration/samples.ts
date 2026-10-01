@@ -21,7 +21,14 @@
  * or a WebP and the runtime the product deploys to has no ImageMagick on it.
  */
 
+import { formatted, line, run, speech } from '../shared/utils/formatted.ts'
+import type { Style } from '../shared/utils/formatted.ts'
 import type { Image, Work } from './work.ts'
+
+/* The two faces a Sample sets a word in: a Flag as it looks on its Scene, and the
+   Sample's author speaking aside. */
+const FLAG: Style[] = [{ type: 'face', attrs: { face: 'typewriter' } }]
+const ASIDE: Style[] = [{ type: 'face', attrs: { face: 'hand' } }]
 
 /* The bench's own tokens, from `app/assets/css/frameline.css`: a Sample's images
    are diagrams of the product, so they are lit like the room the product is
@@ -271,8 +278,14 @@ const ENGLISH: Work = {
           imageArrives: { effect: 'from-blur', over: 1500, strength: 'marked' },
         },
         {
-          text: 'This Shot has no Image. A Shot may be text alone, or an Image alone — what '
-            + 'it may not be is neither.',
+          formatted: formatted(
+            speech('Someone', line('Where is the Image?')),
+            speech('This Shot', line(
+              'There is none. A Shot may be text alone, or an Image alone. What it may not be is ',
+              run('neither', { type: 'emphasis' }),
+              '.',
+            )),
+          ),
           sound: 'door-close.m4a',
           transcript: 'A door closes.',
           // The words take the blow of the door they are struck with.
@@ -317,8 +330,12 @@ const ENGLISH: Work = {
           image: 'an-exit',
         },
         {
-          text: 'Entering this Scene set a Flag: exit = taken. A Scene sets its Flags on every '
-            + 'entry, and they stay in this Reading’s State until something sets them again.',
+          formatted: formatted(line(
+            'Entering this Scene set a Flag: ',
+            run('exit = taken', ...FLAG),
+            '. A Scene sets its Flags on every entry, and they stay in this Reading’s State '
+            + 'until something sets them again.',
+          )),
           description: 'A panel with a plate laid across it, a pale name beside a lit value.',
           image: 'a-flag',
         },
@@ -336,10 +353,14 @@ const ENGLISH: Work = {
       transcript: 'The hush of an empty room.',
       shots: [
         {
-          text: 'A Condition is one flat test on State, carried by a Shot or by an Exit. Where '
-            + 'it does not hold, the Shot is not played and the Exit is not offered: nothing '
-            + 'is refused, it is simply not there. Nothing here is precious — change it, '
-            + 'break it, delete it.',
+          formatted: formatted(
+            line(
+              'A Condition is one flat test on State, carried by a Shot or by an Exit. Where '
+              + 'it does not hold, the Shot is not played and the Exit is not offered: nothing '
+              + 'is refused, it is simply not there.',
+            ),
+            line(run('Nothing here is precious — change it, break it, delete it.', ...ASIDE)),
+          ),
           description: 'Two panels with a lit lozenge standing between them, the far one '
             + 'dimmed almost out of the frame.',
           image: 'a-condition',
@@ -429,8 +450,15 @@ const FRENCH: Work = {
           imageArrives: { effect: 'from-blur', over: 1500, strength: 'marked' },
         },
         {
-          text: 'Ce Plan n’a pas d’Image. Un Plan peut n’être que du texte, ou qu’une '
-            + 'Image seule — ce qu’il ne peut pas être, c’est ni l’un ni l’autre.',
+          formatted: formatted(
+            speech('Quelqu’un', line('Où est l’Image ?')),
+            speech('Ce Plan', line(
+              'Il n’y en a pas. Un Plan peut n’être que du texte, ou qu’une Image seule. '
+              + 'Ce qu’il ne peut pas être, c’est ',
+              run('ni l’un ni l’autre', { type: 'emphasis' }),
+              '.',
+            )),
+          ),
           sound: 'door-close.m4a',
           transcript: 'Une porte se ferme.',
           // Le même geste à la même place : les mots reçoivent le coup de la porte.
@@ -473,9 +501,12 @@ const FRENCH: Work = {
           image: 'an-exit',
         },
         {
-          text: 'Entrer dans cette Scène a posé un Marqueur : sortie = prise. Une Scène pose '
-            + 'ses Marqueurs à chaque entrée, et ils restent dans l’État de cette Lecture '
-            + 'jusqu’à ce que quelque chose les repose.',
+          formatted: formatted(line(
+            'Entrer dans cette Scène a posé un Marqueur : ',
+            run('sortie = prise', ...FLAG),
+            '. Une Scène pose ses Marqueurs à chaque entrée, et ils restent dans l’État de '
+            + 'cette Lecture jusqu’à ce que quelque chose les repose.',
+          )),
           description: 'Un panneau traversé d’une plaque, un nom pâle à côté d’une valeur '
             + 'éclairée.',
           image: 'a-flag',
@@ -489,10 +520,14 @@ const FRENCH: Work = {
       transcript: 'Le souffle d’une pièce vide.',
       shots: [
         {
-          text: 'Une Condition est un test plat sur l’État, porté par un Plan ou par une '
-            + 'Sortie. Là où elle ne tient pas, le Plan n’est pas joué et la Sortie n’est pas '
-            + 'offerte : rien n’est refusé, la chose n’est simplement pas là. Rien ici '
-            + 'n’est précieux — modifiez, cassez, supprimez.',
+          formatted: formatted(
+            line(
+              'Une Condition est un test plat sur l’État, porté par un Plan ou par une '
+              + 'Sortie. Là où elle ne tient pas, le Plan n’est pas joué et la Sortie n’est '
+              + 'pas offerte : rien n’est refusé, la chose n’est simplement pas là.',
+            ),
+            line(run('Rien ici n’est précieux — modifiez, cassez, supprimez.', ...ASIDE)),
+          ),
           description: 'Deux panneaux séparés par un losange éclairé, le plus loin presque '
             + 'sorti du cadre tant il est éteint.',
           image: 'a-condition',

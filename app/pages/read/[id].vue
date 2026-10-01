@@ -18,6 +18,8 @@ const { data: story, error } = await useAsyncData(
   () => send(`/api/read/${id}`) as Promise<StoryToShow & {
     title: string
     language: string
+    textFace: Face
+    textAlign: Align
     cover: Cover | null
     authorId: string
     authorName: string | null

@@ -24,6 +24,8 @@
  * `docs/adr/0052-a-text-arrives-in-its-own-time.md`.
  */
 
+import { aligned, bar, formatted, line, run } from '../shared/utils/formatted.ts'
+import type { Style } from '../shared/utils/formatted.ts'
 import type { Work } from './work.ts'
 
 /* Seeded from the product's own tokens in `app/assets/css/frameline.css` — the
@@ -37,6 +39,18 @@ const LAMP = '#e4703a'
 const COLD = '#8fa09a'
 const SIGN = '#6fd8cb'
 const DAWN = '#b8c2c0'
+
+/* How the two texts that are set rather than only written are set: the label
+   typed on a reel's can, and the card the day opens on. */
+const CAN: Style[] = [
+  { type: 'size', attrs: { step: 'small' } },
+  { type: 'face', attrs: { face: 'typewriter' } },
+]
+const DAYBREAK: Style[] = [
+  { type: 'size', attrs: { step: 'largest' } },
+  { type: 'face', attrs: { face: 'display' } },
+  { type: 'spacing', attrs: { step: 'wide' } },
+]
 
 /** The rows of a house, drawn as the backs of seats one behind the other. */
 function rows(from: number, count: number, step: number, inset: number) {
@@ -96,7 +110,15 @@ export const REEL_CHANGE: Work = {
           },
         },
         {
-          text: 'On the bench, a reel nobody sent, wound the wrong way round.',
+          // The reel's own label, as it was typed on the can: small, in the
+          // typewriter, with the sender's name inked out.
+          formatted: formatted(
+            line(
+              run('200 FT · NO TITLE · FROM ', ...CAN),
+              bar(8, 'a name, inked out'),
+            ),
+            line('On the bench, a reel nobody sent, wound the wrong way round.'),
+          ),
           // The reel lies left of the middle of the frame.
           cropX: 38,
           cropY: 52,
@@ -203,7 +225,11 @@ export const REEL_CHANGE: Work = {
           },
         },
         {
-          text: 'It is this house. Row nine, and a woman looking straight down the lens.',
+          formatted: formatted(line(
+            'It is ',
+            run('this', { type: 'emphasis' }),
+            ' house. Row nine, and a woman looking straight down the lens.',
+          )),
           description: 'The same house closer: three rows of seats, and in the middle of them the '
             + 'head and shoulders of a woman facing the lens, cut off by the bottom of the frame.',
           // Nought is *held until the press*. The run has been going by itself
@@ -365,7 +391,11 @@ export const REEL_CHANGE: Work = {
         {
           // A card: both ways up arrive at it, and the one through black arrives
           // at a card that is itself the dark.
-          text: 'Six in the morning.',
+          formatted: formatted(aligned(
+            'centre',
+            null,
+            run('Six in the morning.', ...DAYBREAK),
+          )),
         },
         {
           text: 'The window over the bench gives onto the boulevard, and the boulevard '

@@ -21,7 +21,7 @@
  * `docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md`.
  */
 const { story, keptFor } = defineProps<{
-  story: StoryToShow & { language: string }
+  story: StoryToShow & { language: string, textFace: Face, textAlign: Align }
   keptFor?: string
 }>()
 
@@ -596,21 +596,32 @@ watch(paused, (now) => {
   if (now) whole.value = true
 })
 
-/**
- * The beat's text cut into what it arrives by, or nothing where it arrives whole.
- * One leaf today, handed to the engine the way a text of many would be, so what
- * the Reading draws and what the bench reckons are cut at the same edges.
- */
-const cutUp = computed(() => ownTime.value && arrival.value!.by !== 'whole'
-  ? pieces([shown.value.shot!.text], arrival.value!.by)[0]!
-  : undefined)
+/** What the beat's text arrives by, or nothing where it arrives whole. */
+const by = computed(() =>
+  ownTime.value && arrival.value!.by !== 'whole' ? arrival.value!.by : undefined)
 
 /**
- * Which piece arrives last, or -1 where the caption itself is the last to arrive:
- * a text that is one word, or one line, has no unit after the one the caption
- * brings with it, and a piece at nought is not faded twice.
+ * The characters before the unit that arrives last, or nought where the caption
+ * itself is the last to arrive: a text that is one word, or one line, has no unit
+ * after the one the caption brings with it, and a piece at nought is not faded
+ * twice. Reckoned on the plain words, as the bench reckons it.
  */
-const lastAt = computed(() => cutUp.value?.findLastIndex(piece => !!piece.from) ?? -1)
+const lastAt = computed(() => by.value ? lastUnitAt(shown.value.shot!.text, by.value) : 0)
+
+/**
+ * How the renderer cuts the beat's text into what it arrives by, or nothing where
+ * it arrives whole. The units are found over the formatted text's plain words, so
+ * what the Reading draws and what the bench reckons are cut at the same edges;
+ * each one after the first is due at the characters before it over the pace.
+ */
+const cutting = computed(() => by.value && {
+  by: by.value,
+  unit: (from: number) => ({
+    class: 'unit',
+    style: { '--at': `${Math.round((from / arrival.value!.pace) * 1000)}ms` },
+    'data-last': arriving.value && from === lastAt.value ? '' : undefined,
+  }),
+})
 
 /**
  * The last part to arrive has painted, so the hold can start on what was seen.
@@ -1034,26 +1045,22 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
                 '--text-over': `${arrival.over}ms`,
                 '--wait': arriving ? 'calc(var(--cut-over, 0ms) + var(--after))' : undefined,
               }"
-              :data-last="arriving && lastAt < 0 ? '' : undefined"
+              :data-last="arriving && lastAt === 0 ? '' : undefined"
               @animationend="textArrived"
             >
               <div class="arrives" v-bind="captionArrival">
                 <div class="lasts" v-bind="captionLasting">
-                  <p class="shot">
-                    <template v-if="cutUp">
-                      <span aria-hidden="true"><span
-                        v-for="(piece, index) in cutUp"
-                        :key="index"
-                        :class="{ unit: piece.from }"
-                        :style="piece.from
-                          ? { '--at': `${Math.round((piece.from / arrival!.pace) * 1000)}ms` }
-                          : undefined"
-                        :data-last="arriving && index === lastAt ? '' : undefined"
-                      >{{ piece.text }}</span></span>
-                      <span class="visually-hidden">{{ held.text }}</span>
-                    </template>
-                    <template v-else>{{ held.text }}</template>
-                  </p>
+                  <!-- The text as it was formatted, in the face and alignment its
+                       Story is set in. Cut into what it arrives by, it is drawn
+                       twice, as the comment on the frame says: the pieces hidden
+                       from the accessibility tree, and the whole beside them, so a
+                       screen reader hears the styles, the languages and what a bar
+                       hides rather than pieces. -->
+                  <div v-if="cutting" class="shot" v-bind="setIn(story)">
+                    <Formatted aria-hidden="true" :formatted="held.formatted" :cut="cutting" />
+                    <Formatted class="visually-hidden" :formatted="held.formatted" />
+                  </div>
+                  <Formatted v-else class="shot" v-bind="setIn(story)" :formatted="held.formatted" />
                 </div>
               </div>
             </figcaption>
@@ -1435,6 +1442,11 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
   color: var(--muted);
 }
 
+/* Every colour the Author set the words in steps back with them. */
+.frame.pushed-back .shot :deep(:is(.ink-rose, .ink-amber, .ink-green, .ink-blue, .ink-violet)) {
+  --inked: var(--muted);
+}
+
 /* The frame is given focus on arrival, not by tabbing to it, so the ring says
    "this is the beat you have landed on" rather than "this is a control". */
 .frame:focus-visible {
@@ -1567,6 +1579,42 @@ figcaption {
     color-mix(in oklab, var(--room) 70%, transparent) var(--s6),
     color-mix(in oklab, var(--room) 85%, transparent)
   );
+}
+
+/* Where the text stands, which the Author says on the text because it follows
+   the picture: at the foot by default over an Image laid out full, in the middle
+   on a card, and read nowhere else — an Image inset has its text under it. The
+   scrim goes where the text goes and keeps its floor of 70% under every line:
+   from the top it rises out of nothing below the last line, and in the middle it
+   does so on both sides. */
+.frame.full:not(.card) figcaption:has([data-stands='top']) {
+  align-self: start;
+  padding-block: var(--s5) var(--s6);
+  background: linear-gradient(
+    to top,
+    transparent,
+    color-mix(in oklab, var(--room) 70%, transparent) var(--s6),
+    color-mix(in oklab, var(--room) 85%, transparent)
+  );
+}
+
+.frame.full:not(.card) figcaption:has([data-stands='middle']) {
+  align-self: center;
+  padding-block: var(--s6);
+  background: linear-gradient(
+    transparent,
+    color-mix(in oklab, var(--room) 70%, transparent) var(--s6)
+      calc(100% - var(--s6)),
+    transparent
+  );
+}
+
+.frame.card:has([data-stands='top']) {
+  align-content: start;
+}
+
+.frame.card:has([data-stands='foot']) {
+  align-content: end;
 }
 
 /* A card laid out full is the whole frame on the dark, which is what an
@@ -1902,9 +1950,11 @@ figcaption [data-effect="tremor"] {
    how the words look is not when they come. A duration of nought still hides a
    part through its delay and still ends, which is what tells the hold the text is
    whole. The text's own Effects are given the caption's wait as their `--wait`
-   while it arrives, so they play as it appears rather than unseen before it. */
+   while it arrives, so they play as it appears rather than unseen before it. The
+   units are drawn by the renderer inside `Formatted`, which is why they are
+   reached through `:deep`. */
 .arriving,
-.arriving .unit {
+.arriving :deep(.unit) {
   animation: arrive var(--text-over) ease backwards;
 }
 
@@ -1912,7 +1962,7 @@ figcaption [data-effect="tremor"] {
   animation-delay: calc(var(--cut-over, 0ms) + var(--after));
 }
 
-.arriving .unit {
+.arriving :deep(.unit) {
   animation-delay: calc(var(--cut-over, 0ms) + var(--after) + var(--at));
 }
 
@@ -1928,7 +1978,7 @@ figcaption [data-effect="tremor"] {
    tab, because the pause shows the whole text. A text leaving goes on leaving,
    so a Reader who pauses during its fade is not left half of it. */
 .arriving.stopped,
-.arriving.stopped .unit {
+.arriving.stopped :deep(.unit) {
   animation-play-state: paused;
 }
 

@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { SAMPLES, type SampleLanguage } from '../../demonstration/samples'
 import { exits, scenes, shots, stories } from '../db/schema'
 import { useDb } from '../db'
+import { textOf } from '../../shared/utils/formatted'
 import type { Condition } from '../../shared/utils/scenes'
 
 /**
@@ -84,7 +85,8 @@ export async function plantSample(
     await db.insert(shots).values(await Promise.all(sample.scenes.flatMap(scene =>
       scene.shots.map(async (shot, position) => ({
         sceneId: idOf(scene.name),
-        text: shot.text,
+        text: shot.formatted ? textOf(shot.formatted) : shot.text,
+        formatted: shot.formatted ?? null,
         position,
         description: shot.description ?? '',
         conditions: (shot.when ?? []).map(identified),

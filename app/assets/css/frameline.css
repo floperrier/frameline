@@ -35,6 +35,18 @@
   --ink: #0b1614;
   --alarm: #e2564a;
 
+  /* The five colours a Shot's words may be set in, and read nowhere else: neither
+     accent is one, and none of them takes either accent's job. Pale on purpose —
+     the scrim a text lies on over a white Image is 70% of the room at least, and
+     only a colour this light holds 4.5:1 on it, as it does on the room, the bench
+     and the frame. Each is also the band a highlight draws under letters in the
+     room's own dark. */
+  --ink-rose: #ffbcb0;
+  --ink-amber: #ffd98a;
+  --ink-green: #b9f0c4;
+  --ink-blue: #b8d4ff;
+  --ink-violet: #e0c8ff;
+
   /* What lifts a node off the bench. Named, because a shadow written by hand on
      one page is how two surfaces stop looking like one product. */
   --lifted: 0 10px 24px -12px rgb(0 0 0 / 0.7);
@@ -49,6 +61,12 @@
   --ui: 'IBM Plex Sans', system-ui, sans-serif;
   --prose: 'Newsreader', Georgia, serif;
   --data: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* The two faces a Story's text may also be set in, and a run depart into: a
+     screenplay's, and a hand. Neither is the interface's mono, which a Reading
+     never shows. */
+  --typewriter: 'Courier Prime', 'Courier New', monospace;
+  --hand: 'Caveat', 'Segoe Print', cursive;
 
   /* One spacing scale, near enough to a fifth apart that two steps never look
      like the same step. */
@@ -361,6 +379,23 @@ button:disabled {
   font-size: 0.75rem;
 }
 
+/* A key drawn on the control it does the same thing as — the bar of Commands'
+   way in, a style's toggle on the toolbar of the text — so somebody who never
+   reads a legend still meets it. Stencilled like a label, one key a cap. */
+.combination {
+  display: inline-flex;
+  gap: 2px;
+}
+
+kbd {
+  padding: 0 var(--s1);
+  border: 1px solid var(--edge);
+  border-radius: var(--machined);
+  color: var(--muted);
+  font-family: var(--data);
+  font-size: 0.6875rem;
+}
+
 /* Focus is the machine's light, drawn outside the control so it never moves the
    layout — and it is the same ring on every surface, which is what makes the
    interface followable without a mouse. */
@@ -405,15 +440,191 @@ button:disabled {
 }
 
 /* A Shot's text, and the only prose in the product. Nothing else anywhere is set
-   in this face: meeting it means reading a Story. */
+   in these faces: meeting one means reading a Story.
+
+   The Story's face and alignment reach it one way wherever a Shot is drawn — the
+   Reading, the Contact Sheet, the bench — by the attributes `setIn` in
+   `app/utils/draw.ts` puts on the `.shot`: the face as `--shot-face`, which a
+   run's own face departs from by class, and the alignment as the class a line
+   says it by, so a line saying otherwise wins. A Story set at the start says
+   nothing, and an element nobody set is in the reading face at the start.
+
+   A word too long for the line is broken rather than leaving the frame, which
+   the largest size makes likely on a phone. */
 .shot {
   white-space: pre-wrap;
-  font-family: var(--prose);
+  font-family: var(--shot-face, var(--prose));
   font-size: clamp(1.1875rem, 1rem + 0.9vw, 1.5rem);
   line-height: 1.5;
+  overflow-wrap: anywhere;
   /* A measure a Shot can be taken in at a glance. Longer lines are read; this
      length is looked at. */
   max-inline-size: 42ch;
+}
+
+/* A text holding a line centred or set at the end stands its measure in the
+   middle of the frame, where those lines are looked for; any other stands at
+   the start. */
+.shot:is(.align-centre, .align-end, :has(.align-centre, .align-end)) {
+  margin-inline: auto;
+}
+
+/* How a Shot's text is formatted, one rule for each class `app/utils/draw.ts`
+   writes. Every value is relative, and none is `!important`, so a Reader's zoom
+   and their own text spacing win (WCAG 1.4.4 and 1.4.12). */
+
+/* A line is a line, with no margin, and an empty one keeps a line's height,
+   which is what a blank line in a plain text always was. */
+.shot p {
+  min-block-size: 1lh;
+}
+
+.shot .align-start {
+  text-align: start;
+}
+
+.shot.align-centre,
+.shot .align-centre {
+  text-align: center;
+}
+
+.shot.align-end,
+.shot .align-end {
+  text-align: end;
+}
+
+.shot .leading-tight {
+  line-height: 1.2;
+}
+
+.shot .leading-loose {
+  line-height: 1.9;
+}
+
+.shot strong {
+  font-weight: 600;
+}
+
+/* Raised and lowered without opening the line they sit in. */
+.shot :is(sup, sub) {
+  line-height: 0;
+}
+
+.shot :is(.small-caps, .speaker) {
+  font-variant-caps: small-caps;
+}
+
+.shot .size-small {
+  font-size: 0.8em;
+}
+
+.shot .size-large {
+  font-size: 1.25em;
+}
+
+.shot .size-larger {
+  font-size: 1.6em;
+  line-height: 1.1;
+}
+
+.shot .size-largest {
+  font-size: 2.4em;
+  line-height: 1.1;
+}
+
+.shot .face-prose {
+  font-family: var(--prose);
+}
+
+.shot .face-display {
+  font-family: var(--display);
+}
+
+.shot .face-typewriter {
+  font-family: var(--typewriter);
+}
+
+.shot .face-hand {
+  font-family: var(--hand);
+}
+
+.shot .spacing-wide {
+  letter-spacing: 0.08em;
+}
+
+.shot .spacing-wider {
+  letter-spacing: 0.2em;
+}
+
+/* A colour is the letters', or the band's under letters in the room's dark: one
+   ink, read through one property, so a surface that sets every ink back — the
+   Reading's pushed-back frame — says so once. */
+.shot .ink-rose {
+  --inked: var(--ink-rose);
+}
+
+.shot .ink-amber {
+  --inked: var(--ink-amber);
+}
+
+.shot .ink-green {
+  --inked: var(--ink-green);
+}
+
+.shot .ink-blue {
+  --inked: var(--ink-blue);
+}
+
+.shot .ink-violet {
+  --inked: var(--ink-violet);
+}
+
+.shot :is(.ink-rose, .ink-amber, .ink-green, .ink-blue, .ink-violet) {
+  color: var(--inked);
+}
+
+.shot .band {
+  background: var(--inked);
+  color: var(--room);
+}
+
+/* A quotation stands in from the lines around it, its source on a line of its
+   own after it. The renderer's `blockquote` is laid out as if it were not there,
+   so the editor, which draws the lines straight in the figure, lays out alike. */
+.shot .quote {
+  margin-inline: 1.5em;
+}
+
+.shot .quote > blockquote {
+  display: contents;
+  margin: 0;
+}
+
+.shot .source::before {
+  content: '— ' / '';
+}
+
+/* Verse hangs: a line too long for the measure wraps in from its start, so the
+   wrap is never read as a new line. */
+.shot .verse p {
+  padding-inline-start: 1.5em;
+  text-indent: -1.5em;
+}
+
+/* A separator is a short rule in the colour of the words, standing in the empty
+   line it is among the plain words. */
+.shot hr {
+  inline-size: 3em;
+  margin: 0.5lh auto;
+  border: 0;
+  border-block-start: 1px solid currentColor;
+  color: inherit;
+}
+
+/* A bar is a block for every character it stands for, in the colour of the
+   words, wrapping at the end of a line as the letters it replaced would have. */
+.shot .bar {
+  word-break: break-all;
 }
 
 /* The grease-pencil mark a Cut is offered behind, wherever Cuts are listed. */

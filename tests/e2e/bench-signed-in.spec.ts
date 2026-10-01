@@ -339,10 +339,17 @@ test('draws a row\'s marks at the weight of the words until the hand arrives at 
     // stops a row this row does not spend. The Image's two Effects wait for an
     // Image as its Description does, and an Effect's time and strength for an
     // Effect, so the text's two `<select>`s are all the Effects spend.
+    //
+    // The words are a box until the caret is in them, and the caret in them is the
+    // editor, whose toolbar is the next stop and only one, however many controls
+    // it holds — issue #359.
     await page.mouse.move(0, 0)
-    await beat.locator('textarea').focus()
+    await beat.getByRole('textbox', { name: 'Shot 2 of Scene 1', exact: true }).focus()
+    await expect(beat.locator('.ProseMirror')).toBeFocused()
 
     for (const stop of [
+      beat.getByRole('toolbar', { name: 'Formatting of Shot 2 of Scene 1' })
+        .getByRole('button', { name: 'Italic' }),
       beat.getByLabel('The Sound of Shot 2 of Scene 1'),
       beat.getByLabel('Upload a Sound for Shot 2 of Scene 1'),
       beat.getByLabel('This Shot is cut Shot 2 of Scene 1', { exact: true }),

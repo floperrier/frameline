@@ -380,31 +380,23 @@ async function addShot(scene: Scene) {
  * unchanged, and all three are a control on the surface too — a key nobody can see
  * is not the only way in. The walk between Scenes is `walkScenes`, which the
  * Scene's own section hears rather than a beat's field.
+ *
+ * Asked by the editor before it acts on a key — `Enter` with neither `Shift` nor
+ * `Ctrl`/`Cmd`, `Backspace`, and `Alt` with an arrow — with whether the caret
+ * stands at the head of the text, and answering whether the bench took it. A key
+ * taken here goes no further: the Scene's own section hears keys too.
  */
-function typeOn(held: SceneInDocument, shot: Shot, place: number, event: KeyboardEvent) {
-  const field = event.target as HTMLTextAreaElement
+function typeOn(held: SceneInDocument, shot: Shot, place: number, event: KeyboardEvent, atHead: boolean) {
+  const walked = held.scene.shots[place + (event.key === 'ArrowUp' ? -1 : 1)]
 
-  // Shift+Enter is how every field in every editor writes a second line.
-  if (event.key === 'Enter' && !event.shiftKey && !event.metaKey && !event.ctrlKey) {
-    event.preventDefault()
-    return openBeat(held.scene, shot, place)
-  }
+  if (event.key === 'Enter') openBeat(held.scene, shot, place)
+  else if (event.key === 'Backspace' && atHead && emptied(shot) && place > 0) joinBeat(held.scene, shot, place)
+  else if (event.key.startsWith('Arrow') && walked) typeInShot(walked.id)
+  else return false
 
-  if (event.key === 'Backspace' && emptied(shot) && field.selectionStart === 0
-    && field.selectionEnd === 0 && place > 0) {
-    event.preventDefault()
-    return joinBeat(held.scene, shot, place)
-  }
-
-  const stepped = { ArrowUp: -1, ArrowDown: 1 }[event.key]
-  if (!stepped) return
-
-  if (event.metaKey || event.ctrlKey || !event.altKey) return
-
-  const walked = held.scene.shots[place + stepped]
-  if (!walked) return
   event.preventDefault()
-  typeInShot(walked.id, true)
+  event.stopPropagation()
+  return true
 }
 
 /**
@@ -459,10 +451,7 @@ async function openBeat(scene: Scene, shot: Shot, place: number) {
   await changing(scene, async () => {
     // What is in the field goes first, or the beat the Author just finished is
     // written after the one that follows it and the run reads back stale.
-    await send(`/api/shots/${shot.id}`, {
-      method: 'PATCH',
-      body: { text: shot.text, description: shot.description, transcript: shot.transcript },
-    })
+    await send(`/api/shots/${shot.id}`, { method: 'PATCH', body: typedAbout(shot) })
 
     const opened = await send(`/api/scenes/${scene.id}/shots`, { method: 'POST' }) as Shot
     if (place !== scene.shots.length - 1) {
@@ -482,7 +471,7 @@ async function joinBeat(scene: Scene, shot: Shot, place: number) {
   const before = scene.shots[place - 1]
 
   await changing(scene, () => send(`/api/shots/${shot.id}`, { method: 'DELETE' }))
-  if (before) return typeInShot(before.id, true)
+  if (before) return typeInShot(before.id)
 }
 
 /**
@@ -490,21 +479,101 @@ async function joinBeat(scene: Scene, shot: Shot, place: number) {
  * it. There is a field per beat of every Scene now, so the field is simply there
  * to be found: the gate that had to be moved to the beat first went with
  * `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
+ *
+ * The field is a box until the caret is in it, and a box focused mounts the
+ * editor with the caret at the end. The Shot asked for is never the one the
+ * editor is on, which the caret is leaving.
  */
-async function typeInShot(shotId: string, atTheEnd = false) {
+async function typeInShot(shotId: string) {
   await nextTick()
-  const field = document.getElementById(`shot-${shotId}`) as HTMLTextAreaElement | null
-  if (!field) return
-
-  field.focus()
-  if (atTheEnd) field.setSelectionRange(field.value.length, field.value.length)
+  document.getElementById(`shot-${shotId}`)?.focus()
 }
 
-/** Writes what the Author typed about one Shot — its text, its image's Description and its Sound's Transcript — in one request. */
+/**
+ * The one editor on the bench, on the Shot the caret is in — issue #359. Every
+ * other Shot is its text drawn in a box carrying what the field carries, and a
+ * press or a key in a box mounts the editor there, with the caret where the box
+ * was pressed or at the end of the text where the focus came by key. It stays
+ * until the caret enters another Shot's box, so turning to the Preview and back
+ * finds it, and its selection, where it was left.
+ */
+const editing = ref<string>()
+const at = ref<'end' | { x: number, y: number }>('end')
+
+/** Where the last box was pressed, which the focus that follows the press reads. */
+let pressed: { id: string, x: number, y: number } | undefined
+
+function press(shot: Shot, event: PointerEvent) {
+  pressed = { id: shot.id, x: event.clientX, y: event.clientY }
+}
+
+/**
+ * A box taking the focus mounts the editor in its place, in the same turn, so no
+ * key struck after the press lands anywhere but in the editor. Where the editor's
+ * chunk has not landed yet the box stays, focused and drawing the text, until it
+ * has — rather than leaving an empty row and the caret on nothing — and a caret
+ * that has left the box by then is not taken back.
+ */
+async function edit(shot: Shot, event: FocusEvent) {
+  const pressedAt = pressed?.id === shot.id ? pressed : undefined
+  pressed = undefined
+
+  if (!Formatting.value) {
+    // A box that cannot become the editor says so rather than holding the focus
+    // in silence, and becomes it at the next focus if it can.
+    try {
+      await editorChunk()
+    }
+    catch {
+      return announce(t('error.refused'))
+    }
+    if (document.activeElement !== event.target) return
+  }
+  at.value = pressedAt ? { x: pressedAt.x, y: pressedAt.y } : 'end'
+  editing.value = shot.id
+}
+
+/**
+ * The editor itself, the bench's alone: the Reader's page never asks for it.
+ * Fetched while the bench is idle, so the first box pressed has an editor to draw
+ * at once — and drawn from the component the chunk resolved to rather than through
+ * a lazy component, whose wrapper asks the browser for the module again at its
+ * first mount and is answered a task later, with the box gone and a key free to
+ * land on nothing.
+ */
+const Formatting = shallowRef<typeof import('~/components/Formatting.client.vue')['default']>()
+let loading: Promise<void> | undefined
+// Never asked for on the server, whose build leaves the editor out entirely.
+const editorChunk = () => import.meta.server ? undefined : loading ??= import('~/components/Formatting.client.vue').then(
+  ({ default: loaded }) => {
+    Formatting.value = loaded
+  },
+  (error) => {
+    // Asked again at the next press, so a fetch that failed once does not leave
+    // every Shot unwritable until the page is reloaded.
+    loading = undefined
+    throw error
+  },
+)
+// A fetch that fails while idle is left to the press, which asks again and says
+// so if it fails too.
+onNuxtReady(() => editorChunk()?.catch(() => {}))
+
+/**
+ * What the Author typed about one Shot: its text as formatted, its image's
+ * Description and its Sound's Transcript. Never its plain words, which the
+ * server derives from the formatted text — sent alone they would take the
+ * formatting away.
+ */
+function typedAbout(shot: Shot) {
+  return { formatted: shot.formatted, description: shot.description, transcript: shot.transcript }
+}
+
+/** Writes what the Author typed about one Shot in one request. */
 function writeShot(scene: Scene, shot: Shot) {
   return writing(scene, shot.id, () => send(`/api/shots/${shot.id}`, {
     method: 'PATCH',
-    body: { text: shot.text, description: shot.description, transcript: shot.transcript },
+    body: typedAbout(shot),
   }))
 }
 
@@ -2037,19 +2106,44 @@ function writeConditions(
                 >
               </label>
 
-              <label class="visually-hidden" :for="`shot-${shot.id}`">
+              <span :id="`shot-named-${shot.id}`" class="visually-hidden">
                 {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
-              </label>
-              <textarea
+              </span>
+              <!-- The text, as every reading of the Shot draws it, in a box that is
+                   the field until the caret is in it; then the one editor, under
+                   the same name and id. Its words are the Shot's as they are typed,
+                   for the counts and the Remarks, and its formatted text is written
+                   when the caret leaves it — see `edit`. -->
+              <component
+                :is="Formatting"
+                v-if="Formatting && editing === shot.id"
                 :id="`shot-${shot.id}`"
-                v-model="shot.text"
+                :formatted="shot.formatted"
+                :labelledby="`shot-named-${shot.id}`"
+                :label="$t('editor.formattingOf', { place: place + 1, scene: held.name })"
+                :lang="story.language"
+                :step="held.here && !place ? 'shot-text' : undefined"
+                :at
+                :keys="(event, atHead) => typeOn(held, shot, place, event, atHead)"
+                :stands-read="!shot.image || layout(held.scene, shot) === 'full'"
+                :set-in="setIn(story)"
+                @words="(text, formatted) => Object.assign(shot, { text, formatted })"
+                @change="formatted => writeShot(held.scene, Object.assign(shot, { formatted }))"
+              />
+              <Formatted
+                v-else
+                :id="`shot-${shot.id}`"
                 :data-step="held.here && !place ? 'shot-text' : undefined"
                 class="shot"
-                rows="2"
+                v-bind="setIn(story)"
+                role="textbox"
+                aria-multiline="true"
+                :aria-labelledby="`shot-named-${shot.id}`"
+                tabindex="0"
                 :lang="story.language"
-                :maxlength="SHOT_TEXT_MAX_LENGTH"
-                @change="writeShot(held.scene, shot)"
-                @keydown="typeOn(held, shot, place, $event)"
+                :formatted="shot.formatted"
+                @pointerdown="press(shot, $event)"
+                @focus="edit(shot, $event)"
               />
 
               <!-- What the image shows, for a Reader who cannot see it: nothing to
@@ -3306,32 +3400,13 @@ function writeConditions(
    product where the interface is set in the reading face: `.shot` is that face, at
    the measure a Shot is read on, and it is shared with the room so that what is
    typed here is what is read there. It carries no box at all — the beat is written
-   straight into the document — and grows as it is typed rather than opening a
-   scrollbar two lines deep. `rows` is still on the element for a browser without
-   `field-sizing`, which simply keeps the two lines it was given. */
-textarea.shot {
-  field-sizing: content;
-  block-size: auto;
+   straight into the document — and grows as it is typed, from the two lines a beat
+   always had. The box and the editor that replaces it are one size, so nothing
+   moves under the hand as the one becomes the other: the editor keeps its own two
+   lines in `app/components/Formatting.client.vue`. */
+.beat > .shot {
   min-block-size: 2lh;
-  max-block-size: 16lh;
-  inline-size: 100%;
-  padding: 0;
-  border: none;
-  background: none;
-}
-
-textarea.shot:hover {
-  border: none;
-}
-
-/* Where the field sizes itself there is nothing left for a grip to do, and the
-   hatched corner it draws is the one piece of browser chrome on a surface that is
-   otherwise all writing. Where the browser has no `field-sizing`, the grip is how
-   a long beat is read, so it stays. */
-@supports (field-sizing: content) {
-  textarea.shot {
-    resize: none;
-  }
+  cursor: text;
 }
 
 /* What the image shows, for a Reader who cannot see it: a label over a field, at

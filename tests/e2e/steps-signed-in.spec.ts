@@ -15,6 +15,7 @@ import {
   seedStory,
   test,
   toast,
+  writeShot,
 } from './author'
 
 /** One Scene's own section of the document, which is where that Scene is written. */
@@ -223,7 +224,7 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await adds.click()
   const shot = page.getByRole('textbox', { name: 'Shot 1' })
   await lights(page, shot)
-  await shot.fill('She steps off the train.')
+  await writeShot(shot, 'She steps off the train.')
   await shot.blur()
 
   // The second Scene and the Exit to it, which are one act and so one Step:

@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { neon } from '@neondatabase/serverless'
-import { expect, test as base, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test'
+import {
+  expect, test as base, type APIRequestContext, type BrowserContext, type Locator, type Page,
+} from '@playwright/test'
 import { DISMISSED } from '../../app/utils/steps'
 import type { Condition, Exit, Scene, Sets, Shot, StoryInEditor } from '../../shared/utils/scenes'
 import { sealSession, type H3Event } from 'h3'
@@ -352,6 +354,39 @@ export async function readTheStory(page: Page) {
   await expect(preview).toBeVisible()
 
   return preview
+}
+
+/**
+ * Writes a Shot's text as an Author does since #359: a Shot nobody is writing in
+ * is its text drawn in a box, and pressing the box mounts the one editor in its
+ * place, under the same id and name and with the focus — so the press comes
+ * first, and nothing is typed until the editor has the caret, or the keys land on
+ * a box that is about to go. Everything in it is then replaced, a line at a time,
+ * because a line break in the editor is `Shift+Enter` and `Enter` opens the next
+ * Shot. It writes nothing until the caret leaves, as a field did, so a caller that
+ * wants it written blurs it.
+ */
+export async function writeShot(box: Locator, text: string) {
+  const page = box.page()
+  const id = await box.getAttribute('id')
+  await box.click()
+  await expect(page.locator(`[id="${id}"].ProseMirror`)).toBeFocused()
+
+  await page.keyboard.press('ControlOrMeta+A')
+  if (!text) return page.keyboard.press('Delete')
+  for (const [at, line] of text.split('\n').entries()) {
+    if (at) await page.keyboard.press('Shift+Enter')
+    if (line) await page.keyboard.type(line)
+  }
+}
+
+/**
+ * A Shot's words as the bench counts them — its lines joined by a line break —
+ * read off the box or the editor, whichever is drawn: `toHaveText` reads the text
+ * of every line run together.
+ */
+export function shotText(box: Locator) {
+  return box.evaluate(drawn => [...drawn.querySelectorAll('p')].map(line => line.textContent).join('\n'))
 }
 
 /**

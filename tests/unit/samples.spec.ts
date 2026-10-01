@@ -7,7 +7,10 @@ import {
   imagePath,
   type SampleLanguage,
 } from '../../demonstration/samples.ts'
+import { wordsOf } from '../../demonstration/work.ts'
 import type { Work } from '../../demonstration/work.ts'
+import { linesOf } from '../../shared/utils/formatted.ts'
+import type { Formatted } from '../../shared/utils/formatted.ts'
 import {
   CONDITIONS_MAX,
   EXIT_TEXT_MAX_LENGTH,
@@ -72,6 +75,23 @@ function shapeOfCondition(work: Work, condition: Condition) {
 }
 
 /**
+ * What a formatted text is made of, with the words taken out: the kinds of block
+ * in order, and the kinds of style on its runs, sorted. Two Samples that set
+ * their cards alike agree here whatever the language the words are in.
+ */
+function setOf(shot: { formatted?: Formatted }) {
+  const value = shot.formatted
+  if (!value) return null
+  return {
+    blocks: value.content.map(block => block.type),
+    styles: [...new Set(linesOf(value).flat().flatMap(inline =>
+      inline.type === 'text'
+        ? (inline.marks ?? []).map(mark => mark.type === 'face' ? `face:${mark.attrs.face}` : mark.type)
+        : ['redaction']))].sort(),
+  }
+}
+
+/**
  * A whole Sample with every word taken out of it: how many Scenes, how many
  * Shots in each, which image each Shot shows, what each carries by way of
  * Conditions, how each is cut, and which Scene leads to which. Two Samples that
@@ -103,6 +123,7 @@ function shapeOf(work: Work) {
       shots: scene.shots.map(shot => ({
         image: shot.image,
         described: Boolean(shot.description),
+        set: setOf(shot),
         layout: shot.layout,
         cropX: shot.cropX,
         cropY: shot.cropY,
@@ -141,7 +162,7 @@ function textOf(work: Work) {
     ...work.scenes.flatMap(scene => [
       scene.name,
       scene.transcript ?? '',
-      ...scene.shots.flatMap(shot => [shot.text, shot.description ?? '', shot.transcript ?? '']),
+      ...scene.shots.flatMap(shot => [wordsOf(shot), shot.description ?? '', shot.transcript ?? '']),
     ]),
   ].filter(Boolean)
 }
@@ -188,7 +209,7 @@ describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLan
     for (const scene of sample.scenes) {
       expect(scene.shots.length).toBeGreaterThan(0)
       // A Shot with neither text nor an image is one nobody has written yet.
-      for (const shot of scene.shots) expect(shot.text || shot.image).toBeTruthy()
+      for (const shot of scene.shots) expect(wordsOf(shot) || shot.image).toBeTruthy()
     }
   })
 
@@ -290,7 +311,7 @@ describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLan
       expect(Object.keys(scene.sets ?? {}).length).toBeLessThanOrEqual(FLAGS_PER_SCENE)
 
       for (const shot of scene.shots) {
-        expect(shot.text.length).toBeLessThanOrEqual(SHOT_TEXT_MAX_LENGTH)
+        expect(wordsOf(shot).length).toBeLessThanOrEqual(SHOT_TEXT_MAX_LENGTH)
         expect((shot.description ?? '').length).toBeLessThanOrEqual(SHOT_DESCRIPTION_MAX_LENGTH)
         expect(shot.when?.length ?? 0).toBeLessThanOrEqual(CONDITIONS_MAX)
       }
