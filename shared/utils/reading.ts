@@ -1,4 +1,7 @@
-import type { Condition, CutThrough, Exit, Flags, Layout, Sets, Shot, TextBy } from './scenes'
+import type {
+  Condition, CutThrough, Exit, Flags, Layout, MovementDirection, Sets, Shot, TextBy,
+} from './scenes'
+import { MOVEMENT_OVER_UNTIMED } from './scenes'
 import type { Phrase } from './phrases'
 import { runLastings } from './formatted'
 
@@ -29,6 +32,14 @@ export type StoryToRead = {
     cutThrough: CutThrough
     exitsAfter: number | null
     layout: Layout
+    /**
+     * How the Images of this Scene's run move: by how much of the frame, nought
+     * being still, which way, and over how long, nought being as long as each Shot
+     * is on screen. See `docs/adr/0057-the-image-moves-over-the-time-its-shot-is-on-screen.md`.
+     */
+    movementBy: number
+    movementDirection: MovementDirection
+    movementOver: number
     /**
      * How the texts of this Scene's run arrive — after a time, by a unit, at a
      * pace, over a time — and how long they stay, null being until the Cut. See
@@ -170,6 +181,70 @@ export function layout(scene: SceneToRead, shot: Shot): Layout {
 }
 
 /**
+ * How one Shot's Image moves: which way, by how much of the frame, over how long,
+ * and whether that time is the clock's hold, which the Reading lengthens by the
+ * time the Shot's text takes to arrive.
+ */
+export type Movement = { direction: MovementDirection, by: number, over: number, held: boolean }
+
+/**
+ * A Shot answers for itself where it says anything and moves as its Scene says
+ * where it says nothing, field by field, the shape `cut()` has. Nothing where
+ * the Image holds still. An `over` of nought is as long as the Shot is on
+ * screen. Where the clock cuts the Shot that is its hold, and `held` says so:
+ * the clock counts the hold from the text having arrived, so a Movement that is
+ * to end as the clock cuts spans the arrival too, and only the Reading knows how
+ * long that takes. Where the Reader cuts it is `MOVEMENT_OVER_UNTIMED`, and a
+ * time the Shot or its Scene wrote is the time it says, so neither is `held`.
+ * Both noughts are understood here and nowhere else.
+ */
+export function movement(scene: SceneToRead, shot: Shot): Movement | null {
+  const by = shot.movementBy ?? scene.movementBy
+  if (!shot.image || by === 0) return null
+
+  const over = shot.movementOver ?? scene.movementOver
+  const { after } = cut(scene, shot)
+
+  return {
+    direction: shot.movementDirection ?? scene.movementDirection,
+    by,
+    over: over || (after ?? MOVEMENT_OVER_UNTIMED),
+    held: !over && after !== null,
+  }
+}
+
+/**
+ * The transforms a Movement starts and ends at, about the point. Closer and
+ * away scale about it. Across, the Image is drawn `by` percent larger and
+ * travels the room that keeps it covering its box and the point inside it: a
+ * shift `t` keeps the grown Image covering while
+ * `-(1 - at) * (grown - 1) <= t <= at * (grown - 1)`, and the point inside while
+ * `-at <= t <= 1 - at`. A point on the very edge leaves no room on that axis, and
+ * the Image holds still along it. `translate` in percent is measured on the
+ * box's own size, so both ends hold at every frame size and through a resize.
+ */
+export function movementEnds(
+  { direction, by }: Pick<Movement, 'direction' | 'by'>,
+  { cropX, cropY }: { cropX: number, cropY: number },
+) {
+  const grown = 1 + by / 100
+  if (direction === 'closer') return { from: 'scale(1)', to: `scale(${grown})` }
+  if (direction === 'away') return { from: `scale(${grown})`, to: 'scale(1)' }
+
+  const across = direction === 'left' || direction === 'right'
+  const at = (across ? cropX : cropY) / 100
+  const back = Math.max(-(1 - at) * (grown - 1), -at)
+  const forth = Math.min(at * (grown - 1), 1 - at)
+  const [start, end] = direction === 'right' || direction === 'down' ? [back, forth] : [forth, back]
+  // `|| 0` turns a negative nought into the nought a transform is written with.
+  const shifted = (t: number) => (across
+    ? `translate(${t * 100 || 0}%, 0)`
+    : `translate(0, ${t * 100 || 0}%)`)
+
+  return { from: `${shifted(start)} scale(${grown})`, to: `${shifted(end)} scale(${grown})` }
+}
+
+/**
  * How one Shot's text arrives: how long after its Image lands it starts, what it
  * arrives by, at how many characters a second, how long each part takes to
  * appear, and how long the whole of it stays once it has arrived, null being
@@ -283,11 +358,11 @@ export function pieces(leaves: string[], by: TextBy): Piece[][] {
 }
 
 /**
- * Whether anything in this Story moves by itself, which is what the Reader is
- * owed a pause over — WCAG 2.2.2, and
- * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`. A Scene moves
- * by itself where a Shot of its run resolves to a time, or where its ways on are
- * given one and there are ways on to take.
+ * Whether anything in this Story moves the Reading on by itself, a clock or a
+ * text in its own time, which is what the Reader is owed a pause over — WCAG
+ * 2.2.2, and `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`. A
+ * Scene moves by itself where a Shot of its run resolves to a time, or where its
+ * ways on are given one and there are ways on to take.
  *
  * Every Shot is put back through `cut()` rather than read for a time of its own,
  * so what this says of a Scene and what the clock does in it cannot come apart: a
@@ -307,11 +382,22 @@ export function pieces(leaves: string[], by: TextBy): Piece[][] {
  * A text arriving in its own time or leaving before the Cut moves the Reading by
  * itself as surely as a clocked Shot, so it is owed the same pause.
  */
-export function movesItself(story: StoryToRead) {
+export function timed(story: StoryToRead) {
   return story.scenes.some(scene =>
     scene.shots.some(shot => cut(scene, shot).after !== null || textMoves(scene, shot))
     || (scene.exitsAfter !== null
       && story.exits.some(exit => exit.fromSceneId === scene.id)))
+}
+
+/**
+ * Whether anything in this Story moves by itself, which is what the Reader is
+ * owed a pause over: a clock, a text in its own time, or an Image that moves
+ * while its Shot is on screen. It still says *can* of the Story, the side
+ * `timed` chooses to be wrong on.
+ */
+export function movesItself(story: StoryToRead) {
+  return timed(story)
+    || story.scenes.some(scene => scene.shots.some(shot => movement(scene, shot) !== null))
 }
 
 /** What `lastsOn` and `flickers` read of a Shot: its two slots, its Image, and its text's runs. */
@@ -343,7 +429,7 @@ export function flickers(shot: Lasts) {
 /**
  * Whether any Shot carries an Effect that lasts, which WCAG 2.2.2 owes a pause
  * over: it moves by itself for as long as its beat stands. It says *can*, never
- * *does*, for the reason `movesItself` gives.
+ * *does*, for the reason `timed` gives.
  */
 export function lasting(story: StoryToRead) {
   return story.scenes.some(scene => scene.shots.some(lastsOn))

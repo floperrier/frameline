@@ -5,10 +5,9 @@ import { useDb } from '../../db'
 /**
  * Writes what an Author says about one Shot: its text, the Description of the
  * image it carries, the Transcript of the Sound it strikes with, its own Cut,
- * its four Effects and how its text arrives. Each comes through one door because
- * each is one Shot's row, and each lands on its own: a body naming one of them
- * leaves the rest
- * where they were.
+ * how its Image moves, its four Effects and how its text arrives. Each comes
+ * through one door because each is one Shot's row, and each lands on its own: a
+ * body naming one of them leaves the rest where they were.
  */
 export default defineEventHandler(async (event) => {
   const author = await requireAuthor(event)
@@ -32,6 +31,9 @@ export default defineEventHandler(async (event) => {
       layout: shots.layout,
       cropX: shots.cropX,
       cropY: shots.cropY,
+      movementBy: shots.movementBy,
+      movementDirection: shots.movementDirection,
+      movementOver: shots.movementOver,
       imageArrives: shots.imageArrives,
       imageLasts: shots.imageLasts,
       textArrives: shots.textArrives,

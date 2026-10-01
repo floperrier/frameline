@@ -46,6 +46,26 @@ export function cropPosition({ cropX, cropY }: { cropX: number, cropY: number })
 }
 
 /**
+ * How far an Image may move, in whole percent of the frame, and how long a
+ * Movement may take. Past half again the frame at its closest shows less than
+ * half the Image, which is a closer Image and a second Shot. A minute is the
+ * longest the clock holds a Shot.
+ */
+export const MOVEMENT_BY_MAX = 50
+export const MOVEMENT_OVER_MAX = CUT_AFTER_MAX
+
+/** How long *as long as its Shot is on screen* is for a Shot held until the press. */
+export const MOVEMENT_OVER_UNTIMED = 10_000
+
+/**
+ * Which way an Image moves, named for what it does on screen: *left* is the Image
+ * sliding left and showing more of its right side, which is what the Reader sees.
+ */
+export type MovementDirection = 'closer' | 'away' | 'left' | 'right' | 'up' | 'down'
+export const MOVEMENT_DIRECTIONS: readonly MovementDirection[] =
+  ['closer', 'away', 'left', 'right', 'up', 'down']
+
+/**
  * Whether a value is a time this product writes: a whole number of milliseconds
  * from its floor to its cap. Here rather than at the request boundary because the
  * bench holds a field to exactly what the server will take, and one function is
@@ -197,7 +217,9 @@ export const SHOT_DESCRIPTION_MAX_LENGTH = 250
  * cannot be a format the picker offers and the server refuses.
  *
  * An animated GIF is left out on purpose: a Shot is one image and its text,
- * so a moving one would be a beat that plays itself.
+ * so a moving one would be a beat that plays itself. A Movement is not that. The
+ * Image stays one picture, moved in the frame by what the Author wrote on the
+ * Story, and the Pause stops it.
  */
 const SHOT_IMAGE_SIGNATURES: Record<string, [number, number[]][]> = {
   'image/jpeg': [[0, [0xFF, 0xD8, 0xFF]]],
@@ -427,6 +449,15 @@ export type Shot = {
    */
   cropX: number
   cropY: number
+  /**
+   * How this Shot's Image moves while it is on screen, each null being *as the
+   * Scene says*. A `movementBy` of nought is this Image held still under a Scene
+   * whose Images move, and a `movementOver` of nought is as long as this Shot is
+   * on screen. See `docs/adr/0057-the-image-moves-over-the-time-its-shot-is-on-screen.md`.
+   */
+  movementBy: number | null
+  movementDirection: MovementDirection | null
+  movementOver: number | null
   /** What the Image plays as the beat arrives, and while it stands; null is none. */
   imageArrives: Arrival | null
   imageLasts: Lasting | null
@@ -463,6 +494,14 @@ export type Scene = {
   exitsAfter: number | null
   /** How the Shots of this Scene's run are laid out, each Shot answering for itself where it says. */
   layout: Layout
+  /**
+   * How the Images of this Scene's run move: by how much of the frame, nought
+   * being still, which way, and over how long, nought being as long as each Shot
+   * is on screen. See `docs/adr/0057-the-image-moves-over-the-time-its-shot-is-on-screen.md`.
+   */
+  movementBy: number
+  movementDirection: MovementDirection
+  movementOver: number
   /**
    * How the texts of this Scene's run arrive — after a time, by a unit, at a pace,
    * over a time — and how long they stay, null being until the Cut. See

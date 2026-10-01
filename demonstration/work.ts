@@ -17,7 +17,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { SHOT_IMAGE_MAX_BYTES } from '../shared/utils/scenes.ts'
 import type {
-  Arrival, Condition, CutThrough, Flags, Lasting, Layout, TextBy,
+  Arrival, Condition, CutThrough, Flags, Lasting, Layout, MovementDirection, TextBy,
 } from '../shared/utils/scenes.ts'
 import { textOf } from '../shared/utils/formatted.ts'
 import type { Formatted } from '../shared/utils/formatted.ts'
@@ -93,6 +93,15 @@ export type Shot = ({ text: string, formatted?: never } | { formatted: Formatted
   cropX?: number
   cropY?: number
   /**
+   * This Shot's own answer about how its Image moves, where it answers at all:
+   * saying nothing is *as the Scene says*, a `movementBy` of nought is this Image
+   * held still, and a `movementOver` of nought is as long as the Shot is on
+   * screen. See `docs/adr/0057-the-image-moves-over-the-time-its-shot-is-on-screen.md`.
+   */
+  movementBy?: number
+  movementDirection?: MovementDirection
+  movementOver?: number
+  /**
    * What the Image and the text play as the beat arrives and while it stands;
    * saying nothing is none. See the `Effect` of `CONTEXT.md`.
    */
@@ -138,6 +147,14 @@ export type Work = {
     transcript?: string
     /** How the Shots of this Scene's run are laid out; saying nothing is `inset`. */
     layout?: Layout
+    /**
+     * How the Images of this Scene's run move. Saying nothing is every work
+     * before this one, each Image held still, which is a `movementBy` of nought;
+     * a `movementOver` of nought is as long as each Shot is on screen.
+     */
+    movementBy?: number
+    movementDirection?: MovementDirection
+    movementOver?: number
     /**
      * How the Shots of this Scene's run are cut, and how long its ways on
      * stand. Saying nothing is the run every work here was written as before

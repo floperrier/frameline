@@ -280,16 +280,28 @@ function passBy(over: number, through: CutThrough, to: Path, byClock = false) {
  * #332. At an ending there is no Exit to make one, and the last Shot's own Cut is
  * made once the move is, on the frame left standing: see `ending` below.
  *
+ * The end of a run carries the Movement over too. The frame standing still is a
+ * frame drawn afresh, keyed on the Path, and an Image moving in it would start
+ * its Movement again from the start: so how far it had got is read off the frame
+ * leaving and handed to the one drawn in its place, which goes on from there —
+ * paused behind the ways on, running on at the ending. See `travelled`.
+ *
  * Asked of the Shot on screen and the Scene it belongs to without either being
  * checked, because the one control that calls this is drawn only while a Shot is
  * on screen — and a Shot on screen is a Shot of the run the Reading stands in.
  */
 function passOn(byClock = false) {
-  const made = shown.value.shot === shown.value.run.at(-1)
-    ? { over: 0, through: 'image' as const }
-    : cut(scene.value!, shown.value.shot!)
+  const last = shown.value.shot === shown.value.run.at(-1)
+  const made = last ? { over: 0, through: 'image' as const } : cut(scene.value!, shown.value.shot!)
+  const to = advance(at.value)
+  // The animation holds its own progress, read here before the frame it runs on
+  // is drawn afresh, and so does the time it runs over: see `travelled`.
+  const ran = last ? frame.value?.querySelector('.moving')?.getAnimations()[0]?.currentTime : undefined
+  travelled.value = typeof ran === 'number'
+    ? { at: `${to.taken.length}-${to.shot}`, ms: ran, over: travelOver.value }
+    : undefined
 
-  return passBy(made.over, made.through, advance(at.value), byClock)
+  return passBy(made.over, made.through, to, byClock)
 }
 
 /**
@@ -409,6 +421,68 @@ const held = computed(() => shown.value.shot ?? shown.value.run.at(-1))
  * `docs/adr/0055-a-shot-is-laid-out-as-its-scene-says.md`.
  */
 const full = computed(() => !!scene.value && !!held.value && layout(scene.value, held.value) === 'full')
+
+/**
+ * How the Image the frame holds moves while its Shot is on screen, resolved
+ * against its Scene the way its Cut is, and nothing where it holds still — which
+ * draws no animation at all, so every still Shot is the Shot it always was. See
+ * `docs/adr/0057-the-image-moves-over-the-time-its-shot-is-on-screen.md`.
+ */
+const travel = computed(() => (scene.value && held.value ? movement(scene.value, held.value) : null))
+
+/**
+ * How long the Image the frame holds moves for. A Movement over the whole time
+ * the clock holds its Shot is to end as the clock cuts, and the hold counts from
+ * the text having arrived: so where the text arrives in its own time the
+ * Movement spans the arrival too, which is the passage the caption's `--wait`
+ * waits for, the wait after the Image lands, the last part's own `--at` and the
+ * time that part takes to appear, whose end `textArrived` hears and arms the hold
+ * on. A beat landed on with the clock stopped is given its text whole and counts
+ * its hold from the Resume, so it has no arrival to span.
+ */
+const travelOver = computed(() => {
+  if (!travel.value) return 0
+  if (!travel.value.held || !ownTime.value || !arrives.value) return travel.value.over
+  const { after, pace, over } = arrival.value!
+
+  return passing.value.over + after + Math.round((lastAt.value / pace) * 1000) + over
+    + travel.value.over
+})
+
+/**
+ * How far the last Shot of a run had moved when the run ended, and over how
+ * long, carried to the frame held behind the ways on or at the ending: that frame
+ * is drawn afresh, keyed on the Path, and would otherwise start its Movement
+ * over, and the Shot it holds is no longer on screen to say how long its text
+ * took to arrive. Set by the move that ends the run, in `passOn`, and let go by
+ * every other move of the Reading. The position it was carried to is kept only
+ * to tell that move from the rest, and never to say which frame is owed it: a
+ * step back across an Exit lands on that very position. So a held frame reached
+ * any other way — a step back across an Exit, a Reading resumed at its ways on, a
+ * Preview remounted or routed there — is handed no run's progress, and shows
+ * where its Movement ends.
+ */
+const travelled = ref<{ at: string, ms: number, over: number }>()
+
+watch(() => `${at.value.taken.length}-${at.value.shot}`, (now) => {
+  if (travelled.value?.at !== now) travelled.value = undefined
+})
+
+/** A held frame nothing carried a Movement to is drawn where the Movement ends. */
+const travelEnded = computed(() => !!travel.value && !shown.value.shot && !travelled.value)
+
+const travelStyle = computed(() => {
+  if (!travel.value || !held.value) return undefined
+  const { from, to } = movementEnds(travel.value, held.value)
+
+  return {
+    '--travel-from': from,
+    '--travel-to': to,
+    '--travel-over': `${travelled.value?.over ?? travelOver.value}ms`,
+    '--travelled': `${-(travelled.value?.ms ?? 0)}ms`,
+    '--point': cropPosition(held.value),
+  }
+})
 
 /** An Exit nobody has phrased yet is offered by where it arrives. */
 function offered(exit: Exit) {
@@ -664,10 +738,12 @@ watch([onScreen, lastAt, ownTime], settle, { flush: 'post' })
 // arrival is given as the tab hides is never applied: the arrival would run on
 // behind the Reader's back instead of resuming where it stood. Asking the page for
 // the animations makes it recalculate them, so the pause takes hold as it is set.
+// A Movement is held the same way and asked for the same reason.
 watch(stopped, () => {
   if (arriving.value) {
     frame.value?.querySelector('figcaption')?.getAnimations({ subtree: true })
   }
+  if (travel.value) frame.value?.querySelector('.moving')?.getAnimations()
 }, { flush: 'post' })
 
 /**
@@ -794,13 +870,16 @@ clock(() => {
  * opening beat of a Story whose clock runs three Scenes later: a pause that
  * arrived with the thing it stops would be a pause nobody could reach in time.
  *
- * A clock is not the only thing that moves by itself. An Effect that lasts goes
- * on for as long as its beat stands, which is the motion 2.2.2 owes a pause over
- * just as surely, so `lasts` gives the same control for the same reason. It is a
- * second answer rather than a wider `clocked`, because `clocked` also says
- * whether the ways on are told how long they stand, and that is a clock's alone.
+ * A clock is not the only thing that moves by itself. An Image that moves goes on
+ * moving while its Shot is on screen, and an Effect that lasts goes on for as long
+ * as its beat stands, which is the motion 2.2.2 owes a pause over just as surely,
+ * so `movesAtAll` and `lasts` give the same control for the same reason. They are
+ * answers beside `clocked` rather than a wider `clocked`, because `clocked` also
+ * says whether the ways on are told how long they stand, and that is a clock's
+ * alone.
  */
-const clocked = computed(() => movesItself(story))
+const clocked = computed(() => timed(story))
+const movesAtAll = computed(() => movesItself(story))
 const lasts = computed(() => lasting(story))
 
 /**
@@ -1015,8 +1094,8 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
                  a frame it has nothing to say about. -->
             <!-- One element for each owner of a property, so no two of them write
                  one element's `transform` or `animation`: the arrival wraps what
-                 lasts, and what lasts wraps whatever moves the frame over the Image
-                 later, so a shake keeps its reach whatever the frame does inside it.
+                 lasts, and what lasts wraps the Movement, so a shake keeps its reach
+                 however the Image moves inside it.
                  The wrappers are drawn on every beat and carry an Effect only where
                  there is one, so a beat without one is the beat it always was. What
                  no filter or transform of the picture can paint — a sheet of white,
@@ -1026,15 +1105,21 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
                  sentence. -->
             <!-- Laid out full, the Image covers the frame and is cropped around
                  the point the Author pressed on the Contact Sheet. Inset it is
-                 shown whole, so nothing is cropped and there is no point to say. -->
+                 shown whole, so nothing is cropped and there is no point to say —
+                 unless it moves, and then it covers its box and is cropped around
+                 its point too. -->
             <div v-if="held.image" class="picture">
               <div class="arrives" v-bind="imageArrival">
                 <div class="lasts" v-bind="imageLasting">
-                  <img
-                    :src="held.image"
-                    :alt="held.description"
-                    :style="full ? { objectPosition: cropPosition(held) } : undefined"
-                  >
+                  <!-- The Movement, the innermost box, so whatever an Effect does
+                       moves the moving Image with it, and `.picture` clips both. -->
+                  <div class="moving" :class="{ moves: travel, ended: travelEnded }" :style="travelStyle">
+                    <img
+                      :src="held.image"
+                      :alt="held.description"
+                      :style="full || travel ? { objectPosition: cropPosition(held) } : undefined"
+                    >
+                  </div>
                 </div>
               </div>
               <div v-if="arrivalOverlay" class="overlay" v-bind="arrivalOverlay" aria-hidden="true" />
@@ -1133,11 +1218,11 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
          status, so it is heard where it is rather than found, and in the document
          before it has anything to say — the way `ended` below is, and for the
          same reason. Drawn only where a clock can run at all, which is one of the
-         two places the pause below is drawn: a Story read entirely by the hand
-         never strands a Reader, because every arrival on it is a press of theirs,
-         and an Effect that lasts moves the beat but never the Reading on. Still
-         not a timer: it says how long the ways on stand, true for the whole of the
-         stand, and never counts anything down. -->
+         places the pause below is drawn: a Story read entirely by the hand never
+         strands a Reader, because every arrival on it is a press of theirs, and an
+         Image that moves or an Effect that lasts moves the beat but never the
+         Reading on. Still not a timer: it says how long the ways on stand, true
+         for the whole of the stand, and never counts anything down. -->
     <p v-if="clocked" class="visually-hidden" role="status">{{ waysOnSay }}</p>
 
     <!-- The ways on go under the frame rather than over it, and carry no eyebrow
@@ -1193,13 +1278,13 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
 
          The pause comes first because it is the one control over something
          already happening, and it is drawn only where something can happen: a
-         clock, or an Effect that lasts, which moves by itself for as long as its
-         beat stands. A Story nobody wrote a time or a lasting Effect into is read
-         entirely by the hand, and a control over nothing that ever moves would do
-         nothing — the way a Story carrying no Sound is given no title card to
-         press. -->
-    <p v-if="clocked || lasts || heardAtAll" class="given">
-      <button v-if="clocked || lasts" type="button" class="trail" @click="pauseOrResume">
+         clock, an Image that moves while its Shot is on screen, or an Effect that
+         lasts, which moves by itself for as long as its beat stands. A Story
+         nobody wrote a time, a Movement or a lasting Effect into is read entirely
+         by the hand, and a control over nothing that ever moves would do nothing
+         — the way a Story carrying no Sound is given no title card to press. -->
+    <p v-if="movesAtAll || lasts || heardAtAll" class="given">
+      <button v-if="movesAtAll || lasts" type="button" class="trail" @click="pauseOrResume">
         {{ paused ? $t('reading.resume') : $t('reading.pause') }}
       </button>
       <button v-if="heardAtAll" type="button" class="trail" @click="sounding = !sounding">
@@ -1515,6 +1600,57 @@ img {
   border-block-end: 1px solid var(--edge);
 }
 
+/* The Movement: the Image comes closer, draws away or crosses the frame at an
+   even pace over its time and rests where it ends, about the point it is cropped
+   around. Only `transform` moves, which the compositor carries without layout or
+   paint, and no `will-change`: a running animation is composited already, and
+   `will-change` would pin the scale the layer was first drawn at, softening the
+   Image at its closest. A Movement carried from the end of a run starts where it
+   had got to, by a negative delay. */
+.moving.moves {
+  transform-origin: var(--point);
+  animation: travel var(--travel-over) linear var(--travelled, 0ms) both;
+}
+
+@keyframes travel {
+  from {
+    transform: var(--travel-from);
+  }
+  to {
+    transform: var(--travel-to);
+  }
+}
+
+/* An inset Image that moves covers its box, cropped around its point: grown
+   inside the bars beside a tall Image, its edges would be seen moving. */
+.moving.moves img {
+  object-fit: cover;
+}
+
+/* The Pause, a hidden tab and the frame held behind the ways on stop it where it
+   stands, and it resumes from there: the hold restarts, but a restarted Movement
+   would jump the Image back to its start. */
+.gate.stopped .moving,
+.frame.pushed-back .moving {
+  animation-play-state: paused;
+}
+
+/* A held frame nothing carried a Movement to, and a Reader who asked for less
+   motion, are shown where it ends: the end is where the Author takes the Reader.
+   `frameline.css` lands a running animation at its end but leaves a paused one at
+   its start, so the animation is taken off here outright. */
+.moving.moves.ended {
+  animation: none;
+  transform: var(--travel-to);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .moving.moves {
+    animation: none;
+    transform: var(--travel-to);
+  }
+}
+
 figcaption {
   padding: var(--s5) clamp(var(--s4), 4vw, var(--s5));
 }
@@ -1577,7 +1713,8 @@ figcaption {
 }
 
 .frame.full .picture .arrives,
-.frame.full .picture .lasts {
+.frame.full .picture .lasts,
+.frame.full .picture .moving {
   block-size: 100%;
 }
 

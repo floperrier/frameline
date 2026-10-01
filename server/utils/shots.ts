@@ -123,11 +123,11 @@ async function readCrop(event: H3Event, field: 'cropX' | 'cropY') {
  * carries, the Transcript of the Sound it strikes with, and its own Cut — cut
  * after a time or at the press, over a duration or hard, through the image or
  * through black — how it is laid out and the point its Image is cropped around,
- * its four Effects, on the Image and on the text, as it arrives and while it
- * stands, and how its text arrives and how long it stays. Each is
- * read only where the body names it — the shape `readStoryChanges` has — so the
- * Transcript written beside a Sound does not have to carry the beat's text along
- * with it.
+ * how its Image moves, its four Effects, on the Image and on the text, as it
+ * arrives and while it stands, and how its text arrives and how long it stays.
+ * Each is read only where the body names it — the shape `readStoryChanges` has —
+ * so the Transcript written beside a Sound does not have to carry the beat's text
+ * along with it.
  *
  * A body naming none is refused as the text being asked for, which is what a
  * request that would erase the Shot is missing.
@@ -144,6 +144,9 @@ export async function readShotChanges(event: H3Event) {
     layout?: unknown
     cropX?: unknown
     cropY?: unknown
+    movementBy?: unknown
+    movementDirection?: unknown
+    movementOver?: unknown
     imageArrives?: unknown
     imageLasts?: unknown
     textArrives?: unknown
@@ -165,6 +168,9 @@ export async function readShotChanges(event: H3Event) {
     layout?: Layout | null
     cropX?: number
     cropY?: number
+    movementBy?: number | null
+    movementDirection?: MovementDirection | null
+    movementOver?: number | null
     imageArrives?: Arrival | null
     imageLasts?: Lasting | null
     textArrives?: Arrival | null
@@ -202,6 +208,12 @@ export async function readShotChanges(event: H3Event) {
   if (body?.layout !== undefined) changes.layout = await readLayout(event)
   if (body?.cropX !== undefined) changes.cropX = await readCrop(event, 'cropX')
   if (body?.cropY !== undefined) changes.cropY = await readCrop(event, 'cropY')
+  // How the Image moves answers as itself or *as the Scene says*, so null is read.
+  if (body?.movementBy !== undefined) changes.movementBy = await readMovementBy(event)
+  if (body?.movementDirection !== undefined) {
+    changes.movementDirection = await readMovementDirection(event)
+  }
+  if (body?.movementOver !== undefined) changes.movementOver = await readMovementOver(event)
   // An Effect is a whole object or null, and null is none rather than a refusal.
   if (body?.imageArrives !== undefined) changes.imageArrives = await readArrival(event, 'imageArrives')
   if (body?.imageLasts !== undefined) changes.imageLasts = await readLasting(event, 'imageLasts')

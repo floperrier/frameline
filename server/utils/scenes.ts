@@ -253,9 +253,10 @@ export async function readLayout(event: H3Event, { nullable = true }: { nullable
 /**
  * What a PATCH may change about a Scene: its name, the three things that are
  * said about the Sound it is heard under, its Cut — how its run is cut and how
- * long its ways on stand — and how its texts arrive. Each is read only where the
- * body names it, so the bench can write the one field the Author touched without
- * carrying the others along — the shape `readStoryChanges` already has.
+ * long its ways on stand — how its Images move and how its texts arrive. Each is
+ * read only where the body names it, so the bench can write the one field the
+ * Author touched without carrying the others along — the shape
+ * `readStoryChanges` already has.
  *
  * A body naming none is refused as a name being asked for: the name is the one
  * thing a Scene cannot be without, so that is what an empty change is missing.
@@ -271,6 +272,9 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
     cutThrough?: unknown
     exitsAfter?: unknown
     layout?: unknown
+    movementBy?: unknown
+    movementDirection?: unknown
+    movementOver?: unknown
     textAfter?: unknown
     textBy?: unknown
     textPace?: unknown
@@ -288,6 +292,9 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
     cutThrough?: CutThrough
     exitsAfter?: number | null
     layout?: Layout
+    movementBy?: number
+    movementDirection?: MovementDirection
+    movementOver?: number
     textAfter?: number
     textBy?: TextBy
     textPace?: number
@@ -333,6 +340,17 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
   // A Scene's Layout takes no null: only a Shot answering *as its Scene says*
   // may leave one.
   if (body?.layout !== undefined) changes.layout = await readLayout(event, { nullable: false })
+  // How the Images of the run move, each landing on its own. A Scene has nothing
+  // above it to defer to, so none of the three takes a null.
+  if (body?.movementBy !== undefined) {
+    changes.movementBy = await readMovementBy(event, { nullable: false })
+  }
+  if (body?.movementDirection !== undefined) {
+    changes.movementDirection = await readMovementDirection(event, { nullable: false })
+  }
+  if (body?.movementOver !== undefined) {
+    changes.movementOver = await readMovementOver(event, { nullable: false })
+  }
   // How the texts of the run arrive, each landing on its own. The first four
   // take no null on a Scene, which has nothing above it to defer to, and its
   // stay is refused the nought a Shot keeps for *until the Cut* — the Scene's

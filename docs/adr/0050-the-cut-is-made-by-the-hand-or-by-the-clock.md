@@ -4,6 +4,12 @@ status: accepted
 
 # The Cut is made by the hand or by the clock
 
+Amended in issue #357, by
+`docs/adr/0057-the-image-moves-over-the-time-its-shot-is-on-screen.md`: the
+pause is drawn wherever an Image moves as well, and it stops a Movement, which
+resumes where it stood as an Effect does. What that amends is the same pause
+`0051` amended. Everything else here stands.
+
 Amended in issue #360, by `docs/adr/0051-an-effect-is-said-of-one-beat.md`: the
 pause is drawn wherever an Effect lasts as well as wherever a clock runs, and it
 stops every Effect too, which resumes where it stood while a hold still starts

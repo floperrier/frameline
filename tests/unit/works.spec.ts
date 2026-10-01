@@ -15,6 +15,9 @@ import {
   EXITS_AFTER_MIN,
   isArrival,
   isLasting,
+  MOVEMENT_BY_MAX,
+  MOVEMENT_DIRECTIONS,
+  MOVEMENT_OVER_MAX,
   TEXT_AFTER_MAX,
   TEXT_BYS,
   TEXT_OVER_MAX,
@@ -24,7 +27,7 @@ import {
 } from '../../shared/utils/scenes.ts'
 import { LAYOUTS } from '../../shared/utils/scenes.ts'
 import type { Scene, Shot } from '../../shared/utils/scenes.ts'
-import { layout } from '../../shared/utils/reading.ts'
+import { layout, movement } from '../../shared/utils/reading.ts'
 
 /**
  * The Cut the two works this repository carries are written with — *Reel Change*
@@ -276,6 +279,42 @@ describe.each(WORKS)('the Layout %s is written with', (_name: string, work: Work
   it('carries an Image with no text and a text with no Image', () => {
     expect(shots.some(({ shot }) => shot.image !== undefined && wordsOf(shot).trim() === '')).toBe(true)
     expect(shots.some(({ shot }) => shot.image === undefined && wordsOf(shot).trim() !== '')).toBe(true)
+  })
+})
+
+/**
+ * The Movements the works are written with: each of them moves an Image, which is
+ * what a work that demonstrates the Movement owes, and says nothing a door would
+ * refuse. Resolved by `movement()` itself, the columns' defaults put back where
+ * the work says nothing, as the Cut's are above.
+ */
+describe.each(WORKS)('the Movements %s is written with', (_name: string, work: Work) => {
+  it('writes no Movement the door it is written through would refuse', () => {
+    for (const held of work.scenes.flatMap(scene => [scene, ...scene.shots])) {
+      expect(held.movementBy === undefined || isTime(held.movementBy, MOVEMENT_BY_MAX)).toBe(true)
+      expect(held.movementOver === undefined
+        || isTime(held.movementOver, MOVEMENT_OVER_MAX)).toBe(true)
+      expect(held.movementDirection === undefined
+        || MOVEMENT_DIRECTIONS.includes(held.movementDirection)).toBe(true)
+    }
+  })
+
+  it('moves an Image', () => {
+    expect(work.scenes.some(scene => scene.shots.some(shot => movement(
+      {
+        cutAfter: scene.cutAfter ?? null,
+        movementBy: scene.movementBy ?? 0,
+        movementDirection: scene.movementDirection ?? 'closer',
+        movementOver: scene.movementOver ?? 0,
+      } as Scene,
+      {
+        image: shot.image === undefined ? null : 'developed',
+        cutAfter: shot.cutAfter ?? null,
+        movementBy: shot.movementBy ?? null,
+        movementDirection: shot.movementDirection ?? null,
+        movementOver: shot.movementOver ?? null,
+      } as Shot,
+    ) !== null))).toBe(true)
   })
 })
 

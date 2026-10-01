@@ -22,6 +22,11 @@
  * crosses the booth alone and the line fades up onto it, as a title does; the
  * coat's line fades away and leaves the coat alone; and the last words walk — see
  * `docs/adr/0052-a-text-arrives-in-its-own-time.md`.
+ *
+ * The Images move in four places, each where the film asks: the booth's come
+ * closer to what each is of, the strip slides down the gate, the house closes in
+ * on the woman in row nine, and the boulevard draws away from her at the last —
+ * see `docs/adr/0057-the-image-moves-over-the-time-its-shot-is-on-screen.md`.
  */
 
 import { aligned, bar, formatted, line, run } from '../shared/utils/formatted.ts'
@@ -76,6 +81,10 @@ export const REEL_CHANGE: Work = {
       // is cut around what each Image is of rather than around its middle, since
       // cropped at the centre a phone would show an empty dark booth.
       layout: 'full',
+      // And each Image comes closer to the point it is cropped around, slowly:
+      // both Shots are held until the press, so neither has a length for the
+      // Movement to span, and each takes the ten seconds a Movement takes there.
+      movementBy: 10,
       shots: [
         {
           text: 'The last show has run out. Down in the house the seats fold up on their own, '
@@ -164,6 +173,10 @@ export const REEL_CHANGE: Work = {
           text: 'The film goes into the gate the way a hand goes into a glove.',
           description: 'A strip of film standing bright and vertical in the middle of the frame, '
             + 'sprocket holes down both its edges, the dark bulk of the projector across the left.',
+          // The strip slides down as film runs through a gate, over the whole of
+          // the Scene's hold, and ends as the clock cuts.
+          movementDirection: 'down',
+          movementBy: 20,
           image: {
             ground: ['#0d1110', '#040504'],
             glow: [{ colour: PAPER, draw: 'rectangle 700,0 900,900', blur: 70, opacity: 0.55 }],
@@ -243,6 +256,12 @@ export const REEL_CHANGE: Work = {
           layout: 'full',
           cropX: 45,
           cropY: 52,
+          // And closes in on her, for twelve seconds unless the Reader presses
+          // first: a time of its own, because a Shot held until the press has no
+          // length to span.
+          movementDirection: 'closer',
+          movementBy: 25,
+          movementOver: 12000,
           // Attention finding the woman in row nine, in the same grain.
           imageArrives: { effect: 'from-blur', over: 1600, strength: 'marked' },
           imageLasts: { effect: 'grain', strength: 'marked' },
@@ -430,6 +449,14 @@ export const REEL_CHANGE: Work = {
           // so the cut between the Scene's two Shots stays hard.
           cutOver: 3000,
           cutThrough: 'black',
+          // The Image draws away from her as she walks away from the cinema, over
+          // eight seconds, and goes on drawing away as it goes to black. Its point
+          // is on her figure, so she is what it draws away from.
+          movementDirection: 'away',
+          movementBy: 30,
+          movementOver: 8000,
+          cropX: 56,
+          cropY: 50,
           description: 'The boulevard from above at first light: a woman small on the pavement, '
             + 'walking away, her long shadow laid across it.',
           image: {

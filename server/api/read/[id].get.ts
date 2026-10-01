@@ -58,14 +58,17 @@ export default defineEventHandler(async (event) => {
   // The Cut is part of `readStoryGraph` itself now, so a Scene and a Shot
   // arrive already carrying it — nothing here resolves it, that is `cut()`'s
   // job for whoever plays the Reading. The text's arrival arrives the same way,
-  // resolved by `textArrival()`.
+  // resolved by `textArrival()`, and so does how its Images move, resolved by
+  // `movement()`.
   const forTheReading = scenes.map(({
     id, name, sets, shots, sound, soundOfSceneId, transcript, soundLoops,
     cutAfter, cutOver, cutThrough, exitsAfter, layout,
+    movementBy, movementDirection, movementOver,
     textAfter, textBy, textPace, textOver, textStays,
   }): StoryToShow['scenes'][number] => ({
     id, name, sets, shots, sound, soundOfSceneId, transcript, soundLoops,
     cutAfter, cutOver, cutThrough, exitsAfter, layout,
+    movementBy, movementDirection, movementOver,
     textAfter, textBy, textPace, textOver, textStays,
   }))
 
