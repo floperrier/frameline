@@ -403,6 +403,19 @@ export async function unfold(page: Page, named: string) {
 }
 
 /**
+ * Opens the rest of a Shot's styles under the formatting bar's one row, which the
+ * bar keeps shut until *More Styles* is pressed since #398 — the small capitals,
+ * the scripts, every select but the line's kind, and the Effects of the words. A
+ * panel already open is left alone, because it stays open from Shot to Shot and a
+ * second press would shut it.
+ */
+export async function moreStyles(toolbar: Locator) {
+  const more = toolbar.getByRole('button', { name: /^More Styles/ })
+  if (await more.getAttribute('aria-expanded') !== 'true') await more.click()
+  await expect(more).toHaveAttribute('aria-expanded', 'true')
+}
+
+/**
  * A Shot's words as the bench counts them — its lines joined by a line break —
  * read off the box or the editor, whichever is drawn: `toHaveText` reads the text
  * of every line run together.

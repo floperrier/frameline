@@ -26,10 +26,16 @@
  * with an arrow is not bound here, so the Scene's own section hears it. `Tab`
  * reaches the toolbar because the toolbar is the next thing in the document.
  *
- * The toolbar also says an Effect of the words — issue #361. *Add an Effect* opens
- * a row under its buttons holding the two sentences a Shot's row says of its
- * whole text, said here of the words selected or of the run the caret is in, and
- * *Take the Effect Off* takes both off that run.
+ * The toolbar is one row of what a writer reaches for while typing, and *More
+ * Styles* at its end opens the rest in a panel under it, every select there under
+ * the name it sets — issue #398, `docs/adr/0062-the-formatting-bar-is-one-row-and-
+ * a-panel.md`. Open or shut, the panel stays as the Author left it from Shot to
+ * Shot, and while it is shut the button says when the words carry a style it holds.
+ *
+ * The panel also says an Effect of the words — issue #361. *Add an Effect* opens
+ * a row in it holding the two sentences a Shot's row says of its whole text, said
+ * here of the words selected or of the run the caret is in, and *Take the Effect
+ * Off* takes both off that run.
  *
  * No Command is marked on the toolbar, those two among them: each act is one key
  * or one press on a selection in view, which is the exemption `docs/adr/0035-
@@ -229,11 +235,16 @@ type Toggle = {
 
 const plain: Toggle['drawn'] = ['span', {}]
 
+/** The row's four styles, the ones a writer sets while typing. */
 const TOGGLES: Toggle[] = [
   { said: 'editor.styleEmphasis', glyph: 'editor.glyphEmphasis', style: 'emphasis', drawn: STYLES.emphasis(undefined), key: 'I' },
   { said: 'editor.styleStrong', glyph: 'editor.glyphStrong', style: 'strong', drawn: STYLES.strong(undefined), key: 'B' },
   { said: 'editor.styleUnderline', glyph: 'editor.glyphUnderline', style: 'underline', drawn: STYLES.underline(undefined), key: 'U' },
   { said: 'editor.styleStrike', glyph: 'editor.glyphStrike', style: 'strike', drawn: STYLES.strike(undefined), key: 'S', shift: true },
+]
+
+/** The panel's three, whose keys still set them while it is shut. */
+const MORE_TOGGLES: Toggle[] = [
   { said: 'editor.styleSmallCaps', glyph: 'editor.glyphSmallCaps', style: 'smallCaps', drawn: STYLES.smallCaps(undefined) },
   { said: 'editor.styleSuper', glyph: 'editor.glyphSuper', style: 'script', attrs: { place: 'super' }, drawn: plain, key: '.' },
   { said: 'editor.styleSub', glyph: 'editor.glyphSub', style: 'script', attrs: { place: 'sub' }, drawn: plain, key: ',' },
@@ -277,7 +288,24 @@ const INKED: Choice['options'] = [
   ['violet', 'editor.inkViolet'],
 ]
 
-/** The selects, by what they act on: the words selected, their lines, the whole text. */
+/** What the line is, the one select in the row: the formatting the glossary names first. */
+const LINE_IS: Choice = {
+  said: 'editor.lineIs',
+  options: [
+    ['paragraph', 'editor.lineParagraph'],
+    ['quote', 'editor.lineQuote'],
+    ['source', 'editor.lineSource'],
+    ['speech', 'editor.lineSpeech'],
+    ['verse', 'editor.lineVerse'],
+  ],
+  read: on => lineKindOf(on) ?? '',
+  choose: (kind, on) => lineAs(kind as LineKind)(on.state, on.view.dispatch),
+}
+
+/**
+ * The panel's selects, by what they act on: the words selected, their lines, the
+ * whole text. Each one's default is `''`, which `held` reads.
+ */
 const CHOICES: Choice[][] = [
   [
     {
@@ -321,18 +349,6 @@ const CHOICES: Choice[][] = [
   ],
   [
     {
-      said: 'editor.lineIs',
-      options: [
-        ['paragraph', 'editor.lineParagraph'],
-        ['quote', 'editor.lineQuote'],
-        ['source', 'editor.lineSource'],
-        ['speech', 'editor.lineSpeech'],
-        ['verse', 'editor.lineVerse'],
-      ],
-      read: on => lineKindOf(on) ?? '',
-      choose: (kind, on) => lineAs(kind as LineKind)(on.state, on.view.dispatch),
-    },
-    {
       said: 'editor.align',
       options: [
         ['', 'editor.asTheStoryIsSet'],
@@ -365,6 +381,28 @@ const CHOICES: Choice[][] = [
 
 /** Where the text stands is offered only where something reads it. */
 const choices = computed(() => props.standsRead ? CHOICES : CHOICES.slice(0, -1))
+
+/**
+ * Whether the rest of the styles are open under the row: the Author's to say, and
+ * kept as they left it for the life of the page, though each Shot the caret enters
+ * mounts an editor of its own.
+ */
+const more = useState('formatting-more', () => false)
+
+async function showMore() {
+  more.value = !more.value
+  // The panel grows the bar up over the Shot above, so a Shot at the head of the
+  // scroller keeps the whole of its bar in view, as it did when it arrived.
+  await nextTick()
+  bar.value?.scrollIntoView({ block: 'nearest' })
+}
+
+/**
+ * Whether the words under the caret, or selected, carry a style the panel sets,
+ * read as its own controls read it: a style it holds is never out of sight.
+ */
+const held = computed(() => !!state.value && (MORE_TOGGLES.some(pressed)
+  || choices.value.flat().some(choice => choice.read(state.value!) !== '')))
 
 /** The source is offered on a quotation's last line, and where the caret is in one. */
 const sourced = computed(() => !!state.value
@@ -492,9 +530,9 @@ const roving = (name: string) => ({ 'data-stop': name, tabindex: stop.value === 
 
 // A control that is gone takes the toolbar's one stop with it, so the stop goes
 // back to the first: a bar's field once no bar is held, where the text stands once
-// nothing reads it, the row of Effects once it closes, and a field in that row
-// once the Effect it was said of has none.
-watch([state, effecting, () => props.standsRead], () => {
+// nothing reads it, the panel once it shuts, the row of Effects once it closes,
+// and a field in that row once the Effect it was said of has none.
+watch([state, more, effecting, () => props.standsRead], () => {
   if (!bar.value?.querySelector(`[data-stop="${stop.value}"]`)) stop.value = FIRST
 }, { flush: 'post' })
 
@@ -553,34 +591,40 @@ function rove(event: KeyboardEvent) {
       </p>
 
       <!-- Each style a glyph drawn in it and the key it is set by, named in full
-           for whoever cannot see the glyph and for the pointer that rests on it. -->
-      <button
-        v-for="toggle in TOGGLES"
-        :key="toggle.said"
-        type="button"
-        v-bind="roving(toggle.said)"
-        :aria-label="$t(toggle.said)"
-        :title="$t(toggle.said)"
-        :aria-pressed="pressed(toggle)"
-        :aria-keyshortcuts="toggle.key ? namedKey(toggle.key, toggle.shift) : undefined"
-        @mousedown.prevent
-        @click="press(toggle)"
-      >
-        <component :is="toggle.drawn[0]" v-bind="toggle.drawn[1]" class="glyph">{{ $t(toggle.glyph) }}</component>
-        <kbd v-if="toggle.key">{{ drawnKey(toggle.key, toggle.shift) }}</kbd>
-      </button>
+           for whoever cannot see the glyph and for the pointer that rests on it.
+           The row's four are one cluster, which never wraps apart. -->
+      <span class="marks">
+        <button
+          v-for="toggle in TOGGLES"
+          :key="toggle.said"
+          type="button"
+          v-bind="roving(toggle.said)"
+          :aria-label="$t(toggle.said)"
+          :title="$t(toggle.said)"
+          :aria-pressed="pressed(toggle)"
+          :aria-keyshortcuts="toggle.key ? namedKey(toggle.key, toggle.shift) : undefined"
+          @mousedown.prevent
+          @click="press(toggle)"
+        >
+          <component :is="toggle.drawn[0]" v-bind="toggle.drawn[1]" class="glyph">{{ $t(toggle.glyph) }}</component>
+          <kbd v-if="toggle.key">{{ drawnKey(toggle.key, toggle.shift) }}</kbd>
+        </button>
+      </span>
 
-      <button
-        type="button"
-        v-bind="roving('editor.redact')"
-        :aria-label="$t('editor.redact')"
-        :title="$t('editor.redact')"
-        :aria-disabled="redactable ? undefined : 'true'"
-        @mousedown.prevent
-        @click="act(redact)"
+      <!-- The one select in the row shows what it holds, which names itself: *A
+           quotation*, *Someone speaking*. -->
+      <select
+        v-bind="roving(LINE_IS.said)"
+        :aria-label="$t(LINE_IS.said)"
+        :title="$t(LINE_IS.said)"
+        :value="state && LINE_IS.read(state)"
+        @change="choose(LINE_IS, $event)"
       >
-        <span class="glyph">{{ $t('editor.glyphRedact') }}</span>
-      </button>
+        <template v-for="[value, said] in LINE_IS.options" :key="value">
+          <option v-if="value !== 'source' || sourced" :value>{{ $t(said) }}</option>
+        </template>
+      </select>
+
       <button
         type="button"
         v-bind="roving('editor.addSeparator')"
@@ -593,114 +637,158 @@ function rove(event: KeyboardEvent) {
       </button>
       <button
         type="button"
-        v-bind="roving('editor.addEffect')"
-        :aria-label="$t('editor.addEffect')"
-        :title="$t('editor.addEffect')"
-        :aria-disabled="effectable ? undefined : 'true'"
-        :aria-expanded="effecting"
-        :aria-controls="effecting ? `${id}-effects` : undefined"
+        v-bind="roving('editor.redact')"
+        :aria-label="$t('editor.redact')"
+        :title="$t('editor.redact')"
+        :aria-disabled="redactable ? undefined : 'true'"
         @mousedown.prevent
-        @click="effectable && (effecting = !effecting)"
+        @click="act(redact)"
       >
-        <span class="glyph">{{ $t('editor.glyphAddEffect') }}</span>
+        <span class="glyph">{{ $t('editor.glyphRedact') }}</span>
       </button>
+
+      <!-- Said in words, the one control of the row that is: it is what keeps the
+           rest one press away. Lit, and named so, while the words carry what it
+           holds. A press leaves the caret in the text, and a key leaves it here. -->
       <button
         type="button"
-        v-bind="roving('editor.takeEffectOff')"
-        :aria-label="$t('editor.takeEffectOff')"
-        :title="$t('editor.takeEffectOff')"
-        :aria-disabled="inRun ? undefined : 'true'"
+        v-bind="roving('editor.moreStyles')"
+        :class="['more-styles', { held }]"
+        :aria-label="$t(held ? 'editor.moreStylesHeld' : 'editor.moreStyles')"
+        :aria-expanded="more"
+        :aria-controls="more ? `${id}-more` : undefined"
         @mousedown.prevent
-        @click="act(takeEffectOff)"
+        @click="showMore"
       >
-        <span class="glyph">{{ $t('editor.glyphTakeEffectOff') }}</span>
+        {{ $t('editor.moreStyles') }}
       </button>
 
-      <!-- Each select shows what it holds and is named by what it sets, so the
-           toolbar wraps onto two rows at the bench's width rather than six. -->
-      <template v-for="group in choices">
-        <select
-          v-for="choice in group"
-          :key="choice.said"
-          v-bind="roving(choice.said)"
-          :aria-label="$t(choice.said)"
-          :title="$t(choice.said)"
-          :aria-keyshortcuts="shortcutsOf(choice)"
-          :value="state && choice.read(state)"
-          @change="choose(choice, $event)"
+      <div v-if="more" :id="`${id}-more`" class="more" role="group" :aria-label="$t('editor.moreStyles')">
+        <button
+          v-for="toggle in MORE_TOGGLES"
+          :key="toggle.said"
+          type="button"
+          v-bind="roving(toggle.said)"
+          :aria-label="$t(toggle.said)"
+          :title="$t(toggle.said)"
+          :aria-pressed="pressed(toggle)"
+          :aria-keyshortcuts="toggle.key ? namedKey(toggle.key, toggle.shift) : undefined"
+          @mousedown.prevent
+          @click="press(toggle)"
         >
-          <template v-for="[value, said, key] in choice.options" :key="value">
-            <option v-if="value !== 'source' || sourced" :value>
-              {{ key ? `${$t(said)} ${drawnKey(key, true)}` : $t(said) }}
-            </option>
-          </template>
-        </select>
-      </template>
+          <component :is="toggle.drawn[0]" v-bind="toggle.drawn[1]" class="glyph">{{ $t(toggle.glyph) }}</component>
+          <kbd v-if="toggle.key">{{ drawnKey(toggle.key, toggle.shift) }}</kbd>
+        </button>
 
-      <!-- What the words do as they arrive and while they stand, the two sentences
-           a Shot's row says of its whole text, said here of the words selected or
-           of the run the caret is in. Each writes as it changes, as the selects do.
-           A sentence's seconds and strength are named by the sentence and their own
-           label together, as the Shot's row names them, since each name is in the
-           row twice. -->
-      <div v-if="effecting" :id="`${id}-effects`" class="effects" role="group" :aria-label="$t('editor.addEffect')">
-        <p v-for="sentence in SENTENCES" :key="sentence.kind" class="effect">
-          <label :id="`${id}-${sentence.kind}-label`" class="eyebrow" :for="`${id}-${sentence.kind}`">
-            {{ $t(sentence.said) }}
-          </label>
-          <select
-            :id="`${id}-${sentence.kind}`"
-            v-bind="roving(sentence.said)"
-            :value="effectsHeld[sentence.kind]?.effect ?? ''"
-            @change="chooseEffect(sentence.kind, $event)"
-          >
-            <option value="">{{ $t('editor.noEffect') }}</option>
-            <option v-for="effect in sentence.effects" :key="effect" :value="effect">
-              {{ $t(`editor.${EFFECT_LABELS[effect]}`) }}
-            </option>
-          </select>
-          <template v-if="effectsHeld[sentence.kind]">
-            <template v-if="effectTime(effectsHeld[sentence.kind]!) !== undefined">
-              <label
-                :id="`${id}-${sentence.kind}-seconds-label`"
-                class="eyebrow"
-                :for="`${id}-${sentence.kind}-seconds`"
-              >
-                {{ $t('editor.effectSeconds') }}
-              </label>
-              <input
-                :id="`${id}-${sentence.kind}-seconds`"
-                v-bind="roving(`${sentence.said}-seconds`)"
-                :aria-labelledby="`${id}-${sentence.kind}-label ${id}-${sentence.kind}-seconds-label`"
-                type="number"
-                inputmode="decimal"
-                :min="sentence.min / 1000"
-                :max="sentence.max / 1000"
-                step="0.1"
-                :value="effectTime(effectsHeld[sentence.kind]!)! / 1000"
-                @change="timeEffect(sentence.kind, $event)"
-              >
-            </template>
-            <label
-              :id="`${id}-${sentence.kind}-strength-label`"
-              class="eyebrow"
-              :for="`${id}-${sentence.kind}-strength`"
-            >
-              {{ $t('editor.effectStrength') }}
-            </label>
+        <!-- Each select under the name it sets, so two that both read *None* are
+             told apart by what is written over them. -->
+        <template v-for="group in choices">
+          <p v-for="choice in group" :key="choice.said" class="choice">
+            <label class="eyebrow" :for="`${id}-${choice.said}`">{{ $t(choice.said) }}</label>
             <select
-              :id="`${id}-${sentence.kind}-strength`"
-              v-bind="roving(`${sentence.said}-strength`)"
-              :aria-labelledby="`${id}-${sentence.kind}-label ${id}-${sentence.kind}-strength-label`"
-              :value="effectsHeld[sentence.kind]!.strength"
-              @change="strengthEffect(sentence.kind, $event)"
+              :id="`${id}-${choice.said}`"
+              v-bind="roving(choice.said)"
+              :aria-keyshortcuts="shortcutsOf(choice)"
+              :value="state && choice.read(state)"
+              @change="choose(choice, $event)"
             >
-              <option v-for="strength in STRENGTHS" :key="strength" :value="strength">
-                {{ $t(`editor.strength${strength[0]!.toUpperCase()}${strength.slice(1)}`) }}
+              <option v-for="[value, said, key] in choice.options" :key="value" :value>
+                {{ key ? `${$t(said)} ${drawnKey(key, true)}` : $t(said) }}
               </option>
             </select>
-          </template>
-        </p>
+          </p>
+        </template>
+
+        <button
+          type="button"
+          v-bind="roving('editor.addEffect')"
+          :aria-label="$t('editor.addEffect')"
+          :title="$t('editor.addEffect')"
+          :aria-disabled="effectable ? undefined : 'true'"
+          :aria-expanded="effecting"
+          :aria-controls="effecting ? `${id}-effects` : undefined"
+          @mousedown.prevent
+          @click="effectable && (effecting = !effecting)"
+        >
+          <span class="glyph">{{ $t('editor.glyphAddEffect') }}</span>
+        </button>
+        <button
+          type="button"
+          v-bind="roving('editor.takeEffectOff')"
+          :aria-label="$t('editor.takeEffectOff')"
+          :title="$t('editor.takeEffectOff')"
+          :aria-disabled="inRun ? undefined : 'true'"
+          @mousedown.prevent
+          @click="act(takeEffectOff)"
+        >
+          <span class="glyph">{{ $t('editor.glyphTakeEffectOff') }}</span>
+        </button>
+
+        <!-- What the words do as they arrive and while they stand, the two sentences
+             a Shot's row says of its whole text, said here of the words selected or
+             of the run the caret is in. Each writes as it changes, as the selects do.
+             A sentence's seconds and strength are named by the sentence and their own
+             label together, as the Shot's row names them, since each name is in the
+             row twice. -->
+        <div v-if="effecting" :id="`${id}-effects`" class="effects" role="group" :aria-label="$t('editor.addEffect')">
+          <p v-for="sentence in SENTENCES" :key="sentence.kind" class="effect">
+            <label :id="`${id}-${sentence.kind}-label`" class="eyebrow" :for="`${id}-${sentence.kind}`">
+              {{ $t(sentence.said) }}
+            </label>
+            <select
+              :id="`${id}-${sentence.kind}`"
+              v-bind="roving(sentence.said)"
+              :value="effectsHeld[sentence.kind]?.effect ?? ''"
+              @change="chooseEffect(sentence.kind, $event)"
+            >
+              <option value="">{{ $t('editor.noEffect') }}</option>
+              <option v-for="effect in sentence.effects" :key="effect" :value="effect">
+                {{ $t(`editor.${EFFECT_LABELS[effect]}`) }}
+              </option>
+            </select>
+            <template v-if="effectsHeld[sentence.kind]">
+              <template v-if="effectTime(effectsHeld[sentence.kind]!) !== undefined">
+                <label
+                  :id="`${id}-${sentence.kind}-seconds-label`"
+                  class="eyebrow"
+                  :for="`${id}-${sentence.kind}-seconds`"
+                >
+                  {{ $t('editor.effectSeconds') }}
+                </label>
+                <input
+                  :id="`${id}-${sentence.kind}-seconds`"
+                  v-bind="roving(`${sentence.said}-seconds`)"
+                  :aria-labelledby="`${id}-${sentence.kind}-label ${id}-${sentence.kind}-seconds-label`"
+                  type="number"
+                  inputmode="decimal"
+                  :min="sentence.min / 1000"
+                  :max="sentence.max / 1000"
+                  step="0.1"
+                  :value="effectTime(effectsHeld[sentence.kind]!)! / 1000"
+                  @change="timeEffect(sentence.kind, $event)"
+                >
+              </template>
+              <label
+                :id="`${id}-${sentence.kind}-strength-label`"
+                class="eyebrow"
+                :for="`${id}-${sentence.kind}-strength`"
+              >
+                {{ $t('editor.effectStrength') }}
+              </label>
+              <select
+                :id="`${id}-${sentence.kind}-strength`"
+                v-bind="roving(`${sentence.said}-strength`)"
+                :aria-labelledby="`${id}-${sentence.kind}-label ${id}-${sentence.kind}-strength-label`"
+                :value="effectsHeld[sentence.kind]!.strength"
+                @change="strengthEffect(sentence.kind, $event)"
+              >
+                <option v-for="strength in STRENGTHS" :key="strength" :value="strength">
+                  {{ $t(`editor.strength${strength[0]!.toUpperCase()}${strength.slice(1)}`) }}
+                </option>
+              </select>
+            </template>
+          </p>
+        </div>
       </div>
     </div>
   </div>
@@ -750,9 +838,9 @@ function rove(event: KeyboardEvent) {
 
 /* Over the top of the text it acts on, on the bench's own ground, lifted off
    the document as a node is, and there only while the caret is in the text or
-   in it — elsewhere it would lie over the very field being written in. Every
-   control in view at every width: the toolbar wraps, and the text keeps clear of
-   however many rows that makes. */
+   in it — elsewhere it would lie over the very field being written in. One row
+   at the bench's width, which a narrower one may wrap, and every control a press
+   away at every width: the text keeps clear of however many rows the bar makes. */
 .toolbar {
   position: absolute;
   inset-block-end: 100%;
@@ -780,10 +868,44 @@ function rove(event: KeyboardEvent) {
 .toolbar button {
   display: inline-flex;
   align-items: center;
-  gap: var(--s1);
+  gap: calc(var(--s1) / 2);
   padding: var(--s1);
   font-size: inherit;
   white-space: nowrap;
+}
+
+/* A key drawn inside a button is the button's own small print, not a second box
+   in it: unboxed, so the row holds `Ctrl+⇧+S` where a Mac draws `⇧⌘S` and stays
+   one row at the bench's width. */
+.toolbar kbd {
+  padding: 0;
+  border: none;
+  font-size: 0.625rem;
+}
+
+/* The four marks joined hairline to hairline, as a writer's hand knows them, the
+   one lit or focused drawn over its neighbours. */
+.marks {
+  display: inline-flex;
+}
+
+.marks button + button {
+  margin-inline-start: -1px;
+}
+
+.marks button:not(:last-child) {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.marks button:not(:first-child) {
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+}
+
+.marks [aria-pressed='true'],
+.marks :focus-visible {
+  z-index: 1;
 }
 
 /* A glyph is a letter, held to a letter's width so the row of them is even. */
@@ -821,6 +943,38 @@ function rove(event: KeyboardEvent) {
   padding: var(--s1);
   font-size: inherit;
   text-overflow: ellipsis;
+}
+
+/* While the words carry a style the panel holds, a point of the light the
+   interface says what it holds in, after the words. */
+.more-styles.held::after {
+  content: '';
+  inline-size: calc(var(--s1) * 1.5);
+  block-size: calc(var(--s1) * 1.5);
+  border-radius: 50%;
+  background: var(--light);
+}
+
+/* The rest of the styles take the rows under the row, set off from it by a
+   hairline, each select under the name it sets. Named there, a select is as wide
+   as what it holds, and no longer cut short. */
+.more {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--s2) var(--s4);
+  padding-block-start: var(--s1);
+  border-block-start: 1px solid var(--edge);
+}
+
+.choice {
+  display: grid;
+  gap: 2px;
+}
+
+.more select {
+  max-inline-size: none;
 }
 
 /* The field a bar's words are written in takes a row of its own: it is the one

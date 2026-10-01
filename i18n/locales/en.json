@@ -385,6 +385,8 @@
     "styleSub": "Subscript",
     "redact": "Redact the Selection",
     "addSeparator": "Add a Separator",
+    "moreStyles": "More Styles",
+    "moreStylesHeld": "More Styles, Some Set Here",
     "size": "Size",
     "sizeSmall": "Small",
     "sizeNormal": "Normal",
