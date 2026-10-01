@@ -762,6 +762,44 @@ export function namesOnTheBench(story: StoryInEditor, say: Phrase) {
 }
 
 /**
+ * A name with its accents taken off and its case flattened, which is what both
+ * sides of every match on a name are read as — the bar of Commands, the field
+ * a way on is written in, the one a Shot is moved by. An Author reaching for *Le
+ * café* types `cafe` as often as `café` — it is the same word, and one of the two
+ * spellings is on every keyboard — so the Scene has to answer to both. `NFD`
+ * splits an accented letter into the letter and the mark that sits on it, and the
+ * marks are what is dropped.
+ */
+export function plainly(name: string) {
+  return name.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase()
+}
+
+/**
+ * The Scene a Shot is moved to, from the name typed in the field under its marks:
+ * the name as the bench calls a Scene, typed as it is shown before as `plainly`
+ * folds it, so two names that fold alike are told apart by whoever types one of
+ * them exactly. The names are the bench's and not the Author's, because the list
+ * the field offers is the bench's: two Scenes called *The bar* answer to *The bar
+ * (1)* and *The bar (2)*, and the name they share answers to neither.
+ *
+ * What it refuses it refuses with the sentence said under the field, and nothing
+ * is sent: a name no Scene answers to is not a Scene to write, because a beat moved
+ * somewhere new would land in a Scene nothing arrives at, and the Scene the Shot
+ * stands in is not a move.
+ */
+export function sceneToMoveTo(names: Map<string, string>, fromSceneId: string, typed: string) {
+  const looked = typed.trim()
+  const named = [...names]
+  const [sceneId] = named.find(([, name]) => name === looked)
+    ?? named.find(([, name]) => plainly(name) === plainly(looked))
+    ?? []
+
+  if (!sceneId) return { refused: 'editor.noSceneToMoveTo' } as const
+  if (sceneId === fromSceneId) return { refused: 'editor.alreadyInScene' } as const
+  return { sceneId }
+}
+
+/**
  * A Scene read by name where something else names it — the far side of an Exit, the
  * count a Condition asks for. A Condition still names a Scene deleted since it
  * was written, and saying so beats showing the Author the id it holds. One

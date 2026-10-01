@@ -32,6 +32,7 @@ import {
   exitsOnTheBench,
   FLAG_NAME_MAX_LENGTH,
   namesOnTheBench,
+  plainly,
   reaches,
   sceneNamed,
 } from '../../shared/utils/scenes'
@@ -41,7 +42,6 @@ import type { Condition, Scene, Shot, StoryInEditor } from '../../shared/utils/s
 import { leafOf, linesOf } from '#shared/utils/formatted'
 import type { Phrase } from '../../shared/utils/phrases'
 import { braced, cut, declaredIn, flickers, lastUnitAt, textArrival } from '../../shared/utils/reading'
-import { plainly } from './commands'
 import { FLASHES_APART } from './flashes'
 
 /**
