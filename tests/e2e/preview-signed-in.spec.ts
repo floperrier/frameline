@@ -2,7 +2,7 @@ import { expect, type APIRequestContext, type Locator, type Page } from '@playwr
 import type { Condition } from '../../shared/utils/scenes'
 import {
   live, readShotConditions, readTheStory, sceneNode, seedPublication, seedScenes, seedStory,
-  test, writeStory,
+  test, writeShot, writeStory,
 } from './author'
 
 /**
@@ -153,7 +153,7 @@ test('what an Author types reaches the reading', async ({ page, request }) => {
   // are the same box on the table — see
   // `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
   const beat = page.locator(`#shot-${scenes[0]!.shots[0]!.id}`)
-  await beat.fill('A door opens onto the rain.')
+  await writeShot(beat, 'A door opens onto the rain.')
   await beat.blur()
 
   const preview = await readTheStory(page)
@@ -848,10 +848,13 @@ test('coming back to the writing puts the caret on the beat it was left on',
 
     // The caret in the second beat of the Scene and part-way along the line,
     // which is where an Author who turned to the reading to judge what they had
-    // just typed left it.
+    // just typed left it. The press mounts the editor in the box's place, under
+    // the same id, and the caret is put there as a hand puts it, through the
+    // page's selection, which ProseMirror reads.
     const beat = page.locator(`#shot-${street.shots[1]!.id}`)
     await beat.click()
-    await beat.evaluate(field => (field as HTMLTextAreaElement).setSelectionRange(3, 3))
+    await expect(page.locator(`#shot-${street.shots[1]!.id}.ProseMirror`)).toBeFocused()
+    await beat.evaluate(field => getSelection()!.collapse(field.querySelector('p')!.firstChild, 3))
 
     await page.getByRole('button', { name: 'Read the Story' }).click()
     await expect(previewIn(page)).toBeVisible()
@@ -872,7 +875,10 @@ test('coming back to the writing puts the caret on the beat it was left on',
     // document replaced putting the Author on the first beat of the Scene
     // instead.
     await expect(beat).toBeFocused()
-    expect(await beat.evaluate(field => (field as HTMLTextAreaElement).selectionStart)).toBe(3)
+    expect(await beat.evaluate((field) => {
+      const { anchorNode, anchorOffset } = getSelection()!
+      return anchorNode === field.querySelector('p')!.firstChild && anchorOffset
+    })).toBe(3)
     await expect(page.locator(`#shot-${street.shots[0]!.id}`)).not.toBeFocused()
   })
 

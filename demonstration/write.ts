@@ -86,7 +86,8 @@ for (const scene of work.scenes) {
   for (const shot of scene.shots) {
     const { id: shotId } = await api('POST', `/api/scenes/${id}/shots`) as { id: string }
     await api('PATCH', `/api/shots/${shotId}`, {
-      text: shot.text,
+      // A formatted text is refused beside plain words: the words are derived.
+      ...shot.formatted ? { formatted: shot.formatted } : { text: shot.text },
       description: shot.description ?? '',
       transcript: shot.transcript ?? '',
       cutAfter: shot.cutAfter,

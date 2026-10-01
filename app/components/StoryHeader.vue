@@ -118,9 +118,13 @@ const presented = computed(() => story && coverOf(story))
  * press settles it, and what it settles is how the whole work is read, so the
  * Story on the bench is reloaded around it the way listing and publishing are.
  * See `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
+ *
+ * The face and the alignment a Shot's text is set in where it says nothing are
+ * answered the same way and for the same reason: each is one press, and each is
+ * how every Shot of the work is read — issue #359.
  */
-function readBack(stepsBack: boolean) {
-  return change(() => send(`/api/stories/${id}`, { method: 'PATCH', body: { stepsBack } }))
+function readAs(body: Partial<Pick<StoryInEditor, 'stepsBack' | 'textFace' | 'textAlign'>>) {
+  return change(() => send(`/api/stories/${id}`, { method: 'PATCH', body }))
 }
 
 function nameCover(coverShotId: string | null) {
@@ -294,8 +298,9 @@ function unlist() {
         </div>
       </details>
 
-      <!-- How the work is read, which is one question and is answered once: may a
-           Reading come back through an Exit that has not said otherwise? It folds
+      <!-- How the work is read, each question answered once for the whole of it:
+           may a Reading come back through an Exit that has not said otherwise, and
+           what is a Shot's text set in where it says nothing? It folds
            like the presentation beside it and for the same reason — it is settled
            when the Story is being thought about rather than while a Scene is
            being written — and it is a fold of its own because what a stranger is
@@ -316,10 +321,39 @@ function unlist() {
             <select
               id="story-steps-back"
               :value="story.stepsBack ? 'yes' : 'no'"
-              @change="readBack(($event.target as HTMLSelectElement).value === 'yes')"
+              @change="readAs({ stepsBack: ($event.target as HTMLSelectElement).value === 'yes' })"
             >
               <option value="yes">{{ $t('editor.steppingBackOffered') }}</option>
               <option value="no">{{ $t('editor.steppingBackRefused') }}</option>
+            </select>
+          </p>
+
+          <!-- What a Shot's text is set in and where its lines stand, wherever it
+               says nothing for itself: a run in a face of its own, a line aligned
+               on its own, depart from these. -->
+          <p class="crossing">
+            <label class="eyebrow" for="story-text-face">{{ $t('editor.storyTextFace') }}</label>
+            <select
+              id="story-text-face"
+              :value="story.textFace"
+              @change="readAs({ textFace: ($event.target as HTMLSelectElement).value as Face })"
+            >
+              <option value="prose">{{ $t('editor.faceProse') }}</option>
+              <option value="display">{{ $t('editor.faceDisplay') }}</option>
+              <option value="typewriter">{{ $t('editor.faceTypewriter') }}</option>
+              <option value="hand">{{ $t('editor.faceHand') }}</option>
+            </select>
+          </p>
+          <p class="crossing">
+            <label class="eyebrow" for="story-text-align">{{ $t('editor.storyTextAlign') }}</label>
+            <select
+              id="story-text-align"
+              :value="story.textAlign"
+              @change="readAs({ textAlign: ($event.target as HTMLSelectElement).value as Align })"
+            >
+              <option value="start">{{ $t('editor.alignStart') }}</option>
+              <option value="centre">{{ $t('editor.alignCentre') }}</option>
+              <option value="end">{{ $t('editor.alignEnd') }}</option>
             </select>
           </p>
         </div>
@@ -470,7 +504,7 @@ header {
   cursor: pointer;
 }
 
-/* The one question this fold holds: the label and the answer on one line, the
+/* Each question this fold holds: the label and the answer on one line, the
    way the same question is written on an Exit in the document. */
 .crossing {
   display: flex;

@@ -33,12 +33,19 @@ _Avoid_: passage, knot, node, chapter, page, card, séquence
 **Shot**:
 The atomic unit of a Story — an Image and its text, shown to the Reader as a single
 beat. Either may stand alone, but a Shot with neither is one the Author has not
-written yet. Its text need not land with its Image. It may arrive a time after
-it, whole or a line, a word or a letter at a time, at a pace the Author writes in
-characters a second, each part appearing at once or over a time of its own, and it
-may leave before the Image does. A Scene says how the texts of its run arrive, a
-Shot may say otherwise, and a Shot that says nothing does as its Scene says.
-However its text arrives, a Reader by ear is given all of it as the Shot lands.
+written yet. Its text is formatted where it is written and read as it was
+formatted, in lines, quotations, someone speaking, verse and separators, with a
+style from a fixed set on any run, departing from the face and alignment its
+Story is set in. Its words with the formatting set aside are what the bench
+counts and quotes. Only a Shot's text is formatted. An Exit's text names a
+button, and a Description and a Transcript are read out rather than looked at, so
+all three stay plain. Its text need not land with its Image. It may arrive a time
+after it, whole or a line, a word or a letter at a time, at a pace the Author
+writes in characters a second, each part appearing at once or over a time of its
+own, and it may leave before the Image does. A Scene says how the texts of its
+run arrive, a Shot may say otherwise, and a Shot that says nothing does as its
+Scene says. However its text arrives, a Reader by ear is given all of it as the
+Shot lands.
 _Affiché_: Plan
 _Avoid_: panel, slide, frame, beat, step, séquence
 

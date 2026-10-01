@@ -28,6 +28,8 @@ export default defineEventHandler(async (event) => {
       language: stories.language,
       openingSceneId: stories.openingSceneId,
       stepsBack: stories.stepsBack,
+      textFace: stories.textFace,
+      textAlign: stories.textAlign,
       // The title card wears the same Image the shelf did, so a Reader arrives
       // where the entry they pressed said they would.
       coverShotId: coverShotOf,

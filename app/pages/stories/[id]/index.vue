@@ -254,7 +254,7 @@ async function goToScene(sceneId: string) {
   const framed = reading.value === 'sheet'
     ? document.querySelector<HTMLElement>(`[data-band="${CSS.escape(sceneId)}"] .frames button`)
     : null
-  const typing = document.querySelector<HTMLElement>('input:focus, textarea:focus')
+  const typing = document.querySelector<HTMLElement>('input:focus, textarea:focus, [contenteditable]:focus')
   const landing = moving ? named ?? (typing && framed) : null
   const lands = landing ?? typing
 
@@ -951,20 +951,6 @@ main {
   display: inline-flex;
   align-items: center;
   gap: var(--s2);
-}
-
-.combination {
-  display: inline-flex;
-  gap: 2px;
-}
-
-kbd {
-  padding: 0 var(--s1);
-  border: 1px solid var(--edge);
-  border-radius: var(--machined);
-  color: var(--muted);
-  font-family: var(--data);
-  font-size: 0.6875rem;
 }
 
 /* The bench with nothing on it: a note where the document would be, and the one

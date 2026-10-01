@@ -22,6 +22,7 @@ export default defineEventHandler(async (event) => {
     .returning({
       id: shots.id,
       text: shots.text,
+      formatted: shots.formatted,
       position: shots.position,
       description: shots.description,
       transcript: shots.transcript,
@@ -43,5 +44,5 @@ export default defineEventHandler(async (event) => {
     })
 
   if (!shot) throw notFound(event, 'Shot')
-  return shot
+  return { ...shot, formatted: formattedIn(shot) }
 })

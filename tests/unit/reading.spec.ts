@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Condition, Sets } from '../../shared/utils/scenes'
+import { formattedOf } from '../../shared/utils/formatted'
 import {
   CUT_AFTER_MAX,
   CUT_AFTER_MIN,
@@ -72,6 +73,7 @@ function story(
         return {
           id: `${id}-${position}`,
           text,
+          formatted: formattedOf(text),
           position,
           image: null,
           description: '',
@@ -1064,7 +1066,7 @@ describe('cut', () => {
     textAfter: 0, textBy: 'whole' as const, textPace: 15, textOver: 0, textStays: null,
   }
   const shot = {
-    id: 's', text: '', position: 0, image: null, description: '',
+    id: 's', text: '', formatted: formattedOf(''), position: 0, image: null, description: '',
     conditions: [], sound: null, transcript: '',
     cutAfter: null, cutOver: null, cutThrough: null, layout: null, cropX: 50, cropY: 50,
     imageArrives: null, imageLasts: null, textArrives: null, textLasts: null,
@@ -1236,7 +1238,7 @@ describe('layout', () => {
     textAfter: 0, textBy: 'whole' as const, textPace: 15, textOver: 0, textStays: null,
   }
   const shot = {
-    id: 's', text: '', position: 0, image: null, description: '',
+    id: 's', text: '', formatted: formattedOf(''), position: 0, image: null, description: '',
     conditions: [], sound: null, transcript: '',
     cutAfter: null, cutOver: null, cutThrough: null, layout: null, cropX: 50, cropY: 50,
     imageArrives: null, imageLasts: null, textArrives: null, textLasts: null,
@@ -1270,7 +1272,7 @@ describe('textArrival', () => {
     textAfter: 1000, textBy: 'word' as const, textPace: 10, textOver: 200, textStays: 3000,
   }
   const shot = {
-    id: 's', text: 'A door opens.', position: 0, image: null, description: '',
+    id: 's', text: 'A door opens.', formatted: formattedOf('A door opens.'), position: 0, image: null, description: '',
     conditions: [], sound: null, transcript: '',
     cutAfter: null, cutOver: null, cutThrough: null, layout: null, cropX: 50, cropY: 50,
     textAfter: null, textBy: null, textPace: null, textOver: null, textStays: null,

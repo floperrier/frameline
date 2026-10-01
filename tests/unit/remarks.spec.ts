@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { remarks } from '../../app/utils/remarks.ts'
 import type { Condition, Scene, Shot, StoryInEditor } from '../../shared/utils/scenes.ts'
+import { bar, formatted, formattedOf, line, textOf } from '../../shared/utils/formatted.ts'
 import type { Phrase } from '../../shared/utils/phrases.ts'
 import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases.ts'
 import en from '../../i18n/locales/en.json'
@@ -80,6 +81,7 @@ function onTheBench(
       shots: (scene.shots ?? [{ text: 'A door opens.' }]).map((shot, at) => ({
         id: `${idOf(scene)}-${at}`,
         text: '',
+        formatted: formattedOf(''),
         image: null,
         description: '',
         conditions: [],
@@ -175,6 +177,31 @@ describe('what the bench finds in a Story', () => {
     const story = onTheBench([{ name: 'The street', shots: [{ text: 'A door.', image: '/i' }] }])
 
     expect(named(story)).toEqual(['imageUndescribed'])
+  })
+
+  /**
+   * A bar stands for words a Reader who sees it cannot read, and one who cannot
+   * see it is told what it hides or nothing at all. Said of the Shot once,
+   * however many bars it holds: the Author mends it in one place.
+   */
+  it('names a Shot hiding words behind a bar it says nothing of, once however many bars', () => {
+    const barred = formatted(
+      line('A reel from ', bar(8, ''), '.'),
+      line(bar(3, ' '), ' and ', bar(2, '')),
+    )
+    const story = onTheBench([{ name: 'The booth', shots: [{ text: textOf(barred), formatted: barred }] }])
+    const found = remarks(story, says)
+
+    expect(found.map(remark => remark.name)).toEqual(['redactionUnsaid'])
+    expect(says(`remark.${found[0]!.name}`, found[0]!.said)).toBe(
+      'Shot 1 of The booth hides words behind a bar and says nothing of them to a Reader who cannot see it.')
+  })
+
+  it('says nothing of a bar whose words are written', () => {
+    const barred = formatted(line('A reel from ', bar(8, 'a name, inked out'), '.'))
+    const story = onTheBench([{ name: 'The booth', shots: [{ text: textOf(barred), formatted: barred }] }])
+
+    expect(remarks(story, says)).toEqual([])
   })
 
   /**
@@ -582,7 +609,7 @@ describe('an Exit nobody has phrased', () => {
 describe('every Remark has a sentence in both languages', () => {
   it('is written under its own name in the message files', () => {
     const story = onTheBench([
-      { name: 'The bar', sets: { drink: 'whisky', coat: 'on' }, shots: [{}] },
+      { name: 'The bar', sets: { drink: 'whisky', coat: 'on' }, shots: [{}, { text: '█', formatted: formatted(line(bar(1, ''))) }] },
       { name: 'The quay', shots: [{ text: 'A.', image: '/i', conditions: [{ flag: 'coat', is: 'x' }] }] },
       { name: 'The yard', shots: [] },
     ], { exits: [['The bar', 'The quay', { flag: 'hat', is: 'on' }]], opens: null })

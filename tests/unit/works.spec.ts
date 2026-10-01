@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { REEL_CHANGE } from '../../demonstration/reel-change.ts'
 import { SAMPLES } from '../../demonstration/samples.ts'
+import { wordsOf } from '../../demonstration/work.ts'
 import type { Work } from '../../demonstration/work.ts'
+import { linesOf } from '../../shared/utils/formatted.ts'
+import type { Formatted, Inline } from '../../shared/utils/formatted.ts'
 import { textOnScreen } from '../../app/utils/remarks.ts'
 import {
   CUT_AFTER_MAX,
@@ -78,7 +81,7 @@ function heldFor(scene: Work['scenes'][number], shot: Work['scenes'][number]['sh
       textStays: scene.textStays ?? null,
     } as Scene,
     {
-      text: shot.text,
+      text: wordsOf(shot),
       cutAfter: shot.cutAfter ?? null,
       cutOver: shot.cutOver ?? null,
       cutThrough: shot.cutThrough ?? null,
@@ -192,7 +195,7 @@ describe('the Effects the works carry', () => {
 function shotStarting(work: Work, start: string) {
   return work.scenes
     .flatMap(scene => scene.shots)
-    .find(shot => shot.text.startsWith(start))
+    .find(shot => wordsOf(shot).startsWith(start))
 }
 
 describe('the arrivals the works are written with', () => {
@@ -251,7 +254,97 @@ describe.each(WORKS)('the Layout %s is written with', (_name: string, work: Work
   })
 
   it('carries an Image with no text and a text with no Image', () => {
-    expect(shots.some(({ shot }) => shot.image !== undefined && shot.text.trim() === '')).toBe(true)
-    expect(shots.some(({ shot }) => shot.image === undefined && shot.text.trim() !== '')).toBe(true)
+    expect(shots.some(({ shot }) => shot.image !== undefined && wordsOf(shot).trim() === '')).toBe(true)
+    expect(shots.some(({ shot }) => shot.image === undefined && wordsOf(shot).trim() !== '')).toBe(true)
+  })
+})
+
+/** Every run and bar of a formatted text, paired with the line it stands in. */
+const inlinesOf = (value: Formatted): Inline[] => linesOf(value).flat()
+
+/** The Shot, in whichever Scene, whose words begin as given, formatted or not. */
+const formattedStarting = (work: Work, start: string) =>
+  shotStarting(work, start)?.formatted
+
+/**
+ * The formatting the works are written with: where a film or a lesson asks for
+ * it, and nowhere it would bend the work — nothing spoken, quoted or coloured in
+ * *Reel Change*, and a Story's face and alignment left at their defaults.
+ */
+describe('the formatting the works are written with', () => {
+  it('writes each Shot with words or with a formatted text, never both', () => {
+    for (const work of WORKS.map(([, work]) => work)) {
+      for (const shot of work.scenes.flatMap(scene => scene.shots)) {
+        expect(shot.formatted !== undefined && shot.text !== undefined).toBe(false)
+      }
+    }
+  })
+
+  it('gives the booth’s second Shot its reel’s label, with the name inked out', () => {
+    const formatted = formattedStarting(REEL_CHANGE, '200 FT')!
+    const [label, ...rest] = inlinesOf(formatted)
+
+    expect(label).toMatchObject({ text: '200 FT · NO TITLE · FROM ' })
+    expect(label).toMatchObject({
+      marks: [
+        { type: 'size', attrs: { step: 'small' } },
+        { type: 'face', attrs: { face: 'typewriter' } },
+      ],
+    })
+    expect(rest[0]).toEqual({ type: 'redaction', attrs: { length: 8, hides: 'a name, inked out' } })
+    expect(wordsOf(shotStarting(REEL_CHANGE, '200 FT')!)).toContain('████████')
+  })
+
+  it('italicises the word the run turns on', () => {
+    const formatted = formattedStarting(REEL_CHANGE, 'It is this house')!
+
+    expect(inlinesOf(formatted)).toContainEqual({
+      type: 'text',
+      text: 'this',
+      marks: [{ type: 'emphasis' }],
+    })
+  })
+
+  it('sets the card that opens Daybreak in the title face, largest, wide and centred', () => {
+    const formatted = formattedStarting(REEL_CHANGE, 'Six in the morning.')!
+    const [first] = formatted.content
+
+    expect(first).toMatchObject({ type: 'line', attrs: { align: 'centre' } })
+    expect(inlinesOf(formatted)).toEqual([
+      expect.objectContaining({
+        text: 'Six in the morning.',
+        marks: expect.arrayContaining([
+          { type: 'face', attrs: { face: 'display' } },
+          { type: 'size', attrs: { step: 'largest' } },
+          { type: 'spacing', attrs: { step: 'wide' } },
+        ]),
+      }),
+    ])
+  })
+
+  it('sets a Flag in the typewriter and the Sample’s aside by hand in each Sample', () => {
+    for (const [flag, aside] of [['exit = taken', 'Nothing here is precious'], ['sortie = prise', 'Rien ici']] as const) {
+      const work = flag.startsWith('exit') ? SAMPLES.en : SAMPLES.fr
+      const runs = work.scenes.flatMap(scene => scene.shots)
+        .flatMap(shot => shot.formatted ? inlinesOf(shot.formatted) : [])
+
+      expect(runs).toContainEqual(expect.objectContaining({
+        text: flag,
+        marks: [{ type: 'face', attrs: { face: 'typewriter' } }],
+      }))
+      expect(runs.find(r => r.type === 'text' && r.text.startsWith(aside))).toMatchObject({
+        marks: [{ type: 'face', attrs: { face: 'hand' } }],
+      })
+    }
+  })
+
+  it('holds a Sample’s twelve-second card to what is read in its hold', () => {
+    for (const [language, length] of [['en', 128], ['fr', 161]] as const) {
+      const card = SAMPLES[language].scenes.flatMap(scene => scene.shots)
+        .find(shot => shot.formatted?.content[0]?.type === 'speech')!
+
+      expect(card.formatted!.content.map(block => block.type)).toEqual(['speech', 'speech'])
+      expect(wordsOf(card).length).toBe(length)
+    }
   })
 })

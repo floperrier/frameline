@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { live, test, writeStory } from './author'
+import { live, test, writeShot, writeStory } from './author'
 
 /**
  * The two facts about language the product keeps apart: the Locale, which is the
@@ -70,7 +70,7 @@ test.describe('an interface read in French', () => {
     // words, and the clock read the French way rather than the English one.
     const shot = page.getByRole('group', { name: 'Écriture de The street' })
       .getByRole('textbox', { name: 'Plan 1 de The street', exact: true })
-    await shot.fill('Une porte s\'ouvre.')
+    await writeShot(shot, 'Une porte s\'ouvre.')
     await shot.blur()
     await expect(page.getByText(/^Enregistré à \d{2}:\d{2}$/)).toBeVisible()
 

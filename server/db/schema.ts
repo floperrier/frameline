@@ -14,6 +14,7 @@ import {
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import { CHARACTERS_A_SECOND } from '../../shared/utils/scenes'
 import type { Arrival, Condition, CutThrough, Lasting, Layout, Sets, TextBy } from '../../shared/utils/scenes'
+import type { Align, Face, Formatted } from '../../shared/utils/formatted'
 
 // `name` is the Name an Author appears under wherever somebody else meets them:
 // beside a Listed Story, on their Profile. It arrives from the provider they
@@ -94,6 +95,8 @@ export const stories = pgTable('stories', {
   publishedAt: timestamp('published_at', { withTimezone: true }),
   listed: boolean('listed').notNull().default(false),
   stepsBack: boolean('steps_back').notNull().default(true),
+  textFace: text('text_face').$type<Face>().notNull().default('prose'),
+  textAlign: text('text_align').$type<Align>().notNull().default('start'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
@@ -288,6 +291,7 @@ export const shots = pgTable('shots', {
   layout: text('layout').$type<Layout>(),
   cropX: integer('crop_x').notNull().default(50),
   cropY: integer('crop_y').notNull().default(50),
+  formatted: jsonb('formatted').$type<Formatted>(),
   imageArrives: jsonb('image_arrives').$type<Arrival>(),
   imageLasts: jsonb('image_lasts').$type<Lasting>(),
   textArrives: jsonb('text_arrives').$type<Arrival>(),

@@ -1,3 +1,4 @@
+import type { Align, Face, Formatted } from './formatted'
 import type { Phrase } from './phrases'
 
 /**
@@ -8,6 +9,9 @@ import type { Phrase } from './phrases'
  */
 export const SCENE_NAME_MAX_LENGTH = 200
 export const SHOT_TEXT_MAX_LENGTH = 2000
+
+/** What a bar hides, said to a Reader who cannot see it, as a phrase like an Exit's line. */
+export const REDACTION_HIDES_MAX_LENGTH = 120
 
 /**
  * What a Cut's three times are capped at, in milliseconds. A Shot standing
@@ -396,6 +400,8 @@ export function wordsOf(shots: Shot[]) {
 export type Shot = {
   id: string
   text: string
+  /** The text as formatted; never null, a plain text being read as one line a line. */
+  formatted: Formatted
   position: number
   image: string | null
   description: string
@@ -793,6 +799,9 @@ export type StoryInEditor = {
   listed: boolean
   /** What an Exit of this Story answers when it has not answered for itself. */
   stepsBack: boolean
+  /** The face a run that says nothing is set in, and where a line that says nothing stands. */
+  textFace: Face
+  textAlign: Align
   scenes: Scene[]
   exits: Exit[]
 }

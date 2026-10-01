@@ -19,6 +19,8 @@ import { SHOT_IMAGE_MAX_BYTES } from '../shared/utils/scenes.ts'
 import type {
   Arrival, Condition, CutThrough, Flags, Lasting, Layout, TextBy,
 } from '../shared/utils/scenes.ts'
+import { textOf } from '../shared/utils/formatted.ts'
+import type { Formatted } from '../shared/utils/formatted.ts'
 import type { StoryLanguage } from '../shared/utils/stories.ts'
 
 const run = promisify(execFile)
@@ -45,6 +47,9 @@ export type Image = {
   grain?: number
 }
 
+/** A Shot's words with the formatting set aside, whichever way it is written. */
+export const wordsOf = (shot: Shot) => shot.formatted ? textOf(shot.formatted) : shot.text
+
 /**
  * One Shot of a work: the beat, what the image of it shows for a Reader who
  * cannot see it, the image itself, and the Conditions it plays under. The
@@ -55,8 +60,7 @@ export type Image = {
  * one of the WebP files in `images/`, developed once and committed. A Shot with
  * neither is a Shot that is text alone, which is a thing a Shot is allowed to be.
  */
-export type Shot = {
-  text: string
+export type Shot = ({ text: string, formatted?: never } | { formatted: Formatted, text?: never }) & {
   description?: string
   image?: Image | string
   when?: Condition[]

@@ -62,13 +62,13 @@ export default defineEventHandler(async (event) => {
       insert into shots (
         scene_id, text, position, image, description, sound, transcript, conditions,
         image_arrives, image_lasts, text_arrives, text_lasts,
-        layout, crop_x, crop_y,
+        layout, crop_x, crop_y, formatted,
         text_after, text_by, text_pace, text_over, text_stays
       )
       select made.id, shots.text, shots.position, shots.image, shots.description,
              shots.sound, shots.transcript, shots.conditions,
              shots.image_arrives, shots.image_lasts, shots.text_arrives, shots.text_lasts,
-             shots.layout, shots.crop_x, shots.crop_y,
+             shots.layout, shots.crop_x, shots.crop_y, shots.formatted,
              shots.text_after, shots.text_by, shots.text_pace, shots.text_over,
              shots.text_stays
       from made, shots

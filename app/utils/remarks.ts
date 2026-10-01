@@ -32,6 +32,9 @@ import {
   reaches,
 } from '../../shared/utils/scenes'
 import type { Condition, Scene, Shot, StoryInEditor } from '../../shared/utils/scenes'
+// Through the alias, as `app/utils/draw.ts` explains: a relative path to a module
+// nothing else in the server chunk imports is written where it does not exist.
+import { linesOf } from '#shared/utils/formatted'
 import type { Phrase } from '../../shared/utils/phrases'
 import { cut, lastUnitAt, textArrival } from '../../shared/utils/reading'
 import { FLASHES_APART } from './flashes'
@@ -172,6 +175,13 @@ export function remarks(story: StoryInEditor, say: Phrase): Remark[] {
       }
       if (shot.image && !shot.description.trim()) {
         found.push({ name: 'imageUndescribed', sceneId: scene.id, said: atPlace })
+      }
+      // A bar is words a Reader who sees it cannot read, and one who cannot see
+      // it hears what it hides or nothing. Said once of the Shot however many
+      // bars say nothing, because it is mended in one place.
+      if (linesOf(shot.formatted).flat()
+        .some(leaf => leaf.type === 'redaction' && !leaf.attrs.hides.trim())) {
+        found.push({ name: 'redactionUnsaid', sceneId: scene.id, said: atPlace })
       }
       if (shot.sound && !shot.transcript.trim()) {
         found.push({

@@ -52,7 +52,18 @@ export default defineNuxtConfig({
       { name: 'Big Shoulders', provider: 'google', weights: [600] },
       { name: 'IBM Plex Sans', provider: 'google', weights: [400, 500, 600] },
       { name: 'IBM Plex Mono', provider: 'google', weights: [400, 500] },
-      { name: 'Newsreader', provider: 'google', weights: [300, 400] },
+      // A Shot's text is italic, bold and in two more faces wherever its Author
+      // says so. The two faces only some Stories use are not preloaded, so a
+      // Reader's browser fetches them only on a page that sets a word in one.
+      { name: 'Newsreader', provider: 'google', weights: [300, 400, 600], styles: ['normal', 'italic'] },
+      {
+        name: 'Courier Prime',
+        provider: 'google',
+        weights: [400, 700],
+        styles: ['normal', 'italic'],
+        preload: false,
+      },
+      { name: 'Caveat', provider: 'google', weights: [400, 700], preload: false },
     ],
   },
   // Port 3000 is taken on this machine, and the OAuth redirect URIs are
