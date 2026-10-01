@@ -3,6 +3,10 @@ import { fileURLToPath } from 'node:url'
 export default defineNuxtConfig({
   modules: ['nuxt-auth-utils', '@nuxt/fonts', '@nuxtjs/i18n'],
   compatibilityDate: '2026-08-19',
+  // Every page names itself, and the tab says whose page it is after it. Here
+  // rather than in `app.vue`, because `error.vue` stands in for the whole app
+  // and `app.vue` is not rendered beside it: the config's head is under both.
+  app: { head: { titleTemplate: '%s · Frameline' } },
   css: ['~/assets/css/frameline.css'],
   // The widths the interface folds at are declared once, in
   // `app/assets/css/folds.css`, and reached by name from the scoped block of

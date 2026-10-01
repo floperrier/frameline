@@ -17,6 +17,7 @@ const { data: story, error } = await useAsyncData(
   `read-${id}`,
   () => send(`/api/read/${id}`) as Promise<StoryToShow & {
     title: string
+    synopsis: string
     language: string
     textFace: Face
     textAlign: Align
@@ -32,6 +33,29 @@ const { data: story, error } = await useAsyncData(
 // that went wrong is passed on as itself: a Reader of a Story that is very much
 // published must not be told it is gone because a query failed.
 if (error.value) throw createError({ ...error.value, fatal: true })
+
+/**
+ * The card the link unfurls as wherever it is pasted, written on the server
+ * because no unfurler runs a script. It carries what the title card and the
+ * shelf carry and nothing more: a Story with no Synopsis has no description, and
+ * one with no Image has no picture, rather than either being made up out of its
+ * Shots — the shelf invents no lines out of the Story's own text either. A null
+ * is a tag left out. The addresses are absolute, the way `StoryHeader.vue` hands
+ * out the link, because the card is read from somewhere else.
+ */
+const origin = useRequestURL().origin
+
+useSeoMeta({
+  title: () => story.value?.title,
+  ogTitle: () => story.value?.title,
+  ogType: 'website',
+  ogSiteName: 'Frameline',
+  ogUrl: `${origin}/read/${id}`,
+  description: () => story.value?.synopsis || null,
+  ogDescription: () => story.value?.synopsis || null,
+  ogImage: () => story.value?.cover ? `${origin}${story.value.cover.image}` : null,
+  twitterCard: () => story.value?.cover ? 'summary_large_image' : 'summary',
+})
 
 /**
  * The one press a Story that carries a Sound is given before the Reading draws

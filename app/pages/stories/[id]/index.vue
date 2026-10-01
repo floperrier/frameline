@@ -19,6 +19,10 @@ const { data: story, refresh } = await useAsyncData(
 const { t } = useI18n()
 const { problem, keptAt, change, write } = useEditing(refresh)
 
+// The tab is named by the title as the field holds it, so it follows a rename
+// as it is typed.
+useHead({ title: () => story.value?.title })
+
 /**
  * Which Scene's section of the document the refusal on screen is drawn in, and
  * nothing where it belongs to the Story rather than to a Scene. The document holds

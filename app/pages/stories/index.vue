@@ -8,6 +8,8 @@ const { data: stories, refresh } = await useFetch('/api/stories')
 const { problem, change, write } = useEditing(refresh)
 const { asked, ask, answer } = useConfirming()
 
+useHead({ title: () => t('stories.heading') })
+
 // The Name the Author appears under wherever somebody else meets them. It is
 // shown here rather than their email, which appears on no screen in the product,
 // and it is rewritten here because this is the one page that is theirs rather
