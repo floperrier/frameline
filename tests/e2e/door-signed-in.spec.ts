@@ -92,5 +92,5 @@ test('the Stories list refuses in the same voice', async ({ page, context, autho
   // written again once the door is open.
   await expect(page).toHaveURL('/stories')
   await expect(titling).toHaveValue('A Story nobody may write')
-  await expect(page.getByRole('link', { name: 'Open A Story' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'A Story', exact: true })).toBeVisible()
 })

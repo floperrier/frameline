@@ -104,11 +104,12 @@
     "newLanguage": "Language of a new Story",
     "create": "Create Story",
     "none": "No Stories yet. Name one above, and it opens ready for its first Scene.",
-    "open": "Open",
-    "title": "Title",
-    "rename": "Rename",
     "confirmDelete": "“{title}” goes, and everything written in it.",
-    "deleteStory": "Delete Story"
+    "deleteStory": "Delete Story",
+    "notPublished": "Not published",
+    "listed": "Listed",
+    "oneComment": "{count} Comment",
+    "manyComments": "{count} Comments"
   },
   "editor": {
     "allStories": "All Stories",

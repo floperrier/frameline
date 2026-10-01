@@ -32,10 +32,10 @@ test('a new account arrives with a Sample in it', async ({ page, request, author
 
   // Exactly one Story, and it is the Sample.
   const listed = await (await request.get('/api/stories')).json()
-  expect(listed).toEqual([{ id: expect.any(String), title: SAMPLES.en.title }])
+  expect(listed).toEqual([expect.objectContaining({ id: expect.any(String), title: SAMPLES.en.title })])
 
   await page.goto('/stories')
-  await page.getByRole('link', { name: `Open ${SAMPLES.en.title}` }).click()
+  await page.getByRole('link', { name: SAMPLES.en.title, exact: true }).click()
 
   // The whole work is there: its three Scenes, the Flags one of them sets, and
   // the Conditions its Shots play under.
@@ -93,7 +93,7 @@ test('the Sample planted is the one written in the Locale', async ({ request, au
   await plant(author, 'fr')
 
   await expect((await request.get('/api/stories')).json())
-    .resolves.toEqual([{ id: expect.any(String), title: SAMPLES.fr.title }])
+    .resolves.toEqual([expect.objectContaining({ id: expect.any(String), title: SAMPLES.fr.title })])
 })
 
 test('a Locale no Sample is written in is given none', async ({ request, author }) => {

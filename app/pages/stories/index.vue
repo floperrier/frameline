@@ -58,14 +58,11 @@ async function createStory() {
   if (writtenId) await navigateTo(localePath(`/stories/${writtenId}`))
 }
 
-function renameStory(id: string, title: string) {
-  return write(() => send(`/api/stories/${id}`, { method: 'PATCH', body: { title } }))
-}
-
 /**
  * A Story goes with everything written in it, none of which the Author named in
- * the act, so it is asked about — by title and by nothing else, which is all the
- * list carries. See `docs/adr/0017-a-confirmation-is-drawn-on-the-bench.md`.
+ * the act, so it is asked about — by title and by nothing else: the shelf knows
+ * how many Comments go with it, and no figure makes "everything written in it"
+ * truer. See `docs/adr/0017-a-confirmation-is-drawn-on-the-bench.md`.
  */
 async function deleteStory(id: string, title: string) {
   if (!await ask(t('stories.confirmDelete', { title }), t('stories.deleteStory'))) return
@@ -124,25 +121,40 @@ async function signOut() {
     <Refusal :problem="problem" />
 
     <p v-if="!stories?.length" class="none">{{ $t('stories.none') }}</p>
-    <!-- One slate a Story: what it is called, and the two things that can be
-         done to the name from here. -->
-    <ul v-else class="slates">
-      <li v-for="story in stories" :key="story.id">
-        <NuxtLink class="open" :to="localePath(`/stories/${story.id}`)">
-          <span class="visually-hidden">{{ $t('stories.open') }} </span>{{ story.title }}
-        </NuxtLink>
-
-        <div class="controls">
-          <form @submit.prevent="renameStory(story.id, story.title)">
-            <label class="eyebrow" :for="`title-${story.id}`">{{ $t('stories.title') }}</label>
-            <input :id="`title-${story.id}`" v-model="story.title" required :maxlength="STORY_TITLE_MAX_LENGTH">
-            <button type="submit">{{ $t('stories.rename') }}</button>
-          </form>
-          <button type="button" class="danger" @click="deleteStory(story.id, story.title)">
-            {{ $t('common.delete') }} <span class="visually-hidden">{{ story.title }}</span>
-          </button>
-        </div>
-      </li>
+    <!-- The Author's works on the shelf every other surface draws a Story on,
+         newest first. The title leads to the bench, because a Story of their own
+         is somewhere to work rather than something to be handed; the rename is
+         done there too, where the title is written. What is said about each is
+         where it stands, as facts rather than controls: publishing and listing
+         are the bench's acts. -->
+    <ul v-else class="entries">
+      <Entry
+        v-for="story in stories"
+        :key="story.id"
+        :story="story"
+        :to="localePath(`/stories/${story.id}`)"
+      >
+        <template #facts>
+          <span v-if="!story.publishedAt" class="eyebrow">{{ $t('stories.notPublished') }}</span>
+          <span v-if="story.listed" class="eyebrow">{{ $t('stories.listed') }}</span>
+          <!-- What has been said, for the Author to go and read: a count on
+               their own shelf and nowhere else, so nothing ranks by it. Drawn
+               while the Story is published, because unpublished its reading
+               page is a not-found. The public link carries no locale — see
+               `docs/adr/0012-the-public-link-carries-no-locale.md`. -->
+          <NuxtLink
+            v-if="story.publishedAt && story.comments"
+            class="eyebrow said"
+            :to="`/read/${story.id}#comments`"
+          >
+            {{ $t(story.comments === 1 ? 'stories.oneComment' : 'stories.manyComments',
+                  { count: story.comments }) }}
+          </NuxtLink>
+        </template>
+        <button type="button" class="danger" @click="deleteStory(story.id, story.title)">
+          {{ $t('common.delete') }} <span class="visually-hidden">{{ story.title }}</span>
+        </button>
+      </Entry>
     </ul>
 
     <Confirmation :asked="asked" @answer="answer" />
@@ -150,8 +162,6 @@ async function signOut() {
 </template>
 
 <style scoped>
-@import '~/assets/css/folds.css';
-
 main {
   display: grid;
   gap: var(--s5);
@@ -195,8 +205,7 @@ h1 {
 }
 
 /* Who the Author is on their own page: the one field about themselves rather
-   than about a Story, laid out like the rename beside a title so the two read as
-   the same gesture. */
+   than about a Story, a field and its button on one line. */
 .who {
   grid-column: 1;
   display: grid;
@@ -253,65 +262,20 @@ h1 {
   max-inline-size: 44ch;
 }
 
-/* A hairline between slates and nothing else: the list is a stack of names, and
-   a box around each would be five borders where one rule does. */
-.slates {
+/* A hairline between entries and nothing else, as on the Catalogue: a stack of
+   works, where a box around each would be five borders where one rule does. */
+.entries {
   display: grid;
   border-block-start: 1px solid var(--edge);
 }
 
-.slates li {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--s3) var(--s4);
-  padding-block: var(--s4);
-  border-block-end: 1px solid var(--edge);
-}
-
-.open {
-  font-family: var(--display);
-  font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
-  font-weight: 600;
-  line-height: 1.1;
+/* The one fact in the row that leads anywhere, lit the way the Name is on the
+   Catalogue: the labels around it are stencil and stay muted. */
+.said {
   color: var(--paper);
-  text-decoration: none;
 }
 
-.open:hover {
+.said:hover {
   color: var(--light);
-}
-
-.controls {
-  display: flex;
-  align-items: end;
-  gap: var(--s2);
-}
-
-.controls form {
-  display: grid;
-  grid-template-columns: minmax(8rem, 16rem) auto;
-  /* Stretched, so the Rename button ends where the field does and Delete beside
-     it sits on the same line rather than a few pixels below. */
-  align-items: stretch;
-  gap: var(--s1) var(--s2);
-}
-
-.controls label {
-  grid-column: 1 / -1;
-}
-
-@media (--phone) {
-  .slates li {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .controls {
-    flex-wrap: wrap;
-  }
-
-  .controls form {
-    flex: 1;
-  }
 }
 </style>
