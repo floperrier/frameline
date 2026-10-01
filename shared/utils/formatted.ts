@@ -1,7 +1,9 @@
-import { SHOT_TEXT_MAX_LENGTH, REDACTION_HIDES_MAX_LENGTH, LETTERS_SPLIT_MAX, isArrival, isLasting } from './scenes'
-import type { Arrival, Lasting } from './scenes'
-import { STORY_LANGUAGES } from './stories'
-import type { StoryLanguage } from './stories'
+// Written with their extensions, because Node loads this file as it stands through
+// the script in `demonstration/`, and Node resolves no import it has to guess at.
+import { SHOT_TEXT_MAX_LENGTH, REDACTION_HIDES_MAX_LENGTH, LETTERS_SPLIT_MAX, isArrival, isLasting } from './scenes.ts'
+import type { Arrival, Lasting } from './scenes.ts'
+import { STORY_LANGUAGES } from './stories.ts'
+import type { StoryLanguage } from './stories.ts'
 
 /**
  * How a Shot's text is formatted, and what it is read as with the formatting
@@ -176,8 +178,11 @@ export type FormattedRefusal = 'formatted' | 'redactionHides' | 'shotTextLong'
   | 'effectArrives' | 'effectLasts' | 'lettersSplit'
 
 class Refusal extends Error {
-  constructor(readonly refusal: FormattedRefusal) {
+  readonly refusal: FormattedRefusal
+
+  constructor(refusal: FormattedRefusal) {
     super(refusal)
+    this.refusal = refusal
   }
 }
 
