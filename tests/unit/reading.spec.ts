@@ -993,9 +993,10 @@ describe('a Reading stopped at one Scene', () => {
   })
 
   /**
-   * A Scene is passed once for each set of Flags it has been arrived holding,
-   * rather than once outright: two ways round to one Scene set different Flags on
-   * the way, and the ways on it offers on arrival differ with them. The Landing is
+   * A Scene is passed once for each way it can be arrived at that the ways on
+   * further on tell apart, rather than once outright: two ways round to one Scene
+   * set different Flags on the way, and the ways on it offers on arrival differ
+   * with them. The Landing is
    * reached first with nothing in hand, and the search has to reach it again by
    * the Study rather than counting it visited.
    */
@@ -1018,6 +1019,65 @@ describe('a Reading stopped at one Scene', () => {
     )
 
     expect(stopsIn(key, pathTo(key, OPENING, 'Vault'))).toBe('Vault')
+  })
+
+  /**
+   * The same Landing, reached the same two ways with no Flag set on either, and a
+   * way on that asks whether the Study was entered. Arriving with the same Flags
+   * is not arriving the same: the way round by the Study is the only one the Vault
+   * is offered to.
+   */
+  it('takes the way round by the Scene a way on further on asks about', () => {
+    const study = story(
+      {
+        Hall: ['A locked door.'],
+        Study: ['A key on the desk.'],
+        Landing: ['Bare boards.'],
+        Vault: ['Rows of tins.'],
+      },
+      [
+        ['Hall', 'Straight on', 'Landing'],
+        ['Hall', 'Try the study', 'Study'],
+        ['Study', 'On to the landing', 'Landing'],
+        ['Landing', 'Unlock it', 'Vault', [{ scene: 'Study', entered: true }]],
+      ],
+    )
+
+    expect(pathTo(study, OPENING, 'Vault')?.taken).toEqual(['exit-1', 'exit-2', 'exit-3'])
+  })
+
+  /**
+   * A Story written before a Scene was entered once, still coming back on itself:
+   * the Landing leads back to the Kitchen and to the Garden alike. Through the
+   * Kitchen first, the way back to it is withheld and the Cellar is out of reach;
+   * through the Garden, the Kitchen is still ahead and the Cellar with it. Nothing
+   * asks about either Scene, and the two arrivals hold the same Flags — it is the
+   * Scene the way on leads to that the Reading has already entered.
+   */
+  it('takes the way round that leaves ahead the Scene the way on needs', () => {
+    const round = story(
+      {
+        Hall: ['A corridor.'],
+        Kitchen: ['A cold stove.'],
+        Garden: ['Wet grass.'],
+        Landing: ['A lamp on the sill.'],
+        Cellar: ['Rows of tins.'],
+      },
+      [
+        ['Hall', 'Into the kitchen', 'Kitchen'],
+        ['Hall', 'Into the garden', 'Garden'],
+        ['Kitchen', 'Up the back stairs', 'Landing'],
+        ['Garden', 'Up the outside stairs', 'Landing'],
+        ['Landing', 'Down to the kitchen', 'Kitchen'],
+        ['Landing', 'Down to the garden', 'Garden'],
+        ['Kitchen', 'Down to the cellar', 'Cellar', [{ flag: 'lamp', is: 'lit' }]],
+      ],
+      'Hall',
+      { Landing: { lamp: 'lit' } },
+    )
+
+    expect(pathTo(round, OPENING, 'Cellar')?.taken)
+      .toEqual(['exit-1', 'exit-3', 'exit-4', 'exit-6'])
   })
 })
 

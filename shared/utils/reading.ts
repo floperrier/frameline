@@ -730,9 +730,13 @@ export function back(story: StoryToRead, at: Path): Path | undefined {
  * The breadth-first order makes the answer the shortest way there, which is the
  * one an Author reads the fewest Scenes to arrive at.
  *
- * A Scene is passed once for each set of Flags it has been arrived holding, rather
- * than once outright: two ways round to one Scene can set different Flags on the
- * way, and the ways on it offers on arrival differ with them.
+ * A Scene is passed once for each way it can be arrived at that the ways on
+ * further on tell apart, rather than once outright: the Flags held, the Scenes
+ * entered that some Condition asks about, and the Scenes entered that are still
+ * ahead, which `offered` withholds. Two ways round that agree on all three are
+ * offered the same ways on from there to the end, so only the first is searched
+ * on; keying on every Scene entered would never merge two, and keying on nothing
+ * would extend for ever a Path that `walk` has stopped following.
  */
 export function pathTo(story: StoryToRead, from: Path, sceneId: string): Path | undefined {
   const seen = new Set<string>()
@@ -740,6 +744,21 @@ export function pathTo(story: StoryToRead, from: Path, sceneId: string): Path | 
   // the Exits it takes. A Story an Author is writing is small; measure it the day
   // one is not.
   let edge = [from]
+  const asked = new Set(story.exits.flatMap(exit =>
+    exit.conditions.flatMap(condition => 'scene' in condition ? [condition.scene] : [])))
+
+  // Every Scene the ways on lead to from this one, whatever they ask. Only a Story
+  // written before `docs/adr/0048-a-scene-is-entered-once.md` can hold one the
+  // Reading has already entered.
+  function ahead(id: string) {
+    const reached = [id]
+    for (const at of reached) {
+      for (const exit of story.exits) {
+        if (exit.fromSceneId === at && !reached.includes(exit.toSceneId)) reached.push(exit.toSceneId)
+      }
+    }
+    return reached
+  }
 
   while (edge.length) {
     const next: Path[] = []
@@ -749,7 +768,9 @@ export function pathTo(story: StoryToRead, from: Path, sceneId: string): Path | 
       if (standing === sceneId) return at
       if (!standing) continue
 
-      const arrivedAs = `${standing}:${JSON.stringify(state.flags)}`
+      const onward = ahead(standing)
+      const told = state.entered.filter(id => asked.has(id) || onward.includes(id))
+      const arrivedAs = JSON.stringify([standing, state.flags, told])
       if (seen.has(arrivedAs)) continue
       seen.add(arrivedAs)
 
