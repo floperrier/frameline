@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { FLAG_NAME_MAX_LENGTH } from '../../shared/utils/scenes.ts'
 import { remarks } from '../../app/utils/remarks.ts'
 import type { Condition, Scene, Shot, StoryInEditor } from '../../shared/utils/scenes.ts'
 import { bar, formatted, formattedOf, line, textOf } from '../../shared/utils/formatted.ts'
@@ -47,8 +48,10 @@ type Written = {
  */
 function onTheBench(
   scenes: Written[],
-  { exits = [], opens = idOf(scenes[0]) }: {
+  { exits = [], opens = idOf(scenes[0]), exitTexts = [] }: {
     exits?: [from: string, to: string, ...conditions: Condition[]][]
+    /** What each Exit says, by its place in `exits`, where it is not the default. */
+    exitTexts?: string[]
     opens?: string | null
   } = {},
 ): StoryInEditor {
@@ -115,7 +118,7 @@ function onTheBench(
       id: `${from}-${to}-${place}`,
       fromSceneId: from,
       toSceneId: to,
-      text: 'On',
+      text: exitTexts[place] ?? 'On',
       position: place,
       conditions,
     })),
@@ -754,5 +757,84 @@ describe('every Remark has a sentence in both languages', () => {
     const found = new Set(named(story))
     expect(found.size).toBeGreaterThan(5)
     for (const name of found) expect(en.remark).toHaveProperty(name)
+  })
+})
+
+describe('the Flags the texts say', () => {
+  const said = (scene: string, braced: string) => ({ scene, braced })
+  const only = (story: StoryInEditor, name: string) =>
+    remarks(story, says).filter(remark => remark.name === name)
+
+  it('says a run that names no Flag, of the Scene carrying the text, wherever it is written', () => {
+    const nobody = '{nobody}'
+    const sound = '/api/scenes/the-bar/sound'
+    const story = onTheBench([
+      { name: 'The bar', shots: [{ text: nobody, formatted: formattedOf(nobody) }] },
+      { name: 'The quay', shots: [{ description: nobody }] },
+      { name: 'The pier', shots: [{ sound, transcript: nobody }] },
+      { name: 'The dock', sound, transcript: nobody },
+      { name: 'The yard' },
+    ], { exits: [['The yard', 'The bar']], exitTexts: [nobody] })
+
+    expect(only(story, 'saysNoFlag').map(({ sceneId, said: what }) => [sceneId, what])).toEqual([
+      ['The bar', said('The bar', nobody)],
+      ['The quay', said('The quay', nobody)],
+      ['The pier', said('The pier', nobody)],
+      ['The dock', said('The dock', nobody)],
+      ['The yard', said('The yard', nobody)],
+    ])
+  })
+
+  it('reads a Scene’s Transcript only where the Scene carries the Sound', () => {
+    const story = onTheBench([{ name: 'The bar', transcript: '{nobody}' }])
+
+    expect(named(story)).not.toContain('saysNoFlag')
+  })
+
+  it('names the Flag a run only nearly is', () => {
+    for (const [run, flag] of [['Coat', 'coat'], [' coat ', 'coat'], ['cafe', 'café']]) {
+      const text = `{${run}}`
+      const story = onTheBench([
+        { name: 'The bar', sets: { [flag!]: 'on' }, shots: [{ text, formatted: formattedOf(text) }] },
+      ])
+
+      expect(only(story, 'saysFlagNearly').map(remark => [remark.sceneId, remark.said]))
+        .toEqual([['The bar', { ...said('The bar', text), flag }]])
+      expect(named(story)).not.toContain('saysNoFlag')
+    }
+  })
+
+  it('says a run once however many Shots of a Scene write it, and once a Scene', () => {
+    const shot = { text: '{nobody}', formatted: formattedOf('{nobody}') }
+    const one = onTheBench([{ name: 'The bar', shots: Array(5).fill(shot) }])
+    const two = onTheBench([{ name: 'The bar', shots: [shot] }, { name: 'The quay', shots: [shot] }])
+
+    expect(only(one, 'saysNoFlag')).toHaveLength(1)
+    expect(only(two, 'saysNoFlag')).toHaveLength(2)
+  })
+
+  it('says nothing of a Flag a Scene sets, nor of prose too long to be a name', () => {
+    const long = `{${'a'.repeat(FLAG_NAME_MAX_LENGTH + 1)}}`
+    const story = onTheBench([{
+      name: 'The bar',
+      sets: { coat: 'red' },
+      shots: [
+        { text: '{coat}', formatted: formattedOf('{coat}') },
+        { text: long, formatted: formattedOf(long) },
+      ],
+    }])
+
+    expect(named(story).filter(name => name.startsWith('says'))).toEqual([])
+  })
+
+  it('counts a Flag only said as used, and still names one neither tested nor said', () => {
+    const text = 'A {coat} coat.'
+    const story = onTheBench([{
+      name: 'The bar',
+      sets: { coat: 'red', hat: 'on' },
+      shots: [{ text, formatted: formattedOf(text) }],
+    }])
+
+    expect(only(story, 'flagUntested').map(remark => remark.said.flag)).toEqual(['hat'])
   })
 })

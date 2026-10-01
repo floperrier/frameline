@@ -9,6 +9,7 @@ import {
 } from '../../demonstration/samples.ts'
 import { wordsOf } from '../../demonstration/work.ts'
 import type { Work, WorkCondition } from '../../demonstration/work.ts'
+import { braced } from '../../shared/utils/reading.ts'
 import { linesOf } from '../../shared/utils/formatted.ts'
 import type { Formatted } from '../../shared/utils/formatted.ts'
 import {
@@ -116,7 +117,7 @@ function shapeOf(work: Work) {
     language: Boolean(work.language),
     opening: placeOf(work, work.opening ?? ''),
     scenes: work.scenes.map(scene => ({
-      sets: Object.keys(scene.sets ?? {}).length,
+      sets: Object.values(scene.sets ?? {}).map(held => [held].flat().length),
       sound: scene.sound,
       transcribed: Boolean(scene.transcript),
       layout: scene.layout,
@@ -135,6 +136,7 @@ function shapeOf(work: Work) {
       shots: scene.shots.map(shot => ({
         image: shot.image,
         described: Boolean(shot.description),
+        said: braced(wordsOf(shot)).length,
         set: setOf(shot),
         layout: shot.layout,
         cropX: shot.cropX,
@@ -241,6 +243,23 @@ describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLan
 
     expect(set.length).toBeGreaterThan(0)
     expect(tested.length).toBeGreaterThan(0)
+  })
+
+  it('draws a Flag on entry to a Scene, and says it in a text', () => {
+    const drawn = sample.scenes.flatMap(scene =>
+      Object.entries(scene.sets ?? {}).filter(([, held]) => Array.isArray(held)).map(([name]) => name))
+    const said = sample.scenes.flatMap(scene => scene.shots.flatMap(shot => braced(wordsOf(shot))))
+
+    expect(drawn.length).toBeGreaterThan(0)
+    expect(drawn.some(name => said.includes(name))).toBe(true)
+  })
+
+  it('names, in every run between braces, a Flag some Scene sets', () => {
+    const set = new Set(sample.scenes.flatMap(scene => Object.keys(scene.sets ?? {})))
+
+    for (const line of textOf(sample)) {
+      for (const name of braced(line)) expect(set).toContain(name)
+    }
   })
 
   it('asks about a Scene somewhere, so a Condition needing no Flag is met', () => {

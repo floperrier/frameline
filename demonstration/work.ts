@@ -17,7 +17,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { SHOT_IMAGE_MAX_BYTES } from '../shared/utils/scenes.ts'
 import type {
-  Arrival, Condition, CutThrough, Flags, Lasting, Layout, MovementDirection, TextBy,
+  Arrival, Condition, CutThrough, Lasting, Layout, MovementDirection, Sets, TextBy,
 } from '../shared/utils/scenes.ts'
 import { textOf } from '../shared/utils/formatted.ts'
 import type { Formatted } from '../shared/utils/formatted.ts'
@@ -148,7 +148,7 @@ export type Work = {
   opening?: string
   scenes: {
     name: string
-    sets?: Flags
+    sets?: Sets
     shots: Shot[]
     /** The Sound the Scene is heard under, named as one of the library's files. */
     sound?: string

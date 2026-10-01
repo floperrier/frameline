@@ -85,6 +85,21 @@ export function textOf(formatted: Formatted): string {
   return linesOf(formatted).map(inlines => inlines.map(leafOf).join('')).join('\n')
 }
 
+/**
+ * The same text with the words of every run put through `say`, its blocks, its
+ * marks and its bars untouched: what the Reading draws once a Flag is said in it.
+ * Said run by run, so a name split across two runs of different formatting is
+ * two runs and reads as typed.
+ */
+export function runsSaid(formatted: Formatted, say: (text: string) => string): Formatted {
+  type Node = { type: string, text?: string, content?: Node[] }
+  const through = (node: Node): Node => node.type === 'text'
+    ? { ...node, text: say(node.text!) }
+    : node.content ? { ...node, content: node.content.map(through) } : node
+
+  return through(formatted) as Formatted
+}
+
 /** A plain text read as formatted, a line per line. */
 export function formattedOf(text: string): Formatted {
   return formatted(...text.split('\n').map(piece => line(...(piece === '' ? [] : [piece]))))

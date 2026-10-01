@@ -323,7 +323,7 @@ const ENGLISH: Work = {
 
     {
       name: 'What an Exit offers',
-      sets: { route: 'long' },
+      sets: { route: 'long', coin: ['heads', 'tails'] },
       textAfter: 1000,
       textBy: 'word',
       textOver: 200,
@@ -348,6 +348,11 @@ const ENGLISH: Work = {
           )),
           description: 'A panel with a plate laid across it, a pale name beside a lit value.',
           image: 'a-flag',
+        },
+        {
+          text: 'Entering this Scene also tossed a coin, a Flag given two values, one of them '
+            + 'drawn as you arrived. This Reading came down {coin}, and another may come down the '
+            + 'other way. A text says what a Flag holds by writing the Flag’s name between braces.',
         },
       ],
     },
@@ -520,7 +525,7 @@ const FRENCH: Work = {
 
     {
       name: 'Ce qu’offre une Sortie',
-      sets: { chemin: 'long' },
+      sets: { chemin: 'long', pièce: ['pile', 'face'] },
       textAfter: 1000,
       textBy: 'word',
       textOver: 200,
@@ -547,6 +552,12 @@ const FRENCH: Work = {
           description: 'Un panneau traversé d’une plaque, un nom pâle à côté d’une valeur '
             + 'éclairée.',
           image: 'a-flag',
+        },
+        {
+          text: 'En entrant dans cette Scène, votre Lecture a aussi joué à pile ou face, avec un '
+            + 'Marqueur à deux valeurs dont une est tirée à l’arrivée. Elle est tombée sur {pièce}, '
+            + 'une autre tombera peut-être de l’autre côté. Un texte dit ce que tient un Marqueur '
+            + 'en écrivant son nom entre accolades.',
         },
       ],
     },

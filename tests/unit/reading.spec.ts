@@ -12,11 +12,12 @@ import {
   MOVEMENT_DIRECTIONS,
   MOVEMENT_OVER_UNTIMED,
   cropPosition,
+  exitNamed as named,
 } from '../../shared/utils/scenes'
 import type { Path, State, StoryToRead } from '../../shared/utils/reading'
 import {
-  advance, back, cut, lastUnitAt, layout, lasting, moved, movement, movementEnds, movesItself, opening, pathTo,
-  pieces, reading, resumes, take, textArrival, textArrives, textMoves, timed, unmet,
+  advance, back, braced, cut, declaredIn, lastUnitAt, layout, lasting, moved, movement, movementEnds, movesItself, opening, pathTo,
+  pieces, reading, resumes, said, take, textArrival, textArrives, textMoves, timed, unmet,
 } from '../../shared/utils/reading'
 import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
 import type { Phrase } from '../../shared/utils/phrases'
@@ -1683,5 +1684,74 @@ describe('lastUnitAt', () => {
     expect(lastUnitAt('One two three', 'word')).toBe(8)
     expect(lastUnitAt('a\nbc', 'line')).toBe(2)
     expect(lastUnitAt('One two three', 'whole')).toBe(0)
+  })
+})
+
+describe('what a text says', () => {
+  const flagsOf = (held: Record<string, string>) => Object.assign(Object.create(null), held)
+  const coat = new Set(['coat'])
+
+  it('says a declared Flag by its exact name, each time it is written', () => {
+    expect(said('A {coat} and a {coat}.', flagsOf({ coat: 'red' }), coat)).toBe('A red and a red.')
+  })
+
+  it('says nothing where the Reading holds no value for a declared name', () => {
+    expect(said('[{coat}]', flagsOf({}), coat)).toBe('[]')
+    expect(said('{constructor}', flagsOf({}), new Set(['constructor']))).toBe('')
+  })
+
+  it('leaves as typed a name that differs in case or spaces, or that no Scene sets', () => {
+    const flags = flagsOf({ coat: 'red', hat: 'blue' })
+    expect(said('{Coat}', flags, coat)).toBe('{Coat}')
+    expect(said('{ coat }', flags, coat)).toBe('{ coat }')
+    expect(said('{hat}', flags, coat)).toBe('{hat}')
+  })
+
+  it('reads nothing nested: the inner run is the one said', () => {
+    expect(said('{{coat}}', flagsOf({ coat: 'on' }), coat)).toBe('{on}')
+  })
+
+  it('says a value as written, never reading it again', () => {
+    expect(said('{coat}', flagsOf({ coat: '{coat} $&' }), coat)).toBe('{coat} $&')
+  })
+
+  it('leaves a run across a line break, and a text without a brace, as they are', () => {
+    expect(said('{co\nat}', flagsOf({ coat: 'red' }), new Set(['co\nat']))).toBe('{co\nat}')
+    expect(said('No brace here.', flagsOf({ coat: 'red' }), coat)).toBe('No brace here.')
+  })
+
+  it('lists every run between braces, whether or not a Flag answers to it', () => {
+    expect(braced('a {b} {c d} {} {{e}}')).toEqual(['b', 'c d', 'e'])
+  })
+
+  it('declares the names every Scene sets, a draw included', () => {
+    expect(declaredIn({ scenes: [{ sets: { a: '1' } }, { sets: { b: ['x', 'y'] } }] }))
+      .toEqual(new Set(['a', 'b']))
+  })
+
+  it('says the value a Reading drew, the same one each time the Path is read', () => {
+    const drawing = story({ Street: ['A door.'] }, [], 'Street', { Street: { coin: ['heads', 'tails'] } })
+    const at = opening(7)
+    const { state } = reading(drawing, at)
+    const said1 = said('{coin}', state.flags, declaredIn(drawing))
+
+    expect(said1).toBe(state.flags.coin)
+    expect(['heads', 'tails']).toContain(said1)
+    expect(said('{coin}', reading(drawing, at).state.flags, declaredIn(drawing))).toBe(said1)
+  })
+})
+
+describe('how an Exit is named where it is read', () => {
+  const says: Phrase = (key, values) => phrase(DEFAULT_LOCALE, key, values)
+  const exit = (text: string) => ({ text, toSceneId: 'bar' }) as Parameters<typeof named>[0]
+
+  it('names an Exit by its words, and by where it lands when it has none', () => {
+    expect(named(exit('Go in'), () => 'The Bar', says)).toBe('Go in')
+    expect(named(exit(''), () => 'The Bar', says)).toBe('Exit to The Bar')
+  })
+
+  it('reads white space alone as no words, as a text said of nothing leaves', () => {
+    expect(named(exit('  '), () => 'The Bar', says)).toBe('Exit to The Bar')
+    expect(named(exit(' '), () => 'The Bar', says)).toBe('Exit to The Bar')
   })
 })

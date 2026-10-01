@@ -327,8 +327,15 @@ Scene carries the Flags it sets, and sets them as it is entered. A Scene may nam
 several values for one Flag, and one of them is drawn as the Reading arrives —
 what holds a list is the Scene, never the State, where a Flag is the one value
 drawn.
+A Flag is said as well as tested. A Shot's text, its Description and its
+Transcript, a Scene's Transcript and an Exit's text may write a Flag's name
+between braces, `{coat}`, and the Reader reads in its place the value this Reading
+holds, or nothing where it holds none. Only the name of a Flag some Scene of the
+Story sets is said, and any other run between braces is read as it is written,
+which is how a brace is written and how a misspelt name shows in the Preview.
 _Affiché_: Marqueur
-_Avoid_: variable, switch, toggle, key, drapeau
+_Avoid_: variable, switch, toggle, key, drapeau, placeholder, interpolation,
+substitution, token, balise, espace réservé
 
 **Reading**:
 One traversal of a published Story by one Reader, carrying its own State. Kept in

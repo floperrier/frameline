@@ -414,7 +414,9 @@ function why(conditions: Condition[]) {
             <!-- The Exits this Reading has taken, in the order it took them: the
                  Path read back, which is what a question about an Exit asks of.
                  Each is named the way the bench names it, and beside it the words
-                 the Reader pressed, in the Story's own Language. Every id here is
+                 as the Author wrote them, in the Story's own Language: a Flag said
+                 in them shows as its braces, because the bench quotes and the
+                 Reading says. Every id here is
                  an Exit the Story still carries, because the walk only pushes
                  Exits it found, so the lookups cannot miss. -->
             <ul v-if="taken.length" class="taken">

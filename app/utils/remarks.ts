@@ -1,8 +1,9 @@
 /**
  * What the bench finds when it reads the Story back: the Scenes nothing arrives
  * at, the Shots nobody has written, a Sound nobody transcribed, the Flags set
- * and never tested, the ways on that can never be offered, the Conditions the
- * ways round rule out, and the ways on no Reading is ever handed.
+ * and never tested or said, the texts that say a Flag no Scene sets, the ways
+ * on that can never be offered, the Conditions the ways round rule out, and
+ * the ways on no Reading is ever handed.
  *
  * A Remark is a reading and never a refusal. Nothing here blocks a write, marks a
  * Story invalid or corrects anything: every one of these is a Story an Author is
@@ -29,6 +30,7 @@ import {
   exitCalled,
   exitsFrom,
   exitsOnTheBench,
+  FLAG_NAME_MAX_LENGTH,
   namesOnTheBench,
   reaches,
   sceneNamed,
@@ -36,9 +38,10 @@ import {
 import type { Condition, Scene, Shot, StoryInEditor } from '../../shared/utils/scenes'
 // Through the alias, as `app/utils/draw.ts` explains: a relative path to a module
 // nothing else in the server chunk imports is written where it does not exist.
-import { linesOf } from '#shared/utils/formatted'
+import { leafOf, linesOf } from '#shared/utils/formatted'
 import type { Phrase } from '../../shared/utils/phrases'
-import { cut, flickers, lastUnitAt, textArrival } from '../../shared/utils/reading'
+import { braced, cut, declaredIn, flickers, lastUnitAt, textArrival } from '../../shared/utils/reading'
+import { plainly } from './commands'
 import { FLASHES_APART } from './flashes'
 
 /**
@@ -240,6 +243,7 @@ export function remarks(story: StoryInEditor, say: Phrase): Remark[] {
   return [
     ...found,
     ...flagRemarks(story, names),
+    ...saidRemarks(story, names),
     ...deadRemarks(story, names),
     ...neverHoldsRemarks(story, names, say),
     ...neverTakenRemarks(story, names),
@@ -383,9 +387,59 @@ function reachedWithout(
   )
 }
 
+/** A name with its case, its accents and its spaces set aside. */
+const spelt = (name: string) => plainly(name).replace(/\s/g, '')
+
+/**
+ * Every text a Reading reads, with the Scene it is written in: a Shot's text, read
+ * over its runs as the Reading says it, its Description and its Transcript in its
+ * Scene, an Exit's text in the Scene it leaves, and a Scene's Transcript where that
+ * Scene carries the Sound, which is where `soundUntranscribed` reads it.
+ */
+function textsOf(story: StoryInEditor): [string, Scene][] {
+  return story.scenes.flatMap(scene => [
+    scene.sound ? scene.transcript : '',
+    ...scene.shots.flatMap(shot => [
+      ...linesOf(shot.formatted).flat().map(leafOf),
+      shot.description,
+      shot.transcript,
+    ]),
+    ...exitsFrom(story.exits, scene.id).map(exit => exit.text),
+  ].map(text => [text, scene] as [string, Scene]))
+}
+
+/**
+ * The runs between braces that name no Flag, said of the Scene carrying the text,
+ * once per run and per Scene: five Shots writing `{Coat}` are one mistake in the
+ * one document the press opens. A run that only nearly names a Flag — its case,
+ * its accents or its spaces apart — names the Flag it nearly is. A run longer than
+ * a Flag's name may be is prose between braces, and left alone.
+ */
+function saidRemarks(story: StoryInEditor, names: Map<string, string>): Remark[] {
+  const declared = declaredIn(story)
+  const nearly = new Map([...declared].map(flag => [spelt(flag), flag]))
+  const found = new Map<string, Remark>()
+
+  for (const [text, scene] of textsOf(story)) {
+    for (const run of braced(text)) {
+      const key = `${scene.id}\n${run}`
+      if (declared.has(run) || run.length > FLAG_NAME_MAX_LENGTH || found.has(key)) continue
+
+      const flag = nearly.get(spelt(run))
+      const said = { scene: names.get(scene.id)!, braced: `{${run}}` }
+      found.set(key, flag
+        ? { name: 'saysFlagNearly', sceneId: scene.id, said: { ...said, flag } }
+        : { name: 'saysNoFlag', sceneId: scene.id, said })
+    }
+  }
+
+  return [...found.values()]
+}
+
 /**
  * The two halves of a Flag nobody joined up: a Flag a Scene sets that no
- * Condition ever reads, and a Flag a Condition reads that no Scene ever sets.
+ * Condition ever reads and no text says, and a Flag a Condition reads that no
+ * Scene ever sets.
  *
  * Both are said once for the Flag rather than once per Scene or per Condition:
  * what is wrong is the name, and naming every place it appears would report one
@@ -402,7 +456,11 @@ function flagRemarks(story: StoryInEditor, names: Map<string, string>): Remark[]
     if ('flag' in condition && !tested.has(condition.flag)) tested.set(condition.flag, scene)
   }
 
-  const never = (half: Map<string, Scene>, other: Map<string, unknown>, name: string) =>
+  // A Flag a text says is in use as surely as one a Condition tests, since the
+  // Reader reads it.
+  const used = new Set([...tested.keys(), ...textsOf(story).flatMap(([text]) => braced(text))])
+
+  const never = (half: Map<string, Scene>, other: { has: (flag: string) => boolean }, name: string) =>
     [...half].filter(([flag]) => flag.trim() && !other.has(flag))
       .map(([flag, scene]) => ({
         name,
@@ -411,7 +469,7 @@ function flagRemarks(story: StoryInEditor, names: Map<string, string>): Remark[]
       }))
 
   return [
-    ...never(set, tested, 'flagUntested'),
+    ...never(set, used, 'flagUntested'),
     ...never(tested, set, 'flagUnset'),
   ]
 }

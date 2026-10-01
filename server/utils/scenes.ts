@@ -61,7 +61,7 @@ export async function readSplitShot(event: H3Event) {
  * or, where the Author named several for one Flag, to the list one value is drawn
  * from on each entry. A Flag is a name *and* a value, so neither half may be
  * blank: a Flag set to nothing is one the engine cannot tell from a Flag never
- * set. A name holds no newline and neither separator, and a value holds no
+ * set. A name holds no newline, no brace and neither separator, and a value holds no
  * newline and not the one that tells a draw's values apart — which is what lets
  * the editor show them back as one line apiece.
  */
@@ -84,6 +84,16 @@ export async function readSceneFlags(event: H3Event): Promise<Sets> {
     const flag = name.trim()
     if (!flag || flag.length > FLAG_NAME_MAX_LENGTH) throw badFlags(event)
     if (flag.includes(FLAG_SEPARATOR) || flag.includes('\n')) throw badFlags(event)
+
+    // A text writes a Flag's name between braces, so a name holding one could
+    // never be said. Refused by name, so the Author knows what to take out.
+    const brace = ['{', '}'].find(brace => flag.includes(brace))
+    if (brace) {
+      throw createError({
+        statusCode: 400,
+        message: saying(event)('refusals.flagNameBrace', { brace }),
+      })
+    }
 
     flags[flag] = Array.isArray(value) ? drawnFrom(event, value) : oneValue(event, value)
   }

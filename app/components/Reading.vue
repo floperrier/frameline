@@ -39,7 +39,38 @@ const { t } = useI18n()
  */
 const at = defineModel<Path>('at', { default: () => UNDRAWN })
 
-const shown = computed(() => reading(story, at.value))
+/**
+ * The names a text of this Story says, which are the Flags some Scene of it sets.
+ * See `docs/adr/0059-a-flag-is-said-by-its-name.md`.
+ */
+const declared = computed(() => declaredIn(story))
+
+/**
+ * What this Story shows the Path, with every text of the run said as this
+ * Reading holds its Flags: State is judged once a Scene, so the whole Scene says
+ * one value from its first beat to the frame held behind its ways on. The beat is
+ * read back out of the said run, so it is still the run's own last Shot at the end.
+ */
+const shown = computed(() => {
+  const now = reading(story, at.value)
+  const says = (text: string) => said(text, now.state.flags, declared.value)
+  const run = now.run.map((shot) => {
+    const formatted = runsSaid(shot.formatted, says)
+    return {
+      ...shot,
+      formatted,
+      text: textOf(formatted),
+      description: says(shot.description),
+      transcript: says(shot.transcript).trim(),
+    }
+  })
+  return { ...now, run, shot: now.shot && run[at.value.shot] }
+})
+
+/** A text outside the run, said against the State on screen. */
+function says(text: string) {
+  return said(text, shown.value.state.flags, declared.value)
+}
 
 /**
  * Every move is kept where the browser will find it again: the whole Path, so
@@ -484,9 +515,13 @@ const travelStyle = computed(() => {
   }
 })
 
-/** An Exit nobody has phrased yet is offered by where it arrives. */
+/**
+ * An Exit is offered by what its text says once said, so one whose text says
+ * nothing — a name this Reading holds no value for — is offered, like one nobody
+ * has phrased yet, by where it arrives.
+ */
 function offered(exit: Exit) {
-  return exitNamed(exit, id => sceneNamed(sceneNames.value, id, t), t)
+  return exitNamed({ ...exit, text: says(exit.text) }, id => sceneNamed(sceneNames.value, id, t), t)
 }
 
 /**
@@ -502,6 +537,9 @@ const heardAtAll = computed(() => carriesSound(story))
 
 /** What the Scene the Reading stands in is heard under — its own Sound, or the one it names. */
 const heard = computed(() => heardUnder(story.scenes, shown.value.sceneId))
+
+/** What that Scene's Transcript says, so one that says nothing is not drawn. */
+const heardSaid = computed(() => heard.value && says(heard.value.transcript).trim())
 
 /**
  * Muting is the person turning down what is already playing, not a reason for
@@ -1180,10 +1218,10 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
            accessibility tree and never announced in a live region, which would
            trample the reading. The Shot's is the Shot the frame holds, so it
            stays past the end of the run the way that Shot's Sound does. -->
-      <div v-if="heard?.transcript || held.transcript" class="heard">
-        <p v-if="heard?.transcript" class="transcript" :class="{ 'visually-hidden': !transcribed }">
+      <div v-if="heardSaid || held.transcript" class="heard">
+        <p v-if="heardSaid" class="transcript" :class="{ 'visually-hidden': !transcribed }">
           <span class="eyebrow">{{ $t('reading.sceneTranscript') }}</span>
-          <span :lang="story.language">{{ heard.transcript }}</span>
+          <span :lang="story.language">{{ heardSaid }}</span>
         </p>
         <p
           v-if="held.transcript"
@@ -1291,7 +1329,7 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
         {{ sounding ? $t('reading.soundOff') : $t('reading.soundOn') }}
       </button>
       <button
-        v-if="heardAtAll && (heard?.transcript || held?.transcript)"
+        v-if="heardAtAll && (heardSaid || held?.transcript)"
         type="button"
         class="trail"
         @click="transcribed = !transcribed"

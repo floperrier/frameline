@@ -31,6 +31,7 @@ import {
   parseFormatted,
   quote,
   run,
+  runsSaid,
   separator,
   speech,
   standing,
@@ -540,5 +541,27 @@ describe('a run carrying an Effect', () => {
 
   it('refuses two arrivals on one word, as it refuses any style twice', () => {
     expect(refused(doc(para(word('a', [arrives('shake'), arrives('scramble')]))))).toBe('formatted')
+  })
+})
+
+describe('a formatted text said run by run', () => {
+  const written = formatted(
+    line('A ', run('{coat}', { type: 'emphasis' })),
+    speech('{who}', line('x')),
+    line('a ', bar(4, 'wolf')),
+  )
+  const said = runsSaid(written, text => text.toUpperCase())
+
+  it('puts every text leaf through the function and keeps the marks and the blocks', () => {
+    expect(said.content.map(block => block.type)).toEqual(written.content.map(block => block.type))
+    expect(linesOf(said)[0]).toEqual([
+      { type: 'text', text: 'A ' },
+      { type: 'text', text: '{COAT}', marks: [{ type: 'emphasis' }] },
+    ])
+  })
+
+  it('leaves a bar as it was, and reads as the said plain words', () => {
+    expect(linesOf(said)[2]![1]).toEqual(linesOf(written)[2]![1])
+    expect(textOf(said)).toBe('A {COAT}\n{WHO}\nX\nA ████')
   })
 })

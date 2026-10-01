@@ -1,7 +1,7 @@
 import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test'
 import type { Condition } from '../../shared/utils/scenes'
 import {
-  live, readShotConditions, readTheStory, sceneNode, seedPublication, seedScenes, seedStory,
+  ONE_PIXEL, live, readShotConditions, readTheStory, sceneNode, seedPublication, seedScenes, seedStory,
   test, writeShot, writeStory,
 } from './author'
 
@@ -1292,4 +1292,50 @@ test('the Author closes an Exit behind the Reader, and the reading says so on bo
     await preview.getByRole('button', { name: 'Follow her out' }).click()
     await expect(preview.getByText('Smoke, and no one she knows.')).toBeVisible()
     await expect(stepBack).toHaveCount(0)
+  })
+
+test('a text says a Flag by its value, and says what no Scene sets as it is written',
+  async ({ page, request }) => {
+    const story = await writeStory(request)
+    const { scenes, exits } = await scenesOf(request, story.id)
+    const street = scenes[0]!
+
+    // The street draws its weather, and says it in the first beat, in the
+    // Description of that beat's image and in the way out. `{nobody}` is a name no
+    // Scene sets, so it is a word between braces like any other.
+    await request.put(`/api/scenes/${street.id}/flags`, {
+      data: { sets: { weather: ['rain', 'sun'] } },
+    })
+    await request.put(`/api/shots/${street.shots[0]!.id}/image`, { data: ONE_PIXEL })
+    await request.patch(`/api/shots/${street.shots[0]!.id}`, {
+      data: { text: 'It is {weather} today. {nobody}', description: 'A street in the {weather}' },
+    })
+    await request.patch(`/api/exits/${exits[0]!.id}`, { data: { text: 'Out into the {weather}' } })
+
+    const preview = await writing(page, story.id, street.id)
+    const bench = benchIn(page)
+    const frame = preview.locator('.frame .shot')
+    const said = async () =>
+      ((await frame.innerText()).match(/It is (rain|sun) today\. \{nobody\}/) ?? [])[1]
+
+    const first = await said()
+    expect(first).toBeDefined()
+    await expect(preview.getByRole('img', { name: `A street in the ${first}` })).toBeVisible()
+    await expect(preview.getByText('{weather}')).toHaveCount(0)
+
+    await preview.getByRole('button', { name: 'Next Shot' }).click()
+    await preview.getByRole('button', { name: 'Next Shot' }).click()
+    await expect(preview.getByRole('button', { name: `Out into the ${first}` })).toBeVisible()
+
+    // Drawn again, every text of the Reading says the other value together.
+    await preview.getByRole('button', { name: 'Read Again from the Start' }).click()
+    for (let draws = 0; draws < 30 && await said() === first; draws++) {
+      await bench.getByRole('button', { name: 'Draw Again' }).click()
+    }
+    const other = await said()
+    expect(other).not.toBe(first)
+    await expect(preview.getByRole('img', { name: `A street in the ${other}` })).toBeVisible()
+    await preview.getByRole('button', { name: 'Next Shot' }).click()
+    await preview.getByRole('button', { name: 'Next Shot' }).click()
+    await expect(preview.getByRole('button', { name: `Out into the ${other}` })).toBeVisible()
   })
