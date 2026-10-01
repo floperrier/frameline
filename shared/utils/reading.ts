@@ -833,3 +833,28 @@ export function pathTo(story: StoryToRead, from: Path, sceneId: string): Path | 
     edge = next
   }
 }
+
+/**
+ * The Path stood on one Shot of the Scene it stands in, so that the Preview can
+ * open on the beat an Author is tuning rather than wherever the Reading last
+ * stood. The Path counts the run this Reading plays, so the Shot is found in that
+ * run, under the State the Path arrived with — the same Scene is a different run
+ * to another Path, which is why `pathTo` reaches the Scene first and this only
+ * moves along it.
+ *
+ * A Shot this Path does not play cannot be stood on: the Path stands on the next
+ * Shot of the Scene that does play, or past the whole run — on the Scene's Exits —
+ * where none after it does. Nothing looks for another Path on which it would
+ * play. A Shot the Scene does not hold leaves the Path where it is.
+ */
+export function standOn(story: StoryToRead, at: Path, shotId: string): Path {
+  const { sceneId, run } = reading(story, at)
+  const shots = story.scenes.find(scene => scene.id === sceneId)?.shots ?? []
+  const place = shots.findIndex(shot => shot.id === shotId)
+  if (place < 0) return at
+
+  const onward = shots.slice(place)
+  const shot = run.findIndex(played => onward.includes(played))
+
+  return { ...at, shot: shot < 0 ? run.length : shot }
+}

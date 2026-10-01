@@ -65,9 +65,10 @@ const {
  * and replacing one would otherwise leave the browser drawing the image it had;
  * `open` the Scene it wants the caret in next — where a way on leads, the half a
  * split has just made, the Scene the arrows walked to — and whether its name is to
- * be selected for typing over.
+ * be selected for typing over; `read` the Scene and the Shot of it the Preview is
+ * to open standing on.
  */
-const emit = defineEmits<{ attached: [string], open: [string, boolean?] }>()
+const emit = defineEmits<{ attached: [string], open: [string, boolean?], read: [string, string] }>()
 
 const { t } = useI18n()
 
@@ -591,6 +592,17 @@ function renumber(scene: Scene, what: 'shots' | 'exits', places: string[]) {
 
 function moveShot(scene: Scene, shot: Shot, step: -1 | 1) {
   return renumber(scene, 'shots', movedBy(scene.shots.map(held => held.id), shot.id, step))
+}
+
+/**
+ * Reads the Story from one beat: the Preview opens standing on it, as it arrives.
+ * The mark takes the focus before the bench turns, because a browser that does not
+ * focus a button it clicks would leave the bench no caret to put back on it when
+ * the Author comes back to write — see `turnTo` on the page.
+ */
+function read(scene: Scene, shot: Shot, event: Event) {
+  (event.currentTarget as HTMLElement).focus()
+  emit('read', scene.id, shot.id)
 }
 
 /**
@@ -2882,10 +2894,23 @@ function writeConditions(
                   @write="writeConditions(held.scene, 'shots', shot.id, shot.conditions)"
                 />
 
-                <!-- The marks act on the row they are drawn on: the scissors split
-                     the Scene before this beat, which the first beat has nothing
-                     before it to be split from. -->
+                <!-- The marks act on the row they are drawn on: the first reads the
+                     Story from this beat, the scissors split the Scene before it,
+                     which the first beat has nothing before it to be split from. -->
                 <div class="row">
+                  <button
+                    type="button"
+                    class="mark"
+                    @click="read(held.scene, shot, $event)"
+                  >
+                    <span aria-hidden="true">▶</span>
+                    <span class="visually-hidden">
+                      {{ $t('editor.readFromShot', {
+                        place: place + 1,
+                        scene: held.name,
+                      }) }}
+                    </span>
+                  </button>
                   <button
                     v-if="place > 0"
                     type="button"

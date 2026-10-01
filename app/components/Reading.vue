@@ -254,6 +254,10 @@ function land() {
     ?.focus({ preventScroll: full.value })
 }
 
+// The Preview opened from a beat's own ▶ puts the Author there too: the mark
+// they pressed went dark with the writing and took the focus with it.
+defineExpose({ land })
+
 async function moveTo(to: Path, byClock = false) {
   // Read before the Path moves: the beat on screen is the one about to leave, and
   // `leaving` blurs it a tick from now. Nothing at all — a page just opened, a

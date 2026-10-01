@@ -364,6 +364,7 @@ test('draws a row\'s marks at the weight of the words until the hand arrives at 
       beat.getByLabel('As the text arrives Shot 2 of Scene 1', { exact: true }),
       beat.getByLabel('While the text is on screen Shot 2 of Scene 1', { exact: true }),
       beat.getByRole('button', { name: 'Add a Condition to Shot 2 of Scene 1' }),
+      beat.getByRole('button', { name: 'Read from Shot 2 of Scene 1' }),
       beat.getByRole('button', { name: 'Split Scene 1 before Shot 2' }),
       beat.getByRole('button', { name: 'Move Earlier Shot 2 of Scene 1' }),
       beat.getByRole('button', { name: 'Move Later Shot 2 of Scene 1' }),

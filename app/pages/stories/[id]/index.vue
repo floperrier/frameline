@@ -545,12 +545,32 @@ function inSceneWritten(held: HTMLElement) {
  * to be put back.
  */
 async function turnTo(turn: Reading, event: Event) {
+  shotRead.value = undefined
   reading.value = turn
   ;(event.currentTarget as HTMLElement).focus()
 
   await nextTick()
   if (turn === 'writing' && caret && inSceneWritten(caret)) caret.focus()
   else windOn('instant')
+}
+
+/**
+ * The Shot the Preview is to open standing on, which only a beat's own ▶ asks for.
+ * Every turn lets it go, so *Read the Story* opens the Preview where the Path
+ * stands, as it always has.
+ */
+const shotRead = ref<string>()
+
+/**
+ * The Story read from one beat: the address follows the beat's Scene, so the
+ * Preview routes there as it routes to any Scene being written, and the Preview
+ * opens standing on the beat. The mark pressed holds the caret, which is what a
+ * turn back to the writing puts the focus on — see `turnTo`.
+ */
+async function readFrom(sceneId: string, shotId: string) {
+  await follow(sceneId)
+  shotRead.value = shotId
+  reading.value = 'preview'
 }
 </script>
 
@@ -696,6 +716,7 @@ async function turnTo(turn: Reading, event: Event) {
             v-model:at="at"
             :story="story"
             :scene-written="sceneWritten.id"
+            :shot-read="shotRead"
             :change="changeStory"
             @moved="follow"
           />
@@ -735,6 +756,7 @@ async function turnTo(turn: Reading, event: Event) {
             :image-of="imageOf"
             @attached="attachedAt[$event] = Date.now()"
             @open="writeScene"
+            @read="readFrom"
           />
         </div>
       </div>
