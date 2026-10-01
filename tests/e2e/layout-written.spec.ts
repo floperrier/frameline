@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test'
-import { live, test, writeStory } from './author'
+import { live, test, unfold, writeStory } from './author'
 import type { APIRequestContext } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
@@ -104,6 +104,7 @@ test('an Author writes the Layout of a Scene and of a Shot from the Scene\'s doc
     // A Shot answers *as the Scene says* until it is told otherwise, which is the
     // null the column holds.
     const own = page.getByLabel('This Shot is laid out Shot 1 of The street', { exact: true })
+    await unfold(page, 'Shot 1 of The street')
     await expect(own).toHaveValue('scene')
     await own.selectOption('Image above the text')
     await expect.poll(async () => (await reread0()).shots[0]!.layout).toBe('inset')

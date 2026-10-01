@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test'
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
-import { ONE_PIXEL, live, readExits, sceneNode, seedExit, seedScenes, test, toast } from './author'
+import { ONE_PIXEL, live, readExits, sceneNode, seedExit, seedScenes, test, toast, unfold } from './author'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
 /**
@@ -343,6 +343,11 @@ test('draws a row\'s marks at the weight of the words until the hand arrives at 
     // The words are a box until the caret is in them, and the caret in them is the
     // editor, whose toolbar is the next stop and only one, however many controls
     // it holds — issue #359.
+    //
+    // What the beat plays as is folded under the line that says it since #401, and
+    // the line comes first in `.beneath`, before the Conditions and the marks. Its
+    // fields are walked open, so every one of them is still counted here.
+    await unfold(page, 'Shot 2 of Scene 1')
     await page.mouse.move(0, 0)
     await beat.getByRole('textbox', { name: 'Shot 2 of Scene 1', exact: true }).focus()
     await expect(beat.locator('.ProseMirror')).toBeFocused()
@@ -350,6 +355,7 @@ test('draws a row\'s marks at the weight of the words until the hand arrives at 
     for (const stop of [
       beat.getByRole('toolbar', { name: 'Formatting of Shot 2 of Scene 1' })
         .getByRole('button', { name: 'Italic' }),
+      beat.locator('details.plays > summary'),
       beat.getByLabel('The Sound of Shot 2 of Scene 1'),
       beat.getByLabel('Upload a Sound for Shot 2 of Scene 1'),
       beat.getByLabel('This Shot is cut Shot 2 of Scene 1', { exact: true }),

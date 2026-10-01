@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test'
-import { live, test, writeStory } from './author'
+import { live, test, unfold, writeStory } from './author'
 import {
   CUT_AFTER_MAX,
   CUT_AFTER_MIN,
@@ -141,6 +141,7 @@ test('a Shot answers as its Scene says until it answers for itself',
     const when = page.getByLabel('This Shot is cut Shot 1 of The street', { exact: true })
     const made = page.getByLabel('The Cut is made Shot 1 of The street', { exact: true })
 
+    await unfold(page, 'Shot 1 of The street')
     await expect(when).toHaveValue('scene')
     await expect(made).toHaveValue('scene')
 
@@ -160,6 +161,7 @@ test('a Shot answers as its Scene says until it answers for itself',
 
     await page.reload()
     await live(page)
+    await unfold(page, 'Shot 1 of The street')
     await expect(when).toHaveValue('press')
     await expect(made).toHaveValue('image')
 

@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test'
-import { A_SOUND, seedPublication, seedScene, seedStory, test, writeStory } from './author'
+import { A_SOUND, seedPublication, seedScene, seedStory, test, unfold, writeStory } from './author'
 import { SOUND_MAX_BYTES, SOUND_TRANSCRIPT_MAX_LENGTH } from '../../shared/utils/sound'
 import type { APIRequestContext, Page } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
@@ -332,6 +332,7 @@ test('a beat strikes with a Sound taken from the library, transcribed beside it'
   // Selected by value rather than by the option's full label, which also carries
   // a duration this test has no reason to hardcode — the same reason the Scene's
   // own version of this test reads the value back first.
+  await unfold(page, 'Shot 1 of The street')
   const shotSoundField = writing(page).getByLabel('The Sound of Shot 1 of The street')
   const doorClosing = await shotSoundField.getByRole('option', { name: /A door closing/ })
     .getAttribute('value')
@@ -361,6 +362,7 @@ test('an Author deposits a Sound on a beat by choosing a file, and it plays besi
   const { story, shots } = await openScene(request)
 
   await page.goto(`/stories/${story.id}`)
+  await unfold(page, 'Shot 1 of The street')
   const picker = writing(page).getByLabel('Upload a Sound for Shot 1 of The street')
   await picker.scrollIntoViewIfNeeded()
   await picker.setInputFiles({ name: 'silence.mp3', mimeType: 'audio/mpeg', buffer: A_SOUND })

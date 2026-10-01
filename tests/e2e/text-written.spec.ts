@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test'
-import { live, test, writeStory } from './author'
+import { live, test, unfold, writeStory } from './author'
 import {
   TEXT_AFTER_MAX,
   TEXT_OVER_MAX,
@@ -116,13 +116,11 @@ test('a Shot answers as its Scene says until it answers for itself',
     const stays = row('This Shot’s text stays')
     const pace = page.getByLabel(
       'Pace of the text of Shot 1 of The street, in characters a second', { exact: true })
-    const fold = page.locator('summary', {
-      hasText: 'How this Shot’s text arrives Shot 1 of The street',
-    })
+    const fold = page.locator('summary', { hasText: 'As its Scene plays Shot 1 of The street' })
 
     // A beat that answers as its Scene says keeps the row folded under its words.
     await expect(arrives).toBeHidden()
-    await fold.click()
+    await unfold(page, 'Shot 1 of The street')
     for (const select of [arrives, comes, appears, stays]) {
       await expect(select).toHaveValue('scene')
     }
@@ -135,9 +133,11 @@ test('a Shot answers as its Scene says until it answers for itself',
     await expect.poll(async () => (await shotOf()).textBy).toBe('letter')
     await expect(pace).toHaveValue('15')
 
+    // A reload brings the fold back shut, whatever the Shot says: its line says it.
     await page.reload()
     await live(page)
-    await expect(stays).toBeVisible()
+    await expect(stays).toBeHidden()
+    await unfold(page, 'Shot 1 of The street')
     await expect(stays).toHaveValue('cut')
     await expect(comes).toHaveValue('letter')
 

@@ -1342,28 +1342,26 @@ function textStaysKind(shot: { textStays: number | null }) {
 
 /**
  * Whether a Scene says anything about its texts but what every Story written
- * before `0052` says — with the Image, whole, at once and until the Cut — and
- * whether a Shot says anything for itself at all. The pace goes unasked: it is
- * only read beside a unit, and a unit already says otherwise.
+ * before `0052` says — with the Image, whole, at once and until the Cut. The pace
+ * goes unasked: it is only read beside a unit, and a unit already says otherwise.
  */
 function sceneTextSaid(scene: Scene) {
   return scene.textAfter !== 0 || scene.textBy !== 'whole' || scene.textOver !== 0
     || scene.textStays !== null
 }
 
-function shotTextSaid(shot: Shot) {
-  return shot.textAfter !== null || shot.textBy !== null || shot.textOver !== null
-    || shot.textStays !== null
-}
-
 /**
- * Whether the fold a text's arrival is written in is drawn open: once its Scene or
- * its Shot has said something, and from then on. It only ever turns from shut to
+ * Whether the fold a Scene's texts' arrival is written in is drawn open: once the
+ * Scene has said something, and from then on. It only ever turns from shut to
  * open, so it is never a second copy of the disclosure that disagrees with it —
  * the drift `app/components/Remarks.vue` measured — and an Author who puts a
  * Scene back to the defaults keeps the fields they were writing in rather than
  * having them shut under the hand. Deliberately not reactive: it is read while
  * the document is drawn, and nothing is redrawn for it.
+ *
+ * A Shot's text has no fold of its own any more. It is answered in the one fold
+ * its row keeps everything chosen from a list in, which is shut until the Author
+ * opens it, because its line already says what is chosen in it — `0061`.
  */
 const unfolded = new Set<string>()
 
@@ -2386,70 +2384,24 @@ function writeConditions(
               <!-- The other matter a beat carries: an Image on one side and a
                    Sound on the other, with the Transcript under the Sound as the
                    Description is under the Image. No loop and no naming — a
-                   Shot's Sound strikes with the beat and is gone. -->
-              <p class="struck">
-                <template v-if="shot.sound">
-                  <audio
-                    class="transport"
-                    controls
-                    preload="none"
-                    :src="shot.sound"
-                    :aria-label="$t('editor.soundOfShot', { place: place + 1, scene: held.name })"
-                  />
-                  <button type="button" class="danger mark" @click="removeShotSound(held.scene, shot)">
-                    <span aria-hidden="true">×</span>
-                    <span class="visually-hidden">
-                      {{ $t('editor.removeSound') }}
-                      {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
-                    </span>
-                  </button>
-                </template>
-
-                <template v-else>
-                  <label class="visually-hidden" :for="`shot-sound-${shot.id}`">
-                    {{ $t('editor.soundOfShot', { place: place + 1, scene: held.name }) }}
-                  </label>
-                  <select :id="`shot-sound-${shot.id}`" v-model="picked[shot.id]">
-                    <option value="">{{ $t('editor.noSoundPicked') }}</option>
-                    <option v-for="sound in SOUND_LIBRARY" :key="sound.file" :value="`library:${sound.file}`">
-                      {{ sound.label[$i18n.locale as 'en' | 'fr'] ?? sound.label.en }}
-                      · {{ $t('editor.soundSeconds', { count: sound.seconds }) }}
-                    </option>
-                  </select>
-                  <!-- Inert on nothing, so disabled on nothing: see the Scene's
-                       own pair above. -->
-                  <button
-                    type="button"
-                    class="mark"
-                    :disabled="!picked[shot.id]"
-                    @click="listen(picked[shot.id])"
-                  >
-                    {{ $t('editor.listenToSound') }}
-                    <span class="visually-hidden">
-                      {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    :disabled="!picked[shot.id]"
-                    @click="takeShotSound(held.scene, shot, picked[shot.id])"
-                  >
-                    {{ $t('editor.takeSound') }}
-                    <span class="visually-hidden">
-                      {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
-                    </span>
-                  </button>
-                  <label class="depositing">
-                    <span class="visually-hidden">
-                      {{ $t('editor.pickSoundOfShot', { place: place + 1, scene: held.name }) }}
-                    </span>
-                    <input
-                      type="file"
-                      :accept="SOUND_ACCEPT"
-                      @change="depositShotSound(held.scene, shot, $event)"
-                    >
-                  </label>
-                </template>
+                   Shot's Sound strikes with the beat and is gone. A Sound not yet
+                   deposited is a choice from a list, so its picker is folded with
+                   the others below. -->
+              <p v-if="shot.sound" class="struck">
+                <audio
+                  class="transport"
+                  controls
+                  preload="none"
+                  :src="shot.sound"
+                  :aria-label="$t('editor.soundOfShot', { place: place + 1, scene: held.name })"
+                />
+                <button type="button" class="danger mark" @click="removeShotSound(held.scene, shot)">
+                  <span aria-hidden="true">×</span>
+                  <span class="visually-hidden">
+                    {{ $t('editor.removeSound') }}
+                    {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                  </span>
+                </button>
               </p>
 
               <p v-if="shot.sound" class="transcribed">
@@ -2469,436 +2421,489 @@ function writeConditions(
                 >
               </p>
 
-              <!-- What this beat says about its own Cut, where the Scene has said
-                   it for the run: both answer *as the Scene says* until the Author
-                   says otherwise, which is the null the columns hold. Drawn on
-                   every beat rather than behind a gesture, because a run where one
-                   Shot is held longer than the others is read by seeing the row
-                   that differs. -->
-              <div class="cut">
-                <p class="cutting">
-                  <label class="eyebrow" :for="`shot-cut-after-${shot.id}`">
-                    {{ $t('editor.shotIsCut') }}
+              <div class="beneath">
+                <!-- What the beat plays as: every answer it chose from a list, folded
+                     under one line that says only what this Shot says for itself —
+                     `playsAs`, and `docs/adr/0061-what-a-beat-plays-as-is-folded-under-its-words.md`.
+                     What is written or deposited stands open above it. First on the
+                     line, so that opening it never moves what was pressed: an open
+                     fold takes the line, and the Conditions and the marks wrap under
+                     it. No `open` is bound, so the state is the browser's own and is
+                     kept while the row is, which is as long as the Shot's id is. -->
+                <details class="plays">
+                  <summary>
+                    {{ playsAs(shot, held.scene, t) }}
                     <span class="visually-hidden">
                       {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
                     </span>
-                  </label>
-                  <select
-                    :id="`shot-cut-after-${shot.id}`"
-                    :value="cutWhen(shot)"
-                    @change="writeShotCutAfter(
-                      held.scene, shot, ($event.target as HTMLSelectElement).value)"
-                  >
-                    <option value="scene">{{ $t('editor.asTheSceneSays') }}</option>
-                    <option value="press">{{ $t('editor.cutAtThePress') }}</option>
-                    <option value="clock">{{ $t('editor.cutAfterATime') }}</option>
-                  </select>
-                  <template v-if="shot.cutAfter">
-                    <input
-                      type="number"
-                      inputmode="decimal"
-                      :min="CUT_AFTER_MIN / 1000"
-                      :max="CUT_AFTER_MAX / 1000"
-                      step="0.5"
-                      :value="shot.cutAfter / 1000"
-                      :aria-label="$t('editor.secondsThisShotStands', {
-                        place: place + 1,
-                        scene: held.name,
-                      })"
-                      @change="writeShotCut(held.scene, shot, {
-                        cutAfter: secondsWritten($event, shot.cutAfter),
-                      })"
-                    >
-                    <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
-                  </template>
-                </p>
+                  </summary>
 
-                <p class="cutting">
-                  <label class="eyebrow" :for="`shot-cut-over-${shot.id}`">
-                    {{ $t('editor.cutIsMade') }}
-                    <span class="visually-hidden">
-                      {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
-                    </span>
-                  </label>
-                  <select
-                    :id="`shot-cut-over-${shot.id}`"
-                    :value="cutKind(shot)"
-                    @change="writeShotCutMade(
-                      held.scene, shot, ($event.target as HTMLSelectElement).value)"
-                  >
-                    <option value="scene">{{ $t('editor.asTheSceneSays') }}</option>
-                    <option value="hard">{{ $t('editor.cutHard') }}</option>
-                    <option value="image">{{ $t('editor.cutThroughImage') }}</option>
-                    <option value="black">{{ $t('editor.cutThroughBlack') }}</option>
-                  </select>
-                  <template v-if="shot.cutOver">
-                    <input
-                      type="number"
-                      inputmode="decimal"
-                      min="0.1"
-                      :max="CUT_OVER_MAX / 1000"
-                      step="0.1"
-                      :value="shot.cutOver / 1000"
-                      :aria-label="$t('editor.secondsTheShotsCutTakes', {
-                        place: place + 1,
-                        scene: held.name,
-                      })"
-                      @change="writeShotCut(held.scene, shot, {
-                        cutOver: secondsWritten($event, shot.cutOver),
-                      })"
-                    >
-                    <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
-                  </template>
-                </p>
-              </div>
-
-              <!-- What this beat says about its own Layout, drawn on every beat for
-                   the Cut's reason, and answering *as the Scene says* until the
-                   Author says otherwise, which is the null the column holds. -->
-              <div class="laid">
-                <p class="cutting">
-                  <label class="eyebrow" :for="`shot-layout-${shot.id}`">
-                    {{ $t('editor.shotIsLaidOut') }}
-                    <span class="visually-hidden">
-                      {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
-                    </span>
-                  </label>
-                  <select
-                    :id="`shot-layout-${shot.id}`"
-                    :value="shot.layout ?? 'scene'"
-                    @change="writeShotLayout(
-                      held.scene, shot, ($event.target as HTMLSelectElement).value)"
-                  >
-                    <option value="scene">{{ $t('editor.asTheSceneSays') }}</option>
-                    <option v-for="layout in LAYOUTS" :key="layout" :value="layout">
-                      {{ $t(`editor.layout${layout === 'full' ? 'Full' : 'Inset'}`) }}
-                    </option>
-                  </select>
-                </p>
-              </div>
-
-              <!-- What this beat says about how its Image moves, drawn only where the
-                   Shot has an Image, as the Description is, and its columns survive
-                   the Image's removal. -->
-              <div v-if="shot.image" class="moved">
-                <p class="cutting">
-                  <label class="eyebrow" :for="`shot-movement-${shot.id}`">
-                    {{ $t('editor.imageMoves') }}
-                    <span class="visually-hidden">
-                      {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
-                    </span>
-                  </label>
-                  <select
-                    :id="`shot-movement-${shot.id}`"
-                    :value="movementKind(shot)"
-                    @change="writeShotMoves(
-                      held.scene, shot, ($event.target as HTMLSelectElement).value)"
-                  >
-                    <option value="scene">{{ $t('editor.asTheSceneSays') }}</option>
-                    <option value="still">{{ $t('editor.movementStill') }}</option>
-                    <option v-for="direction in MOVEMENT_DIRECTIONS" :key="direction" :value="direction">
-                      {{ $t(`editor.movement${direction[0]!.toUpperCase()}${direction.slice(1)}`) }}
-                    </option>
-                  </select>
-                  <template v-if="shot.movementBy">
-                    <input
-                      type="number"
-                      inputmode="numeric"
-                      min="1"
-                      :max="MOVEMENT_BY_MAX"
-                      step="1"
-                      :value="shot.movementBy"
-                      :aria-label="$t('editor.percentThisImageMoves', {
-                        place: place + 1,
-                        scene: held.name,
-                      })"
-                      @change="writeShotMovement(held.scene, shot, {
-                        movementBy: percentWritten($event, shot.movementBy),
-                      })"
-                    >
-                    <span class="unit" aria-hidden="true">{{ $t('editor.percentUnit') }}</span>
-                  </template>
-                </p>
-
-                <p v-if="(shot.movementBy ?? held.scene.movementBy) > 0" class="cutting">
-                  <label class="eyebrow" :for="`shot-movement-over-${shot.id}`">
-                    {{ $t('editor.movementTakes') }}
-                    <span class="visually-hidden">
-                      {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
-                    </span>
-                  </label>
-                  <select
-                    :id="`shot-movement-over-${shot.id}`"
-                    :value="movementTakesKind(shot)"
-                    @change="writeShotMovementTakes(
-                      held.scene, shot, ($event.target as HTMLSelectElement).value)"
-                  >
-                    <option value="scene">{{ $t('editor.asTheSceneSays') }}</option>
-                    <option value="whole">{{ $t('editor.movementWholeTime') }}</option>
-                    <option value="time">{{ $t('editor.movementATime') }}</option>
-                  </select>
-                  <template v-if="shot.movementOver">
-                    <input
-                      type="number"
-                      inputmode="decimal"
-                      min="0.1"
-                      :max="MOVEMENT_OVER_MAX / 1000"
-                      step="0.1"
-                      :value="shot.movementOver / 1000"
-                      :aria-label="$t('editor.secondsThisMovementTakes', {
-                        place: place + 1,
-                        scene: held.name,
-                      })"
-                      @change="writeShotMovement(held.scene, shot, {
-                        movementOver: secondsWritten($event, shot.movementOver),
-                      })"
-                    >
-                    <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
-                  </template>
-                </p>
-              </div>
-
-              <!-- What this beat does as its Image and its text arrive and while they
-                   stay, drawn on every beat for the Cut's reason: a run where one
-                   Shot shakes is read by seeing the row that differs. The Image's
-                   two wait for an Image, as the Description does. No Command is
-                   marked here, because every control is a `<select>` or a field. -->
-              <div class="cut">
-                <template v-for="slot in EFFECT_SLOTS" :key="slot.slot">
-                  <p v-if="!slot.image || shot.image" class="cutting">
-                    <label
-                      :id="`shot-${slot.slot}-label-${shot.id}`"
-                      class="eyebrow"
-                      :for="`shot-${slot.slot}-${shot.id}`"
-                    >
-                      {{ $t(`editor.${slot.slot}`) }}
-                      <span class="visually-hidden">
-                        {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
-                      </span>
-                    </label>
-                    <select
-                      :id="`shot-${slot.slot}-${shot.id}`"
-                      :value="shot[slot.slot]?.effect ?? ''"
-                      @change="writeShotEffectChosen(
-                        held.scene, shot, slot.slot, ($event.target as HTMLSelectElement).value)"
-                    >
-                      <option value="">{{ $t('editor.noEffect') }}</option>
-                      <option v-for="effect in slot.effects" :key="effect" :value="effect">
-                        {{ $t(`editor.${EFFECT_LABELS[effect]}`) }}
-                      </option>
-                    </select>
-                    <template v-if="shot[slot.slot]">
-                      <template v-if="effectTime(shot[slot.slot]!) !== undefined">
-                        <span :id="`shot-${slot.slot}-seconds-${shot.id}`" class="visually-hidden">
-                          {{ $t('editor.effectSeconds') }}
-                        </span>
-                        <input
-                          type="number"
-                          inputmode="decimal"
-                          :min="(slot.arrives ? ARRIVES_OVER_MIN : LASTS_EVERY_MIN) / 1000"
-                          :max="(slot.arrives ? ARRIVES_OVER_MAX : LASTS_EVERY_MAX) / 1000"
-                          step="0.1"
-                          :value="effectTime(shot[slot.slot]!)! / 1000"
-                          :aria-labelledby="
-                            `shot-${slot.slot}-label-${shot.id} shot-${slot.slot}-seconds-${shot.id}`"
-                          @change="writeShotEffectTime(held.scene, shot, slot.slot, $event)"
-                        >
-                        <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
-                      </template>
-                      <span :id="`shot-${slot.slot}-strength-${shot.id}`" class="visually-hidden">
-                        {{ $t('editor.effectStrength') }}
-                      </span>
-                      <select
-                        :value="shot[slot.slot]!.strength"
-                        :aria-labelledby="
-                          `shot-${slot.slot}-label-${shot.id} shot-${slot.slot}-strength-${shot.id}`"
-                        @change="writeShotEffectStrength(
-                          held.scene, shot, slot.slot, ($event.target as HTMLSelectElement).value)"
-                      >
-                        <option v-for="strength in STRENGTHS" :key="strength" :value="strength">
-                          {{ $t(`editor.strength${strength[0]!.toUpperCase()}${strength.slice(1)}`) }}
+                  <div class="answers">
+                    <!-- The Sound picker while there is no Sound: a choice from the
+                         library, or a file to deposit. -->
+                    <p v-if="!shot.sound" class="struck">
+                      <label class="visually-hidden" :for="`shot-sound-${shot.id}`">
+                        {{ $t('editor.soundOfShot', { place: place + 1, scene: held.name }) }}
+                      </label>
+                      <select :id="`shot-sound-${shot.id}`" v-model="picked[shot.id]">
+                        <option value="">{{ $t('editor.noSoundPicked') }}</option>
+                        <option v-for="sound in SOUND_LIBRARY" :key="sound.file" :value="`library:${sound.file}`">
+                          {{ sound.label[$i18n.locale as 'en' | 'fr'] ?? sound.label.en }}
+                          · {{ $t('editor.soundSeconds', { count: sound.seconds }) }}
                         </option>
                       </select>
-                    </template>
-                  </p>
-                </template>
-              </div>
-
-              <!-- What this beat says about how its own text arrives, drawn on every
-                   beat that has text as the Cut's row is drawn on every beat, and
-                   not as the Description is drawn only beside an Image: a beat with
-                   no words has nothing to arrive. Each answer is *as the Scene says*
-                   until the Author says otherwise, which is the null the columns hold,
-                   and a beat that says nothing else keeps the row folded to one line,
-                   as its Scene does. See `shotTextSaid`. -->
-              <details
-                v-if="shot.text.trim()"
-                class="arrives"
-                :open="textUnfolded(shot.id, shotTextSaid(shot))"
-              >
-                <summary class="eyebrow">
-                  {{ $t('editor.howThisShotsTextArrives') }}
-                  <span class="visually-hidden">
-                    {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
-                  </span>
-                </summary>
-
-                <div class="answers">
-                  <p class="cutting">
-                    <label class="eyebrow" :for="`shot-text-after-${shot.id}`">
-                      {{ $t('editor.shotTextArrives') }}
-                      <span class="visually-hidden">
-                        {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
-                      </span>
-                    </label>
-                    <select
-                      :id="`shot-text-after-${shot.id}`"
-                      :value="textArrivesKind(shot)"
-                      @change="writeShotTextArrives(
-                        held.scene, shot, ($event.target as HTMLSelectElement).value)"
-                    >
-                      <option value="scene">{{ $t('editor.asTheSceneSays') }}</option>
-                      <option value="image">{{ $t('editor.textWithTheImage') }}</option>
-                      <option value="time">{{ $t('editor.textAfterATime') }}</option>
-                    </select>
-                    <template v-if="shot.textAfter">
-                      <input
-                        type="number"
-                        inputmode="decimal"
-                        min="0.1"
-                        :max="TEXT_AFTER_MAX / 1000"
-                        step="0.1"
-                        :value="shot.textAfter / 1000"
-                        :aria-label="$t('editor.secondsBeforeThisText', {
-                          place: place + 1,
-                          scene: held.name,
-                        })"
-                        @change="writeShotText(held.scene, shot, {
-                          textAfter: secondsWritten($event, shot.textAfter),
-                        })"
+                      <!-- Inert on nothing, so disabled on nothing: see the Scene's
+                           own pair above. -->
+                      <button
+                        type="button"
+                        class="mark"
+                        :disabled="!picked[shot.id]"
+                        @click="listen(picked[shot.id])"
                       >
-                      <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
-                    </template>
-                  </p>
-
-                  <p class="cutting">
-                    <label class="eyebrow" :for="`shot-text-by-${shot.id}`">
-                      {{ $t('editor.shotTextComes') }}
-                      <span class="visually-hidden">
-                        {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
-                      </span>
-                    </label>
-                    <select
-                      :id="`shot-text-by-${shot.id}`"
-                      :value="shot.textBy ?? 'scene'"
-                      @change="writeShotTextComes(
-                        held.scene, shot, ($event.target as HTMLSelectElement).value)"
-                    >
-                      <option value="scene">{{ $t('editor.asTheSceneSays') }}</option>
-                      <option value="whole">{{ $t('editor.textWhole') }}</option>
-                      <option value="line">{{ $t('editor.textByLine') }}</option>
-                      <option value="word">{{ $t('editor.textByWord') }}</option>
-                      <option value="letter">{{ $t('editor.textByLetter') }}</option>
-                    </select>
-                    <template v-if="shot.textBy && shot.textBy !== 'whole'">
-                      <input
-                        type="number"
-                        inputmode="decimal"
-                        min="1"
-                        :max="TEXT_PACE_MAX"
-                        step="1"
-                        :value="shot.textPace ?? held.scene.textPace"
-                        :aria-label="$t('editor.paceOfThisText', {
-                          place: place + 1,
-                          scene: held.name,
-                        })"
-                        @change="writeShotText(held.scene, shot, {
-                          textPace: paceWritten($event),
-                        })"
+                        {{ $t('editor.listenToSound') }}
+                        <span class="visually-hidden">
+                          {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        :disabled="!picked[shot.id]"
+                        @click="takeShotSound(held.scene, shot, picked[shot.id])"
                       >
-                      <span class="unit" aria-hidden="true">
-                        {{ $t('editor.charactersUnit') }}
-                      </span>
-                    </template>
-                  </p>
+                        {{ $t('editor.takeSound') }}
+                        <span class="visually-hidden">
+                          {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                        </span>
+                      </button>
+                      <label class="depositing">
+                        <span class="visually-hidden">
+                          {{ $t('editor.pickSoundOfShot', { place: place + 1, scene: held.name }) }}
+                        </span>
+                        <input
+                          type="file"
+                          :accept="SOUND_ACCEPT"
+                          @change="depositShotSound(held.scene, shot, $event)"
+                        >
+                      </label>
+                    </p>
 
-                  <p class="cutting">
-                    <label class="eyebrow" :for="`shot-text-over-${shot.id}`">
-                      {{ $t('editor.shotTextAppears') }}
-                      <span class="visually-hidden">
-                        {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
-                      </span>
-                    </label>
-                    <select
-                      :id="`shot-text-over-${shot.id}`"
-                      :value="textAppearsKind(shot)"
-                      @change="writeShotTextAppears(
-                        held.scene, shot, ($event.target as HTMLSelectElement).value)"
-                    >
-                      <option value="scene">{{ $t('editor.asTheSceneSays') }}</option>
-                      <option value="once">{{ $t('editor.textAtOnce') }}</option>
-                      <option value="time">{{ $t('editor.textOverATime') }}</option>
-                    </select>
-                    <template v-if="shot.textOver">
-                      <input
-                        type="number"
-                        inputmode="decimal"
-                        min="0.1"
-                        :max="TEXT_OVER_MAX / 1000"
-                        step="0.1"
-                        :value="shot.textOver / 1000"
-                        :aria-label="$t('editor.secondsThisTextAppears', {
-                          place: place + 1,
-                          scene: held.name,
-                        })"
-                        @change="writeShotText(held.scene, shot, {
-                          textOver: secondsWritten($event, shot.textOver),
-                        })"
-                      >
-                      <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
-                    </template>
-                  </p>
+                    <!-- What this beat says about its own Cut, where the Scene has said
+                         it for the run: both answer *as the Scene says* until the Author
+                         says otherwise, which is the null the columns hold. A run where
+                         one Shot is held longer than the others is still read by seeing
+                         the row that differs: its line says so where the others say
+                         nothing. -->
+                    <div class="cut">
+                      <p class="cutting">
+                        <label class="eyebrow" :for="`shot-cut-after-${shot.id}`">
+                          {{ $t('editor.shotIsCut') }}
+                          <span class="visually-hidden">
+                            {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                          </span>
+                        </label>
+                        <select
+                          :id="`shot-cut-after-${shot.id}`"
+                          :value="cutWhen(shot)"
+                          @change="writeShotCutAfter(
+                            held.scene, shot, ($event.target as HTMLSelectElement).value)"
+                        >
+                          <option value="scene">{{ $t('editor.asTheSceneSays') }}</option>
+                          <option value="press">{{ $t('editor.cutAtThePress') }}</option>
+                          <option value="clock">{{ $t('editor.cutAfterATime') }}</option>
+                        </select>
+                        <template v-if="shot.cutAfter">
+                          <input
+                            type="number"
+                            inputmode="decimal"
+                            :min="CUT_AFTER_MIN / 1000"
+                            :max="CUT_AFTER_MAX / 1000"
+                            step="0.5"
+                            :value="shot.cutAfter / 1000"
+                            :aria-label="$t('editor.secondsThisShotStands', {
+                              place: place + 1,
+                              scene: held.name,
+                            })"
+                            @change="writeShotCut(held.scene, shot, {
+                              cutAfter: secondsWritten($event, shot.cutAfter),
+                            })"
+                          >
+                          <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
+                        </template>
+                      </p>
 
-                  <p class="cutting">
-                    <label class="eyebrow" :for="`shot-text-stays-${shot.id}`">
-                      {{ $t('editor.shotTextStays') }}
-                      <span class="visually-hidden">
-                        {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
-                      </span>
-                    </label>
-                    <select
-                      :id="`shot-text-stays-${shot.id}`"
-                      :value="textStaysKind(shot)"
-                      @change="writeShotTextStays(
-                        held.scene, shot, ($event.target as HTMLSelectElement).value)"
-                    >
-                      <option value="scene">{{ $t('editor.asTheSceneSays') }}</option>
-                      <option value="cut">{{ $t('editor.textUntilTheCut') }}</option>
-                      <option value="time">{{ $t('editor.textForATime') }}</option>
-                    </select>
-                    <template v-if="shot.textStays">
-                      <input
-                        type="number"
-                        inputmode="decimal"
-                        min="0.5"
-                        :max="TEXT_STAYS_MAX / 1000"
-                        step="0.5"
-                        :value="shot.textStays / 1000"
-                        :aria-label="$t('editor.secondsThisTextStays', {
-                          place: place + 1,
-                          scene: held.name,
-                        })"
-                        @change="writeShotText(held.scene, shot, {
-                          textStays: secondsWritten($event, shot.textStays),
-                        })"
-                      >
-                      <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
-                    </template>
-                  </p>
-                </div>
-              </details>
+                      <p class="cutting">
+                        <label class="eyebrow" :for="`shot-cut-over-${shot.id}`">
+                          {{ $t('editor.cutIsMade') }}
+                          <span class="visually-hidden">
+                            {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                          </span>
+                        </label>
+                        <select
+                          :id="`shot-cut-over-${shot.id}`"
+                          :value="cutKind(shot)"
+                          @change="writeShotCutMade(
+                            held.scene, shot, ($event.target as HTMLSelectElement).value)"
+                        >
+                          <option value="scene">{{ $t('editor.asTheSceneSays') }}</option>
+                          <option value="hard">{{ $t('editor.cutHard') }}</option>
+                          <option value="image">{{ $t('editor.cutThroughImage') }}</option>
+                          <option value="black">{{ $t('editor.cutThroughBlack') }}</option>
+                        </select>
+                        <template v-if="shot.cutOver">
+                          <input
+                            type="number"
+                            inputmode="decimal"
+                            min="0.1"
+                            :max="CUT_OVER_MAX / 1000"
+                            step="0.1"
+                            :value="shot.cutOver / 1000"
+                            :aria-label="$t('editor.secondsTheShotsCutTakes', {
+                              place: place + 1,
+                              scene: held.name,
+                            })"
+                            @change="writeShotCut(held.scene, shot, {
+                              cutOver: secondsWritten($event, shot.cutOver),
+                            })"
+                          >
+                          <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
+                        </template>
+                      </p>
+                    </div>
 
-              <div class="beneath">
+                    <!-- What this beat says about its own Layout, answering *as the Scene
+                         says* until the Author says otherwise, which is the null the
+                         column holds. -->
+                    <div class="laid">
+                      <p class="cutting">
+                        <label class="eyebrow" :for="`shot-layout-${shot.id}`">
+                          {{ $t('editor.shotIsLaidOut') }}
+                          <span class="visually-hidden">
+                            {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                          </span>
+                        </label>
+                        <select
+                          :id="`shot-layout-${shot.id}`"
+                          :value="shot.layout ?? 'scene'"
+                          @change="writeShotLayout(
+                            held.scene, shot, ($event.target as HTMLSelectElement).value)"
+                        >
+                          <option value="scene">{{ $t('editor.asTheSceneSays') }}</option>
+                          <option v-for="layout in LAYOUTS" :key="layout" :value="layout">
+                            {{ $t(`editor.layout${layout === 'full' ? 'Full' : 'Inset'}`) }}
+                          </option>
+                        </select>
+                      </p>
+                    </div>
+
+                    <!-- What this beat says about how its Image moves, drawn only where the
+                         Shot has an Image, as the Description is, and its columns survive
+                         the Image's removal. -->
+                    <div v-if="shot.image" class="moved">
+                      <p class="cutting">
+                        <label class="eyebrow" :for="`shot-movement-${shot.id}`">
+                          {{ $t('editor.imageMoves') }}
+                          <span class="visually-hidden">
+                            {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                          </span>
+                        </label>
+                        <select
+                          :id="`shot-movement-${shot.id}`"
+                          :value="movementKind(shot)"
+                          @change="writeShotMoves(
+                            held.scene, shot, ($event.target as HTMLSelectElement).value)"
+                        >
+                          <option value="scene">{{ $t('editor.asTheSceneSays') }}</option>
+                          <option value="still">{{ $t('editor.movementStill') }}</option>
+                          <option v-for="direction in MOVEMENT_DIRECTIONS" :key="direction" :value="direction">
+                            {{ $t(`editor.movement${direction[0]!.toUpperCase()}${direction.slice(1)}`) }}
+                          </option>
+                        </select>
+                        <template v-if="shot.movementBy">
+                          <input
+                            type="number"
+                            inputmode="numeric"
+                            min="1"
+                            :max="MOVEMENT_BY_MAX"
+                            step="1"
+                            :value="shot.movementBy"
+                            :aria-label="$t('editor.percentThisImageMoves', {
+                              place: place + 1,
+                              scene: held.name,
+                            })"
+                            @change="writeShotMovement(held.scene, shot, {
+                              movementBy: percentWritten($event, shot.movementBy),
+                            })"
+                          >
+                          <span class="unit" aria-hidden="true">{{ $t('editor.percentUnit') }}</span>
+                        </template>
+                      </p>
+
+                      <p v-if="(shot.movementBy ?? held.scene.movementBy) > 0" class="cutting">
+                        <label class="eyebrow" :for="`shot-movement-over-${shot.id}`">
+                          {{ $t('editor.movementTakes') }}
+                          <span class="visually-hidden">
+                            {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                          </span>
+                        </label>
+                        <select
+                          :id="`shot-movement-over-${shot.id}`"
+                          :value="movementTakesKind(shot)"
+                          @change="writeShotMovementTakes(
+                            held.scene, shot, ($event.target as HTMLSelectElement).value)"
+                        >
+                          <option value="scene">{{ $t('editor.asTheSceneSays') }}</option>
+                          <option value="whole">{{ $t('editor.movementWholeTime') }}</option>
+                          <option value="time">{{ $t('editor.movementATime') }}</option>
+                        </select>
+                        <template v-if="shot.movementOver">
+                          <input
+                            type="number"
+                            inputmode="decimal"
+                            min="0.1"
+                            :max="MOVEMENT_OVER_MAX / 1000"
+                            step="0.1"
+                            :value="shot.movementOver / 1000"
+                            :aria-label="$t('editor.secondsThisMovementTakes', {
+                              place: place + 1,
+                              scene: held.name,
+                            })"
+                            @change="writeShotMovement(held.scene, shot, {
+                              movementOver: secondsWritten($event, shot.movementOver),
+                            })"
+                          >
+                          <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
+                        </template>
+                      </p>
+                    </div>
+
+                    <!-- What this beat does as its Image and its text arrive and while they
+                         stay: a run where one Shot shakes is read by the line that says
+                         so. The Image's two wait for an Image, as the Description does.
+                         No Command is marked here, because every control is a `<select>`
+                         or a field — and none may be, folded where the bar cannot see it. -->
+                    <div class="cut">
+                      <template v-for="slot in EFFECT_SLOTS" :key="slot.slot">
+                        <p v-if="!slot.image || shot.image" class="cutting">
+                          <label
+                            :id="`shot-${slot.slot}-label-${shot.id}`"
+                            class="eyebrow"
+                            :for="`shot-${slot.slot}-${shot.id}`"
+                          >
+                            {{ $t(`editor.${slot.slot}`) }}
+                            <span class="visually-hidden">
+                              {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                            </span>
+                          </label>
+                          <select
+                            :id="`shot-${slot.slot}-${shot.id}`"
+                            :value="shot[slot.slot]?.effect ?? ''"
+                            @change="writeShotEffectChosen(
+                              held.scene, shot, slot.slot, ($event.target as HTMLSelectElement).value)"
+                          >
+                            <option value="">{{ $t('editor.noEffect') }}</option>
+                            <option v-for="effect in slot.effects" :key="effect" :value="effect">
+                              {{ $t(`editor.${EFFECT_LABELS[effect]}`) }}
+                            </option>
+                          </select>
+                          <template v-if="shot[slot.slot]">
+                            <template v-if="effectTime(shot[slot.slot]!) !== undefined">
+                              <span :id="`shot-${slot.slot}-seconds-${shot.id}`" class="visually-hidden">
+                                {{ $t('editor.effectSeconds') }}
+                              </span>
+                              <input
+                                type="number"
+                                inputmode="decimal"
+                                :min="(slot.arrives ? ARRIVES_OVER_MIN : LASTS_EVERY_MIN) / 1000"
+                                :max="(slot.arrives ? ARRIVES_OVER_MAX : LASTS_EVERY_MAX) / 1000"
+                                step="0.1"
+                                :value="effectTime(shot[slot.slot]!)! / 1000"
+                                :aria-labelledby="
+                                  `shot-${slot.slot}-label-${shot.id} shot-${slot.slot}-seconds-${shot.id}`"
+                                @change="writeShotEffectTime(held.scene, shot, slot.slot, $event)"
+                              >
+                              <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
+                            </template>
+                            <span :id="`shot-${slot.slot}-strength-${shot.id}`" class="visually-hidden">
+                              {{ $t('editor.effectStrength') }}
+                            </span>
+                            <select
+                              :value="shot[slot.slot]!.strength"
+                              :aria-labelledby="
+                                `shot-${slot.slot}-label-${shot.id} shot-${slot.slot}-strength-${shot.id}`"
+                              @change="writeShotEffectStrength(
+                                held.scene, shot, slot.slot, ($event.target as HTMLSelectElement).value)"
+                            >
+                              <option v-for="strength in STRENGTHS" :key="strength" :value="strength">
+                                {{ $t(`editor.strength${strength[0]!.toUpperCase()}${strength.slice(1)}`) }}
+                              </option>
+                            </select>
+                          </template>
+                        </p>
+                      </template>
+                    </div>
+
+                    <!-- What this beat says about how its own text arrives, drawn on every
+                         beat that has text, and not as the Description is drawn only
+                         beside an Image: a beat with no words has nothing to arrive. Each
+                         answer is *as the Scene says* until the Author says otherwise,
+                         which is the null the columns hold. Drawn plainly, as the Cut's
+                         are, because the fold it stands in is already one. -->
+                    <div v-if="shot.text.trim()" class="cut">
+                      <p class="cutting">
+                        <label class="eyebrow" :for="`shot-text-after-${shot.id}`">
+                          {{ $t('editor.shotTextArrives') }}
+                          <span class="visually-hidden">
+                            {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                          </span>
+                        </label>
+                        <select
+                          :id="`shot-text-after-${shot.id}`"
+                          :value="textArrivesKind(shot)"
+                          @change="writeShotTextArrives(
+                            held.scene, shot, ($event.target as HTMLSelectElement).value)"
+                        >
+                          <option value="scene">{{ $t('editor.asTheSceneSays') }}</option>
+                          <option value="image">{{ $t('editor.textWithTheImage') }}</option>
+                          <option value="time">{{ $t('editor.textAfterATime') }}</option>
+                        </select>
+                        <template v-if="shot.textAfter">
+                          <input
+                            type="number"
+                            inputmode="decimal"
+                            min="0.1"
+                            :max="TEXT_AFTER_MAX / 1000"
+                            step="0.1"
+                            :value="shot.textAfter / 1000"
+                            :aria-label="$t('editor.secondsBeforeThisText', {
+                              place: place + 1,
+                              scene: held.name,
+                            })"
+                            @change="writeShotText(held.scene, shot, {
+                              textAfter: secondsWritten($event, shot.textAfter),
+                            })"
+                          >
+                          <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
+                        </template>
+                      </p>
+
+                      <p class="cutting">
+                        <label class="eyebrow" :for="`shot-text-by-${shot.id}`">
+                          {{ $t('editor.shotTextComes') }}
+                          <span class="visually-hidden">
+                            {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                          </span>
+                        </label>
+                        <select
+                          :id="`shot-text-by-${shot.id}`"
+                          :value="shot.textBy ?? 'scene'"
+                          @change="writeShotTextComes(
+                            held.scene, shot, ($event.target as HTMLSelectElement).value)"
+                        >
+                          <option value="scene">{{ $t('editor.asTheSceneSays') }}</option>
+                          <option value="whole">{{ $t('editor.textWhole') }}</option>
+                          <option value="line">{{ $t('editor.textByLine') }}</option>
+                          <option value="word">{{ $t('editor.textByWord') }}</option>
+                          <option value="letter">{{ $t('editor.textByLetter') }}</option>
+                        </select>
+                        <template v-if="shot.textBy && shot.textBy !== 'whole'">
+                          <input
+                            type="number"
+                            inputmode="decimal"
+                            min="1"
+                            :max="TEXT_PACE_MAX"
+                            step="1"
+                            :value="shot.textPace ?? held.scene.textPace"
+                            :aria-label="$t('editor.paceOfThisText', {
+                              place: place + 1,
+                              scene: held.name,
+                            })"
+                            @change="writeShotText(held.scene, shot, {
+                              textPace: paceWritten($event),
+                            })"
+                          >
+                          <span class="unit" aria-hidden="true">
+                            {{ $t('editor.charactersUnit') }}
+                          </span>
+                        </template>
+                      </p>
+
+                      <p class="cutting">
+                        <label class="eyebrow" :for="`shot-text-over-${shot.id}`">
+                          {{ $t('editor.shotTextAppears') }}
+                          <span class="visually-hidden">
+                            {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                          </span>
+                        </label>
+                        <select
+                          :id="`shot-text-over-${shot.id}`"
+                          :value="textAppearsKind(shot)"
+                          @change="writeShotTextAppears(
+                            held.scene, shot, ($event.target as HTMLSelectElement).value)"
+                        >
+                          <option value="scene">{{ $t('editor.asTheSceneSays') }}</option>
+                          <option value="once">{{ $t('editor.textAtOnce') }}</option>
+                          <option value="time">{{ $t('editor.textOverATime') }}</option>
+                        </select>
+                        <template v-if="shot.textOver">
+                          <input
+                            type="number"
+                            inputmode="decimal"
+                            min="0.1"
+                            :max="TEXT_OVER_MAX / 1000"
+                            step="0.1"
+                            :value="shot.textOver / 1000"
+                            :aria-label="$t('editor.secondsThisTextAppears', {
+                              place: place + 1,
+                              scene: held.name,
+                            })"
+                            @change="writeShotText(held.scene, shot, {
+                              textOver: secondsWritten($event, shot.textOver),
+                            })"
+                          >
+                          <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
+                        </template>
+                      </p>
+
+                      <p class="cutting">
+                        <label class="eyebrow" :for="`shot-text-stays-${shot.id}`">
+                          {{ $t('editor.shotTextStays') }}
+                          <span class="visually-hidden">
+                            {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                          </span>
+                        </label>
+                        <select
+                          :id="`shot-text-stays-${shot.id}`"
+                          :value="textStaysKind(shot)"
+                          @change="writeShotTextStays(
+                            held.scene, shot, ($event.target as HTMLSelectElement).value)"
+                        >
+                          <option value="scene">{{ $t('editor.asTheSceneSays') }}</option>
+                          <option value="cut">{{ $t('editor.textUntilTheCut') }}</option>
+                          <option value="time">{{ $t('editor.textForATime') }}</option>
+                        </select>
+                        <template v-if="shot.textStays">
+                          <input
+                            type="number"
+                            inputmode="decimal"
+                            min="0.5"
+                            :max="TEXT_STAYS_MAX / 1000"
+                            step="0.5"
+                            :value="shot.textStays / 1000"
+                            :aria-label="$t('editor.secondsThisTextStays', {
+                              place: place + 1,
+                              scene: held.name,
+                            })"
+                            @change="writeShotText(held.scene, shot, {
+                              textStays: secondsWritten($event, shot.textStays),
+                            })"
+                          >
+                          <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
+                        </template>
+                      </p>
+                    </div>
+                  </div>
+                </details>
+
                 <Conditions
                   :data-step="held.here && !place ? 'shot-condition' : undefined"
                   :lead="$t('editor.playedWhen')"
@@ -3474,12 +3479,8 @@ function writeConditions(
   margin-block-start: var(--s3);
 }
 
-.arrives > .answers {
-  margin-block-start: var(--s1);
-}
-
 .text summary,
-.arrives summary {
+.plays > summary {
   cursor: pointer;
 }
 
@@ -3638,12 +3639,35 @@ function writeConditions(
    placement would carry both of these into the narrow column instead of under
    the words, the way `.beneath` already claims the row below them. */
 .beat > .struck,
-.beat > .transcribed,
-.beat > .cut,
-.beat > .laid,
-.beat > .moved,
-.beat > .arrives {
+.beat > .transcribed {
   grid-column: 1 / -1;
+}
+
+/* What the beat plays as, folded to one line of what it says for itself: the
+   interface's face at the row's size and not an `.eyebrow`, because it is a
+   reading of answers rather than a label, and three of them in capitals spaced
+   for a label do not hold on one line. Open, it takes the line, so the
+   Conditions and the marks drop under its fields rather than the line it was
+   pressed on moving. */
+.plays > summary {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.plays[open] {
+  flex-basis: 100%;
+}
+
+/* And the marks stay at the trailing edge of the row when a long line pushes them
+   under it. */
+.beat .beneath > .row {
+  margin-inline-start: auto;
+}
+
+.plays .answers {
+  display: grid;
+  gap: var(--s2);
+  margin-block-start: var(--s2);
 }
 
 /* What the beat says about its own Cut, Layout and Movement, and about how its
@@ -3651,10 +3675,9 @@ function writeConditions(
    they do not. Set further apart than anything else on the row, because each is a
    label and its answer and the eye has to read where one sentence ends and the
    next starts. */
-.beat > .cut,
-.beat > .laid,
-.beat > .moved,
-.arrives > .answers {
+.plays .cut,
+.plays .laid,
+.plays .moved {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
