@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test'
-import { live, ONE_PIXEL, test, writeStory } from './author'
+import { live, ONE_PIXEL, test, unfold, writeStory } from './author'
 import type { APIRequestContext } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
@@ -91,6 +91,7 @@ test('a Shot answers for itself, and As the Scene says writes nulls',
     await live(page)
 
     const moves = page.getByLabel('The Image of this Shot moves Shot 1 of The street', { exact: true })
+    await unfold(page, 'Shot 1 of The street')
     await expect(moves).toHaveValue('scene')
     await expect(page.getByLabel('The Image of this Shot moves Shot 2 of The street', { exact: true }))
       .toHaveCount(0)

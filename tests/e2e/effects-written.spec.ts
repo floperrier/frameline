@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test'
-import { ONE_PIXEL, live, test, writeStory } from './author'
+import { ONE_PIXEL, live, test, unfold, writeStory } from './author'
 import {
   ARRIVES_OVER_MAX, ARRIVES_OVER_MIN, LASTS_EVERY_MAX,
 } from '../../shared/utils/scenes'
@@ -54,6 +54,8 @@ test('a Shot says what its Image and its text do as they arrive and while they s
 
     // The text's two are on every row and the Image's two wait for an Image, as
     // the Description does: a Shot of words alone has nothing to shake but them.
+    await unfold(page, 'Shot 1 of The street')
+    await unfold(page, 'Shot 2 of The street')
     await expect(on('As the Image arrives')).toBeVisible()
     await expect(on('While the Image is on screen')).toBeVisible()
     await expect(on('As the Image arrives', 2)).toHaveCount(0)
@@ -116,6 +118,7 @@ test('a Shot says what its Image and its text do as they arrive and while they s
     // And the Story reads back what was said.
     await page.reload()
     await live(page)
+    await unfold(page, 'Shot 1 of The street')
     await expect(on('As the Image arrives')).toHaveValue('shake')
     await expect(seconds('As the Image arrives')).toHaveValue('0.5')
     await expect(strength('As the Image arrives')).toHaveValue('strong')
