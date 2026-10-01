@@ -29,6 +29,8 @@ import type { Image, Work } from './work.ts'
    Sample's author speaking aside. */
 const FLAG: Style[] = [{ type: 'face', attrs: { face: 'typewriter' } }]
 const ASIDE: Style[] = [{ type: 'face', attrs: { face: 'hand' } }]
+/* The Sample's invitation to take it apart, said a little unsteadily, at one Place in both languages. */
+const UNSTEADY: Style = { type: 'lasts', attrs: { effect: 'tremor', every: 300, strength: 'slight' } }
 
 /* The bench's own tokens, from `app/assets/css/frameline.css`: a Sample's images
    are diagrams of the product, so they are lit like the room the product is
@@ -359,7 +361,11 @@ const ENGLISH: Work = {
               + 'it does not hold, the Shot is not played and the Exit is not offered: nothing '
               + 'is refused, it is simply not there.',
             ),
-            line(run('Nothing here is precious — change it, break it, delete it.', ...ASIDE)),
+            line(
+              run('Nothing here is precious — change it, ', ...ASIDE),
+              run('break it', UNSTEADY, ...ASIDE),
+              run(', delete it.', ...ASIDE),
+            ),
           ),
           description: 'Two panels with a lit lozenge standing between them, the far one '
             + 'dimmed almost out of the frame.',
@@ -526,7 +532,11 @@ const FRENCH: Work = {
               + 'Sortie. Là où elle ne tient pas, le Plan n’est pas joué et la Sortie n’est '
               + 'pas offerte : rien n’est refusé, la chose n’est simplement pas là.',
             ),
-            line(run('Rien ici n’est précieux — modifiez, cassez, supprimez.', ...ASIDE)),
+            line(
+              run('Rien ici n’est précieux — modifiez, ', ...ASIDE),
+              run('cassez', UNSTEADY, ...ASIDE),
+              run(', supprimez.', ...ASIDE),
+            ),
           ),
           description: 'Deux panneaux séparés par un losange éclairé, le plus loin presque '
             + 'sorti du cadre tant il est éteint.',

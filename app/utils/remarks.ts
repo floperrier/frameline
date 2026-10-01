@@ -27,7 +27,6 @@
 import {
   CHARACTERS_A_SECOND,
   exitsFrom,
-  flickers,
   namesOnTheBench,
   reaches,
 } from '../../shared/utils/scenes'
@@ -36,7 +35,7 @@ import type { Condition, Scene, Shot, StoryInEditor } from '../../shared/utils/s
 // nothing else in the server chunk imports is written where it does not exist.
 import { linesOf } from '#shared/utils/formatted'
 import type { Phrase } from '../../shared/utils/phrases'
-import { cut, lastUnitAt, textArrival } from '../../shared/utils/reading'
+import { cut, flickers, lastUnitAt, textArrival } from '../../shared/utils/reading'
 import { FLASHES_APART } from './flashes'
 
 /**

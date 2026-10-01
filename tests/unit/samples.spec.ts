@@ -86,7 +86,7 @@ function setOf(shot: { formatted?: Formatted }) {
     blocks: value.content.map(block => block.type),
     styles: [...new Set(linesOf(value).flat().flatMap(inline =>
       inline.type === 'text'
-        ? (inline.marks ?? []).map(mark => mark.type === 'face' ? `face:${mark.attrs.face}` : mark.type)
+        ? (inline.marks ?? []).map(mark => mark.type === 'face' ? `face:${mark.attrs.face}` : mark.type === 'arrives' || mark.type === 'lasts' ? `${mark.type}:${mark.attrs.effect}` : mark.type)
         : ['redaction']))].sort(),
   }
 }

@@ -26,10 +26,15 @@
  * with an arrow is not bound here, so the Scene's own section hears it. `Tab`
  * reaches the toolbar because the toolbar is the next thing in the document.
  *
- * No Command is marked on the toolbar: each act is one key or one press on a
- * selection in view, which is the exemption `docs/adr/0035-every-act-marked-on-
- * the-bench-is-reachable-by-naming-it.md` gives a row's marks, and a select is
- * exempt anyway.
+ * The toolbar also says an Effect of the words — issue #361. *Add an Effect* opens
+ * a row under its buttons holding the two sentences a Shot's row says of its
+ * whole text, said here of the words selected or of the run the caret is in, and
+ * *Take the Effect Off* takes both off that run.
+ *
+ * No Command is marked on the toolbar, those two among them: each act is one key
+ * or one press on a selection in view, which is the exemption `docs/adr/0035-
+ * every-act-marked-on-the-bench-is-reachable-by-naming-it.md` gives a row's
+ * marks, and a select is exempt anyway.
  */
 import { Editor, getMarkAttributes, getNodeAttributes, isMarkActive } from '@tiptap/core'
 import { NodeSelection, Selection } from '@tiptap/pm/state'
@@ -424,6 +429,57 @@ function hide(event: Event) {
   editor.view.dispatch(now.tr.setNodeAttribute(now.selection.from, 'hides', (event.target as HTMLInputElement).value))
 }
 
+/** The two sentences said of the words, in the order the Reader meets them. */
+const SENTENCES = [
+  { kind: 'arrives', said: 'editor.wordsArrive', effects: RUN_ARRIVALS, min: ARRIVES_OVER_MIN, max: ARRIVES_OVER_MAX },
+  { kind: 'lasts', said: 'editor.wordsLast', effects: RUN_LASTINGS, min: LASTS_EVERY_MIN, max: LASTS_EVERY_MAX },
+] as const
+
+/** Whether there are words to say an Effect of, which is what the two buttons are offered on. */
+const effectable = computed(() => !!state.value && !!wordsSaid(state.value))
+const inRun = computed(() => !!state.value && takeEffectOff(state.value))
+
+/** Whether the row of the two sentences is open. It closes when there are no words left to act on. */
+const effecting = ref(false)
+watch(effectable, (now) => {
+  if (!now) effecting.value = false
+})
+
+/** What the words say for each sentence, read where the row writes it. */
+const effectsHeld = computed(() => ({
+  arrives: state.value && effectHeld(state.value, 'arrives'),
+  lasts: state.value && effectHeld(state.value, 'lasts'),
+}))
+
+/**
+ * An Effect said, and the caret back in the text where a press said it, as a
+ * select's choice hands it back. Where it leaves no words to say one of, the row
+ * goes with the control the keys were on, and the caret goes back to the text all
+ * the same, rather than the focus to nowhere.
+ */
+function sayEffect(kind: 'arrives' | 'lasts', effect: Arrival | Lasting | null) {
+  if (!editor) return
+  runEffect(kind, effect)(editor.state, editor.view.dispatch)
+  if (!keyed || !wordsSaid(editor.state)) editor.view.focus()
+}
+
+function chooseEffect(kind: 'arrives' | 'lasts', event: Event) {
+  const value = (event.target as HTMLSelectElement).value
+  sayEffect(kind, value ? effectWritten(value, kind, effectsHeld.value[kind]?.strength ?? 'marked') : null)
+}
+
+function timeEffect(kind: 'arrives' | 'lasts', event: Event) {
+  const held = effectsHeld.value[kind]
+  const written = held && secondsWritten(event, effectTime(held) ?? null)
+  if (!held || written === undefined) return
+  sayEffect(kind, { ...held, [kind === 'arrives' ? 'over' : 'every']: written } as Arrival | Lasting)
+}
+
+function strengthEffect(kind: 'arrives' | 'lasts', event: Event) {
+  const held = effectsHeld.value[kind]
+  if (held) sayEffect(kind, { ...held, strength: (event.target as HTMLSelectElement).value as Strength })
+}
+
 /**
  * One tab stop for the whole toolbar: `Tab` lands on the control used last, the
  * arrows walk the rest, and `Escape` puts the caret back in the text, as `Enter`
@@ -435,10 +491,12 @@ const stop = ref(FIRST)
 const roving = (name: string) => ({ 'data-stop': name, tabindex: stop.value === name ? 0 : -1 })
 
 // A control that is gone takes the toolbar's one stop with it, so the stop goes
-// back to the first.
-watch([redaction, () => props.standsRead], ([held, read]) => {
-  if ((!held && stop.value === HIDES) || (!read && stop.value === 'editor.stands')) stop.value = FIRST
-})
+// back to the first: a bar's field once no bar is held, where the text stands once
+// nothing reads it, the row of Effects once it closes, and a field in that row
+// once the Effect it was said of has none.
+watch([state, effecting, () => props.standsRead], () => {
+  if (!bar.value?.querySelector(`[data-stop="${stop.value}"]`)) stop.value = FIRST
+}, { flush: 'post' })
 
 function landed(event: FocusEvent) {
   stop.value = (event.target as HTMLElement).dataset.stop ?? stop.value
@@ -451,8 +509,10 @@ function rove(event: KeyboardEvent) {
     return
   }
   keyed = true
-  // The field keeps its arrows for its own caret.
-  if (event.target instanceof HTMLInputElement) return
+  // A bar's field keeps its arrows for its own caret. A field of seconds keeps
+  // only the two that step its number, as a spin button in a toolbar does, so the
+  // arrows along the toolbar still walk past it to the controls beyond.
+  if (event.target instanceof HTMLInputElement && event.target.type !== 'number') return
 
   const stops = [...bar.value!.querySelectorAll<HTMLElement>('[data-stop]')]
   const at = stops.indexOf(event.target as HTMLElement)
@@ -531,6 +591,30 @@ function rove(event: KeyboardEvent) {
       >
         <span class="glyph">{{ $t('editor.glyphSeparator') }}</span>
       </button>
+      <button
+        type="button"
+        v-bind="roving('editor.addEffect')"
+        :aria-label="$t('editor.addEffect')"
+        :title="$t('editor.addEffect')"
+        :aria-disabled="effectable ? undefined : 'true'"
+        :aria-expanded="effecting"
+        :aria-controls="effecting ? `${id}-effects` : undefined"
+        @mousedown.prevent
+        @click="effectable && (effecting = !effecting)"
+      >
+        <span class="glyph">{{ $t('editor.glyphAddEffect') }}</span>
+      </button>
+      <button
+        type="button"
+        v-bind="roving('editor.takeEffectOff')"
+        :aria-label="$t('editor.takeEffectOff')"
+        :title="$t('editor.takeEffectOff')"
+        :aria-disabled="inRun ? undefined : 'true'"
+        @mousedown.prevent
+        @click="act(takeEffectOff)"
+      >
+        <span class="glyph">{{ $t('editor.glyphTakeEffectOff') }}</span>
+      </button>
 
       <!-- Each select shows what it holds and is named by what it sets, so the
            toolbar wraps onto two rows at the bench's width rather than six. -->
@@ -552,6 +636,72 @@ function rove(event: KeyboardEvent) {
           </template>
         </select>
       </template>
+
+      <!-- What the words do as they arrive and while they stand, the two sentences
+           a Shot's row says of its whole text, said here of the words selected or
+           of the run the caret is in. Each writes as it changes, as the selects do.
+           A sentence's seconds and strength are named by the sentence and their own
+           label together, as the Shot's row names them, since each name is in the
+           row twice. -->
+      <div v-if="effecting" :id="`${id}-effects`" class="effects" role="group" :aria-label="$t('editor.addEffect')">
+        <p v-for="sentence in SENTENCES" :key="sentence.kind" class="effect">
+          <label :id="`${id}-${sentence.kind}-label`" class="eyebrow" :for="`${id}-${sentence.kind}`">
+            {{ $t(sentence.said) }}
+          </label>
+          <select
+            :id="`${id}-${sentence.kind}`"
+            v-bind="roving(sentence.said)"
+            :value="effectsHeld[sentence.kind]?.effect ?? ''"
+            @change="chooseEffect(sentence.kind, $event)"
+          >
+            <option value="">{{ $t('editor.noEffect') }}</option>
+            <option v-for="effect in sentence.effects" :key="effect" :value="effect">
+              {{ $t(`editor.${EFFECT_LABELS[effect]}`) }}
+            </option>
+          </select>
+          <template v-if="effectsHeld[sentence.kind]">
+            <template v-if="effectTime(effectsHeld[sentence.kind]!) !== undefined">
+              <label
+                :id="`${id}-${sentence.kind}-seconds-label`"
+                class="eyebrow"
+                :for="`${id}-${sentence.kind}-seconds`"
+              >
+                {{ $t('editor.effectSeconds') }}
+              </label>
+              <input
+                :id="`${id}-${sentence.kind}-seconds`"
+                v-bind="roving(`${sentence.said}-seconds`)"
+                :aria-labelledby="`${id}-${sentence.kind}-label ${id}-${sentence.kind}-seconds-label`"
+                type="number"
+                inputmode="decimal"
+                :min="sentence.min / 1000"
+                :max="sentence.max / 1000"
+                step="0.1"
+                :value="effectTime(effectsHeld[sentence.kind]!)! / 1000"
+                @change="timeEffect(sentence.kind, $event)"
+              >
+            </template>
+            <label
+              :id="`${id}-${sentence.kind}-strength-label`"
+              class="eyebrow"
+              :for="`${id}-${sentence.kind}-strength`"
+            >
+              {{ $t('editor.effectStrength') }}
+            </label>
+            <select
+              :id="`${id}-${sentence.kind}-strength`"
+              v-bind="roving(`${sentence.said}-strength`)"
+              :aria-labelledby="`${id}-${sentence.kind}-label ${id}-${sentence.kind}-strength-label`"
+              :value="effectsHeld[sentence.kind]!.strength"
+              @change="strengthEffect(sentence.kind, $event)"
+            >
+              <option v-for="strength in STRENGTHS" :key="strength" :value="strength">
+                {{ $t(`editor.strength${strength[0]!.toUpperCase()}${strength.slice(1)}`) }}
+              </option>
+            </select>
+          </template>
+        </p>
+      </div>
     </div>
   </div>
 </template>
@@ -683,6 +833,27 @@ function rove(event: KeyboardEvent) {
 
 .hides input {
   padding: var(--s1) var(--s2);
+  font-size: inherit;
+}
+
+/* The two sentences said of the words take a row of their own under the
+   buttons, as a bar's field does, each sentence a line of its own. */
+.effects {
+  display: grid;
+  flex-basis: 100%;
+  gap: var(--s1);
+}
+
+.effect {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1);
+}
+
+.effects input {
+  inline-size: 5ch;
+  padding: var(--s1);
   font-size: inherit;
 }
 

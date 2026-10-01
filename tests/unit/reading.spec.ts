@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Condition, Sets } from '../../shared/utils/scenes'
-import { formattedOf } from '../../shared/utils/formatted'
+import { formattedOf, formatted, line, run as styled } from '../../shared/utils/formatted'
 import {
   CUT_AFTER_MAX,
   CUT_AFTER_MIN,
@@ -1131,6 +1131,13 @@ describe('lasting', () => {
 
   it('is nothing where the lasting Effect is on an Image the Shot does not have', () => {
     expect(lasting(carrying({ imageLasts: { effect: 'grain', strength: 'slight' } }))).toBe(false)
+  })
+
+  it('reads a lasting Effect on a run of the text', () => {
+    const marked = formatted(line('a ', styled('word', { type: 'lasts', attrs: { effect: 'tremor', every: 300, strength: 'slight' } })))
+    expect(lasting(carrying({ formatted: marked }))).toBe(true)
+    const arriving = formatted(line(styled('word', { type: 'arrives', attrs: { effect: 'scramble', over: 1200, strength: 'slight' } })))
+    expect(lasting(carrying({ formatted: arriving }))).toBe(false)
   })
 })
 

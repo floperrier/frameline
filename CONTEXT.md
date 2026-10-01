@@ -118,12 +118,14 @@ Something that happens to a Shot's Image or to its text, named by the Author
 from a short list, over a time and at a strength they write. It happens once, as
 the beat arrives, like a shake, a flash from white or a blur coming clear, or for
 as long as the beat stands, like a flicker, a pulse or a tremor. The Image carries
-one of each kind and so does the text. An Effect is said of one beat and never of
-a Scene, because it is an emphasis and not a grammar. It underlines what the
-words say and never says anything alone, so a Reader who cannot see it, or who
-asked for less motion, reads the beat without it and loses none of the Story.
-Never the Cut, which is how one Shot gives way to the next, never the movement of
-the frame over the Image, and never when or how fast the words come.
+one of each kind and so does the text, and a run of its words may carry its own,
+which is the one carrier an Effect may take apart letter by letter. An Effect is
+said of one beat and never of a Scene, because it is an emphasis and not a
+grammar. It underlines what the words say and never says anything alone, so a
+Reader who cannot see it, or who asked for less motion, reads the beat without it
+and loses none of the Story. Never the Cut, which is how one Shot gives way to
+the next, never the movement of the frame over the Image, and never when or how
+fast the words come.
 _Affiché_: Effet
 _Avoid_: animation, filter, fx, special effect, transition, filtre, trucage,
 effet spécial

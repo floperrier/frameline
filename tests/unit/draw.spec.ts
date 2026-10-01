@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { h } from 'vue'
 import { renderToString } from 'vue/server-renderer'
-import { drawFormatted } from '../../app/utils/draw.ts'
-import type { TextCut } from '../../app/utils/draw.ts'
+import { drawFormatted, standInsOf, takesApart } from '../../app/utils/draw.ts'
+import type { Moving, TextCut } from '../../app/utils/draw.ts'
 import {
   ALIGNS,
   FACES,
@@ -26,7 +26,8 @@ import type { Formatted, Style } from '../../shared/utils/formatted.ts'
  * What the renderer draws, read as the markup the server sends: a pure function
  * of the formatted text, so the whole of it answers to a string.
  */
-const drawn = (value: Formatted, cut?: TextCut) => renderToString(h('div', drawFormatted(value, cut)))
+const drawn = (value: Formatted, cut?: TextCut, moving?: Moving) =>
+  renderToString(h('div', drawFormatted(value, cut, moving)))
 
 const emphasis: Style = { type: 'emphasis' }
 
@@ -115,5 +116,114 @@ describe('a formatted text cut into what it arrives by', () => {
     expect(await drawn(formatted(line('a ', bar(3, ''))), { by: 'letter', unit }))
       .toBe('<div><p>a <span data-from="4"><span class="bar" data-length="3">'
         + '<span aria-hidden="true">███</span></span></span></p></div>')
+  })
+})
+
+describe('a run carrying an Effect', () => {
+  const moving: Moving = effect => ({ 'data-effect': effect.effect, 'data-strength': effect.strength })
+  const scramble: Style = { type: 'arrives', attrs: { effect: 'scramble', over: 1200, strength: 'marked' } }
+  const wave: Style = { type: 'lasts', attrs: { effect: 'wave', every: 1600, strength: 'slight' } }
+  const flicker: Style = { type: 'lasts', attrs: { effect: 'flicker', strength: 'slight' } }
+  const shake: Style = { type: 'arrives', attrs: { effect: 'shake', over: 500, strength: 'slight' } }
+
+  it('is drawn as a run, and moves nowhere but the Reading', async () => {
+    expect(await drawn(formatted(line('the ', run('lamp', flicker))))).toBe('<div><p>the <span class="run">lamp</span></p></div>')
+  })
+
+  it('flickers on its own inline element', async () => {
+    expect(await drawn(formatted(line('the ', run('lamp', flicker))), undefined, moving))
+      .toBe('<div><p>the <span class="effect" data-effect="flicker" data-strength="slight">lamp</span></p></div>')
+  })
+
+  it('shakes by the word, its spaces left to break the line', async () => {
+    const html = await drawn(formatted(line(run('break it', shake))), undefined, moving)
+    expect(html.match(/class="word"/g)).toHaveLength(2)
+    expect(html).toContain('<span class="gap"> </span>')
+  })
+
+  it('waves by the letter, each letter an element of its own a little behind the last', async () => {
+    const html = await drawn(formatted(line(run('sea', wave))), undefined, moving)
+    expect(html.match(/class="letter" data-effect="wave"/g)).toHaveLength(3)
+    expect(html).toContain('--phase:0;')
+    expect(html).toContain('--phase:0.0833')
+  })
+
+  it('reads a run across two leaves as one, for its stagger', async () => {
+    const html = await drawn(formatted(line(run('ab', scramble), run('cd', scramble, { type: 'emphasis' }))), undefined, moving)
+    // Four letters, so the last resolves at the whole of `over`.
+    expect(html).toContain('--step:0.25')
+    expect(html).toContain('--step:1')
+  })
+
+  it('scrambles a letter under its stand-ins and leaves punctuation be', async () => {
+    const html = await drawn(formatted(line(run('a,', scramble))), undefined, moving)
+    expect(html.match(/class="stand-in"/g)).toHaveLength(2)
+    expect(html).toContain('<span class="glyph" data-effect="scramble"')
+    expect(html).toContain(',')
+  })
+
+  it('draws a scramble and a wave over the same letters, the scramble inside the wave', async () => {
+    const html = await drawn(formatted(line(run('a', scramble, wave))), undefined, moving)
+    expect(html).toMatch(/class="letter" data-effect="wave"[^>]*><span class="glyph" data-effect="scramble"/)
+  })
+
+  it('cuts its letters inside the units a text arrives by', async () => {
+    const html = await drawn(formatted(line(run('ab cd', wave))), {
+      by: 'word', unit: from => ({ class: 'unit', 'data-from': String(from) }),
+    }, moving)
+    expect(html).toMatch(/<span class="unit" data-from="3"><span class="letter"/)
+  })
+
+  it('draws a scramble over three words and a tremor over the last two, both', async () => {
+    const tremor: Style = { type: 'lasts', attrs: { effect: 'tremor', every: 300, strength: 'slight' } }
+    const html = await drawn(formatted(line(run('one ', scramble), run('two three', scramble, tremor))), undefined, moving)
+    expect(html.match(/class="glyph" data-effect="scramble"/g)).toHaveLength(11)
+    expect(html.match(/class="letter" data-effect="tremor"/g)).toHaveLength(8)
+    // The scramble is one run over both leaves: its fourth letter of eleven, the tremor's first.
+    expect(html).toContain('<span class="letter" data-effect="tremor" data-strength="slight" style="--phase:0;">'
+      + '<span class="glyph" data-effect="scramble" data-strength="marked" style="--step:0.36363636363636365;">t</span>')
+  })
+
+  it('draws a space inside a run taken apart into letters as a gap, never a letter', async () => {
+    const html = await drawn(formatted(line(run('a b', wave))), undefined, moving)
+    expect(html.match(/class="letter"/g)).toHaveLength(2)
+    expect(html).toContain('<span class="gap"> </span>')
+    expect(html).not.toMatch(/class="letter"[^>]*>\s/)
+  })
+
+  it('draws a run once around all its leaves, a word in it in italic and all', async () => {
+    const html = await drawn(formatted(line(run('so un', wave), run('do', wave, emphasis), run('ne it', wave))), undefined, moving)
+    expect(html).toMatch(/^<div><p><span class="apart" style="">.*<em><span class="letter".*<\/em>.*<\/span><\/p><\/div>$/)
+    expect(html.match(/class="apart"/g)).toHaveLength(1)
+    expect(html).not.toContain('\u2060')
+  })
+
+  it('joins a run to the rest of a word it starts or ends inside, and never across a space', async () => {
+    // Inside the root where the run starts, under its `white-space`; outside it
+    // where the word goes on past the run's end.
+    expect(await drawn(formatted(line('un', run('done', wave), '!')), undefined, moving))
+      .toMatch(/^<div><p>un<span class="apart" style="">\u2060<span class="letter".*<\/span>\u2060!<\/p><\/div>$/)
+    // Two runs meeting inside a word: the joiner is inside the second one's root.
+    expect(await drawn(formatted(line(run('un', scramble), run('done', wave))), undefined, moving))
+      .toMatch(/<\/span><span class="apart" style="">\u2060<span class="letter"[^>]*>d</)
+    expect(await drawn(formatted(line('so ', run('done', wave), ' it')), undefined, moving)).not.toContain('\u2060')
+    expect(await drawn(formatted(line('so', run(' done ', wave), 'it')), undefined, moving)).not.toContain('\u2060')
+    // Nothing joins a run that is not taken apart, nor the copy drawn still.
+    expect(await drawn(formatted(line('un', run('done', flicker))), undefined, moving)).not.toContain('\u2060')
+    expect(await drawn(formatted(line('un', run('done', wave))))).not.toContain('\u2060')
+  })
+
+  it('stands in for a letter with others of its case, the same ones every time, never itself', () => {
+    expect(standInsOf('a', 0, 'strong')).toHaveLength(3)
+    expect(standInsOf('a', 0, 'slight')).toEqual(standInsOf('a', 0, 'slight'))
+    expect(standInsOf('A', 4, 'marked').every(s => /^[A-Z]$/.test(s) && s !== 'A')).toBe(true)
+    expect(standInsOf('é', 2, 'marked').every(s => /^[a-z]$/.test(s))).toBe(true)
+    expect(standInsOf('7', 1, 'slight').every(s => /^\d$/.test(s) && s !== '7')).toBe(true)
+    expect(standInsOf('—', 0, 'strong')).toEqual([])
+  })
+
+  it('says whether a text has a run taken apart', () => {
+    expect(takesApart(formatted(line(run('lamp', flicker))))).toBe(false)
+    expect(takesApart(formatted(line(run('sea', wave))))).toBe(true)
   })
 })

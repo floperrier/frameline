@@ -37,11 +37,14 @@ async function readShotFormatted(event: H3Event) {
   if ('formatted' in read) return read.formatted
 
   const say = saying(event)
-  const message = read.refused === 'shotTextLong'
-    ? say('refusals.shotTextLong', { max: SHOT_TEXT_MAX_LENGTH })
-    : read.refused === 'redactionHides'
-      ? say('refusals.redactionHides', { max: REDACTION_HIDES_MAX_LENGTH })
-      : say('refusals.formatted')
+  const message = {
+    shotTextLong: () => say('refusals.shotTextLong', { max: SHOT_TEXT_MAX_LENGTH }),
+    redactionHides: () => say('refusals.redactionHides', { max: REDACTION_HIDES_MAX_LENGTH }),
+    lettersSplit: () => say('refusals.lettersSplit', { max: LETTERS_SPLIT_MAX }),
+    effectArrives: () => say('refusals.effectArrives'),
+    effectLasts: () => say('refusals.effectLasts'),
+    formatted: () => say('refusals.formatted'),
+  }[read.refused]()
   throw createError({ statusCode: 400, message })
 }
 

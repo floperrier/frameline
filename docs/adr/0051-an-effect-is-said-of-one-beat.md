@@ -129,6 +129,26 @@ plays on takes the text out of it, and the `alt` stays the Description. Wherever
 the Story is not being read, on the Contact Sheet, the Cover, a Shot's thumbnail
 and the landing page's specimen, it is still.
 
+**A run of the words carries its own, as two marks in the text.** Issue #361
+gives a stretch of a Shot's text an Effect as it arrives and one while it
+stands. They are written as the marks `arrives` and `lasts` in the formatted
+text `docs/adr/0056-a-shots-text-is-formatted-where-it-is-written.md` settled,
+whose attributes are exactly an Arrival and a Lasting and are read at the door
+by `isArrival` and `isLasting` for the carrier `run`. Two types rather than one,
+so a scramble over three words and a tremor over the last two can overlap. A run
+is offered the text's Effects and three that take it apart letter by letter: a
+scramble, a wave, and the tremor drawn on each letter. Its letters are bounded
+per Shot, `LETTERS_SPLIT_MAX`, three hundred, a letter under two such marks
+counted once, because a cap per run is a cap many runs add up past. A run taken
+apart is drawn twice, as a text arriving by units is: the copy that moves is
+hidden from the accessibility tree, and the words whole are read beside it from
+the landing. A run's root is drawn once around all the leaves that carry the
+same pair of Effects, and a word joiner holds a run to the rest of a word at
+both its edges: first inside its root where it starts inside a word, which
+holds two runs meeting inside one as well, and before the words that go on past
+its end. A run's flicker is the one flicker, so the flash rule counts it through
+`flickers()` with nothing new.
+
 ## Considered Options
 
 **A term for either kind.** *As the Image arrives* and *while the text is on

@@ -46,6 +46,8 @@ const CAN: Style[] = [
   { type: 'size', attrs: { step: 'small' } },
   { type: 'face', attrs: { face: 'typewriter' } },
 ]
+/* The one lit thing in an empty house, stuttering in the words as it does over the door. */
+const SIGN_LIT: Style[] = [{ type: 'lasts', attrs: { effect: 'flicker', strength: 'slight' } }]
 const DAYBREAK: Style[] = [
   { type: 'size', attrs: { step: 'largest' } },
   { type: 'face', attrs: { face: 'display' } },
@@ -308,7 +310,11 @@ export const REEL_CHANGE: Work = {
           },
         },
         {
-          text: 'Nobody. The screen holds nothing but the green of the sign over the door.',
+          formatted: formatted(line(
+            'Nobody. The screen holds nothing but ',
+            run('the green of the sign over the door', ...SIGN_LIT),
+            '.',
+          )),
           description: 'An empty house: a blank dark screen, and the green glow of the sign over '
             + 'the door, the only lit thing in the frame.',
           image: {

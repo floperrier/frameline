@@ -13,7 +13,7 @@
  * commands written here rather than in the component, so they are read on a
  * state without a page.
  */
-import { Extension, Mark, Node, getSchema, mergeAttributes } from '@tiptap/core'
+import { Extension, Mark, Node, getMarkAttributes, getMarkRange, getSchema, mergeAttributes } from '@tiptap/core'
 import type { AnyExtension, Editor, Extensions } from '@tiptap/core'
 import { UndoRedo } from '@tiptap/extensions'
 import { baseKeymap } from '@tiptap/pm/commands'
@@ -25,6 +25,7 @@ import type { Command, EditorState } from '@tiptap/pm/state'
 import { formattedOf, textOf } from '#shared/utils/formatted'
 import type { Formatted, Style } from '#shared/utils/formatted'
 import { SHOT_TEXT_MAX_LENGTH } from '#shared/utils/scenes'
+import type { Arrival, Lasting } from '#shared/utils/scenes'
 import { BLOCKS, STYLES } from './draw'
 
 type Drawn = [tag: string, attrs: Record<string, string>]
@@ -42,10 +43,12 @@ const attr = (value?: null) => value === null
   ? { default: null, rendered: false }
   : { default: undefined, isRequired: true, rendered: false }
 
-function style(name: Style['type'], attrs: string[], parse: (TagParseRule | StyleParseRule)[] = [], keys?: Keys) {
+function style(
+  name: Style['type'], attrs: string[], parse: (TagParseRule | StyleParseRule)[] = [], keys?: Keys, nullable: string[] = [],
+) {
   return Mark.create({
     name,
-    addAttributes: () => Object.fromEntries(attrs.map(name => [name, attr()])),
+    addAttributes: () => Object.fromEntries(attrs.map(name => [name, attr(nullable.includes(name) ? null : undefined)])),
     parseHTML: () => parse,
     renderHTML: ({ mark, HTMLAttributes }) =>
       holding((STYLES[name] as (attrs: unknown) => Drawn)(mark.attrs), HTMLAttributes),
@@ -64,6 +67,12 @@ const decorated = (line: string): StyleParseRule =>
   ({ style: 'text-decoration', consuming: false, getAttrs: value => value.includes(line) ? null : false })
 
 const MARKS = [
+  // A run's Effects, first because ProseMirror draws the first style outermost, so
+  // they hold every other style inside them as the Reading does: one run around an
+  // italic word in it. A lasting declares a round for every effect, null where it
+  // has none, which the boundary reads as none.
+  style('arrives', ['effect', 'over', 'strength']),
+  style('lasts', ['effect', 'every', 'strength'], [], undefined, ['every']),
   style('emphasis', [], [{ tag: 'em' }, { tag: 'i' }, { style: 'font-style=italic' }], toggles('Mod-i', 'emphasis')),
   style('strong', [], [
     { tag: 'strong' },
@@ -323,5 +332,79 @@ export const redact: Command = (state, dispatch) => {
 export const addSeparator: Command = (state, dispatch) => {
   const { $to } = state.selection
   dispatch?.(state.tr.insert($to.depth ? $to.after(1) : $to.pos, state.schema.nodes.separator!.create()).scrollIntoView())
+  return true
+}
+
+type Kind = 'arrives' | 'lasts'
+const KINDS = ['arrives', 'lasts'] as const
+
+/** Whether the words are the caret's rather than a selection's: a bar taken whole holds no style of its own. */
+const atCaret = ({ selection }: EditorState) => selection.empty || selection instanceof NodeSelection
+
+/**
+ * Where one kind of Effect is said: over the selection, or else over the run of
+ * that kind the caret is in, at its end too, where `getMarkRange` looks back.
+ * Where two runs meet, `getMarkRange` takes the one after the caret, and reading,
+ * writing and taking off all go through here, so none of them acts on the other.
+ */
+function saidOver(state: EditorState, kind: Kind): { from: number, to: number } | undefined {
+  const { selection } = state
+  if (!atCaret(state)) return { from: selection.from, to: selection.to }
+  return getMarkRange(selection.$from, state.schema.marks[kind]!) || undefined
+}
+
+/** The words an Effect is said of: the selection, or else the runs the caret is in, or nothing. */
+export function wordsSaid(state: EditorState): { from: number, to: number } | undefined {
+  const ranges = KINDS.flatMap(kind => saidOver(state, kind) ?? [])
+  if (!ranges.length) return undefined
+  return { from: Math.min(...ranges.map(r => r.from)), to: Math.max(...ranges.map(r => r.to)) }
+}
+
+/**
+ * The Effect of one kind the words hold where it would be written: the run's at
+ * the caret, or the first the selection meets, the round a flicker has none of
+ * left out.
+ */
+export function effectHeld(state: EditorState, kind: Kind): Arrival | Lasting | undefined {
+  const type = state.schema.marks[kind]!
+  const run = saidOver(state, kind)
+  const attrs: Record<string, unknown> | undefined = atCaret(state)
+    ? run && state.doc.nodeAt(run.from)?.marks.find(mark => mark.type === type)?.attrs
+    : getMarkAttributes(state, type)
+  return attrs?.effect
+    ? Object.fromEntries(Object.entries(attrs).filter(([, held]) => held !== null)) as Arrival | Lasting
+    : undefined
+}
+
+/**
+ * Says one of the two Effects of the words, or takes it off where it is null. One
+ * already said is changed over its own run, so a tremor on one word of a
+ * scrambled line stays on that word; one not yet said is laid over all the words.
+ */
+export function runEffect(kind: Kind, effect: Arrival | Lasting | null): Command {
+  return (state, dispatch) => {
+    const words = saidOver(state, kind) ?? (effect ? wordsSaid(state) : undefined)
+    if (!words) return false
+    const type = state.schema.marks[kind]!
+    const tr = state.tr.removeMark(words.from, words.to, type)
+    if (effect) tr.addMark(words.from, words.to, type.create(effect))
+    dispatch?.(tr)
+    return true
+  }
+}
+
+/**
+ * Takes both Effects off where the row reads them: each off the whole of its own
+ * run around the caret, or both off the words selected.
+ */
+export const takeEffectOff: Command = (state, dispatch) => {
+  const tr = state.tr
+  for (const kind of KINDS) {
+    const type = state.schema.marks[kind]!
+    const range = saidOver(state, kind)
+    if (range && state.doc.rangeHasMark(range.from, range.to, type)) tr.removeMark(range.from, range.to, type)
+  }
+  if (!tr.docChanged) return false
+  dispatch?.(tr)
   return true
 }
