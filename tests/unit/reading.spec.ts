@@ -7,10 +7,12 @@ import {
   EXITS_AFTER_MAX,
   EXITS_AFTER_MIN,
   isTime,
+  LAYOUTS,
+  cropPosition,
 } from '../../shared/utils/scenes'
 import type { Path, State, StoryToRead } from '../../shared/utils/reading'
 import {
-  advance, back, cut, lastUnitAt, lasting, moved, movesItself, opening, pathTo, pieces,
+  advance, back, cut, lastUnitAt, layout, lasting, moved, movesItself, opening, pathTo, pieces,
   reading, resumes, take, textArrival, textArrives, textMoves, unmet,
 } from '../../shared/utils/reading'
 import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
@@ -59,6 +61,7 @@ function story(
       cutOver: 0,
       cutThrough: 'image',
       exitsAfter: null,
+      layout: 'inset',
       textAfter: 0,
       textBy: 'whole',
       textPace: 15,
@@ -78,6 +81,9 @@ function story(
           cutAfter: null,
           cutOver: null,
           cutThrough: null,
+          layout: null,
+          cropX: 50,
+          cropY: 50,
           imageArrives: null,
           imageLasts: null,
           textArrives: null,
@@ -1054,13 +1060,13 @@ describe('cut', () => {
   const scene = {
     id: 'a', sets: {}, shots: [], sound: null, soundOfSceneId: null,
     transcript: '', soundLoops: true,
-    cutAfter: 4000, cutOver: 800, cutThrough: 'image' as const, exitsAfter: null,
+    cutAfter: 4000, cutOver: 800, cutThrough: 'image' as const, exitsAfter: null, layout: 'inset' as const,
     textAfter: 0, textBy: 'whole' as const, textPace: 15, textOver: 0, textStays: null,
   }
   const shot = {
     id: 's', text: '', position: 0, image: null, description: '',
     conditions: [], sound: null, transcript: '',
-    cutAfter: null, cutOver: null, cutThrough: null,
+    cutAfter: null, cutOver: null, cutThrough: null, layout: null, cropX: 50, cropY: 50,
     imageArrives: null, imageLasts: null, textArrives: null, textLasts: null,
     textAfter: null, textBy: null, textPace: null, textOver: null, textStays: null,
   }
@@ -1222,17 +1228,51 @@ describe('isTime', () => {
   })
 })
 
+describe('layout', () => {
+  const scene = {
+    id: 'a', sets: {}, shots: [], sound: null, soundOfSceneId: null,
+    transcript: '', soundLoops: true,
+    cutAfter: null, cutOver: 0, cutThrough: 'image' as const, exitsAfter: null, layout: 'inset' as const,
+    textAfter: 0, textBy: 'whole' as const, textPace: 15, textOver: 0, textStays: null,
+  }
+  const shot = {
+    id: 's', text: '', position: 0, image: null, description: '',
+    conditions: [], sound: null, transcript: '',
+    cutAfter: null, cutOver: null, cutThrough: null, layout: null, cropX: 50, cropY: 50,
+    imageArrives: null, imageLasts: null, textArrives: null, textLasts: null,
+    textAfter: null, textBy: null, textPace: null, textOver: null, textStays: null,
+  }
+
+  it('lays a Shot that says nothing out as its Scene says', () => {
+    for (const value of LAYOUTS) {
+      expect(layout({ ...scene, layout: value }, { ...shot, layout: null })).toBe(value)
+    }
+  })
+
+  it('lets a Shot answer for itself against a Scene saying the other', () => {
+    expect(layout({ ...scene, layout: 'inset' }, { ...shot, layout: 'full' })).toBe('full')
+    expect(layout({ ...scene, layout: 'full' }, { ...shot, layout: 'inset' })).toBe('inset')
+  })
+})
+
+describe('cropPosition', () => {
+  // The smallest case that fails if the two numbers are written the other way round.
+  it('writes across before down, in percent', () => {
+    expect(cropPosition({ cropX: 84, cropY: 49 })).toBe('84% 49%')
+  })
+})
+
 describe('textArrival', () => {
   const scene = {
     id: 'a', sets: {}, shots: [], sound: null, soundOfSceneId: null,
     transcript: '', soundLoops: true,
-    cutAfter: null, cutOver: 0, cutThrough: 'image' as const, exitsAfter: null,
+    cutAfter: null, cutOver: 0, cutThrough: 'image' as const, exitsAfter: null, layout: 'inset' as const,
     textAfter: 1000, textBy: 'word' as const, textPace: 10, textOver: 200, textStays: 3000,
   }
   const shot = {
     id: 's', text: 'A door opens.', position: 0, image: null, description: '',
     conditions: [], sound: null, transcript: '',
-    cutAfter: null, cutOver: null, cutThrough: null,
+    cutAfter: null, cutOver: null, cutThrough: null, layout: null, cropX: 50, cropY: 50,
     textAfter: null, textBy: null, textPace: null, textOver: null, textStays: null,
   }
 

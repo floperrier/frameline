@@ -45,6 +45,11 @@ _Avoid_: panel, slide, frame, beat, step, séquence
 **Image**:
 The one image a Shot carries. A Shot may be text alone, so an Image is what a Shot
 has at most one of, never a thing of its own.
+An Image carries the point it is cropped around, for wherever a frame of another
+shape cuts it, which is a Shot laid out full, a Cover on a shelf and a print on the
+Contact Sheet. The point is pressed on the Contact Sheet, where the Author is
+looking at the Image, and an Image nobody pressed is cropped around its centre.
+However the frame cuts the Image, the point stays in view.
 _Affiché_: Image
 _Avoid_: picture, photo, frame, visual, asset, media, photogramme, still
 
@@ -86,6 +91,20 @@ is still arriving shows the rest of it rather than cutting.
 _Affiché_: Coupe
 _Avoid_: transition, timing, duration, delay, autoplay, timer, slideshow,
 durée, minuterie, défilement
+
+**Layout**:
+How large a Shot is thrown and, where it carries both an Image and text, where the
+text goes. Laid out inset, the frame is the reading column, an Image stands whole
+in it and the text sits under the Image. Laid out full, the frame is the whole
+room the Reading is shown in, an Image covers it, cropped around its point, and
+the text lies over its foot. What a Shot carries is never a setting. A Shot with
+only an Image draws no text, and a Shot with only text is a card on the dark, at
+the size its Layout gives it. A Scene says how its run is laid out, a Shot may say
+otherwise, and a Shot that says nothing is laid out as its Scene says, which is
+the shape the Cut has.
+_Affiché_: Mise en page
+_Avoid_: framing, composition, format, template, display, mode, arrangement,
+cadrage, disposition, gabarit, maquette
 
 **Effect**:
 Something that happens to a Shot's Image or to its text, named by the Author
@@ -188,7 +207,8 @@ the three readings the bench turns the same document over to — the writing, th
 Contact Sheet and the Preview — and the one an Author judges by looking instead
 of by reading: a Shot with no Image is drawn as a Shot with no Image, so what is
 still a grey rectangle is countable at a glance. It is where a Description is
-written, because it is where the Author is looking at the Image. Out of the
+written and where the point an Image is cropped around is pressed, because it is
+where the Author is looking at the Image. Out of the
 grammar of cinema, which
 `docs/adr/0022-the-metaphor-stops-at-the-edge-of-the-work.md` reserves for the
 work, because a reading is a way of looking at the work rather than a tool of the

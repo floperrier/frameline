@@ -25,8 +25,8 @@ const { story } = defineProps<{
     publishedAt: string | null
     authorId?: string
     authorName?: string | null
-    /** The address of the Image the Story is presented by, or none. */
-    cover?: string | null
+    /** The Image the Story is presented by and its crop point, or none. */
+    cover?: Cover | null
   }
 }>()
 
@@ -42,7 +42,14 @@ const localePath = useLocalePath()
          Decorative beside the title that names the work, so it says nothing of
          its own: a Reader who cannot see it meets the Shot's Description when
          they read. -->
-    <img v-if="story.cover" class="cover" :src="story.cover" alt="" loading="lazy">
+    <img
+      v-if="story.cover"
+      class="cover"
+      :src="story.cover.image"
+      :style="{ objectPosition: cropPosition(story.cover) }"
+      alt=""
+      loading="lazy"
+    >
     <NuxtLink class="open" :to="`/read/${story.id}`" :lang="story.language">
       {{ story.title }}
     </NuxtLink>

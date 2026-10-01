@@ -1,4 +1,4 @@
-import type { Condition, CutThrough, Exit, Flags, Sets, Shot, TextBy } from './scenes'
+import type { Condition, CutThrough, Exit, Flags, Layout, Sets, Shot, TextBy } from './scenes'
 import type { Phrase } from './phrases'
 
 /**
@@ -27,6 +27,7 @@ export type StoryToRead = {
     cutOver: number
     cutThrough: CutThrough
     exitsAfter: number | null
+    layout: Layout
     /**
      * How the texts of this Scene's run arrive — after a time, by a unit, at a
      * pace, over a time — and how long they stay, null being until the Cut. See
@@ -157,6 +158,14 @@ export function cut(scene: SceneToRead, shot: Shot): Cut {
     over: shot.cutOver ?? scene.cutOver,
     through: shot.cutThrough ?? scene.cutThrough,
   }
+}
+
+/**
+ * A Shot answers for itself where it says anything and is laid out as its Scene
+ * says where it says nothing, the shape `cut()` has.
+ */
+export function layout(scene: SceneToRead, shot: Shot): Layout {
+  return shot.layout ?? scene.layout
 }
 
 /**

@@ -19,7 +19,9 @@ import {
   isPace,
   isTime,
 } from '../../shared/utils/scenes.ts'
+import { LAYOUTS } from '../../shared/utils/scenes.ts'
 import type { Scene, Shot } from '../../shared/utils/scenes.ts'
+import { layout } from '../../shared/utils/reading.ts'
 
 /**
  * The Cut the two works this repository carries are written with — *Reel Change*
@@ -214,5 +216,42 @@ describe('the arrivals the works are written with', () => {
     const scene = SAMPLES[language].scenes.find(scene => scene.name === name)
 
     expect(scene).toMatchObject({ textAfter: 1000, textBy: 'word', textOver: 200 })
+  })
+})
+
+/**
+ * The Layout and the point the works are written with, held to what each of them
+ * is for: a work that is the demonstration of the Layout shows a Shot laid out
+ * `full` around a point that is not the centre, an Image with nothing under it
+ * and a card with no Image, and says nothing a door would refuse.
+ */
+describe.each(WORKS)('the Layout %s is written with', (_name: string, work: Work) => {
+  const shots = work.scenes.flatMap(scene => scene.shots.map(shot => ({ scene, shot })))
+
+  it('writes no Layout and no point the door it is written through would refuse', () => {
+    for (const scene of work.scenes) {
+      expect(scene.layout === undefined || LAYOUTS.includes(scene.layout)).toBe(true)
+
+      for (const { cropX, cropY, layout } of scene.shots) {
+        expect(layout === undefined || LAYOUTS.includes(layout)).toBe(true)
+        for (const point of [cropX, cropY]) {
+          expect(point === undefined || (Number.isInteger(point) && point >= 0 && point <= 100))
+            .toBe(true)
+        }
+      }
+    }
+  })
+
+  it('lays a Shot out full around a point that is not the centre', () => {
+    expect(shots.some(({ scene, shot }) =>
+      layout({ layout: scene.layout ?? 'inset' } as Scene, { layout: shot.layout ?? null } as Shot)
+        === 'full'
+      && shot.image !== undefined
+      && ((shot.cropX ?? 50) !== 50 || (shot.cropY ?? 50) !== 50))).toBe(true)
+  })
+
+  it('carries an Image with no text and a text with no Image', () => {
+    expect(shots.some(({ shot }) => shot.image !== undefined && shot.text.trim() === '')).toBe(true)
+    expect(shots.some(({ shot }) => shot.image === undefined && shot.text.trim() !== '')).toBe(true)
   })
 })

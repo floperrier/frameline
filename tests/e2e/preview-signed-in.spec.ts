@@ -895,8 +895,9 @@ test('a document turned over from a Scene down the Story comes back wound to it'
     await expect(previewIn(page)).toBeVisible()
     await page.getByRole('button', { name: 'Write the Scene' }).click()
 
-    // The one scroller on the bench is as tall as whichever reading is in it, so a
-    // reading shorter than the Story takes the writing's scroll down with it. The
+    // The document is the one scroller of the bench's middle, and the Preview is
+    // one document tall and scrolls what it holds itself, so a reading shorter
+    // than the Story still takes the writing's scroll down with it. The
     // turn back winds the document to the Scene the address names, which is the
     // Scene the Author was in.
     await expect(named).toBeInViewport()

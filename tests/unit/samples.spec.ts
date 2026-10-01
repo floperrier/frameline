@@ -90,6 +90,7 @@ function shapeOf(work: Work) {
       sets: Object.keys(scene.sets ?? {}).length,
       sound: scene.sound,
       transcribed: Boolean(scene.transcript),
+      layout: scene.layout,
       cutAfter: scene.cutAfter,
       cutOver: scene.cutOver,
       cutThrough: scene.cutThrough,
@@ -102,6 +103,9 @@ function shapeOf(work: Work) {
       shots: scene.shots.map(shot => ({
         image: shot.image,
         described: Boolean(shot.description),
+        layout: shot.layout,
+        cropX: shot.cropX,
+        cropY: shot.cropY,
         sound: shot.sound,
         transcribed: Boolean(shot.transcript),
         cutAfter: shot.cutAfter,

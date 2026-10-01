@@ -1,4 +1,4 @@
-import { and, eq, isNotNull } from 'drizzle-orm'
+import { and, eq, isNotNull, sql } from 'drizzle-orm'
 import { authors, stories } from '../../db/schema'
 import { useDb } from '../../db'
 
@@ -30,12 +30,15 @@ export default defineEventHandler(async (event) => {
       stepsBack: stories.stepsBack,
       // The title card wears the same Image the shelf did, so a Reader arrives
       // where the entry they pressed said they would.
-      cover: coverShotOf,
+      coverShotId: coverShotOf,
+      cropX: coverShot.cropX,
+      cropY: coverShot.cropY,
       authorId: authors.id,
       authorName: authors.name,
     })
     .from(stories)
     .innerJoin(authors, eq(stories.authorId, authors.id))
+    .leftJoin(coverShot, sql`${coverShot.id} = ${coverShotOf}`)
     .where(and(eq(stories.id, id), isNotNull(stories.publishedAt)))
 
   if (!story) throw notFound(event, 'Story')
@@ -56,21 +59,25 @@ export default defineEventHandler(async (event) => {
   // resolved by `textArrival()`.
   const forTheReading = scenes.map(({
     id, name, sets, shots, sound, soundOfSceneId, transcript, soundLoops,
-    cutAfter, cutOver, cutThrough, exitsAfter,
+    cutAfter, cutOver, cutThrough, exitsAfter, layout,
     textAfter, textBy, textPace, textOver, textStays,
   }): StoryToShow['scenes'][number] => ({
     id, name, sets, shots, sound, soundOfSceneId, transcript, soundLoops,
-    cutAfter, cutOver, cutThrough, exitsAfter,
+    cutAfter, cutOver, cutThrough, exitsAfter, layout,
     textAfter, textBy, textPace, textOver, textStays,
   }))
+
+  // The Cover leaves as one object, the Image and its point together, so the
+  // columns it was read from are not sent beside it.
+  const { coverShotId, cropX, cropY, ...rest } = story
 
   // Whether the Story carries a Sound anywhere, which is what makes the title
   // card a control: a Reader who presses it consents to being played something,
   // and a browser will not play into a page nobody has touched. Read off the
   // addresses the graph already carries, so no query touches the bytes.
   return {
-    ...story,
-    cover: coverUrl(story.cover),
+    ...rest,
+    cover: coverFor({ coverShotId, cropX, cropY }),
     carriesSound: carriesSound({ scenes: forTheReading }),
     scenes: forTheReading,
     exits,

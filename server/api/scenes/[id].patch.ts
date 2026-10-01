@@ -31,6 +31,7 @@ export default defineEventHandler(async (event) => {
       cutOver: scenes.cutOver,
       cutThrough: scenes.cutThrough,
       exitsAfter: scenes.exitsAfter,
+      layout: scenes.layout,
       textAfter: scenes.textAfter,
       textBy: scenes.textBy,
       textPace: scenes.textPace,

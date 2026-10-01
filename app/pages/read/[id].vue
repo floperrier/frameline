@@ -18,7 +18,7 @@ const { data: story, error } = await useAsyncData(
   () => send(`/api/read/${id}`) as Promise<StoryToShow & {
     title: string
     language: string
-    cover: string | null
+    cover: Cover | null
     authorId: string
     authorName: string | null
     carriesSound: boolean
@@ -66,7 +66,13 @@ onMounted(() => {
            it at full width and a poster over a poster is one picture too many.
            Decorative beside the title that names the work — the Shot itself, with
            its Description, is met in the Reading. -->
-      <img v-if="story?.cover" class="cover" :src="story.cover" alt="">
+      <img
+        v-if="story?.cover"
+        class="cover"
+        :src="story.cover.image"
+        :style="{ objectPosition: cropPosition(story.cover) }"
+        alt=""
+      >
       <p class="eyebrow">{{ $t('read.eyebrow') }}</p>
       <!-- The Story's own title, announced in the Story's Language while the
            line above it stays in the Reader's. -->

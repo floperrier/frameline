@@ -185,6 +185,58 @@ function describe(shot: Shot) {
     body: { text: shot.text, description: shot.description },
   }))
 }
+
+/**
+ * The point an Image is cropped around, as the sheet draws it while a hand is on
+ * it. A range moves this on `input` — every step of a drag — and the Shot itself
+ * is written only on `change`, when the hand lets go: a drag across a range is
+ * one request, not forty, and the Shot is never holding a point it has not been
+ * told is final. Kept against the Shot it was moved for, so that choosing
+ * another frame mid-drag cannot draw one Shot's point on another's Image.
+ */
+const moving = ref<{ id: string, cropX: number, cropY: number }>()
+
+/** The point to draw a Shot's crops around: the one under the hand, else its own. */
+function pointOf(shot: Shot) {
+  return moving.value?.id === shot.id ? moving.value : shot
+}
+
+/**
+ * A press on the Image, which is a pointer's alone. The two ranges beneath it are
+ * the keyboard's and the screen reader's way to the same act (WCAG 2.1.1), so the
+ * Image is not made a button to be tabbed to and announced as one it could not
+ * be used from. The print is drawn at the Image's own shape, so its box is the
+ * picture and there is no letterbox to subtract from the press.
+ */
+function press(shot: Shot, event: MouseEvent) {
+  const box = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const whole = (at: number, of: number) => Math.min(100, Math.max(0, Math.round(at / of * 100)))
+
+  shot.cropX = whole(event.clientX - box.left, box.width)
+  shot.cropY = whole(event.clientY - box.top, box.height)
+  moving.value = undefined
+
+  return write(() => send(`/api/shots/${shot.id}`, {
+    method: 'PATCH',
+    body: { cropX: shot.cropX, cropY: shot.cropY },
+  }))
+}
+
+/** A range let go of: the point it moved is the Shot's, and is written. */
+function crop(shot: Shot, axis: 'cropX' | 'cropY', event: Event) {
+  shot[axis] = Number((event.target as HTMLInputElement).value)
+  moving.value = undefined
+
+  return write(() => send(`/api/shots/${shot.id}`, {
+    method: 'PATCH',
+    body: { [axis]: shot[axis] },
+  }))
+}
+
+/** A range in motion: the ring and the band's print follow, and nothing is sent. */
+function move(shot: Shot, axis: 'cropX' | 'cropY', event: Event) {
+  moving.value = { ...pointOf(shot), id: shot.id, [axis]: Number((event.target as HTMLInputElement).value) }
+}
 </script>
 
 <template>
@@ -294,6 +346,7 @@ function describe(shot: Shot) {
               <img
                 v-if="frame.shot.image"
                 :src="imageOf(frame.shot)"
+                :style="{ objectPosition: cropPosition(pointOf(frame.shot)) }"
                 alt=""
                 loading="lazy"
                 decoding="async"
@@ -315,11 +368,31 @@ function describe(shot: Shot) {
     <section v-if="shown" class="shown" aria-labelledby="shown-heading">
       <h2 id="shown-heading" class="eyebrow">{{ shown.named }}</h2>
 
-      <p class="print big" :class="{ bare: !shown.shot.image }">
-        <img v-if="shown.shot.image" :src="imageOf(shown.shot)" :alt="$t('editor.imageOfShot', {
-          place: shown.place + 1,
-          scene: sceneName(shown.scene.id),
-        })">
+      <!-- The whole Image, at its own shape and not cropped: it is here that the
+           point the crops are made around is chosen, and a point chosen on a
+           crop would be chosen on what the crop has already thrown away. The
+           press is a pointer's alone — the ranges below are the way in for the
+           keyboard and the screen reader — so nothing here is a button, and the
+           ring is for the eye. -->
+      <p
+        class="print big"
+        :class="{ bare: !shown.shot.image, whole: shown.shot.image }"
+        @click="shown.shot.image && press(shown.shot, $event)"
+      >
+        <img
+          v-if="shown.shot.image"
+          :src="imageOf(shown.shot)"
+          :alt="$t('editor.imageOfShot', {
+            place: shown.place + 1,
+            scene: sceneName(shown.scene.id),
+          })"
+        >
+        <span
+          v-if="shown.shot.image"
+          class="ring"
+          aria-hidden="true"
+          :style="{ left: `${pointOf(shown.shot).cropX}%`, top: `${pointOf(shown.shot).cropY}%` }"
+        />
       </p>
 
       <!-- Everything about the Shot that is not the frame, held together so that
@@ -338,7 +411,7 @@ function describe(shot: Shot) {
              reading does not carry. Beats are added where they stand, in the
              writing. -->
         <p v-if="shown.shot.text" class="shot" :lang="story.language">{{ shown.shot.text }}</p>
-        <p v-else class="none">{{ $t('editor.noWordsYet') }}</p>
+        <p v-else class="none">{{ $t('editor.noWords') }}</p>
 
         <!-- What the image shows, for a Reader who cannot see it. The one field on
              this reading, and the reason the reading has one: an Author writes a
@@ -362,6 +435,37 @@ function describe(shot: Shot) {
             @change="describe(shown.shot)"
           >
         </p>
+
+        <!-- The point the Image is cropped around, which is what a screen of
+             another shape keeps in view. Two native ranges, because this is the
+             keyboard's way to the act the press on the Image is the pointer's way
+             to. They move the ring on `input` and write on `change`, so a drag is
+             one request. Only where there is an Image to crop. -->
+        <fieldset v-if="shown.shot.image" class="crop">
+          <legend class="eyebrow">
+            {{ $t('editor.croppedAround') }}
+            <span class="visually-hidden">
+              {{ $t('editor.croppedAroundOfShot', {
+                place: shown.place + 1,
+                scene: sceneName(shown.scene.id),
+              }) }}
+            </span>
+          </legend>
+          <label v-for="axis in ([['cropX', 'cropAcross'], ['cropY', 'cropDown']] as const)" :key="axis[0]">
+            <span>{{ $t(`editor.${axis[1]}`) }}</span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              :value="pointOf(shown.shot)[axis[0]]"
+              :aria-valuetext="$t('editor.cropPercent', { value: pointOf(shown.shot)[axis[0]] })"
+              @input="move(shown.shot, axis[0], $event)"
+              @change="crop(shown.shot, axis[0], $event)"
+            >
+          </label>
+          <p class="none">{{ $t('editor.cropNote') }}</p>
+        </fieldset>
 
         <!-- What the Shot plays under, said in the words its own editor writes it
              in: "Played when — Flag coat holds on". Read and not offered — the list
@@ -588,6 +692,55 @@ function describe(shot: Shot) {
   border-inline-start: 1px solid var(--edge);
 }
 
+/* The Image beside the bands, whole and at its own shape: the box of the press is
+   the box of the picture, so the point is read straight off the pointer with no
+   letterbox to subtract. Capped in height so a tall Image does not push the words
+   and the ranges off the pane. */
+.shown .print.whole {
+  aspect-ratio: auto;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  border-width: 0;
+  line-height: 0;
+  cursor: crosshair;
+}
+
+.shown .print.whole img {
+  inline-size: auto;
+  max-inline-size: 100%;
+  block-size: auto;
+  max-block-size: 24rem;
+  object-fit: initial;
+}
+
+/* Where the Image is cropped around, drawn in the grease pencil the Author's own
+   marks are written in. Over the picture and never in the way of the press. */
+.ring {
+  position: absolute;
+  inline-size: var(--s4);
+  block-size: var(--s4);
+  border: 2px solid var(--grease);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--bench);
+  translate: -50% -50%;
+  pointer-events: none;
+}
+
+/* The ranges, one to an axis, each its label over a track the width of the pane. */
+.crop {
+  display: grid;
+  gap: var(--s2);
+  min-inline-size: 0;
+  padding: 0;
+  border: none;
+}
+
+.crop label {
+  display: grid;
+  gap: var(--s1);
+  font-size: 0.75rem;
+}
+
 /* Everything about the Shot that is not the frame, which is one block at every
    width: under the frame where the detail is a column, beside it where the fold
    has laid it along the foot. */
@@ -596,7 +749,7 @@ function describe(shot: Shot) {
   gap: var(--s3);
 }
 
-.shown .print.big {
+.shown .print.big:not(.whole) {
   cursor: default;
 }
 

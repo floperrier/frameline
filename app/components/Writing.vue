@@ -925,6 +925,27 @@ function writeShotCut(
   return writing(scene, shot.id, () => send(`/api/shots/${shot.id}`, { method: 'PATCH', body }))
 }
 
+/**
+ * The Layout a Scene says for its run, and the one a Shot says for itself, where
+ * *as the Scene says* is the null the column holds. Written the way the Cut is:
+ * on the row before the request leaves, so the document does not flicker back to
+ * the answer that was chosen against.
+ */
+function writeSceneLayout(scene: Scene, layout: Layout) {
+  scene.layout = layout
+
+  return writing(scene, scene.id, () =>
+    send(`/api/scenes/${scene.id}`, { method: 'PATCH', body: { layout } }))
+}
+
+function writeShotLayout(scene: Scene, shot: Shot, answer: string) {
+  const layout = answer === 'scene' ? null : answer as Layout
+  shot.layout = layout
+
+  return writing(scene, shot.id, () =>
+    send(`/api/shots/${shot.id}`, { method: 'PATCH', body: { layout } }))
+}
+
 type EffectSlot = 'imageArrives' | 'imageLasts' | 'textArrives' | 'textLasts'
 
 /**
@@ -1912,6 +1933,35 @@ function writeConditions(
         </details>
       </section>
 
+      <!-- How the Scene's Shots are laid out: the Image above the text, or the
+           Image across the whole screen with the text over it. After the Text and
+           before the run, because it is said about the run — and a Shot may answer
+           otherwise on its own row.
+
+           One answer, so one `<select>` as the Cut's are, and no Command is marked
+           for the same reason: no press opens a `<select>`, which `CONTEXT.md`
+           exempts. -->
+      <section class="held layout">
+        <h3>{{ $t('editor.layoutHeld') }}</h3>
+
+        <p class="cutting">
+          <label class="eyebrow" :for="`layout-${held.scene.id}`">
+            {{ $t('editor.shotsAreLaidOut') }}
+            <span class="visually-hidden">{{ held.name }}</span>
+          </label>
+          <select
+            :id="`layout-${held.scene.id}`"
+            :value="held.scene.layout"
+            @change="writeSceneLayout(
+              held.scene, ($event.target as HTMLSelectElement).value as Layout)"
+          >
+            <option v-for="layout in LAYOUTS" :key="layout" :value="layout">
+              {{ $t(`editor.layout${layout === 'full' ? 'Full' : 'Inset'}`) }}
+            </option>
+          </select>
+        </p>
+      </section>
+
       <!-- The run: one row a beat, its Place in the margin, the thumbnail and the
            words side by side, the Description under them where there is an Image to
            describe, and what the beat plays under sharing its last line with the
@@ -1969,6 +2019,7 @@ function writeConditions(
                 <img
                   v-if="shot.image"
                   :src="imageOf(shot)"
+                  :style="{ objectPosition: cropPosition(shot) }"
                   :alt="$t('editor.imageOfShot', {
                     place: place + 1,
                     scene: held.name,
@@ -2189,6 +2240,31 @@ function writeConditions(
                     >
                     <span class="unit" aria-hidden="true">{{ $t('editor.secondsUnit') }}</span>
                   </template>
+                </p>
+              </div>
+
+              <!-- What this beat says about its own Layout, drawn on every beat for
+                   the Cut's reason, and answering *as the Scene says* until the
+                   Author says otherwise, which is the null the column holds. -->
+              <div class="laid">
+                <p class="cutting">
+                  <label class="eyebrow" :for="`shot-layout-${shot.id}`">
+                    {{ $t('editor.shotIsLaidOut') }}
+                    <span class="visually-hidden">
+                      {{ $t('editor.shotOfScene', { place: place + 1, scene: held.name }) }}
+                    </span>
+                  </label>
+                  <select
+                    :id="`shot-layout-${shot.id}`"
+                    :value="shot.layout ?? 'scene'"
+                    @change="writeShotLayout(
+                      held.scene, shot, ($event.target as HTMLSelectElement).value)"
+                  >
+                    <option value="scene">{{ $t('editor.asTheSceneSays') }}</option>
+                    <option v-for="layout in LAYOUTS" :key="layout" :value="layout">
+                      {{ $t(`editor.layout${layout === 'full' ? 'Full' : 'Inset'}`) }}
+                    </option>
+                  </select>
                 </p>
               </div>
 
@@ -3149,6 +3225,7 @@ function writeConditions(
 .beat > .struck,
 .beat > .transcribed,
 .beat > .cut,
+.beat > .laid,
 .beat > .arrives {
   grid-column: 1 / -1;
 }
@@ -3158,6 +3235,7 @@ function writeConditions(
    apart than anything else on the row, because each of the two is a label and its
    answer and the eye has to read where one sentence ends and the next starts. */
 .beat > .cut,
+.beat > .laid,
 .arrives > .answers {
   display: flex;
   flex-wrap: wrap;

@@ -27,8 +27,9 @@ import { useDb } from '../../../db'
  * beats had stopped working. The record names the Shots and the Exits and is
  * silent here; this is the reading that leaves the copy an ordinary Scene.
  *
- * The Shots are copied with their four Effects. A Shot's own Cut is not copied
- * yet, which is #344's to fix.
+ * The Shots are copied with their four Effects, and the Scene with its Layout and
+ * each Shot with its own Layout and the point its Image is cropped around. A
+ * Shot's own Cut is not copied yet, which is #344's to fix.
  *
  * Nothing says it is a copy. There is no origin on the row, and the name is the
  * original's verbatim — what tells two Scenes of one name apart is the number
@@ -49,10 +50,10 @@ export default defineEventHandler(async (event) => {
     with made as (
       insert into scenes (
         story_id, name, sets, sound, sound_of_scene_id, transcript, sound_loops,
-        text_after, text_by, text_pace, text_over, text_stays
+        layout, text_after, text_by, text_pace, text_over, text_stays
       )
       select story_id, name, sets, sound, sound_of_scene_id, transcript, sound_loops,
-        text_after, text_by, text_pace, text_over, text_stays
+        layout, text_after, text_by, text_pace, text_over, text_stays
       from scenes
       where id = ${id}::uuid and id in (${scenesOf(author.id)})
       returning id, name, sets
@@ -61,11 +62,13 @@ export default defineEventHandler(async (event) => {
       insert into shots (
         scene_id, text, position, image, description, sound, transcript, conditions,
         image_arrives, image_lasts, text_arrives, text_lasts,
+        layout, crop_x, crop_y,
         text_after, text_by, text_pace, text_over, text_stays
       )
       select made.id, shots.text, shots.position, shots.image, shots.description,
              shots.sound, shots.transcript, shots.conditions,
              shots.image_arrives, shots.image_lasts, shots.text_arrives, shots.text_lasts,
+             shots.layout, shots.crop_x, shots.crop_y,
              shots.text_after, shots.text_by, shots.text_pace, shots.text_over,
              shots.text_stays
       from made, shots

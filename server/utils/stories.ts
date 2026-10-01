@@ -1,7 +1,9 @@
 import { and, eq, isNotNull, sql } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 import type { H3Event } from 'h3'
 import { exits, scenes, shots, stories } from '../db/schema'
 import { useDb } from '../db'
+import type { Cover } from '../../shared/utils/stories'
 
 /**
  * Reads a Story title from the request body. A trust boundary: the title
@@ -139,9 +141,27 @@ export const coverShotOf = sql<string | null>`coalesce(
     order by ${shots.position} limit 1)
 )`
 
-/** The address of the Image a shelf shows for a Story, or null where it has none. */
-export function coverUrl(coverShotId: string | null) {
-  return coverShotId && shotImageUrl(coverShotId)
+/**
+ * The Shot `coverShotOf` names, joined once into the query it is selected by so
+ * the point its Image is cropped around arrives in the same round trip: a
+ * Catalogue of a hundred Stories is still one query. Left, because a Story
+ * presented by its words alone names none.
+ */
+export const coverShot = alias(shots, 'cover_shot')
+
+/**
+ * What a shelf shows a Story by: the address of the Image and the point it is
+ * cropped around, or null where it has none. One object rather than a point
+ * beside an address, so a Cover cannot be null beside a point that is not.
+ */
+export function coverFor(row: {
+  coverShotId: string | null
+  cropX: number | null
+  cropY: number | null
+}): Cover | null {
+  return row.coverShotId
+    ? { image: shotImageUrl(row.coverShotId), cropX: row.cropX ?? 50, cropY: row.cropY ?? 50 }
+    : null
 }
 
 /**
@@ -190,6 +210,7 @@ export async function readStoryGraph(storyId: string) {
       cutOver: scenes.cutOver,
       cutThrough: scenes.cutThrough,
       exitsAfter: scenes.exitsAfter,
+      layout: scenes.layout,
       textAfter: scenes.textAfter,
       textBy: scenes.textBy,
       textPace: scenes.textPace,
@@ -208,6 +229,9 @@ export async function readStoryGraph(storyId: string) {
       shotCutAfter: shots.cutAfter,
       shotCutOver: shots.cutOver,
       shotCutThrough: shots.cutThrough,
+      shotLayout: shots.layout,
+      cropX: shots.cropX,
+      cropY: shots.cropY,
       imageArrives: shots.imageArrives,
       imageLasts: shots.imageLasts,
       textArrives: shots.textArrives,
@@ -242,6 +266,7 @@ export async function readStoryGraph(storyId: string) {
         cutOver: row.cutOver,
         cutThrough: row.cutThrough,
         exitsAfter: row.exitsAfter,
+        layout: row.layout,
         textAfter: row.textAfter,
         textBy: row.textBy,
         textPace: row.textPace,
@@ -263,6 +288,9 @@ export async function readStoryGraph(storyId: string) {
         cutAfter: row.shotCutAfter,
         cutOver: row.shotCutOver,
         cutThrough: row.shotCutThrough,
+        layout: row.shotLayout,
+        cropX: row.cropX!,
+        cropY: row.cropY!,
         imageArrives: row.imageArrives,
         imageLasts: row.imageLasts,
         textArrives: row.textArrives,

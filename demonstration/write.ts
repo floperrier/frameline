@@ -67,6 +67,7 @@ for (const scene of work.scenes) {
   // default every Story written before the Cut has. A work naming none sends nothing.
   const says = {
     transcript: scene.transcript,
+    layout: scene.layout,
     cutAfter: scene.cutAfter,
     cutOver: scene.cutOver,
     cutThrough: scene.cutThrough,
@@ -91,6 +92,9 @@ for (const scene of work.scenes) {
       cutAfter: shot.cutAfter,
       cutOver: shot.cutOver,
       cutThrough: shot.cutThrough,
+      layout: shot.layout,
+      cropX: shot.cropX,
+      cropY: shot.cropY,
       imageArrives: shot.imageArrives,
       imageLasts: shot.imageLasts,
       textArrives: shot.textArrives,

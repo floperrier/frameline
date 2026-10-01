@@ -680,7 +680,8 @@ async function turnTo(turn: Reading, event: Event) {
         <!-- The one of the three regions that scrolls. Which reading it holds is
              the page's to say; where it is, is not. The Contact Sheet fills it and
              scrolls its bands inside itself, so this scrollbar belongs to the
-             writing and to the Preview. -->
+             writing; the Preview is one document tall and scrolls what it holds
+             itself. -->
         <div ref="scroller" class="document" @focusin="focusedIn">
           <!-- There is one notion of where the Author is and it is the Path, so a
                way on pressed in the reading moves the writing with it — see
@@ -850,10 +851,11 @@ main {
   overflow-y: auto;
 }
 
-/* The scroller the middle of the bench holds, and the only one the layout has: the
-   document is what the window is for at every width. The Contact Sheet takes the
-   whole of it and scrolls its own bands inside itself, which leaves this one with
-   nothing to do while that reading is up. Wound to the Scene the address names —
+/* The scroller the middle of the bench holds, and the one the layout is built
+   around: the document is what the window is for at every width. The Contact Sheet
+   takes the whole of it and scrolls its own bands inside itself, which leaves this
+   one with nothing to do while that reading is up, and the Preview is one document
+   tall and scrolls what it holds itself. Wound to the Scene the address names —
    smoothly when the Author asked for the move, and instantly on the first sight of
    the bench, which `windOn` says. The answer to `prefers-reduced-motion` is given
    once, here, rather than at each call. */

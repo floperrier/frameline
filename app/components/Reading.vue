@@ -185,14 +185,24 @@ onMounted(() => {
  * and a live region reading every beat at them while they decide would be the
  * Story talking over itself. See issue #329 and
  * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
+ *
+ * A beat laid out full is the one the focus is put on without the browser
+ * scrolling to it. The frame is the room there, and a focused element is brought
+ * into view by the browser's own rule, which promises the element and nothing
+ * under it: *Next Shot* or the ways on could be left below the fold. So a move of
+ * the hand onto such a beat brings the whole Reading into the window itself —
+ * see `moveTo` — and a move of the clock leaves the scroll where the Reader left
+ * it, for the reason it leaves their focus there.
  */
+const root = useTemplateRef<HTMLElement>('root')
 const frame = useTemplateRef<HTMLElement>('frame')
 const exits = useTemplateRef<HTMLElement>('exits')
 const again = useTemplateRef<HTMLElement>('again')
 
 /** Where a press puts the Reader, which is the whole of what the paragraph above says. */
 function land() {
-  (shown.value.shot ? frame.value : (exits.value?.querySelector('button') ?? again.value))?.focus()
+  (shown.value.shot ? frame.value : (exits.value?.querySelector('button') ?? again.value))
+    ?.focus({ preventScroll: full.value })
 }
 
 async function moveTo(to: Path, byClock = false) {
@@ -204,8 +214,10 @@ async function moveTo(to: Path, byClock = false) {
   const theirs = byClock && !!was && was !== document.body && !frame.value?.contains(was)
 
   // Read before the Path moves too, since it is the move and not the beat that
-  // says whether an arrival is seen: see `arrives` below.
+  // says whether an arrival is seen: see `arrives` below. So is the box the beat
+  // leaving keeps through the passage: see `pinned`.
   arrives.value = !paused.value
+  stands()
   at.value = to
   resumed.value = false
   await nextTick()
@@ -216,6 +228,12 @@ async function moveTo(to: Path, byClock = false) {
   // Whatever the clock takes away, the beat arriving is where the focus lands.
   if (theirs && was.isConnected) return
   land()
+  // The Reading's own head to the head of whatever scrolls it, which a Reading
+  // laid out full fits under from there: the beat, its words and the press under
+  // it in the window at once. Instant, because a jump the Reader asked for is not
+  // a motion to be watched, and so there is nothing for reduced motion to take
+  // off.
+  if (full.value && !byClock) root.value?.scrollIntoView({ block: 'start' })
 }
 
 /**
@@ -309,6 +327,44 @@ function leaving(frame: Element) {
 }
 
 /**
+ * The beat leaving keeps the box it stood in, written on it as it starts to go:
+ * taken out of the flow, a frame laid out full would otherwise be as tall as its
+ * words, since its Image covers it without sizing it, and a frame of either
+ * Layout would take the size of the Reading the beat arriving draws.
+ *
+ * The box is read as the move starts, in `moveTo`, and not as the frame leaves.
+ * Where the move leaves the passage as it was, the transition is not handed
+ * anything new and draws its next beat in an update of its own, after this
+ * component has already put the Reading in the arriving beat's Layout: read
+ * then, a frame in the column is as tall as the room it is about to give up. A
+ * move made from outside — the bench drawing again — is read where it leaves,
+ * which is the best there is for it.
+ */
+let stood: { frame: HTMLElement, inline: number, block: number } | undefined
+
+function stands() {
+  const on = frame.value
+  if (!on) {
+    stood = undefined
+    return
+  }
+  // The box as drawn and not as rounded: a pane a fraction wide, pinned a pixel
+  // short, would rewrap a word of the leaving frame and clip its last line.
+  const box = on.getBoundingClientRect()
+  stood = { frame: on, inline: box.width, block: box.height }
+}
+
+function pinned(leaving: Element) {
+  if (!(leaving instanceof HTMLElement)) return
+  const drawn = leaving.getBoundingClientRect()
+  const box = stood?.frame === leaving
+    ? stood
+    : { inline: drawn.width, block: drawn.height }
+  leaving.style.inlineSize = `${box.inline}px`
+  leaving.style.blockSize = `${box.block}px`
+}
+
+/**
  * The beat behind, or nothing where there is none: the opening beat of the
  * Story, or an Exit the Author closed behind the Reader. The engine is asked
  * rather than the Path read here — an Exit says whether it is crossed backwards
@@ -343,6 +399,16 @@ const scene = computed(() => story.scenes.find(({ id }) => id === shown.value.sc
  * hold, and nothing is invented to stand in for one.
  */
 const held = computed(() => shown.value.shot ?? shown.value.run.at(-1))
+
+/**
+ * Whether the Shot the frame holds is laid out full, covering the room the
+ * Reading is shown in rather than standing in the reading column. Read off the
+ * Shot and the Scene it is held in, the way its Cut is, so the frame held behind
+ * the ways on keeps the Layout it played in. The whole Reading is drawn by it,
+ * not the frame alone: under `full` it is one room tall. See
+ * `docs/adr/0055-a-shot-is-laid-out-as-its-scene-says.md`.
+ */
+const full = computed(() => !!scene.value && !!held.value && layout(scene.value, held.value) === 'full')
 
 /** An Exit nobody has phrased yet is offered by where it arrives. */
 function offered(exit: Exit) {
@@ -839,7 +905,9 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
 </script>
 
 <template>
-  <div class="reading">
+  <!-- As wide as the room at every Layout, and one room tall where the beat it
+       holds is laid out full: see `.reading.full`. -->
+  <div ref="root" class="reading" :class="{ full }">
     <!-- The two layers, outside everything the Path keys: the bed is held under
          the run and crosses the cut, and the strike plays with the beat and is
          gone. They lie over each other without ducking — there is no mixing and
@@ -874,10 +942,16 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
              takes to agree it has finished. The beat arriving is drawn whole in
              that tick, with nothing of the product's laid over it, so nought is
              seen as the hard cut it says — see
-             `docs/adr/0054-the-reader-is-shown-what-the-author-wrote.md`. -->
+             `docs/adr/0054-the-reader-is-shown-what-the-author-wrote.md`.
+
+             The beat leaving is pinned at the size it stood at before it is
+             taken out of the flow, so a passage between two Layouts is one
+             picture opening onto the other: a frame covering the room keeps the
+             room while a frame in the column arrives, and the other way about. -->
         <Transition
           :name="passing.through === 'black' ? 'through-black' : 'dissolve'"
           :css="passing.over > 0"
+          @before-leave="pinned"
           @leave="leaving"
         >
           <!-- Keyed on the Path, so arriving at a Shot draws the frame afresh:
@@ -888,11 +962,19 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
                Story's Language whatever language the chrome around it is read in.
                Nothing translates a Story: see
                `docs/adr/0013-the-interfaces-locale-is-not-the-storys-language.md`. -->
+          <!-- What the Shot carries is read before its Layout is, and neither is a
+               setting: a Shot carrying no Image is a card, the room going dark with
+               words in it, and its Layout says only how large the card is. -->
           <figure
             ref="frame"
             :key="`${at.taken.length}-${at.shot}`"
             class="frame"
-            :class="{ 'pushed-back': !shown.shot && !shown.ended, 'to-black': toBlack }"
+            :class="{
+              'pushed-back': !shown.shot && !shown.ended,
+              'to-black': toBlack,
+              full,
+              card: !held.image,
+            }"
             :lang="story.language"
             :style="{ '--wait': `${wait}ms`, '--end-over': toBlack ? `${ending!.over}ms` : undefined }"
             tabindex="-1"
@@ -922,17 +1004,26 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
                  kept from the accessibility tree, since an Effect is never
                  announced: it would narrate the decoration over the Author's
                  sentence. -->
+            <!-- Laid out full, the Image covers the frame and is cropped around
+                 the point the Author pressed on the Contact Sheet. Inset it is
+                 shown whole, so nothing is cropped and there is no point to say. -->
             <div v-if="held.image" class="picture">
               <div class="arrives" v-bind="imageArrival">
                 <div class="lasts" v-bind="imageLasting">
-                  <img :src="held.image" :alt="held.description">
+                  <img
+                    :src="held.image"
+                    :alt="held.description"
+                    :style="full ? { objectPosition: cropPosition(held) } : undefined"
+                  >
                 </div>
               </div>
               <div v-if="arrivalOverlay" class="overlay" v-bind="arrivalOverlay" aria-hidden="true" />
               <div v-if="lastingOverlay" class="overlay" v-bind="lastingOverlay" aria-hidden="true" />
             </div>
+            <!-- Only where the Shot has words to say: white space is none, and a
+                 Shot carrying only an Image is the Image and nothing under it. -->
             <figcaption
-              v-if="shown.shot || !left"
+              v-if="(shown.shot || !left) && held.text.trim()"
               :class="{
                 arriving,
                 stopped: arriving && stopped,
@@ -1137,34 +1228,93 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
 </template>
 
 <style scoped>
-/* One column, as wide as a gate wants to be and no wider, and sat in the middle
-   of the room it was given rather than under whatever is above it. */
+/* As wide as the room it was given, and sat in the middle of it rather than under
+   whatever is above it. Both doors pad the room inline by the same step — `.room`
+   on the Reader's page, `.preview` on the bench — and the Reading takes that step
+   back on either side, so a frame laid out full can reach the room's edges.
+   Everything in it stands in the one reading column, as wide as a gate wants to
+   be and no wider, centred, with the step kept either side of it on a phone; only
+   the gate is given the room. A Story with no Shot laid out full is drawn at
+   exactly the widths it always was.
+
+   The column is drawn as lines of a grid rather than as a width on each thing in
+   it, so whatever stands in it keeps its own alignment there: *Next Shot* is as
+   wide as its name, at the column's leading edge, as it always was. Never
+   narrower than the longest word in it, because the frame clips what overflows
+   it: a word too long for a phone widens the column and the page scrolls
+   sideways, as it always did, rather than lose its end. */
 .reading {
   display: grid;
+  grid-template-columns:
+    [room-start] minmax(var(--s4), 1fr)
+    [column-start] minmax(auto, 46rem)
+    [column-end] minmax(var(--s4), 1fr)
+    [room-end];
   align-self: center;
-  gap: var(--s4);
-  inline-size: min(100%, 46rem);
-  margin-inline: auto;
+  row-gap: var(--s4);
+  inline-size: calc(100% + 2 * var(--s4));
+  margin-inline: calc(-1 * var(--s4));
   padding-block-end: var(--s6);
 }
 
+.reading > * {
+  grid-column: column;
+}
+
+/* Under a beat laid out full, the Reading is at least one room tall and the frame
+   is what the rows under it leave: *Next Shot* or the ways on, the drain, the
+   Transcripts and the trail, each of them in the window at every width, and
+   nothing laid over the Image but the Shot's own words. At least and not exactly,
+   so a text longer than the room can carry grows the room rather than lose a word
+   off its foot: the frame's row may shrink to nothing and is never smaller than
+   what it holds. The room is the pane on the bench, which is a size container, and
+   the window on the Reader's page, where nothing is and `cqb` is the small viewport
+   — the right height there anyway, since a frame whose foot carries the text must
+   never reach under a phone's browser bar.
+
+   The notice of a Reading picked up stands above the frame, so where it is said
+   the frame's row is the second. */
+.reading.full {
+  grid-template-rows: minmax(0, 1fr);
+  min-block-size: 100cqb;
+}
+
+.reading.full:has(> .resumed) {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
 /* The image and the text share the one gate, because they are one beat and not
-   an illustration with a caption under it. */
+   an illustration with a caption under it. Held to the reading column inside the
+   gate, and the room's width where it is laid out full.
+
+   Positioned for the Image laid out full, which is drawn over the whole frame —
+   in this rule rather than under `.full` so that the beat leaving, taken out of
+   the flow by a rule as specific as this one and written after it, still is. */
 .frame {
+  position: relative;
+  grid-column: column;
   overflow: clip;
 }
 
 /* A passage is two frames on screen at once, and the room is the size of the one
    arriving: the beat leaving is taken out of the flow and fades where it stood,
    so the page settles the moment the new beat is in — which is what a hard cut
-   has always done here and what every Story written before the Cut still does. */
+   has always done here and what every Story written before the Cut still does.
+
+   The gate is the room's width at every Layout and draws the Reading's own
+   column inside it, so a frame in the column stands where the press under it
+   does, and a passage from the column to the room is made inside one gate that
+   neither frame resizes. */
 .gate {
   display: grid;
+  grid-column: room;
+  grid-template-columns: subgrid;
   position: relative;
 }
 
 /* The beat leaving is `inert` from the moment it starts to go, which is what
-   takes it out of reach of a press as well as out of the reading. */
+   takes it out of reach of a press as well as out of the reading. It is laid in
+   the lines of the gate its Layout gives it, at the size `pinned` kept for it. */
 .dissolve-leave-active,
 .through-black-leave-active {
   position: absolute;
@@ -1314,17 +1464,117 @@ img {
    of the frame it blurs whatever the room makes of the frame's width; it never
    took its width from the image, so being measured moves nothing. The words are
    measured against the letter instead: measuring the caption would stop a word too
-   long for the line from widening it, and a word clipped is a word lost. */
+   long for the line from widening it, and a word clipped is a word lost.
+
+   The hairline is drawn only where there is text under it to separate the Image
+   from: a Shot carrying only an Image is the Image and its edge. */
 .picture {
   position: relative;
   overflow: clip;
   container-type: inline-size;
   background: var(--room);
+}
+
+.picture:not(:last-child) {
   border-block-end: 1px solid var(--edge);
 }
 
 figcaption {
   padding: var(--s5) clamp(var(--s4), 4vw, var(--s5));
+}
+
+/* A card: a Shot carrying words and no Image, which is the room gone dark with
+   words in it, so it is drawn on the room rather than on the lit gate an Image is
+   set in, its text centred across and down and its lines centred. In the column it
+   stands at sixteen by nine, the shape of every print and thumbnail the bench
+   draws, so a run alternating Images and cards keeps one shape of frame; and it
+   grows past that where its words need the lines, which `aspect-ratio` does by
+   itself for a box whose content is taller than the ratio. Stretched across the
+   column, since a box of a set ratio would otherwise be as narrow as its words. */
+.frame.card {
+  display: grid;
+  align-content: center;
+  justify-self: stretch;
+  background: var(--room);
+  text-align: center;
+}
+
+.frame.card:not(.full) {
+  aspect-ratio: 16 / 9;
+}
+
+.frame.card .shot,
+.frame.full .shot {
+  margin-inline: auto;
+}
+
+/* Laid out full, the frame is the room: edge to edge, with the room's edges and
+   no gate's border or curve of its own, and the ring the arrival is announced by
+   drawn inside it, where the window's edge would otherwise cut it off. The Image
+   covers the whole of it, cropped around its point, and the words are laid in the
+   flow over its foot, so a text the room cannot carry makes the frame taller
+   rather than run past its edge.
+
+   The Image is laid under everything else the frame paints, the ring included: a
+   frame of its own for stacking, and the Image beneath its flow. Left above the
+   flow, as a positioned box is by default, it would cover the words and the ring
+   with them, and a Reader landing on the beat by keyboard would be shown no ring
+   at all. */
+.frame.full {
+  grid-column: room;
+  display: grid;
+  border: 0;
+  border-radius: 0;
+  background: var(--room);
+  isolation: isolate;
+}
+
+.frame.full:focus-visible {
+  outline-offset: -4px;
+}
+
+.frame.full .picture {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: 0;
+}
+
+.frame.full .picture .arrives,
+.frame.full .picture .lasts {
+  block-size: 100%;
+}
+
+.frame.full img {
+  block-size: 100%;
+  max-block-size: none;
+  object-fit: cover;
+}
+
+/* The words over the Image lie on the reading measure, centred in the room like
+   the column under them, so the eye finds them where it found them in the
+   column. The scrim is the caption's own box, the frame's whole width: it rises
+   one step above the first line out of nothing and holds from 70% of the room
+   under every line to 85% at the foot. Seventy is the floor and not a taste —
+   `--paper` needs 62% over a white Image to be read at 4.5:1, and the pushed-back
+   `--muted` 67% over a white Image dimmed to half. */
+.frame.full:not(.card) figcaption {
+  align-self: end;
+  padding-block-start: var(--s6);
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in oklab, var(--room) 70%, transparent) var(--s6),
+    color-mix(in oklab, var(--room) 85%, transparent)
+  );
+}
+
+/* A card laid out full is the whole frame on the dark, which is what an
+   intertitle between two pictures that fill the screen always was, and it is set
+   larger than the words under an Image, measured against the room like the frame
+   is. */
+.frame.full.card .shot {
+  font-size: clamp(1.5rem, 1rem + 2cqi, 2.25rem);
 }
 
 /* Fixed to the box whatever moves the picture under it, and never in the way of

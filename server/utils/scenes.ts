@@ -229,6 +229,28 @@ export async function readNamedSound(event: H3Event, sceneId: string) {
 }
 
 /**
+ * How a run is laid out, or how one Shot is. Null is taken where the carrier
+ * allows one — a Shot saying nothing — and the two words are the whole of the
+ * language, so anything else is refused rather than stored.
+ *
+ * Overloaded the way `readCutThrough` is, so a Scene's `not null` column reads
+ * back a plain `Layout`.
+ */
+export function readLayout(event: H3Event, options: { nullable: false }): Promise<Layout>
+export function readLayout(event: H3Event, options?: { nullable?: boolean }): Promise<Layout | null>
+export async function readLayout(event: H3Event, { nullable = true }: { nullable?: boolean } = {}) {
+  const body = await readBody<Record<string, unknown>>(event)
+  const held = body?.layout
+
+  if (held === null && nullable) return null
+  if (!LAYOUTS.includes(held as Layout)) {
+    throw createError({ statusCode: 400, message: saying(event)('refusals.layout') })
+  }
+
+  return held as Layout
+}
+
+/**
  * What a PATCH may change about a Scene: its name, the three things that are
  * said about the Sound it is heard under, its Cut — how its run is cut and how
  * long its ways on stand — and how its texts arrive. Each is read only where the
@@ -248,6 +270,7 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
     cutOver?: unknown
     cutThrough?: unknown
     exitsAfter?: unknown
+    layout?: unknown
     textAfter?: unknown
     textBy?: unknown
     textPace?: unknown
@@ -264,6 +287,7 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
     cutOver?: number
     cutThrough?: CutThrough
     exitsAfter?: number | null
+    layout?: Layout
     textAfter?: number
     textBy?: TextBy
     textPace?: number
@@ -306,6 +330,9 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
     changes.cutThrough = await readCutThrough(event, { nullable: false })
   }
   if (body?.exitsAfter !== undefined) changes.exitsAfter = await readExitsAfter(event)
+  // A Scene's Layout takes no null: only a Shot answering *as its Scene says*
+  // may leave one.
+  if (body?.layout !== undefined) changes.layout = await readLayout(event, { nullable: false })
   // How the texts of the run arrive, each landing on its own. The first four
   // take no null on a Scene, which has nothing above it to defer to, and its
   // stay is refused the nought a Shot keeps for *until the Cut* — the Scene's
