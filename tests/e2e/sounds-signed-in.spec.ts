@@ -404,14 +404,6 @@ async function heardStory(
   return story
 }
 
-/** The same Story with nothing heard under it, which is the page as it was. */
-async function silentStory(request: APIRequestContext) {
-  const story = await writeStory(request)
-  await seedPublication(story)
-
-  return story
-}
-
 /** How far into the bed the browser has got, which is what says it did not restart. */
 function playedFor(page: Page) {
   return page.evaluate(() => {
@@ -431,14 +423,6 @@ test('the title card is what a Reader presses on a Story that carries a Sound', 
 
   await page.getByRole('button', { name: 'Begin' }).click()
   await expect(page.getByText('A door opens.')).toBeVisible()
-})
-
-test('a silent Story keeps the page it had: nothing to press, the first Shot at load', async ({ page, request }) => {
-  const story = await silentStory(request)
-
-  await page.goto(`/read/${story.id}`)
-  await expect(page.getByText('A door opens.')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Begin' })).toHaveCount(0)
 })
 
 test('the Sound holds across the cut where both Scenes are heard under one carrier', async ({ page, request }) => {

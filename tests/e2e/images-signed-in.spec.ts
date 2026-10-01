@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test'
 import {
-  ONE_PIXEL, readTheStory, seedScene, seedStory, test, toast, writeScene, writeStory,
+  ONE_PIXEL, begin, readTheStory, seedScene, seedStory, test, toast, writeScene, writeStory,
 } from './author'
 import { SHOT_DESCRIPTION_MAX_LENGTH, SHOT_IMAGE_MAX_BYTES } from '../../shared/utils/scenes'
 import type { APIRequestContext, Page } from '@playwright/test'
@@ -288,6 +288,7 @@ test('the image and the text of a Shot are one beat on screen', async ({ browser
   await request.post(`/api/stories/${story.id}/publish`)
   const reader = await (await browser.newContext({ extraHTTPHeaders: {} })).newPage()
   await reader.goto(`/read/${story.id}`)
+  await begin(reader)
   const frame = reader.getByRole('figure').locator(`img[src^="/api/shots/${shots[0]!.id}/image"]`)
   await expect(frame).toBeVisible()
   await expect(reader.getByText('A door opens.')).toBeVisible()
@@ -323,6 +324,7 @@ test('an image says what it shows, and the Reader is given it', async ({ browser
   await request.post(`/api/stories/${story.id}/publish`)
   const reader = await (await browser.newContext({ extraHTTPHeaders: {} })).newPage()
   await reader.goto(`/read/${story.id}`)
+  await begin(reader)
   await expect(reader.getByRole('img', { name: description })).toBeVisible()
 })
 

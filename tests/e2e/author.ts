@@ -603,8 +603,19 @@ export async function opened(
   await write(story, scenes)
   await seedPublished(story)
   await page.goto(`/read/${story.id}`)
-  // The clock is started by the component that holds the Path, so a page that
-  // has loaded and not yet been attached to is a page nothing is holding a
-  // clock on.
+  await begin(page)
+}
+
+/**
+ * Begins a Reading from the title card every Story opens on since #409, which is
+ * where the Reading is mounted and its clock started: nothing of it is on the page
+ * before the press. Waited on until the page is `live` first, because a press on a
+ * button the browser has not taken over does nothing at all. Found by its mark
+ * rather than its name, because it says *Begin* or *Resume*, in the Reader's own
+ * Locale. See `docs/adr/0063-a-story-opens-on-its-title-card.md`.
+ */
+export async function begin(page: Page) {
   await live(page)
+  await page.locator('button.beginning').click()
+  await expect(page.locator('.reading')).toBeVisible()
 }

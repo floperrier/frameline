@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { live, test, writeShot, writeStory } from './author'
+import { begin, live, test, writeShot, writeStory } from './author'
 
 /**
  * The two facts about language the product keeps apart: the Locale, which is the
@@ -101,6 +101,7 @@ test.describe('an interface read in French', () => {
     await expect(page.getByRole('button', { name: 'Dépublier ce Récit' })).toBeVisible()
     await page.goto(`${baseURL}/read/${story.id}`)
     await expect(page).toHaveURL(`${baseURL}/read/${story.id}`)
+    await begin(page)
     await expect(page.getByRole('button', { name: 'Plan suivant' })).toBeVisible()
     // The two ways off the page are the chrome as much as the words are, and
     // this is the one route with no localized variant for `localePath` to read a
@@ -141,6 +142,7 @@ test('a Story is announced in its own Language while the chrome stays the Reader
 
   const reader = await (await browser.newContext({ locale: 'en-US' })).newPage()
   await reader.goto(`${baseURL}/read/${story.id}`)
+  await begin(reader)
 
   // The work says what it is written in, on its title and on the frame holding
   // the beat — the image, what it shows, and the text are all the Author's.

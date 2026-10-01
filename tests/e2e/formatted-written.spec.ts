@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test'
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import {
-  ONE_PIXEL, live, moreStyles, readTheStory, seedPublished, test, writeShot, writeStory,
+  ONE_PIXEL, begin, live, moreStyles, readTheStory, seedPublished, test, writeShot, writeStory,
 } from './author'
 import { bar, formatted, formattedOf, line, run } from '../../shared/utils/formatted'
 import { REDACTION_HIDES_MAX_LENGTH, SHOT_TEXT_MAX_LENGTH } from '../../shared/utils/scenes'
@@ -89,6 +89,7 @@ test('a word made italic by its key is italic in the writing, the Preview and th
 
     await seedPublished(story)
     await page.goto(`/read/${story.id}`)
+    await begin(page)
     await expect(page.locator('.shot em')).toHaveText('door')
   })
 
@@ -122,6 +123,7 @@ test('a run set in the typewriter and a Story set in it are drawn in the typewri
     // And the Reader sees it set as the bench drew it.
     await seedPublished(story)
     await page.goto(`/read/${story.id}`)
+    await begin(page)
     await expect(page.locator('.shot')).toHaveCSS('font-family', typewriter)
     await expect(page.locator('.shot .face-typewriter')).toHaveText('door')
     await expect(page.locator('.shot .face-prose')).toHaveCSS('font-family', book)
@@ -186,6 +188,7 @@ test('a bar is remarked on until what it hides is said, and its words are in nei
     expect(read).not.toContain('Vivian')
 
     await page.goto(`/read/${story.id}`)
+    await begin(page)
     await expect(page.locator('.shot .bar')).toContainText('a name')
     expect(await page.content()).not.toContain('Vivian')
   })
@@ -219,7 +222,7 @@ test('the Reader\'s page loads no editor, and the bench holds one however many S
     const reader = await page.context().newPage()
     const readerLoaded = loaded(reader)
     await reader.goto(`/read/${story.id}`)
-    await live(reader)
+    await begin(reader)
     await reader.waitForLoadState('networkidle')
     await expect(reader.locator('.shot')).toHaveText('A door opens.')
     const { read, editors } = await readerLoaded()
