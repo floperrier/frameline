@@ -110,7 +110,7 @@ a request is allowed to write, the shape a Shot's formatted text is held to at
 the request boundary and the markup-free renderer that draws it, the flicker a
 Reading draws held to three flashes
 in any second — its pattern read out of the Reading's stylesheet as source — the
-sequence of Places a request renumbers a Scene by, the Scenes a
+swipe a finger crossing the frame is read as, the sequence of Places a request renumbers a Scene by, the Scenes a
 Exit may land on, the columns a Story falls into and the order it is written in,
 the two message
 files held against each other, the language a refusal is phrased in, the Steps the

@@ -862,16 +862,47 @@ function pauseOrResume() {
 const GOES_ON = [' ', 'Enter', 'ArrowRight', 'PageDown']
 const STEPS_BACK = ['ArrowLeft', 'PageUp']
 
+/** What a key or a swipe asked for, done where its control is drawn; whether it was. */
+function went(way: 'on' | 'back' | null) {
+  if (way === 'on' && shown.value.shot) pressed()
+  else if (way === 'back' && moved(at.value) && behind.value) stepBack()
+  else return false
+  return true
+}
+
 function readByKeys(event: KeyboardEvent) {
   if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
   const on = event.target as HTMLElement
   if (!root.value?.contains(on) && !(keptFor && on === document.body)) return
   if (on.isContentEditable || on.matches('button, a, input, textarea, select')) return
 
-  if (GOES_ON.includes(event.key) && shown.value.shot) pressed()
-  else if (STEPS_BACK.includes(event.key) && moved(at.value) && behind.value) stepBack()
-  else return
-  event.preventDefault()
+  const way = GOES_ON.includes(event.key) ? 'on' : STEPS_BACK.includes(event.key) ? 'back' : null
+  if (went(way)) event.preventDefault()
+}
+
+/**
+ * A finger crossing the frame is a press of the control that way, the way a key
+ * is: read as it lifts, by `swiped`, and answered by `went`, so the focus and
+ * what is announced are a key's. A touch alone counts. A mouse or a pen dragging
+ * across the frame selects its words, and nothing here takes that away. Heard on
+ * the frame alone, which holds no control, so a touch that starts on one is the
+ * control's; one the browser takes for a scroll is cancelled and forgotten. The
+ * frame does not follow the finger: the Cut stays the one passage between two
+ * beats — see `docs/adr/0065-a-swipe-across-the-frame-is-a-press.md`.
+ */
+let touched: Touched | undefined
+
+function touches(event: PointerEvent) {
+  touched = event.pointerType === 'touch'
+    ? { x: event.clientX, y: event.clientY, t: event.timeStamp }
+    : undefined
+}
+
+function lifts(event: PointerEvent) {
+  if (!touched || event.pointerType !== 'touch') return
+  const from = touched
+  touched = undefined
+  went(swiped(from, { x: event.clientX, y: event.clientY, t: event.timeStamp }))
 }
 
 /**
@@ -1217,6 +1248,9 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
             :lang="story.language"
             :style="{ '--wait': `${wait}ms`, '--end-over': toBlack ? `${ending!.over}ms` : undefined }"
             tabindex="-1"
+            @pointerdown="touches"
+            @pointerup="lifts"
+            @pointercancel="touched = undefined"
           >
             <!-- The image and the text are one beat, so the Reader moves past both
                  at once. The text may come after the image in its own time — a wait,
@@ -1572,11 +1606,16 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
 
    Positioned for the Image laid out full, which is drawn over the whole frame —
    in this rule rather than under `.full` so that the beat leaving, taken out of
-   the flow by a rule as specific as this one and written after it, still is. */
+   the flow by a rule as specific as this one and written after it, still is.
+
+   A finger going down the frame scrolls the page and one going across it is the
+   Reading's, which is what `pan-y` tells the browser. Two fingers still zoom into
+   the picture: that is looking at it, which nothing here may take away. */
 .frame {
   position: relative;
   grid-column: column;
   overflow: clip;
+  touch-action: pan-y pinch-zoom;
 }
 
 /* A passage is two frames on screen at once, and the room is the size of the one
