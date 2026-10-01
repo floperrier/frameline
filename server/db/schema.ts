@@ -332,6 +332,26 @@ export const shots = pgTable('shots', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// A Shot deleted from the bench, held for a day so the Author can put it back
+// where it stood — see `docs/adr/0064-a-deleted-shot-is-held-for-a-day.md`.
+//
+// `row` is the deleted row whole, as `to_jsonb` writes it, and it goes back in
+// through `jsonb_populate_record`, so no column of `shots` is named here or in
+// either statement: a column added there later is held and put back with no
+// change here. `was_cover` is whether the Story's `cover_shot_id` named the Shot,
+// which the delete sets null and the way back names again.
+//
+// `scene_id` cascades, so a Shot whose Scene has since been deleted is gone with
+// it — there is nowhere left to put it back. `taken_at` is what the delete prunes
+// by: every held row older than a day goes with the next Shot deleted.
+export const deletedShots = pgTable('deleted_shots', {
+  shotId: uuid('shot_id').primaryKey(),
+  sceneId: uuid('scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
+  row: jsonb('row').notNull(),
+  wasCover: boolean('was_cover').notNull(),
+  takenAt: timestamp('taken_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // An Exit is an edge of the Story graph: it leaves one Scene for another and
 // carries the text the Reader is offered. Both ends cascade, so deleting a Scene
 // takes the Exits that touch it with it. Two Exits may join the same pair of

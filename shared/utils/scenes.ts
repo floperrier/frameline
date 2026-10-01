@@ -663,6 +663,22 @@ export function movedBy(ids: string[], id: string, step: -1 | 1) {
 }
 
 /**
+ * Where a deleted Shot is put back in the run it left: right after the Shot that
+ * stood before it while that Shot is still in the run, at the head where nothing
+ * stood before it, and otherwise at the Place it had, capped at the run's length.
+ * The bench draws the row a deleted Shot leaves where this says, and
+ * `server/api/shots/[id]/back.post.ts` writes the same rule in its one statement,
+ * so *Put It Back* lands where the row stood — see
+ * `docs/adr/0064-a-deleted-shot-is-held-for-a-day.md`.
+ */
+export function placeBack(run: string[], after: string | null, place: number) {
+  if (after === null) return 0
+
+  const before = run.indexOf(after)
+  return before === -1 ? Math.min(place, run.length) : before + 1
+}
+
+/**
  * `1 Shot` and `2 Shots`: a card counts them, and a Delete asks about them. One
  * phrase a count rather than a suffix on a noun, because a plural is not a letter
  * added in every language the interface is read in.

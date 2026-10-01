@@ -211,6 +211,13 @@
       "when": 1790847340485,
       "tag": "0029_the_image_moves_while_its_shot_is_on_screen",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1790895153866,
+      "tag": "0030_a_deleted_shot_is_held_for_a_day",
+      "breakpoints": true
     }
   ]
 }
