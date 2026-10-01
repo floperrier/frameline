@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { commandsReached, plainly, type Command } from '../../app/utils/commands'
+import { commandsReached, type Command } from '../../app/utils/commands'
+import { plainly } from '../../shared/utils/scenes'
 
 /**
  * Which Commands a typed name reaches. The bar around this is a `<dialog>` and

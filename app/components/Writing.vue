@@ -1486,6 +1486,63 @@ async function putBack(scene: Scene, gone: Gone) {
   if (backId) return typeInShot(backId)
 }
 
+/**
+ * The one field a Shot is moved to another Scene from, while it is open: the Shot
+ * it moves, what is typed into it, and the sentence it was last refused with. One
+ * for the document, so the mark that opens it on one row closes it on the last.
+ */
+const moving = ref<{ shotId: string, typed: string, refused?: string }>()
+
+/** The mark opens the field under its row with the hand in it, or closes it and takes the hand back. */
+async function toggleMoving(shot: Shot) {
+  if (moving.value?.shotId === shot.id) return stopMoving(shot)
+
+  moving.value = { shotId: shot.id, typed: '' }
+  await nextTick()
+  document.getElementById(`moving-${shot.id}`)?.focus()
+}
+
+async function stopMoving(shot: Shot) {
+  moving.value = undefined
+  await nextTick()
+  document.getElementById(`move-${shot.id}`)?.focus()
+}
+
+/**
+ * Moves a Shot to the Scene named, which `sceneToMoveTo` reads off the bench's own
+ * names. What it refuses is said under the field and sent nowhere. The Shot lands
+ * last in that Scene's run, the status line says where, and the caret follows it.
+ *
+ * Reached by `change` and by `submit` both, as `addExit` is, and the field closes
+ * before anything waits, so whichever fires second finds it closed — and so does
+ * the `change` a field removed by `Esc` fires on its way out.
+ */
+async function moveToScene(held: SceneInDocument, shot: Shot, place: number) {
+  const open = moving.value
+  if (open?.shotId !== shot.id || !open.typed.trim()) return
+
+  const chosen = sceneToMoveTo(named.value, held.scene.id, open.typed)
+  if (chosen.refused) {
+    open.refused = t(chosen.refused, { scene: held.name })
+    return
+  }
+
+  moving.value = undefined
+  const left = { from: place + 1, name: held.name }
+  let landed: number | undefined
+
+  await changing(held.scene, async () => {
+    landed = (await send(`/api/shots/${shot.id}/move`, {
+      method: 'POST',
+      body: { toSceneId: chosen.sceneId },
+    }) as { position: number }).position
+  })
+
+  if (landed === undefined) return
+  announce(t('editor.shotMoved', { ...left, scene: nameOf(chosen.sceneId), place: landed + 1 }))
+  return typeInShot(shot.id)
+}
+
 /** Where a way on leads, changed in the field that says where it leads: the Exit keeps its text, its Conditions and its Place. */
 function leadExit(scene: Scene, exit: Exit, toSceneId: string) {
   if (!toSceneId || toSceneId === exit.toSceneId) return
@@ -2992,7 +3049,9 @@ function writeConditions(
 
                   <!-- The marks act on the row they are drawn on: the first reads the
                        Story from this beat, the scissors split the Scene before it,
-                       which the first beat has nothing before it to be split from. -->
+                       which the first beat has nothing before it to be split from,
+                       and the arrow after them moves it to another Scene, which a
+                       Story of one Scene has none of. -->
                   <div class="row">
                     <button
                       type="button"
@@ -3018,6 +3077,24 @@ function writeConditions(
                         {{ $t('editor.splitBefore', {
                           place: place + 1,
                           scene: held.name,
+                        }) }}
+                      </span>
+                    </button>
+                    <button
+                      v-if="story.scenes.length > 1"
+                      :id="`move-${shot.id}`"
+                      type="button"
+                      class="mark"
+                      :aria-expanded="moving?.shotId === shot.id"
+                      @click="toggleMoving(shot)"
+                    >
+                      <span aria-hidden="true">↗</span>
+                      <span class="visually-hidden">
+                        {{ $t('editor.moveShot', {
+                          shot: $t('editor.shotOfScene', {
+                            place: place + 1,
+                            scene: held.name,
+                          }),
                         }) }}
                       </span>
                     </button>
@@ -3066,6 +3143,38 @@ function writeConditions(
                       </span>
                     </button>
                   </div>
+
+                  <!-- Where the Shot moves to, named as a way on's landing is: the
+                       field offers every other Scene as the bench calls it, and a
+                       name answering to none is refused here rather than written,
+                       because a beat moved somewhere new lands in a Scene nothing
+                       arrives at. -->
+                  <form
+                    v-if="moving?.shotId === shot.id"
+                    class="moving"
+                    @submit.prevent="moveToScene(held, shot, place)"
+                    @keydown.esc.stop.prevent="stopMoving(shot)"
+                  >
+                    <label class="eyebrow" :for="`moving-${shot.id}`">
+                      {{ $t('editor.sceneToMoveTo') }}
+                    </label>
+                    <input
+                      :id="`moving-${shot.id}`"
+                      v-model="moving.typed"
+                      :list="`moving-to-${shot.id}`"
+                      autocomplete="off"
+                      :placeholder="$t('editor.nameWhereItMoves')"
+                      :aria-invalid="moving.refused ? 'true' : undefined"
+                      @input="moving.refused = undefined"
+                      @change="moveToScene(held, shot, place)"
+                    >
+                    <datalist :id="`moving-to-${shot.id}`">
+                      <template v-for="other in sections" :key="other.scene.id">
+                        <option v-if="other.scene.id !== held.scene.id" :value="other.name" />
+                      </template>
+                    </datalist>
+                    <p v-if="moving.refused" role="alert">{{ moving.refused }}</p>
+                  </form>
                 </div>
               </div>
             </li>
@@ -4018,15 +4127,22 @@ function writeConditions(
 }
 
 /* The way on written here, at the foot of the ways on: a label and one field, as
-   wide as a Scene's name and no wider. */
-.adding {
+   wide as a Scene's name and no wider. The field a Shot is moved from is the same
+   line, under its row's marks. */
+.adding,
+.moving {
   display: grid;
   justify-items: start;
   gap: var(--s1);
   padding-block-start: var(--s1);
 }
 
-.adding input {
+.moving {
+  flex-basis: 100%;
+}
+
+.adding input,
+.moving input {
   inline-size: min(100%, 24rem);
   padding: var(--s2) var(--s3);
   font-size: 0.875rem;
