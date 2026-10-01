@@ -5,7 +5,7 @@ import { SAMPLES, imagePath } from '../../demonstration/samples'
 import { soundPath } from '../../demonstration/sounds'
 import * as schema from '../../server/db/schema'
 import { plantSample } from '../../server/utils/samples'
-import { live, test, unfold, writeStory } from './author'
+import { A_SOUND, live, seedStory, test, unfold, writeStory } from './author'
 import type { APIRequestContext, Page } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
@@ -16,6 +16,9 @@ import type { StoryInEditor } from '../../shared/utils/scenes'
  * field writes is the business of the specs that already choose a Shot's answers;
  * this one is about the fold itself: what it costs, what it says, and that it
  * stays the way the Author left it.
+ *
+ * A Scene's head folds by the same rule since #400: its name, its Flags and a
+ * Sound it is heard under stand open, and how it plays is one line above its Shots.
  */
 
 async function reread(request: APIRequestContext, id: string) {
@@ -33,6 +36,11 @@ async function threeBeats(page: Page, request: APIRequestContext) {
   await live(page)
 
   return { story, street }
+}
+
+/** The fold of how a Scene plays, found by the Scene's section. */
+function sceneFoldOf(page: Page, scene: string) {
+  return page.getByRole('group', { name: `Writing ${scene}`, exact: true }).locator('.held.playing details.plays')
 }
 
 /** The fold of a Shot, found by the row its words are named in. */
@@ -159,6 +167,11 @@ test('the Sample\'s first Shot says what it plays as, and what it carries stands
 
     await page.goto(`/stories/${sample!.id}`)
     await live(page)
+    // Its Scene says the four answers every Shot of its run plays by, and stands
+    // under its Sound, which is in plain view above the line and never on it.
+    await expect(sceneFoldOf(page, scene).locator('summary')).toHaveText(
+      `Cut after 12 s · A hard Cut · Image above the text · Image held still ${scene}`)
+    await expect(page.getByLabel(`Transcript ${scene}`, { exact: true })).toBeVisible()
     const fold = foldOf(page, first)
     await expect(fold.locator('summary')).toHaveText(
       `Full screen · Closer by 12 % · From a blur as the Image arrives, 1.5 s, marked ${first}`)
@@ -189,4 +202,136 @@ test('the Sample\'s first Shot says what it plays as, and what it carries stands
       .toHaveValue('1.5')
     await expect(fold.getByRole('combobox', { name: `As the Image arrives ${first} Strength`, exact: true }))
       .toHaveValue('marked')
+  })
+
+test('a Scene just written opens on its name, its Flags, how it plays and Add a Shot, in one window',
+  async ({ page, author }) => {
+    const story = await seedStory(author, 'A Story')
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await page.goto(`/stories/${story.id}`)
+    await live(page)
+    await page.getByRole('button', { name: 'Write the First Scene' }).click()
+    await expect(page.getByLabel('Name of A new Scene')).toBeFocused()
+    await page.keyboard.type('The arrival')
+    await page.keyboard.press('Tab')
+
+    // About 880 px down at 1440 × 900 before the fold, under five headed sections.
+    const section = page.getByRole('group', { name: 'Writing The arrival', exact: true })
+    const fold = sceneFoldOf(page, 'The arrival')
+    for (const held of [
+      page.getByLabel('Name of The arrival', { exact: true }),
+      section.locator('.held.set'),
+      section.getByRole('heading', { name: 'How this Scene plays' }),
+      fold.locator('summary'),
+      section.getByRole('button', { name: 'Add a Shot to The arrival', exact: true }),
+    ]) await expect(held).toBeInViewport()
+
+    // Shut, the head offers no list and no file, and its line says the four answers
+    // every Shot of the run plays by.
+    await expect(fold).not.toHaveAttribute('open')
+    await expect(section.locator('.slate, .held.set, .held.playing')
+      .locator('select:visible, input[type="file"]:visible')).toHaveCount(0)
+    await expect(section.locator('.held.heard')).toHaveCount(0)
+    await expect(fold.locator('summary')).toHaveAccessibleName(
+      'Cut at the press · A hard Cut · Image above the text · Image held still The arrival')
+  })
+
+test('a Scene\'s fold holds what its head drew, stays open through every write and comes back shut',
+  async ({ page, request }) => {
+    const story = await writeStory(request)
+    const street = (await reread(request, story.id)).scenes[0]!
+    const sceneOf = async () => (await reread(request, story.id)).scenes[0]!
+    await page.goto(`/stories/${story.id}?scene=${street.id}`)
+    await live(page)
+
+    const fold = sceneFoldOf(page, 'The street')
+    const summary = fold.locator('summary')
+    const said = 'A hard Cut · Image above the text · Image held still The street'
+    await expect(summary).toHaveText(`Cut at the press · ${said}`)
+    await unfold(page, 'The street')
+    await expect(sceneFoldOf(page, 'The bar')).not.toHaveAttribute('open')
+    await expect(foldOf(page, 'Shot 1 of The street')).not.toHaveAttribute('open')
+
+    // The same fields the head drew, under the same names, and no fold inside it.
+    for (const field of [
+      fold.getByLabel('Upload a Sound for The street'),
+      fold.getByLabel('The Sound of The street'),
+      fold.getByRole('button', { name: 'Listen The street' }),
+      fold.getByRole('button', { name: 'Take This Sound The street' }),
+      ...['The Shots are cut', 'The Cut is made', 'The Exits are offered', 'The text arrives',
+        'The text comes', 'The text appears', 'The text stays', 'The Shots are laid out',
+        'The Images move',
+      ].map(label => fold.getByLabel(`${label} The street`, { exact: true })),
+    ]) await expect(field).toBeVisible()
+    await expect(fold.locator('details')).toHaveCount(0)
+
+    const when = fold.getByLabel('The Shots are cut The street', { exact: true })
+    const stands = fold.getByLabel('Seconds a Shot of The street stands', { exact: true })
+    await when.selectOption('After a time')
+    await expect.poll(async () => (await sceneOf()).cutAfter).toBe(4000)
+    await stands.fill('5')
+    await stands.blur()
+    await expect.poll(async () => (await sceneOf()).cutAfter).toBe(5000)
+    await expect(fold).toHaveAttribute('open')
+    await expect(summary).toHaveText(`Cut after 5 s · ${said}`)
+
+    // The Exits are said only while they are not offered until one is taken.
+    const offered = fold.getByLabel('The Exits are offered The street', { exact: true })
+    const standing = fold.getByLabel('Seconds the Exits of The street stand', { exact: true })
+    await offered.selectOption('For a time')
+    await expect.poll(async () => (await sceneOf()).exitsAfter).toBe(10_000)
+    await standing.fill('8')
+    await standing.blur()
+    await expect.poll(async () => (await sceneOf()).exitsAfter).toBe(8000)
+    await expect(summary).toHaveText(
+      'Cut after 5 s · A hard Cut · Exits for 8 s · Image above the text · Image held still The street')
+    await offered.selectOption('Until one is taken')
+    await expect.poll(async () => (await sceneOf()).exitsAfter).toBeNull()
+    await expect(summary).toHaveText(`Cut after 5 s · ${said}`)
+    await expect(fold).toHaveAttribute('open')
+
+    await page.reload()
+    await live(page)
+    await expect(fold).not.toHaveAttribute('open')
+    await expect(summary).toHaveText(`Cut after 5 s · ${said}`)
+  })
+
+test('a Sound a Scene is heard under stands open above its fold, its own or another\'s',
+  async ({ page, request }) => {
+    const story = await writeStory(request)
+    const street = (await reread(request, story.id)).scenes[0]!
+    await request.put(`/api/scenes/${street.id}/sound`, { data: A_SOUND })
+    await page.goto(`/stories/${story.id}?scene=${street.id}`)
+    await live(page)
+
+    // Deposited, it is in plain view with everything said about it, and the fold
+    // has no picker to offer.
+    for (const held of [
+      page.getByLabel('The Sound of The street', { exact: true }),
+      page.getByLabel('Transcript The street', { exact: true }),
+      page.getByLabel('Held under the Scene The street', { exact: true }),
+      page.getByRole('button', { name: 'Remove the Sound The street', exact: true }),
+    ]) await expect(held).toBeVisible()
+    const fold = await unfold(page, 'The street')
+    await expect(fold.locator('input[type="file"], select[id^="sound-"]')).toHaveCount(0)
+
+    // Still an act of the Scene being written that the bar of Commands offers.
+    await page.getByRole('button', { name: 'Commands' }).click()
+    await page.getByRole('textbox', { name: 'Type a name' }).fill('Remove the Sound')
+    await expect(page.locator('dialog.commands').getByRole('button', { name: 'Remove the Sound' }))
+      .toBeVisible()
+    await page.keyboard.press('Escape')
+
+    // Without one, the picker is only in the fold; named from another Scene, what
+    // it names stands open in its place.
+    const bar = page.getByRole('group', { name: 'Writing The bar', exact: true })
+    await expect(bar.locator('.held.heard')).toHaveCount(0)
+    await expect(bar.getByLabel('The Sound of The bar')).toBeHidden()
+    await unfold(page, 'The bar')
+    await bar.getByLabel('The Sound of The bar').selectOption({ label: 'The street' })
+    await bar.getByRole('button', { name: 'Take This Sound The bar', exact: true }).click()
+    await expect(bar.locator('.held.heard').getByText('Heard under The street')).toBeVisible()
+    await expect(bar.locator('.held.heard').getByRole('button', { name: 'Remove the Sound The bar' }))
+      .toBeVisible()
+    await expect(sceneFoldOf(page, 'The bar').locator('select[id^="sound-"]')).toHaveCount(0)
   })

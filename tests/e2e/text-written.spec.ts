@@ -45,10 +45,13 @@ test('a Scene says how its texts arrive, and the Story comes back holding it',
       { exact: true })
 
     // Every Story written so far has its text land with the Image, whole, at once
-    // and until the Cut, so that is what the section says before an Author does —
-    // folded, because a Scene that says only that spends a line on it.
+    // and until the Cut, so that is what the fields say before an Author does —
+    // folded with everything else the Scene's head chooses from a list, and said
+    // on its line by nothing, because a Scene that says only that spends no words
+    // on it.
     await expect(arrives).toBeHidden()
-    await page.locator('summary', { hasText: 'How the texts arrive The street' }).click()
+    const fold = await unfold(page, 'The street')
+    await expect(fold.locator('summary')).not.toContainText('Text')
     await expect(arrives).toBeVisible()
     await expect(arrives).toHaveValue('image')
     await expect(comes).toHaveValue('whole')
@@ -81,10 +84,14 @@ test('a Scene says how its texts arrive, and the Story comes back holding it',
     await stays.selectOption('For a time')
     await expect.poll(async () => (await sceneOf()).textStays).toBe(3000)
 
-    // A Scene that says otherwise is drawn open, so what it says is read unasked.
+    // A Scene that says otherwise says it on its line, so what it says is read
+    // unasked, and its fold comes back shut like every other.
     await page.reload()
     await live(page)
-    await expect(arrives).toBeVisible()
+    await expect(arrives).toBeHidden()
+    await expect(fold.locator('summary')).toContainText(
+      'Text after 2.5 s · Text word by word, 20 characters a second · Text stays 3 s')
+    await unfold(page, 'The street')
     await expect(arrives).toHaveValue('time')
     await expect(wait).toHaveValue('2.5')
     await expect(comes).toHaveValue('word')

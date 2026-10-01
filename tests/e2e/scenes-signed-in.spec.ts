@@ -4,7 +4,7 @@ import { CONDITIONS_MAX, SCENE_NAME_MAX_LENGTH } from '../../shared/utils/scenes
 import type { StoryInEditor } from '../../shared/utils/scenes'
 import {
   A_SOUND, ONE_PIXEL, writeScene, readExits, readSceneName, readShotConditions, readShots,
-  seedFlags, seedExit, seedScene, seedStory, shotText, test, toast, writeShot,
+  seedFlags, seedExit, seedScene, seedStory, shotText, test, toast, unfold, writeShot,
 } from './author'
 
 const noId = '00000000-0000-4000-8000-000000000000'
@@ -548,15 +548,17 @@ test('everything a Scene holds is on the surface at once, each part counted',
     // so what is asked about one Scene is asked of that Scene's own section.
     const arrival = written(page, 'The arrival')
 
-    // The eight parts of a Scene, in the order a Reader meets them, each headed
-    // and counted where it starts: the Flags set on entry, what it is heard
-    // under, how its run is cut, how its texts arrive, how its Shots are laid
-    // out, how its Images move, the run of beats, the ways on.
+    // The parts of a Scene, in the order a Reader meets them, each headed and
+    // counted where it starts: the Flags set on entry, how it plays — what it is
+    // heard under, how its run is cut, how its texts arrive, how its Shots are
+    // laid out and how its Images move, folded to one line since #400 — the run
+    // of beats, the ways on. A Scene heard under nothing has no Sound to head:
+    // its picker is in the fold.
     await expect(arrival.locator('.held > h3')).toHaveText([
-      /Flags\s*1/, 'Sound', 'Cut', 'Text', 'Layout', 'Movement', /Shots\s*2/, /Exits\s*1/,
+      /Flags\s*1/, 'How this Scene plays', /Shots\s*2/, /Exits\s*1/,
     ])
 
-    // And all eight are on the surface together, which is what taking the tabs
+    // And all of them are on the surface together, which is what taking the tabs
     // out bought: a Condition and the Flags that satisfy it are read at once.
     await expect(arrival.getByRole('textbox', { name: 'Shot 1 of The arrival', exact: true }))
       .toBeVisible()
@@ -567,7 +569,7 @@ test('everything a Scene holds is on the surface at once, each part counted',
 
     // The count follows the Story rather than the page it was drawn on.
     await arrival.getByRole('button', { name: 'Add a Shot' }).click()
-    await expect(arrival.locator('.held > h3').nth(6)).toHaveText(/Shots\s*3/)
+    await expect(arrival.locator('.held > h3').nth(2)).toHaveText(/Shots\s*3/)
   })
 
 test('a Scene is typed as one document, beat after beat', async ({ page, request }) => {
@@ -936,12 +938,13 @@ test('the mark that moves where the Story opens is a tab stop on every Scene it 
   })
 
 /**
- * The Scene's own Sound section has an order too, and it is the order the section
+ * The Scene's own Sound picker has an order too, and it is the order the picker
  * is drawn in: the file of the Author's own first, then the list of what the
  * Story and the library already carry, then the two acts on what that list is
- * standing on. Held here because nothing else holds it — the section stands below
- * the Flags, so a control added to it breaks no walk and the next person to add
- * one would not know there was an order to keep.
+ * standing on. Held here because nothing else holds it — the picker stands in
+ * the fold of how the Scene plays, under the Flags, so a control added to it
+ * breaks no walk and the next person to add one would not know there was an order
+ * to keep.
  *
  * Walked twice, because *Listen* and *Take This Sound* both act on what the
  * `<select>` is standing on and do nothing at all on nothing: standing on nothing
@@ -952,6 +955,7 @@ test('the Sound a Scene is heard under is chosen in the order the section draws'
     const { story, scenes } = await chained(request, ['The arrival', 'The platform'])
     await page.goto(`/stories/${story.id}`)
     await expect(written(page, 'The arrival')).toBeVisible()
+    await unfold(page, 'The arrival')
 
     const section = sectionOf(page, scenes[0]!.id)
     const depositing = section.getByLabel('Upload a Sound for The arrival')

@@ -92,7 +92,7 @@ test('an Author writes the Layout of a Scene and of a Shot from the Scene\'s doc
     const shot = street.shots[0]!
 
     await page.goto(`/stories/${story.id}?scene=${street.id}`)
-    await live(page)
+    await unfold(page, 'The street')
 
     const laid = page.getByLabel('The Shots are laid out The street', { exact: true })
     const reread0 = async () => (await reread(request, story.id)).scenes[0]!

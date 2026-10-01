@@ -44,6 +44,7 @@ async function writing(page: Page, request: APIRequestContext) {
 test('a Scene says when its Shots are cut and how long its ways on stand',
   async ({ page, request }) => {
     const { story, scene, shot } = await writing(page, request)
+    await unfold(page, 'The street')
     const when = page.getByLabel('The Shots are cut The street', { exact: true })
     const stands = page.getByLabel('Seconds a Shot of The street stands', { exact: true })
 
@@ -84,7 +85,7 @@ test('a Scene says when its Shots are cut and how long its ways on stand',
       .toBe(0)
 
     await page.reload()
-    await live(page)
+    await unfold(page, 'The street')
     await expect(when).toHaveValue('clock')
     await expect(stands).toHaveValue('2.5')
     await expect(offered).toHaveValue('none')

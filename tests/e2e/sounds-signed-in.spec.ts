@@ -199,6 +199,7 @@ test('an Author takes a Sound from the library, and the Scene carries its own by
   const { story, scene } = await openScene(request)
 
   await page.goto(`/stories/${story.id}`)
+  await unfold(page, 'The street')
   const soundField = writing(page).getByLabel('The Sound of The street')
   // Selected by value rather than by the option's full label, which also carries
   // a duration this test has no reason to hardcode.
@@ -217,6 +218,7 @@ test('an Author deposits a Sound on a Scene by choosing a file, and the row carr
   const { story, scene } = await openScene(request)
 
   await page.goto(`/stories/${story.id}`)
+  await unfold(page, 'The street')
   const picker = writing(page).getByLabel('Upload a Sound for The street')
   await picker.scrollIntoViewIfNeeded()
   await picker.setInputFiles({ name: 'silence.mp3', mimeType: 'audio/mpeg', buffer: A_SOUND })
@@ -235,6 +237,7 @@ test('a Scene takes its Sound from another, and says whose it is', async ({ page
   await request.put(`/api/scenes/${scene.id}/sound`, { data: A_SOUND })
 
   await page.goto(`/stories/${story.id}`)
+  await unfold(page, 'The bar')
   await writing(page, 'The bar').getByLabel('The Sound of The bar')
     .selectOption({ label: 'The street' })
   await writing(page, 'The bar').getByRole('button', { name: 'Take This Sound The bar' }).click()
