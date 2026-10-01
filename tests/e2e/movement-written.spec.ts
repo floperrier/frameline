@@ -43,8 +43,13 @@ test('the Movement written on a Scene reads back, and Not at all keeps the direc
     await by.fill('25')
     await by.blur()
     await expect.poll(async () => (await first()).movementBy).toBe(25)
+    // The choice is waited for in the Story before the seconds are typed over it,
+    // because the field is drawn the moment the choice is put on the row, before
+    // its write has landed. Typed at once, the two writes were in flight together,
+    // and the first landing after the second left the Story at ten seconds.
     await takes.selectOption('A time of its own')
     await expect(over).toHaveValue('10')
+    await expect.poll(async () => (await first()).movementOver).toBe(10_000)
     await over.fill('2.5')
     await over.blur()
     await expect.poll(async () => (await first()).movementOver).toBe(2500)
