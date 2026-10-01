@@ -40,6 +40,38 @@ const { t } = useI18n()
 const at = defineModel<Path>('at', { default: () => UNDRAWN })
 
 /**
+ * The seed every draw a Scene makes comes out of, drawn once, by whichever side
+ * renders the Reading first. The server renders this page too, and draws it there:
+ * Nuxt writes it into the payload, and the browser hydrating that page reads the
+ * same number back rather than drawing a second, so the opening beat is one Story
+ * on both sides of hydration. Drawn twice, a Flag said or tested on the opening
+ * beat would read one value as the page is painted and another once it answers —
+ * issue #387. A Reading set up in the browser alone, behind a title card, draws it
+ * there. It is the one impure moment in a Reading — see
+ * `docs/adr/0024-the-seed-belongs-to-the-position.md` and
+ * `docs/adr/0060-the-seed-is-carried-to-the-browser.md`.
+ *
+ * Drawn for whoever finds the Path still `UNDRAWN`, which is the one Path both
+ * holders start at: a bench that holds the Path above the document has drawn it
+ * as the bench arrived, and a Reading that drew a second seed on every turn back
+ * to it would be the defect #247 reports.
+ *
+ * Held against the value rather than against the constant itself. A Path handed
+ * down through the model arrives as a reactive proxy of whatever the holder above
+ * keeps, never as the object, so an identity test would read false on every bench
+ * and true on a Reader's page only because `defineModel` hands out that very
+ * object when nobody binds it — which is a rule holding by an accident it does not
+ * name. An undrawn Path has taken nothing, is on the Shot it opened on, and
+ * carries the seed of none, and those are the three things `UNDRAWN` is.
+ *
+ * Drawn before the Path is watched below, so drawing it is not a move: every move
+ * is written over what the browser kept, and a Path kept from an earlier visit is
+ * read back only once the Reading is mounted.
+ */
+const served = useState('reading-seed', () => opening().seed)
+if (!moved(at.value) && at.value.seed === UNDRAWN.seed) at.value = opening(served.value)
+
+/**
  * The names a text of this Story says, which are the Flags some Scene of it sets.
  * See `docs/adr/0059-a-flag-is-said-by-its-name.md`.
  */
@@ -125,26 +157,11 @@ onMounted(() => {
 })
 
 /**
- * The seed every draw a Scene makes comes out of, drawn once the Reading is in
- * the browser it will stay in. Here rather than in the Path this starts at,
- * because the server renders this page too and a seed drawn there and drawn
- * again here would be two Stories either side of hydration. It is the one impure
- * moment in a Reading — see `docs/adr/0024-the-seed-belongs-to-the-position.md`.
+ * Where a Reading picked up is put back, once it is in the browser that kept it.
  * A Path kept from before carries its seed with it, so a Reading picked up draws
- * what it drew.
- *
- * Drawn by whoever finds the Path still `UNDRAWN`, which is the one Path both
- * holders start at: a bench that holds the Path above the document has drawn it
- * as the bench arrived, and a Reading that drew a second seed on every turn back
- * to it would be the defect #247 reports.
- *
- * Held against the value rather than against the constant itself. A Path handed
- * down through the model arrives as a reactive proxy of whatever the holder above
- * keeps, never as the object, so an identity test would read false on every bench
- * and true on a Reader's page only because `defineModel` hands out that very
- * object when nobody binds it — which is a rule holding by an accident it does not
- * name. An undrawn Path has taken nothing, is on the Shot it opened on, and
- * carries the seed of none, and those are the three things `UNDRAWN` is.
+ * what it drew, and `resumes` only hands back a Path that has moved: the beat it
+ * puts the Reader on is another beat than the one the server drew, never that one
+ * drawn again.
  */
 onMounted(() => {
   // The frame the server drew has stood on screen, playing its Effects, since the
@@ -152,15 +169,16 @@ onMounted(() => {
   // put another in its place: a Reading picked up from a kept Path throws its
   // resumed beat a moment after the opening one has flashed.
   if (painted) arrive()
+  // The seed the server drew is this Reading's now, and only this one's: the next
+  // Reading this page opens without being reloaded draws a seed of its own.
+  clearNuxtState('reading-seed')
   const before = kept()
   resumed.value = before !== undefined
   if (before) at.value = before
-  else if (!moved(at.value) && at.value.seed === UNDRAWN.seed) at.value = opening()
-  // The strike below is watched on the Path's position, and the position this
-  // Reading lands on here — freshly drawn, or resumed onto a kept Path nothing
-  // ever moved from — is the same `0-0` the Path started this component at, so
-  // that watch will not see it as a change and will not fire for it. Struck
-  // here instead: the opening beat is a beat that plays like any other.
+  // The strike below is watched on the Path's position, and a Reading that is not
+  // picked up stands on the `0-0` it was set up at, so that watch will not see a
+  // change and will not fire for it. Struck here instead: the opening beat is a
+  // beat that plays like any other.
   if (!moved(at.value)) strikeShot()
   // The bed has no such exception and needs the call for the opposite reason:
   // a Preview is mounted afresh over a Path the bench held, so `heard` arrives
@@ -676,11 +694,10 @@ const ownTime = computed(() =>
 
 /**
  * The beat on screen: where the Path stands, and which Shot it found there. The
- * two can come apart, because the Shot at a position is the engine's to say — the
- * opening beat is drawn on the server under no seed and again here under the
- * Reader's, and a Scene whose Flag decides its first Shot may find another one
- * there, as may an Author drawing again in a Preview — and a text belongs to its
- * Shot rather than to the place the Shot is found at.
+ * two can come apart, because the Shot at a position is the engine's to say — a
+ * Scene whose Flag decides its first Shot may find another one there when an
+ * Author draws again in a Preview — and a text belongs to its Shot rather than to
+ * the place the Shot is found at.
  */
 const onScreen = computed(() =>
   `${at.value.taken.length}-${at.value.shot}-${shown.value.shot?.id}`)

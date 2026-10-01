@@ -1,6 +1,6 @@
 import type { Browser, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { forgetName, test, writeStory } from './author'
+import { forgetName, live, test, writeStory } from './author'
 
 /**
  * A Reader with no account, in a browser of their own: no session, no cookie and
@@ -293,4 +293,43 @@ test('a Reader is told what a Flag holds, and a name this Reading holds nothing 
   await reading.getByRole('button', { name: 'Next Shot' }).click()
   await expect(reading.getByRole('button', { name: 'Exit to The platform' })).toBeVisible()
   await expect(reading.getByText('{hat}')).toHaveCount(0)
+})
+
+test('a draw on the opening beat says one value, before the page answers and after', async ({ page, request, browser, baseURL }) => {
+  const story = await writeStory(request)
+  const { scenes } = await (await request.get(`/api/stories/${story.id}`)).json()
+  const [street] = scenes
+
+  // Two draws of six, so a server and a browser drawing under two seeds of their
+  // own land on one sentence by chance once in thirty-six rather than once in two.
+  const cities = ['Lyon', 'Oslo', 'Lima', 'Riga', 'Baku', 'Doha']
+  const months = ['March', 'April', 'May', 'June', 'July', 'August']
+  const set = await request.put(`/api/scenes/${street.id}/flags`, {
+    data: { sets: { city: cities, month: months } },
+  })
+  expect(set.ok()).toBe(true)
+  await request.patch(`/api/shots/${street.shots[0].id}`, {
+    data: { text: 'You wake up in {city} in {month}.', description: '' },
+  })
+  await request.patch(`/api/shots/${street.shots[1].id}`, {
+    data: { text: 'Still {city}, still {month}.', description: '' },
+  })
+
+  const link = `${baseURL}/read/${story.id}`
+  await page.goto(`/stories/${story.id}`)
+  await page.getByRole('button', { name: 'Publish this Story', exact: true }).click()
+  await expect(page.getByRole('link', { name: link })).toBeVisible()
+
+  // What the server answered with is what the Reader sees until the page is
+  // answering, so the value it says is the one the Reading holds from then on.
+  const reading = await (await browser.newContext()).newPage()
+  const served = await (await reading.goto(link))!.text()
+  const [, city, month] = /You wake up in (\w+) in (\w+)\./.exec(served) ?? []
+  expect(cities).toContain(city)
+  expect(months).toContain(month)
+
+  await live(reading)
+  await expect(reading.getByText(`You wake up in ${city} in ${month}.`)).toBeVisible()
+  await reading.getByRole('button', { name: 'Next Shot' }).click()
+  await expect(reading.getByText(`Still ${city}, still ${month}.`)).toBeVisible()
 })
