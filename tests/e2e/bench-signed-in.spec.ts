@@ -305,7 +305,7 @@ test('draws a row\'s marks at the weight of the words until the hand arrives at 
       bound: NOTHING,
       written: (await drawnAs(place)).written,
     }
-    const asAControl = await drawnAs(page.locator(`#scene-${scenes[0]!.id} .adds button`))
+    const asAControl = await drawnAs(page.locator(`#scene-${scenes[0]!.id} .adds button`).first())
     expect(asAControl).not.toEqual(asWords)
 
     // Polled rather than read once: the weight changes over a tenth of a second,

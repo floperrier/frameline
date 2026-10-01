@@ -276,6 +276,14 @@ test('the bar offers the acts of the Scene being written, and Escape leaves that
   // The act ran on the Story: a third Shot where the Scene had two.
   await expect(page.getByRole('textbox', { name: 'Shot 3 of The street', exact: true }))
     .toBeVisible()
+
+  // The act that adds several opens the picker, several files allowed, from the
+  // very keystroke that ran it: a browser opens a file dialog only inside one.
+  await open(page)
+  await typing(page).fill('Add Shots from Images')
+  const picker = page.waitForEvent('filechooser')
+  await typing(page).press('Enter')
+  expect((await picker).isMultiple()).toBe(true)
 })
 
 test('an Author publishes a Story from the bar', async ({ page, request, baseURL }) => {
@@ -383,6 +391,7 @@ test('the bar names every act marked on a Scene being written, and no other', as
     'Add a Condition to Shot 1 of The street',
     'Add a Condition to Shot 2 of The street',
     'Add a Shot',
+    'Add Shots from Images',
     'Add a Condition to the Exit 1 to The bar, out of The street',
     'Add an Exit',
     'Close the Remarks',

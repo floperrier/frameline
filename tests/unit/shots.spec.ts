@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-import { SHOT_DESCRIPTION_MAX_LENGTH, imageTypeOf } from '../../shared/utils/scenes'
+import {
+  SHOT_DESCRIPTION_MAX_LENGTH, SHOT_IMAGE_MAX_BYTES, imageTypeOf, imagesForShots,
+} from '../../shared/utils/scenes'
 import type { H3Event } from 'h3'
 import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
 
@@ -54,6 +56,39 @@ vi.stubGlobal('createError', (refusal: { statusCode: number, message: string }) 
 vi.stubGlobal('saying', () => (key: string, values?: Record<string, string | number>) =>
   phrase(DEFAULT_LOCALE, key, values))
 vi.stubGlobal('SHOT_DESCRIPTION_MAX_LENGTH', SHOT_DESCRIPTION_MAX_LENGTH)
+
+/** A file as the browser hands one over: a name, a type, a weight. */
+const file = (name: string, type = 'image/png', size = 1024) => ({ name, type, size })
+const names = (files: { name: string }[]) => files.map(held => held.name)
+
+describe('the Images picked or dropped together', () => {
+  it('are taken in the order a camera numbers them, and not as the system listed them', () => {
+    const { taken } = imagesForShots([file('IMG_10.png'), file('IMG_2.png'), file('IMG_1.png')])
+
+    expect(names(taken)).toEqual(['IMG_1.png', 'IMG_2.png', 'IMG_10.png'])
+  })
+
+  it('are ordered without regard to case', () => {
+    const { taken } = imagesForShots([file('b.png'), file('C.png'), file('A.png')])
+
+    expect(names(taken)).toEqual(['A.png', 'b.png', 'C.png'])
+  })
+
+  it('leave out what a Shot cannot carry, each by its reason, before anything is written', () => {
+    const { taken, leftOut } = imagesForShots([
+      file('b-2.png'),
+      file('a.gif', 'image/gif'),
+      file('big.jpg', 'image/jpeg', SHOT_IMAGE_MAX_BYTES + 1),
+      file('b-1.webp', 'image/webp', SHOT_IMAGE_MAX_BYTES),
+    ])
+
+    expect(names(taken)).toEqual(['b-1.webp', 'b-2.png'])
+    expect(leftOut.map(({ file, why }) => [file.name, why])).toEqual([
+      ['a.gif', 'refusals.imageType'],
+      ['big.jpg', 'refusals.imageHeavy'],
+    ])
+  })
+})
 
 const { readShotDescription } = await import('../../server/utils/shots')
 
