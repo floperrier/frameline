@@ -114,5 +114,10 @@ Playwright reads the question like any other part of the interface. No spec
 intercepts a browser `dialog` event any more, which also means the Récit delete
 has page-level coverage for the first time.
 
+The Shot is the one deletion that is put back rather than confirmed. Its × still
+asks nothing, and leaves a slim row with *Put It Back* on it for as long as the
+page is open, the row held whole on the server for a day — see
+`docs/adr/0064-a-deleted-shot-is-held-for-a-day.md`.
+
 Reopening any of the five verdicts means amending this ADR, not adding a
 `confirm`.
