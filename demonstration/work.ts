@@ -50,6 +50,11 @@ export type Image = {
 /** A Shot's words with the formatting set aside, whichever way it is written. */
 export const wordsOf = (shot: Shot) => shot.formatted ? textOf(shot.formatted) : shot.text
 
+/** A Condition as a work writes it: a Scene by its name, an Exit by the Scene it leaves and its Place there. */
+export type WorkCondition =
+  | Exclude<Condition, { exit: string }>
+  | { exit: { from: string, place: number }, taken: boolean }
+
 /**
  * One Shot of a work: the beat, what the image of it shows for a Reader who
  * cannot see it, the image itself, and the Conditions it plays under. The
@@ -63,7 +68,7 @@ export const wordsOf = (shot: Shot) => shot.formatted ? textOf(shot.formatted) :
 export type Shot = ({ text: string, formatted?: never } | { formatted: Formatted, text?: never }) & {
   description?: string
   image?: Image | string
-  when?: Condition[]
+  when?: WorkCondition[]
   /**
    * The Sound the beat strikes with, named as one of the library's own files —
    * `shared/utils/library.ts`. A work carries no bytes of its own: the library is
@@ -126,8 +131,11 @@ export type Shot = ({ text: string, formatted?: never } | { formatted: Formatted
  * out from the Story and from nothing else — see
  * `docs/adr/0041-the-graph-is-drawn-from-the-story.md` — so a coordinate written
  * here would have nowhere to go. An Exit names the Scenes it joins rather than
- * identifying them, and so does the Condition it is offered under — `write.ts`
- * puts the ids in once the Scenes exist.
+ * identifying them, and so does the Condition it is offered under. An Exit has no
+ * name, so a Condition names one by the Scene it leaves and its Place there,
+ * counted from 1 in the order the work writes that Scene's Exits: the work is
+ * written before any id exists, and nothing renumbers it. The writers put the
+ * ids in once the Scenes and the Exits exist.
  *
  * `language` is the Language the work is written in, English where it says
  * nothing, and never the Locale of whoever reads it. `opening` names the Scene a
@@ -192,7 +200,7 @@ export type Work = {
     from: string
     to: string
     text: string
-    when?: Condition[]
+    when?: WorkCondition[]
     cutOver?: number
     cutThrough?: CutThrough
   }[]

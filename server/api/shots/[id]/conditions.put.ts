@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
     where shots.id = ${id}::uuid
       and owner.id = shots.scene_id
       and stories.author_id = ${author.id}::uuid
-      and ${countedWithinTheStory(conditions)}
+      and ${askedWithinTheStory(conditions)}
     returning shots.id, shots.conditions`)
 
   if (!rows[0]) throw notFound(event, 'Shot')

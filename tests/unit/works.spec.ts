@@ -318,6 +318,29 @@ describe.each(WORKS)('the Movements %s is written with', (_name: string, work: W
   })
 })
 
+/**
+ * The Exits the works' Conditions ask about. A work names an Exit by the Scene it
+ * leaves and its Place there, because it is written before any id exists, and
+ * both writers throw on one the work does not write — halfway through writing
+ * it, like a time past its cap. Asked here, so the suite finds it first.
+ */
+describe.each(WORKS)('the Conditions %s is written with', (_name: string, work: Work) => {
+  it('asks which Exit a Reading took, naming only an Exit the work writes', () => {
+    const asked = [
+      ...work.exits.flatMap(exit => exit.when ?? []),
+      ...work.scenes.flatMap(scene => scene.shots.flatMap(shot => shot.when ?? [])),
+    ].flatMap(condition => 'exit' in condition ? [condition.exit] : [])
+
+    expect(asked.length).toBeGreaterThan(0)
+    for (const { from, place } of asked) {
+      expect(work.scenes.map(scene => scene.name)).toContain(from)
+      expect(Number.isInteger(place)).toBe(true)
+      expect(place).toBeGreaterThanOrEqual(1)
+      expect(place).toBeLessThanOrEqual(work.exits.filter(exit => exit.from === from).length)
+    }
+  })
+})
+
 /** Every run and bar of a formatted text, paired with the line it stands in. */
 const inlinesOf = (value: Formatted): Inline[] => linesOf(value).flat()
 
@@ -382,8 +405,8 @@ describe('the formatting the works are written with', () => {
   })
 
   it('sets a Flag in the typewriter and the Sample’s aside by hand in each Sample', () => {
-    for (const [flag, aside] of [['exit = taken', 'Nothing here is precious'], ['sortie = prise', 'Rien ici']] as const) {
-      const work = flag.startsWith('exit') ? SAMPLES.en : SAMPLES.fr
+    for (const [flag, aside] of [['route = long', 'Nothing here is precious'], ['chemin = long', 'Rien ici']] as const) {
+      const work = flag.startsWith('route') ? SAMPLES.en : SAMPLES.fr
       const runs = work.scenes.flatMap(scene => scene.shots)
         .flatMap(shot => shot.formatted ? inlinesOf(shot.formatted) : [])
 

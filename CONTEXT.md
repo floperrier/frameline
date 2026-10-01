@@ -253,11 +253,11 @@ _Affiché_: Scène d'ouverture
 _Avoid_: start, entry point, root, first scene, home
 
 **Condition**:
-A flat test on State, carried by an Exit or by a Shot: it decides whether the Exit is
-offered to this Reader, or whether the Shot plays for them. It asks one of two
-things — what a Flag holds, or whether a Scene has been entered. Either may carry
-several, and is offered or played only where all of them hold; one carrying none
-always is.
+A flat test on State, carried by an Exit or by a Shot, which decides whether the
+Exit is offered to this Reader or whether the Shot plays for them. It asks one
+of three things: what a Flag holds, whether a Scene has been entered, or
+whether an Exit has been taken. Either may carry several, and is offered or
+played only where all of them hold; one carrying none always is.
 _Affiché_: Condition
 _Avoid_: rule, guard, requirement, predicate, gate
 
@@ -312,10 +312,12 @@ _Avoid_: error, warning, issue, problem, lint, validation, avertissement, alerte
 ### The reading
 
 **State**:
-Everything a Story has accumulated during one Reading — a flat map of Flags, plus
-the Scenes it has entered. Entered rather than counted, because a Reading stands
-in a Scene at most once — see `docs/adr/0048-a-scene-is-entered-once.md`. Never
-shared between Readings.
+Everything a Story has accumulated during one Reading, which is a flat map of
+Flags, plus the Scenes it has entered and the Exits it has taken. Entered and
+taken rather than counted, because a Reading stands in a Scene at most once and
+so takes an Exit out of it at most once. See
+`docs/adr/0048-a-scene-is-entered-once.md`. The two lists are the Path read
+back, never anything kept beside it. Never shared between Readings.
 _Affiché_: État
 _Avoid_: variables, memory, save, progress, context, session data
 

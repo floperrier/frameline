@@ -38,21 +38,31 @@ const asking = (body: unknown) => readConditions({ body } as unknown as H3Event,
 /** A Scene named by a Condition asking about one, which the reader takes as a uuid. */
 const SCENE = '0f5c2f8e-3a1e-4a4f-9d2f-1c6d5b0a7e11'
 
+/** An Exit named by a Condition asking about one, likewise a uuid. */
+const EXIT = '7b1d9a42-5c3e-4f08-8a6d-2e4f1c9b3d70'
+
 /** As many Flag tests as asked for, each one whole and each one different. */
 const tests = (many: number) =>
   Array.from({ length: many }, (_, place) => ({ flag: `flag ${place}`, is: 'set' }))
 
 describe('the Conditions a request writes', () => {
-  it('takes a list of flat tests, and both shapes of one', async () => {
+  it('takes a list of flat tests, and all three shapes of one', async () => {
     await expect(asking({
       conditions: [
         { flag: 'coat', is: 'on' },
         { scene: SCENE, entered: true },
+        { exit: EXIT, taken: true },
       ],
     })).resolves.toEqual([
       { flag: 'coat', is: 'on' },
       { scene: SCENE, entered: true },
+      { exit: EXIT, taken: true },
     ])
+  })
+
+  it('takes both questions a Condition may ask of an Exit', async () => {
+    await expect(asking({ conditions: [{ exit: EXIT, taken: true }, { exit: EXIT, taken: false }] }))
+      .resolves.toEqual([{ exit: EXIT, taken: true }, { exit: EXIT, taken: false }])
   })
 
   it('takes both questions a Condition may ask of a Scene', async () => {
@@ -64,7 +74,7 @@ describe('the Conditions a request writes', () => {
    * The contract half of an expand–contract. The shape that counted was taken for
    * one deploy so that a browser holding the previous code could send its list
    * back while the migration was on its way; #306 rewrote every row, and a
-   * Condition is two shapes again — see
+   * Condition is a Flag's, a Scene's or an Exit's again — see
    * `docs/adr/0002-the-schema-moves-with-the-deploy.md`.
    */
   it('refuses the shape that counted, whatever it counted', async () => {
@@ -101,6 +111,11 @@ describe('the Conditions a request writes', () => {
       { scene: SCENE, entered: true, times: 2 },
       { scene: SCENE },
       { scene: SCENE, visits: 'at least', times: 1 },
+      { exit: 'the platform', taken: true },
+      { exit: EXIT, taken: 'yes' },
+      { exit: EXIT },
+      { exit: EXIT, taken: true, scene: SCENE },
+      { exit: EXIT, entered: true },
       [{ flag: 'coat', is: 'on' }],
       'coat is on',
       null,

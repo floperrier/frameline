@@ -58,6 +58,9 @@ type Frame = { shot: Shot, scene: Scene, place: number, named: string }
  */
 const names = computed(() => namesOnTheBench(story, t))
 
+/** The Exits of the Story as the bench names them, for a Condition that asks about one. */
+const exits = computed(() => exitsOnTheBench(story, names.value))
+
 /**
  * A Scene read by name where something else names it: the far side of an Exit, the
  * Scene a Condition asks about. One a Condition still names after it was deleted is
@@ -488,11 +491,17 @@ function move(shot: Shot, axis: 'cropX' | 'cropY', event: Event) {
               {{ $t('conditions.holds') }}
               <span class="data">{{ condition.is }}</span>
             </template>
-            <template v-else>
+            <template v-else-if="'scene' in condition">
               {{ $t('conditions.scene') }}
               <span class="data">{{ sceneName(condition.scene) }}</span>
               {{ condition.entered
                 ? $t('conditions.hasBeenEntered') : $t('conditions.hasNotBeenEntered') }}
+            </template>
+            <template v-else>
+              {{ $t('conditions.exit') }}
+              <span class="data">{{ exitOption(exits.get(condition.exit), t) }}</span>
+              {{ condition.taken
+                ? $t('conditions.hasBeenTaken') : $t('conditions.hasNotBeenTaken') }}
             </template>
           </span>
         </p>

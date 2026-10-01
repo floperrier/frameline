@@ -122,6 +122,12 @@ other way of being told: a way on no Reading is ever handed, which
 `docs/adr/0048-a-scene-is-entered-once.md` left behind in the Stories written
 before it.
 
+*Amended by `docs/adr/0058-a-condition-asks-whether-an-exit-has-been-taken.md`.*
+A Condition about a Scene is read now, and so is one about an Exit, off the ways
+on and never their Conditions. Conditions only take ways away, so one the bench
+says can never hold can never hold: the wrong answer feared above is never
+given, and a Condition the ways on cannot rule out goes unsaid.
+
 **The reading has no memory and nothing to dismiss.** A Remark is not a task, is
 not acknowledged, and is not stored. It is there while the Story is in that state
 and gone when it is not, which is what makes it impossible for the list to be

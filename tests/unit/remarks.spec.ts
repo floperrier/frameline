@@ -385,15 +385,6 @@ describe('what can never hold', () => {
     expect(remarks(story, says)).toEqual([])
   })
 
-  it('leaves a question about a Scene alone, whatever the graph allows', () => {
-    const story = onTheBench([
-      { name: 'The bar' },
-      { name: 'The quay' },
-    ], { exits: [['The bar', 'The quay', { scene: 'The bar', entered: true }]] })
-
-    expect(remarks(story, says)).toEqual([])
-  })
-
   it('says only that the Flag is unset where nothing sets it at all', () => {
     const story = onTheBench([
       { name: 'The bar' },
@@ -401,6 +392,146 @@ describe('what can never hold', () => {
     ], { exits: [['The bar', 'The quay', { flag: 'drink', is: 'wine' }]] })
 
     expect(named(story)).toEqual(['flagUnset'])
+  })
+})
+
+describe('a Condition the ways round rule out', () => {
+  const NEVER = ['shotConditionNeverHolds', 'exitConditionNeverHolds']
+  const never = (story: StoryInEditor) =>
+    remarks(story, says).filter(remark => NEVER.includes(remark.name))
+  const asking = (...conditions: Condition[]) => [{ text: 'A.', conditions }]
+  const GONE = '00000000-0000-4000-8000-000000000000'
+
+  it('reports a Scene asked entered that no way leads on from to the Scene asking', () => {
+    const story = onTheBench([
+      { name: 'The street' },
+      { name: 'The quay' },
+      { name: 'The bar', shots: asking({ scene: 'The quay', entered: true }) },
+    ], { exits: [['The street', 'The quay'], ['The street', 'The bar']] })
+
+    const found = never(story)
+    const said = { scene: 'The bar', place: 1, test: 'The quay has been entered' }
+    expect(found).toEqual([{ name: 'shotConditionNeverHolds', sceneId: 'The bar', said }])
+    expect(says('remark.shotConditionNeverHolds', said)).toBe(
+      'Shot 1 of The bar plays only when The quay has been entered, and that is never so for a Reading that gets there.',
+    )
+  })
+
+  it('reports the opening Scene asked not entered, and a Scene asked not entered in itself', () => {
+    const opening = onTheBench([
+      { name: 'The street' },
+      { name: 'The bar', shots: asking({ scene: 'The street', entered: false }) },
+    ], { exits: [['The street', 'The bar']] })
+    expect(never(opening).map(remark => remark.said.test))
+      .toEqual(['The street has not been entered'])
+
+    const itself = onTheBench([
+      { name: 'The street' },
+      { name: 'The bar', shots: asking({ scene: 'The bar', entered: false }) },
+    ], { exits: [['The street', 'The bar']] })
+    expect(never(itself).map(remark => remark.said.test)).toEqual(['The bar has not been entered'])
+  })
+
+  it('reports an Exit asked taken on a way on that leaves a Scene it can only be taken before', () => {
+    const story = onTheBench([
+      { name: 'The bar' },
+      { name: 'The quay' },
+    ], { exits: [['The bar', 'The quay', { exit: 'The bar-The quay-0', taken: true }]] })
+
+    expect(never(story)).toEqual([{
+      name: 'exitConditionNeverHolds',
+      sceneId: 'The bar',
+      said: { scene: 'The bar', place: 1, test: 'the Exit 1 out of The bar has been taken' },
+    }])
+
+    story.exits[0]!.conditions = [{ exit: 'The bar-The quay-0', taken: false }]
+    expect(never(story)).toEqual([])
+  })
+
+  it('reports an Exit asked taken that leaves a Scene the Shot comes before', () => {
+    const story = onTheBench([
+      { name: 'The bar', shots: asking({ exit: 'The quay-The yard-1', taken: true }) },
+      { name: 'The quay' },
+      { name: 'The yard' },
+    ], { exits: [['The bar', 'The quay'], ['The quay', 'The yard']] })
+
+    expect(never(story).map(remark => remark.said.test))
+      .toEqual(['the Exit 1 out of The quay has been taken'])
+  })
+
+  it('reports an Exit asked not taken that is the only way in, and not one asked taken', () => {
+    const only = (taken: boolean) => onTheBench([
+      { name: 'The street' },
+      { name: 'The bar', shots: asking({ exit: 'The street-The bar-0', taken }) },
+    ], { exits: [['The street', 'The bar']] })
+
+    expect(never(only(false)).map(remark => remark.said.test))
+      .toEqual(['the Exit 1 out of The street has not been taken'])
+    expect(never(only(true))).toEqual([])
+  })
+
+  it('leaves an Exit alone where the Scene has another way in', () => {
+    for (const exit of ['The street-The bar-1', 'The yard-The bar-2']) {
+      for (const taken of [true, false]) {
+        const story = onTheBench([
+          { name: 'The street' },
+          { name: 'The yard' },
+          { name: 'The bar', shots: asking({ exit, taken }) },
+        ], { exits: [['The street', 'The yard'], ['The street', 'The bar'], ['The yard', 'The bar']] })
+
+        expect(never(story)).toEqual([])
+      }
+    }
+  })
+
+  it('reports a Condition on something that is gone, unless it asks for the absence', () => {
+    const exit = (taken: boolean) => onTheBench([{ name: 'The bar', shots: asking({ exit: GONE, taken }) }])
+    expect(never(exit(true)).map(remark => remark.said.test))
+      .toEqual(['an Exit that is gone has been taken'])
+    expect(never(exit(false))).toEqual([])
+
+    const scene = onTheBench([{ name: 'The bar', shots: asking({ scene: GONE, entered: true }) }])
+    expect(never(scene).map(remark => remark.said.test))
+      .toEqual(['a Scene that is gone has been entered'])
+  })
+
+  it('says nothing of a Scene no Reading reaches but that it is not reached', () => {
+    const story = onTheBench([
+      { name: 'The street' },
+      { name: 'The bar' },
+      { name: 'The island', shots: asking({ scene: 'The bar', entered: true }) },
+    ], { exits: [['The street', 'The bar']] })
+
+    expect(never(story)).toEqual([])
+    expect(named(story)).toContain('sceneUnreached')
+  })
+
+  it('leaves a Scene asked not entered alone where a way in avoids it', () => {
+    const story = onTheBench([
+      { name: 'The street' },
+      { name: 'The yard' },
+      { name: 'The bar', shots: asking({ scene: 'The yard', entered: false }) },
+    ], { exits: [['The street', 'The yard'], ['The yard', 'The bar'], ['The street', 'The bar']] })
+
+    expect(never(story)).toEqual([])
+  })
+
+  it('leaves a Scene asked entered alone on a way on out of that Scene', () => {
+    const story = onTheBench([
+      { name: 'The bar' },
+      { name: 'The quay' },
+    ], { exits: [['The bar', 'The quay', { scene: 'The bar', entered: true }]] })
+
+    expect(never(story)).toEqual([])
+  })
+
+  it('leaves a Scene asked entered alone where a way leads to the Scene asking', () => {
+    const story = onTheBench([
+      { name: 'The bar' },
+      { name: 'The quay', shots: asking({ scene: 'The bar', entered: true }) },
+    ], { exits: [['The bar', 'The quay']] })
+
+    expect(never(story)).toEqual([])
   })
 })
 

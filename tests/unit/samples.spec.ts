@@ -8,7 +8,7 @@ import {
   type SampleLanguage,
 } from '../../demonstration/samples.ts'
 import { wordsOf } from '../../demonstration/work.ts'
-import type { Work } from '../../demonstration/work.ts'
+import type { Work, WorkCondition } from '../../demonstration/work.ts'
 import { linesOf } from '../../shared/utils/formatted.ts'
 import type { Formatted } from '../../shared/utils/formatted.ts'
 import {
@@ -21,7 +21,6 @@ import {
   SHOT_TEXT_MAX_LENGTH,
   imageTypeOf,
 } from '../../shared/utils/scenes.ts'
-import type { Condition } from '../../shared/utils/scenes.ts'
 import { STORY_LANGUAGES, STORY_TITLE_MAX_LENGTH } from '../../shared/utils/stories.ts'
 import { SOUND_LIBRARY } from '../../shared/utils/library.ts'
 
@@ -56,15 +55,25 @@ function placeOf(work: Work, name: string) {
 }
 
 /**
- * A Condition as the two Samples can be compared by: the Scene it asks about, or
- * the Scene whose Flag it tests, each by its Place in the work rather than by its
- * name, and whether the test asks for a value or for the absence of one.
+ * A Condition as the two Samples can be compared by: the Scene it asks about, the
+ * Scene the Exit it asks about leaves, or the Scene whose Flag it tests, each by
+ * its Place in the work rather than by its name, and whether the test asks for a
+ * value or for the absence of one. An Exit is already named by its Place, which
+ * the two languages share.
  */
-function shapeOfCondition(work: Work, condition: Condition) {
+function shapeOfCondition(work: Work, condition: WorkCondition) {
   if ('scene' in condition) {
     return {
       entered: 'entered' in condition && condition.entered,
       of: placeOf(work, condition.scene),
+    }
+  }
+
+  if ('exit' in condition) {
+    return {
+      taken: condition.taken,
+      from: placeOf(work, condition.exit.from),
+      place: condition.exit.place,
     }
   }
 
@@ -174,12 +183,12 @@ function textOf(work: Work) {
 }
 
 /**
- * The Scenes a Reading can reach without ever entering one of them, taking only
- * the ways on that are offered to everybody. Under-counting on purpose: an Exit
- * carrying Conditions might be offered too, and a route that needs none is the
- * one an Author is certain to find.
+ * The Scenes a Reading can reach without ever entering one of them, or without
+ * ever taking one way on, taking only the ways on that are offered to everybody.
+ * Under-counting on purpose: an Exit carrying Conditions might be offered too,
+ * and a route that needs none is the one an Author is certain to find.
  */
-function reachedWithout(work: Work, avoiding: string) {
+function reachedWithout(work: Work, avoiding: string | Work['exits'][number]) {
   const reached = new Set<string>()
   const walking = [work.opening ?? work.scenes[0]!.name]
 
@@ -189,11 +198,16 @@ function reachedWithout(work: Work, avoiding: string) {
 
     reached.add(scene)
     walking.push(...work.exits
-      .filter(exit => exit.from === scene && !exit.when?.length)
+      .filter(exit => exit.from === scene && exit !== avoiding && !exit.when?.length)
       .map(exit => exit.to))
   }
 
   return reached
+}
+
+/** The way on a work names by the Scene it leaves and its Place there, counted from 1. */
+function exitAt(work: Work, { from, place }: { from: string, place: number }) {
+  return work.exits.filter(exit => exit.from === from)[place - 1]
 }
 
 describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLanguage) => {
@@ -242,6 +256,11 @@ describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLan
     }
   })
 
+  it('asks about an Exit somewhere, so a Condition remembering an answer is met', () => {
+    expect(conditionsOf(sample).filter(condition => 'exit' in condition).length)
+      .toBeGreaterThan(0)
+  })
+
   it('names, in every Condition testing a Flag, a Flag some Scene sets', () => {
     const set = new Set(sample.scenes.flatMap(scene => Object.keys(scene.sets ?? {})))
 
@@ -262,6 +281,23 @@ describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLan
 
           const setter = sample.scenes.find(other => condition.flag in (other.sets ?? {}))!
           expect(reachedWithout(sample, setter.name)).toContain(scene.name)
+        }
+      }
+    }
+  })
+
+  it('asks about an Exit on a Shot a Reading can arrive without taking it', () => {
+    // The same lesson as the Flag's: a Shot every Reading arrives at by the Exit
+    // it asks about is a Shot nobody watches the question fail on. So the Scene
+    // it is in has to be entered by another way on too.
+    for (const scene of sample.scenes) {
+      for (const shot of scene.shots) {
+        for (const condition of shot.when ?? []) {
+          if (!('exit' in condition)) continue
+
+          const asked = exitAt(sample, condition.exit)
+          expect(asked).toBeDefined()
+          expect(reachedWithout(sample, asked!)).toContain(scene.name)
         }
       }
     }

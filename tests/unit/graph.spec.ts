@@ -6,6 +6,9 @@ import type { StoryInEditor } from '../../shared/utils/scenes'
 import {
   countedArrivals,
   countedScenes,
+  exitCalled,
+  exitOption,
+  exitsOnTheBench,
   inColumns,
   inDocumentOrder,
   namesOnTheBench,
@@ -599,5 +602,43 @@ describe('which Scenes a drawing runs a line through', () => {
 
     expect(crossings(links)).toBe(0)
     expect(traversals(links, at).size).toBeGreaterThan(0)
+  })
+})
+
+describe('what the bench calls an Exit', () => {
+  const scenes = [
+    { ...scene('street'), name: 'The street' },
+    { ...scene('bar'), name: 'The bar' },
+    { ...scene('yard'), name: 'The yard' },
+  ]
+  const exits: Exit[] = [
+    { ...exit('street', 'bar'), id: 'follow', text: 'Follow her out' },
+    { ...exit('street', 'bar', 1), id: 'plain' },
+    { ...exit('yard', 'bar'), id: 'yard-bar' },
+  ]
+  const story: StoryInEditor = {
+    id: 'a-story', title: 'A Story', language: 'en', synopsis: '', openingSceneId: 'street',
+    coverShotId: null, publishedAt: null, listed: false, scenes, exits,
+  }
+  const called = exitsOnTheBench(story, namesOnTheBench(story, says))
+
+  test('is its Place out of the Scene it leaves, in the order the Story is written in', () => {
+    expect([...called.keys()]).toEqual(['follow', 'plain', 'yard-bar'])
+    expect(called.get('follow')).toEqual({
+      place: 1, from: 'The street', scene: 'The bar', toSceneId: 'bar', text: 'Follow her out',
+    })
+    expect(called.get('plain')).toMatchObject({ place: 2, from: 'The street' })
+    expect(called.get('yard-bar')).toMatchObject({ place: 1, from: 'The yard' })
+  })
+
+  test('reads as an option with the words it carries, and without when it carries none', () => {
+    expect(exitOption(called.get('follow'), says)).toBe('1 to The bar, out of The street · “Follow her out”')
+    expect(exitOption(called.get('plain'), says)).toBe('2 to The bar, out of The street')
+    expect(exitCalled(called.get('plain'), says)).toBe('the Exit 2 out of The street')
+  })
+
+  test('says an Exit that is gone is gone', () => {
+    expect(exitOption(undefined, says)).toBe('An Exit that is gone')
+    expect(exitCalled(undefined, says)).toBe('an Exit that is gone')
   })
 })

@@ -196,6 +196,9 @@ type SceneInDocument = {
  */
 const named = computed(() => namesOnTheBench(story, t))
 
+/** The Exits of the Story as the bench names them, which a Condition may ask about. */
+const exits = computed(() => exitsOnTheBench(story, named.value))
+
 /** The name the bench gives one Scene, which is the map above read for it. */
 function nameOf(sceneId: string) {
   return sceneNamed(named.value, sceneId, t)
@@ -2783,6 +2786,7 @@ function writeConditions(
                   })"
                   :conditions="shot.conditions"
                   :names="named"
+                  :exits="exits"
                   :counting="held.scene.id"
                   :id="shot.id"
                   :named="held.here"
@@ -2961,6 +2965,7 @@ function writeConditions(
                   })"
                   :conditions="exit.conditions"
                   :names="named"
+                  :exits="exits"
                   :counting="held.scene.id"
                   :id="exit.id"
                   :named="held.here"

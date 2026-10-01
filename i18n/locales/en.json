@@ -29,7 +29,12 @@
     "goneOption": "A Scene that is gone"
   },
   "exit": {
-    "to": "Exit to {scene}"
+    "to": "Exit to {scene}",
+    "called": "the Exit {place} out of {from}",
+    "option": "{place} to {scene}, out of {from}",
+    "optionSays": "{place} to {scene}, out of {from} · “{text}”",
+    "gone": "an Exit that is gone",
+    "goneOption": "An Exit that is gone"
   },
   "landing": {
     "eyebrow": "Interactive narrative, cut like film",
@@ -414,7 +419,11 @@
     "toCarrier": "to {carrier}",
     "called": "Condition {place} of {carrier}",
     "hasBeenEntered": "has been entered",
-    "hasNotBeenEntered": "has not been entered"
+    "hasNotBeenEntered": "has not been entered",
+    "exit": "Exit",
+    "taken": "taken",
+    "hasBeenTaken": "has been taken",
+    "hasNotBeenTaken": "has not been taken"
   },
   "flags": {
     "called": "Flag {place} set on entering {scene}",
@@ -454,6 +463,12 @@
     "flagUnset": "A Condition in {scene} tests the Flag {flag}, and no Scene ever sets it.",
     "exitUnofferable": "The Exit {place} out of {scene} is offered only when {flag} holds “{is}”, which no Scene ever sets it to.",
     "shotUnplayable": "Shot {place} of {scene} plays only when {flag} holds “{is}”, which no Scene ever sets it to.",
+    "shotConditionNeverHolds": "Shot {place} of {scene} plays only when {test}, and that is never so for a Reading that gets there.",
+    "exitConditionNeverHolds": "The Exit {place} out of {scene} is offered only when {test}, and that is never so for a Reading that gets there.",
+    "whenEntered": "{asked} has been entered",
+    "whenNotEntered": "{asked} has not been entered",
+    "whenTaken": "{asked} has been taken",
+    "whenNotTaken": "{asked} has not been taken",
     "exitNeverTaken": "The Exit {place} out of {scene} leads back to a Scene a Reading arriving here has already been through, so no Reader is ever offered it.",
     "exitUnphrased": "The Exit {place} out of {scene} has no words of its own, so wherever it is offered a Reader is shown the name of the Scene it leads to.",
     "sceneFlowsNowhere": "{scene} flows on without asking, and has no way on to flow to — a Reading ends there.",
@@ -473,6 +488,9 @@
     "noFlagValue": "(nothing)",
     "noFlags": "No Scene has set one yet",
     "scenesEntered": "Scenes entered",
+    "exitsTaken": "Exits taken",
+    "exitTaken": "The Exit {place} to {scene}, out of {from}",
+    "noExitTaken": "No Exit taken yet",
     "noWayBack": "No way back",
     "reroll": "Draw Again",
     "rerollNote": "the same Path, another draw",
@@ -481,7 +499,9 @@
     "reading": "Preview",
     "notReached": "Nothing leads to {scene} yet, so no Reading arrives there. The reading below stands where it got to.",
     "needsEntered": "needs {scene} to have been entered, and it has not",
-    "needsNotEntered": "needs {scene} not to have been entered, and it has"
+    "needsNotEntered": "needs {scene} not to have been entered, and it has",
+    "needsTaken": "needs {exit} to have been taken, and it has not",
+    "needsNotTaken": "needs {exit} not to have been taken, and it has"
   },
   "reading": {
     "next": "Next Shot",
@@ -549,7 +569,7 @@
       "shot": "A Shot cannot carry more than {max} Conditions.",
       "exit": "An Exit cannot carry more than {max} Conditions."
     },
-    "badCondition": "A Condition tests what one Flag holds, or whether one Scene has been entered.",
+    "badCondition": "A Condition tests what one Flag holds, whether one Scene has been entered, or whether one Exit has been taken.",
     "exitText": "An Exit carries text.",
     "exitTextLong": "An Exit cannot carry more than {max} characters.",
     "exitTarget": "An Exit arrives at a Scene.",

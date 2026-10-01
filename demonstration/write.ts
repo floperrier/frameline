@@ -34,7 +34,7 @@ import { soundTypeOf } from '../shared/utils/sound.ts'
 import { SAMPLES, SAMPLE_LANGUAGES, imagePath, type SampleLanguage } from './samples.ts'
 import { REEL_CHANGE } from './reel-change.ts'
 import { soundPath } from './sounds.ts'
-import { develop, type Shot } from './work.ts'
+import { develop, type Shot, type WorkCondition } from './work.ts'
 
 const origin = argument('origin') ?? 'http://localhost:3100'
 const email = argument('author')
@@ -53,6 +53,11 @@ const story = await api('POST', '/api/stories', {
 
 // Scenes first, so an Exit has both its ends to join by the time it is drawn.
 const written = new Map<string, string>()
+// Each Scene's ways on, by the Place they are drawn at there.
+const drawn = new Map<string, string[]>()
+// And every Condition last, because one may name an Exit, and an Exit has no id
+// until it is drawn: each list waits here beside the door it is PUT through.
+const conditioned: { path: string, when: WorkCondition[] }[] = []
 
 for (const scene of work.scenes) {
   const { id } = await api('POST', `/api/stories/${story.id}/scenes`, { name: scene.name }) as
@@ -115,9 +120,7 @@ for (const scene of work.scenes) {
     const image = await imageOf(shot)
     if (image) await attach(shotId, image)
     if (shot.sound) await deposit(`/api/shots/${shotId}/sound`, shot.sound)
-    if (shot.when) {
-      await api('PUT', `/api/shots/${shotId}/conditions`, { conditions: shot.when.map(identified) })
-    }
+    if (shot.when) conditioned.push({ path: `/api/shots/${shotId}/conditions`, when: shot.when })
     process.stdout.write('.')
   }
 }
@@ -137,9 +140,12 @@ for (const exit of work.exits) {
     cutOver: exit.cutOver,
     cutThrough: exit.cutThrough,
   })
-  if (exit.when) {
-    await api('PUT', `/api/exits/${id}/conditions`, { conditions: exit.when.map(identified) })
-  }
+  drawn.set(exit.from, [...drawn.get(exit.from) ?? [], id])
+  if (exit.when) conditioned.push({ path: `/api/exits/${id}/conditions`, when: exit.when })
+}
+
+for (const { path, when } of conditioned) {
+  await api('PUT', path, { conditions: when.map(identified) })
 }
 
 await api('POST', `/api/stories/${story.id}/publish`)
@@ -192,16 +198,22 @@ async function imageOf(shot: Shot) {
     : await develop(shot.image)
 }
 
-/** A Condition as the API takes it: a Scene named in the work, identified here. */
-function identified(condition: Condition) {
-  return 'scene' in condition
-    ? { ...condition, scene: sceneNamed(condition.scene) }
-    : condition
+/** A Condition as the API takes it: a Scene or an Exit named in the work, identified here. */
+function identified(condition: WorkCondition): Condition {
+  if ('scene' in condition) return { ...condition, scene: sceneNamed(condition.scene) }
+  if ('exit' in condition) return { ...condition, exit: exitNamed(condition.exit) }
+  return condition
 }
 
 function sceneNamed(name: string) {
   const id = written.get(name)
   if (!id) throw new Error(`No Scene called ${name} was written`)
+  return id
+}
+
+function exitNamed({ from, place }: { from: string, place: number }) {
+  const id = drawn.get(from)?.[place - 1]
+  if (!id) throw new Error(`The work names an Exit ${place} out of ${from} it does not write`)
   return id
 }
 

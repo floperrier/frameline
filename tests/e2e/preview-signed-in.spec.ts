@@ -488,7 +488,8 @@ async function writeConditionalStory(request: APIRequestContext) {
   await request.patch(`/api/exits/${inTheBack.id}`, { data: { text: 'In through the back' } })
   await wayOn(bar!.id, 'The stairs', 'Go up', [{ scene: yard.id, entered: true }])
 
-  return { story, street: street!.id, bar: bar!.id, alley: alley.id, yard: yard.id }
+  return { story, street: street!.id, bar: bar!.id, alley: alley.id, yard: yard.id,
+    inTheBack: inTheBack.id }
 }
 
 /**
@@ -520,6 +521,12 @@ test('the reading shows the Author the State it has accumulated', async ({ page,
   await expect(bench.getByText('coat = on')).toBeVisible()
   await expect.poll(entered).toEqual(['The street'])
 
+  // No Exit taken yet: the Reading has pressed nothing.
+  const taken = bench.locator('.taken li')
+  const none = bench.getByText('No Exit taken yet')
+  await expect(none).toBeVisible()
+  await expect(taken).toHaveCount(0)
+
   // Nothing the Reading has not touched is listed — the alley is a Scene of this
   // Story, and no Reading has been in it.
   await expect(bench.getByText('The alley')).toBeHidden()
@@ -533,12 +540,21 @@ test('the reading shows the Author the State it has accumulated', async ({ page,
   await expect(bench.getByText('coat = on')).toBeVisible()
   await expect.poll(entered).toEqual(['The street', 'The bar'])
 
+  // The Exit pressed is listed the way the bench names it, with the words the
+  // Reader pressed beside it.
+  await expect(none).toBeHidden()
+  await expect(taken).toHaveCount(1)
+  await expect(taken).toContainText('The Exit 1 to The bar, out of The street')
+  await expect(taken.locator('b')).toHaveText('Follow her out')
+
   // And the list is the Path and nothing else: stepping back out of the bar takes
   // it off again, because a shorter Path is a Reading that never went in.
   await preview.getByRole('button', { name: 'Next Shot' }).click()
   await preview.getByRole('button', { name: 'Step Back' }).click()
   await preview.getByRole('button', { name: 'Step Back' }).click()
   await expect.poll(entered).toEqual(['The street'])
+  await expect(none).toBeVisible()
+  await expect(taken).toHaveCount(0)
 })
 
 test('the reading says why a way on is missing, and does not offer it',
@@ -632,6 +648,53 @@ test('an Author writes a Condition about a Scene, and watches it hold and not ho
     await expect(bench.getByText('Shot 2 of The bar', { exact: true })).toBeVisible()
     await expect(preview.locator('figure').getByText('You came in the back way.')).toBeVisible()
     await expect(bench.getByText('needs The yard to have been entered')).toBeHidden()
+  })
+
+/**
+ * The whole of what #352 gives an Author: the Condition about an Exit is written
+ * from the page, and then watched failing and holding in the reading beside it.
+ */
+test('an Author writes a Condition about an Exit, and watches it hold and not hold',
+  async ({ page, request }) => {
+    const { story, bar, inTheBack } = await writeConditionalStory(request)
+    const shot = await (await request.post(`/api/scenes/${bar}/shots`)).json()
+    await request.patch(`/api/shots/${shot.id}`, {
+      data: { text: 'You came in the back way.', description: '' },
+    })
+
+    await page.goto(`/stories/${story.id}?scene=${bar}`)
+    await live(page)
+
+    // The question starts on the Exit that lands on the Scene the Shot belongs to
+    // — the first one the Story holds — and is moved to the one the Author means.
+    await page.getByRole('button', { name: 'Add a Condition to Shot 2 of The bar' }).click()
+    const called = 'Condition 1 of Shot 2 of The bar'
+    await page.getByLabel(called, { exact: true }).selectOption('taken')
+    const exit = page.getByLabel(`Exit asked about by ${called}`)
+    await expect(exit.locator('option:checked'))
+      .toHaveText('1 to The bar, out of The street · “Follow her out”')
+    await exit.selectOption({ label: '1 to The bar, out of The yard · “In through the back”' })
+
+    await expect(page.getByLabel(`taken for ${called}`)).toHaveValue('true')
+    await expect.poll(() => readShotConditions(bar))
+      .toEqual([[], [{ exit: inTheBack, taken: true }]])
+
+    // Walking straight in, the Exit was not taken: the beat is not on screen and
+    // the bench says which test failed.
+    await page.getByRole('button', { name: 'Read the Story' }).click()
+    const preview = previewIn(page)
+    const bench = benchIn(page)
+    await expect(bench.getByText('needs the Exit 1 out of The yard to have been taken, and it has not'))
+      .toBeVisible()
+    await expect(preview.locator('figure').getByText('You came in the back way.')).toBeHidden()
+
+    // Round by the yard it was, and the beat is the Author's to read.
+    await preview.getByRole('button', { name: 'Next Shot' }).click()
+    await backAndRoundTheYard(preview)
+    await preview.getByRole('button', { name: 'Next Shot' }).click()
+    await expect(preview.locator('figure').getByText('You came in the back way.')).toBeVisible()
+    await expect(bench.getByText('needs the Exit 1 out of The yard to have been taken'))
+      .toBeHidden()
   })
 
 test('a Reader of the published Story is shown none of the bench',

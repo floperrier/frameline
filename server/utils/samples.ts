@@ -1,5 +1,7 @@
+import { randomUUID } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { SAMPLES, type SampleLanguage } from '../../demonstration/samples'
+import type { WorkCondition } from '../../demonstration/work'
 import { exits, scenes, shots, stories } from '../db/schema'
 import { useDb } from '../db'
 import { textOf } from '../../shared/utils/formatted'
@@ -35,6 +37,15 @@ export async function plantSample(
 
   const { db, image, sound } = bench
   let planted: string | undefined
+
+  // Each Scene's ways on, by their Place there, given their ids before anything
+  // is inserted: a Condition may name an Exit, and the Shots carrying one go in
+  // before the Exits do, in statements no order of theirs would help — an Exit's
+  // own Conditions may name another Exit.
+  const minted = new Map<string, string[]>()
+  for (const exit of sample.exits) {
+    minted.set(exit.from, [...minted.get(exit.from) ?? [], randomUUID()])
+  }
 
   try {
     const [story] = await db
@@ -81,9 +92,18 @@ export async function plantSample(
       return scene.id
     }
 
-    // A Condition names its Scene by an id, and the work names it by its name.
-    const identified = (condition: Condition) =>
-      'scene' in condition ? { ...condition, scene: idOf(condition.scene) } : condition
+    const exitIdOf = ({ from, place }: { from: string, place: number }) => {
+      const id = minted.get(from)?.[place - 1]
+      if (!id) throw new Error(`No Exit ${place} out of ${from} was planted`)
+      return id
+    }
+
+    // A Condition names its Scene and its Exit by an id, and the work names a
+    // Scene by its name and an Exit by the Scene it leaves and its Place there.
+    const identified = (condition: WorkCondition): Condition =>
+      'scene' in condition ? { ...condition, scene: idOf(condition.scene) }
+      : 'exit' in condition ? { ...condition, exit: exitIdOf(condition.exit) }
+      : condition
 
     await db.insert(shots).values(await Promise.all(sample.scenes.flatMap(scene =>
       scene.shots.map(async (shot, position) => ({
@@ -128,6 +148,7 @@ export async function plantSample(
       places.set(exit.from, place + 1)
 
       return {
+        id: minted.get(exit.from)![place],
         fromSceneId: idOf(exit.from),
         toSceneId: idOf(exit.to),
         text: exit.text,

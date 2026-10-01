@@ -400,30 +400,40 @@ describe('the tests an Exit is hidden by', () => {
    */
   const says: Phrase = (key, values) => phrase(DEFAULT_LOCALE, key, values)
 
-  const state: State = { flags: { reel: 'spooled' }, entered: ['house'] }
+  /** The Exits a Condition asks about, read back the way an Author reads them. */
+  const exitNamed = (id: string) => ({ 'exit-9': 'the Exit 1 out of The House' }[id] ?? id)
+
+  const state: State = { flags: { reel: 'spooled' }, entered: ['house'], taken: ['exit-9'] }
 
   it('says nothing of an Exit this Reading is offered', () => {
-    expect(unmet([{ flag: 'reel', is: 'spooled' }], state, named, says)).toEqual([])
-    expect(unmet([], state, named, says)).toEqual([])
+    expect(unmet([{ flag: 'reel', is: 'spooled' }], state, named, exitNamed, says)).toEqual([])
+    expect(unmet([], state, named, exitNamed, says)).toEqual([])
   })
 
   it('names what a Flag was asked to hold beside what it holds', () => {
-    expect(unmet([{ flag: 'reel', is: 'threaded' }], state, named, says))
+    expect(unmet([{ flag: 'reel', is: 'threaded' }], state, named, exitNamed, says))
       .toEqual(['needs reel to hold threaded, holds spooled'])
   })
 
   it('says a Flag nobody set holds nothing, and that asking for nothing is asking', () => {
-    expect(unmet([{ flag: 'coat', is: 'on' }], state, named, says))
+    expect(unmet([{ flag: 'coat', is: 'on' }], state, named, exitNamed, says))
       .toEqual(['needs coat to hold on, holds nothing'])
-    expect(unmet([{ flag: 'reel', is: '' }], state, named, says))
+    expect(unmet([{ flag: 'reel', is: '' }], state, named, exitNamed, says))
       .toEqual(['needs reel to hold nothing, holds spooled'])
   })
 
   it('names the Scene a Condition asks about, and which way it asked', () => {
-    expect(unmet([{ scene: 'bar', entered: true }], state, named, says))
+    expect(unmet([{ scene: 'bar', entered: true }], state, named, exitNamed, says))
       .toEqual(['needs bar to have been entered, and it has not'])
-    expect(unmet([{ scene: 'house', entered: false }], state, named, says))
+    expect(unmet([{ scene: 'house', entered: false }], state, named, exitNamed, says))
       .toEqual(['needs The House not to have been entered, and it has'])
+  })
+
+  it('names the Exit a Condition asks about, and which way it asked', () => {
+    expect(unmet([{ exit: 'exit-3', taken: true }], state, named, exitNamed, says))
+      .toEqual(['needs exit-3 to have been taken, and it has not'])
+    expect(unmet([{ exit: 'exit-9', taken: false }], state, named, exitNamed, says))
+      .toEqual(['needs the Exit 1 out of The House not to have been taken, and it has'])
   })
 
   it('names every test that failed, and only those', () => {
@@ -431,10 +441,69 @@ describe('the tests an Exit is hidden by', () => {
       { flag: 'reel', is: 'spooled' },
       { flag: 'reel', is: 'threaded' },
       { scene: 'house', entered: false },
-    ], state, named, says)).toEqual([
+    ], state, named, exitNamed, says)).toEqual([
       'needs reel to hold threaded, holds spooled',
       'needs The House not to have been entered, and it has',
     ])
+  })
+})
+
+describe('an Exit asked about', () => {
+  // Two answers out of the Street into the Bar, and a beat there for each.
+  const twoAnswers = story(
+    {
+      Street: ['A door opens.'],
+      Bar: [
+        'Smoke.',
+        ['She kept the coat.', [{ exit: 'exit-1', taken: true }]],
+        ['She left it.', [{ exit: 'exit-1', taken: false }]],
+      ],
+      Quay: ['Water.'],
+    },
+    [
+      ['Street', 'Go in', 'Bar'],
+      ['Street', 'Go in with the coat', 'Bar'],
+      ['Bar', 'Out to the quay', 'Quay', [{ exit: 'exit-1', taken: true }]],
+      ['Bar', 'Back the way she came', 'Quay', [{ exit: 'exit-2', taken: true }]],
+    ],
+  )
+  const endOfStreet = advance(OPENING)
+
+  it('plays the beat the answer given asks for, and not the other', () => {
+    expect(run(twoAnswers, take(endOfStreet, reading(twoAnswers, endOfStreet).exits[0]!)))
+      .toEqual(['Smoke.', 'She left it.'])
+    expect(run(twoAnswers, take(endOfStreet, reading(twoAnswers, endOfStreet).exits[1]!)))
+      .toEqual(['Smoke.', 'She kept the coat.'])
+  })
+
+  it('counts an Exit taken from the moment it is crossed, and never one leaving the Scene stood in', () => {
+    const inTheBar = take(endOfStreet, reading(twoAnswers, endOfStreet).exits[1]!)
+    const endOfBar = advance(advance(inTheBar))
+    // The way on asking for the Exit that entered the Bar is offered; the one asking
+    // for an Exit out of the Bar itself never is.
+    expect(shown(twoAnswers, endOfBar).offered).toEqual(['Out to the quay'])
+    expect(reading(twoAnswers, endOfBar).state.taken).toEqual(['exit-1'])
+  })
+
+  it('holds the Exits taken in order, and only the part of the Path the Story still carries', () => {
+    const inTheBar = take(endOfStreet, reading(twoAnswers, endOfStreet).exits[1]!)
+    const onTheQuay = take(advance(advance(inTheBar)), reading(twoAnswers, advance(advance(inTheBar))).exits[0]!)
+    expect(reading(twoAnswers, onTheQuay).state.taken).toEqual(['exit-1', 'exit-2'])
+
+    const movedUnder = { ...twoAnswers, exits: twoAnswers.exits.filter(exit => exit.id !== 'exit-2') }
+    expect(reading(movedUnder, onTheQuay).state.taken).toEqual(['exit-1'])
+  })
+
+  it('lets a step back take the Exit crossed back out of the State', () => {
+    const inTheBar = take(endOfStreet, reading(twoAnswers, endOfStreet).exits[1]!)
+    expect(reading(twoAnswers, back(twoAnswers, inTheBar)!).state.taken).toEqual([])
+  })
+
+  it('never holds a question about an Exit that is gone, asked as taken, and always holds one asked as not', () => {
+    const gone = story(
+      { Street: [['Gone.', [{ exit: 'exit-7', taken: true }]], ['Still here.', [{ exit: 'exit-7', taken: false }]]] },
+    )
+    expect(run(gone, OPENING)).toEqual(['Still here.'])
   })
 })
 
@@ -1044,6 +1113,34 @@ describe('a Reading stopped at one Scene', () => {
     )
 
     expect(pathTo(study, OPENING, 'Vault')?.taken).toEqual(['exit-1', 'exit-2', 'exit-3'])
+  })
+
+  it('takes the way round by the Exit a way on further on asks about', () => {
+    const study = story(
+      {
+        Hall: ['A locked door.'],
+        Landing: ['Bare boards.'],
+        Vault: ['Rows of tins.'],
+      },
+      [
+        ['Hall', 'Straight on', 'Landing'],
+        ['Hall', 'Up the back stair', 'Landing'],
+        ['Landing', 'Unlock it', 'Vault', [{ exit: 'exit-1', taken: true }]],
+      ],
+    )
+
+    expect(pathTo(study, OPENING, 'Vault')?.taken).toEqual(['exit-1', 'exit-2'])
+  })
+
+  it('comes back with nothing, rather than searching for ever, from a Path the Story moved under', () => {
+    const moved = story(
+      { Hall: ['A locked door.'], Landing: ['Bare boards.'], Vault: ['Rows of tins.'] },
+      [['Hall', 'Straight on', 'Landing']],
+    )
+    // The walk stops at the Exit that is gone, in the Hall, so every way on the
+    // search adds from there arrives in the Hall again with the same State.
+    const stale: Path = { seed: 1, taken: ['exit-5'], shot: 0 }
+    expect(pathTo(moved, stale, 'Vault')).toBeUndefined()
   })
 
   /**

@@ -52,8 +52,16 @@ test('a new account arrives with a Sample in it', async ({ page, request, author
   // And its first Image moves, which the three columns of that Shot say.
   expect(story.scenes[0].shots[0])
     .toMatchObject({ movementDirection: 'closer', movementBy: 12, movementOver: null })
-  expect(story.scenes.flatMap((scene: { shots: { conditions: unknown[] }[] }) =>
-    scene.shots.flatMap(shot => shot.conditions)).length).toBeGreaterThan(0)
+  const conditions = story.scenes.flatMap((scene: { shots: { conditions: object[] }[] }) =>
+    scene.shots.flatMap(shot => shot.conditions))
+  expect(conditions.length).toBeGreaterThan(0)
+  // One of them asks which Exit the Reading took, and names it by the id it was
+  // planted with: the second way on out of the second Scene, which is an Exit of
+  // this Story and not of the work it was planted from.
+  const asked = conditions.find((condition: object) => 'exit' in condition)
+  expect(asked).toEqual({ exit: expect.any(String), taken: true })
+  expect(story.exits.find((exit: { id: string }) => exit.id === asked.exit))
+    .toMatchObject({ fromSceneId: story.scenes[1].id, toSceneId: story.scenes[2].id, position: 1 })
 
   // A Shot is an Image and its text, so the bytes committed beside the work have
   // to have arrived as an image a browser will take.

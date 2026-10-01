@@ -4,11 +4,11 @@ status: accepted
 
 # A Condition tests one thing, and the only way they compose is "all of them"
 
-A Condition tests exactly one thing: what a Flag holds, or whether a Scene has
-been entered. A Cut or a Shot carries a list of them, up to a small cap, and is
-offered — or played — only where every one holds. There is no `or`, no `not`, no
-arithmetic and no nesting, so the whole language is two shapes, one comparison,
-and an `every`.
+A Condition tests exactly one thing: what a Flag holds, whether a Scene has been
+entered, or whether an Exit has been taken. A Cut or a Shot carries a list of
+them, up to a small cap, and is offered — or played — only where every one
+holds. There is no `or`, no `not`, no arithmetic and no nesting, so the whole
+language is three shapes, one comparison, and an `every`.
 
 **Amended.** As first accepted, this decision let a Cut carry at most one
 Condition and said a Condition "never composes". Writing Reel Change ran into
@@ -39,6 +39,16 @@ what may be counted goes with the counting, and the sentence below about visits
 being what the engine counts anyway is no longer true. What the language keeps is
 the question almost every such Condition was actually asking, and what it loses is
 "the third time" — which is a Story this product no longer writes.
+
+**Amended a fourth time, and this one adds a shape.** Two answers leading to one
+Scene could not be told apart after it without a relay Scene per answer, holding
+no Shot and setting a Flag that named the answer a second time.
+`docs/adr/0058-a-condition-asks-whether-an-exit-has-been-taken.md` lets a
+Condition ask whether an Exit has been taken, `{ exit, taken }`, which is
+`{ scene, entered }` asked of the Exits: carried as the other two are, under the
+same cap, read by the same reader and judged by the same `holds`. Where the third
+amendment took a count away, this one adds none, because a Reading takes an Exit
+at most once. So the language is three shapes, one comparison, and an `every`.
 
 `CONTEXT.md` calls a Condition "a flat test on State, carried by a Cut or by a
 Shot", and the flatness is this: each test stands alone and is read on its own,

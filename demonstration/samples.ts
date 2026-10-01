@@ -3,11 +3,11 @@
  * rather than read. Three Scenes, named plainly, so the graph reads like a
  * diagram of the product; and the whole language already working, so an Author
  * meets a Flag set on entry, a Condition on a Shot testing it, a Condition
- * asking whether a Scene has been entered, a run cut by the clock with one beat
- * held against it, a dissolve on the way out, an Image that moves, a Scene whose
- * words arrive one at a time a second after its Image, and an ending that goes
- * to black while the room tone under it plays out its pass, before being asked
- * to write any of them.
+ * asking whether a Scene has been entered, a Condition asking which Exit a
+ * Reading took, a run cut by the clock with one beat held against it, a dissolve
+ * on the way out, an Image that moves, a Scene whose words arrive one at a time a
+ * second after its Image, and an ending that goes to black while the room tone
+ * under it plays out its pass, before being asked to write any of them.
  *
  * There is one Sample per Language and nothing translates between them, which is
  * why they sit here beside *Reel Change* rather than in `i18n/locales`: a Sample
@@ -323,7 +323,7 @@ const ENGLISH: Work = {
 
     {
       name: 'What an Exit offers',
-      sets: { exit: 'taken' },
+      sets: { route: 'long' },
       textAfter: 1000,
       textBy: 'word',
       textOver: 200,
@@ -342,7 +342,7 @@ const ENGLISH: Work = {
         {
           formatted: formatted(line(
             'Entering this Scene set a Flag: ',
-            run('exit = taken', ...FLAG),
+            run('route = long', ...FLAG),
             '. A Scene sets its Flags on every entry, and they stay in this Reading’s State '
             + 'until something sets them again.',
           )),
@@ -385,10 +385,11 @@ const ENGLISH: Work = {
           description: 'A run of two panels with a gap between them where a third would '
             + 'stand, drawn as an outline and nothing more.',
           image: 'a-gap',
-          when: [{ flag: 'exit', is: 'taken' }],
-          // Exactly one of this Shot and the next plays in any Reading, and
-          // whichever it is ends it: its own Cut takes it to black over two
-          // seconds, which is how an ending is written.
+          when: [{ flag: 'route', is: 'long' }],
+          // This Shot and the two after it each end some Reading, so each ends
+          // it the same way: its own Cut takes it to black over two seconds,
+          // which is how an ending is written. The one Reading that plays this
+          // beat and the last passes through that black between them.
           cutOver: 2000,
           cutThrough: 'black',
         },
@@ -397,6 +398,14 @@ const ENGLISH: Work = {
             + 'whether a Reading has entered a Scene at all, with no Flag set to tell it — '
             + 'and since a Scene is entered once, that is a thing it can settle for good.',
           when: [{ scene: 'What an Exit offers', entered: false }],
+          cutOver: 2000,
+          cutThrough: 'black',
+        },
+        {
+          text: 'And this one plays because of the Exit you pressed. Two Exits out of one '
+            + 'Scene can lead to the same place, and a Condition can ask which of the two a '
+            + 'Reading took.',
+          when: [{ exit: { from: 'What an Exit offers', place: 2 }, taken: true }],
           cutOver: 2000,
           cutThrough: 'black',
         },
@@ -425,6 +434,13 @@ const ENGLISH: Work = {
       from: 'What an Exit offers',
       to: 'What a Condition tests',
       text: 'Go on to the Conditions',
+    },
+    {
+      from: 'What an Exit offers',
+      to: 'What a Condition tests',
+      // Two ways on to one Scene, which is a thing an Exit offers too: the Scene
+      // they both lead to plays its last Shot to whoever took this one.
+      text: 'Take the other Exit',
     },
   ],
 }
@@ -504,7 +520,7 @@ const FRENCH: Work = {
 
     {
       name: 'Ce qu’offre une Sortie',
-      sets: { sortie: 'prise' },
+      sets: { chemin: 'long' },
       textAfter: 1000,
       textBy: 'word',
       textOver: 200,
@@ -524,7 +540,7 @@ const FRENCH: Work = {
         {
           formatted: formatted(line(
             'Entrer dans cette Scène a posé un Marqueur : ',
-            run('sortie = prise', ...FLAG),
+            run('chemin = long', ...FLAG),
             '. Une Scène pose ses Marqueurs à chaque entrée, et ils restent dans l’État de '
             + 'cette Lecture jusqu’à ce que quelque chose les repose.',
           )),
@@ -564,7 +580,7 @@ const FRENCH: Work = {
           description: 'Une suite de deux panneaux avec, entre eux, la place d’un troisième, '
             + 'tracée en contour et rien de plus.',
           image: 'a-gap',
-          when: [{ flag: 'sortie', is: 'prise' }],
+          when: [{ flag: 'chemin', is: 'long' }],
           cutOver: 2000,
           cutThrough: 'black',
         },
@@ -574,6 +590,14 @@ const FRENCH: Work = {
             + 'le lui dise — et comme on n’entre qu’une fois dans une Scène, c’est une chose '
             + 'qu’elle tranche pour de bon.',
           when: [{ scene: 'Ce qu’offre une Sortie', entered: false }],
+          cutOver: 2000,
+          cutThrough: 'black',
+        },
+        {
+          text: 'Et celui-ci se joue à cause de la Sortie que vous avez prise. Deux Sorties '
+            + 'd’une même Scène peuvent mener au même endroit, et une Condition peut demander '
+            + 'laquelle des deux une Lecture a prise.',
+          when: [{ exit: { from: 'Ce qu’offre une Sortie', place: 2 }, taken: true }],
           cutOver: 2000,
           cutThrough: 'black',
         },
@@ -600,6 +624,11 @@ const FRENCH: Work = {
       from: 'Ce qu’offre une Sortie',
       to: 'Ce que teste une Condition',
       text: 'Continuer vers les Conditions',
+    },
+    {
+      from: 'Ce qu’offre une Sortie',
+      to: 'Ce que teste une Condition',
+      text: 'Prendre l’autre Sortie',
     },
   ],
 }
