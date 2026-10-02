@@ -523,11 +523,13 @@ async function joinBeat(scene: Scene, shot: Shot, place: number) {
  * `docs/adr/0042-the-scene-is-written-where-it-stands.md`.
  *
  * The field is a box until the caret is in it, and a box focused mounts the
- * editor with the caret at the end. The Shot asked for is never the one the
- * editor is on, which the caret is leaving.
+ * editor with the caret at the end — or with every word selected, where the words
+ * are there to be typed over. The Shot asked for is never the one the editor is
+ * on, which the caret is leaving.
  */
-async function typeInShot(shotId: string) {
+async function typeInShot(shotId: string, over = false) {
   await nextTick()
+  typedOver = over ? shotId : undefined
   document.getElementById(`shot-${shotId}`)?.focus()
 }
 
@@ -540,10 +542,13 @@ async function typeInShot(shotId: string) {
  * finds it, and its selection, where it was left.
  */
 const editing = ref<string>()
-const at = ref<'end' | { x: number, y: number }>('end')
+const at = ref<'end' | 'all' | { x: number, y: number }>('end')
 
 /** Where the last box was pressed, which the focus that follows the press reads. */
 let pressed: { id: string, x: number, y: number } | undefined
+
+/** The Shot whose words the next focus selects whole: a copy, written to be typed over. */
+let typedOver: string | undefined
 
 function press(shot: Shot, event: PointerEvent) {
   pressed = { id: shot.id, x: event.clientX, y: event.clientY }
@@ -558,7 +563,9 @@ function press(shot: Shot, event: PointerEvent) {
  */
 async function edit(shot: Shot, event: FocusEvent) {
   const pressedAt = pressed?.id === shot.id ? pressed : undefined
+  const over = typedOver === shot.id
   pressed = undefined
+  typedOver = undefined
 
   if (!Formatting.value) {
     // A box that cannot become the editor says so rather than holding the focus
@@ -571,7 +578,7 @@ async function edit(shot: Shot, event: FocusEvent) {
     }
     if (document.activeElement !== event.target) return
   }
-  at.value = pressedAt ? { x: pressedAt.x, y: pressedAt.y } : 'end'
+  at.value = pressedAt ? { x: pressedAt.x, y: pressedAt.y } : over ? 'all' : 'end'
   editing.value = shot.id
 }
 
@@ -1524,6 +1531,28 @@ async function putBack(scene: Scene, gone: Gone) {
   })
 
   if (backId) return typeInShot(backId)
+}
+
+/**
+ * Writes the Shot again right under itself, carrying everything it carries, so
+ * the same frame takes the next line: the caret lands in the copy's words with
+ * all of them selected, and what is typed replaces them. Undone by the copy's own
+ * ×, like any Shot.
+ */
+async function duplicateShot(held: SceneInDocument, shot: Shot, place: number) {
+  let copyId: string | undefined
+
+  await changing(held.scene, async () => {
+    // What is in the fields goes first, as before `Enter` opens a beat: the write
+    // the editor's blur queued is not ordered with a click, and the copy is taken
+    // of what the server holds.
+    await send(`/api/shots/${shot.id}`, { method: 'PATCH', body: typedAbout(shot) })
+    copyId = (await send(`/api/shots/${shot.id}/duplicate`, { method: 'POST' }) as Shot).id
+  })
+
+  if (!copyId) return
+  announce(t('editor.shotDuplicated', { place: place + 1, scene: held.name, next: place + 2 }))
+  return typeInShot(copyId, true)
 }
 
 /**
@@ -3091,8 +3120,9 @@ function writeConditions(
                   <!-- The marks act on the row they are drawn on: the first reads the
                        Story from this beat, the scissors split the Scene before it,
                        which the first beat has nothing before it to be split from,
-                       and the arrow after them moves it to another Scene, which a
-                       Story of one Scene has none of. -->
+                       the arrow after them moves it to another Scene, which a
+                       Story of one Scene has none of, and ⧉ writes it again under
+                       itself, which every beat can be. -->
                   <div class="row">
                     <button
                       type="button"
@@ -3132,6 +3162,21 @@ function writeConditions(
                       <span aria-hidden="true">↗</span>
                       <span class="visually-hidden">
                         {{ $t('editor.moveShot', {
+                          shot: $t('editor.shotOfScene', {
+                            place: place + 1,
+                            scene: held.name,
+                          }),
+                        }) }}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      class="mark"
+                      @click="duplicateShot(held, shot, place)"
+                    >
+                      <span aria-hidden="true">⧉</span>
+                      <span class="visually-hidden">
+                        {{ $t('editor.duplicateShot', {
                           shot: $t('editor.shotOfScene', {
                             place: place + 1,
                             scene: held.name,

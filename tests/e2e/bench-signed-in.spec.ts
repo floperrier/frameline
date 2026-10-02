@@ -367,6 +367,7 @@ test('draws a row\'s marks at the weight of the words until the hand arrives at 
       beat.getByRole('button', { name: 'Read from Shot 2 of Scene 1' }),
       beat.getByRole('button', { name: 'Split Scene 1 before Shot 2' }),
       beat.getByRole('button', { name: 'Move Shot 2 of Scene 1 to another Scene' }),
+      beat.getByRole('button', { name: 'Duplicate Shot 2 of Scene 1' }),
       beat.getByRole('button', { name: 'Move Earlier Shot 2 of Scene 1' }),
       beat.getByRole('button', { name: 'Move Later Shot 2 of Scene 1' }),
       beat.getByRole('button', { name: 'Delete Shot 2 of Scene 1' }),

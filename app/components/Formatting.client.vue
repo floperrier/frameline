@@ -6,7 +6,8 @@
  * from `app/utils/formatting.ts` and `app/utils/draw.ts`.
  *
  * It is made in its own element as soon as that is drawn, and focused there and
- * then, where the press landed or at the end of the text: Tiptap's Vue component
+ * then, where the press landed, at the end of the text or over all of it — a copy
+ * written to be typed over (#424): Tiptap's Vue component
  * would move the editor in a tick later and focus it a frame after that, and a
  * key struck in between would land on nothing.
  *
@@ -43,7 +44,7 @@
  * marks, and a select is exempt anyway.
  */
 import { Editor, getMarkAttributes, getNodeAttributes, isMarkActive } from '@tiptap/core'
-import { NodeSelection, Selection } from '@tiptap/pm/state'
+import { NodeSelection, Selection, TextSelection } from '@tiptap/pm/state'
 import type { EditorState } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
 import type { LineKind } from '~/utils/formatting'
@@ -59,8 +60,8 @@ const props = defineProps<{
   lang: string
   /** The guided path's mark, on the first Shot of the Scene written. */
   step?: string
-  /** Where the caret lands: where the box was pressed, or at the end. */
-  at: 'end' | { x: number, y: number }
+  /** Where the caret lands: where the box was pressed, at the end, or over every word. */
+  at: 'end' | 'all' | { x: number, y: number }
   /** The bench's own keys, put to it first; true where it took the key. */
   keys: (event: KeyboardEvent, atHead: boolean) => boolean
   /**
@@ -173,9 +174,14 @@ function open(element: HTMLElement) {
   editor = made
 
   const { view } = made
-  const pressed = props.at === 'end' ? null : view.posAtCoords({ left: props.at.x, top: props.at.y })
+  const pressed = typeof props.at === 'string' ? null : view.posAtCoords({ left: props.at.x, top: props.at.y })
   const { doc } = view.state
-  view.dispatch(view.state.tr.setSelection(pressed ? Selection.near(doc.resolve(pressed.pos)) : Selection.atEnd(doc)))
+  // Over every word as a text selection rather than the whole document, so what
+  // is typed over them keeps the kind of line the first of them stood in.
+  view.dispatch(view.state.tr.setSelection(
+    pressed ? Selection.near(doc.resolve(pressed.pos))
+    : props.at === 'all' ? TextSelection.between(Selection.atStart(doc).$from, Selection.atEnd(doc).$to)
+    : Selection.atEnd(doc)))
   view.focus()
   // The box was brought into view as it took the focus, and the toolbar arrives
   // over it: a Shot at the head of the scroller brings its toolbar with it.
