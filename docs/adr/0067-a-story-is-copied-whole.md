@@ -13,7 +13,10 @@ Condition written again, every Image and Sound uploaded again, every Cut,
 Layout, Movement, Effect and crop point set again, and only then the words
 rewritten. The other is a variant kept apart: a published Story is read live,
 so an Author who wants to try another ending without doing it in front of their
-Readers had nowhere to work on it.
+Readers had nowhere to work on it. *Amended by
+`docs/adr/0069-a-published-story-is-read-as-it-was-published.md`:* a published
+Story is now read as its Author last published it, so the changes are written in
+the Story itself, and a copy is for a variant kept apart for good.
 
 **Every Story on the Author's shelf can be copied, under a title and in a
 Language the Author names, and the copy opens on the bench.** *Duplicate*

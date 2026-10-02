@@ -96,6 +96,16 @@ export type StoryAtItsLink = StoryToShow & {
 }
 
 /**
+ * What Readers of a published Story read: the work as it stood when its Author
+ * last published it. The presentation — title, Synopsis, Language, Cover, the
+ * Author's Name — is not part of it and is read live. Every Image and Sound in
+ * it is an address under the Story's own link, served from the bytes held beside
+ * the edition. See `docs/adr/0069-a-published-story-is-read-as-it-was-published.md`.
+ */
+export type Edition = Pick<
+  StoryAtItsLink, 'openingSceneId' | 'stepsBack' | 'textFace' | 'textAlign' | 'scenes' | 'exits'>
+
+/**
  * Where one Reading has got to: the Exits it has taken, in order, and how many
  * Shots of the Scene it is standing in have been left behind. Everything else —
  * which Scene that is, what is on screen, what State has accumulated — is
