@@ -7,7 +7,8 @@ import { useDb } from '../../db'
  * order and a node of the graph, the Exits that join them, and what differs from
  * Readers' Edition — null where there is none, on a Story never published or on
  * one published before Editions and not read since — and how many Readings began
- * and ended, every Scene's endings summed, which nobody but its Author is told.
+ * and ended, every Scene's endings summed, how often each Exit it holds was taken
+ * and how many ended in each Scene it holds, which nobody but its Author is told.
  */
 export default defineEventHandler(async (event) => {
   const author = await requireAuthor(event)
@@ -45,6 +46,6 @@ export default defineEventHandler(async (event) => {
     ...story,
     ...graph,
     changes: edition && await changesOf(id, story, graph, edition),
-    readings: { begun, ended },
+    readings: { begun, ended, ...await readingsUnder(id, graph) },
   }
 })
