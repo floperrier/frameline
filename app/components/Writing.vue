@@ -20,8 +20,9 @@
  *
  * Typing is `docs/adr/0033-a-scene-is-written-as-one-document.md` unchanged, over
  * a longer document. One field per Shot, nothing parsed, no beat losing the id its
- * Image and its Conditions hang off: `Enter` at the end of a beat opens the next,
- * `Backspace` at the head of an empty one joins it to the beat before, and `Alt`
+ * Image and its Conditions hang off: `Enter` cuts a beat in two where the caret
+ * stands and opens the next at the end of one, `Backspace` at the head of a beat
+ * joins it to the beat before (#432), and `Alt`
  * with the arrows walks the run. All three stay inside a Scene — `Enter` on the
  * last beat of a Scene opens a beat and never a Scene, because a Scene is written
  * by naming where an Exit leads and by nothing else,
@@ -41,7 +42,7 @@
  * Drawn everywhere, named where the Author is.
  */
 const {
-  story, sceneWritten, change, write, ask, announce, imageOf,
+  story, sceneWritten, change, write, settled, ask, announce, imageOf,
 } = defineProps<{
   /** The Story being written, whole. */
   story: StoryInEditor
@@ -51,6 +52,8 @@ const {
   change: Change
   /** The same holder, for what the Author typed rather than what they clicked. */
   write: Write
+  /** Once what the Author typed has all landed, which a cut and a join wait for. */
+  settled: () => Promise<unknown>
   /** The question asked before an act that takes something with it. */
   ask: (question: string, verb: string) => Promise<boolean>
   /** What the bench has just done, said once and gone. */
@@ -436,12 +439,29 @@ async function addShot(scene: Scene) {
  * `Ctrl`/`Cmd`, `Backspace`, and `Alt` with an arrow — with whether the caret
  * stands at the head of the text, and answering whether the bench took it. A key
  * taken here goes no further: the Scene's own section hears keys too.
+ *
+ * `Enter` with words after the caret cuts the beat in two there, and `Backspace`
+ * at the head of a beat holding words joins them back to the one before, as
+ * paragraphs are cut and joined anywhere — issue #432,
+ * `docs/adr/0071-a-shots-words-are-cut-where-the-caret-stands.md`.
  */
-function typeOn(held: SceneInDocument, shot: Shot, place: number, event: KeyboardEvent, atHead: boolean) {
+function typeOn(
+  held: SceneInDocument, shot: Shot, place: number, event: KeyboardEvent, atHead: boolean,
+  halves?: [Formatted, Formatted],
+) {
   const walked = held.scene.shots[place + (event.key === 'ArrowUp' ? -1 : 1)]
+  const before = held.scene.shots[place - 1]
 
-  if (event.key === 'Enter') openBeat(held.scene, shot, place)
-  else if (event.key === 'Backspace' && atHead && emptied(shot) && place > 0) joinBeat(held.scene, shot, place)
+  // Struck again before the first has landed, it is taken and does nothing: it
+  // would cut or join the words the first has not moved yet a second time.
+  if (reshaping && (event.key === 'Enter' || (event.key === 'Backspace' && atHead))) { /* taken */ }
+  else if (event.key === 'Enter' && halves) splitBeat(held.scene, shot, halves)
+  else if (event.key === 'Enter') openBeat(held.scene, shot, place)
+  else if (event.key === 'Backspace' && atHead && before) {
+    const kept = emptied(shot) ? undefined : unjoined(shot, before)
+    if (kept) announce(t(kept, { place: place + 1, scene: held.name, before: place }))
+    else joinBeat(held.scene, shot, before)
+  }
   else if (event.key.startsWith('Arrow') && walked) typeInShot(walked.id)
   else return false
 
@@ -485,7 +505,7 @@ function walkScenes(held: SceneInDocument, event: KeyboardEvent) {
  * and a beat carrying either is deleted by the mark at the end of its row instead.
  */
 function emptied(shot: Shot) {
-  return !shot.text && !shot.image && !shot.conditions.length
+  return !shot.text && !shot.image && !shot.sound && !shot.conditions.length
 }
 
 /**
@@ -517,12 +537,71 @@ async function openBeat(scene: Scene, shot: Shot, place: number) {
   if (writtenId) return typeInShot(writtenId)
 }
 
-/** Backspace at the head of an empty beat: it goes, and the caret lands at the end of the one before. */
-async function joinBeat(scene: Scene, shot: Shot, place: number) {
-  const before = scene.shots[place - 1]
+/**
+ * Enter with words after the caret: the beat is cut in two there, in one request
+ * — the Shot keeps the words before and what is about its Image and its Sound, and
+ * a new Shot right under it takes the words after and what is about them — and the
+ * caret lands at the head of the words after.
+ */
+async function splitBeat(scene: Scene, shot: Shot, [before, after]: [Formatted, Formatted]) {
+  let writtenId: string | undefined
 
-  await changing(scene, () => send(`/api/shots/${shot.id}`, { method: 'DELETE' }))
-  if (before) return typeInShot(before.id)
+  await reshaped(scene, async () => {
+    writtenId = (await send(`/api/shots/${shot.id}/split`, { method: 'POST', body: { before, after } }) as Shot).id
+  })
+
+  if (writtenId) return typeInShot(writtenId, 0)
+}
+
+/** Whether a cut or a join is on its way: until it has landed, the words it moves are still where they were. */
+let reshaping = false
+
+/**
+ * A cut or a join, sent once every typed write before it has landed — the beat
+ * before's words written as it was left, a Description typed a moment ago —
+ * because it rewrites words those would otherwise write back over it.
+ */
+async function reshaped(scene: Scene, act: () => Promise<unknown>) {
+  reshaping = true
+  try {
+    return await changing(scene, async () => {
+      await settled()
+      await act()
+    })
+  }
+  finally {
+    reshaping = false
+  }
+}
+
+/**
+ * Why Backspace leaves a beat's words where they are rather than join them to the
+ * beat before, or nothing where it may: joined, the beat goes, and what it carries
+ * that is not its words would go with it — an Image, a Sound, or Conditions the
+ * words would otherwise play under.
+ */
+function unjoined(shot: Shot, before: Shot) {
+  return shot.image ? 'editor.notJoinedImage'
+    : shot.sound ? 'editor.notJoinedSound'
+    : same(shot.conditions, before.conditions) ? undefined : 'editor.notJoinedConditions'
+}
+
+/**
+ * Backspace at the head of a beat: its words are joined onto the end of the one
+ * before, which is written first so that a delete that fails leaves the words
+ * twice rather than nowhere, and the beat goes — with no *Put It Back* row, as an
+ * empty one goes. The caret lands where the two met, or at the end of the beat
+ * before where there were no words to join; a join refused — words that would be
+ * too long together — leaves it where it was, in the beat still standing.
+ */
+async function joinBeat(scene: Scene, shot: Shot, before: Shot) {
+  const joined = emptied(shot) ? undefined : joinFormatted(before.formatted, shot.formatted)
+
+  const went = await reshaped(scene, async () => {
+    if (joined) await send(`/api/shots/${before.id}`, { method: 'PATCH', body: { formatted: joined.formatted } })
+    await send(`/api/shots/${shot.id}`, { method: 'DELETE' })
+  })
+  if (went) return typeInShot(before.id, joined?.seam)
 }
 
 /**
@@ -536,9 +615,9 @@ async function joinBeat(scene: Scene, shot: Shot, place: number) {
  * are there to be typed over. The Shot asked for is never the one the editor is
  * on, which the caret is leaving.
  */
-async function typeInShot(shotId: string, over = false) {
+async function typeInShot(shotId: string, landing?: 'all' | number) {
   await nextTick()
-  typedOver = over ? shotId : undefined
+  landsAt = landing === undefined ? undefined : { id: shotId, at: landing }
   document.getElementById(`shot-${shotId}`)?.focus()
 }
 
@@ -551,13 +630,17 @@ async function typeInShot(shotId: string, over = false) {
  * finds it, and its selection, where it was left.
  */
 const editing = ref<string>()
-const at = ref<'end' | 'all' | { x: number, y: number }>('end')
+const at = ref<'end' | 'all' | number | { x: number, y: number }>('end')
 
 /** Where the last box was pressed, which the focus that follows the press reads. */
 let pressed: { id: string, x: number, y: number } | undefined
 
-/** The Shot whose words the next focus selects whole: a copy, written to be typed over. */
-let typedOver: string | undefined
+/**
+ * Where the next focus of a Shot puts the caret, other than at the end: over
+ * every word of a copy, written to be typed over, or at a place in the text — the
+ * head of the words a cut took on, or where two beats were joined.
+ */
+let landsAt: { id: string, at: 'all' | number } | undefined
 
 function press(shot: Shot, event: PointerEvent) {
   pressed = { id: shot.id, x: event.clientX, y: event.clientY }
@@ -572,9 +655,9 @@ function press(shot: Shot, event: PointerEvent) {
  */
 async function edit(shot: Shot, event: FocusEvent) {
   const pressedAt = pressed?.id === shot.id ? pressed : undefined
-  const over = typedOver === shot.id
+  const landing = landsAt?.id === shot.id ? landsAt.at : 'end'
   pressed = undefined
-  typedOver = undefined
+  landsAt = undefined
 
   if (!Formatting.value) {
     // A box that cannot become the editor says so rather than holding the focus
@@ -587,7 +670,7 @@ async function edit(shot: Shot, event: FocusEvent) {
     }
     if (document.activeElement !== event.target) return
   }
-  at.value = pressedAt ? { x: pressedAt.x, y: pressedAt.y } : over ? 'all' : 'end'
+  at.value = pressedAt ? { x: pressedAt.x, y: pressedAt.y } : landing
   editing.value = shot.id
 }
 
@@ -1584,7 +1667,7 @@ async function duplicateShot(held: SceneInDocument, shot: Shot, place: number) {
 
   if (!copyId) return
   announce(t('editor.shotDuplicated', { place: place + 1, scene: held.name, next: place + 2 }))
-  return typeInShot(copyId, true)
+  return typeInShot(copyId, 'all')
 }
 
 /**
@@ -2566,7 +2649,7 @@ function writeConditions(
                   :lang="story.language"
                   :step="held.here && !place ? 'shot-text' : undefined"
                   :at
-                  :keys="(event, atHead) => typeOn(held, shot, place, event, atHead)"
+                  :keys="(event, atHead, halves) => typeOn(held, shot, place, event, atHead, halves)"
                   :stands-read="!shot.image || layout(held.scene, shot) === 'full'"
                   :set-in="setIn(story)"
                   @words="(text, formatted) => Object.assign(shot, { text, formatted })"

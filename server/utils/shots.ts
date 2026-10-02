@@ -28,11 +28,12 @@ export async function readShotText(event: H3Event) {
 
 /**
  * Reads a Shot's formatted text, which the boundary parses key by key and which
- * is refused with the phrase of whichever rule it broke.
+ * is refused with the phrase of whichever rule it broke: the body's `formatted`,
+ * or the half of a cut Shot it is named by.
  */
-async function readShotFormatted(event: H3Event) {
-  const body = await readBody<{ formatted?: unknown }>(event)
-  const read = parseFormatted(body?.formatted, 'refuse')
+export async function readShotFormatted(event: H3Event, key: 'formatted' | 'before' | 'after' = 'formatted') {
+  const body = await readBody<Record<string, unknown>>(event)
+  const read = parseFormatted(body?.[key], 'refuse')
 
   if ('formatted' in read) return read.formatted
 

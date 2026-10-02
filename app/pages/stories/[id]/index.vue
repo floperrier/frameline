@@ -17,7 +17,7 @@ const { data: story, refresh } = await useAsyncData(
   { deep: true },
 )
 const { t } = useI18n()
-const { problem, keptAt, change, write } = useEditing(refresh)
+const { problem, keptAt, change, write, settled } = useEditing(refresh)
 
 /**
  * What differs from Readers' Edition, asked again each time a typed write is
@@ -772,6 +772,7 @@ async function readFrom(sceneId: string, shotId: string) {
             :scene-written="sceneWritten?.id"
             :change="change"
             :write="write"
+            :settled="settled"
             :ask="ask"
             :announce="announce"
             :image-of="imageOf"

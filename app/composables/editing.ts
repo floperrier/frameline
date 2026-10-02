@@ -193,5 +193,15 @@ export function useEditing(reload: () => Promise<unknown>) {
     return turn
   }
 
-  return { problem, keptAt, change, write }
+  /**
+   * Once every typed write sent so far has landed. A click goes out at once, which
+   * is right for every act but one that rewrites a Shot's words from the words the
+   * page holds — a cut, a join: a typed write of the same Shot still in the queue
+   * would land after it and write the words back as they were.
+   */
+  function settled() {
+    return previous
+  }
+
+  return { problem, keptAt, change, write, settled }
 }

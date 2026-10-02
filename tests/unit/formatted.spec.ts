@@ -25,6 +25,7 @@ import {
   formatted,
   formattedIn,
   formattedOf,
+  joinFormatted,
   line,
   linesOf,
   lettersSplit,
@@ -34,6 +35,7 @@ import {
   runsSaid,
   separator,
   speech,
+  splitFormatted,
   standing,
   textOf,
   verse,
@@ -563,5 +565,171 @@ describe('a formatted text said run by run', () => {
   it('leaves a bar as it was, and reads as the said plain words', () => {
     expect(linesOf(said)[2]![1]).toEqual(linesOf(written)[2]![1])
     expect(textOf(said)).toBe('A {COAT}\n{WHO}\nX\nA ████')
+  })
+})
+
+describe('a Shot’s words cut in two, and joined back', () => {
+  const schema = getSchema(extensions())
+  const emphasis = { type: 'emphasis' } as const
+  const scramble = { type: 'arrives', attrs: { effect: 'scramble', over: 1200, strength: 'slight' } } as const
+
+  /** Where the caret stands right before `needle`, as ProseMirror counts it, so the counting is ProseMirror's and not this file's. */
+  const before = (value: Formatted, needle: string, from = 0) => {
+    let found: number | undefined
+    schema.nodeFromJSON(value).descendants((node, pos) => {
+      const index = node.isText ? node.text!.indexOf(needle, from) : -1
+      if (found === undefined && index !== -1) found = pos + index
+      return found === undefined
+    })
+    return found!
+  }
+  const after = (value: Formatted, needle: string) => before(value, needle) + needle.length
+
+  /** Both halves, each held to the boundary a request is read at. */
+  const cut = (value: Formatted, at: number) => {
+    const halves = splitFormatted(value, at)
+    for (const half of halves) expect(parseFormatted(half, 'refuse')).toHaveProperty('formatted')
+    return halves
+  }
+
+  it('gives one line to each half where the caret is inside a line, and a join gives the line back', () => {
+    const value = formatted(line('One'), line('Two words'), line('Three'))
+    const [kept, taken] = cut(value, before(value, ' words'))
+    expect(kept).toEqual(formatted(line('One'), line('Two')))
+    expect(taken).toEqual(formatted(line(' words'), line('Three')))
+    expect(joinFormatted(kept, taken).formatted).toEqual(value)
+  })
+
+  it('leaves no empty line behind where the caret is at the edge of a line, either side of the break', () => {
+    const value = formatted(line('One'), line('Two'))
+    expect(cut(value, after(value, 'One'))).toEqual([formatted(line('One')), formatted(line('Two'))])
+    expect(cut(value, before(value, 'Two'))).toEqual([formatted(line('One')), formatted(line('Two'))])
+
+    const spaced = formatted(line('One'), line(), line('Two'))
+    expect(cut(spaced, after(spaced, 'One') + 2)).toEqual([formatted(line('One')), formatted(line('Two'))])
+  })
+
+  it('leaves the first half one empty line where the caret is at the head, and the second where it is at the end', () => {
+    const value = formatted(line('All of it'))
+    expect(cut(value, before(value, 'All'))).toEqual([formatted(line()), value])
+    expect(cut(value, after(value, 'it'))).toEqual([value, formatted(line())])
+    expect(joinFormatted(formatted(line()), value)).toEqual({ formatted: value, seam: 0 })
+  })
+
+  it('cuts a run through, its Style and its Effect on both pieces, and joins them into one run', () => {
+    const value = formatted(line('Then ', run('nothing at all', emphasis, scramble), '.'))
+    const [kept, taken] = cut(value, before(value, ' at all'))
+    expect(kept).toEqual(formatted(line('Then ', run('nothing', emphasis, scramble))))
+    expect(taken).toEqual(formatted(line(run(' at all', emphasis, scramble), '.')))
+    expect(joinFormatted(kept, taken).formatted).toEqual(value)
+  })
+
+  it('counts a bar as one place, as the caret steps over it', () => {
+    const value = formatted(line('Her name was ', bar(5, 'Marie'), ' and she left.'))
+    const [kept, taken] = cut(value, before(value, ' and'))
+    expect(textOf(kept)).toBe('Her name was █████')
+    expect(textOf(taken)).toBe(' and she left.')
+    expect(joinFormatted(kept, taken).formatted).toEqual(value)
+  })
+
+  it('keeps where the text stands on both halves', () => {
+    const value = standing('foot', formatted(line('Down here, and here.')))
+    const [kept, taken] = cut(value, before(value, ' and'))
+    expect(kept.attrs).toEqual({ stands: 'foot' })
+    expect(taken.attrs).toEqual({ stands: 'foot' })
+  })
+
+  it('cuts a quotation in its lines, the source going with the lines after the caret', () => {
+    const value = formatted(quote([line('To be'), line('or not to be')], 'Hamlet'))
+    const [kept, taken] = cut(value, before(value, 'not'))
+    expect(kept).toEqual(formatted(quote([line('To be'), line('or ')])))
+    expect(taken).toEqual(formatted(quote([line('not to be')], 'Hamlet')))
+    expect(joinFormatted(kept, taken).formatted).toEqual(value)
+  })
+
+  it('keeps the source with the first half where no quoted line is after the caret, or the caret is in it', () => {
+    const value = formatted(quote([line('To be')], 'Hamlet'), line('He said.'))
+    expect(cut(value, after(value, 'To be'))).toEqual([formatted(quote([line('To be')], 'Hamlet')), formatted(line('He said.'))])
+    expect(cut(value, before(value, 'let'))).toEqual([formatted(quote([line('To be')], 'Hamlet')), formatted(line('He said.'))])
+  })
+
+  it('gives the second half of a speech the same Speaker, so both beats say who speaks', () => {
+    const value = formatted(speech('MARIE', line('Come in.'), line('Sit down, please.')))
+    const [kept, taken] = cut(value, before(value, ' please'))
+    expect(kept).toEqual(formatted(speech('MARIE', line('Come in.'), line('Sit down,'))))
+    expect(taken).toEqual(formatted(speech('MARIE', line(' please.'))))
+    expect(joinFormatted(kept, taken).formatted).toEqual(value)
+
+    expect(cut(value, before(value, 'Come'))).toEqual([formatted(line()), value])
+    expect(cut(value, before(value, 'Sit'))).toEqual([
+      formatted(speech('MARIE', line('Come in.'))), formatted(speech('MARIE', line('Sit down, please.')))])
+  })
+
+  it('takes a whole speech to the second half where the caret is in its Speaker', () => {
+    const value = formatted(line('A knock.'), speech('MARIE', line('Come in.')))
+    expect(cut(value, before(value, 'RIE'))).toEqual([formatted(line('A knock.')), formatted(speech('MARIE', line('Come in.')))])
+  })
+
+  it('cuts a verse in its lines', () => {
+    const value = formatted(verse(line('The sea'), line('and the sea again')))
+    const [kept, taken] = cut(value, before(value, ' again'))
+    expect(kept).toEqual(formatted(verse(line('The sea'), line('and the sea'))))
+    expect(taken).toEqual(formatted(verse(line(' again'))))
+    expect(joinFormatted(kept, taken).formatted).toEqual(value)
+  })
+
+  it('keeps whole a quotation, a speech or a verse whose one line is empty and holds the caret', () => {
+    for (const held of [quote([line()], 'Hamlet'), quote([line()]), speech('MARIE', line()), verse(line())]) {
+      const value = formatted(held, line('After.'))
+      let inside = -1
+      schema.nodeFromJSON(value).descendants((node, pos) => {
+        if (inside === -1 && node.type.name === 'line' && !node.content.size) inside = pos + 1
+        return inside === -1
+      })
+      expect(cut(value, inside)).toEqual([formatted(held), formatted(line('After.'))])
+    }
+  })
+
+  it('cuts every text of the works, and every awkward one, at every place into two halves the boundary takes', () => {
+    const awkward = [
+      formatted(quote([line()], 'Hamlet'), line('x')),
+      formatted(line('a'), quote([line()]), separator, speech('MARIE', line()), verse(line(), line('b'))),
+    ]
+    for (const value of [...workFormatted, ...awkward]) {
+      const size = schema.nodeFromJSON(value).content.size
+      for (let at = 0; at <= size; at++) cut(value, at)
+    }
+  })
+
+  it('cuts every text of the works anywhere inside a run into two halves the boundary takes, and joins each back', () => {
+    for (const value of workFormatted) {
+      schema.nodeFromJSON(value).descendants((node, pos) => {
+        for (let at = pos + 1; node.isText && at < pos + node.nodeSize; at++) {
+          const [kept, taken] = cut(value, at)
+          expect(joinFormatted(kept, taken).formatted).toEqual(value)
+        }
+      })
+    }
+  })
+
+  it('joins two lines into one as two paragraphs meet, and says where they met', () => {
+    const kept = formatted(line('One'), aligned('centre', null, 'Two'))
+    const { formatted: joined, seam } = joinFormatted(kept, formatted(aligned('end', 'loose', 'and three'), line('Four')))
+    expect(joined).toEqual(formatted(line('One'), aligned('centre', null, 'Twoand three'), line('Four')))
+    expect(schema.nodeFromJSON(joined).textBetween(0, seam, '|')).toBe('One|Two')
+  })
+
+  it('lays end to end what does not meet: two Speakers, a quotation with its source, a line and a speech', () => {
+    const marie = formatted(speech('MARIE', line('Come in.')))
+    const paul = formatted(speech('PAUL', line('Thank you.')))
+    expect(joinFormatted(marie, paul).formatted).toEqual(formatted(...marie.content, ...paul.content))
+
+    const sourced = formatted(quote([line('To be')], 'Hamlet'))
+    const quoted = formatted(quote([line('or not')]))
+    expect(joinFormatted(sourced, quoted).formatted).toEqual(formatted(...sourced.content, ...quoted.content))
+
+    const { formatted: joined, seam } = joinFormatted(formatted(line('A knock.')), marie)
+    expect(joined).toEqual(formatted(line('A knock.'), ...marie.content))
+    expect(schema.nodeFromJSON(joined).textBetween(0, seam)).toBe('A knock.')
   })
 })
