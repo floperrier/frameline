@@ -58,6 +58,65 @@ async function createStory() {
   if (writtenId) await navigateTo(localePath(`/stories/${writtenId}`))
 }
 
+// The Story whose copy is being named, while its form is open. One at a time, so
+// the form's fields can be the page's own rather than one pair per entry.
+const copying = ref<string>()
+const copyTitle = ref('')
+const copyLanguage = ref<StoryLanguage>(STORY_LANGUAGE_DEFAULT)
+
+/**
+ * Opens the form under a Story, filled with what the Story already is: its title
+ * selected, to be typed over, and its Language, to be kept or changed. A
+ * Language the form does not offer — the column holds any code — opens on the
+ * one a new Story would. Pressed again, the button closes the form it opened.
+ *
+ * Whatever was said before is taken away either way: the one refusal on the
+ * page is drawn under the form while it is open, and a sentence about naming a
+ * Story would otherwise move under a form it was never about.
+ */
+async function toggleCopy(story: { id: string, title: string, language: string }) {
+  if (copying.value === story.id) return closeCopy()
+
+  problem.value = undefined
+  copying.value = story.id
+  copyTitle.value = story.title
+  copyLanguage.value = STORY_LANGUAGES.includes(story.language as StoryLanguage)
+    ? story.language as StoryLanguage
+    : STORY_LANGUAGE_DEFAULT
+  await nextTick()
+  const field = document.getElementById('copy-title') as HTMLInputElement | null
+  field?.focus()
+  field?.select()
+}
+
+/** Closes the form and hands the focus back to the button that opened it. */
+async function closeCopy() {
+  const id = copying.value
+  copying.value = undefined
+  problem.value = undefined
+  await nextTick()
+  document.getElementById(`copy-${id}`)?.focus()
+}
+
+/**
+ * Writes the Story again under the title and in the Language named, and opens
+ * the copy, exactly as `createStory` opens a Story it named: the Author copied it
+ * to work on it. A refusal navigates nowhere and leaves the title as typed.
+ */
+async function copyStory() {
+  const id = copying.value
+  const title = copyTitle.value
+  const language = copyLanguage.value
+  let copiedId: string | undefined
+
+  await write(async () => {
+    const copied = await $fetch(`/api/stories/${id}/copy`, { method: 'POST', body: { title, language } })
+    copiedId = copied?.id
+  })
+
+  if (copiedId) await navigateTo(localePath(`/stories/${copiedId}`))
+}
+
 /**
  * A Story goes with everything written in it, none of which the Author named in
  * the act, so it is asked about — by title and by nothing else: the shelf knows
@@ -118,7 +177,7 @@ async function signOut() {
       </div>
     </form>
 
-    <Refusal :problem="problem" />
+    <Refusal v-if="!copying" :problem="problem" />
 
     <p v-if="!stories?.length" class="none">{{ $t('stories.none') }}</p>
     <!-- The Author's works on the shelf every other surface draws a Story on,
@@ -151,9 +210,42 @@ async function signOut() {
                   { count: story.comments }) }}
           </NuxtLink>
         </template>
+        <button
+          :id="`copy-${story.id}`"
+          type="button"
+          :aria-expanded="copying === story.id"
+          @click="toggleCopy(story)"
+        >
+          {{ $t('common.duplicate') }} <span class="visually-hidden">{{ story.title }}</span>
+        </button>
         <button type="button" class="danger" @click="deleteStory(story.id, story.title)">
           {{ $t('common.delete') }} <span class="visually-hidden">{{ story.title }}</span>
         </button>
+        <!-- The copy is named as a Story is: a title and the Language it is
+             written in, in the one act. The Language is chosen here rather than
+             changed on a written Story — see
+             `docs/adr/0067-a-story-is-copied-whole.md`. -->
+        <form
+          v-if="copying === story.id"
+          class="row copying"
+          @submit.prevent="copyStory"
+          @keydown.esc="closeCopy"
+        >
+          <p class="titling">
+            <label class="eyebrow" for="copy-title">{{ $t('stories.copyTitle') }}</label>
+            <input id="copy-title" v-model="copyTitle" required :maxlength="STORY_TITLE_MAX_LENGTH">
+          </p>
+          <p class="written-in">
+            <label class="eyebrow" for="copy-language">{{ $t('stories.copyLanguage') }}</label>
+            <select id="copy-language" v-model="copyLanguage">
+              <option v-for="code in STORY_LANGUAGES" :key="code" :value="code">
+                {{ $t(`languages.${code}`) }}
+              </option>
+            </select>
+          </p>
+          <button type="submit" class="primary">{{ $t('stories.writeCopy') }}</button>
+        </form>
+        <Refusal v-if="copying === story.id" :problem="problem" />
       </Entry>
     </ul>
 
@@ -255,6 +347,12 @@ h1 {
 
 .row button {
   flex: none;
+}
+
+/* The copy's form under the entry's buttons, as wide as the naming form above. */
+.copying {
+  max-inline-size: 44rem;
+  margin-block-start: var(--s2);
 }
 
 .none {
