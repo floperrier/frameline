@@ -582,6 +582,7 @@ async function readFrom(sceneId: string, shotId: string) {
       :kept-at="keptAt"
       :change="changeStory"
       :write="writeStory"
+      :announce="announce"
     >
       <!-- The bench's own acts, on the Story's own edge: the way into every act
            by naming it, and the two readings the middle of the bench is not

@@ -19,7 +19,7 @@
  * `docs/adr/0013-the-interfaces-locale-is-not-the-storys-language.md` — so it is
  * changed where the rest of what is theirs is, on the list of their own Stories.
  */
-const { id, story, keptAt, change, write } = defineProps<{
+const { id, story, keptAt, change, write, announce } = defineProps<{
   /**
    * The Story's own id, which every act here is sent against. It comes from the
    * route rather than from the Story, because the Publish is offered while a
@@ -38,6 +38,8 @@ const { id, story, keptAt, change, write } = defineProps<{
    * it back; what was typed is already on the screen it was typed on.
    */
   write: Write
+  /** The bench's one live region, for an act whose result is nowhere on screen. */
+  announce: (said: string) => void
 }>()
 
 const { t, locale } = useI18n()
@@ -64,7 +66,27 @@ const kept = computed(() => keptAt && new Intl.DateTimeFormat(
  * the same link every time — an Author who unpublishes and publishes again has
  * not invalidated what they sent anyone.
  */
-const publicLink = `${useRequestURL().origin}/read/${id}`
+const origin = useRequestURL().origin
+const publicLink = `${origin}/read/${id}`
+
+/**
+ * The code that lays the Story inside another page — a blog, a portfolio, an
+ * itch.io page — handed over as the one line an Author pastes. One code, with
+ * nothing to choose: the frame takes the column's width, and a height at which
+ * a column 720 pixels wide shows a beat laid out full with its press. The title
+ * names the frame to a screen reader, escaped so that it stays one attribute
+ * whatever the Author called the Story. See
+ * `docs/adr/0068-a-story-plays-inside-another-page.md`.
+ */
+const ENTITIES: Record<string, string> = { '&': 'amp', '"': 'quot', '<': 'lt', '>': 'gt' }
+
+async function copyEmbed() {
+  const title = story!.title.replace(/[&"<>]/g, character => `&${ENTITIES[character]};`)
+  await navigator.clipboard.writeText(`<iframe src="${origin}/embed/${id}" title="${title}" `
+    + 'allow="fullscreen; autoplay" loading="lazy" '
+    + 'style="width: 100%; height: 640px; border: 0"></iframe>')
+  announce(t('editor.embedCopied'))
+}
 
 /**
  * The title and the Synopsis, each written on its own: the body names the one
@@ -365,6 +387,11 @@ function unlist() {
       <p v-if="story?.publishedAt" class="live">
         <span class="visually-hidden">{{ $t('editor.readableAt') }}</span>
         <a class="link" :href="publicLink">{{ publicLink }}</a>
+        <!-- The same link laid inside somebody else's page, beside it because it
+             is the same Story reached the same way. -->
+        <button type="button" :data-command="$t('editor.copyEmbed')" @click="copyEmbed">
+          {{ $t('editor.copyEmbed') }}
+        </button>
       </p>
 
       <div class="acts">

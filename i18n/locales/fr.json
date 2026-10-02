@@ -126,6 +126,8 @@
     "coverUnname": "Laisser la Scène d'ouverture tenir la place",
     "coverNone": "Donnez une Image à un Plan, et le Récit se présentera par elle.",
     "readableAt": "N'importe qui peut lire ce Récit à",
+    "copyEmbed": "Copier le code d’intégration",
+    "embedCopied": "Le code d’intégration est copié.",
     "keptAt": "Enregistré à {time}",
     "list": "Répertorier ce Récit au Catalogue",
     "unlist": "Retirer ce Récit du Catalogue",
@@ -590,7 +592,8 @@
   "read": {
     "eyebrow": "Un Récit Frameline",
     "begin": "Commencer",
-    "resume": "Reprendre"
+    "resume": "Reprendre",
+    "onFrameline": "Lire sur Frameline"
   },
   "comments": {
     "heading": "Commentaires",

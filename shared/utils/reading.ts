@@ -3,6 +3,8 @@ import type {
 } from './scenes'
 import { FLAG_VALUE_MAX_LENGTH, MOVEMENT_OVER_UNTIMED, folded } from './scenes'
 import type { Phrase } from './phrases'
+import type { Cover } from './stories'
+import type { Align, Face } from './formatted'
 import { runLastings } from './formatted'
 
 /**
@@ -74,6 +76,23 @@ export type StoryToRead = {
  */
 export type StoryToShow = Omit<StoryToRead, 'scenes'> & {
   scenes: (StoryToRead['scenes'][number] & { name: string })[]
+}
+
+/**
+ * A published Story as the Reader's door answers it: what a screen shows, and
+ * what the title card presents it by. Read by the two pages a Reader meets it on,
+ * the reading page and the embed.
+ */
+export type StoryAtItsLink = StoryToShow & {
+  title: string
+  synopsis: string
+  language: string
+  textFace: Face
+  textAlign: Align
+  cover: Cover | null
+  authorId: string
+  authorName: string | null
+  carriesSound: boolean
 }
 
 /**
