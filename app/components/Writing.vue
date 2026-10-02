@@ -692,10 +692,22 @@ async function splitBefore(scene: Scene, shot: Shot) {
   emit('open', writtenId, true)
 }
 
-/** Attaches an image, sent as the whole request body: picked or dropped, it is the same file to the same endpoint. */
+/**
+ * Attaches an image, sent as the whole request body: picked or dropped, it is the
+ * same file to the same endpoint, developed first where it has to be — see
+ * `developImage`. Developed inside the change, so the act is in flight from the
+ * first pixel decoded to the server's answer, and a file the bench cannot develop
+ * is refused the way the server refuses one: in the Scene, in the Author's words.
+ */
 function attach(scene: Scene, shot: Shot, file: File) {
   return changing(scene, async () => {
-    await send(`/api/shots/${shot.id}/image`, { method: 'PUT', body: file })
+    const developed = await developImage(file)
+    if (typeof developed === 'string') {
+      const said = t(developed, { mb: SHOT_IMAGE_MAX_BYTES / 1024 / 1024 })
+      throw Object.assign(new Error(said), { data: { message: said } })
+    }
+
+    await send(`/api/shots/${shot.id}/image`, { method: 'PUT', body: developed })
     emit('attached', shot.id)
   })
 }
@@ -731,7 +743,7 @@ function leaveFile(over: Shot | Scene, event: DragEvent) {
 function dropImage(scene: Scene, shot: Shot, event: DragEvent) {
   fileOver.value = undefined
   const dropped = [...event.dataTransfer?.files ?? []]
-  const image = dropped.find(file => SHOT_IMAGE_TYPES.includes(file.type)) ?? dropped[0]
+  const image = dropped.find(file => imageTaken(file) !== 'refusals.imageType') ?? dropped[0]
   if (!image) return
 
   return attach(scene, shot, image)
@@ -791,6 +803,10 @@ function dropOnRun(scene: Scene, event: DragEvent) {
  * `imagesForShots` — and one file after the other, because a new Shot's Place is
  * read and written in one statement and two of them in flight would race for it.
  *
+ * Each file is developed before its Shot is made — see `developImage` — so one the
+ * bench cannot develop makes no empty beat: it is left out, and said with the
+ * files left out for their type once the handful is through.
+ *
  * One change round the whole handful, so the Story is read back once, at the end,
  * and no read can land on the files still waiting. A file the server refuses —
  * bytes that are not what its type said — leaves its Shot a beat with no picture
@@ -802,6 +818,7 @@ async function addShotsFrom(scene: Scene, files: File[]) {
   if (filling.value || !files.length) return
 
   const { taken, leftOut } = imagesForShots(files)
+  const undeveloped: { file: File, why: string }[] = []
   const name = nameOf(scene.id)
   const added: string[] = []
 
@@ -812,9 +829,15 @@ async function addShotsFrom(scene: Scene, files: File[]) {
         let refused: unknown
         for (const [at, file] of taken.entries()) {
           announce(t('editor.addingShots', { name, at: at + 1, count: taken.length }))
+          const developed = await developImage(file)
+          if (typeof developed === 'string') {
+            undeveloped.push({ file, why: developed })
+            continue
+          }
+
           const shot = await send(`/api/scenes/${scene.id}/shots`, { method: 'POST' }) as Shot
           added.push(shot.id)
-          await send(`/api/shots/${shot.id}/image`, { method: 'PUT', body: file })
+          await send(`/api/shots/${shot.id}/image`, { method: 'PUT', body: developed })
             .catch((error: unknown) => { refused = error })
         }
         if (refused) throw refused
@@ -828,7 +851,7 @@ async function addShotsFrom(scene: Scene, files: File[]) {
   const said = added.length === 1 ? 'editor.oneShotAdded' : added.length ? 'editor.shotsAdded' : 'editor.noShotAdded'
   announce([
     t(said, { name, count: added.length }),
-    ...leftOut.map(({ file, why }) => t('editor.imageLeftOut', {
+    ...[...leftOut, ...undeveloped].map(({ file, why }) => t('editor.imageLeftOut', {
       file: file.name,
       why: t(why, { mb: SHOT_IMAGE_MAX_BYTES / 1024 / 1024 }),
     })),
@@ -2516,7 +2539,7 @@ function writeConditions(
                   <input
                     type="file"
                     class="visually-hidden"
-                    :accept="SHOT_IMAGE_TYPES.join(',')"
+                    :accept="SHOT_IMAGE_ACCEPT"
                     :aria-label="$t('editor.pickImageOfShot', {
                       place: place + 1,
                       scene: held.name,
@@ -3319,7 +3342,7 @@ function writeConditions(
             type="file"
             multiple
             hidden
-            :accept="SHOT_IMAGE_TYPES.join(',')"
+            :accept="SHOT_IMAGE_ACCEPT"
             @change="addPickedShots(held.scene, $event)"
           >
         </p>

@@ -181,6 +181,7 @@
     "oneShotAdded": "1 Shot added to “{name}”.",
     "shotsAdded": "{count} Shots added to “{name}”.",
     "imageLeftOut": "{file} was left out: {why}",
+    "imageUnreadable": "This browser cannot read it as an image.",
     "offeredWhen": "Offered when",
     "noWayOnYet": "No Exit yet",
     "writingScene": "Writing {name}",
