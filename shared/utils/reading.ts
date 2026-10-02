@@ -195,9 +195,14 @@ export function declaredIn(
     [...Object.keys(scene.sets), ...(asks(scene) ? [scene.questionFlag.trim()] : [])]))
 }
 
+/** Every run a text writes between braces, with where it stands, braces included. */
+export function bracedAt(text: string) {
+  return [...text.matchAll(SAID)].map(said => ({ name: said[1]!, from: said.index, to: said.index + said[0].length }))
+}
+
 /** Every run a text writes between braces, whether or not a Flag answers to it. */
 export function braced(text: string) {
-  return [...text.matchAll(SAID)].map(([, name]) => name!)
+  return bracedAt(text).map(({ name }) => name)
 }
 
 /**

@@ -798,7 +798,7 @@ export function countedWords(many: number, say: Phrase) {
  * far the rule reaches, is
  * `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
  */
-export function namesOnTheBench(story: StoryInEditor, say: Phrase) {
+export function namesOnTheBench(story: Pick<StoryInEditor, 'scenes' | 'exits' | 'openingSceneId'>, say: Phrase) {
   const alike = new Map<string, number>()
   for (const scene of story.scenes) alike.set(scene.name, (alike.get(scene.name) ?? 0) + 1)
 

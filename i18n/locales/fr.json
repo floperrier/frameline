@@ -487,6 +487,28 @@
     "glyphAddEffect": "≈",
     "glyphTakeEffectOff": "≉"
   },
+  "find": {
+    "inWords": "le Plan {place} de {scene}",
+    "inDescription": "la Description du Plan {place} de {scene}",
+    "inShotTranscript": "la Transcription du Plan {place} de {scene}",
+    "inTranscript": "la Transcription de {scene}",
+    "inQuestion": "la Question de {scene}",
+    "inExit": "la Sortie {place} depuis {scene}",
+    "findAndReplace": "Rechercher et remplacer",
+    "find": "Rechercher",
+    "replaceWith": "Remplacer par",
+    "matchCase": "Respecter la casse",
+    "previous": "Lieu précédent",
+    "next": "Lieu suivant",
+    "replace": "Remplacer",
+    "replaceAll": "Tout remplacer",
+    "close": "Fermer la recherche",
+    "found": "{places} dans {shots} Plan | {places} dans {shots} Plans",
+    "notFound": "Introuvable",
+    "at": "Dans {where}.",
+    "confirm": "Remplacer « {find} » par « {replace} » à un endroit ? | Remplacer « {find} » par « {replace} » à {n} endroits ?",
+    "replaced": "Remplacé une fois. | Remplacé {n} fois."
+  },
   "conditions": {
     "ofCarrier": "de {carrier}",
     "flag": "Marqueur",
@@ -739,6 +761,12 @@
     "textPace": "Un texte arrive à un nombre entier de caractères par seconde, de 1 à 60.",
     "textOver": "Un texte apparaît en un nombre entier de millisecondes, au plus trois secondes.",
     "textStays": "Un texte reste un nombre entier de millisecondes, au plus une minute.",
-    "textStaysNought": "Une Scène garde ses textes jusqu’à la Coupe ou un temps, et zéro n’est ni l’un ni l’autre."
+    "textStaysNought": "Une Scène garde ses textes jusqu’à la Coupe ou un temps, et zéro n’est ni l’un ni l’autre.",
+    "findEmpty": "Dites ce qu’il faut rechercher.",
+    "findLine": "Ce qu’on recherche et ce qui le remplace tiennent chacun sur une ligne.",
+    "findLong": "Ce qu’on recherche fait au plus {max} caractères.",
+    "replaceLong": "Ce qui le remplace fait au plus {max} caractères.",
+    "matchCase": "Dites s’il faut respecter la casse.",
+    "replacedLong": "Avec ce remplacement, {where} dépasserait {max} caractères : rien n’a été remplacé."
   }
 }

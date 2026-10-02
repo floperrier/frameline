@@ -9,8 +9,8 @@
  *     return change(...)
  *
  * Which acts ask at all is a rule rather than a habit, and
- * `docs/adr/0017-a-confirmation-is-drawn-on-the-bench.md` records it: a Récit
- * and a Scène ask, a Plan, a Sortie and an unpublish do not.
+ * `docs/adr/0017-a-confirmation-is-drawn-on-the-bench.md` records it: a Récit,
+ * a Scène and a *Replace All* ask, a Plan, a Sortie and an unpublish do not.
  *
  * The state is here and the surface is `Confirmation.vue`, because what the
  * page needs is a promise it can wait on and what the page draws is a

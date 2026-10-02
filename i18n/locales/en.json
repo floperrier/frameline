@@ -487,6 +487,28 @@
     "glyphAddEffect": "≈",
     "glyphTakeEffectOff": "≉"
   },
+  "find": {
+    "inWords": "Shot {place} of {scene}",
+    "inDescription": "the Description of Shot {place} of {scene}",
+    "inShotTranscript": "the Transcript of Shot {place} of {scene}",
+    "inTranscript": "the Transcript of {scene}",
+    "inQuestion": "the Question of {scene}",
+    "inExit": "the Exit {place} out of {scene}",
+    "findAndReplace": "Find and Replace",
+    "find": "Find",
+    "replaceWith": "Replace with",
+    "matchCase": "Match case",
+    "previous": "Previous Place",
+    "next": "Next Place",
+    "replace": "Replace",
+    "replaceAll": "Replace All",
+    "close": "Close Find and Replace",
+    "found": "{places} in {shots} Shot | {places} in {shots} Shots",
+    "notFound": "Not found",
+    "at": "In {where}.",
+    "confirm": "Replace “{find}” with “{replace}” in one place? | Replace “{find}” with “{replace}” in {n} places?",
+    "replaced": "Replaced once. | Replaced {n} times."
+  },
   "conditions": {
     "ofCarrier": "of {carrier}",
     "flag": "Flag",
@@ -739,6 +761,12 @@
     "textPace": "A text arrives at a whole number of characters a second, from 1 to 60.",
     "textOver": "A text appears over a whole number of milliseconds, up to three seconds.",
     "textStays": "A text stays for a whole number of milliseconds, up to a minute.",
-    "textStaysNought": "A Scene keeps its texts until the Cut or for a time, and nought is neither."
+    "textStaysNought": "A Scene keeps its texts until the Cut or for a time, and nought is neither.",
+    "findEmpty": "Say what to find.",
+    "findLine": "What is found and what replaces it are each one line of text.",
+    "findLong": "What is found is at most {max} characters.",
+    "replaceLong": "What replaces it is at most {max} characters.",
+    "matchCase": "Say whether the case is to be matched.",
+    "replacedLong": "That would make {where} longer than {max} characters, so nothing was replaced."
   }
 }
