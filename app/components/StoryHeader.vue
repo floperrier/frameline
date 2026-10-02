@@ -312,7 +312,9 @@ function unlist() {
         <!-- Named from among the Story's own Images and never uploaded here, so a
              Cover is always a frame of the work — each thumbnail is a radio, and
              the one checked is the one a shelf shows, whether the Author named it
-             or the Opening Scene is standing in. -->
+             or the Opening Scene is standing in. Brought in lazily: an eager
+             `<img>` is fetched inside a closed `<details>` too, and this is one
+             for every Image in the Story. -->
         <fieldset class="cover">
         <legend class="eyebrow">{{ $t('editor.cover') }}</legend>
         <p class="note">{{ $t(frames.length ? 'editor.coverNote' : 'editor.coverNone') }}</p>
@@ -333,6 +335,8 @@ function unlist() {
               :src="shot.image!"
               :style="{ objectPosition: cropPosition(shot) }"
               :alt="$t('editor.coverOf', { place, scene })"
+              loading="lazy"
+              decoding="async"
             >
           </label>
         </div>

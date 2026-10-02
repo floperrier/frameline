@@ -283,6 +283,50 @@ export async function seedChain(story: Story, names: string[]) {
 }
 
 /**
+ * About thirty words, which is what a Shot of a written work holds: a line read
+ * in the time an Image is looked at.
+ */
+const A_SHOTS_WORDS = 'The light comes in low across the platform, and she counts the carriages '
+  + 'as they pass, one by one, until the last of them is gone and the rails are quiet again.'
+
+/**
+ * A Story the length of a real work, for the specs that hold the bench to what a
+ * change costs at length — issue #449. *Reel Change* is five Scenes; a work an
+ * evening long is tens of them. So: `seedChain`'s forty Scenes, seven more Shots
+ * in each after the one it writes, every one of them about thirty words, and every
+ * Shot carrying one of the Images of the Story named — a Sample planted for the
+ * same Author — copied across by SQL in the order its frames stand in, round and
+ * round, because a bench of three hundred and twenty empty frames is not the bench
+ * an Author writes at.
+ */
+export async function seedLong(story: Story, framedBy: Pick<Story, 'id'>, scenes = 40, shots = 8) {
+  const chain = await seedChain(story, Array.from({ length: scenes }, (_, at) => `Scene ${at + 1}`))
+
+  await sql`
+    insert into shots (scene_id, text, position)
+    select scene_id, ${A_SHOTS_WORDS}, position
+    from unnest(${chain.map(scene => scene.id)}::uuid[]) as seeded (scene_id),
+      generate_series(1, ${shots - 1}::int) as position`
+
+  await sql`
+    with framed as (
+      select shots.image, row_number() over (order by scenes.created_at, scenes.id, shots.position) - 1 as at,
+        count(*) over () as frames
+      from shots join scenes on scenes.id = shots.scene_id
+      where scenes.story_id = ${framedBy.id} and shots.image is not null
+    ), seeded as (
+      select shots.id, row_number() over (order by shots.scene_id, shots.position) - 1 as at
+      from shots join scenes on scenes.id = shots.scene_id
+      where scenes.story_id = ${story.id}
+    )
+    update shots set image = framed.image
+    from seeded, framed
+    where shots.id = seeded.id and framed.at = seeded.at % framed.frames`
+
+  return chain
+}
+
+/**
  * Puts the caret in a Scene, the way an Author would: by pressing its mark on the
  * rail. Every Scene of the Story is written where it stands since #252, so the
  * writing surface is up for all of them at once and waiting for it says nothing
