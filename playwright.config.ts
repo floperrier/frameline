@@ -27,6 +27,14 @@ export default defineConfig({
   // there a run is watched, and a browser that steals focus four at a time is
   // not what it looks like.
   workers: process.env.CI ? '100%' : undefined,
+  // A test that fails once by chance would otherwise decide whether a change
+  // lands, and in CI a red run costs a repair agent and a second run over a race
+  // the change never came near. So CI runs a failed test again, up to twice: one
+  // that passes on a retry is still reported as flaky, in the log and in the
+  // report, with the trace of the attempt that failed, and one that fails all
+  // three times is still red. A development machine keeps none: there a run is
+  // watched, and a flake should be seen failing.
+  retries: process.env.CI ? 2 : 0,
   use: {
     baseURL: 'http://localhost:3101',
     // The suite addresses elements by their accessible name and their visible

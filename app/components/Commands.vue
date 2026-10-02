@@ -104,6 +104,9 @@ watch(opened, (open) => {
  * open, so the refusal is swallowed: focus is already where it should be.
  */
 function press(element: HTMLElement) {
+  // A field typed into — the one a way on is named in — is not pressed either:
+  // the hand is put on it, and what is typed next is the act.
+  if (element instanceof HTMLInputElement && element.type === 'text') return element.focus()
   if (!(element instanceof HTMLSelectElement)) return element.click()
   element.focus()
   try {

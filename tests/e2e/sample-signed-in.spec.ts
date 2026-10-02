@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { expect } from '@playwright/test'
 import { drizzle } from 'drizzle-orm/neon-http'
 import { SAMPLES, imagePath } from '../../demonstration/samples'
+import { soundPath } from '../../demonstration/sounds'
 import * as schema from '../../server/db/schema'
 import { plantSample } from '../../server/utils/samples'
 import { test, type Author } from './author'
@@ -9,8 +10,8 @@ import { test, type Author } from './author'
 /**
  * What an Author finds in an account that was just created. Planting is called
  * here exactly as production calls it — the same function, over the same
- * committed images — with the database and the images handed in, because this
- * process is not nitro and has neither auto-import.
+ * committed images and Sounds — with the database, the images and the Sounds
+ * handed in, because this process is not nitro and has none of the auto-imports.
  *
  * What no test here covers is *when* planting fires: that a Sample is planted on
  * account creation and never again lives in `signInAuthor`, and the end-to-end
@@ -22,6 +23,7 @@ async function plant(author: Author, language: string) {
   await plantSample(author.id, language, {
     db: drizzle(process.env.DATABASE_URL!, { schema }),
     image: name => readFile(imagePath(name)),
+    sound: file => readFile(soundPath(file)),
   })
 }
 
@@ -30,10 +32,10 @@ test('a new account arrives with a Sample in it', async ({ page, request, author
 
   // Exactly one Story, and it is the Sample.
   const listed = await (await request.get('/api/stories')).json()
-  expect(listed).toEqual([{ id: expect.any(String), title: SAMPLES.en.title }])
+  expect(listed).toEqual([expect.objectContaining({ id: expect.any(String), title: SAMPLES.en.title })])
 
   await page.goto('/stories')
-  await page.getByRole('link', { name: `Open ${SAMPLES.en.title}` }).click()
+  await page.getByRole('link', { name: SAMPLES.en.title, exact: true }).click()
 
   // The whole work is there: its three Scenes, the Flags one of them sets, and
   // the Conditions its Shots play under.
@@ -44,16 +46,51 @@ test('a new account arrives with a Sample in it', async ({ page, request, author
   expect(story.publishedAt).not.toBeNull()
   expect(story.exits).toHaveLength(SAMPLES.en.exits.length)
   expect(story.scenes[1].sets).toEqual(SAMPLES.en.scenes[1]!.sets)
-  expect(story.scenes.flatMap((scene: { shots: { conditions: unknown[] }[] }) =>
-    scene.shots.flatMap(shot => shot.conditions)).length).toBeGreaterThan(0)
+  // The words of that Scene arrive in their own time, so the five columns that
+  // say so have to have been planted with it.
+  expect(story.scenes[1]).toMatchObject({ textAfter: 1000, textBy: 'word', textOver: 200 })
+  // And it ends on a Question, whose two columns are planted with it.
+  expect(story.scenes[1]).toMatchObject({
+    question: SAMPLES.en.scenes[1]!.question,
+    questionFlag: SAMPLES.en.scenes[1]!.questionFlag,
+  })
+  // And its first Image moves, which the three columns of that Shot say.
+  expect(story.scenes[0].shots[0])
+    .toMatchObject({ movementDirection: 'closer', movementBy: 12, movementOver: null })
+  const conditions = story.scenes.flatMap((scene: { shots: { conditions: object[] }[] }) =>
+    scene.shots.flatMap(shot => shot.conditions))
+  expect(conditions.length).toBeGreaterThan(0)
+  // One of them asks which Exit the Reading took, and names it by the id it was
+  // planted with: the second way on out of the second Scene, which is an Exit of
+  // this Story and not of the work it was planted from.
+  const asked = conditions.find((condition: object) => 'exit' in condition)
+  expect(asked).toEqual({ exit: expect.any(String), taken: true })
+  expect(story.exits.find((exit: { id: string }) => exit.id === asked.exit))
+    .toMatchObject({ fromSceneId: story.scenes[1].id, toSceneId: story.scenes[2].id, position: 1 })
 
   // A Shot is an Image and its text, so the bytes committed beside the work have
   // to have arrived as an image a browser will take.
   const image = await request.get(story.scenes[0].shots[0].image)
   expect(image.headers()['content-type']).toBe('image/webp')
 
+  // Its opening Scene also carries a Sound, so the library's own file has to
+  // have arrived as one a browser will play, transcribed in English — the
+  // Language the Sample is written in.
+  const sound = await request.get(story.scenes[0].sound)
+  expect(sound.headers()['content-type']).toBe('audio/mp4')
+  expect(story.scenes[0].transcript).toBe(SAMPLES.en.scenes[0]!.transcript)
+
   // And it is published, so it reads at its public link the way it previews.
+  // Its opening Scene carries a Sound, so the title card is pressed first — the
+  // consent a browser will not play into a page without.
   await page.goto(`/read/${story.id}`)
+  await page.getByRole('button', { name: 'Begin' }).click()
+  // The opening Scene is cut by the clock now, so the beat this looks for has a
+  // life measured in seconds. The Reader's own pause stops it, which is the
+  // control WCAG 2.2.2 asks for the moment anything advances by itself and the
+  // one this suite is entitled to use: a beat still on screen because somebody
+  // pressed Pause is the beat that was there when they pressed it.
+  await page.getByRole('button', { name: 'Pause the Reading' }).click()
   await expect(page.getByText(SAMPLES.en.scenes[0]!.shots[0]!.text)).toBeVisible()
 })
 
@@ -61,7 +98,7 @@ test('the Sample planted is the one written in the Locale', async ({ request, au
   await plant(author, 'fr')
 
   await expect((await request.get('/api/stories')).json())
-    .resolves.toEqual([{ id: expect.any(String), title: SAMPLES.fr.title }])
+    .resolves.toEqual([expect.objectContaining({ id: expect.any(String), title: SAMPLES.fr.title })])
 })
 
 test('a Locale no Sample is written in is given none', async ({ request, author }) => {

@@ -3,6 +3,10 @@ import { fileURLToPath } from 'node:url'
 export default defineNuxtConfig({
   modules: ['nuxt-auth-utils', '@nuxt/fonts', '@nuxtjs/i18n'],
   compatibilityDate: '2026-08-19',
+  // Every page names itself, and the tab says whose page it is after it. Here
+  // rather than in `app.vue`, because `error.vue` stands in for the whole app
+  // and `app.vue` is not rendered beside it: the config's head is under both.
+  app: { head: { titleTemplate: '%s · Frameline' } },
   css: ['~/assets/css/frameline.css'],
   // The widths the interface folds at are declared once, in
   // `app/assets/css/folds.css`, and reached by name from the scoped block of
@@ -52,17 +56,38 @@ export default defineNuxtConfig({
       { name: 'Big Shoulders', provider: 'google', weights: [600] },
       { name: 'IBM Plex Sans', provider: 'google', weights: [400, 500, 600] },
       { name: 'IBM Plex Mono', provider: 'google', weights: [400, 500] },
-      { name: 'Newsreader', provider: 'google', weights: [300, 400] },
+      // A Shot's text is italic, bold and in two more faces wherever its Author
+      // says so. The two faces only some Stories use are not preloaded, so a
+      // Reader's browser fetches them only on a page that sets a word in one.
+      { name: 'Newsreader', provider: 'google', weights: [300, 400, 600], styles: ['normal', 'italic'] },
+      {
+        name: 'Courier Prime',
+        provider: 'google',
+        weights: [400, 700],
+        styles: ['normal', 'italic'],
+        preload: false,
+      },
+      { name: 'Caveat', provider: 'google', weights: [400, 700], preload: false },
     ],
   },
+  // `shared/` is read by Node as it stands too, through the script that writes
+  // the works in `demonstration/`, and Node strips types without transforming
+  // anything: an enum, a namespace or a parameter property there is a script
+  // that never starts, so the typecheck refuses them before Node has to.
+  typescript: { sharedTsConfig: { compilerOptions: { erasableSyntaxOnly: true } } },
   // Port 3000 is taken on this machine, and the OAuth redirect URIs are
   // registered against 3100.
   devServer: { port: 3100 },
   // A public link can be taken away, so nothing served on one may be held in a
   // cache that outlives the Publish: a Reader's own browser keeping the page is
-  // enough to make an unpublished Story go on answering.
+  // enough to make an unpublished Story go on answering. The embed is the same
+  // link laid inside another page, so it is held to the same.
+  //
+  // Who may frame a page is not set here but in `server/middleware/frames.ts`,
+  // which says why.
   routeRules: {
     '/read/**': { headers: { 'cache-control': 'no-store' } },
+    '/embed/**': { headers: { 'cache-control': 'no-store' } },
     '/api/read/**': { headers: { 'cache-control': 'no-store' } },
   },
   // The Samples' images, which planting reads as it writes a Sample into a new
@@ -75,6 +100,12 @@ export default defineNuxtConfig({
     serverAssets: [{
       baseName: 'samples',
       dir: fileURLToPath(new URL('demonstration/images', import.meta.url)),
+    }, {
+      // The library, a second time: the CDN serves `public/sounds/` to the
+      // browser that picks one, and planting a Sample needs the same bytes on the
+      // server, where the deployed bundle is not the repository.
+      baseName: 'sounds',
+      dir: fileURLToPath(new URL('public/sounds', import.meta.url)),
     }],
   },
   runtimeConfig: {

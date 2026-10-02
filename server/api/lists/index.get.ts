@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNotNull } from 'drizzle-orm'
+import { and, asc, desc, eq, isNotNull, sql } from 'drizzle-orm'
 import { authors, listStories, lists, stories } from '../../db/schema'
 import { useDb } from '../../db'
 
@@ -37,6 +37,9 @@ export default defineEventHandler(async (event) => {
       publishedAt: stories.publishedAt,
       authorId: authors.id,
       authorName: authors.name,
+      coverShotId: coverShotOf,
+      cropX: coverShot.cropX,
+      cropY: coverShot.cropY,
     })
     .from(lists)
     .leftJoin(listStories, eq(listStories.listId, lists.id))
@@ -47,6 +50,7 @@ export default defineEventHandler(async (event) => {
     // it on.
     .leftJoin(stories, and(eq(stories.id, listStories.storyId), isNotNull(stories.publishedAt)))
     .leftJoin(authors, eq(authors.id, stories.authorId))
+    .leftJoin(coverShot, sql`${coverShot.id} = ${coverShotOf}`)
     .where(eq(lists.authorId, author.id))
     .orderBy(asc(lists.createdAt), desc(listStories.addedAt))
 
@@ -62,6 +66,7 @@ export default defineEventHandler(async (event) => {
           publishedAt: row.publishedAt,
           authorId: row.authorId!,
           authorName: row.authorName,
+          cover: coverFor(row),
         }
       : null,
   })))

@@ -60,7 +60,7 @@ function nameOf(name: string | null) {
 </script>
 
 <template>
-  <section class="comments">
+  <section id="comments" class="comments">
     <h2 class="eyebrow">{{ $t('comments.heading') }}</h2>
 
     <p v-if="!said?.comments.length" class="none">{{ $t('comments.none') }}</p>

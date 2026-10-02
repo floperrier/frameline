@@ -36,7 +36,8 @@ The widths the interface folds at are the one thing a token cannot carry, becaus
 a custom property cannot be read inside a media query. They are declared as
 custom media queries in `app/assets/css/folds.css` — names and no rules — and
 reached by name from the scoped block of every surface that folds at one. See
-`docs/adr/0037-the-reading-folds-before-the-writing-does.md`.
+`docs/adr/0042-the-scene-is-written-where-it-stands.md` and
+`docs/adr/0041-the-graph-is-drawn-from-the-story.md`.
 
 ## Git flow
 
@@ -103,17 +104,24 @@ outright: the migration snapshots are the generator's to write.
 ## Tests
 
 `pnpm test` runs the Vitest suite over the modules that are pure functions: the
-Reading engine, what a Shot's image is read to be, the Conditions a request is
-allowed to write, the sequence of Places it renumbers a Scene by, the Scenes a
-Exit may land on, the geometry of the lines the graph draws, where a point on
-the screen lands on the surface they are drawn on, where a Scene born from an
-Exit is placed, the two message
+Reading engine, down to how an Image moves while its Shot is on screen, what a
+Shot's image is read to be and which Images a Reading brings in before it needs
+them, the Conditions and the Effects
+a request is allowed to write, the shape a Shot's formatted text is held to at
+the request boundary and the markup-free renderer that draws it, the flicker a
+Reading draws held to three flashes
+in any second — its pattern read out of the Reading's stylesheet as source — the
+swipe a finger crossing the frame is read as, the sequence of Places a request renumbers a Scene by and the Place a frame let go of on the Contact Sheet lands at, the Scenes a
+Exit may land on, the columns a Story falls into and the order it is written in,
+the two message
 files held against each other, the language a refusal is phrased in, the Steps the
 bench asks a Story for — whose targets are held against the editor's template
-read as source — the Remarks the bench reads back out of a Story, and the two
+read as source — the Remarks the bench reads back out of a Story, what differs between a
+published Story's Edition and the Story as it is written, and the two
 Samples, that each holds together as a work and that the two of them are one
-shape in two languages. None of them needs a database, because none of them has
-one in reach. `pnpm test:e2e` runs
+shape in two languages — and that the script that writes the works starts on
+Node as it stands, run with no Author so it stops before reaching for a
+database. None of them needs a database, because none of them has one in reach. `pnpm test:e2e` runs
 Playwright against a built app and a real Neon branch — `docs/git-flow.md` says which branch.
 
 ## Running the app

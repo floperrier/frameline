@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { commandsReached, plainly, type Command } from '../../app/utils/commands'
+import { commandsReached, type Command } from '../../app/utils/commands'
+import { folded, plainly } from '../../shared/utils/scenes'
 
 /**
  * Which Commands a typed name reaches. The bar around this is a `<dialog>` and
@@ -47,7 +48,14 @@ describe('the Commands a typed name reaches', () => {
     expect(reached(named('Publish', 'Go to A'), 'zzz')).toEqual([])
   })
 
-  it('keeps two Scenes that share a name, because it cannot tell them apart', () => {
+  /**
+   * Nothing is dropped for reading alike: what answers the typed name is offered,
+   * however many of them read the same. Telling two acts apart is the business of
+   * whatever names them, and for a Scene that is settled where every other control
+   * naming one settles it — see
+   * `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
+   */
+  it('keeps every Command the typed name reaches, two that read alike included', () => {
     expect(reached(named('Go to A', 'Go to A'), 'A')).toEqual(['Go to A', 'Go to A'])
   })
 })
@@ -59,5 +67,16 @@ describe('a name read plainly', () => {
 
   it('takes the mark off the letter it sits on and leaves the letter', () => {
     expect(plainly('Élan à côté')).toBe('elan a cote')
+  })
+})
+
+describe('a value read folded', () => {
+  it('reads plainly, trimmed, with every run of spaces one space', () => {
+    expect(folded('  Le   Café\tdu  Port ')).toBe('le cafe du port')
+  })
+
+  it('folds a value of spaces alone to the empty value, which is no value', () => {
+    expect(folded('   ')).toBe('')
+    expect(folded('')).toBe('')
   })
 })

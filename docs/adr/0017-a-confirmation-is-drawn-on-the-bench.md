@@ -49,7 +49,7 @@ Author's goes.
 
 | Act | Asks | Why |
 | --- | --- | --- |
-| Delete a Récit | **Yes**, naming the Récit, with no counts | It takes the whole work; "everything written in it" is not made truer by arithmetic, and the Stories list carries only ids and titles |
+| Delete a Récit | **Yes**, naming the Récit, with no counts | It takes the whole work; "everything written in it" is not made truer by arithmetic. The Author's shelf of Stories carries a Comment count since #390, and the question still names none of it, for that reason |
 | Delete a Scène | **Yes**, naming its Plans, its ways on and the ways in | Plans and Coupes at both ends go, and the Author named none of them |
 | Delete a Plan | No | Takes only the Plan pointed at; its Photogramme, its Description and its Conditions are the Plan |
 | Delete a Coupe | No | Takes only the Coupe pointed at; its text and its Conditions are the Coupe |
@@ -113,6 +113,11 @@ pages: a handler asks and returns early, and the act itself still goes through
 Playwright reads the question like any other part of the interface. No spec
 intercepts a browser `dialog` event any more, which also means the Récit delete
 has page-level coverage for the first time.
+
+The Shot is the one deletion that is put back rather than confirmed. Its × still
+asks nothing, and leaves a slim row with *Put It Back* on it for as long as the
+page is open, the row held whole on the server for a day — see
+`docs/adr/0064-a-deleted-shot-is-held-for-a-day.md`.
 
 Reopening any of the five verdicts means amending this ADR, not adding a
 `confirm`.

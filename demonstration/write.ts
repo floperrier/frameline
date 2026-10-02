@@ -30,9 +30,11 @@ import { neon } from '@neondatabase/serverless'
 import { sealSession, type H3Event } from 'h3'
 import { imageTypeOf } from '../shared/utils/scenes.ts'
 import type { Condition } from '../shared/utils/scenes.ts'
+import { soundTypeOf } from '../shared/utils/sound.ts'
 import { SAMPLES, SAMPLE_LANGUAGES, imagePath, type SampleLanguage } from './samples.ts'
 import { REEL_CHANGE } from './reel-change.ts'
-import { develop, type Shot } from './work.ts'
+import { soundPath } from './sounds.ts'
+import { develop, type Shot, type WorkCondition } from './work.ts'
 
 const origin = argument('origin') ?? 'http://localhost:3100'
 const email = argument('author')
@@ -51,27 +53,77 @@ const story = await api('POST', '/api/stories', {
 
 // Scenes first, so an Exit has both its ends to join by the time it is drawn.
 const written = new Map<string, string>()
+// Each Scene's ways on, by the Place they are drawn at there.
+const drawn = new Map<string, string[]>()
+// And every Condition last, because one may name an Exit, and an Exit has no id
+// until it is drawn: each list waits here beside the door it is PUT through.
+const conditioned: { path: string, when: WorkCondition[] }[] = []
 
 for (const scene of work.scenes) {
-  const [x, y] = scene.at
   const { id } = await api('POST', `/api/stories/${story.id}/scenes`, { name: scene.name }) as
     { id: string }
 
   written.set(scene.name, id)
-  await api('PATCH', `/api/scenes/${id}`, { x, y })
   if (scene.sets) await api('PUT', `/api/scenes/${id}/flags`, { sets: scene.sets })
+  if (scene.sound) await deposit(`/api/scenes/${id}/sound`, scene.sound)
+  // The Transcript, the Cut, the arrival of the text and the Question come through the
+  // Scene's one door, and only what the work names goes through it: a field the work
+  // left out is `undefined`, which `JSON.stringify` drops from the body, so the column
+  // keeps the default every Story written before the Cut has. A work naming none
+  // sends nothing.
+  const says = {
+    transcript: scene.transcript,
+    layout: scene.layout,
+    movementBy: scene.movementBy,
+    movementDirection: scene.movementDirection,
+    movementOver: scene.movementOver,
+    cutAfter: scene.cutAfter,
+    cutOver: scene.cutOver,
+    cutThrough: scene.cutThrough,
+    exitsAfter: scene.exitsAfter,
+    textAfter: scene.textAfter,
+    textBy: scene.textBy,
+    textPace: scene.textPace,
+    textOver: scene.textOver,
+    textStays: scene.textStays,
+    question: scene.question,
+    questionFlag: scene.questionFlag,
+  }
+
+  if (Object.values(says).some(said => said !== undefined)) {
+    await api('PATCH', `/api/scenes/${id}`, says)
+  }
 
   for (const shot of scene.shots) {
     const { id: shotId } = await api('POST', `/api/scenes/${id}/shots`) as { id: string }
     await api('PATCH', `/api/shots/${shotId}`, {
-      text: shot.text,
+      // A formatted text is refused beside plain words: the words are derived.
+      ...shot.formatted ? { formatted: shot.formatted } : { text: shot.text },
       description: shot.description ?? '',
+      transcript: shot.transcript ?? '',
+      cutAfter: shot.cutAfter,
+      cutOver: shot.cutOver,
+      cutThrough: shot.cutThrough,
+      layout: shot.layout,
+      cropX: shot.cropX,
+      cropY: shot.cropY,
+      movementBy: shot.movementBy,
+      movementDirection: shot.movementDirection,
+      movementOver: shot.movementOver,
+      imageArrives: shot.imageArrives,
+      imageLasts: shot.imageLasts,
+      textArrives: shot.textArrives,
+      textLasts: shot.textLasts,
+      textAfter: shot.textAfter,
+      textBy: shot.textBy,
+      textPace: shot.textPace,
+      textOver: shot.textOver,
+      textStays: shot.textStays,
     })
     const image = await imageOf(shot)
     if (image) await attach(shotId, image)
-    if (shot.when) {
-      await api('PUT', `/api/shots/${shotId}/conditions`, { conditions: shot.when.map(identified) })
-    }
+    if (shot.sound) await deposit(`/api/shots/${shotId}/sound`, shot.sound)
+    if (shot.when) conditioned.push({ path: `/api/shots/${shotId}/conditions`, when: shot.when })
     process.stdout.write('.')
   }
 }
@@ -86,10 +138,17 @@ for (const exit of work.exits) {
     toSceneId: sceneNamed(exit.to),
   }) as { id: string }
 
-  await api('PATCH', `/api/exits/${id}`, { text: exit.text })
-  if (exit.when) {
-    await api('PUT', `/api/exits/${id}/conditions`, { conditions: exit.when.map(identified) })
-  }
+  await api('PATCH', `/api/exits/${id}`, {
+    text: exit.text,
+    cutOver: exit.cutOver,
+    cutThrough: exit.cutThrough,
+  })
+  drawn.set(exit.from, [...drawn.get(exit.from) ?? [], id])
+  if (exit.when) conditioned.push({ path: `/api/exits/${id}/conditions`, when: exit.when })
+}
+
+for (const { path, when } of conditioned) {
+  await api('PUT', path, { conditions: when.map(identified) })
 }
 
 await api('POST', `/api/stories/${story.id}/publish`)
@@ -142,16 +201,22 @@ async function imageOf(shot: Shot) {
     : await develop(shot.image)
 }
 
-/** A Condition as the API takes it: a Scene named in the work, identified here. */
-function identified(condition: Condition) {
-  return 'scene' in condition
-    ? { ...condition, scene: sceneNamed(condition.scene) }
-    : condition
+/** A Condition as the API takes it: a Scene or an Exit named in the work, identified here. */
+function identified(condition: WorkCondition): Condition {
+  if ('scene' in condition) return { ...condition, scene: sceneNamed(condition.scene) }
+  if ('exit' in condition) return { ...condition, exit: exitNamed(condition.exit) }
+  return condition
 }
 
 function sceneNamed(name: string) {
   const id = written.get(name)
   if (!id) throw new Error(`No Scene called ${name} was written`)
+  return id
+}
+
+function exitNamed({ from, place }: { from: string, place: number }) {
+  const id = drawn.get(from)?.[place - 1]
+  if (!id) throw new Error(`The work names an Exit ${place} out of ${from} it does not write`)
   return id
 }
 
@@ -166,6 +231,22 @@ async function attach(shotId: string, image: Buffer) {
   })
 
   if (!response.ok) throw await refused(response, `PUT /api/shots/${shotId}/image`)
+}
+
+/**
+ * Deposits one of the library's Sounds, read from the folder on disk. The whole
+ * body is the file, as the bench's own picker sends it, and the type is read off
+ * the bytes the same way the server reads them.
+ */
+async function deposit(path: string, file: string) {
+  const bytes = await readFile(soundPath(file))
+  const response = await fetch(`${origin}${path}`, {
+    method: 'PUT',
+    headers: { cookie, 'content-type': soundTypeOf(bytes) ?? 'application/octet-stream' },
+    body: new Uint8Array(bytes),
+  })
+
+  if (!response.ok) throw await refused(response, `PUT ${path}`)
 }
 
 async function api(method: string, path: string, body?: unknown) {

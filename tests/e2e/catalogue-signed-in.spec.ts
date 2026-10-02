@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { Browser, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { test, seedPublished, seedStory, writeStory } from './author'
+import { begin, test, seedPublished, seedStory, writeStory } from './author'
 
 /**
  * The Catalogue as anyone browsing meets it. Every assertion below about what is
@@ -80,6 +80,7 @@ test('an Author lists a published Story and anyone finds it in the Catalogue', a
   // about one.
   await entry.getByRole('link', { name: title }).click()
   await expect(catalogue).toHaveURL(`${baseURL}/read/${story.id}`)
+  await begin(catalogue)
   await expect(catalogue.getByText('A door opens.')).toBeVisible()
 
   // Unlisting is not unpublishing: the Story leaves the Catalogue and every link
@@ -114,6 +115,7 @@ test('an Author writes a Synopsis and whoever browses the Catalogue reads it', a
   await expect(bare).not.toContainText('A door opens.')
 
   await page.goto(`/stories/${story.id}`)
+  await page.getByText('Synopsis and Cover').click()
   const synopsis = page.getByRole('textbox', { name: 'Synopsis' })
   await synopsis.fill('A woman leaves a door open behind her, and the street takes her.')
   await synopsis.blur()

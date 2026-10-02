@@ -17,6 +17,8 @@ if (error.value) throw createError({ ...error.value, fatal: true })
 // An Author who has never written a Name has nothing linking here, but the
 // address can still be typed: they are shown as an Author rather than as a gap.
 const name = computed(() => author.value?.name || t('profile.unnamed'))
+
+useHead({ title: name })
 </script>
 
 <template>

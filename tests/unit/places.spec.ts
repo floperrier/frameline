@@ -72,6 +72,6 @@ describe('the sequence of Places a request writes', () => {
     await expect(asking({ places: [] })).rejects.toThrow(
       'The Shots of a Scene are renumbered all at once, each one named exactly once.')
     await expect(asExits({ places: [] })).rejects.toThrow(
-      'The ways on leaving a Scene are renumbered all at once, each one named exactly once.')
+      'The Exits leaving a Scene are renumbered all at once, each one named exactly once.')
   })
 })

@@ -33,13 +33,15 @@ marks only what the Author wrote on the film: the Cuts drawn across the graph,
 the Opening Scene, the public link a Publish handed out. An Author can therefore
 read a screen by colour alone — cyan is the tool, orange is their own hand.
 
-Four faces, each with one job. Titles are set in a condensed grotesque, because
-that is what a title card and a closing crawl have always been set in. The
-interface and its labels are one superfamily, so a stencilled micro-label
-belongs to the control beside it. A Shot's text — the only prose in the product —
-gets a serif of its own, and nothing else on any screen is set in it: seeing that
-face means reading a Story. Everything that is data, from a Shot's number to a
-Condition's two sides, is mono. The faces are downloaded and self-hosted at build
+Four faces, each with one job — *amended by `0056`: two more join them, a
+typewriter and a hand, the Author's to set a run of a Shot's text in and read
+nowhere else.* Titles are set in a condensed grotesque, because that is what a
+title card and a closing crawl have always been set in. The interface and its
+labels are one superfamily, so a stencilled micro-label belongs to the control
+beside it. A Shot's text — the only prose in the product — gets a serif of its
+own, and nothing else on any screen is set in it: seeing that face means reading
+a Story. Everything that is data, from a Shot's number to a Condition's two
+sides, is mono. The faces are downloaded and self-hosted at build
 time by `@nuxt/fonts`, which needs
 `experimental.processCSSVariables` because every face here is reached through a
 custom property.

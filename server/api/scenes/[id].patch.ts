@@ -3,22 +3,47 @@ import { scenes } from '../../db/schema'
 import { useDb } from '../../db'
 
 /**
- * Puts a Scene where the Author dropped it in the Story graph, and renames it
- * where they have corrected the name. The name travels beside the placement
- * rather than through an endpoint of its own, because both are the node: a
- * request carrying no name moves a Scene and leaves what it is called alone.
+ * Writes what an Author says about one Scene: its name, the three things said
+ * about the Sound it is heard under — what it makes heard, whether it is held
+ * in a loop, and the Scene it is taken from — its Cut, how its Images move and
+ * how its texts arrive, the Question it ends on and the Flag the answer is held
+ * under. They come through one door because they are one Scene's row, and each
+ * lands on its own: a body naming one of them leaves the rest where they were.
+ *
+ * The bytes are not here. A Sound is a file, and a file is deposited at an
+ * address of its own — `server/api/scenes/[id]/sound.put.ts`.
  */
 export default defineEventHandler(async (event) => {
   const author = await requireAuthor(event)
   const id = readId(event, 'Scene')
-  const name = await readSceneRename(event)
-  const { x, y } = await readScenePlacement(event)
+  const changes = await readSceneChanges(event, id)
 
   const [scene] = await useDb()
     .update(scenes)
-    .set({ x, y, ...(name !== undefined && { name }) })
+    .set(changes)
     .where(and(eq(scenes.id, id), inArray(scenes.storyId, storiesOf(author.id))))
-    .returning({ id: scenes.id, name: scenes.name, x: scenes.x, y: scenes.y })
+    .returning({
+      id: scenes.id,
+      name: scenes.name,
+      transcript: scenes.transcript,
+      soundLoops: scenes.soundLoops,
+      soundOfSceneId: scenes.soundOfSceneId,
+      cutAfter: scenes.cutAfter,
+      cutOver: scenes.cutOver,
+      cutThrough: scenes.cutThrough,
+      exitsAfter: scenes.exitsAfter,
+      layout: scenes.layout,
+      movementBy: scenes.movementBy,
+      movementDirection: scenes.movementDirection,
+      movementOver: scenes.movementOver,
+      textAfter: scenes.textAfter,
+      textBy: scenes.textBy,
+      textPace: scenes.textPace,
+      textOver: scenes.textOver,
+      textStays: scenes.textStays,
+      question: scenes.question,
+      questionFlag: scenes.questionFlag,
+    })
 
   if (!scene) throw notFound(event, 'Scene')
   return scene

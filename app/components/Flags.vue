@@ -11,13 +11,21 @@
  * unchanged: a map of names to a value or a list of values, and every limit on a
  * name, a value and their count stays the server's to enforce.
  */
-const { sets, scene, id } = defineProps<{
+const { sets, scene, id, named = true } = defineProps<{
   /** The Flags the Scene sets, as the Story on the bench carries them. */
   sets: Sets
   /** The Scene's name, which every label here ends in. */
   scene: string
   /** The Scene's id, which every field's own id is built from. */
   id: string
+  /**
+   * Whether the act of adding one carries its name into the bar of Commands. The
+   * document holds every Scene of the Story, and a Story of forty Scenes would
+   * otherwise hand the bar forty *Add a Flag*s under one another: the mark is drawn
+   * on every Scene and named in the Scene the caret stands in — see
+   * `docs/adr/0043-a-story-is-written-as-one-document.md`.
+   */
+  named?: boolean
 }>()
 
 /** The Flags the rows now amount to, left to the page to send. */
@@ -103,12 +111,23 @@ function flagCalled(place: number) {
 <template>
   <div class="flags">
     <!-- Only where there are none. What the list is, and which Scene sets it, is
-         said by the heading of the section it stands in — see `Panel.vue`, where
+         said by the heading of the section it stands in — see `Writing.vue`, where
          the three parts of a Scene each carry their own — and saying it twice
          over was what taking the tabs out left behind. -->
     <p v-if="!rows.length" class="eyebrow none">{{ $t('flags.none') }}</p>
 
-    <div v-for="(row, place) in rows" :key="place" class="sets reads" @keydown.enter.prevent="addTyping">
+    <!-- `handed`: what a row is acted on — a value added to the draw, a value
+         struck out of it, the Flag itself taken away — is drawn at the weight of
+         the words of the sentence it stands in until the pointer arrives at the
+         row or the caret lands in it. One Scene of six Flags carries thirteen of
+         these marks, and the document holds every Scene of the Story at once. See
+         `.handed` in `app/assets/css/frameline.css`. -->
+    <div
+      v-for="(row, place) in rows"
+      :key="place"
+      class="sets reads handed"
+      @keydown.enter.prevent="addTyping"
+    >
       <!-- The Flag as the sentence it is, every mark inside it acting on one
            value of the draw, and then the one mark that ends the whole Flag —
            held apart in a column of its own, because taking a Flag away is not a
@@ -180,14 +199,14 @@ function flagCalled(place: number) {
     </div>
 
     <!-- Named in the bar of Commands as well as drawn here: setting a Flag is an
-         act an Author says out loud, and one list of Flags stands on the bench at
-         a time, so the name needs nothing after it to tell it from another. See
+         act an Author says out loud, and one list of Flags is named at a time, so
+         the name needs nothing after it to tell it from another. See
          `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`. -->
     <button
       v-if="rows.length < FLAGS_PER_SCENE"
       type="button"
       class="add"
-      :data-command="$t('flags.add')"
+      :data-command="named ? $t('flags.add') : undefined"
       @click="add"
     >
       {{ $t('flags.add') }}
