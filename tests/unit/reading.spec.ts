@@ -14,6 +14,7 @@ import {
   MOVEMENT_OVER_UNTIMED,
   cropPosition,
   exitNamed as named,
+  folded,
 } from '../../shared/utils/scenes'
 import type { Path, State, StoryToRead } from '../../shared/utils/reading'
 import {
@@ -332,6 +333,22 @@ describe('an Exit carrying Conditions', () => {
       .toEqual(['Stay outside', 'Go in'])
     expect(shown(ways([{ flag: 'key', is: 'found' }]), endOfStreet).offered)
       .toEqual(['Stay outside'])
+  })
+
+  it('compares what a Flag holds folded, its case, accents and spaces set aside', () => {
+    const carrying = (held: string) => ways([{ flag: 'key', is: 'rosebud' }], { Street: { key: held } })
+    for (const held of ['Rosebud', '  ROSÉBUD ', 'rosebud']) {
+      expect(shown(carrying(held), endOfStreet).offered).toEqual(['Stay outside', 'Go in'])
+    }
+    expect(shown(carrying('rose bud'), endOfStreet).offered).toEqual(['Stay outside'])
+    // And the Condition's own side folds the same way.
+    expect(shown(ways([{ flag: 'key', is: 'Le  Café ' }], { Street: { key: 'le cafe' } }), endOfStreet)
+      .offered).toEqual(['Stay outside', 'Go in'])
+  })
+
+  it('reads a Flag holding only spaces as one holding nothing', () => {
+    expect(shown(ways([{ flag: 'key', is: '' }], { Street: { key: '   ' } }), endOfStreet).offered)
+      .toEqual(['Stay outside', 'Go in'])
   })
 
   it('reads a Flag named after what every object inherits as one nobody set', () => {
@@ -1490,6 +1507,59 @@ describe('a Scene that ends on a Question', () => {
     const at = pathTo(door, OPENING, 'Hall')!
     expect(reading(door, at).sceneId).toBe('Hall')
     expect(at.answers).toEqual({ Door: '' })
+  })
+
+  /**
+   * A Gate whose one way into the Vault waits on the password, and whose other way
+   * on, into the Yard, is for the Reader who says nothing.
+   */
+  const vault = story(
+    { Gate: ['A voice.'], Vault: ['Gold.'], Yard: ['Gravel.'] },
+    [
+      ['Gate', 'Enter', 'Vault', [{ flag: 'password', is: 'Rosebud' }]],
+      ['Gate', 'Turn away', 'Yard', [{ flag: 'password', is: '' }]],
+    ],
+    'Gate',
+    {},
+    true,
+    { Gate: ['Password?', 'password'] },
+  )
+
+  it('is answered by the search with the value a Condition waits on, to reach what only it opens', () => {
+    const at = pathTo(vault, OPENING, 'Vault')!
+    expect(reading(vault, at).sceneId).toBe('Vault')
+    // The Condition's own spelling is what the Path holds, so a step back to the
+    // Question finds it in the field.
+    expect(at.answers).toEqual({ Gate: 'Rosebud' })
+    expect(pathTo(vault, OPENING, 'Yard')?.answers).toEqual({ Gate: '' })
+  })
+
+  it('is not answered by the search with a value no Condition names', () => {
+    const unnamed = story(
+      { Gate: ['A voice.'], Vault: ['Gold.'] },
+      [['Gate', 'Enter', 'Vault', [{ flag: 'password', is: 'rosebud' }, { flag: 'key', is: 'held' }]]],
+      'Gate',
+      {},
+      true,
+      { Gate: ['Password?', 'password'] },
+    )
+    expect(pathTo(unnamed, OPENING, 'Vault')).toBeUndefined()
+  })
+
+  it('is answered by the search under a value two Conditions spell differently', () => {
+    const twice = story(
+      { Gate: ['A voice.'], Vault: ['Gold.', ['Silver.', [{ flag: 'password', is: ' ROSEBUD ' }]]] },
+      [['Gate', 'Enter', 'Vault', [{ flag: 'password', is: 'rosébud' }]]],
+      'Gate',
+      {},
+      true,
+      { Gate: ['Password?', 'password'] },
+    )
+    const at = pathTo(twice, OPENING, 'Vault')!
+    expect(folded(at.answers!.Gate!)).toBe('rosebud')
+    // Read from the second Shot of the Scene behind the Question, which the answer
+    // the search gave plays.
+    expect(reading(twice, standOn(twice, at, 'Vault-1')).shot?.text).toBe('Silver.')
   })
 
   it('declares the Flag it holds its answer under, and none for a sentence with no Flag', () => {

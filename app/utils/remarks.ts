@@ -31,6 +31,7 @@ import {
   exitsFrom,
   exitsOnTheBench,
   FLAG_NAME_MAX_LENGTH,
+  folded,
   namesOnTheBench,
   plainly,
   reaches,
@@ -513,13 +514,16 @@ function flagRemarks(story: StoryInEditor, names: Map<string, string>): Remark[]
  * Author has to go to separately, and a sentence naming only the Scene is the same
  * sentence twice and the same control named twice with it — which is the property
  * issue #268 settled for a row, told of the Remarks.
+ *
+ * Values are held against each other `folded`, as `holds` compares them: a
+ * Condition asking for `Red` where a Scene sets `red` holds, so it is not dead.
  */
 function deadRemarks(story: StoryInEditor, names: Map<string, string>): Remark[] {
   const values = new Map<string, Set<string>>()
   for (const scene of story.scenes) {
     for (const [flag, held] of Object.entries(scene.sets)) {
       const known = values.get(flag) ?? new Set<string>()
-      for (const value of [held].flat()) known.add(value)
+      for (const value of [held].flat()) known.add(folded(value))
       values.set(flag, known)
     }
   }
@@ -529,9 +533,9 @@ function deadRemarks(story: StoryInEditor, names: Map<string, string>): Remark[]
   const dead = ([condition]: Carried) =>
     'flag' in condition
     && !answered.has(condition.flag)
-    && condition.is !== ''
+    && folded(condition.is) !== ''
     && values.has(condition.flag)
-    && !values.get(condition.flag)!.has(condition.is)
+    && !values.get(condition.flag)!.has(folded(condition.is))
 
   return conditionsOf(story).filter(dead).map(([condition, scene, name, place]) => ({
     name,

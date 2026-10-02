@@ -29,7 +29,7 @@
  * `.handed` in `app/assets/css/frameline.css` is the whole of the rule, which is
  * why nothing about it is declared below.
  */
-const { carrier, conditions, names, exits, counting, id, named = true } = defineProps<{
+const { carrier, conditions, names, exits, flags, counting, id, named = true } = defineProps<{
   /** The visible words the list opens on: "Offered when", "Played when". */
   lead: string
   /** What carries the list, as a label ends it: "the Exit to The House", "Shot 3". */
@@ -51,6 +51,12 @@ const { carrier, conditions, names, exits, counting, id, named = true } = define
    * is told from its siblings by its place and the words on it.
    */
   exits: Map<string, ExitOnTheBench>
+  /**
+   * The Flags of the Story, those its Scenes set and those its Questions hold an
+   * answer under — `declaredIn` — which a Flag's field offers as it is typed in,
+   * so an answered Flag is found the way a set one is.
+   */
+  flags: ReadonlySet<string>
   /**
    * The Scene a freshly chosen question about a Scene starts on, and the Scene
    * whose Exit a freshly chosen question about an Exit starts on the first of.
@@ -222,9 +228,16 @@ function conditionCalled(place: number) {
             v-model="condition.flag"
             class="data"
             size="8"
+            :list="`flags-${id}-${place}`"
+            autocomplete="off"
             :maxlength="FLAG_NAME_MAX_LENGTH"
             @change="emit('write')"
           >
+          <!-- Drawn for a row testing a Flag and for no other, so a Story of two
+               hundred Shots draws only as many lists as it has such rows. -->
+          <datalist :id="`flags-${id}-${place}`">
+            <option v-for="flag in flags" :key="flag" :value="flag" />
+          </datalist>
           <span class="says" aria-hidden="true">{{ $t('conditions.holds') }}</span>
           <label class="visually-hidden" :for="`is-${id}-${place}`">
             {{ $t('conditions.holds') }}

@@ -83,6 +83,8 @@ export async function plantSample(
         textPace: scene.textPace,
         textOver: scene.textOver,
         textStays: scene.textStays,
+        question: scene.question,
+        questionFlag: scene.questionFlag,
       }))))
       .returning({ id: scenes.id, name: scenes.name })
 

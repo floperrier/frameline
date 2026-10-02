@@ -257,7 +257,9 @@ A flat test on State, carried by an Exit or by a Shot, which decides whether the
 Exit is offered to this Reader or whether the Shot plays for them. It asks one
 of three things: what a Flag holds, whether a Scene has been entered, or
 whether an Exit has been taken. Either may carry several, and is offered or
-played only where all of them hold; one carrying none always is.
+played only where all of them hold; one carrying none always is. What a Flag
+holds is compared with its case, its accents, its surrounding spaces and its
+doubled ones set aside, so `Rosebud` holds where `rosebud` is asked for.
 _Affiché_: Condition
 _Avoid_: rule, guard, requirement, predicate, gate
 
@@ -278,8 +280,8 @@ _Avoid_: prompt, input, field, riddle, form, saisie, invite, énigme
 
 **Sample**:
 The short Story an Author is given when their account is created, written to be
-taken apart rather than read: three Scenes carrying Flags, Conditions and Images
-already working. It is not a specimen shown to them: it is their Story like any
+taken apart rather than read: three Scenes carrying Flags, Conditions, a
+Question and Images already working. It is not a specimen shown to them: it is their Story like any
 other, to change, to publish and to delete, and there is one per Language, never
 a translation of another.
 _Affiché_: Exemple

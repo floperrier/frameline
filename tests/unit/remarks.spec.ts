@@ -324,6 +324,21 @@ describe('what can never hold', () => {
     expect(found?.said).toEqual({ scene: 'The bar', place: 1, flag: 'drink', is: 'wine' })
   })
 
+  it('reads the values a Scene sets the way a Condition holds, case, accents and spaces aside', () => {
+    const story = onTheBench([
+      { name: 'The bar', sets: { colour: 'red', drink: ['Café crème', 'beer'] } },
+      { name: 'The quay' },
+    ], {
+      exits: [
+        ['The bar', 'The quay', { flag: 'colour', is: 'Red' }],
+        ['The bar', 'The quay', { flag: 'drink', is: ' cafe  CRÈME ' }],
+        ['The bar', 'The quay', { flag: 'colour', is: '  ' }],
+      ],
+    })
+
+    expect(named(story)).not.toContain('exitUnofferable')
+  })
+
   it('names a Shot the same way', () => {
     const story = onTheBench([
       { name: 'The bar', sets: { drink: 'whisky' } },

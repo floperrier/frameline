@@ -66,10 +66,11 @@ for (const scene of work.scenes) {
   written.set(scene.name, id)
   if (scene.sets) await api('PUT', `/api/scenes/${id}/flags`, { sets: scene.sets })
   if (scene.sound) await deposit(`/api/scenes/${id}/sound`, scene.sound)
-  // The Transcript, the Cut and the arrival of the text come through the Scene's one
-  // door, and only what the work names goes through it: a field the work left out is
-  // `undefined`, which `JSON.stringify` drops from the body, so the column keeps the
-  // default every Story written before the Cut has. A work naming none sends nothing.
+  // The Transcript, the Cut, the arrival of the text and the Question come through the
+  // Scene's one door, and only what the work names goes through it: a field the work
+  // left out is `undefined`, which `JSON.stringify` drops from the body, so the column
+  // keeps the default every Story written before the Cut has. A work naming none
+  // sends nothing.
   const says = {
     transcript: scene.transcript,
     layout: scene.layout,
@@ -85,6 +86,8 @@ for (const scene of work.scenes) {
     textPace: scene.textPace,
     textOver: scene.textOver,
     textStays: scene.textStays,
+    question: scene.question,
+    questionFlag: scene.questionFlag,
   }
 
   if (Object.values(says).some(said => said !== undefined)) {

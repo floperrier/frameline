@@ -6,8 +6,9 @@
  * asking whether a Scene has been entered, a Condition asking which Exit a
  * Reading took, a run cut by the clock with one beat held against it, a dissolve
  * on the way out, an Image that moves, a Scene whose words arrive one at a time a
- * second after its Image, and an ending that goes to black while the room tone
- * under it plays out its pass, before being asked to write any of them.
+ * second after its Image, a Question whose answer the next Scene says and a Shot
+ * waits on, and an ending that goes to black while the room tone under it plays
+ * out its pass, before being asked to write any of them.
  *
  * There is one Sample per Language and nothing translates between them, which is
  * why they sit here beside *Reel Change* rather than in `i18n/locales`: a Sample
@@ -327,6 +328,11 @@ const ENGLISH: Work = {
       textAfter: 1000,
       textBy: 'word',
       textOver: 200,
+      // Put once the coin has been said and before the two ways on, and asking
+      // for the word this Scene's first Shot teaches, so most Readers give the
+      // answer the next Scene waits on.
+      question: 'Before you go on, in one word: what is a way on called?',
+      questionFlag: 'word',
       shots: [
         {
           text: 'You took an Exit to get here. An Exit is a way on, offered at the end of a '
@@ -383,6 +389,14 @@ const ENGLISH: Work = {
           description: 'Two panels with a lit lozenge standing between them, the far one '
             + 'dimmed almost out of the frame.',
           image: 'a-condition',
+        },
+        {
+          // Never the last beat of a Reading: whoever answered came through the
+          // Scene that sets `route`, whose Shot follows this one.
+          text: 'You answered {word}, so this beat plays. The Scene before ended on a Question, '
+            + 'put after its last Shot and before its Exits: what you type is held as a Flag, said '
+            + 'between braces, and tested by a Condition that sets capitals, accents and spaces aside.',
+          when: [{ flag: 'word', is: 'exit' }],
         },
         {
           text: 'This beat is playing because you came through the second Scene and it set '
@@ -529,6 +543,8 @@ const FRENCH: Work = {
       textAfter: 1000,
       textBy: 'word',
       textOver: 200,
+      question: 'Avant de continuer, en un mot : comment s’appelle un passage vers une autre Scène ?',
+      questionFlag: 'mot',
       shots: [
         {
           text: 'Vous avez pris une Sortie pour venir ici. Une Sortie est un passage vers une '
@@ -583,6 +599,13 @@ const FRENCH: Work = {
           description: 'Deux panneaux séparés par un losange éclairé, le plus loin presque '
             + 'sorti du cadre tant il est éteint.',
           image: 'a-condition',
+        },
+        {
+          text: 'Vous avez répondu {mot}, donc ce temps se joue. La Scène d’avant finissait sur une '
+            + 'Question, posée après son dernier Plan et avant ses Sorties : ce que vous tapez est '
+            + 'gardé dans un Marqueur, dit entre accolades, et testé par une Condition qui ne regarde '
+            + 'ni les majuscules, ni les accents, ni les espaces.',
+          when: [{ flag: 'mot', is: 'sortie' }],
         },
         {
           text: 'Ce temps se joue parce que votre Lecture a traversé la deuxième Scène, '
