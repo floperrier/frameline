@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test'
-import { live, test, unfold, writeStory } from './author'
+import { test, unfold, writeStory } from './author'
 import type { APIRequestContext } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
@@ -111,8 +111,10 @@ test('an Author writes the Layout of a Scene and of a Shot from the Scene\'s doc
     await own.selectOption('As the Scene says')
     await expect.poll(async () => (await reread0()).shots[0]!.layout).toBeNull()
 
+    // A fold draws its answers once it is opened, and a reload shuts it again.
     await page.reload()
-    await live(page)
+    await unfold(page, 'The street')
+    await unfold(page, 'Shot 1 of The street')
     await expect(laid).toHaveValue('full')
     await expect(own).toHaveValue('scene')
   })

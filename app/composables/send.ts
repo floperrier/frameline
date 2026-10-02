@@ -11,3 +11,21 @@ export const send = $fetch as unknown as
     body?: unknown
     headers?: Record<string, string>
   }) => Promise<unknown>
+
+/**
+ * The two gestures every carrier of a Sound shares, addressed by the URL its
+ * own endpoint answers to: a file sent as the whole request body the way an
+ * image's is, or a file of the library fetched and replayed through the
+ * same PUT — the same validation, the same sniffing, the same cap, and no
+ * server path of its own. A Scene and a Shot differ in everything around
+ * this (naming, confirmation, a loop), never in the PUT itself, so it is
+ * written once here rather than copied per carrier.
+ */
+export function depositSoundAt(url: string, file: File) {
+  return send(url, { method: 'PUT', body: file })
+}
+
+export async function takeLibrarySoundAt(url: string, file: string) {
+  const blob = await (await fetch(libraryUrl(file))).blob()
+  await send(url, { method: 'PUT', body: blob })
+}

@@ -30,7 +30,11 @@ Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See
 The visual language is one stylesheet, `app/assets/css/frameline.css`, and pages
 add only what is theirs in a scoped block. Colour, type and spacing come from
 the tokens declared there and from nowhere else. See
-`docs/adr/0006-two-rooms-one-language.md`.
+`docs/adr/0006-two-rooms-one-language.md`. The one block held in a file of its own
+is the writing's, `app/assets/css/writing.css`, because three components draw the
+document — `Writing.vue` and its two kinds of row — and each includes it scoped:
+see `docs/adr/0075-a-change-costs-what-it-changes.md`, which also says what a row
+may be handed so that a change costs what it changes.
 
 The widths the interface folds at are the one thing a token cannot carry, because
 a custom property cannot be read inside a media query. They are declared as
@@ -116,7 +120,9 @@ Exit may land on, the columns a Story falls into and the order it is written in,
 the two message
 files held against each other, the language a refusal is phrased in, the Steps the
 bench asks a Story for — whose targets are held against the editor's template
-read as source — the Remarks the bench reads back out of a Story, what differs between a
+read as source — the Remarks the bench reads back out of a Story, how a Story read
+back is laid over the one the bench holds so that what did not change keeps its
+object and what the bench hands every row is kept while it says the same, what differs between a
 published Story's Edition and the Story as it is written, and the two
 Samples, that each holds together as a work and that the two of them are one
 shape in two languages — and that the script that writes the works starts on

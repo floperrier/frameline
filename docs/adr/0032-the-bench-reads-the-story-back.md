@@ -65,7 +65,10 @@ controls not floating over the surface.
 **Validation on the server, travelling with the Story.** Rejected as work for
 nothing. Every input is already in the browser: the editor fetches the whole
 Story and reads it back after every write, so a reading computed here cannot
-disagree with the screen, costs no request, and updates as the Author types. It
+disagree with the screen, costs no request, and updates as the Author types —
+since `docs/adr/0075-a-change-costs-what-it-changes.md`, as what they type is
+written, off a copy of the Story taken when a typed write lands or a read-back
+changes it, rather than on every key. It
 is the same argument `docs/adr/0020-progress-is-the-story.md` makes for the
 guided path, and the Remarks are computed the same way for the same reasons.
 

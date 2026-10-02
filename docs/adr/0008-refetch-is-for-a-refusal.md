@@ -31,7 +31,9 @@ clicked**, and finding that out is what made the cheap answer viable. A click
 that alters the shape of the Story learns its result from the server and nowhere
 else: a Shot added has no other way onto the screen, a Shot renumbered is every
 sibling's Place rewritten and not only its own, and a delete answers with
-nothing to apply. Those keep reading the Story back. What the Author typed is
+nothing to apply. Those keep reading the Story back — laid, since
+`docs/adr/0075-a-change-costs-what-it-changes.md`, over the Story the bench
+holds, so whatever the read did not change keeps its object. What the Author typed is
 already on screen in the field they typed it into, so those read back only when
 refused. `useEditing` offers the
 two as `change` and `write`, named rather than switched on a flag, because the

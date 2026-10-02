@@ -1,0 +1,716 @@
+/* The writing's stylesheet: the document `app/components/Writing.vue` draws, and
+   the two kinds of row it draws it with, `app/components/ShotRow.vue` and
+   `app/components/ExitRow.vue`. One sheet, included scoped by all three, rather
+   than a block apiece: the rows were the document's own elements until each was
+   made a component of its own, so that a change re-renders the row it changes —
+   see `docs/adr/0075-a-change-costs-what-it-changes.md` — and every rule here was
+   written against them standing in one template. Scoped three times over, a rule
+   still matches exactly what it matched there, since a component's elements carry
+   its own scope and the root of a row carries the document's as well, and nothing
+   is restated in a second file to fall out of step with the first. */
+
+@import '~/assets/css/folds.css';
+
+/* The document, as a column of Scenes read from the top down. The page owns the
+   scroller this stands in, so nothing here scrolls and nothing here is sized to a
+   window: a long Story is a long document, which is the shape of the thing. */
+.writing {
+  display: grid;
+  gap: var(--s5);
+  padding: var(--s4);
+  /* A Scene's name and an Author's own prose are the Author's words, and a word
+     longer than the column is broken rather than sent off the edge of it: at the
+     width of a phone this is what keeps the page from scrolling sideways. */
+  overflow-wrap: break-word;
+}
+
+/* One Scene, written where it stands. It takes the room its own content needs and
+   the document is what scrolls, so a Scene of twenty beats and six ways on is a
+   long section of a long document rather than a box with a scrollbar inside
+   another one.
+
+   It is the containing block for what is inside it, so a visually hidden label at
+   the foot of a long Scene is positioned against its own Scene rather than against
+   the whole page. */
+.scene {
+  position: relative;
+  display: grid;
+  gap: var(--s3);
+  align-content: start;
+  min-inline-size: 0;
+  /* The address names a Scene and the document is scrolled to it, so a Scene
+     arrives under the head of the scroller rather than jammed against it. */
+  scroll-margin-block-start: var(--s4);
+}
+
+/* The slate: the Scene's name, whether the Story opens on it, what arrives at it,
+   and the acts that write it again or take it away — one line, and the only place
+   on the bench where the condensed face a title card is set in appears at the size
+   it is meant to be read at. The name is typed where it is read, so the field
+   draws no box until the pointer is on it. */
+.slate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+  padding-block-end: var(--s2);
+  border-block-end: 1px solid var(--edge);
+}
+
+.named {
+  flex: 1 1 12rem;
+  min-inline-size: 0;
+}
+
+.named input {
+  padding: 0 var(--s1);
+  border-color: transparent;
+  background: none;
+  font-family: var(--display);
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+}
+
+.named input:hover {
+  border-color: var(--edge);
+  background: var(--steel);
+}
+
+.opening {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+/* Moving where the Story opens, worn as quietly as taking the Scene away: the
+   Story already opens somewhere, and this is the offer on every Scene it does not
+   open on rather than a thing to do. Full strength once the hand or the keyboard
+   is on it, which is the rule `0043` sets for every act drawn on a row. */
+.opening button {
+  border-color: transparent;
+  background: none;
+  color: var(--muted);
+}
+
+.opening button:hover:not(:disabled),
+.opening button:focus-visible {
+  color: var(--paper);
+}
+
+/* A Scene Readers do not read as it is written wears the grease a published link
+   does, and so does what the Author is told of how Readers read it: a class of
+   its own, because the one says the Scene differs and the other never does. */
+.published-mark,
+.read-mark {
+  color: var(--grease);
+}
+
+/* What arrives here, said by the bench about the Story rather than written in it,
+   so it is stencilled in the machine's own data face. */
+.arrivals {
+  color: var(--muted);
+  font-family: var(--data);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+}
+
+/* A Scene nothing arrives at, read as the loose end it is: the dashed edge the
+   node wore and the rail's mark still wears. No colour of its own — a Scene no
+   Reader reaches is a Story an Author may be in the middle of, and the alarm is
+   the colour of something having gone wrong. What says it in words is the
+   `countedArrivals` sentence on the same line, which has one for the zero. */
+.slate.unreached {
+  border-block-end-style: dashed;
+}
+
+/* Writing the Scene again and taking it away are both named in full — it is what
+   the bar of Commands reads and what a screen reader hears — and worn as the quiet
+   marks they should be: the acts at the far end of the slate, and only the one
+   that takes something away wears the alarm's colour once the hand is on it. */
+.going {
+  border-color: transparent;
+  background: none;
+  color: var(--muted);
+}
+
+/* The three parts of a Scene, each headed and counted where it starts, in the same
+   order a Reader meets them: what is set on entry, the run, the ways out. The
+   heading is the only stencilled line in the column, so an Author scrolling a long
+   Story always knows which part of which Scene they are in. */
+.held {
+  display: grid;
+  gap: var(--s3);
+}
+
+/* What the Scene sets on entering, read along one line with its own heading: a
+   Scene that sets nothing spends a line on saying so and not a paragraph, and one
+   that sets three Flags wraps them under it. */
+.held.set {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s2) var(--s3);
+}
+
+/* What the Scene is heard under, read along one line with its own heading the way
+   the Flags are, and the picker of a Scene heard under nothing along one line of
+   its fold. */
+.heard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+}
+
+/* How the Scene plays, read along one line with its own heading the way the Flags
+   are while it is folded, and dropped under the heading once it opens — `.plays[open]`
+   takes the line. */
+.held.playing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s2) var(--s3);
+}
+
+.plays > summary {
+  cursor: pointer;
+}
+
+/* The browser's own transport, held to the width of a control rather than of the
+   column: a Sound is listened to, and the row it sits on carries what is said
+   about it as well. */
+.transport {
+  block-size: 2rem;
+  inline-size: min(100%, 18rem);
+}
+
+.transcribed,
+.holding,
+.picking {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-inline-size: 0;
+}
+
+/* One thing said about a Cut, read as a sentence: the label, the answer, and the
+   seconds where the answer asks for a number. It wraps rather than shrinks,
+   because at the width of a phone a label of four words beside two fields is
+   wider than the column and the alternative is a page that scrolls sideways. */
+.cutting {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1) var(--s2);
+}
+
+/* As wide as the longest answer it holds and no wider, so three of them under one
+   heading are three sentences rather than three slots — and so the box does not
+   change width as the answer in it changes. */
+.cutting select {
+  inline-size: auto;
+  max-inline-size: 100%;
+}
+
+/* A field for a number of seconds, which is two digits and a decimal: sized to
+   what is typed in it rather than to the row it stands on, and figured so that a
+   column of them is read down as well as across. */
+.cutting input {
+  inline-size: 5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The unit beside it, in the machine's own face. Not an `.eyebrow`, which would
+   uppercase the symbol into an initial. */
+.cutting .unit {
+  color: var(--muted);
+  font-family: var(--data);
+  font-size: 0.75rem;
+}
+
+/* On a beat and on a way on, the Cut is read at the size of the row it is
+   written on: the Scene's own section is the only place it is read at the size of
+   a section. */
+.beat .cutting,
+.written .cutting {
+  font-size: 0.8125rem;
+}
+
+.transcribed input {
+  flex: 1 1 14rem;
+  min-inline-size: 0;
+  padding: var(--s1) var(--s2);
+  border-color: transparent;
+  background: none;
+  font-size: 0.8125rem;
+}
+
+.transcribed input:hover,
+.transcribed input:focus-visible {
+  border-color: var(--edge);
+}
+
+/* The Question and its Flag, one field to a line under the run of Shots, each
+   read as a label over a box the width of the column. */
+.asks {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s2);
+  margin-block: var(--s3);
+}
+
+.asked {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  inline-size: 100%;
+  margin: 0;
+}
+
+/* The picker takes what is left of its line in the fold, so *Listen* and *Take
+   This Sound* keep their words whole beside the list rather than wrapping inside
+   their own boxes. */
+.picking {
+  flex-grow: 1;
+}
+
+.picking select {
+  max-inline-size: min(100%, 22rem);
+}
+
+.depositing input {
+  font-size: 0.8125rem;
+}
+
+.held > h3 {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  color: var(--paper);
+}
+
+.held > h3 .counted {
+  color: var(--grease);
+  font-family: var(--data);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+/* The words, at the far end of the heading: a reading and not a heading. */
+.held > h3 .words {
+  margin-inline-start: auto;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-family: var(--data);
+}
+
+/* A beat, and a way on: the Place in a margin of its own and what it holds beside
+   it, which is the shape every list of Places on the bench is drawn in. */
+.shots > li,
+.ways > ol > li {
+  display: grid;
+  grid-template-columns: 2ch minmax(0, 1fr);
+  gap: var(--s1) var(--s3);
+  align-items: start;
+}
+
+.shots > li + li,
+.ways > ol > li + li {
+  margin-block-start: var(--s3);
+}
+
+/* The row a deleted Shot leaves: no Place in the margin, because it holds none
+   now, and in the beat's column a quiet sentence with the way back beside it. */
+.gone > p {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s2) var(--s3);
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.numbered {
+  color: var(--muted);
+  font-family: var(--data);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+  /* On the first line of the row whatever the field's own face makes of it. */
+  line-height: 2;
+}
+
+/* A beat: the thumbnail and the words side by side, the Description under them,
+   and what it plays under across the width of both — `0033`'s row, which the gate
+   replaced with a frame and a strip and which comes back here because the document
+   now holds every Scene and a frame apiece would be forty frames. */
+.beat {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr);
+  gap: var(--s2) var(--s3);
+  align-items: start;
+}
+
+.beat > .image {
+  grid-row: span 2;
+}
+
+.beat > .beneath {
+  grid-column: 1 / -1;
+}
+
+/* Struck across the row's full width rather than into the 8rem column the Image
+   leaves behind once its span ends: without this, the grid's own sparse
+   placement would carry both of these into the narrow column instead of under
+   the words, the way `.beneath` already claims the row below them. */
+.beat > .struck,
+.beat > .transcribed {
+  grid-column: 1 / -1;
+}
+
+/* What the beat plays as, folded to one line of what it says for itself: the
+   interface's face at the row's size and not an `.eyebrow`, because it is a
+   reading of answers rather than a label, and three of them in capitals spaced
+   for a label do not hold on one line. Open, it takes the line, so the
+   Conditions and the marks drop under its fields rather than the line it was
+   pressed on moving. */
+.plays > summary {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.plays[open] {
+  flex-basis: 100%;
+}
+
+/* And the marks stay at the trailing edge of the row when a long line pushes them
+   under it. */
+.beat .beneath > .row {
+  margin-inline-start: auto;
+}
+
+.plays .answers {
+  display: grid;
+  gap: var(--s2);
+  margin-block-start: var(--s2);
+}
+
+/* What the beat says about its own Cut, Layout and Movement, and about how its
+   text arrives: the answers side by side while they fit, one under the other where
+   they do not. Set further apart than anything else on the row, because each is a
+   label and its answer and the eye has to read where one sentence ends and the
+   next starts. */
+.plays .cut,
+.plays .laid,
+.plays .moved {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1) var(--s4);
+}
+
+/* The thumbnail, drawn whether or not there is an image in it: an empty one is the
+   outline of the image nobody attached, which is how an unfinished beat reads as
+   unfinished. Pressed to attach one or replace one — the box is the label and the
+   input is clipped away inside it. */
+.image {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  inline-size: 100%;
+  border: 1px dashed var(--edge);
+  border-radius: var(--machined);
+  background: var(--bench);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.image:not(:has(img))::before {
+  content: '+';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--data);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.image:hover {
+  border-color: color-mix(in oklab, var(--light) 55%, var(--edge));
+  color: var(--paper);
+}
+
+/* An image landed: the outline it stood for is gone and the picture is the box. */
+.image:has(img) {
+  border-style: solid;
+  border-color: transparent;
+}
+
+/* The focus the input takes cannot be seen where the input is, so the ring is
+   drawn round the box that is pressed. */
+.image:has(:focus-visible) {
+  outline: 2px solid var(--light);
+  outline-offset: 2px;
+}
+
+/* A file over the thumbnail wears the grease pencil: letting go would do something. */
+.image.over {
+  border-color: var(--grease);
+  background: color-mix(in oklab, var(--grease) 12%, var(--bench));
+}
+
+.image img {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+/* The one field on the bench an Author spends hours in, and the only place in the
+   product where the interface is set in the reading face: `.shot` is that face, at
+   the measure a Shot is read on, and it is shared with the room so that what is
+   typed here is what is read there. It carries no box at all — the beat is written
+   straight into the document — and grows as it is typed, from the two lines a beat
+   always had. The box and the editor that replaces it are one size, so nothing
+   moves under the hand as the one becomes the other: the editor keeps its own two
+   lines in `app/components/Formatting.client.vue`. */
+.beat > .shot {
+  min-block-size: 2lh;
+  cursor: text;
+}
+
+/* What the image shows, for a Reader who cannot see it: a label over a field, at
+   the size of the note it is rather than of the beat it belongs to. */
+.described {
+  display: grid;
+  gap: var(--s1);
+}
+
+.described input {
+  padding: var(--s1) var(--s2);
+  border-color: transparent;
+  background: none;
+  font-size: 0.8125rem;
+}
+
+.described input:hover,
+.described input:focus-visible {
+  border-color: var(--edge);
+}
+
+/* What the beat strikes with, on the words' side of the row under the
+   Description: the two matters a beat carries are read one under the other. */
+.struck {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1) var(--s2);
+  min-inline-size: 0;
+}
+
+.struck select {
+  max-inline-size: min(100%, 16rem);
+  font-size: 0.8125rem;
+}
+
+/* The Conditions and the marks on one line, the marks at the trailing edge. A row
+   carrying Conditions grows a column of them and the marks drop under it, which is
+   what wrap is for. */
+.beneath {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--s1) var(--s3);
+  min-block-size: 1.5rem;
+}
+
+.beneath .conditions {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+/* Whether the Reader comes back this way: the label and the answer on one line,
+   beside the tests the Exit is offered under rather than under them — two things
+   the Author says about the same way on, read along the same edge. It gives way
+   before the Conditions do at a narrow width, because the tests are read every
+   day and this is answered once. */
+.crossing {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--s2);
+}
+
+/* Two words on one line: the label is shorter than the answer beside it, and
+   broken over two lines it reads as two labels. */
+.crossing .eyebrow {
+  white-space: nowrap;
+}
+
+/* The marks that act on one row, set closer than a row of controls anywhere else:
+   three or four are one strip. */
+.beneath .row,
+.written .row {
+  gap: var(--s1);
+}
+
+/* The beat added by hand, under the run it is added to the end of. */
+.adds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+/* A handful of files over the run wears the thumbnail's grease pencil, round the
+   whole of it: letting go would add a Shot apiece. */
+.run.over {
+  outline: 1px dashed var(--grease);
+  outline-offset: var(--s2);
+  background: color-mix(in oklab, var(--grease) 6%, var(--bench));
+}
+
+.adds button {
+  font-size: 0.8125rem;
+}
+
+/* A way on is a row and not a card: where it leads and what the Reader presses
+   side by side, and what it is offered under under both. */
+.written {
+  display: grid;
+  grid-template-columns: minmax(8rem, 14rem) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s2);
+}
+
+.written > .beneath {
+  grid-column: 1 / -1;
+}
+
+/* How often the way on was taken, under the words the Reader presses: the last
+   column, which is that field's in a row and the only one once the row folds,
+   and set in as far as the words in the field are. */
+.written > .taken {
+  grid-column: -2 / -1;
+  padding-inline: var(--s2);
+}
+
+.ways ol {
+  display: grid;
+  gap: var(--s2);
+}
+
+/* A way out is the Author's own cut, so the Place it is numbered at wears the
+   grease pencil where a beat's wears the machined one. */
+.ways .numbered {
+  color: var(--grease);
+}
+
+.arrival {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  min-inline-size: 0;
+}
+
+/* Where the way on leads: a Scene's name worn as one, in a field that draws its
+   frame only under the pointer — the same idiom as the Scene's own name at the
+   head of the section — and as wide as the name in it rather than as wide as the
+   column, so the row reads "1 → The bar" and not as a slot with a name lying at one
+   end of it. */
+.arrival select {
+  field-sizing: content;
+  flex: 0 1 auto;
+  inline-size: auto;
+  min-inline-size: 4rem;
+  max-inline-size: 100%;
+  padding: var(--s1) var(--s2);
+  border-color: transparent;
+  background: none;
+  font-size: 0.9375rem;
+}
+
+.arrival select:hover,
+.arrival select:focus-visible {
+  border-color: var(--edge);
+}
+
+.said {
+  min-inline-size: 0;
+}
+
+/* What the Reader presses, typed where it is read: the line the Author wrote on
+   the Exit, in a field that draws its frame under the pointer like the name of the
+   Scene it leads to. */
+.said input {
+  padding: var(--s1) var(--s2);
+  border-color: transparent;
+  background: none;
+  font-size: 0.9375rem;
+}
+
+.said input:hover,
+.said input:focus-visible {
+  border-color: var(--edge);
+}
+
+/* The way on written here, at the foot of the ways on: a label and one field, as
+   wide as a Scene's name and no wider. The field a Shot is moved from is the same
+   line, under its row's marks. */
+.adding,
+.moving {
+  display: grid;
+  justify-items: start;
+  gap: var(--s1);
+  padding-block-start: var(--s1);
+}
+
+.moving {
+  flex-basis: 100%;
+}
+
+.adding input,
+.moving input {
+  inline-size: min(100%, 24rem);
+  padding: var(--s2) var(--s3);
+  font-size: 0.875rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.none {
+  color: var(--muted);
+  font-size: 0.875rem;
+  max-inline-size: 60ch;
+}
+
+/* On a phone the words take the whole column and the thumbnail goes over them: a
+   beat is read down rather than across, which is the one shape that leaves the
+   reading measure alone at that width. */
+@media (--phone) {
+  .beat {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .beat > .image {
+    grid-row: auto;
+    inline-size: 8rem;
+  }
+
+  .written {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

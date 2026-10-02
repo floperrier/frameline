@@ -1,0 +1,155 @@
+import { describe, expect, it } from 'vitest'
+import { sharing, steady } from '../../app/utils/sharing'
+
+/**
+ * A Story read back is laid over the Story the bench holds so that whatever did
+ * not change keeps the object it had — issue #449. Read as JSON every time, so each
+ * case builds the read afresh rather than handing the held Story back to itself.
+ */
+const held = () => ({
+  id: 'story',
+  title: 'A Story',
+  scenes: [
+    { id: 'street', name: 'The street', sets: { lit: true }, shots: [
+      { id: 'door', text: 'A door opens.', formatted: [{ type: 'paragraph', content: [{ type: 'text', text: 'A door opens.' }] }] },
+      { id: 'step', text: 'She steps out.', formatted: null },
+    ] },
+    { id: 'bar', name: 'The bar', sets: {}, shots: [{ id: 'smoke', text: 'Smoke.', formatted: null }] },
+  ],
+  exits: [{ id: 'out', fromSceneId: 'street', toSceneId: 'bar', conditions: [] }],
+})
+
+const read = (change: (story: ReturnType<typeof held>) => void = () => {}) => {
+  const story = held()
+  change(story)
+  return JSON.parse(JSON.stringify(story)) as ReturnType<typeof held>
+}
+
+describe('sharing', () => {
+  it('hands back what the bench holds where nothing changed', () => {
+    const holding = held()
+
+    expect(sharing(holding, read())).toBe(holding)
+  })
+
+  it('takes what changed from the read, and keeps the object of everything else', () => {
+    const holding = held()
+    const kept = sharing(holding, read(story => (story.scenes[0]!.shots[1]!.text = 'She runs.')))
+
+    expect(kept).not.toBe(holding)
+    expect(kept.scenes).not.toBe(holding.scenes)
+    expect(kept.scenes[0]).not.toBe(holding.scenes[0])
+    expect(kept.scenes[0]!.shots[1]).not.toBe(holding.scenes[0]!.shots[1])
+    expect(kept.scenes[0]!.shots[1]!.text).toBe('She runs.')
+
+    expect(kept.scenes[0]!.shots[0]).toBe(holding.scenes[0]!.shots[0])
+    expect(kept.scenes[0]!.sets).toBe(holding.scenes[0]!.sets)
+    expect(kept.scenes[1]).toBe(holding.scenes[1])
+    expect(kept.exits).toBe(holding.exits)
+    expect(kept.title).toBe('A Story')
+  })
+
+  // A typed write still waiting in the queue holds the object it was typed into,
+  // and sends what that object says: it must still say what was typed.
+  it('never writes into what the bench holds', () => {
+    const holding = held()
+    holding.scenes[0]!.shots[1]!.text = 'She steps out, typed.'
+    const before = JSON.stringify(holding)
+
+    sharing(holding, read())
+
+    expect(JSON.stringify(holding)).toBe(before)
+  })
+
+  it('finds a row by its id wherever the read puts it', () => {
+    const holding = held()
+    const kept = sharing(holding, read(story => story.scenes[0]!.shots.reverse()))
+
+    expect(kept.scenes[0]!.shots.map(shot => shot.id)).toEqual(['step', 'door'])
+    expect(kept.scenes[0]!.shots[0]).toBe(holding.scenes[0]!.shots[1])
+    expect(kept.scenes[0]!.shots[1]).toBe(holding.scenes[0]!.shots[0])
+  })
+
+  it('keeps every row a Shot added or taken away leaves standing', () => {
+    const holding = held()
+    const added = sharing(holding, read(story => story.scenes[1]!.shots.push(
+      { id: 'glass', text: 'A glass.', formatted: null })))
+
+    expect(added.scenes[0]).toBe(holding.scenes[0])
+    expect(added.scenes[1]!.shots[0]).toBe(holding.scenes[1]!.shots[0])
+    expect(added.scenes[1]!.shots[1]!.id).toBe('glass')
+
+    const taken = sharing(holding, read(story => story.scenes[0]!.shots.shift()))
+    expect(taken.scenes[0]!.shots).toEqual([holding.scenes[0]!.shots[1]])
+    expect(taken.scenes[0]!.shots[0]).toBe(holding.scenes[0]!.shots[1])
+  })
+
+  it('reads what carries no id by where it stands', () => {
+    const holding = held()
+    const kept = sharing(holding, read(story => (story.scenes[0]!.shots[0]!.formatted![0]!.content![0]!.text = 'A door.')))
+
+    expect(kept.scenes[0]!.shots[0]!.formatted![0]!.content![0]!.text).toBe('A door.')
+    expect(kept.scenes[0]!.shots[1]).toBe(holding.scenes[0]!.shots[1])
+  })
+
+  it('takes a key the read no longer carries away', () => {
+    const holding = held() as ReturnType<typeof held> & { publishedAt?: string }
+    holding.publishedAt = 'yesterday'
+
+    expect(sharing(holding, read())).not.toBe(holding)
+    expect('publishedAt' in sharing(holding, read())).toBe(false)
+  })
+})
+
+/**
+ * What the document works out of the whole Story after every act is handed back as
+ * the value it held where it says the same, so every row handed it is handed the
+ * very object it had.
+ */
+describe('steady', () => {
+  it('takes the value worked out the first time', () => {
+    const named = new Map([['street', 'The street']])
+
+    expect(steady(undefined, named)).toBe(named)
+  })
+
+  it('keeps a Map holding the same entries, and takes one that holds others', () => {
+    const before = new Map([['out', { place: 1, scene: 'The bar' }]])
+
+    expect(steady(before, new Map([['out', { place: 1, scene: 'The bar' }]]))).toBe(before)
+
+    const renamed = new Map([['out', { place: 1, scene: 'The pub' }]])
+    expect(steady(before, renamed)).toBe(renamed)
+    const grown = new Map([...before, ['in', { place: 1, scene: 'The street' }]])
+    expect(steady(before, grown)).toBe(grown)
+  })
+
+  it('keeps a Set holding the same members, and takes one that holds others', () => {
+    const before = new Set(['lit', 'coat'])
+
+    expect(steady(before, new Set(['lit', 'coat']))).toBe(before)
+    const fewer = new Set(['lit'])
+    expect(steady(before, fewer)).toBe(fewer)
+  })
+
+  // The order a Map or a Set is read in is the order a list of it offers — the
+  // Scenes a Condition asks about, the Flags its field suggests — so the same
+  // entries in another order are another value.
+  it('takes a Map or a Set holding the same in another order', () => {
+    const before = new Map([['street', 'The street'], ['bar', 'The bar']])
+    const reordered = new Map([['bar', 'The bar'], ['street', 'The street']])
+    expect(steady(before, reordered)).toBe(reordered)
+
+    const flags = new Set(['lit', 'coat'])
+    const turned = new Set(['coat', 'lit'])
+    expect(steady(flags, turned)).toBe(turned)
+  })
+
+  it('compares anything else as a value', () => {
+    const before = { class: undefined, style: { '--shot-face': 'var(--serif)' } }
+
+    expect(steady(before, { class: undefined, style: { '--shot-face': 'var(--serif)' } })).toBe(before)
+    const moved = { class: 'align-center', style: { '--shot-face': 'var(--serif)' } }
+    expect(steady(before, moved)).toBe(moved)
+  })
+})
