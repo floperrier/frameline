@@ -178,7 +178,8 @@ function written(story: StoryInEditor) {
  *
  * `holding` asks the same question of the value as well: not merely a Flag that
  * is set, but the value it is set to, which is the Condition the Author corrected
- * after the Preview explained why the Shot did not play.
+ * after the Preview explained why the Shot did not play. A Condition asking what
+ * the Flag does not hold is met by a value set that is not the one excluded.
  *
  * Any Scene setting it to that value counts, the same way any Scene setting a
  * Flag at all meets the Step before this one. Asking whether the value is the one
@@ -202,7 +203,9 @@ function conditionTaught(story: StoryInEditor, holding = false) {
     .flatMap(shot => shot.conditions)
     .find(condition => 'flag' in condition && flagsSet.some(([flag, held]) =>
       flag === condition.flag
-        && (!holding || [held].flat().some(value => folded(value) === folded(condition.is)))))
+        && (!holding || [held].flat().some(value => 'is' in condition
+          ? folded(value) === folded(condition.is)
+          : folded(value) !== folded(condition.isNot)))))
 }
 
 /**

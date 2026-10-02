@@ -399,6 +399,18 @@ const ENGLISH: Work = {
           when: [{ flag: 'word', is: 'exit' }],
         },
         {
+          // The same beat answered the other way: played to any answer given that
+          // is not the one above, so a wrong answer is answered too. Not holding
+          // nothing keeps out the Reader who skipped the second Scene or answered
+          // nothing, who would be told they answered nothing — and it is never
+          // the last beat, for the reason the one above is not.
+          text: 'You answered {word}, which is not the word this Scene waits on, and that is why '
+            + 'this beat plays. A Condition can ask what a Flag does not hold as well as what it '
+            + 'holds, so a wrong answer is answered too; and asking that it does not hold nothing '
+            + 'is how a Story asks whether its Question was answered at all.',
+          when: [{ flag: 'word', isNot: 'exit' }, { flag: 'word', isNot: '' }],
+        },
+        {
           text: 'This beat is playing because you came through the second Scene and it set '
             + 'that Flag. Arrive here another way and this Shot is not in the run at all.',
           description: 'A run of two panels with a gap between them where a third would '
@@ -606,6 +618,14 @@ const FRENCH: Work = {
             + 'gardé dans un Marqueur, dit entre accolades, et testé par une Condition qui ne regarde '
             + 'ni les majuscules, ni les accents, ni les espaces.',
           when: [{ flag: 'mot', is: 'sortie' }],
+        },
+        {
+          text: 'Vous avez répondu {mot}, qui n’est pas le mot que cette Scène attend, et c’est '
+            + 'pour cela que ce temps se joue. Une Condition sait demander ce qu’un Marqueur ne '
+            + 'vaut pas aussi bien que ce qu’il vaut : une mauvaise réponse reçoit donc la sienne, '
+            + 'elle aussi ; et demander qu’il ne vaille pas rien, c’est demander si l’on a répondu '
+            + 'à la Question.',
+          when: [{ flag: 'mot', isNot: 'sortie' }, { flag: 'mot', isNot: '' }],
         },
         {
           text: 'Ce temps se joue parce que votre Lecture a traversé la deuxième Scène, '

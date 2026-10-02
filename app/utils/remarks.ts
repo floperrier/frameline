@@ -252,7 +252,7 @@ export function remarks(story: StoryInEditor, say: Phrase): Remark[] {
     ...found,
     ...flagRemarks(story, names),
     ...saidRemarks(story, names),
-    ...deadRemarks(story, names),
+    ...deadRemarks(story, names, say),
     ...neverHoldsRemarks(story, names, say),
     ...neverTakenRemarks(story, names),
   ]
@@ -492,7 +492,8 @@ function flagRemarks(story: StoryInEditor, names: Map<string, string>): Remark[]
  * The ways on and the Shots whose Conditions can never hold: a Flag some Scene
  * does set, tested against a value no Scene ever sets it to. A Condition on a
  * Flag nothing sets at all is left to `flagRemarks`, which says the more useful
- * thing about it — the two never fire on the same Condition.
+ * thing about it — the two never fire on the same Condition but the one, below,
+ * asking such a Flag to hold something.
  *
  * A question about a Scene or an Exit is not read here either: it is asked of
  * the ways round the graph rather than of a list of values, and
@@ -517,8 +518,15 @@ function flagRemarks(story: StoryInEditor, names: Map<string, string>): Remark[]
  *
  * Values are held against each other `folded`, as `holds` compares them: a
  * Condition asking for `Red` where a Scene sets `red` holds, so it is not dead.
+ *
+ * A Condition asking what a Flag does not hold can hold wherever the Flag was
+ * never set, which reads as nothing — except the one asking it not to hold
+ * nothing, which is asking it to hold something. On a Flag no Scene sets and no
+ * Question holds an answer under, that row is dead, and is said to be in the
+ * sentence `neverHoldsRemarks` says its own in, beside the `flagUnset` said of
+ * the Flag: the one names the row, the other the name.
  */
-function deadRemarks(story: StoryInEditor, names: Map<string, string>): Remark[] {
+function deadRemarks(story: StoryInEditor, names: Map<string, string>, say: Phrase): Remark[] {
   const values = new Map<string, Set<string>>()
   for (const scene of story.scenes) {
     for (const [flag, held] of Object.entries(scene.sets)) {
@@ -530,23 +538,26 @@ function deadRemarks(story: StoryInEditor, names: Map<string, string>): Remark[]
 
   const answered = new Set(story.scenes.filter(asks).map(scene => scene.questionFlag.trim()))
 
-  const dead = ([condition]: Carried) =>
-    'flag' in condition
-    && !answered.has(condition.flag)
-    && folded(condition.is) !== ''
-    && values.has(condition.flag)
-    && !values.get(condition.flag)!.has(folded(condition.is))
+  return conditionsOf(story).flatMap(([condition, scene, name, place]): Remark[] => {
+    if (!('flag' in condition) || answered.has(condition.flag)) return []
+    const said = { scene: names.get(scene.id)!, place }
 
-  return conditionsOf(story).filter(dead).map(([condition, scene, name, place]) => ({
-    name,
-    sceneId: scene.id,
-    said: {
-      scene: names.get(scene.id)!,
-      place,
-      flag: 'flag' in condition ? condition.flag : '',
-      is: 'flag' in condition ? condition.is : '',
-    },
-  }))
+    if ('isNot' in condition) {
+      return folded(condition.isNot) === '' && !values.has(condition.flag)
+        ? [{
+            name: name === 'shotUnplayable' ? 'shotConditionNeverHolds' : 'exitConditionNeverHolds',
+            sceneId: scene.id,
+            said: { ...said, test: say('remark.whenFlagHoldsSomething', { asked: condition.flag }) },
+          }]
+        : []
+    }
+
+    return folded(condition.is) !== ''
+      && values.has(condition.flag)
+      && !values.get(condition.flag)!.has(folded(condition.is))
+      ? [{ name, sceneId: scene.id, said: { ...said, flag: condition.flag, is: condition.is } }]
+      : []
+  })
 }
 
 /**

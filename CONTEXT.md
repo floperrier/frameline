@@ -255,11 +255,13 @@ _Avoid_: start, entry point, root, first scene, home
 **Condition**:
 A flat test on State, carried by an Exit or by a Shot, which decides whether the
 Exit is offered to this Reader or whether the Shot plays for them. It asks one
-of three things: what a Flag holds, whether a Scene has been entered, or
-whether an Exit has been taken. Either may carry several, and is offered or
-played only where all of them hold; one carrying none always is. What a Flag
-holds is compared with its case, its accents, its surrounding spaces and its
-doubled ones set aside, so `Rosebud` holds where `rosebud` is asked for.
+of three things: what a Flag holds or does not hold, whether a Scene has been
+entered, or whether an Exit has been taken. Either may carry several, and is
+offered or played only where all of them hold; one carrying none always is. What
+a Flag holds is compared with its case, its accents, its surrounding spaces and
+its doubled ones set aside, so `Rosebud` holds where `rosebud` is asked for. A
+Flag never set holds nothing, so *does not hold* nothing is how a Story asks
+whether a Flag holds anything — whether its Question was answered at all.
 _Affiché_: Condition
 _Avoid_: rule, guard, requirement, predicate, gate
 
