@@ -138,12 +138,13 @@ const resumed = ref(false)
 
 /**
  * What the Story's Author is told of this Reading: that it began at the opening,
- * and that it ended and in which Scene — a number each, and nothing of the Path.
- * Only a Reading kept for a Story tells, which a Preview never is. Sent and never
- * waited on, and a count that fails is a count lost, never a Reading stopped. See
+ * each Exit it took, and that it ended and in which Scene — a number each, and
+ * nothing of the Path. Only a Reading kept for a Story tells, which a Preview
+ * never is. Sent and never waited on, and a count that fails is a count lost,
+ * never a Reading stopped. See
  * `docs/adr/0072-a-reading-is-counted-for-its-author.md`.
  */
-function tell(kind: 'begun' | 'ended', body?: { scene: string }) {
+function tell(kind: 'begun' | 'ended' | 'taken', body?: { scene: string } | { exit: string }) {
   if (!keptFor) return
   fetch(`/api/read/${keptFor}/${kind}`, {
     method: 'POST',
@@ -166,8 +167,28 @@ watch(() => shown.value.ended, (ended) => {
   tell('ended', { scene: shown.value.sceneId })
 }, { immediate: true })
 
+/**
+ * The Exits this Reading has told it took. A step back across one and the same
+ * Exit taken again is one take; a Reading picked up from a kept Path told the
+ * Exits it holds on the visit that took them, and starts with them told.
+ */
+let toldTaken = new Set<string>()
+
+/**
+ * The Reader takes an Exit, by a press or by the clock — which is also a Scene
+ * flowing on — and the Path that takes it, told the first time this Reading does.
+ */
+function taking(exit: Exit) {
+  if (!toldTaken.has(exit.id)) {
+    toldTaken.add(exit.id)
+    tell('taken', { exit: exit.id })
+  }
+  return take(at.value, exit)
+}
+
 function readAgain() {
   toldEnded = false
+  toldTaken = new Set()
   tell('begun')
   return passBy(0, 'image', opening())
 }
@@ -212,8 +233,12 @@ onMounted(() => {
   clearNuxtState('reading-seed')
   const before = kept()
   resumed.value = before !== undefined
-  if (before) at.value = before
-  // A Reading picked up was begun on an earlier visit, and is not begun again.
+  // A Reading picked up was begun on an earlier visit, and is not begun again,
+  // nor told again of the Exits it took on it.
+  if (before) {
+    at.value = before
+    toldTaken = new Set(before.taken)
+  }
   else tell('begun')
   // The strike below is watched on the Path's position, and a Reading that is not
   // picked up stands on the `0-0` it was set up at, so that watch will not see a
@@ -1124,7 +1149,7 @@ clock(() => {
 
   return {
     after: standing.value,
-    press: () => passBy(first.cutOver, first.cutThrough, take(at.value, first), true),
+    press: () => passBy(first.cutOver, first.cutThrough, taking(first), true),
   }
 })
 
@@ -1534,7 +1559,7 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
           type="button"
           class="splice"
           :lang="story.language"
-          @click="passBy(exit.cutOver, exit.cutThrough, take(at, exit))"
+          @click="passBy(exit.cutOver, exit.cutThrough, taking(exit))"
         >
           {{ offered(exit) }}
         </button>

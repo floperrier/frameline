@@ -5,7 +5,8 @@ status: accepted
 # A Reading is counted for its Author
 
 Decided on 2026-10-02, issue #430. Amends
-`docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md`.
+`docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md`. Amended on
+2026-10-02, issue #431, with the Exits a Reading takes.
 
 An Author publishes a Story, hands out its link, lists it in the Catalogue, and
 then hears nothing unless somebody with an account writes a Comment. Whether
@@ -25,12 +26,14 @@ are never counted.
 ## What it amends in 0038
 
 0038 says *Nothing reaches the server.* That still holds for everything a Reading
-holds: its Path, its State, the Exits it took and the answers it gave stay in the
-Reader's browser. Two things now do reach the server, which are that a Reading
-began and that it ended, and in which Scene. Each is added to a number and kept as
+holds: its Path, its State and the answers it gave stay in the Reader's browser.
+Three things now do reach the server, which are that a Reading began, each Exit it
+took, and that it ended, and in which Scene. Each is added to a number and kept as
 nothing else. `reading_counts` holds a Story, a kind, the subject it is counted
-under (the Story for `begun`, the Scene for `ended`) and an integer. No address,
-no user agent and no Path is written anywhere.
+under (the Story for `begun`, the Scene for `ended`, the Exit for `taken`) and an
+integer. No address, no user agent and no Path is written anywhere, and nothing
+ties one count to another: the Exits one Reading took are as many numbers, each
+one more, and never a route.
 
 ## How it squares with 0023, 0027 and 0028
 
@@ -43,10 +46,11 @@ nothing anybody else sees, so there is still nothing to play.
 
 ## Why it is indicative, not audited
 
-`POST /api/read/:id/begun` and `POST /api/read/:id/ended` need no session, and
-anyone can send them. Each is one upsert that counts only for a published Story,
-and an ending only in a Scene the Story's Edition holds, so the rows stay as many
-as the Story's own Scenes. Both answer 204 whether they counted or not, so they
+`POST /api/read/:id/begun`, `POST /api/read/:id/ended` and
+`POST /api/read/:id/taken` need no session, and anyone can send them. Each is one
+upsert that counts only for a published Story, an ending only in a Scene the
+Story's Edition holds and a take only of an Exit it holds, so the rows stay as
+many as the Story's own Scenes and Exits. Both answer 204 whether they counted or not, so they
 say nothing about whether a Story exists. A request sent by hand inflates a
 number only its Author reads, at the cost of nobody but that Author. The count is
 an indication of whether a Story is being read, never a figure to be audited.
@@ -65,3 +69,42 @@ what is counted, and the count never claims to be a number of Readers.
 The Reading does not wait on its count. `Reading.vue` sends with `fetch(…, {
 keepalive: true })`, never awaits the answer and swallows any failure. A count
 that fails is lost, and the Reading goes on.
+
+## The Exits taken
+
+*Added by issue #431.* A Story branches, and how many Readings began says how many
+read it but not which Story they read: whether anybody opens the cellar door,
+which of four endings almost everybody reaches and which nobody does. That is the
+one thing a branching work can teach its Author that a book cannot, and a path
+nobody takes is either a door too well hidden or a Scene that can go. So **the
+bench says, beside each Exit, how often Readers took it**, *Taken 20 times (62 %)*,
+and in the opening line of each Scene a Reading ended in, *12 Readings ended here*.
+The share is out of every take of the Exits the Scene holds, so they add up to a
+hundred, each rounded to a whole one. Both are quiet text on the bench and nowhere
+else, shown only while the Story is published; the Preview, the reading page, the
+embed, the Catalogue, a Profile and a List say none of it, because the Reader is
+shown what the Author wrote
+(`docs/adr/0054-the-reader-is-shown-what-the-author-wrote.md`).
+
+An Exit is **taken** the way a Reader takes it: by a press, by the clock where the
+Exits stand for a time, or flowing on where the Scene gives them none. Each is
+counted once per Reading. A step back across an Exit and the same Exit taken again
+adds nothing; a Reading picked up from a kept Path starts with the Exits it holds
+already told, since they were told on the visit that took them; *Read Again from
+the Start* begins a Reading whose takes are its own.
+
+An Exit is counted under its own id. The bench is answered the counts under the
+Exits and the Scenes the Story still holds, so one deleted since is not shown,
+though its endings stay in the sum the header says. An Exit deleted and written
+again is a new Exit and starts at nought. The counts run across every Edition from
+the moment they were kept, and a Publish resets nothing.
+
+## What a count after a Question says
+
+`docs/adr/0066-a-scene-may-end-on-a-question.md` promises that what a Reader types
+never reaches the server or the Author, and that still holds: the answer stays in
+the Path, and no route carries it. But an Exit offered only on one answer, once
+its takes are counted, tells the Author how many Readings gave that answer — that
+is what offering it on that answer means. It never says what any one Reader
+wrote, nor which Reading gave it: a take is one more on a number, and nothing
+about the Reading that took it is kept beside it.

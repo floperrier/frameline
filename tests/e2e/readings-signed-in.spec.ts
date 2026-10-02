@@ -28,8 +28,11 @@ test('the Author is told how many Readings of their Story began and ended, and o
     })
     const [{ id }] = await (await request.get('/api/stories')).json()
     expect((await request.post(`/api/stories/${id}/publish`)).ok()).toBe(true)
-    const readings = async () => ((await (await request.get(`/api/stories/${id}`)).json()) as StoryInEditor)
-      .readings
+    const readings = async () => {
+      const { begun, ended } = ((await (await request.get(`/api/stories/${id}`)).json()) as StoryInEditor)
+        .readings
+      return { begun, ended }
+    }
     const { exits } = await (await request.get(`/api/stories/${id}`)).json() as StoryInEditor
     const skip = exits.find(exit => exit.text === 'Skip the second Scene')!
 

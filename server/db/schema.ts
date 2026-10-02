@@ -462,20 +462,20 @@ export const comments = pgTable('comments', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-// How many Readings of a published Story began and how many ended, told to its
-// Author and to nobody else — see
+// How many Readings of a published Story began, how many ended and how often
+// each of its Exits was taken, told to its Author and to nobody else — see
 // `docs/adr/0072-a-reading-is-counted-for-its-author.md`. A row is a Story, a
 // kind and what it is counted under — the Story itself for `begun`, the Scene the
-// Reading ended in for `ended` — and one number. Nothing about a Reader is here:
-// no address, no browser, no Path, no answer.
+// Reading ended in for `ended`, the Exit it took for `taken` — and one number.
+// Nothing about a Reader is here: no address, no browser, no Path, no answer.
 //
 // A table of its own, so nothing that copies a Story, a Scene or a Shot carries a
 // count with it, and a copy starts at nought. It cascades from the Story and from
-// nothing else: `subject_id` names a Scene no foreign key reaches, because the
-// Readings that ended in a Scene since deleted did end there.
+// nothing else: `subject_id` names a Scene or an Exit no foreign key reaches,
+// because the Readings that ended in a Scene since deleted did end there.
 export const readingCounts = pgTable('reading_counts', {
   storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
-  kind: text('kind').$type<'begun' | 'ended'>().notNull(),
+  kind: text('kind').$type<'begun' | 'ended' | 'taken'>().notNull(),
   subjectId: uuid('subject_id').notNull(),
   count: integer('count').notNull(),
 }, table => [primaryKey({ columns: [table.storyId, table.kind, table.subjectId] })])

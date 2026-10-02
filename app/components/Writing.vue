@@ -199,6 +199,14 @@ type SceneInDocument = {
    * no Edition, which is every unpublished one.
    */
   published?: 'editor.notYetPublished' | 'editor.changedSincePublished'
+  /**
+   * What each Exit leaving it says of how often Readers took it, by the Exit, and
+   * how many Readings ended in it: both only while the Story is published, and
+   * read by its Author and nobody else — see
+   * `docs/adr/0072-a-reading-is-counted-for-its-author.md`.
+   */
+  taken: Record<string, string>
+  ended: number
 }
 
 /**
@@ -259,6 +267,7 @@ const sections = computed<SceneInDocument[]>(() => {
 
   return inDocumentOrder(story.scenes, story.exits, story.openingSceneId).map((scene) => {
     const arrivals = arriving.get(scene.id) ?? 0
+    const ways = exitsFrom(story.exits, scene.id)
 
     return {
       scene,
@@ -267,7 +276,7 @@ const sections = computed<SceneInDocument[]>(() => {
       here: scene.id === sceneWritten,
       arrivals: countedArrivals(arrivals, t),
       unreached: !arrivals && scene.id !== story.openingSceneId,
-      ways: exitsFrom(story.exits, scene.id),
+      ways,
       counted: {
         flags: Object.keys(scene.sets).length,
         shots: scene.shots.length,
@@ -278,9 +287,25 @@ const sections = computed<SceneInDocument[]>(() => {
       published: story.changes?.added.includes(scene.id)
         ? 'editor.notYetPublished'
         : story.changes?.changed.includes(scene.id) ? 'editor.changedSincePublished' : undefined,
+      taken: story.publishedAt ? takenFrom(ways) : {},
+      ended: story.publishedAt ? story.readings.endedIn[scene.id] ?? 0 : 0,
     }
   })
 })
+
+/**
+ * What each of one Scene's Exits says of how often Readers took it. The share is
+ * out of every take of the Exits the Scene holds, so theirs add up to a hundred,
+ * each rounded to a whole one.
+ */
+function takenFrom(ways: Exit[]) {
+  const takes = ways.map(way => story.readings.taken[way.id] ?? 0)
+  const all = takes.reduce((sum, count) => sum + count, 0)
+
+  return Object.fromEntries(ways.map((way, place) => [way.id, takes[place]
+    ? t('editor.takenTimes', { share: Math.round(100 * takes[place] / all) }, takes[place])
+    : t('editor.notTakenYet')]))
+}
 
 /**
  * The scroller the document stands in, which is the page's and not this
@@ -1986,6 +2011,7 @@ function writeConditions(
             <span class="visually-hidden">{{ held.name }}</span>
           </button>
           <span v-if="held.published" class="eyebrow published-mark">{{ $t(held.published) }}</span>
+          <span v-if="held.ended" class="eyebrow read-mark">{{ $t('editor.endedHere', held.ended) }}</span>
         </p>
 
         <p class="arrivals">{{ held.arrivals }}</p>
@@ -3554,6 +3580,10 @@ function writeConditions(
                 >
               </p>
 
+              <!-- How often Readers took it, which its Author is told here and
+                   nowhere a Reader looks. -->
+              <p v-if="held.taken[exit.id]" class="eyebrow read-mark taken">{{ held.taken[exit.id] }}</p>
+
               <div class="beneath">
                 <Conditions
                   :lead="$t('editor.offeredWhen')"
@@ -3853,8 +3883,11 @@ function writeConditions(
   color: var(--paper);
 }
 
-/* A Scene Readers do not read as it is written wears the grease a published link does. */
-.published-mark {
+/* A Scene Readers do not read as it is written wears the grease a published link
+   does, and so does what the Author is told of how Readers read it: a class of
+   its own, because the one says the Scene differs and the other never does. */
+.published-mark,
+.read-mark {
   color: var(--grease);
 }
 
@@ -4345,6 +4378,14 @@ function writeConditions(
 
 .written > .beneath {
   grid-column: 1 / -1;
+}
+
+/* How often the way on was taken, under the words the Reader presses: the last
+   column, which is that field's in a row and the only one once the row folds,
+   and set in as far as the words in the field are. */
+.written > .taken {
+  grid-column: -2 / -1;
+  padding-inline: var(--s2);
 }
 
 .ways ol {
