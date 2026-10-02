@@ -236,6 +236,8 @@
     "noSceneToMoveTo": "No Scene of this Story answers to that name.",
     "alreadyInScene": "This Shot is already in {scene}.",
     "shotMoved": "Shot {from} of {name} moved to {scene}, as Shot {place}",
+    "duplicateShot": "Duplicate {shot}",
+    "shotDuplicated": "Shot {place} of {scene} written again as Shot {next}",
     "soundHeld": "Sound",
     "noSoundYet": "This Scene is heard under nothing. Upload a Sound, or take one from the Story or the library.",
     "soundOfScene": "The Sound of {name}",

@@ -236,6 +236,8 @@
     "noSceneToMoveTo": "Aucune Scène de ce Récit ne répond à ce nom.",
     "alreadyInScene": "Ce Plan est déjà dans {scene}.",
     "shotMoved": "Plan {from} de {name} déplacé vers {scene}, comme Plan {place}",
+    "duplicateShot": "Dupliquer le {shot}",
+    "shotDuplicated": "Plan {place} de {scene} réécrit en Plan {next}",
     "soundHeld": "Son",
     "noSoundYet": "Cette Scène ne s’entend sous aucun Son. Envoyez-en un, ou prenez-en un dans le Récit ou dans la bibliothèque.",
     "soundOfScene": "Le Son de {name}",
