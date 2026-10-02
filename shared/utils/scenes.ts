@@ -991,6 +991,8 @@ export type StoryInEditor = {
   /** The Shot whose Image the Author named as the Cover, or null where none is named. */
   coverShotId: string | null
   publishedAt: string | null
+  /** When Readers' edition was taken, or null where there is none yet. */
+  editionAt: string | null
   /** Whether the Author has put the published Story in the Catalogue. */
   listed: boolean
   /** What an Exit of this Story answers when it has not answered for itself. */

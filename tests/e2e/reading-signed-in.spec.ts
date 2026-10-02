@@ -89,10 +89,12 @@ test('a Reader is not put back where the Story has moved from under them', async
   await reading.getByRole('button', { name: 'Follow her out' }).click()
   await expect(reading.getByText('Smoke, and no one she knows.')).toBeVisible()
 
-  // The Author takes the Exit the Reader took away, past the page: the Story as
-  // published no longer has the route the kept Path walked.
+  // The Author takes the Exit the Reader took away, past the page, and publishes
+  // the changes: the Story as published no longer has the route the kept Path
+  // walked.
   const { exits } = await (await request.get(`/api/stories/${story.id}`)).json()
   await request.delete(`/api/exits/${exits[0].id}`)
+  await request.post(`/api/stories/${story.id}/publish`)
 
   await reading.reload()
   await begin(reading)
@@ -239,8 +241,9 @@ test('an Exit the Author closed is not crossed backwards, and the Scene behind i
   const stepBack = (reading: Page) => reading.getByRole('button', { name: 'Step Back' })
 
   // The one way on out of the street says the Reader does not come back through
-  // it. Nothing else about the Story changes.
+  // it, and the change is published. Nothing else about the Story changes.
   await request.patch(`/api/exits/${exits[0].id}`, { data: { stepsBack: false } })
+  await request.post(`/api/stories/${story.id}/publish`)
 
   // Inside the street the beat before is still a beat before: a closed Exit
   // closes a door, it does not stop a Reader re-reading what they have read.
@@ -259,6 +262,7 @@ test('an Exit the Author closed is not crossed backwards, and the Scene behind i
   // crosses nothing back still crosses back the one Exit that says it does.
   await request.patch(`/api/stories/${story.id}`, { data: { stepsBack: false } })
   await request.patch(`/api/exits/${exits[0].id}`, { data: { stepsBack: true } })
+  await request.post(`/api/stories/${story.id}/publish`)
   const open = await inTheBar()
   await stepBack(open).click()
   await expect(open.getByText('She steps out.')).toBeVisible()
@@ -266,6 +270,7 @@ test('an Exit the Author closed is not crossed backwards, and the Scene behind i
 
   // And an Exit that says nothing answers as its Story says, which now refuses.
   await request.patch(`/api/exits/${exits[0].id}`, { data: { stepsBack: null } })
+  await request.post(`/api/stories/${story.id}/publish`)
   await expect(stepBack(await inTheBar())).toHaveCount(0)
 })
 

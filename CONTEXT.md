@@ -421,9 +421,22 @@ _Avoid_: test, play mode, simulate, dry run, rehearse
 **Publish**:
 To make a Story readable by Readers at a public link. A Story that has never been
 published is visible only to its Author. Publishing puts the Story nowhere
-anybody browses — being found is a second act, see Listed.
+anybody browses — being found is a second act, see Listed. Every Publish takes an
+Edition, so publishing a Story that is already published publishes the changes:
+what its Author wrote since reaches Readers then, and not as it was typed.
 _Affiché_: Publier
 _Avoid_: release, share, deploy, ship, go live
+
+**Edition**:
+What Readers of a published Story read: the work as it stood when its Author last
+published it — its Scenes, Shots, Exits, Conditions, Images and Sounds. Every
+Publish takes one, and Readers read it until the next. The bench and its Preview
+read the Story as it is written. The presentation — title, Synopsis, Language,
+Cover and the Author's Name — is not part of an Edition and is read live. See
+`docs/adr/0069-a-published-story-is-read-as-it-was-published.md`.
+_Affiché_: Édition
+_Avoid_: version, snapshot, release, build, revision, draft, version publiée,
+instantané, brouillon
 
 ### The community
 

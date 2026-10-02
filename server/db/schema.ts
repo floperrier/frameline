@@ -24,6 +24,7 @@ import type {
   TextBy,
 } from '../../shared/utils/scenes'
 import type { Align, Face, Formatted } from '../../shared/utils/formatted'
+import type { Edition } from '../../shared/utils/reading'
 
 // `name` is the Name an Author appears under wherever somebody else meets them:
 // beside a Listed Story, on their Profile. It arrives from the provider they
@@ -76,8 +77,9 @@ export const authors = pgTable('authors', {
 //
 // `published_at` is what makes the Story readable at its public link, and null
 // is what keeps it the Author's alone. A timestamp rather than a flag because it
-// says when as well as whether, at no more cost. Nothing else changes on a
-// Publish — the link is the Story's own id, so it is the same link every time
+// says when as well as whether, at no more cost. Publishing the changes leaves
+// it where it is, so the when is the first Publish, which the Catalogue is
+// ordered by. The link is the Story's own id, so it is the same link every time
 // the Story is published again.
 //
 // `listed` is whether the Author has put the published Story in the Catalogue,
@@ -103,6 +105,12 @@ export const stories = pgTable('stories', {
     .references((): AnyPgColumn => shots.id, { onDelete: 'set null' }),
   publishedAt: timestamp('published_at', { withTimezone: true }),
   listed: boolean('listed').notNull().default(false),
+  // What Readers of a published Story read: the work as it stood when its Author
+  // last published it, and when that was. Null on a Story never published, and on
+  // one published before editions existed until it is first read — see
+  // `docs/adr/0069-a-published-story-is-read-as-it-was-published.md`.
+  edition: jsonb('edition').$type<Edition>(),
+  editionAt: timestamp('edition_at', { withTimezone: true }),
   stepsBack: boolean('steps_back').notNull().default(true),
   textFace: text('text_face').$type<Face>().notNull().default('prose'),
   textAlign: text('text_align').$type<Align>().notNull().default('start'),
@@ -113,6 +121,16 @@ export const stories = pgTable('stories', {
 // driver hands a `bytea` back as a Buffer and takes one as a parameter, so
 // nothing is encoded on the way past.
 const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () => 'bytea' })
+
+// The bytes an edition plays, each distinct set held once per Story under the
+// hex of its SHA-256 — Postgres's own `sha256(bytea)` — so an edition does not
+// change when the Author replaces an Image or deletes a Shot, and bytes left
+// alone between two Publishes are not copied again.
+export const editionMedia = pgTable('edition_media', {
+  storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
+  digest: text('digest').notNull(),
+  bytes: bytea('bytes').notNull(),
+}, table => [primaryKey({ columns: [table.storyId, table.digest] })])
 
 // `x` and `y` were where the Author put the Scene's node in the Story's graph.
 // Nothing reads or writes them any more: where a Scene is drawn is read off the

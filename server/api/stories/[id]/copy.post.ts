@@ -8,9 +8,10 @@ import { useDb } from '../../../db'
  * Scene, Shot and Exit with every column it has, the bytes of each Image and
  * Sound among them, and the Story's own Synopsis, `steps_back` and text. It is
  * unpublished and unlisted, because being read is a second act —
- * `docs/adr/0023-being-published-and-being-found-are-two-acts.md` — and it carries
- * no Comment and belongs to no List, which live in tables of their own that
- * nothing here touches.
+ * `docs/adr/0023-being-published-and-being-found-are-two-acts.md` — so it has no
+ * edition and holds none of the bytes one played. It carries no Comment and
+ * belongs to no List, which live in tables of their own that nothing here
+ * touches.
  *
  * Every id is drawn before any row is written, one map per table, so that each
  * reference inside the copy can be laid over with the copy's own: the opening
@@ -65,6 +66,8 @@ export default defineEventHandler(async (event) => {
           'cover_shot_id',
           (select shot_ids.id from shot_ids where shot_ids.was = original.cover_shot_id),
           'published_at', null,
+          'edition', null,
+          'edition_at', null,
           'listed', false,
           'created_at', now()
         )) as copy

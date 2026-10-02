@@ -162,6 +162,19 @@ function unpublish() {
 }
 
 /**
+ * Taking a new edition of a published Story: what the Author has written since
+ * the last Publish reaches Readers now, and not as it was typed. The Story is
+ * read back so the sentence beside the button dates the new edition, and the
+ * result is announced, since nothing else on screen moves — see
+ * `docs/adr/0069-a-published-story-is-read-as-it-was-published.md`.
+ */
+async function publishChanges() {
+  if (await change(() => send(`/api/stories/${id}/publish`, { method: 'POST' }))) {
+    announce(t('editor.changesPublished'))
+  }
+}
+
+/**
  * Putting the Story in the Catalogue, and taking it back out. A second act after
  * a Publish rather than part of one — see
  * `docs/adr/0023-being-published-and-being-found-are-two-acts.md` — so a Story
@@ -391,6 +404,18 @@ function unlist() {
              is the same Story reached the same way. -->
         <button type="button" :data-command="$t('editor.copyEmbed')" @click="copyEmbed">
           {{ $t('editor.copyEmbed') }}
+        </button>
+        <!-- When Readers' edition was taken, and the act that takes another. The
+             time is drawn by <NuxtTime>, so the page the server renders and the
+             browser that hydrates it agree on the zone it is read in. Left out
+             where a Story published before editions has not been read since. -->
+        <i18n-t v-if="story?.editionAt" keypath="editor.editionAt" tag="span" class="edition">
+          <template #when>
+            <NuxtTime :datetime="story.editionAt" :locale="locale" date-style="long" time-style="short" />
+          </template>
+        </i18n-t>
+        <button type="button" :data-command="$t('editor.publishChanges')" @click="publishChanges">
+          {{ $t('editor.publishChanges') }}
         </button>
       </p>
 
@@ -741,6 +766,13 @@ header {
 .kept-at {
   color: var(--muted);
   font-family: var(--data);
+  font-size: 0.75rem;
+}
+
+/* When Readers' edition was taken: a reading of the bench's, as quiet as the
+   time of the last write. */
+.edition {
+  color: var(--muted);
   font-size: 0.75rem;
 }
 

@@ -19,6 +19,7 @@ export default defineEventHandler(async (event) => {
       openingSceneId: stories.openingSceneId,
       coverShotId: stories.coverShotId,
       publishedAt: stories.publishedAt,
+      editionAt: stories.editionAt,
       listed: stories.listed,
       stepsBack: stories.stepsBack,
       textFace: stories.textFace,
