@@ -19,6 +19,15 @@
  * writes, through the same endpoint and in the same request, so the two readings
  * cannot hold two Descriptions of one Image.
  *
+ * And a Shot's Place is written here, by carrying its frame: within its band to
+ * another Place there, or into another band at the Place it is let go in. This is
+ * the reading where order is seen — every frame of every Scene at once, the close-up
+ * after the wide shot — so it is where an Author puts the frames in order, in one
+ * request rather than one ↑ per Place. The drag is the pointer's alone: ↑ and ↓
+ * beside each row of the document, and *Move to another Scene* by naming it, are the
+ * keyboard's and the finger's way to the same writes. See
+ * `docs/adr/0074-the-contact-sheet-writes-a-shots-place.md`.
+ *
  * Nothing else here is written. The words are the Shot's own, set in the reading
  * face because that is what a Shot's text is set in everywhere, and the
  * Conditions are the sentence `app/components/Conditions.vue` writes them as,
@@ -26,7 +35,7 @@
  * first while the first is only hidden, would be two sets of fields carrying one
  * pair of ids.
  */
-const { story, sceneWritten, write, imageOf } = defineProps<{
+const { story, sceneWritten, write, change, announce, imageOf } = defineProps<{
   /** The Story on the bench, whole: every band of the sheet is a Scene of it. */
   story: StoryInEditor
   /** The Scene the caret is in, which the sheet is wound to and opens on. */
@@ -37,6 +46,15 @@ const { story, sceneWritten, write, imageOf } = defineProps<{
    * has no section of the document on screen to say it in.
    */
   write: Write
+  /**
+   * The holder a frame carried to another Place goes through, the page's own for
+   * the same reason. It reads the Story back whether the order was taken or
+   * refused, so the sheet, the document, the rail and the Remarks all draw the
+   * order the server holds.
+   */
+  change: Change
+  /** What the sheet has just done, said once in the page's status. */
+  announce: (said: string) => void
   /** Where a Shot's image is asked for, under the time it was last attached. */
   imageOf: (shot: Shot) => string
 }>()
@@ -241,6 +259,114 @@ function crop(shot: Shot, axis: 'cropX' | 'cropY', event: Event) {
 function move(shot: Shot, axis: 'cropX' | 'cropY', event: Event) {
   moving.value = { ...pointOf(shot), id: shot.id, [axis]: Number((event.target as HTMLInputElement).value) }
 }
+
+/**
+ * The type a frame is carried under: the sheet's own rather than `text/plain`, so
+ * a frame let go over the Description field beside the bands types nothing into it.
+ * Firefox starts no drag that carries nothing, so it carries the Shot's id.
+ */
+const CARRIED = 'application/x-frameline-shot'
+
+/**
+ * The frame in the hand, and the band and gap it would land in if let go now — the
+ * gap counted over the band as drawn, from nought before its first frame to its
+ * length after its last. No landing where the pointer is over no band, or where
+ * letting go would leave the frame at the Place it has.
+ */
+const carried = ref<Frame>()
+const landing = ref<{ band: string, gap: number }>()
+
+function lift(frame: Frame, event: DragEvent) {
+  carried.value = frame
+  event.dataTransfer!.effectAllowed = 'move'
+  event.dataTransfer!.setData(CARRIED, frame.shot.id)
+}
+
+function letGo() {
+  carried.value = landing.value = undefined
+}
+
+/**
+ * Where the frame would land, read off what the pointer is over: the first half of
+ * a frame is the gap before it and the second half the gap after, and anywhere
+ * else in a band — its heading, the room under its frames, the sentence a band with
+ * none wears — is the foot of that band.
+ *
+ * Written only when it moves, because `dragover` fires every few milliseconds and
+ * each write redraws a sheet that may hold some hundreds of frames.
+ */
+function aim(event: DragEvent) {
+  const aimed = aimedAt(event)
+  if (aimed) {
+    event.preventDefault()
+    event.dataTransfer!.dropEffect = 'move'
+  }
+  if (aimed?.band !== landing.value?.band || aimed?.gap !== landing.value?.gap) landing.value = aimed
+}
+
+function aimedAt(event: DragEvent) {
+  const lifted = carried.value
+  const over = event.target as Element
+  const band = bands.value.find(held => held.scene.id === over.closest<HTMLElement>('[data-band]')?.dataset.band)
+  if (!lifted || !band) return
+
+  const frame = over.closest<HTMLElement>('[data-place]')
+  const box = frame?.getBoundingClientRect()
+  const gap = frame && box
+    ? Number(frame.dataset.place) + (event.clientX > box.left + box.width / 2 ? 1 : 0)
+    : band.frames.length
+  const run = band.frames.map(held => held.shot.id)
+  const unmoved = band.scene.id === lifted.scene.id
+    && carriedTo(run, lifted.shot.id, gap).every((id, at) => id === run[at])
+
+  return unmoved ? undefined : { band: band.scene.id, gap }
+}
+
+/** The pointer gone off the bands altogether, which is no landing until it comes back. */
+function leave(event: DragEvent) {
+  if (!(event.currentTarget as Node).contains(event.relatedTarget as Node | null)) landing.value = undefined
+}
+
+/**
+ * The frame let go where the mark is. Within its own band the whole new order is
+ * written in one renumbering, the way ↑ and ↓ write it; into another band it is one
+ * move, given the Place it lands at, so the Story is never between two requests in
+ * an order nobody asked for. Then the frame takes the focus, which is what chooses
+ * it: the Shot beside the bands is the one the Author has just carried.
+ */
+async function drop(event: DragEvent) {
+  const lifted = carried.value
+  const aimed = landing.value
+  letGo()
+  const band = bands.value.find(held => held.scene.id === aimed?.band)
+  if (!lifted || !aimed || !band) return
+  event.preventDefault()
+
+  const id = lifted.shot.id
+  const left = { from: lifted.place + 1, name: sceneName(lifted.scene.id) }
+  const order = carriedTo(band.frames.map(held => held.shot.id), id, aimed.gap)
+
+  if (band.scene.id === lifted.scene.id) {
+    const placed = await change(() => send(`/api/scenes/${band.scene.id}/shots/places`, {
+      method: 'PUT',
+      body: { places: order },
+    }))
+    if (placed) announce(t('editor.shotPlaced', { ...left, to: order.indexOf(id) + 1 }))
+  }
+  else {
+    let landed: number | undefined
+    await change(async () => {
+      landed = (await send(`/api/shots/${id}/move`, {
+        method: 'POST',
+        body: { toSceneId: band.scene.id, place: order.indexOf(id) },
+      }) as { position: number }).position
+    })
+    if (landed !== undefined) announce(t('editor.shotMoved', { ...left, scene: band.name, place: landed + 1 }))
+  }
+
+  await nextTick()
+  document.getElementById(`frame-${id}`)?.focus()
+}
 </script>
 
 <template>
@@ -253,8 +379,10 @@ function move(shot: Shot, axis: 'cropX' | 'cropY', event: Event) {
     <!-- The bands, which are what a long Story scrolls: the Shot under the hand
          keeps its own place beside them however far down the sheet the Author is
          looking, so the field the Description is written in is never scrolled off
-         by the act of choosing what to describe. -->
-    <div class="bands">
+         by the act of choosing what to describe. A frame carried is aimed and let
+         go of here, once for every band, so a drag across forty Scenes is listened
+         to by one element. -->
+    <div class="bands" @dragover="aim" @dragleave="leave" @drop="drop">
       <!-- A heading and no landmark, for the reason the document's own sections
            carry none: a Story of forty Scenes would put forty regions in a screen
            reader's rotor, and what an Author moves by is the Scene — which the
@@ -324,7 +452,13 @@ function move(shot: Shot, axis: 'cropX' | 'cropY', event: Event) {
           </p>
         </header>
 
-        <p v-if="!band.frames.length" class="none">{{ $t('editor.noShotYet') }}</p>
+        <p
+          v-if="!band.frames.length"
+          class="none"
+          :class="{ landing: landing?.band === band.scene.id }"
+        >
+          {{ $t('editor.noShotYet') }}
+        </p>
 
         <!-- One tab stop for the frames of the whole sheet and the arrows inside
              it, which is what makes the reading usable at the size it is for: a
@@ -333,9 +467,25 @@ function move(shot: Shot, axis: 'cropX' | 'cropY', event: Event) {
              just chosen hundreds of presses away. `Tab` reaches the chosen frame
              and leaves it for the field beside it; the arrows walk the frames. The
              marks in a band's header rove with them, for the same reason — see
-             them. -->
+             them.
+
+             The frame is carried by its `<li>` and not by the button, because
+             Firefox starts no drag on a `<button>`; and the Image inside it is not
+             draggable itself, so what is carried is the frame and never the file. -->
         <ol v-else class="frames">
-          <li v-for="frame in band.frames" :key="frame.shot.id">
+          <li
+            v-for="frame in band.frames"
+            :key="frame.shot.id"
+            draggable="true"
+            :data-place="frame.place"
+            :class="{
+              before: landing?.band === band.scene.id && landing.gap === frame.place,
+              after: landing?.band === band.scene.id && landing.gap === band.frames.length
+                && frame.place === band.frames.length - 1,
+            }"
+            @dragstart="lift(frame, $event)"
+            @dragend="letGo"
+          >
             <button
               :id="`frame-${frame.shot.id}`"
               type="button"
@@ -352,6 +502,7 @@ function move(shot: Shot, axis: 'cropX' | 'cropY', event: Event) {
                 :src="imageOf(frame.shot)"
                 :style="{ objectPosition: cropPosition(pointOf(frame.shot)) }"
                 alt=""
+                draggable="false"
                 loading="lazy"
                 decoding="async"
               >
@@ -625,6 +776,46 @@ function move(shot: Shot, axis: 'cropX' | 'cropY', event: Event) {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
   gap: var(--s2);
+}
+
+/* Where a frame carried over a band will land, in the grease pencil the Author's
+   own marks are written in: a bar down the leading edge of the frame whose Place
+   it would take, or down the trailing edge of the last where it would come after
+   every one. On the frame's own edge rather than in the gap beside it, because the
+   gap at the start or end of a row is outside the bands, which clip it. */
+.frames > li {
+  position: relative;
+}
+
+.frames > li.before::before,
+.frames > li.after::after {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  inset-block: 0;
+  inline-size: var(--s1);
+  background: var(--grease);
+  pointer-events: none;
+}
+
+.frames > li.before::before {
+  inset-inline-start: 0;
+}
+
+.frames > li.after::after {
+  inset-inline-end: 0;
+}
+
+/* A band with no frame yet takes a carried one as its first: the bar stands at
+   the head of the sentence that says it has none. */
+.band > .none.landing::before {
+  content: '';
+  display: inline-block;
+  inline-size: var(--s1);
+  block-size: 1lh;
+  margin-inline-end: var(--s2);
+  vertical-align: top;
+  background: var(--grease);
 }
 
 /* One frame. Called a print because that is what a cell of a contact sheet is,

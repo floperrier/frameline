@@ -713,6 +713,22 @@ export function movedBy(ids: string[], id: string, step: -1 | 1) {
 }
 
 /**
+ * The sequence with one id carried to the gap it was let go in on the Contact
+ * Sheet, the gap counted over the band as it is drawn — from nought before the
+ * first frame to the band's length after the last. Where the id is the band's own
+ * it is taken out first, so the gap either side of it is the Place it already has
+ * and the sequence comes back as it was; where it is another band's, the gap is
+ * the Place it takes there.
+ */
+export function carriedTo(ids: string[], id: string, gap: number) {
+  const from = ids.indexOf(id)
+  const carried = ids.filter(held => held !== id)
+  carried.splice(from !== -1 && gap > from ? gap - 1 : gap, 0, id)
+
+  return carried
+}
+
+/**
  * Where a deleted Shot is put back in the run it left: right after the Shot that
  * stood before it while that Shot is still in the run, at the head where nothing
  * stood before it, and otherwise at the Place it had, capped at the run's length.

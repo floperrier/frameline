@@ -86,7 +86,7 @@ const refusedScene = computed(() => {
  * about the whole Story cannot be refused in somebody's section of the document.
  *
  * The Contact Sheet writes through them too, for the same reason read the other
- * way round: the one field it carries is about a Shot, but no section of the
+ * way round: its field and the frames it carries are about a Shot, but no section of the
  * document is on screen while the sheet is, so a refusal claimed for a Scene would
  * be a sentence said behind a surface nobody is looking at. Cleared, it is said
  * under the Story's edge, where it is on screen whichever reading is up.
@@ -755,6 +755,8 @@ async function readFrom(sceneId: string, shotId: string) {
             v-model:chosen="chosenFrame"
             :scene-written="sceneWritten?.id"
             :write="writeStory"
+            :change="changeStory"
+            :announce="announce"
             :image-of="imageOf"
             @open="goToScene"
           />
