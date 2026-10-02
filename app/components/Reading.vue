@@ -346,15 +346,19 @@ const onItsWay = ref(false)
 
 /**
  * What is brought in ahead, whenever the Path moves or the Story under it does:
- * every Image `needed` names, and the one on screen, kept so that a step back onto
- * it asks for nothing. In the browser alone, which is the one place an Image is
- * shown, and let go of as the Reading ends. See `app/utils/brought.ts`.
+ * every Image `needed` names and every Sound `soundsNeeded` does, and what the
+ * beat on screen holds and plays, kept so that a step back onto it asks for
+ * nothing. Sounds are brought in whether or not sound is on, because the Reader
+ * may turn it on at the next beat; they are only waited on while it is. In the
+ * browser alone, which is the one place either is shown or heard, and let go of
+ * as the Reading ends. See `app/utils/brought.ts`.
  */
 if (import.meta.client) {
   watchEffect(() => {
     for (const image of [imageHeld(story, at.value), ...needed(story, at.value)]) {
       if (image) bringIn(image)
     }
+    for (const sound of [...soundsHeld(story, at.value), ...soundsNeeded(story, at.value)]) bringSoundIn(sound)
   })
 }
 
@@ -370,8 +374,14 @@ async function moveTo(to: Path, byClock = false, passage?: { over: number, throu
   // was held — the bench drawing again — is the one that stands, and a move of the
   // clock's is not made into a Reading stopped while it was held: the clock is
   // armed again as it starts.
+  //
+  // Its Sounds are waited on with its Image, while sound is on and never
+  // otherwise, but for the one the bed already plays: a bed held across the move
+  // has nothing to wait for, and one that started from its address would hold
+  // every later beat of its Scene.
   const from = at.value
-  const ready = untilShown(imageHeld(story, to), onItsWay)
+  const sounds = sounding.value ? soundsHeld(story, to).filter(sound => sound !== bedHolds) : []
+  const ready = untilShown(imageHeld(story, to), onItsWay, sounds)
   if (ready) {
     holding = true
     await ready
@@ -765,7 +775,14 @@ watch(transcribed, now => keepFlag(TRANSCRIPT_SHOWN, now))
  * A function rather than only a watch callback, for the reason `strikeShot` is
  * one: a Preview is mounted afresh over a Path the bench was already holding, so
  * the Scene is not crossed into and nothing watched here changes.
+ *
+ * Played from the bytes brought in where they are, and from the address where
+ * not — see `app/utils/brought.ts` — so what the bed holds is the address it
+ * was given, kept here, and never the element's `src`: a carrier whose Sound
+ * was changed under the Preview is started again, and one held across is not.
  */
+let bedHolds: string | undefined
+
 function holdBed(now: Heard | undefined, before?: Heard) {
   const element = bed.value
   if (!element) return
@@ -773,6 +790,7 @@ function holdBed(now: Heard | undefined, before?: Heard) {
   if (!now) {
     element.pause()
     element.removeAttribute('src')
+    bedHolds = undefined
     return
   }
 
@@ -781,9 +799,10 @@ function holdBed(now: Heard | undefined, before?: Heard) {
   const playedOut = element.ended
   element.loop = now.loops && !shown.value.ended
   const replayed = element.loop && playedOut
-  if (heldAcross(before, now) && element.getAttribute('src') === now.sound && !replayed) return
+  if (heldAcross(before, now) && bedHolds === now.sound && !replayed) return
 
-  element.src = now.sound
+  bedHolds = now.sound
+  element.src = playable(now.sound)
   element.currentTime = 0
   // Said here rather than left to the watch above, which fires on the press
   // after a Reader turned the sound off and never on the play that starts a
@@ -813,6 +832,9 @@ watch([heard, () => shown.value.ended], ([now], [before]) => holdBed(now, before
  * beat, and the frame still holds the Shot there — behind the ways on or at the
  * ending alike — so its Sound goes on to its end rather than being cut short by
  * the press the Reader made to move on.
+ *
+ * Played from the bytes brought in where they are, so it starts in the task the
+ * frame lands in, and from its address where they are not.
  */
 function strikeShot() {
   const element = strike.value
@@ -824,7 +846,7 @@ function strikeShot() {
     return
   }
 
-  element.src = sound
+  element.src = playable(sound)
   element.currentTime = 0
   element.muted = !sounding.value
   element.play().catch(() => {})

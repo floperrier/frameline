@@ -41,7 +41,9 @@ const seed = useState('reading-seed', () => opening().seed)
  * the opening one, is brought in while the card stands, and the press waits for
  * it the way every move of the Reading does: the card stays until that beat can
  * be shown, and says so past half a second. A second press while it waits does
- * nothing. See `docs/adr/0073-a-beat-lands-when-its-image-can-be-shown.md`.
+ * nothing. The Sounds that beat plays are brought in beside it and never waited
+ * on, so a press made once the card has been read plays bytes already in. See
+ * `docs/adr/0073-a-beat-lands-when-its-image-can-be-shown.md`.
  */
 const resuming = ref(false)
 const onItsWay = ref(false)
@@ -51,8 +53,10 @@ let beginning = false
 onMounted(() => {
   const kept = keptReading(id, story)
   resuming.value = Boolean(kept)
-  first = imageHeld(story, kept ?? opening(seed.value))
+  const opens = kept ?? opening(seed.value)
+  first = imageHeld(story, opens)
   if (first) bringIn(first)
+  for (const sound of soundsHeld(story, opens)) bringSoundIn(sound)
 })
 
 async function begins() {

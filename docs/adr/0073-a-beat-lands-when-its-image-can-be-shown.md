@@ -81,11 +81,54 @@ kept referenced for as long as the Reading is mounted, because a `no-store`
 resource nothing references is the browser's to let go: measured without that,
 one step back in two asked for its Image again.
 
+## Sounds are brought in too
+
+Amended on 2026-10-02, issue #446.
+
+A Shot's Sound strikes with its beat, and a Scene's is held under the run from
+its first beat. Both were asked for only when they were needed, through the same
+`no-store` doors, so on the 4G above a library strike sounded about 0.2 s after
+its frame and an Author's own 2 MB Sound about 2 s after. Sound more than about
+45 ms behind its picture is noticed.
+
+So the Reading brings its Sounds in by the rule it uses for Images.
+`soundsNeeded(story, at)` takes the same beats `needed` does and names each
+beat's strike and the Sound its Scene is heard under. That goes through
+`heardUnder`, so a Scene naming another is brought in under the carrier's
+address. `soundsHeld(story, at)` names what the beat on screen plays. The title
+card brings in the opening beat's Sounds beside its Image and never waits on
+them, so *Begin* stays inside the press for a Story that carries a Sound.
+
+A move waits on the Sounds of the beat it lands on together with its Image, under
+the same ceiling and the same line. It does so only while sound is on, so a Reader
+who turned it off is never held for a Sound. The Sound the bed is already playing
+is left out of the wait, because a bed held across the move has nothing to wait
+for. A Sound that fails, or runs past the ceiling, plays late from its own
+address, as before.
+
+### Why a Sound is held as a `Blob`, and not by an element
+
+There is no *list of available images* for `<audio>`, so a `no-store` address set
+again on the element is asked for again. A second `new Audio()` per Sound would
+hold the bytes, but it would play its own copy of them. The Reading would then be
+heard on one element per Sound instead of on its two, and muting, the Transcript
+and the loop rules hang on those two. So a Sound is fetched into a `Blob` and
+played from an object URL. That keeps `no-store` exactly as it is, nothing
+outlives the page, and `letGo` revokes every URL as the Reading ends. Whether a bed
+is held across two Scenes is still decided by the Sound's address, which the bed
+keeps, and never by the element's `src`, which is now a `blob:` URL.
+
+The first Sound a page plays still waits on the browser opening its audio output.
+Measured in headless Chromium, that is about 100 ms, against 3 ms for every later
+Sound. Starting the output at *Begin* would change the consent
+`docs/adr/0063-a-story-opens-on-its-title-card.md` settles, which is not this
+decision's to change.
+
 ## Consequences
 
 A Reading of a hundred beats holds a hundred encoded Images, tens of megabytes,
-which a browser manages itself. If a long Story shows memory trouble on a phone,
-holding only what is within some beats of the Path is the next step. Sounds are
-not brought in ahead: a Scene's Sound plays under the run rather than with a
-beat, and can go through the same module once it is wanted. Smaller Images for
-smaller screens stay out, for 0005's one Image per row.
+which a browser manages itself, and its Sounds besides: forty library beds are
+about 6 MB, and Authors' own Sounds at the 2 MB cap are tens of megabytes. If a
+long Story shows memory trouble on a phone, holding only what is within some
+beats of the Path is the next step, for both. Smaller Images for smaller screens
+stay out, for 0005's one Image per row.
