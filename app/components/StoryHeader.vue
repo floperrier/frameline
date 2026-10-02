@@ -445,6 +445,14 @@ function unlist() {
             {{ $t('editor.publishChanges') }}
           </button>
         </template>
+        <!-- How many Readings began and ended, which the Author is told here and
+             on their shelf and nowhere anybody else looks: see
+             `docs/adr/0072-a-reading-is-counted-for-its-author.md`. -->
+        <span v-if="story" class="edition">
+          {{ story.readings.begun
+            ? $t('editor.readings', { ended: story.readings.ended }, story.readings.begun)
+            : $t('editor.noReadings') }}
+        </span>
       </p>
 
       <div class="acts">

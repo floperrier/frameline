@@ -110,6 +110,7 @@
     "listed": "Listed",
     "oneComment": "{count} Comment",
     "manyComments": "{count} Comments",
+    "readings": "1 Reading | {n} Readings",
     "copyTitle": "Title of the copy",
     "copyLanguage": "Language of the copy",
     "writeCopy": "Write the Copy"
@@ -133,6 +134,8 @@
     "scenesChanged": "1 Scene changed since you published. | {n} Scenes changed since you published.",
     "scenesGone": "1 Scene Readers read is deleted. | {n} Scenes Readers read are deleted.",
     "storyChanged": "How this Story is read has changed since you published.",
+    "noReadings": "No Reading begun yet.",
+    "readings": "1 Reading begun, {ended} ended. | {n} Readings begun, {ended} ended.",
     "publishChanges": "Publish the Changes",
     "changesPublished": "Your changes are published: Readers read them from now on.",
     "keptAt": "Kept at {time}",

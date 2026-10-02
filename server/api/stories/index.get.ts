@@ -6,12 +6,14 @@ import { useDb } from '../../db'
  * The Author's own shelf: every Story they wrote, newest first, each with what
  * any shelf presents a Story by — its title, Language, Synopsis and Cover — and
  * with where it stands, which only its Author is told: whether it is published,
- * whether it is Listed, and how many Comments stand under it.
+ * whether it is Listed, how many Comments stand under it and how many Readings
+ * of it began.
  *
- * One statement, the Cover resolved and the Comments counted inside it, so a
- * shelf of fifty Stories is not fifty-one requests. The count is the Author's
- * and nobody else's: the Catalogue counts nothing an Author can influence, and
- * this is the one endpoint that answers with one.
+ * One statement, the Cover resolved and the Comments and Readings counted inside
+ * it, so a shelf of fifty Stories is not fifty-one requests. The counts are the
+ * Author's and nobody else's: the Catalogue counts nothing an Author can
+ * influence, and this and the bench's own read are the endpoints that answer
+ * with one.
  */
 export default defineEventHandler(async (event) => {
   const author = await requireAuthor(event)
@@ -26,6 +28,7 @@ export default defineEventHandler(async (event) => {
       listed: stories.listed,
       comments: sql<number>`(select count(*)::int from ${comments}
         where ${comments.storyId} = ${stories.id})`,
+      readings: readingsCounted('begun'),
       coverShotId: coverShotOf,
       cropX: coverShot.cropX,
       cropY: coverShot.cropY,

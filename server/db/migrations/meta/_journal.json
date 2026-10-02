@@ -239,6 +239,13 @@
       "when": 1790918961226,
       "tag": "0033_the_bench_says_what_changed_since_the_edition",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790928922650,
+      "tag": "0034_a_reading_is_counted_for_its_author",
+      "breakpoints": true
     }
   ]
 }

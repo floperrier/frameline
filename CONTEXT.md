@@ -363,7 +363,9 @@ substitution, token, balise, espace réservé
 One traversal of a published Story by one Reader, carrying its own State. Kept in
 the Reader's browser between visits and nowhere else, so a Reader who leaves comes
 back to where they stood — see
-`docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md`. A Reading ends where
+`docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md`. A Reading is counted
+for its Author, its beginning and its ending, and kept by nobody but the Reader's
+own browser — see `docs/adr/0072-a-reading-is-counted-for-its-author.md`. A Reading ends where
 the Scene it stands in has played its last Shot and offers no Exit. That last
 Shot is the ending. It is shown whole, it leaves the screen by its own Cut, and
 the interface sets no sentence of its own beside it. A Story that wants the end

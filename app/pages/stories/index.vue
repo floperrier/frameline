@@ -209,6 +209,12 @@ async function signOut() {
             {{ $t(story.comments === 1 ? 'stories.oneComment' : 'stories.manyComments',
                   { count: story.comments }) }}
           </NuxtLink>
+          <!-- How many Readings began, on the same terms: the Author's count, on
+               their own shelf, ordering nothing. See
+               `docs/adr/0072-a-reading-is-counted-for-its-author.md`. -->
+          <span v-if="story.publishedAt && story.readings" class="eyebrow">
+            {{ $t('stories.readings', story.readings) }}
+          </span>
         </template>
         <button
           :id="`copy-${story.id}`"
