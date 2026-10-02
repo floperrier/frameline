@@ -67,12 +67,12 @@ export default defineEventHandler(async (event) => {
     id, name, sets, shots, sound, soundOfSceneId, transcript, soundLoops,
     cutAfter, cutOver, cutThrough, exitsAfter, layout,
     movementBy, movementDirection, movementOver,
-    textAfter, textBy, textPace, textOver, textStays,
+    textAfter, textBy, textPace, textOver, textStays, question, questionFlag,
   }): StoryToShow['scenes'][number] => ({
     id, name, sets, shots, sound, soundOfSceneId, transcript, soundLoops,
     cutAfter, cutOver, cutThrough, exitsAfter, layout,
     movementBy, movementDirection, movementOver,
-    textAfter, textBy, textPace, textOver, textStays,
+    textAfter, textBy, textPace, textOver, textStays, question, questionFlag,
   }))
 
   // The Cover leaves as one object, the Image and its point together, so the

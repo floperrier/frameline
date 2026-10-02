@@ -237,6 +237,10 @@
     "listenToSound": "Écouter",
     "takeSound": "Prendre ce Son",
     "removeSound": "Retirer le Son",
+    "askAQuestion": "Poser une Question au Lecteur",
+    "question": "Question posée au Lecteur avant les Sorties",
+    "questionFlag": "Marqueur qui garde la réponse",
+    "removeQuestion": "Retirer la Question",
     "soundTakenFrom": "S’entend sous {name}",
     "transcript": "Transcription",
     "whatTheSoundMakesHeard": "Ce que le Son fait entendre",
@@ -504,6 +508,7 @@
     "noOpening": "Ce Récit ne désigne aucune Scène d’ouverture : aucune Lecture ne peut commencer. Marquez la Scène par laquelle il s’ouvre.",
     "sceneUnreached": "Aucune Sortie n’arrive à {scene}, et le Récit ne s’ouvre pas dessus : aucun Lecteur n’y parvient.",
     "sceneUnplayed": "{scene} ne porte aucun Plan : un Lecteur qui y arrive ne voit rien.",
+    "questionNeverPut": "{scene} pose une Question mais n’a aucune Sortie : elle n’est jamais posée au Lecteur.",
     "shotUnwritten": "Le Plan {place} de {scene} ne porte ni texte ni Image.",
     "imageUndescribed": "L’Image du Plan {place} de {scene} n’a pas de Description : un Lecteur qui ne la voit pas n’en apprend rien.",
     "redactionUnsaid": "Le Plan {place} de {scene} cache des mots sous une barre sans rien en dire à un Lecteur qui ne la voit pas.",
@@ -575,7 +580,9 @@
     "sceneTranscript": "Le Son tenu sous la Scène",
     "shotTranscript": "Le Son que frappe le Plan",
     "waysOnStand": "Les Sorties restent proposées jusqu'à ce que vous en preniez une.",
-    "waysOnStandFor": "Les Sorties restent proposées pendant une seconde. | Les Sorties restent proposées pendant {count} secondes."
+    "waysOnStandFor": "Les Sorties restent proposées pendant une seconde. | Les Sorties restent proposées pendant {count} secondes.",
+    "questionWaits": "Une Question attend votre réponse.",
+    "answer": "Répondre"
   },
   "read": {
     "eyebrow": "Un Récit Frameline",
@@ -636,6 +643,8 @@
     "badFlag": "Un Marqueur est un nom et une valeur, dont aucun ne peut rester vide.",
     "tooManyFlagValues": "Un Marqueur ne peut pas être tiré parmi plus de {max} valeurs.",
     "flagNameBrace": "Le nom d'un Marqueur ne peut pas contenir « {brace} », parce qu'un texte écrit le nom d'un Marqueur entre accolades.",
+    "question": "Une Question tient en {max} caractères au plus.",
+    "questionFlag": "Le Marqueur qui garde la réponse à une Question est un nom de {max} caractères au plus, sur une ligne et sans « = ».",
     "flagValueSeparator": "La valeur d'un Marqueur ne peut pas contenir « {separator} », qui sépare les valeurs d'un tirage.",
     "storyTitle": "Un Récit a besoin d'un titre.",
     "storyTitleLong": "Un titre ne peut pas dépasser {max} caractères.",

@@ -237,6 +237,10 @@
     "listenToSound": "Listen",
     "takeSound": "Take This Sound",
     "removeSound": "Remove the Sound",
+    "askAQuestion": "Ask the Reader a Question",
+    "question": "Question put to the Reader before the Exits",
+    "questionFlag": "Flag the answer is held under",
+    "removeQuestion": "Remove the Question",
     "soundTakenFrom": "Heard under {name}",
     "transcript": "Transcript",
     "whatTheSoundMakesHeard": "What the Sound makes heard",
@@ -504,6 +508,7 @@
     "noOpening": "This Story marks no opening Scene, so no Reading can start. Mark the Scene it opens on.",
     "sceneUnreached": "No Exit arrives at {scene}, and the Story does not open on it, so no Reader ever gets there.",
     "sceneUnplayed": "{scene} holds no Shot: a Reader arriving there is shown nothing.",
+    "questionNeverPut": "{scene} asks a Question but has no Exit, so it is never put to the Reader.",
     "shotUnwritten": "Shot {place} of {scene} carries neither text nor Image.",
     "imageUndescribed": "The Image of Shot {place} of {scene} has no Description, so a Reader who cannot see it is told nothing about it.",
     "redactionUnsaid": "Shot {place} of {scene} hides words behind a bar and says nothing of them to a Reader who cannot see it.",
@@ -575,7 +580,9 @@
     "sceneTranscript": "What the Scene is heard under",
     "shotTranscript": "What the Shot strikes with",
     "waysOnStand": "The Exits stand until you take one.",
-    "waysOnStandFor": "The Exits stand for one second. | The Exits stand for {count} seconds."
+    "waysOnStandFor": "The Exits stand for one second. | The Exits stand for {count} seconds.",
+    "questionWaits": "A Question waits for your answer.",
+    "answer": "Answer"
   },
   "read": {
     "eyebrow": "A Frameline Story",
@@ -636,6 +643,8 @@
     "badFlag": "A Flag is a name and a value, and neither of them may be left empty.",
     "tooManyFlagValues": "A Flag cannot be drawn from more than {max} values.",
     "flagNameBrace": "A Flag's name cannot hold “{brace}”, because a text writes a Flag's name between braces.",
+    "question": "A Question is at most {max} characters.",
+    "questionFlag": "The Flag a Question's answer is held under is a name of at most {max} characters, on one line and without “=”.",
     "flagValueSeparator": "A Flag's value cannot hold “{separator}”, which is what separates one value of a draw from the next.",
     "storyTitle": "A Story needs a title.",
     "storyTitleLong": "A title cannot be longer than {max} characters.",

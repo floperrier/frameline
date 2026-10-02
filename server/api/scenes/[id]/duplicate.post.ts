@@ -13,6 +13,9 @@ import { useDb } from '../../../db'
  * the moment it exists it is an ordinary Scene: renameable, rewritable, and a
  * place new ways on are written from.
  *
+ * The copy asks what the original asks, the sentence and the Flag its answer is
+ * held under, so a Reader is put the same Question at the end of either.
+ *
  * Copying `sound_of_scene_id` verbatim keeps the one hop of
  * `docs/adr/0049-a-sound-is-carried-by-what-plays-it.md`: the copy names whatever
  * the original named, and what the original named carries bytes by construction.
@@ -54,12 +57,12 @@ export default defineEventHandler(async (event) => {
         story_id, name, sets, sound, sound_of_scene_id, transcript, sound_loops,
         cut_after, cut_over, cut_through, exits_after,
         layout, movement_by, movement_direction, movement_over,
-        text_after, text_by, text_pace, text_over, text_stays
+        text_after, text_by, text_pace, text_over, text_stays, question, question_flag
       )
       select story_id, name, sets, sound, sound_of_scene_id, transcript, sound_loops,
         cut_after, cut_over, cut_through, exits_after,
         layout, movement_by, movement_direction, movement_over,
-        text_after, text_by, text_pace, text_over, text_stays
+        text_after, text_by, text_pace, text_over, text_stays, question, question_flag
       from scenes
       where id = ${id}::uuid and id in (${scenesOf(author.id)})
       returning id, name, sets

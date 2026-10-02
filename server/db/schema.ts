@@ -191,6 +191,13 @@ const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () =>
 // being as long as the Shot is on screen. The defaults are every Story already
 // written, whose Images hold still. See
 // `docs/adr/0057-the-image-moves-over-the-time-its-shot-is-on-screen.md`.
+//
+// `question` is the sentence put to the Reader once the run has played and
+// before the Exits, and `question_flag` is the Flag the answer is held under.
+// Both are empty on a Scene that asks nothing, and a Scene asks where both are
+// written. The answer itself is never stored: it lives in the Reader's own
+// browser with the rest of the Path, see
+// `docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md`.
 export const scenes = pgTable('scenes', {
   id: uuid('id').primaryKey().defaultRandom(),
   storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
@@ -216,6 +223,8 @@ export const scenes = pgTable('scenes', {
   textPace: integer('text_pace').notNull().default(CHARACTERS_A_SECOND),
   textOver: integer('text_over').notNull().default(0),
   textStays: integer('text_stays'),
+  question: text('question').notNull().default(''),
+  questionFlag: text('question_flag').notNull().default(''),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 

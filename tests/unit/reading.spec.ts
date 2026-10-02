@@ -7,6 +7,7 @@ import {
   CUT_OVER_MAX,
   EXITS_AFTER_MAX,
   EXITS_AFTER_MIN,
+  FLAG_VALUE_MAX_LENGTH,
   isTime,
   LAYOUTS,
   MOVEMENT_DIRECTIONS,
@@ -16,9 +17,10 @@ import {
 } from '../../shared/utils/scenes'
 import type { Path, State, StoryToRead } from '../../shared/utils/reading'
 import {
-  advance, back, braced, cut, declaredIn, lastUnitAt, layout, lasting, moved, movement, movementEnds, movesItself, opening, pathTo,
-  pieces, reading, resumes, said, standOn, take, textArrival, textArrives, textMoves, timed, unmet,
+  advance, answer, back, braced, cut, declaredIn, lastUnitAt, layout, lasting, moved, movement, movementEnds, movesItself, opening,
+  pathTo, pieces, reading, resumes, said, standOn, take, textArrival, textArrives, textMoves, timed, unmet,
 } from '../../shared/utils/reading'
+import { isPath } from '../../app/utils/kept'
 import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
 import type { Phrase } from '../../shared/utils/phrases'
 
@@ -30,7 +32,8 @@ import type { Phrase } from '../../shared/utils/phrases'
  * them, so a Story about anything else stays as short as it was.
  *
  * A Shot is written as its text, or as its text and the Conditions it plays
- * under, so a Scene of plain Shots reads as the list of lines it is.
+ * under, so a Scene of plain Shots reads as the list of lines it is. A Scene
+ * ends on a Question only where `asked` gives it the sentence and the Flag.
  */
 type Written = string | [text: string, conditions: Condition[]]
 
@@ -46,6 +49,7 @@ function story(
   openingSceneId: string | null = Object.keys(scenes)[0] ?? null,
   sets: Record<string, Sets> = {},
   stepsBack = true,
+  asked: Record<string, [question: string, flag: string]> = {},
 ): StoryToRead {
   return {
     openingSceneId,
@@ -74,6 +78,8 @@ function story(
       textPace: 15,
       textOver: 0,
       textStays: null,
+      question: asked[id]?.[0] ?? '',
+      questionFlag: asked[id]?.[1] ?? '',
       shots: texts.map((written, position) => {
         const [text, conditions] = typeof written === 'string' ? [written, []] : written
         return {
@@ -134,6 +140,12 @@ const OPENING = opening(1)
 function shown(read: StoryToRead, at: Path) {
   const { shot, exits, ended } = reading(read, at)
   return { text: shot?.text, offered: exits.map(exit => exit.text), ended }
+}
+
+/** What the Reader is shown once the run has played: the Question put, or the Exits on offer. */
+function asked(read: StoryToRead, at: Path) {
+  const { question, exits, ended } = reading(read, at)
+  return { question, offered: exits.map(exit => exit.text), ended }
 }
 
 /** The run of Shots this Reading plays, which is the Scene's own minus the skipped. */
@@ -1287,6 +1299,218 @@ describe('a Path kept in the browser and replayed', () => {
   })
 })
 
+describe('a Scene that ends on a Question', () => {
+  /**
+   * A Door that asks who is there once its one Shot has played, and a Hall that
+   * says the answer — so the answer has a Flag to be held under and a text to be
+   * said in.
+   */
+  const door = story(
+    { Door: ['A knock.'], Hall: ['Hello, {name}.'] },
+    [['Door', 'Come in', 'Hall']],
+    'Door',
+    {},
+    true,
+    { Door: ['Who is there?', 'name'] },
+  )
+  const [comeIn] = door.exits
+  const atTheQuestion = advance(OPENING)
+
+  it('is put once the run has played, with no Exit beside it', () => {
+    expect(asked(door, OPENING)).toEqual({ question: null, offered: [], ended: false })
+    expect(asked(door, atTheQuestion)).toEqual({ question: 'Who is there?', offered: [], ended: false })
+  })
+
+  it('is not put where no Exit leaves the Scene, which ends', () => {
+    const alone = story({ Door: ['A knock.'] }, [], 'Door', {}, true, { Door: ['Who is there?', 'name'] })
+    expect(asked(alone, advance(OPENING))).toEqual({ question: null, offered: [], ended: true })
+  })
+
+  it('is not put again once the Path holds its answer, and the Exits are shown', () => {
+    expect(asked(door, answer(atTheQuestion, 'Door', 'Ada')))
+      .toEqual({ question: null, offered: ['Come in'], ended: false })
+  })
+
+  it('is put where the only way on tests the answer, which opens it or ends the Scene', () => {
+    const gate = story(
+      { Gate: ['A voice.'], Yard: ['Gravel.'] },
+      [['Gate', 'Enter', 'Yard', [{ flag: 'password', is: 'swordfish' }]]],
+      'Gate',
+      {},
+      true,
+      { Gate: ['Password?', 'password'] },
+    )
+    const [enter] = gate.exits
+    const at = advance(OPENING)
+
+    expect(asked(gate, at).question).toBe('Password?')
+    expect(asked(gate, answer(at, 'Gate', 'swordfish')))
+      .toEqual({ question: null, offered: ['Enter'], ended: false })
+    expect(asked(gate, answer(at, 'Gate', 'Bob'))).toEqual({ question: null, offered: [], ended: true })
+    // From the ending a wrong answer leads to, the step back puts the Question again.
+    expect(asked(gate, back(gate, answer(at, 'Gate', 'Bob'))!).question).toBe('Password?')
+    // The walk judges the Exit taken against the answer too.
+    expect(reading(gate, take(answer(at, 'Gate', 'swordfish'), enter!)).sceneId).toBe('Yard')
+    expect(reading(gate, take(answer(at, 'Gate', 'Bob'), enter!)).sceneId).toBe('Gate')
+  })
+
+  it('is not put where a way on also waits on something the answer cannot give', () => {
+    const locked = story(
+      { Gate: ['A voice.'], Yard: ['Gravel.'] },
+      [['Gate', 'Enter', 'Yard', [{ flag: 'password', is: 'swordfish' }, { flag: 'key', is: 'held' }]]],
+      'Gate',
+      {},
+      true,
+      { Gate: ['Password?', 'password'] },
+    )
+    expect(asked(locked, advance(OPENING))).toEqual({ question: null, offered: [], ended: true })
+  })
+
+  it('leaves the run judged against the State the Scene was arrived with', () => {
+    const knocking = story(
+      { Door: ['A knock.', ['Ada!', [{ flag: 'name', is: 'Ada' }]]], Hall: ['Hello.'] },
+      [['Door', 'Come in', 'Hall']],
+      'Door',
+      {},
+      true,
+      { Door: ['Who is there?', 'name'] },
+    )
+    const answered = answer(advance(OPENING), 'Door', 'Ada')
+
+    expect(run(knocking, answered)).toEqual(['A knock.'])
+    expect(asked(knocking, answered)).toEqual({ question: null, offered: ['Come in'], ended: false })
+  })
+
+  it('sets its Flag before the Exits are judged, and the next Scene says it', () => {
+    const inTheHall = take(answer(atTheQuestion, 'Door', 'Ada'), comeIn!)
+    expect(said('Hello, {name}.', reading(door, inTheHall).state.flags, declaredIn(door))).toBe('Hello, Ada.')
+  })
+
+  it('is answered trimmed, cut to the length a value is held to, and answered by nothing too', () => {
+    expect(answer(atTheQuestion, 'Door', '  Ada  ').answers).toEqual({ Door: 'Ada' })
+    expect(answer(atTheQuestion, 'Door', 'a'.repeat(FLAG_VALUE_MAX_LENGTH + 5)).answers!.Door)
+      .toHaveLength(FLAG_VALUE_MAX_LENGTH)
+
+    const nothing = answer(atTheQuestion, 'Door', '   ')
+    expect(asked(door, nothing)).toEqual({ question: null, offered: ['Come in'], ended: false })
+    expect(reading(door, nothing).state.flags.name).toBe('')
+  })
+
+  it('is put again when the Reader steps back from its Exits, and steps back to the last Shot from there', () => {
+    const steppedBack = back(door, answer(atTheQuestion, 'Door', 'Ada'))!
+    expect(steppedBack.answers).toEqual({})
+    expect(asked(door, steppedBack).question).toBe('Who is there?')
+
+    expect(back(door, atTheQuestion)).toEqual(OPENING)
+  })
+
+  it('lets go of its answer where the Path is stood on a Shot of its run, and is put again after it', () => {
+    const naming = story(
+      { Door: ['A knock, {name}.'], Hall: ['Hello.'] },
+      [['Door', 'Come in', 'Hall']],
+      'Door',
+      {},
+      true,
+      { Door: ['Who is there?', 'name'] },
+    )
+    const stood = standOn(naming, answer(atTheQuestion, 'Door', 'Ada'), 'Door-0')
+    const { shot, state } = reading(naming, stood)
+
+    expect(stood.answers).toEqual({})
+    expect(said(shot!.text, state.flags, declaredIn(naming))).toBe('A knock, .')
+    expect(asked(naming, advance(stood)).question).toBe('Who is there?')
+  })
+
+  it('is put at once by a Scene with no Shot, and a step back from it crosses the Exit behind', () => {
+    const hall = story(
+      { Street: ['A door opens.'], Door: [], Hall: ['Hello, {name}.'] },
+      [['Street', 'Knock', 'Door'], ['Door', 'Come in', 'Hall']],
+      'Street',
+      {},
+      true,
+      { Door: ['Who is there?', 'name'] },
+    )
+    const atTheDoor = take(advance(OPENING), hall.exits[0]!)
+    expect(asked(hall, atTheDoor)).toEqual({ question: 'Who is there?', offered: [], ended: false })
+
+    const backOut = back(hall, atTheDoor)!
+    expect(reading(hall, backOut).sceneId).toBe('Street')
+    expect(asked(hall, backOut)).toEqual({ question: null, offered: ['Knock'], ended: false })
+    expect('answers' in backOut).toBe(false)
+  })
+
+  it('steps back across an Exit onto the answered Scene behind, letting go of the answer of the Scene it left', () => {
+    const rooms = story(
+      { Door: ['A knock.'], Hall: ['Hello, {name}.'], Bar: ['Smoke.'] },
+      [['Door', 'Come in', 'Hall'], ['Hall', 'Sit down', 'Bar']],
+      'Door',
+      {},
+      true,
+      { Door: ['Who is there?', 'name'], Hall: ['What will it be?', 'drink'] },
+    )
+    // A Path that holds the Hall's answer while the Hall's Shot is on screen: one
+    // kept from before an edit, say. Crossing back leaves the Hall unentered.
+    const inTheHall = {
+      ...take(answer(advance(OPENING), 'Door', 'Ada'), rooms.exits[0]!),
+      answers: { Door: 'Ada', Hall: 'Gin' },
+    }
+
+    const backAtTheDoor = back(rooms, inTheHall)!
+    expect(backAtTheDoor.answers).toEqual({ Door: 'Ada' })
+    expect(reading(rooms, backAtTheDoor).sceneId).toBe('Door')
+    expect(asked(rooms, backAtTheDoor)).toEqual({ question: null, offered: ['Come in'], ended: false })
+  })
+
+  it('steps back as it always has where the Scene no longer asks, whatever the Path holds', () => {
+    const quiet = story({ Door: ['A knock.'], Hall: [] }, [['Door', 'Come in', 'Hall']])
+    expect(back(quiet, answer(atTheQuestion, 'Door', 'Ada'))).toEqual({ ...OPENING, answers: { Door: 'Ada' } })
+  })
+
+  it('keeps its answer when the Reader takes a way on', () => {
+    expect(take(answer(atTheQuestion, 'Door', 'Ada'), comeIn!).answers).toEqual({ Door: 'Ada' })
+  })
+
+  it('is a place a kept Path is picked up at, as is a Path kept before any Question was asked', () => {
+    expect(resumes(door, atTheQuestion)).toBe(true)
+    expect(resumes(door, { seed: 1, taken: ['exit-0'], shot: 0 })).toBe(true)
+  })
+
+  it('has moved a Reading that has only answered, in a Scene with no Shot', () => {
+    const blank = story({ Door: [], Hall: ['Hello.'] }, [['Door', 'Come in', 'Hall']], 'Door', {}, true, {
+      Door: ['Who is there?', 'name'],
+    })
+    const answered = answer(OPENING, 'Door', 'Ada')
+
+    expect(moved(OPENING)).toBe(false)
+    expect(moved(answered)).toBe(true)
+    expect(resumes(blank, answered)).toBe(true)
+  })
+
+  it('is answered with nothing by the search for a Scene behind it', () => {
+    const at = pathTo(door, OPENING, 'Hall')!
+    expect(reading(door, at).sceneId).toBe('Hall')
+    expect(at.answers).toEqual({ Door: '' })
+  })
+
+  it('declares the Flag it holds its answer under, and none for a sentence with no Flag', () => {
+    const asking = story({ Door: [], Hall: [] }, [], 'Door', {}, true, {
+      Door: ['Who is there?', ' name '],
+      Hall: ['Where to?', ''],
+    })
+    expect(declaredIn(asking)).toEqual(new Set(['name']))
+  })
+})
+
+describe('the shape of a Path the browser hands back', () => {
+  it('holds its answers as strings by Scene, or holds none', () => {
+    expect(isPath(OPENING)).toBe(true)
+    expect(isPath({ ...OPENING, answers: { a: 'x' } })).toBe(true)
+    expect(isPath({ ...OPENING, answers: null })).toBe(false)
+    expect(isPath({ ...OPENING, answers: [] })).toBe(false)
+    expect(isPath({ ...OPENING, answers: { a: 1 } })).toBe(false)
+  })
+})
+
 describe('cut', () => {
   const scene = {
     id: 'a', sets: {}, shots: [], sound: null, soundOfSceneId: null,
@@ -1294,6 +1518,7 @@ describe('cut', () => {
     cutAfter: 4000, cutOver: 800, cutThrough: 'image' as const, exitsAfter: null, layout: 'inset' as const,
     movementBy: 0, movementDirection: 'closer' as const, movementOver: 0,
     textAfter: 0, textBy: 'whole' as const, textPace: 15, textOver: 0, textStays: null,
+    question: '', questionFlag: '',
   }
   const shot = {
     id: 's', text: '', formatted: formattedOf(''), position: 0, image: null, description: '',
@@ -1603,6 +1828,7 @@ describe('layout', () => {
     cutAfter: null, cutOver: 0, cutThrough: 'image' as const, exitsAfter: null, layout: 'inset' as const,
     movementBy: 0, movementDirection: 'closer' as const, movementOver: 0,
     textAfter: 0, textBy: 'whole' as const, textPace: 15, textOver: 0, textStays: null,
+    question: '', questionFlag: '',
   }
   const shot = {
     id: 's', text: '', formatted: formattedOf(''), position: 0, image: null, description: '',
@@ -1639,6 +1865,7 @@ describe('textArrival', () => {
     cutAfter: null, cutOver: 0, cutThrough: 'image' as const, exitsAfter: null, layout: 'inset' as const,
     movementBy: 0, movementDirection: 'closer' as const, movementOver: 0,
     textAfter: 1000, textBy: 'word' as const, textPace: 10, textOver: 200, textStays: 3000,
+    question: '', questionFlag: '',
   }
   const shot = {
     id: 's', text: 'A door opens.', formatted: formattedOf('A door opens.'), position: 0, image: null, description: '',
@@ -1771,7 +1998,12 @@ describe('what a text says', () => {
   })
 
   it('declares the names every Scene sets, a draw included', () => {
-    expect(declaredIn({ scenes: [{ sets: { a: '1' } }, { sets: { b: ['x', 'y'] } }] }))
+    expect(declaredIn({
+      scenes: [
+        { sets: { a: '1' }, question: '', questionFlag: '' },
+        { sets: { b: ['x', 'y'] }, question: '', questionFlag: '' },
+      ],
+    }))
       .toEqual(new Set(['a', 'b']))
   })
 

@@ -39,6 +39,8 @@ type Written = {
   textPace?: Scene['textPace']
   textOver?: Scene['textOver']
   textStays?: Scene['textStays']
+  question?: string
+  questionFlag?: string
 }
 
 /**
@@ -84,6 +86,8 @@ function onTheBench(
       textPace: scene.textPace ?? 15,
       textOver: scene.textOver ?? 0,
       textStays: scene.textStays ?? null,
+      question: scene.question ?? '',
+      questionFlag: scene.questionFlag ?? '',
       shots: (scene.shots ?? [{ text: 'A door opens.' }]).map((shot, at) => ({
         id: `${idOf(scene)}-${at}`,
         text: '',
@@ -836,5 +840,63 @@ describe('the Flags the texts say', () => {
     }])
 
     expect(only(story, 'flagUntested').map(remark => remark.said.flag)).toEqual(['hat'])
+  })
+})
+
+describe('what a Question changes', () => {
+  const asking = { question: 'Your name?', questionFlag: 'name' }
+  const only = (story: StoryInEditor, name: string) =>
+    remarks(story, says).filter(remark => remark.name === name)
+
+  it('counts a Flag a Question holds as set, said later in a Shot', () => {
+    const story = onTheBench([
+      { name: 'Ask', ...asking },
+      { name: 'Greet', shots: [{ text: 'Hello {name}.', formatted: formattedOf('Hello {name}.') }] },
+    ], { exits: [['Ask', 'Greet']] })
+
+    expect(named(story).filter(name => name.startsWith('flag'))).toEqual([])
+  })
+
+  it('counts a Flag a Question holds as set, tested by an Exit, and never dead', () => {
+    const story = onTheBench([{ name: 'Ask', ...asking }, { name: 'Greet' }], {
+      exits: [['Ask', 'Greet', { flag: 'name', is: 'Ada' }]],
+    })
+
+    expect(named(story).filter(name => name.startsWith('flag') || name === 'exitUnofferable'))
+      .toEqual([])
+  })
+
+  it('still names a Flag only a Question holds that nothing tests or says', () => {
+    const story = onTheBench([{ name: 'Ask', ...asking }, { name: 'Greet' }], {
+      exits: [['Ask', 'Greet']],
+    })
+
+    expect(only(story, 'flagUntested').map(remark => [remark.said.flag, remark.sceneId]))
+      .toEqual([['name', 'Ask']])
+  })
+
+  it('reads a misspelt brace in a Question', () => {
+    const story = onTheBench([
+      { name: 'Ask', question: 'Is it {Name}?', questionFlag: 'name' },
+      { name: 'Next' },
+    ], { exits: [['Ask', 'Next']] })
+
+    expect(only(story, 'saysFlagNearly').map(remark => remark.said.flag)).toEqual(['name'])
+  })
+
+  it('says of a Scene that asks with no Exit that its Question is never put', () => {
+    const found = only(onTheBench([{ name: 'Ask', ...asking }]), 'questionNeverPut')
+
+    expect(found).toEqual([{ name: 'questionNeverPut', sceneId: 'Ask', said: { scene: 'Ask' } }])
+  })
+
+  it('says nothing of a Scene that asks and has an Exit, or has a sentence and no Flag', () => {
+    const asked = onTheBench([{ name: 'Ask', ...asking }, { name: 'Next' }], {
+      exits: [['Ask', 'Next']],
+    })
+    const half = onTheBench([{ name: 'Ask', question: 'Your name?' }])
+
+    expect(named(asked)).not.toContain('questionNeverPut')
+    expect(named(half)).not.toContain('questionNeverPut')
   })
 })

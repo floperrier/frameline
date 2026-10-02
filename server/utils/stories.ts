@@ -246,6 +246,8 @@ export async function readStoryGraph(storyId: string) {
       textPace: scenes.textPace,
       textOver: scenes.textOver,
       textStays: scenes.textStays,
+      question: scenes.question,
+      questionFlag: scenes.questionFlag,
       shotId: shots.id,
       text: shots.text,
       formatted: shots.formatted,
@@ -309,6 +311,8 @@ export async function readStoryGraph(storyId: string) {
         textPace: row.textPace,
         textOver: row.textOver,
         textStays: row.textStays,
+        question: row.question,
+        questionFlag: row.questionFlag,
       }
       scenesOfStory.push(scene)
     }

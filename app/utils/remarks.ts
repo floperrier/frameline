@@ -2,8 +2,8 @@
  * What the bench finds when it reads the Story back: the Scenes nothing arrives
  * at, the Shots nobody has written, a Sound nobody transcribed, the Flags set
  * and never tested or said, the texts that say a Flag no Scene sets, the ways
- * on that can never be offered, the Conditions the ways round rule out, and
- * the ways on no Reading is ever handed.
+ * on that can never be offered, the Conditions the ways round rule out,
+ * the ways on no Reading is ever handed, and a Question no Reader is ever put.
  *
  * A Remark is a reading and never a refusal. Nothing here blocks a write, marks a
  * Story invalid or corrects anything: every one of these is a Story an Author is
@@ -41,7 +41,7 @@ import type { Condition, Scene, Shot, StoryInEditor } from '../../shared/utils/s
 // nothing else in the server chunk imports is written where it does not exist.
 import { leafOf, linesOf } from '#shared/utils/formatted'
 import type { Phrase } from '../../shared/utils/phrases'
-import { braced, cut, declaredIn, flickers, lastUnitAt, textArrival } from '../../shared/utils/reading'
+import { asks, braced, cut, declaredIn, flickers, lastUnitAt, textArrival } from '../../shared/utils/reading'
 import { FLASHES_APART } from './flashes'
 
 /**
@@ -142,6 +142,13 @@ export function remarks(story: StoryInEditor, say: Phrase): Remark[] {
       found.push({ name: 'sceneUnreached', sceneId: scene.id, said })
     }
     if (!scene.shots.length) found.push({ name: 'sceneUnplayed', sceneId: scene.id, said })
+
+    // A Question is put before the Exits, and a Scene offering none is an ending,
+    // which asks nothing — docs/adr/0053-a-reading-ends-on-its-last-shot.md — so
+    // what such a Scene asks is written for no one.
+    if (asks(scene) && !exitsFrom(story.exits, scene.id).length) {
+      found.push({ name: 'questionNeverPut', sceneId: scene.id, said })
+    }
 
     // A Scene whose ways on stand for no time flows into the next without
     // asking — docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md —
@@ -394,11 +401,13 @@ const spelt = (name: string) => plainly(name).replace(/\s/g, '')
  * Every text a Reading reads, with the Scene it is written in: a Shot's text, read
  * over its runs as the Reading says it, its Description and its Transcript in its
  * Scene, an Exit's text in the Scene it leaves, and a Scene's Transcript where that
- * Scene carries the Sound, which is where `soundUntranscribed` reads it.
+ * Scene carries the Sound, which is where `soundUntranscribed` reads it, and the
+ * sentence of a Scene's Question, which a Reading says with its Flags as it says a Shot.
  */
 function textsOf(story: StoryInEditor): [string, Scene][] {
   return story.scenes.flatMap(scene => [
     scene.sound ? scene.transcript : '',
+    scene.question,
     ...scene.shots.flatMap(shot => [
       ...linesOf(shot.formatted).flat().map(leafOf),
       shot.description,
@@ -449,6 +458,10 @@ function flagRemarks(story: StoryInEditor, names: Map<string, string>): Remark[]
   const set = new Map<string, Scene>()
   for (const scene of story.scenes) {
     for (const flag of Object.keys(scene.sets)) if (!set.has(flag)) set.set(flag, scene)
+    // A Flag a Question holds is set by the Reader's answer, as surely as one a
+    // Scene sets, and is read from the first Scene found holding it.
+    const answered = scene.questionFlag.trim()
+    if (asks(scene) && !set.has(answered)) set.set(answered, scene)
   }
 
   const tested = new Map<string, Scene>()
@@ -484,6 +497,9 @@ function flagRemarks(story: StoryInEditor, names: Map<string, string>): Remark[]
  * the ways round the graph rather than of a list of values, and
  * `neverHoldsRemarks` reads it.
  *
+ * Nor is a Flag a Question holds: a Reader may answer anything, so no value is
+ * one it can never be set to.
+ *
  * Nor is the empty value, which is not a value at all. A Flag never set reads as
  * empty — `shared/utils/reading.ts`, and the glossary says so of a Flag — so a
  * Condition asking for the empty value is a Condition asking for the absence of a
@@ -508,8 +524,11 @@ function deadRemarks(story: StoryInEditor, names: Map<string, string>): Remark[]
     }
   }
 
+  const answered = new Set(story.scenes.filter(asks).map(scene => scene.questionFlag.trim()))
+
   const dead = ([condition]: Carried) =>
     'flag' in condition
+    && !answered.has(condition.flag)
     && condition.is !== ''
     && values.has(condition.flag)
     && !values.get(condition.flag)!.has(condition.is)

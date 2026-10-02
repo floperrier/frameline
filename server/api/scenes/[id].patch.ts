@@ -6,9 +6,9 @@ import { useDb } from '../../db'
  * Writes what an Author says about one Scene: its name, the three things said
  * about the Sound it is heard under — what it makes heard, whether it is held
  * in a loop, and the Scene it is taken from — its Cut, how its Images move and
- * how its texts arrive. They come through one door because they are one Scene's
- * row, and each lands on its own: a body naming one of them leaves the rest where
- * they were.
+ * how its texts arrive, the Question it ends on and the Flag the answer is held
+ * under. They come through one door because they are one Scene's row, and each
+ * lands on its own: a body naming one of them leaves the rest where they were.
  *
  * The bytes are not here. A Sound is a file, and a file is deposited at an
  * address of its own — `server/api/scenes/[id]/sound.put.ts`.
@@ -41,6 +41,8 @@ export default defineEventHandler(async (event) => {
       textPace: scenes.textPace,
       textOver: scenes.textOver,
       textStays: scenes.textStays,
+      question: scenes.question,
+      questionFlag: scenes.questionFlag,
     })
 
   if (!scene) throw notFound(event, 'Scene')

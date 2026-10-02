@@ -1,7 +1,7 @@
 import type {
   Condition, CutThrough, Exit, Flags, Layout, MovementDirection, Sets, Shot, TextBy,
 } from './scenes'
-import { MOVEMENT_OVER_UNTIMED } from './scenes'
+import { FLAG_VALUE_MAX_LENGTH, MOVEMENT_OVER_UNTIMED } from './scenes'
 import type { Phrase } from './phrases'
 import { runLastings } from './formatted'
 
@@ -50,6 +50,9 @@ export type StoryToRead = {
     textPace: number
     textOver: number
     textStays: number | null
+    /** What the Scene asks the Reader before its Exits, and the Flag the answer is held under. */
+    question: string
+    questionFlag: string
   }[]
   exits: Exit[]
   /**
@@ -87,8 +90,17 @@ export type StoryToShow = Omit<StoryToRead, 'scenes'> & {
  * Path and nothing else: a seed kept anywhere else would make `reading()`
  * impure, and two Readings that took the same Exits under the same seed would
  * stop being the same Reading.
+ *
+ * The answers are what the Reader said to the Questions they were put, keyed by
+ * the Scene that asked: a Scene is entered once
+ * (`docs/adr/0048-a-scene-is-entered-once.md`), so it is answered once. They are
+ * the one thing in a Reading that the Story cannot compute, so they are part of
+ * the Path for the reason the seed is. Optional, so a Path a browser kept before
+ * any Scene asked anything reads as one that has answered nothing; and kept where
+ * the rest of the Path is kept, never sent anywhere — see
+ * `docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md`.
  */
-export type Path = { seed: number, taken: string[], shot: number }
+export type Path = { seed: number, taken: string[], shot: number, answers?: Record<string, string> }
 
 /**
  * Everything one Reading has accumulated: what each Flag holds, the Scenes it has
@@ -121,6 +133,17 @@ export function holds(conditions: Condition[], state: State) {
   })
 }
 
+/**
+ * Whether a Scene ends on a Question: its sentence and the Flag its answer is held
+ * under are both written. One without the other is a Question half written, and
+ * a Reading puts nothing to the Reader that it could not hold the answer to. One
+ * function, so the Reading, the Remarks and the bench cannot disagree about which
+ * Scenes ask.
+ */
+export function asks(scene: { question: string, questionFlag: string }) {
+  return !!scene.question.trim() && !!scene.questionFlag.trim()
+}
+
 /** A Flag's name between braces, which is how a text says it. Nothing nests. */
 const SAID = /\{([^{}\n]+)\}/g
 
@@ -128,9 +151,14 @@ const SAID = /\{([^{}\n]+)\}/g
  * The names of the Flags some Scene of this Story sets, which are the only names
  * a text says: any other run between braces is read as it is written, and that is
  * the whole of the escaping rule. See `docs/adr/0059-a-flag-is-said-by-its-name.md`.
+ * A Scene that asks sets the Flag its answer is held under, once the Reader has
+ * answered, so that Flag is declared too.
  */
-export function declaredIn(story: { scenes: { sets: Sets }[] }) {
-  return new Set(story.scenes.flatMap(scene => Object.keys(scene.sets)))
+export function declaredIn(
+  story: { scenes: Pick<SceneToRead, 'sets' | 'question' | 'questionFlag'>[] },
+) {
+  return new Set(story.scenes.flatMap(scene =>
+    [...Object.keys(scene.sets), ...(asks(scene) ? [scene.questionFlag.trim()] : [])]))
 }
 
 /** Every run a text writes between braces, whether or not a Flag answers to it. */
@@ -585,6 +613,12 @@ function hashed(key: string) {
  * reaching its end: no Shot left and no Exit out, which the Reader is owed as an
  * ending rather than a screen that has simply stopped answering.
  *
+ * `question` is the sentence a Scene that asks puts to the Reader where its Shots
+ * would give way to its Exits, and it is shown alone: no Exit stands beside it,
+ * and the Path has not ended. Once the Reader has answered it is null again, the
+ * Exits are shown, and `state` holds the answer under the Scene's Flag, so the
+ * Exits are judged against it and their words say it.
+ *
  * `run` is the Shots of that Scene this Reading plays — the Author's run minus
  * the ones a Condition skips — which is what the Path counts and what the
  * screen numbers the beat against. It is here rather than read off the Scene
@@ -595,9 +629,25 @@ export type Shown = {
   sceneId: string | null
   run: Shot[]
   shot: Shot | undefined
+  question: string | null
   exits: Exit[]
   ended: boolean
   state: State
+}
+
+/**
+ * The State with the answer this Path gave the Scene it stands in, where that
+ * Scene asks and the Path holds one: the State its Exits are judged against. A
+ * copy, so the State the run was judged against is left as it was — the Shots of
+ * a Scene play to the Reader as they arrived, before anything was asked.
+ */
+function answered(scene: SceneToRead | undefined, state: State, answers: Path['answers']): State {
+  const given = scene && answers?.[scene.id]
+  if (!scene || given === undefined || !asks(scene)) return state
+
+  const flags: Flags = Object.assign(Object.create(null), state.flags)
+  flags[scene.questionFlag.trim()] = given
+  return { ...state, flags }
 }
 
 /**
@@ -620,16 +670,23 @@ export type Shown = {
  * The Exits it crosses are written down too, so a Shot of a Scene and an Exit
  * leaving it see every Exit taken up to and including the one that entered it.
  *
+ * A Scene that asks sets the Flag its answer is held under where the Path holds
+ * that answer, after its run and before the Exit taken out of it is judged — the
+ * moment the Reader gave it. So the Exit is judged against the answer, and every
+ * Scene after carries it; the State the walk stops in is the one that Scene was
+ * arrived with, and `reading` sets its answer for itself.
+ *
  * The Flags are a map with no prototype, because an Author may name a Flag
  * anything: on `{}`, one named `constructor` would already hold a function, and
  * one named `__proto__` could never be set.
  */
-function walk(story: StoryToRead, { seed, taken }: Path) {
-  const state: State = { flags: Object.create(null), entered: [], taken: [] }
+function walk(story: StoryToRead, { seed, taken, answers }: Path) {
+  let state: State = { flags: Object.create(null), entered: [], taken: [] }
+  const sceneOf = (id: string | null) => story.scenes.find(scene => scene.id === id)
 
   function enter(id: string) {
     state.entered.push(id)
-    const sets = story.scenes.find(scene => scene.id === id)?.sets ?? {}
+    const sets = sceneOf(id)?.sets ?? {}
 
     for (const [flag, held] of Object.entries(sets)) {
       state.flags[flag] = Array.isArray(held) ? drawn(seed, id, flag, held) : held
@@ -643,9 +700,11 @@ function walk(story: StoryToRead, { seed, taken }: Path) {
   // tells a Path that still fits the Story from one the Story has moved under.
   let walked = 0
   for (const takenId of taken) {
+    const left = answered(sceneOf(sceneId), state, answers)
     const exit = story.exits.find(exit =>
-      exit.id === takenId && exit.fromSceneId === sceneId && offered(exit, state))
+      exit.id === takenId && exit.fromSceneId === sceneId && offered(exit, left))
     if (!exit) break
+    state = left
     sceneId = exit.toSceneId
     state.taken.push(exit.id)
     enter(sceneId)
@@ -660,11 +719,13 @@ function walk(story: StoryToRead, { seed, taken }: Path) {
  * kept Path is resumed from, and whether reading again from the start is offered
  * — so the rule is written once and named the way
  * `docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md` names it. A Path
- * that has taken no Exit and is still on the Shot it opened on is a Reading that
- * has not begun.
+ * that has taken no Exit, is still on the Shot it opened on and has answered
+ * nothing is a Reading that has not begun. An answer counts, because an opening
+ * Scene with no Shot puts its Question first, and answering it is the Reader's
+ * first move.
  */
 export function moved(at: Path) {
-  return at.taken.length > 0 || at.shot > 0
+  return at.taken.length > 0 || at.shot > 0 || Object.keys(at.answers ?? {}).length > 0
 }
 
 /**
@@ -687,24 +748,52 @@ export function resumes(story: StoryToRead, at: Path) {
 
 /** What this Story shows a Reading that has taken this Path. */
 export function reading(story: StoryToRead, at: Path): Shown {
-  const { sceneId, state } = walk(story, at)
+  const { sceneId, state: arrived } = walk(story, at)
+  const scene = story.scenes.find(scene => scene.id === sceneId)
   // The run this Reading plays, judged against the State it arrived with: a Shot
   // whose Conditions fail is left out of the run rather than played to nobody,
   // so the Path counts the beats the Reader actually saw and the one after
   // the skipped Shot is the next one on screen. Judged once for the whole Scene,
-  // because nothing inside a Scene changes State — only entering one does.
-  const run = story.scenes.find(scene => scene.id === sceneId)
-    ?.shots.filter(shot => holds(shot.conditions, state)) ?? []
+  // because nothing inside a Scene changes State but its answer — and that is
+  // given after the run, so the run is judged before it.
+  const run = scene?.shots.filter(shot => holds(shot.conditions, arrived)) ?? []
   const shot = run[at.shot]
+  const state = answered(scene, arrived, at.answers)
+  const leaving = story.exits.filter(exit => exit.fromSceneId === sceneId)
+  // Put where some way on is offered under some answer: the Conditions on the
+  // answered Flag are set aside for this one test, because the answer they wait
+  // on does not exist yet, and a Scene whose only way on is a password would
+  // otherwise never ask for it. A Scene no answer can lead out of ends instead.
+  const question = !shot && scene && asks(scene) && at.answers?.[scene.id] === undefined
+    && leaving.some(exit => offered({
+      ...exit,
+      conditions: exit.conditions.filter(condition =>
+        !('flag' in condition) || condition.flag !== scene.questionFlag.trim()),
+    }, state))
+    ? scene.question
+    : null
   // A Story with no opening Scene has no Exits to offer either, so the empty
   // Scene and the missing one both end the Path. An Exit this Reading is not
   // offered — one of its Conditions failing, or its Scene already entered — is not
-  // among them, which is what makes it invisible rather than refused.
-  const exits = shot
-    ? []
-    : story.exits.filter(exit => exit.fromSceneId === sceneId && offered(exit, state))
+  // among them, which is what makes it invisible rather than refused. None is
+  // offered beside a Question, which has to be answered first.
+  const exits = shot || question ? [] : leaving.filter(exit => offered(exit, state))
 
-  return { sceneId, run, shot, exits, ended: !shot && exits.length === 0, state }
+  return {
+    sceneId, run, shot, question, exits, ended: !shot && !question && exits.length === 0, state,
+  }
+}
+
+/**
+ * The Reader answers the Question of the Scene they stand in. Trimmed, and cut to
+ * the length a Flag's value is held to, because it is one. Empty is an answer:
+ * the Reader who says nothing has still said it, and is offered the Exits.
+ */
+export function answer(at: Path, sceneId: string, text: string): Path {
+  return {
+    ...at,
+    answers: { ...at.answers, [sceneId]: text.trim().slice(0, FLAG_VALUE_MAX_LENGTH) },
+  }
 }
 
 /** The Reader asks for the next Shot of the Scene. */
@@ -741,8 +830,24 @@ export function take(at: Path, exit: Exit): Path {
  * the Scene stepped back into is. It is the run this Reading plays and not the
  * Scene's own, so a Shot a Condition skipped on the way in is skipped on the way
  * back as well.
+ *
+ * An answer is a beat of its own, given after the run and before the Exits. So at
+ * the Exits, or the ending, of a Scene that asked and was answered, the step back
+ * lets the answer go and the Question is put again; from the Question it is to
+ * the last Shot of the run, as from the Exits of a Scene that asks nothing. A
+ * Scene whose Question the Author has taken away since steps back as it always
+ * did, whatever the Path still holds for it. Crossing an Exit backwards keeps
+ * only the answers of the Scenes the shorter Path still enters, so a Scene
+ * entered again asks again.
  */
 export function back(story: StoryToRead, at: Path): Path | undefined {
+  const now = reading(story, at)
+  const scene = story.scenes.find(scene => scene.id === now.sceneId)
+  if (!now.shot && scene && asks(scene) && at.answers?.[scene.id] !== undefined) {
+    const { [scene.id]: _, ...answers } = at.answers
+    return { ...at, answers }
+  }
+
   if (at.shot > 0) return { ...at, shot: at.shot - 1 }
 
   // Which Exit would be crossed, and whether it is crossed: the Exit's own
@@ -754,7 +859,13 @@ export function back(story: StoryToRead, at: Path): Path | undefined {
   if (!crossed || !(crossed.stepsBack ?? story.stepsBack)) return
 
   const before: Path = { ...at, taken: at.taken.slice(0, -1), shot: 0 }
-  return { ...before, shot: reading(story, before).run.length }
+  const { run, state } = reading(story, before)
+  // A Path kept before any Scene asked has no answers to keep, and keeps that shape.
+  if (!at.answers) return { ...before, shot: run.length }
+
+  const answers = Object.fromEntries(Object.entries(at.answers)
+    .filter(([id]) => state.entered.includes(id)))
+  return { ...before, shot: run.length, answers }
 }
 
 /**
@@ -785,6 +896,12 @@ export function back(story: StoryToRead, at: Path): Path | undefined {
  * there to the end, so only the first is searched on; keying on every Scene
  * entered would never merge two, and keying on nothing would extend for ever a
  * Path that `walk` has stopped following.
+ *
+ * A Question it stands at and holds no answer for is answered with nothing before
+ * the ways on are judged, as a Reader who says nothing answers it, so a Scene
+ * behind a Question is reached and the Path that reaches it says what was
+ * answered. A way on that waits on a particular answer is not reached through
+ * that answer; reaching through one is #416.
  */
 export function pathTo(story: StoryToRead, from: Path, sceneId: string): Path | undefined {
   const seen = new Set<string>()
@@ -824,9 +941,15 @@ export function pathTo(story: StoryToRead, from: Path, sceneId: string): Path | 
       if (seen.has(arrivedAs)) continue
       seen.add(arrivedAs)
 
+      const scene = story.scenes.find(scene => scene.id === standing)
+      const answering = scene && asks(scene) && at.answers?.[standing] === undefined
+        ? answer(at, standing, '')
+        : at
+      const { state: left } = reading(story, answering)
+
       for (const exit of story.exits) {
-        if (exit.fromSceneId !== standing || !offered(exit, state)) continue
-        next.push(take(at, exit))
+        if (exit.fromSceneId !== standing || !offered(exit, left)) continue
+        next.push(take(answering, exit))
       }
     }
 
@@ -846,15 +969,23 @@ export function pathTo(story: StoryToRead, from: Path, sceneId: string): Path | 
  * Shot of the Scene that does play, or past the whole run — on the Scene's Exits —
  * where none after it does. Nothing looks for another Path on which it would
  * play. A Shot the Scene does not hold leaves the Path where it is.
+ *
+ * A Shot of the run is a beat before the Scene asks, so standing on one lets go
+ * of the answer the Path holds for that Scene, as `back` does at its Exits: the
+ * run does not say an answer that, at that beat, has not been given yet, and the
+ * Question is put again once it has played. Past the run the answer is kept.
  */
 export function standOn(story: StoryToRead, at: Path, shotId: string): Path {
   const { sceneId, run } = reading(story, at)
   const shots = story.scenes.find(scene => scene.id === sceneId)?.shots ?? []
   const place = shots.findIndex(shot => shot.id === shotId)
-  if (place < 0) return at
+  if (!sceneId || place < 0) return at
 
   const onward = shots.slice(place)
   const shot = run.findIndex(played => onward.includes(played))
+  if (shot < 0) return { ...at, shot: run.length }
+  if (at.answers?.[sceneId] === undefined) return { ...at, shot }
 
-  return { ...at, shot: shot < 0 ? run.length : shot }
+  const { [sceneId]: _, ...answers } = at.answers
+  return { ...at, shot, answers }
 }

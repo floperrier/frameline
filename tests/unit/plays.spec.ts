@@ -127,6 +127,7 @@ const WRITTEN: Scene = {
   cutAfter: null, cutOver: 0, cutThrough: 'image', exitsAfter: null, layout: 'inset',
   movementBy: 0, movementDirection: 'closer', movementOver: 0,
   textAfter: 0, textBy: 'whole', textPace: 15, textOver: 0, textStays: null,
+  question: '', questionFlag: '',
 }
 
 const scenePlays = (said: Partial<Scene>) => scenePlaysAs({ ...WRITTEN, ...said }, says)

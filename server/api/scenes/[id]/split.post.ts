@@ -33,6 +33,10 @@ import { useDb } from '../../../db'
  * dissolve between the two Shots would become a hard cut at the press — issue
  * #344.
  *
+ * The Question is asked before the Exits, so it goes with the Exits to the second
+ * half: the new Scene takes the sentence and the Flag its answer is held under,
+ * and the first half is left asking nothing, in the same statement.
+ *
  * This is the act `docs/adr/0001-branching-only-between-scenes.md` said the
  * decision owed: an Author who wants a Story to branch in the middle of a Scene
  * splits it there and writes the second way on out of the first half.
@@ -62,7 +66,7 @@ export default defineEventHandler(async (event) => {
         coalesce(leaving.cut_through, scenes.cut_through) as passage_through,
         scenes.layout, scenes.movement_by, scenes.movement_direction,
         scenes.movement_over, scenes.text_after, scenes.text_by, scenes.text_pace,
-        scenes.text_over, scenes.text_stays
+        scenes.text_over, scenes.text_stays, scenes.question, scenes.question_flag
       from shots
       join scenes on scenes.id = shots.scene_id
       left join shots as leaving
@@ -77,14 +81,14 @@ export default defineEventHandler(async (event) => {
         story_id, name, sound_of_scene_id,
         cut_after, cut_over, cut_through, exits_after,
         layout, movement_by, movement_direction, movement_over,
-        text_after, text_by, text_pace, text_over, text_stays
+        text_after, text_by, text_pace, text_over, text_stays, question, question_flag
       )
       select parted.story_id, ${name},
         coalesce(parted.sound_of_scene_id, case when parted.has_sound then parted.scene_id end),
         parted.cut_after, parted.cut_over, parted.cut_through, parted.exits_after,
         parted.layout, parted.movement_by, parted.movement_direction,
         parted.movement_over, parted.text_after, parted.text_by, parted.text_pace,
-        parted.text_over, parted.text_stays
+        parted.text_over, parted.text_stays, parted.question, parted.question_flag
       from parted
       returning id, name
     ),
@@ -101,7 +105,7 @@ export default defineEventHandler(async (event) => {
       returning exits.id
     ),
     halved as (
-      update scenes set exits_after = null
+      update scenes set exits_after = null, question = '', question_flag = ''
       from made, parted
       where scenes.id = parted.scene_id
       returning scenes.id

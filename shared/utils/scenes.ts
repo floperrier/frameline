@@ -314,6 +314,13 @@ export const FLAG_VALUE_MAX_LENGTH = 200
 export const FLAGS_PER_SCENE = 20
 
 /**
+ * How long the sentence a Scene puts to the Reader may be. A Question is one
+ * sentence over one field, read where the Exits are read, so it is held to the
+ * length of a Description rather than of a Shot's text.
+ */
+export const QUESTION_MAX_LENGTH = 250
+
+/**
  * How many values one Flag may be given to draw from. Two at the least — a line
  * with no separator is a plain value and stays one — and six at the most: a draw
  * is a beat coming back differently, not a table an Author rolls on. Past half a
@@ -535,6 +542,13 @@ export type Scene = {
   textPace: number
   textOver: number
   textStays: number | null
+  /**
+   * The sentence this Scene puts to the Reader once its run has played and before
+   * its Exits, and the Flag the Reader's answer is held under. Both are empty on a
+   * Scene that asks nothing.
+   */
+  question: string
+  questionFlag: string
 }
 export type Exit = {
   id: string

@@ -379,6 +379,11 @@ test('the bar names every act marked on a Scene being written, and no other', as
   // Preview. Each is named for what pressing it does — the reading on screen is
   // the one the bar does not offer — so the bar carries the two the Author is not
   // on. See `docs/adr/0043-a-story-is-written-as-one-document.md`.
+  //
+  // *Ask the Reader a Question* is the one act added since, with #417: it stands
+  // between the Shots and the Exits where it plays, so it falls between the last
+  // act on a Shot and the first on an Exit. Once the Question is open it gives
+  // way to *Remove the Question*, which is then the act on offer instead.
   await expect(offered(page)).toHaveText([
     'See the Contact Sheet',
     'Read the Story',
@@ -392,6 +397,7 @@ test('the bar names every act marked on a Scene being written, and no other', as
     'Add a Condition to Shot 2 of The street',
     'Add a Shot',
     'Add Shots from Images',
+    'Ask the Reader a Question',
     'Add a Condition to the Exit 1 to The bar, out of The street',
     'Add an Exit',
     'Close the Remarks',
