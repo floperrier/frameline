@@ -599,6 +599,42 @@ function stepBack() {
 }
 
 /**
+ * The Exits this Reading took where it could have taken another, oldest first,
+ * each with the Path standing where it was taken and the words its button showed
+ * there: said with the Flags held on that Path, or the Scene it leads to where
+ * its Author left it without words. The engine says which, and where a door
+ * closed backwards cuts the list — see
+ * `docs/adr/0075-a-reader-goes-back-to-the-exit-they-name.md`.
+ */
+const forked = computed(() => forks(story, at.value).map(({ exit, index }) => {
+  const to = backTo(story, at.value, index)
+  return { exit, to, words: offered(exit, reading(story, to).state.flags) }
+}))
+
+/**
+ * Whether the list of them is open. Any move of the Reading closes it, since it
+ * lists the Path that was, and a press on one of its entries took that entry
+ * away with it. Esc closes it too, and puts the Reader back on the control that
+ * opened it.
+ *
+ * Going back to one is a hard cut, as a step back is, and does not stop the
+ * clock: the Reader has said where they want to stand, and a stand with a time
+ * counts it again from the ways on being offered.
+ */
+const othersOpen = ref(false)
+const othersId = useId()
+const another = useTemplateRef<HTMLElement>('another')
+
+watch(at, () => {
+  othersOpen.value = false
+})
+
+function closeOthers() {
+  othersOpen.value = false
+  another.value?.focus()
+}
+
+/**
  * The Reader answers the Question on screen with what they typed, which is a move
  * like any other and lands them where the Exits are now offered — judged with the
  * answer, and said with it.
@@ -703,10 +739,15 @@ const travelStyle = computed(() => {
 /**
  * An Exit is offered by what its text says once said, so one whose text says
  * nothing — a name this Reading holds no value for — is offered, like one nobody
- * has phrased yet, by where it arrives.
+ * has phrased yet, by where it arrives. Said against the State on screen, or
+ * against the Flags of the Path an Exit taken earlier was offered on.
  */
-function offered(exit: Exit) {
-  return exitNamed({ ...exit, text: says(exit.text) }, id => sceneNamed(sceneNames.value, id, t), t)
+function offered(exit: Exit, flags = shown.value.state.flags) {
+  return exitNamed(
+    { ...exit, text: said(exit.text, flags, declared.value) },
+    id => sceneNamed(sceneNames.value, id, t),
+    t,
+  )
 }
 
 /**
@@ -1716,6 +1757,23 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
       <button v-if="behind" type="button" class="trail" @click="stepBack">
         {{ $t('reading.back') }}
       </button>
+      <!-- Between the two, since it goes back further than a beat and less far
+           than the start. Drawn wherever an Exit taken can be gone back to — at an
+           ending, at the ways on, and in the middle of a run, because a Reader
+           who sees where an Exit led them often knows at once they wanted the
+           other. -->
+      <button
+        v-if="forked.length"
+        ref="another"
+        type="button"
+        class="trail"
+        :aria-expanded="othersOpen"
+        :aria-controls="othersId"
+        @click="othersOpen = !othersOpen"
+        @keydown.esc="closeOthers"
+      >
+        {{ $t('reading.another') }}
+      </button>
       <button
         ref="again"
         type="button"
@@ -1725,6 +1783,30 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
         {{ $t('reading.again') }}
       </button>
     </p>
+
+    <!-- What *Take Another Exit* opens, in place under the controls: each Exit by
+         the words its button showed, which are the Story's own and in its
+         Language, and nothing else of the Story — no Scene, no Place, no count.
+         In the document while the control is, so the control names an element
+         that is there. -->
+    <ol
+      v-if="forked.length"
+      v-show="othersOpen"
+      :id="othersId"
+      class="others"
+      :aria-label="$t('reading.taken')"
+      @keydown.esc="closeOthers"
+    >
+      <li v-for="way in forked" :key="way.exit.id">
+        <button
+          type="button"
+          :aria-label="$t('reading.backTo', { words: way.words })"
+          @click="passBy(0, 'image', way.to)"
+        >
+          <span :lang="story.language">{{ way.words }}</span>
+        </button>
+      </li>
+    </ol>
   </div>
 </template>
 
@@ -2865,15 +2947,33 @@ figcaption :deep([data-effect="tremor"]) {
 }
 
 .given button,
-.back .trail {
+.back .trail,
+.others button {
   border-color: transparent;
   background: none;
 }
 
 .given button:hover,
-.back .trail:hover {
+.back .trail:hover,
+.others button:hover {
   border-color: transparent;
   background: none;
   color: var(--paper);
+}
+
+/* The Exits that can be gone back to, one to a line in the order they were
+   taken, so the list reads as the Reading did. Quiet as the trail above them, and
+   in the face the ways on are offered in rather than the trail's capitals, since
+   what each says is the Author's. */
+.others {
+  display: grid;
+  justify-items: start;
+  gap: var(--s1);
+}
+
+.others button {
+  color: var(--muted);
+  font-size: 0.875rem;
+  text-align: start;
 }
 </style>

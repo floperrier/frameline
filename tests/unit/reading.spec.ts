@@ -18,7 +18,7 @@ import {
 } from '../../shared/utils/scenes'
 import type { Path, State, StoryToRead } from '../../shared/utils/reading'
 import {
-  advance, answer, back, braced, cut, declaredIn, imageHeld, lastUnitAt, layout, lasting, moved, movement, movementEnds, movesItself, opening,
+  advance, answer, back, backTo, braced, cut, declaredIn, forks, imageHeld, lastUnitAt, layout, lasting, moved, movement, movementEnds, movesItself, opening,
   needed, pathTo, pieces, reading, resumes, said, standOn, take, textArrival, textArrives, textMoves, timed, unmet,
 } from '../../shared/utils/reading'
 import { isPath } from '../../app/utils/kept'
@@ -1032,6 +1032,171 @@ describe('an Exit an Author closed behind the Reader', () => {
     const roundTheSide = take(endOfStreet, reading(two, endOfStreet).exits[1]!)
     const bySide = take(advance(roundTheSide), reading(two, advance(roundTheSide)).exits[0]!)
     expect(back(two, bySide)).toBeDefined()
+  })
+})
+
+describe('a Reading that goes back to an Exit it took', () => {
+  /**
+   * Three forks with a lone way between the first two: the Street offers two ways
+   * on, the Bar one, the Corner two and the Line two. The Reading under test goes
+   * Street, Bar, Corner, Line and Roof, and ends on the Roof.
+   */
+  function doors(
+    { closed = {}, storyCrosses = true, asked = {} }: {
+      closed?: Record<string, boolean | null>
+      storyCrosses?: boolean
+      asked?: Record<string, [question: string, flag: string]>
+    } = {},
+  ) {
+    const ways: [string, string, string][] = [
+      ['Street', 'Follow her', 'Bar'],
+      ['Street', 'Stay in the rain', 'Rain'],
+      ['Bar', 'Leave', 'Corner'],
+      ['Corner', 'Answer it', 'Line'],
+      ['Corner', 'Let it ring', 'Silence'],
+      ['Line', 'Hang up', 'Roof'],
+      ['Line', 'Say her name', 'Dock'],
+    ]
+    return story(
+      {
+        Street: ['A door opens.'],
+        Bar: ['Smoke.', 'No one she knows.'],
+        Rain: ['The rain does not let up.'],
+        Corner: ['A phone rings.'],
+        Silence: ['It stops.'],
+        Line: ['A voice she knows.'],
+        Roof: ['The city below.'],
+        Dock: ['Water.'],
+      },
+      ways.map(([from, text, to]) => [from, text, to, [], closed[text] ?? null]),
+      'Street',
+      {},
+      storyCrosses,
+      asked,
+    )
+  }
+
+  /** The same Story with one Scene's ways on standing for the time given. */
+  function standing(read: StoryToRead, sceneId: string, exitsAfter: number): StoryToRead {
+    return {
+      ...read,
+      scenes: read.scenes.map(scene => (scene.id === sceneId ? { ...scene, exitsAfter } : scene)),
+    }
+  }
+
+  /** Reads a Scene to its end, answering its Question where it asks one, and takes the Exit named. */
+  function through(read: StoryToRead, at: Path, words: string, said?: string) {
+    while (reading(read, at).shot) at = advance(at)
+    const { sceneId, question } = reading(read, at)
+    if (question) at = answer(at, sceneId!, said ?? '')
+    return take(at, reading(read, at).exits.find(exit => exit.text === words)!)
+  }
+
+  /** The Reading under test, at its ending, and every Path it stood on as its ways on were offered. */
+  function read(read: StoryToRead, said: Record<string, string> = {}) {
+    const offeredAt: Path[] = []
+    let at: Path = OPENING
+    for (const words of ['Follow her', 'Leave', 'Answer it', 'Hang up']) {
+      while (reading(read, at).shot) at = advance(at)
+      const { sceneId, question } = reading(read, at)
+      if (question) at = answer(at, sceneId!, said[sceneId!] ?? '')
+      offeredAt.push(at)
+      at = through(read, at, words)
+    }
+    while (reading(read, at).shot) at = advance(at)
+    expect(reading(read, at).ended).toBe(true)
+    return { ending: at, offeredAt }
+  }
+
+  /** The Exits listed, by their words and their index in `taken`. */
+  function listed(read: StoryToRead, at: Path) {
+    return forks(read, at).map(({ exit, index }) => [exit.text, index])
+  }
+
+  it('lists the Exits taken where another was on offer, oldest first, each with its index', () => {
+    const { ending } = read(doors())
+    expect(listed(doors(), ending)).toEqual([['Follow her', 0], ['Answer it', 2], ['Hang up', 3]])
+  })
+
+  it('gives back the Path standing at the end of the Scene each Exit left, its ways on offered', () => {
+    const { ending } = read(doors())
+    const [street, corner, line] = forks(doors(), ending).map(({ index }) => backTo(doors(), ending, index))
+
+    expect(reading(doors(), street!).sceneId).toBe('Street')
+    expect(shown(doors(), street!)).toEqual({ text: undefined, offered: ['Follow her', 'Stay in the rain'], ended: false })
+    expect(street!.taken).toEqual([])
+    expect(reading(doors(), corner!).sceneId).toBe('Corner')
+    expect(shown(doors(), corner!).offered).toEqual(['Answer it', 'Let it ring'])
+    expect(corner!.taken).toEqual(ending.taken.slice(0, 2))
+    expect(shown(doors(), line!).offered).toEqual(['Hang up', 'Say her name'])
+  })
+
+  it('gives back the very Path the Reader stood on when those Exits were offered', () => {
+    const { ending, offeredAt } = read(doors())
+    for (const index of [0, 1, 2, 3]) {
+      expect(backTo(doors(), ending, index)).toEqual(offeredAt[index])
+      expect(reading(doors(), backTo(doors(), ending, index))).toEqual(reading(doors(), offeredAt[index]!))
+    }
+  })
+
+  it('leaves out an Exit that was the only way on', () => {
+    const { ending } = read(doors())
+    expect(listed(doors(), ending).map(([words]) => words)).not.toContain('Leave')
+  })
+
+  it('leaves out the Exit of a Scene that flows into the next', () => {
+    const flowing = standing(doors(), 'Street', 0)
+    expect(listed(flowing, read(flowing).ending)).toEqual([['Answer it', 2], ['Hang up', 3]])
+  })
+
+  it('lists an Exit the clock took, since the others were offered and let go', () => {
+    const clocked = standing(doors(), 'Street', 3000)
+    expect(listed(clocked, read(clocked).ending)).toEqual([['Follow her', 0], ['Answer it', 2], ['Hang up', 3]])
+  })
+
+  it('stops at an Exit closed backwards, which with every Exit before it is not listed', () => {
+    const lone = doors({ closed: { Leave: false } })
+    expect(listed(lone, read(lone).ending)).toEqual([['Answer it', 2], ['Hang up', 3]])
+
+    const fork = doors({ closed: { 'Answer it': false } })
+    expect(listed(fork, read(fork).ending)).toEqual([['Hang up', 3]])
+  })
+
+  it('stops at an Exit its Story closes, where the Exit itself says nothing', () => {
+    const shut = doors({ storyCrosses: false, closed: { 'Answer it': true, 'Hang up': true } })
+    expect(listed(shut, read(shut).ending)).toEqual([['Answer it', 2], ['Hang up', 3]])
+    expect(listed(doors({ storyCrosses: false }), read(doors({ storyCrosses: false })).ending)).toEqual([])
+  })
+
+  it('keeps the answer a Scene was given before its Exit was taken, and lets go of the ones after', () => {
+    const asking = doors({ asked: { Corner: ['Who is calling?', 'caller'], Line: ['What do you say?', 'said'] } })
+    const { ending } = read(asking, { Corner: 'Mother', Line: 'Hello' })
+    expect(listed(asking, ending)).toEqual([['Follow her', 0], ['Answer it', 2], ['Hang up', 3]])
+
+    const atTheCorner = backTo(asking, ending, 2)
+    expect(atTheCorner.answers).toEqual({ Corner: 'Mother' })
+    expect(asked(asking, atTheCorner)).toEqual({ question: null, offered: ['Answer it', 'Let it ring'], ended: false })
+    expect(reading(asking, atTheCorner).state.flags.caller).toBe('Mother')
+
+    expect(backTo(asking, ending, 3).answers).toEqual({ Corner: 'Mother', Line: 'Hello' })
+    expect(backTo(asking, ending, 0).answers).toEqual({})
+  })
+
+  it('lists nothing on an opening Path, nor where every Exit taken was the only way on', () => {
+    expect(forks(doors(), OPENING)).toEqual([])
+
+    const chain = story(
+      { Street: ['A door opens.'], Bar: ['Smoke.'], Corner: ['Rain on the awning.'] },
+      [['Street', 'Follow her', 'Bar'], ['Bar', 'Leave', 'Corner']],
+    )
+    expect(forks(chain, through(chain, through(chain, OPENING, 'Follow her'), 'Leave'))).toEqual([])
+  })
+
+  it('lists the Exits behind the Reader in the middle of a run as well as at its end', () => {
+    const { ending } = read(doors())
+    const inTheBar = through(doors(), OPENING, 'Follow her')
+    expect(listed(doors(), advance(inTheBar))).toEqual([['Follow her', 0]])
+    expect(listed(doors(), { ...ending, shot: 0 })).toEqual(listed(doors(), ending))
   })
 })
 

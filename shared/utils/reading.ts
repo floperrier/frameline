@@ -891,10 +891,7 @@ export function needed(story: StoryToRead, at: Path) {
  *
  * Nothing at all where nothing is behind — a Reading that has not begun cannot
  * step out of its own opening — and nothing where the Exit behind is one the
- * Author closed: an Exit says whether it is crossed backwards, and answers as
- * its Story says where it has not said. That is the one place the rule is read,
- * so the Reading and every screen drawing it cannot come apart about which door
- * has shut. See `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
+ * Author closed, which `crossesBack` says.
  *
  * The Story is here for the one thing the Path cannot say — how long the run of
  * the Scene stepped back into is. It is the run this Reading plays and not the
@@ -920,15 +917,35 @@ export function back(story: StoryToRead, at: Path): Path | undefined {
 
   if (at.shot > 0) return { ...at, shot: at.shot - 1 }
 
-  // Which Exit would be crossed, and whether it is crossed: the Exit's own
-  // answer where it gave one, and its Story's where it did not. An opening Path
-  // has taken none and is stopped here, as is a Path whose last Exit the Story
-  // no longer carries — a Reading the walk stops short of has no way back
-  // through a door that is gone.
-  const crossed = story.exits.find(exit => exit.id === at.taken.at(-1))
-  if (!crossed || !(crossed.stepsBack ?? story.stepsBack)) return
+  // An opening Path has taken no Exit and is stopped here.
+  if (!crossesBack(story, at.taken.at(-1))) return
+  return backTo(story, at, at.taken.length - 1)
+}
 
-  const before: Path = { ...at, taken: at.taken.slice(0, -1), shot: 0 }
+/**
+ * Whether a Reading is crossed backwards over this Exit: the Exit's own answer
+ * where it gave one, and its Story's where it did not. That is the one place the
+ * rule is read, so `back` and `forks` cannot come apart about which door has
+ * shut. An Exit the Story no longer carries is a door that is gone, and nothing
+ * is crossed back through it. See
+ * `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
+ */
+function crossesBack(story: StoryToRead, exitId: string | undefined) {
+  const exit = story.exits.find(exit => exit.id === exitId)
+  return !!exit && (exit.stepsBack ?? story.stepsBack)
+}
+
+/**
+ * The Path standing where the Exit at this index of `taken` was taken: every
+ * Exit from it on let go, at the end of the run of the Scene it left, with its
+ * ways on offered again. The answers are kept for the Scenes that Path still
+ * enters and no others, so the Scene the Exit left keeps the answer it was given
+ * before the Exit was taken, and a Scene entered later asks again. It asks
+ * nothing of the doors it crosses: `back` and `forks` ask that first. See
+ * `docs/adr/0075-a-reader-goes-back-to-the-exit-they-name.md`.
+ */
+export function backTo(story: StoryToRead, at: Path, index: number): Path {
+  const before: Path = { ...at, taken: at.taken.slice(0, index), shot: 0 }
   const { run, state } = reading(story, before)
   // A Path kept before any Scene asked has no answers to keep, and keeps that shape.
   if (!at.answers) return { ...before, shot: run.length }
@@ -936,6 +953,31 @@ export function back(story: StoryToRead, at: Path): Path | undefined {
   const answers = Object.fromEntries(Object.entries(at.answers)
     .filter(([id]) => state.entered.includes(id)))
   return { ...before, shot: run.length, answers }
+}
+
+/**
+ * The Exits this Path took where it could have taken another, oldest first, each
+ * with its index in `taken`, which `backTo` turns into the Path standing there.
+ *
+ * Only where more than one way on was offered, worked out the way the Reading
+ * worked it out — `reading` on the Path given back — because an Exit that was the
+ * only way on was no Exit the Reader picked, and going back to it offers nothing
+ * else. Not out of a Scene that flows into the next, which offered nothing to
+ * take; an Exit the clock took after a time is listed, since the others were on
+ * offer and let go. And nothing behind a door closed backwards: going back to an
+ * Exit crosses it and every Exit taken after it, so the first one `crossesBack`
+ * refuses, counting from the newest, ends the list. An Exit the Path given back
+ * does not offer is a Path the Story has moved under, and is not listed either.
+ */
+export function forks(story: StoryToRead, at: Path) {
+  const listed: { exit: Exit, index: number }[] = []
+  for (let index = at.taken.length - 1; index >= 0 && crossesBack(story, at.taken[index]); index--) {
+    const { sceneId, exits } = reading(story, backTo(story, at, index))
+    const flows = story.scenes.find(scene => scene.id === sceneId)?.exitsAfter === 0
+    const exit = exits.find(exit => exit.id === at.taken[index])
+    if (exit && exits.length > 1 && !flows) listed.unshift({ exit, index })
+  }
+  return listed
 }
 
 /**
