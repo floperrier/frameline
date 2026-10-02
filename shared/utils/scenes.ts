@@ -789,6 +789,18 @@ export function plainly(name: string) {
 }
 
 /**
+ * A Flag's value as a Condition compares it: read `plainly`, trimmed, and every
+ * run of white space read as one space. A Reader answering *Rosebud*, *rosebud *
+ * or *Rosébud* has given the answer an Author wrote as `rosebud`, and a riddle is
+ * failed on the riddle, not on a capital letter. A value of spaces alone folds to
+ * the empty value, which is no value. Values only: a Flag's name stays exact. See
+ * `docs/adr/0066-a-scene-may-end-on-a-question.md`.
+ */
+export function folded(value: string) {
+  return plainly(value).trim().replace(/\s+/g, ' ')
+}
+
+/**
  * The Scene a Shot is moved to, from the name typed in the field under its marks:
  * the name as the bench calls a Scene, typed as it is shown before as `plainly`
  * folds it, so two names that fold alike are told apart by whoever types one of

@@ -191,6 +191,13 @@ export type Work = {
     textPace?: number
     textOver?: number
     textStays?: number
+    /**
+     * The Question the Scene ends on, before its Exits, and the Flag the answer is
+     * held under. Saying nothing is a Scene that asks nothing, which is what the
+     * two columns default to. See `docs/adr/0066-a-scene-may-end-on-a-question.md`.
+     */
+    question?: string
+    questionFlag?: string
   }[]
   /**
    * An Exit's own Cut is how the passage it makes is made, never when: an Exit

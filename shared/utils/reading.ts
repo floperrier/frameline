@@ -1,7 +1,7 @@
 import type {
   Condition, CutThrough, Exit, Flags, Layout, MovementDirection, Sets, Shot, TextBy,
 } from './scenes'
-import { FLAG_VALUE_MAX_LENGTH, MOVEMENT_OVER_UNTIMED } from './scenes'
+import { FLAG_VALUE_MAX_LENGTH, MOVEMENT_OVER_UNTIMED, folded } from './scenes'
 import type { Phrase } from './phrases'
 import { runLastings } from './formatted'
 
@@ -122,10 +122,13 @@ export type State = { flags: Flags, entered: string[], taken: string[] }
  * one carrying none being always offered, or always played. One comparison a
  * Condition, an `every` over them, and no recursion: a Condition is flat by
  * construction, so this is the whole of the language.
+ *
+ * A Flag's two sides are compared `folded`, whoever wrote them — a Scene, a draw
+ * or a Reader answering a Question — so one rule says what *holds* means.
  */
 export function holds(conditions: Condition[], state: State) {
   return conditions.every((condition) => {
-    if ('flag' in condition) return (state.flags[condition.flag] ?? '') === condition.is
+    if ('flag' in condition) return folded(state.flags[condition.flag] ?? '') === folded(condition.is)
 
     if ('scene' in condition) return state.entered.includes(condition.scene) === condition.entered
 
@@ -897,11 +900,13 @@ export function back(story: StoryToRead, at: Path): Path | undefined {
  * entered would never merge two, and keying on nothing would extend for ever a
  * Path that `walk` has stopped following.
  *
- * A Question it stands at and holds no answer for is answered with nothing before
- * the ways on are judged, as a Reader who says nothing answers it, so a Scene
- * behind a Question is reached and the Path that reaches it says what was
- * answered. A way on that waits on a particular answer is not reached through
- * that answer; reaching through one is #416.
+ * A Question it stands at and holds no answer for is answered with nothing, as a
+ * Reader who says nothing answers it, and then with each value some Condition of
+ * the Story tests that Question's Flag against, before the ways on are judged.
+ * Those are the only answers that change what any Condition says — every other
+ * reads like nothing to the ways on — so a Scene only one answer opens is
+ * reached, and the Path that reaches it says what was answered. Two values that
+ * fold alike are one answer, so they are tried once.
  */
 export function pathTo(story: StoryToRead, from: Path, sceneId: string): Path | undefined {
   const seen = new Set<string>()
@@ -913,6 +918,18 @@ export function pathTo(story: StoryToRead, from: Path, sceneId: string): Path | 
   // uuids, so one set holds both.
   const asked = new Set(story.exits.flatMap(exit => exit.conditions.flatMap(condition =>
     'scene' in condition ? [condition.scene] : 'exit' in condition ? [condition.exit] : [])))
+  // What every Condition of the Story, on a Shot or on a way on, tests each Flag
+  // against, one spelling a folded value.
+  const tested = new Map<string, Map<string, string>>()
+  for (const condition of [
+    ...story.scenes.flatMap(scene => scene.shots.flatMap(shot => shot.conditions)),
+    ...story.exits.flatMap(exit => exit.conditions),
+  ]) {
+    if (!('flag' in condition) || !folded(condition.is)) continue
+    const values = tested.get(condition.flag) ?? new Map<string, string>()
+    if (!values.has(folded(condition.is))) values.set(folded(condition.is), condition.is)
+    tested.set(condition.flag, values)
+  }
 
   // Every Scene the ways on lead to from this one, whatever they ask. Only a Story
   // written before `docs/adr/0048-a-scene-is-entered-once.md` can hold one the
@@ -942,14 +959,18 @@ export function pathTo(story: StoryToRead, from: Path, sceneId: string): Path | 
       seen.add(arrivedAs)
 
       const scene = story.scenes.find(scene => scene.id === standing)
-      const answering = scene && asks(scene) && at.answers?.[standing] === undefined
-        ? answer(at, standing, '')
-        : at
-      const { state: left } = reading(story, answering)
+      const answerings = scene && asks(scene) && at.answers?.[standing] === undefined
+        ? ['', ...tested.get(scene.questionFlag.trim())?.values() ?? []]
+            .map(given => answer(at, standing, given))
+        : [at]
 
-      for (const exit of story.exits) {
-        if (exit.fromSceneId !== standing || !offered(exit, left)) continue
-        next.push(take(answering, exit))
+      for (const answering of answerings) {
+        const { state: left } = reading(story, answering)
+
+        for (const exit of story.exits) {
+          if (exit.fromSceneId !== standing || !offered(exit, left)) continue
+          next.push(take(answering, exit))
+        }
       }
     }
 

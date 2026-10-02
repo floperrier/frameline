@@ -77,8 +77,8 @@ nothing is a Flag never set, which a Condition already asks for with the empty
 value. So *Answer* with nothing written is an answer, and the Exits are offered.
 For the same reason the Preview's search, `pathTo`, answers every Question with
 nothing on its way to the Scene being written, so a Question never stops the
-Preview from reaching a Scene. Reaching a Scene that only a particular answer
-leads to is #416.
+Preview from reaching a Scene. It answers with more than nothing since #416: see
+*How an answer is compared*, below.
 
 ## Why it lives in the Path and never reaches the server
 
@@ -89,6 +89,41 @@ Path: `answers`, keyed by the Scene that asked. A Scene is entered at most once
 Scene and replays to the same State. The key is optional, so every Path a browser
 kept before this reads as having no answers. Nothing about an answer is sent to
 the server, stored with the Story or shown to the Author.
+
+## How an answer is compared
+
+Amended on 2026-10-02 by issue #416.
+
+**A Condition on a Flag compares both sides folded.** `folded` in
+`shared/utils/scenes.ts` reads a value `plainly`, as the bench reads a name —
+case and accents set aside — trims it, and reads every run of white space as one
+space. `holds` compares the value the Reading holds and the value the Condition
+asks for that way. An Author who gates an Exit on `rosebud` meant the word, and a
+Reader who types *Rosebud*, *rosebud * or *Rosébud* has said it: a riddle is
+failed on the riddle, not on a capital letter. A value of spaces alone folds to
+the empty value, so a Condition asking for nothing still holds where the Reader
+answered nothing.
+
+The rule is the same for every Flag Condition, whether the value was written on a
+Scene, drawn from its list or answered. Two written values that differ only by
+case or accent were never a distinction a Reader could see, and one rule is
+simpler to say than two. The Remarks hold values against each other the same way,
+so a Condition asking for `Red` where a Scene sets `red` is not said to be one that
+can never hold. A Flag's *name* stays exact, as a text says it.
+
+**The Preview tries the answers the Story waits for.** At a Question it holds no
+answer for, `pathTo` answers with nothing and then with each value some Condition
+of the Story, on a Shot or on an Exit, tests that Question's Flag against, two
+values that fold alike being one. Those are the only answers that change what any
+Condition says; every other answer reads like nothing to the ways on. So the
+Preview reaches and stands on a Scene only one answer leads to, with that answer,
+as the Condition spells it, in the Path, and a step back to the Question finds it
+in the field. The search's merge key is untouched: two ways round holding the same
+answer still merge, which keeps the search finite.
+
+Left out: several accepted answers on one Condition, which two Exits or a
+Condition per value already say; partial matches, synonyms, and numbers compared
+as numbers.
 
 ## Considered Options
 
@@ -105,7 +140,7 @@ out. A Question in the middle of a run is a split Scene
 (`docs/adr/0001-branching-only-between-scenes.md`).
 
 **Comparing answers loosely, ignoring case, accents and spaces.** Left to #416,
-which this one blocks.
+which this one blocks, and taken there: see *How an answer is compared*.
 
 ## Consequences
 
