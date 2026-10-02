@@ -110,6 +110,7 @@
     "listed": "Répertorié",
     "oneComment": "{count} Commentaire",
     "manyComments": "{count} Commentaires",
+    "readings": "1 Lecture | {n} Lectures",
     "copyTitle": "Titre de la copie",
     "copyLanguage": "Langue de la copie",
     "writeCopy": "Écrire la copie"
@@ -133,6 +134,8 @@
     "scenesChanged": "1 Scène modifiée depuis votre publication. | {n} Scènes modifiées depuis votre publication.",
     "scenesGone": "1 Scène que lisent les Lecteurs est supprimée. | {n} Scènes que lisent les Lecteurs sont supprimées.",
     "storyChanged": "La façon dont ce Récit se lit a changé depuis votre publication.",
+    "noReadings": "Aucune Lecture commencée pour l’instant.",
+    "readings": "1 Lecture commencée, {ended} achevée. | {n} Lectures commencées, {ended} achevées.",
     "publishChanges": "Publier les modifications",
     "changesPublished": "Vos modifications sont publiées : les Lecteurs les lisent désormais.",
     "keptAt": "Enregistré à {time}",

@@ -47,7 +47,10 @@ fresh start with no notice.
 **Nothing reaches the server.** No table, no route, no account. Two Readers of
 one Story still cannot share what they have accumulated, and a Reader and their
 own browser can. A Reading kept on the server would be a Reading somebody could
-be signed in to, and a Reader needs no account by design.
+be signed in to, and a Reader needs no account by design. *Amended by
+`docs/adr/0072-a-reading-is-counted-for-its-author.md`:* nothing a Reading holds
+reaches the server, but that one began or ended is added to a number its Author
+reads.
 
 **Preview keeps nothing.** The Preview draws the same component and does not
 name a Story to keep the Reading for. An Author on the bench restarts, rerolls

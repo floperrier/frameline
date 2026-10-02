@@ -33,6 +33,7 @@ test('an Author writes, renames and deletes a Story', async ({ request }) => {
     listed: false,
     cover: null,
     comments: 0,
+    readings: 0,
   }])
 
   expect((await request.delete(`/api/stories/${story.id}`)).status()).toBe(200)

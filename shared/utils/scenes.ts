@@ -1036,6 +1036,8 @@ export type StoryInEditor = {
   editionAt: string | null
   /** What differs from Readers' Edition, or null where there is none to differ from. */
   changes: Changes | null
+  /** How many Readings began, and how many ended in any Scene, counted for the Author alone. */
+  readings: { begun: number, ended: number }
   /** Whether the Author has put the published Story in the Catalogue. */
   listed: boolean
   /** What an Exit of this Story answers when it has not answered for itself. */

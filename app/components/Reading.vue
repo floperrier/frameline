@@ -137,6 +137,42 @@ function kept(): Path | undefined {
 const resumed = ref(false)
 
 /**
+ * What the Story's Author is told of this Reading: that it began at the opening,
+ * and that it ended and in which Scene — a number each, and nothing of the Path.
+ * Only a Reading kept for a Story tells, which a Preview never is. Sent and never
+ * waited on, and a count that fails is a count lost, never a Reading stopped. See
+ * `docs/adr/0072-a-reading-is-counted-for-its-author.md`.
+ */
+function tell(kind: 'begun' | 'ended', body?: { scene: string }) {
+  if (!keptFor) return
+  fetch(`/api/read/${keptFor}/${kind}`, {
+    method: 'POST',
+    keepalive: true,
+    headers: { 'content-type': 'application/json' },
+    body: body && JSON.stringify(body),
+  }).catch(() => {})
+}
+
+/**
+ * Whether this Reading's ending has been told. A step back from the ending and
+ * the same ending reached again is one Reading ended; reading again from the
+ * start is a Reading begun anew, whose ending is its own.
+ */
+let toldEnded = false
+
+watch(() => shown.value.ended, (ended) => {
+  if (!ended || toldEnded || !shown.value.sceneId) return
+  toldEnded = true
+  tell('ended', { scene: shown.value.sceneId })
+}, { immediate: true })
+
+function readAgain() {
+  toldEnded = false
+  tell('begun')
+  return passBy(0, 'image', opening())
+}
+
+/**
  * Whether sound is on, and whether the Transcript is shown. Sound is on by
  * default, because the press that opened the Reading is the consent, and both
  * answers are kept for the person rather than for this Story: muting is not a
@@ -177,6 +213,8 @@ onMounted(() => {
   const before = kept()
   resumed.value = before !== undefined
   if (before) at.value = before
+  // A Reading picked up was begun on an earlier visit, and is not begun again.
+  else tell('begun')
   // The strike below is watched on the Path's position, and a Reading that is not
   // picked up stands on the `0-0` it was set up at, so that watch will not see a
   // change and will not fire for it. Struck here instead: the opening beat is a
@@ -1599,7 +1637,7 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
         ref="again"
         type="button"
         :class="{ trail: !shown.ended }"
-        @click="passBy(0, 'image', opening())"
+        @click="readAgain"
       >
         {{ $t('reading.again') }}
       </button>
