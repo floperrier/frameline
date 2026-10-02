@@ -77,6 +77,35 @@ test('a Shot moved is the same row, last in the Scene it moves to, carrying ever
   expect(await (await request.get(`/api/shots/${door}/image`)).body()).toEqual(ONE_PIXEL)
 })
 
+test('a Shot moved to a Place takes it there, and the Shots from that Place on move one later', async ({ request }) => {
+  const { street, bar, door, steps } = await aShotWithEverything(request)
+  const [smoke] = await readShots(bar.id)
+
+  const first = await request.post(`/api/shots/${door}/move`, { data: { toSceneId: bar.id, place: 0 } })
+  expect(await first.json()).toEqual({ id: door, sceneId: bar.id, position: 0 })
+  const between = await request.post(`/api/shots/${steps}/move`, { data: { toSceneId: bar.id, place: 1 } })
+  expect(await between.json()).toEqual({ id: steps, sceneId: bar.id, position: 1 })
+  await expect(readShots(bar.id)).resolves.toMatchObject([
+    { id: door, position: 0 }, { id: steps, position: 1 }, { id: smoke!.id, position: 2 },
+  ])
+  await expect(readShots(street.id)).resolves.toEqual([])
+
+  // A Place past the end is the end, and the Scene left closes up behind it.
+  const past = await request.post(`/api/shots/${door}/move`, { data: { toSceneId: street.id, place: 99 } })
+  expect(await past.json()).toEqual({ id: door, sceneId: street.id, position: 0 })
+  await expect(readShots(bar.id)).resolves.toMatchObject([
+    { id: steps, position: 0 }, { id: smoke!.id, position: 1 },
+  ])
+
+  for (const place of [-1, 1.5, '1', null, Number.MAX_SAFE_INTEGER + 2]) {
+    const refused = await request.post(`/api/shots/${steps}/move`, { data: { toSceneId: street.id, place } })
+    expect(refused.status()).toBe(400)
+    expect((await refused.json()).message)
+      .toBe('A Shot moves to a Place given as a whole number, counted from nought.')
+  }
+  await expect(readShots(street.id)).resolves.toMatchObject([{ id: door, position: 0 }])
+})
+
 test('a Shot is not moved to its own Scene, nor out of its Story, nor by anybody else', async ({ request, otherAuthor }) => {
   const { street, door } = await aShotWithEverything(request)
   const elsewhere = await aShotWithEverything(request)

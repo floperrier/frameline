@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sceneToMoveTo } from '../../shared/utils/scenes'
+import { carriedTo, sceneToMoveTo } from '../../shared/utils/scenes'
 
 /**
  * Which Scene a Shot is moved to, read off the name the Author typed in the field
@@ -45,5 +45,31 @@ describe('the Scene a Shot is moved to', () => {
 
   it('refuses a name no Scene answers to', () => {
     expect(sceneToMoveTo(names, 'street', 'The station')).toEqual({ refused: 'editor.noSceneToMoveTo' })
+  })
+})
+
+/**
+ * Where a frame let go of on the Contact Sheet lands: the gap it was dropped in is
+ * counted over the band as it is drawn, the dragged frame among the rest where it
+ * is that band's, so the gap either side of it is its own Place and moves nothing.
+ */
+describe('the Place a frame dropped on the sheet lands at', () => {
+  const run = ['a', 'b', 'c', 'd']
+
+  it('is the gap it is dropped in, counted over its own band as drawn', () => {
+    expect(carriedTo(run, 'd', 0)).toEqual(['d', 'a', 'b', 'c'])
+    expect(carriedTo(run, 'a', 2)).toEqual(['b', 'a', 'c', 'd'])
+    expect(carriedTo(run, 'b', 4)).toEqual(['a', 'c', 'd', 'b'])
+  })
+
+  it('moves nothing where it is dropped either side of itself', () => {
+    expect(carriedTo(run, 'b', 1)).toEqual(run)
+    expect(carriedTo(run, 'b', 2)).toEqual(run)
+  })
+
+  it('is the gap itself in another band, and the first in a band with none', () => {
+    expect(carriedTo(['x', 'y'], 'b', 1)).toEqual(['x', 'b', 'y'])
+    expect(carriedTo(['x', 'y'], 'b', 2)).toEqual(['x', 'y', 'b'])
+    expect(carriedTo([], 'b', 0)).toEqual(['b'])
   })
 })

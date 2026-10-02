@@ -236,7 +236,8 @@ Contact Sheet and the Preview — and the one an Author judges by looking instea
 of by reading: a Shot with no Image is drawn as a Shot with no Image, so what is
 still a grey rectangle is countable at a glance. It is where a Description is
 written and where the point an Image is cropped around is pressed, because it is
-where the Author is looking at the Image. Out of the
+where the Author is looking at the Image; and where a Shot's Place is written by
+carrying its frame, because it is where order is seen. Out of the
 grammar of cinema, which
 `docs/adr/0022-the-metaphor-stops-at-the-edge-of-the-work.md` reserves for the
 work, because a reading is a way of looking at the work rather than a tool of the

@@ -45,7 +45,9 @@ The document is read three ways, and a control chooses which. **The writing** is
 the document above, and it is where a Story is written. **The contact sheet** is
 every Shot of every Scene as the Image it carries, in bands, one band a Scene: the
 Story seen rather than read, which is how an Author judges what is still a grey
-rectangle. **The Preview** is the third, unchanged and under the name the glossary
+rectangle — and, since
+`docs/adr/0074-the-contact-sheet-writes-a-shots-place.md`, where a Shot's Place
+is written by carrying its frame, because it is where order is seen. **The Preview** is the third, unchanged and under the name the glossary
 already gives it: an Author reading their own Story on the engine a Reader runs,
 replaying the Path with the State it has accumulated. The rail and the Remarks do
 not move between the three. What changes is what the middle is a reading of, never
