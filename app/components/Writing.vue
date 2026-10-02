@@ -190,6 +190,12 @@ type SceneInDocument = {
    * stand: those before each Shot of the run, and last those after its end.
    */
   gone: Gone[][]
+  /**
+   * What it is to Readers' Edition where it is not what they read: a Scene the
+   * Edition does not have, or one it has in another form. Nothing on a Story with
+   * no Edition, which is every unpublished one.
+   */
+  published?: 'editor.notYetPublished' | 'editor.changedSincePublished'
 }
 
 /**
@@ -266,6 +272,9 @@ const sections = computed<SceneInDocument[]>(() => {
       heard: heardUnder(story.scenes, scene.id),
       namedBy: story.scenes.filter(other => other.soundOfSceneId === scene.id).length,
       gone: standingIn(scene),
+      published: story.changes?.added.includes(scene.id)
+        ? 'editor.notYetPublished'
+        : story.changes?.changed.includes(scene.id) ? 'editor.changedSincePublished' : undefined,
     }
   })
 })
@@ -1870,6 +1879,7 @@ function writeConditions(
             {{ $t('editor.markOpeningScene') }}
             <span class="visually-hidden">{{ held.name }}</span>
           </button>
+          <span v-if="held.published" class="eyebrow published-mark">{{ $t(held.published) }}</span>
         </p>
 
         <p class="arrivals">{{ held.arrivals }}</p>
@@ -3735,6 +3745,11 @@ function writeConditions(
 .opening button:hover:not(:disabled),
 .opening button:focus-visible {
   color: var(--paper);
+}
+
+/* A Scene Readers do not read as it is written wears the grease a published link does. */
+.published-mark {
+  color: var(--grease);
 }
 
 /* What arrives here, said by the bench about the Story rather than written in it,

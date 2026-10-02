@@ -224,6 +224,8 @@ export const scenes = pgTable('scenes', {
   y: integer('y').notNull().default(0),
   sets: jsonb('sets').$type<Sets>().notNull().default({}),
   sound: bytea('sound'),
+  // `sound`'s SHA-256 in hex, kept by migration 0033's trigger and never written here (ADR 0070).
+  soundDigest: text('sound_digest'),
   soundOfSceneId: uuid('sound_of_scene_id')
     .references((): AnyPgColumn => scenes.id, { onDelete: 'set null' }),
   transcript: text('transcript').notNull().default(''),
@@ -333,8 +335,12 @@ export const shots = pgTable('shots', {
   text: text('text').notNull().default(''),
   position: integer('position').notNull(),
   image: bytea('image'),
+  // `image`'s SHA-256 in hex, kept by migration 0033's trigger and never written here (ADR 0070).
+  imageDigest: text('image_digest'),
   description: text('description').notNull().default(''),
   sound: bytea('sound'),
+  // `sound`'s SHA-256 in hex, kept by migration 0033's trigger and never written here (ADR 0070).
+  soundDigest: text('sound_digest'),
   transcript: text('transcript').notNull().default(''),
   cutAfter: integer('cut_after'),
   cutOver: integer('cut_over'),

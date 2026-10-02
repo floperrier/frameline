@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import type { APIRequestContext, Page, PlaywrightWorkerArgs } from '@playwright/test'
 import { expect } from '@playwright/test'
@@ -128,6 +129,23 @@ test('an edition\'s Image is served from the edition, and survives the Shot', as
   await reader.dispose()
 })
 
+test('an Edition names each medium by the SHA-256 of its bytes', async ({ request, playwright, baseURL }) => {
+  const { story, shot } = await writeIllustrated(request)
+  await publish(request, story.id)
+
+  const reader = await stranger(playwright, baseURL)
+  const image = async () => (await atItsLink(reader, story.id)).scenes[0]!.shots[0]!.image!
+  const sha256 = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex')
+  expect(await image()).toMatch(new RegExp(`/${sha256(ONE_PIXEL)}$`))
+
+  // Replaced, the Image is named by the digest its row now keeps of the new bytes.
+  expect((await request.put(`/api/shots/${shot.id}/image`, { data: ANOTHER_IMAGE })).ok()).toBe(true)
+  await publish(request, story.id)
+  expect(await image()).toMatch(new RegExp(`/${sha256(ANOTHER_IMAGE)}$`))
+
+  await reader.dispose()
+})
+
 test('a Story published before editions is given one on its first read', async ({ request, playwright, baseURL }) => {
   const { story } = await writeIllustrated(request)
   // Published past the API, which is the row every Story published before this
@@ -208,18 +226,39 @@ test('the media door tells nothing apart from absent', async ({ request, playwri
 
 test('the bench says when Readers\' edition was taken and publishes the changes', async ({ page, request }) => {
   const story = await writeStory(request)
+  const shot = (await onTheBench(request, story.id)).scenes[0]!.shots[0]!
   await publish(request, story.id)
+  const publishChanges = page.getByRole('button', { name: 'Publish the Changes' })
+  const offered = page.locator('dialog.commands li button', { hasText: 'Publish the Changes' })
 
+  // Read as it stands, there is nothing to publish, here or in the bar of Commands.
   await page.goto(`/stories/${story.id}`)
   await live(page)
-  await expect(page.getByText('Readers read this Story as you published it on')).toBeVisible()
-
-  await page.getByRole('button', { name: 'Publish the Changes' }).click()
-  await expect(toast(page)).toHaveText('Your changes are published: Readers read them from now on.')
-
-  // The bar of Commands offers the same act.
+  await expect(page.locator('.live')).toContainText('Readers read this Story as it stands.')
+  await expect(publishChanges).toHaveCount(0)
   await page.getByRole('button', { name: 'Commands' }).click()
-  await expect(page.locator('dialog.commands li button', { hasText: 'Publish the Changes' })).toBeVisible()
+  await expect(page.locator('dialog.commands li button').first()).toBeVisible()
+  await expect(offered).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await expect(page.locator('dialog.commands')).toBeHidden()
+
+  // Written since, the line dates Readers' edition and counts the Scene that moved,
+  // and the act is offered in both places.
+  expect((await request.patch(`/api/shots/${shot.id}`, { data: { text: 'A door slams.' } })).ok())
+    .toBe(true)
+  await page.reload()
+  await live(page)
+  await expect(page.getByText('Readers read this Story as you published it on')).toBeVisible()
+  await expect(page.getByText('1 Scene changed since you published.')).toBeVisible()
+  await page.getByRole('button', { name: 'Commands' }).click()
+  await expect(offered).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.locator('dialog.commands')).toBeHidden()
+
+  await publishChanges.click()
+  await expect(toast(page)).toHaveText('Your changes are published: Readers read them from now on.')
+  await expect(page.locator('.live')).toContainText('Readers read this Story as it stands.')
+  await expect(publishChanges).toHaveCount(0)
 })
 
 test('a Reader goes on reading the Story as it was published while its Author edits it, and reads the changes once they are published', async ({ page, request, browser, baseURL }) => {

@@ -81,7 +81,10 @@ a new Edition lets go of the rows it no longer names. The price is a second copy
 of a published Story's Images and Sounds, which is what keeping bytes in rows
 costs once a Story has two states. Only the copying is spared: every Publish,
 and every first read, still reads and hashes every byte the Story carries, which
-at two megabytes a medium is acceptable. The digest is stored as hex text rather
+at two megabytes a medium is acceptable. *Amended by
+`docs/adr/0070-the-bench-says-what-changed-since-the-edition.md`:* the rows now
+keep their own digests, so a Publish hashes nothing and reads only the bytes it
+does not hold yet. The digest is stored as hex text rather
 than as `bytea`, so the address, the key and the door's lookup are one string.
 
 The door serves a digest only while the Story is published and only under the
@@ -123,9 +126,12 @@ a migration does not run. Instead, `GET /api/read/:id` gives a published Story
 with no Edition one the first time it is read, through the same function under
 the condition that it is still published and still has none. That covers every
 Story published before this shipped and every Sample, which `plantSample` writes
-already published. Two first reads at once both try, and the second finds the
-first's. Until that read, the bench shows *Publish the Changes* without the
-sentence dating the Edition, because there is nothing to date.
+already published. *Amended by
+`docs/adr/0070-the-bench-says-what-changed-since-the-edition.md`:* a Sample is
+now given its Edition as it is planted. Two first reads at once both try, and
+the second finds the first's. Until that read, the bench shows *Publish the
+Changes* without the sentence dating the Edition, because there is nothing to
+date.
 
 Code deployed before this ignores `edition`, so rolling back and forward again
 serves Readers the Edition taken before the rollback until the next Publish
@@ -144,7 +150,9 @@ neither (`docs/adr/0067-a-story-is-copied-whole.md`), because it is unpublished.
 ## What this leaves out
 
 The bench does not yet say what changed since the Edition, or offer *Publish the
-Changes* only when something did. Nothing discards the changes or puts the bench
+Changes* only when something did — *amended by
+`docs/adr/0070-the-bench-says-what-changed-since-the-edition.md`, which does
+both*. Nothing discards the changes or puts the bench
 back to the Edition, a Publish cannot be scheduled, and Readers are not told that
 there is a new Edition. A Reader's kept Path
 (`docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md`) is replayed against
