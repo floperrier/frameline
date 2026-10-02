@@ -80,9 +80,14 @@ export default defineNuxtConfig({
   devServer: { port: 3100 },
   // A public link can be taken away, so nothing served on one may be held in a
   // cache that outlives the Publish: a Reader's own browser keeping the page is
-  // enough to make an unpublished Story go on answering.
+  // enough to make an unpublished Story go on answering. The embed is the same
+  // link laid inside another page, so it is held to the same.
+  //
+  // Who may frame a page is not set here but in `server/middleware/frames.ts`,
+  // which says why.
   routeRules: {
     '/read/**': { headers: { 'cache-control': 'no-store' } },
+    '/embed/**': { headers: { 'cache-control': 'no-store' } },
     '/api/read/**': { headers: { 'cache-control': 'no-store' } },
   },
   // The Samples' images, which planting reads as it writes a Sample into a new

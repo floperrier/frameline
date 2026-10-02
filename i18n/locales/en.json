@@ -126,6 +126,8 @@
     "coverUnname": "Let the Opening Scene Stand In",
     "coverNone": "Give a Shot an Image, and the Story is presented by it.",
     "readableAt": "Anyone can read this Story at",
+    "copyEmbed": "Copy the Embed Code",
+    "embedCopied": "The embed code is copied.",
     "keptAt": "Kept at {time}",
     "list": "List this Story in the Catalogue",
     "unlist": "Take this Story Out of the Catalogue",
@@ -590,7 +592,8 @@
   "read": {
     "eyebrow": "A Frameline Story",
     "begin": "Begin",
-    "resume": "Resume"
+    "resume": "Resume",
+    "onFrameline": "Read on Frameline"
   },
   "comments": {
     "heading": "Comments",
