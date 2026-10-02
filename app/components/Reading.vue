@@ -210,11 +210,14 @@ onMounted(() => {
  * from the top of the page at every Shot. The frame takes focus when a Shot
  * arrives, so what is announced is the beat itself rather than the button that
  * asks for the next one, and the first Exit takes it when the Scene has played
- * out — the Reader lands on what they are being offered. The frame left standing
- * at the end of a Scene is passed over: it is still on screen, but it is not
- * what has just arrived. At the end of the Story there is neither a Shot nor a
- * way on, and the press that got there took its own button away, so the one
- * control left — reading again from the start — takes the focus it held.
+ * out — the Reader lands on what they are being offered. A Scene that asks puts
+ * its Question there first, and its field takes the focus as the Question
+ * appears, so the Reader is told what they are asked and is already where the
+ * answer is written. The frame left standing at the end of a Scene is passed
+ * over: it is still on screen, but it is not what has just arrived. At the end
+ * of the Story there is neither a Shot nor a way on, and the press that got
+ * there took its own button away, so the one control left — reading again from
+ * the start — takes the focus it held.
  *
  * Starting over is the one move that can land on nothing: it puts the Reading
  * back where reading again is not offered, so a Story whose Opening Scene plays
@@ -248,11 +251,14 @@ onMounted(() => {
 const root = useTemplateRef<HTMLElement>('root')
 const frame = useTemplateRef<HTMLElement>('frame')
 const exits = useTemplateRef<HTMLElement>('exits')
+const asked = useTemplateRef<HTMLInputElement>('asked')
 const again = useTemplateRef<HTMLElement>('again')
 
 /** Where a press puts the Reader, which is the whole of what the paragraph above says. */
 function land() {
-  (shown.value.shot ? frame.value : (exits.value?.querySelector('button') ?? again.value))
+  (shown.value.shot
+    ? frame.value
+    : (asked.value ?? exits.value?.querySelector('button') ?? again.value))
     ?.focus({ preventScroll: full.value })
 }
 
@@ -436,6 +442,24 @@ function pinned(leaving: Element) {
 }
 
 /**
+ * What the Reader has typed into the field of the Question on screen and not yet
+ * answered with, and the answer handed back where they step back onto it. It
+ * never leaves this component and is no part of the Path until it is answered,
+ * so it is not kept between visits: a sentence half written is not a move.
+ *
+ * A Scene asks one Question, so a draft belongs to the Scene it was typed in and
+ * is let go as the Reading stands in another: a Reader who stepped away from one
+ * Question is never shown what they typed there under the next.
+ */
+const draft = ref('')
+/** The id the Question's sentence labels its field by. */
+const questionId = useId()
+
+watch(() => shown.value.sceneId, () => {
+  draft.value = ''
+})
+
+/**
  * The beat behind, or nothing where there is none: the opening beat of the
  * Story, or an Exit the Author closed behind the Reader. The engine is asked
  * rather than the Path read here — an Exit says whether it is crossed backwards
@@ -450,7 +474,26 @@ function stepBack() {
   // few seconds after stepping back has a control that undoes nothing, and the
   // clock they were ahead of would be reading the Story for them.
   paused.value = true
+  // The step back from the Exits of a Scene that asked lets its answer go and
+  // puts the Question again, and the Reader finds what they said in the field,
+  // to keep or to change: they are going back over an answer, not being asked
+  // afresh. Read before the move, while the Path still holds it.
+  const sceneId = shown.value.sceneId
+  const given = sceneId ? at.value.answers?.[sceneId] : undefined
+  if (given !== undefined) draft.value = given
   if (behind.value) passBy(0, 'image', behind.value)
+}
+
+/**
+ * The Reader answers the Question on screen with what they typed, which is a move
+ * like any other and lands them where the Exits are now offered — judged with the
+ * answer, and said with it.
+ */
+function answers() {
+  const sceneId = shown.value.sceneId
+  if (!sceneId) return
+
+  return moveTo(answer(at.value, sceneId, draft.value))
 }
 
 const sceneNames = computed(() => new Map(story.scenes.map(scene => [scene.id, scene.name])))
@@ -862,7 +905,13 @@ function pauseOrResume() {
 const GOES_ON = [' ', 'Enter', 'ArrowRight', 'PageDown']
 const STEPS_BACK = ['ArrowLeft', 'PageUp']
 
-/** What a key or a swipe asked for, done where its control is drawn; whether it was. */
+/**
+ * What a key or a swipe asked for, done where its control is drawn; whether it
+ * was. *Next Shot* is drawn only while a Shot is on screen, so the Question
+ * stands still for both: it is answered in its field or not at all, and no key
+ * and no finger goes on past it. Stepping back from it is a step back like any
+ * other, and the keys typed in the field are the field's own, below.
+ */
 function went(way: 'on' | 'back' | null) {
   if (way === 'on' && shown.value.shot) pressed()
   else if (way === 'back' && moved(at.value) && behind.value) stepBack()
@@ -993,6 +1042,12 @@ clock(() => {
  * so the order the Author wrote them in is the whole of what says which. Nought
  * is the Scene flowing into the next without asking, and there they are never
  * painted at all.
+ *
+ * All three wait on a Question. While one stands no Exit is offered, so there is
+ * no time to stand for and nothing to take; the Question waits for the Reader
+ * whatever the Scene says. The answer puts the Exits on offer, and that is when
+ * their time starts — a Scene that flows into the next flows the moment it is
+ * answered, into the first Exit the answer offers.
  */
 const standing = computed(() => (shown.value.exits.length ? scene.value?.exitsAfter ?? null : null))
 const asking = computed(() => shown.value.exits.length > 0 && standing.value !== 0)
@@ -1003,10 +1058,14 @@ const asking = computed(() => shown.value.exits.length > 0 && standing.value !==
  * list; a Reader standing on a control of their own is told by this and by
  * nothing else, so it says a choice is there whether or not a clock is running on
  * it — a Scene whose beats are clocked and whose choice is open is the commonest
- * shape there is, and it would otherwise stop in silence. Empty where nothing is
- * being asked: a run still playing, or a Scene flowing into the next.
+ * shape there is, and it would otherwise stop in silence. A Question is told the
+ * same way: a clock that cuts to it leaves that Reader on their control and puts
+ * no focus in its field, so this says that a Question waits for their answer.
+ * Empty where nothing is being asked: a run still playing, or a Scene flowing
+ * into the next.
  */
 const waysOnSay = computed(() => {
+  if (shown.value.question) return t('reading.questionWaits')
   if (!asking.value) return ''
 
   return standing.value === null
@@ -1383,6 +1442,34 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
       </template>
       <template v-else>{{ $t('reading.next') }}</template>
     </button>
+
+    <!-- The Question, drawn where the ways on are drawn and instead of them, under
+         the frame the Scene played out on. Its sentence is the Author's, said with
+         the Flags this Reading holds and set in the Story's Language, and it is the
+         field's own label, so whoever lands in the field hears what they are asked.
+         What is typed there is the Reader's, in the Story's Language too.
+
+         A form, so `Enter` in the field presses *Answer* as the browser has it do,
+         and the keys a Reading is gone on with are the field's own while it is
+         typed in: `readByKeys` leaves a field alone. The Flag the answer is held
+         under is the Author's name for it and is nowhere here, on screen or in an
+         accessible name — see
+         `docs/adr/0054-the-reader-is-shown-what-the-author-wrote.md`. -->
+    <form v-if="shown.question" class="question" @submit.prevent="answers">
+      <label :for="questionId" :lang="story.language" :style="setIn(story).style">
+        {{ says(shown.question) }}
+      </label>
+      <input
+        :id="questionId"
+        ref="asked"
+        v-model="draft"
+        type="text"
+        :lang="story.language"
+        :maxlength="FLAG_VALUE_MAX_LENGTH"
+        autocomplete="off"
+      >
+      <button type="submit">{{ $t('reading.answer') }}</button>
+    </form>
 
     <!-- What tells a Reader who cannot see the ways on that they are being asked,
          and what the choice stands under. It comes before the list rather than
@@ -2552,6 +2639,28 @@ figcaption :deep([data-effect="tremor"]) {
 
 .exits .splice:hover {
   background: var(--steel-lit);
+}
+
+/* The Question, where the ways on stand and as wide as they are: the Author's
+   sentence across the column in the face the Story is set in, since it is the
+   Story speaking, and under it the field and the press beside it, the press
+   weighed as *Next Shot* is because it is the one way on there is. */
+.question {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--s2);
+}
+
+.question label {
+  grid-column: 1 / -1;
+  font-family: var(--shot-face, var(--prose));
+  font-size: 1.1875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.question button {
+  padding-inline: var(--s4);
 }
 
 /* The time the ways on stand: a track the width of the column, and a bar drained

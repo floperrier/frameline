@@ -290,6 +290,8 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
     textPace?: unknown
     textOver?: unknown
     textStays?: unknown
+    question?: unknown
+    questionFlag?: unknown
   }>(event)
   const changes: {
     name?: string
@@ -310,6 +312,8 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
     textPace?: number
     textOver?: number
     textStays?: number | null
+    question?: string
+    questionFlag?: string
   } = {}
 
   if (body?.name !== undefined) changes.name = await readSceneName(event)
@@ -383,8 +387,53 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
       throw createError({ statusCode: 400, message: saying(event)('refusals.textStaysNought') })
     }
   }
+  // The sentence a Scene puts to the Reader and the Flag its answer is held
+  // under, each written on its own; empty is how the Question is taken away.
+  if (body?.question !== undefined) changes.question = await readQuestion(event)
+  if (body?.questionFlag !== undefined) changes.questionFlag = await readQuestionFlag(event)
   // Which is a name asked for, by the reader that phrases the refusal.
   if (!Object.keys(changes).length) await readSceneName(event)
 
   return changes
+}
+
+/**
+ * Reads the sentence a Scene puts to the Reader before its Exits. Empty is a
+ * Scene that asks nothing, which is how a Question is taken away.
+ */
+export async function readQuestion(event: H3Event) {
+  const body = await readBody<{ question?: unknown }>(event)
+  const written = typeof body?.question === 'string' ? body.question.trim() : undefined
+
+  if (written === undefined || written.length > QUESTION_MAX_LENGTH) {
+    throw createError({
+      statusCode: 400,
+      message: saying(event)('refusals.question', { max: QUESTION_MAX_LENGTH }),
+    })
+  }
+
+  return written
+}
+
+/**
+ * Reads the Flag a Question's answer is held under, to the rules a Flag's name
+ * already has where a Scene sets one (`readSceneFlags`): no newline, no `=`, and
+ * no brace, refused by the same phrase. Empty is a Scene that asks nothing.
+ */
+export async function readQuestionFlag(event: H3Event) {
+  const body = await readBody<{ questionFlag?: unknown }>(event)
+  const flag = typeof body?.questionFlag === 'string' ? body.questionFlag.trim() : undefined
+  const refused = () => createError({
+    statusCode: 400,
+    message: saying(event)('refusals.questionFlag', { max: FLAG_NAME_MAX_LENGTH }),
+  })
+
+  if (flag === undefined || flag.length > FLAG_NAME_MAX_LENGTH) throw refused()
+  if (flag.includes(FLAG_SEPARATOR) || flag.includes('\n')) throw refused()
+  const brace = ['{', '}'].find(brace => flag.includes(brace))
+  if (brace) {
+    throw createError({ statusCode: 400, message: saying(event)('refusals.flagNameBrace', { brace }) })
+  }
+
+  return flag
 }

@@ -984,6 +984,43 @@ function writeTranscript(scene: Scene) {
   }))
 }
 
+/**
+ * The Scenes whose Question the Author has opened and not yet written anything
+ * in. A Scene whose Question or Flag holds something stands open without being
+ * here, so what is written stays open on a reload
+ * (`docs/adr/0061-what-is-written-stands-open.md`).
+ */
+const asking = ref<Record<string, boolean>>({})
+
+function questionOpen(scene: Scene) {
+  return !!asking.value[scene.id] || !!scene.question || !!scene.questionFlag
+}
+
+/** Opens the two fields and puts the caret in the first. */
+async function askQuestion(scene: Scene) {
+  asking.value[scene.id] = true
+  await nextTick()
+  document.getElementById(`question-${scene.id}`)?.focus()
+}
+
+/** The Question and the Flag its answer is held under: one typed write for both. */
+function writeQuestion(scene: Scene) {
+  return writing(scene, scene.id, () => send(`/api/scenes/${scene.id}`, {
+    method: 'PATCH',
+    body: { question: scene.question, questionFlag: scene.questionFlag },
+  }))
+}
+
+/** Empties both and closes the fields, with the caret on the button that reopens them. */
+async function removeQuestion(scene: Scene) {
+  scene.question = ''
+  scene.questionFlag = ''
+  delete asking.value[scene.id]
+  await writeQuestion(scene)
+  await nextTick()
+  document.getElementById(`ask-${scene.id}`)?.focus()
+}
+
 function writeSoundLoops(scene: Scene, answer: string) {
   scene.soundLoops = answer === 'loop'
 
@@ -3229,6 +3266,60 @@ function writeConditions(
         </p>
       </section>
 
+      <!-- Where the Question plays: after the run, before the Exits are judged,
+           so it stands between the Shots and the ways out. The two fields stand
+           open wherever either holds anything. -->
+      <div class="asks">
+        <template v-if="questionOpen(held.scene)">
+          <p class="asked">
+            <label class="eyebrow" :for="`question-${held.scene.id}`">
+              {{ $t('editor.question') }}
+              <span class="visually-hidden">{{ held.name }}</span>
+            </label>
+            <input
+              :id="`question-${held.scene.id}`"
+              v-model="held.scene.question"
+              type="text"
+              :maxlength="QUESTION_MAX_LENGTH"
+              @change="writeQuestion(held.scene)"
+            >
+          </p>
+          <p class="asked">
+            <label class="eyebrow" :for="`question-flag-${held.scene.id}`">
+              {{ $t('editor.questionFlag') }}
+              <span class="visually-hidden">{{ held.name }}</span>
+            </label>
+            <input
+              :id="`question-flag-${held.scene.id}`"
+              v-model="held.scene.questionFlag"
+              type="text"
+              autocomplete="off"
+              :maxlength="FLAG_NAME_MAX_LENGTH"
+              @change="writeQuestion(held.scene)"
+            >
+          </p>
+          <button
+            type="button"
+            class="danger going"
+            :data-command="held.here ? $t('editor.removeQuestion') : undefined"
+            @click="removeQuestion(held.scene)"
+          >
+            {{ $t('editor.removeQuestion') }}
+            <span class="visually-hidden">{{ held.name }}</span>
+          </button>
+        </template>
+        <button
+          v-else
+          :id="`ask-${held.scene.id}`"
+          type="button"
+          :data-command="held.here ? $t('editor.askAQuestion') : undefined"
+          @click="askQuestion(held.scene)"
+        >
+          {{ $t('editor.askAQuestion') }}
+          <span class="visually-hidden">{{ held.name }}</span>
+        </button>
+      </div>
+
       <!-- The foot of the Scene: the ways out, in the Places it offers them at,
            each with the Conditions it is offered under. Last because that is where
            the Reader meets them. -->
@@ -3740,6 +3831,24 @@ function writeConditions(
 .transcribed input:hover,
 .transcribed input:focus-visible {
   border-color: var(--edge);
+}
+
+/* The Question and its Flag, one field to a line under the run of Shots, each
+   read as a label over a box the width of the column. */
+.asks {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s2);
+  margin-block: var(--s3);
+}
+
+.asked {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  inline-size: 100%;
+  margin: 0;
 }
 
 /* The picker takes what is left of its line in the fold, so *Listen* and *Take

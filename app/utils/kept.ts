@@ -2,9 +2,11 @@
  * What one browser keeps of a Reading, and what it keeps beside it.
  *
  * The Path is per Story and is a reading of the Story: the Exits taken, the Shots
- * behind, the seed. Whether sound is on and whether the Transcript is shown are
- * properties of the person, so they are kept once for the browser rather than per
- * Story — two lifetimes, and neither of them inside the Path. See
+ * behind, the seed, and the answers the Reader gave the Questions they were put,
+ * which are kept here with the rest of it and never leave the browser. Whether
+ * sound is on and whether the Transcript is shown are properties of the person,
+ * so they are kept once for the browser rather than per Story — two lifetimes,
+ * and neither of them inside the Path. See
  * `docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md` and
  * `docs/adr/0049-a-sound-is-carried-by-what-plays-it.md`.
  *
@@ -42,12 +44,22 @@ export function keptReading(storyId: string, story: StoryToRead): Path | undefin
   return isPath(at) && resumes(story, at) ? at : undefined
 }
 
-/** Whether what the browser handed back has the shape of a Path, whatever wrote it. */
+/**
+ * Whether what the browser handed back has the shape of a Path, whatever wrote it.
+ * A Path kept before any Scene asked has no answers at all, and is one.
+ */
 export function isPath(at: unknown): at is Path {
   return typeof at === 'object' && at !== null
     && Number.isInteger((at as Path).seed)
     && Number.isInteger((at as Path).shot) && (at as Path).shot >= 0
     && Array.isArray((at as Path).taken)
+    && ((at as Path).answers === undefined || isAnswers((at as Path).answers))
+}
+
+/** Answers by Scene: an object, and not a list, holding nothing but strings. */
+function isAnswers(held: unknown) {
+  return typeof held === 'object' && held !== null && !Array.isArray(held)
+    && Object.values(held).every(answer => typeof answer === 'string')
 }
 
 /** One kept answer to a yes-or-no question about the person rather than the Story. */

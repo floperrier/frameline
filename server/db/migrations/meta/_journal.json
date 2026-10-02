@@ -218,6 +218,13 @@
       "when": 1790895153866,
       "tag": "0030_a_deleted_shot_is_held_for_a_day",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1790900586141,
+      "tag": "0031_a_scene_ends_on_a_question",
+      "breakpoints": true
     }
   ]
 }

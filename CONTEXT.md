@@ -261,6 +261,21 @@ played only where all of them hold; one carrying none always is.
 _Affiché_: Condition
 _Avoid_: rule, guard, requirement, predicate, gate
 
+**Question**:
+A sentence a Scene may end on. It is put to the Reader once the Scene's run has
+played and before its Exits are offered, over one line they write their answer
+on. The answer is held for the rest of the Reading as the value of a Flag the
+Author names beside the sentence, so every text after it says it and every
+Condition after it can test it. A Scene asks where both the sentence and the Flag
+are written. It asks nothing where no answer could lead it to an Exit, because
+a Scene that offers none under any answer is an ending. An empty answer is an
+answer. The answer stays in the Reader's browser and never reaches the server
+or the Author: see `docs/adr/0066-a-scene-may-end-on-a-question.md`. A plain
+word and not one from the grammar of cinema, because a film asks its audience
+nothing — see `docs/adr/0022-the-metaphor-stops-at-the-edge-of-the-work.md`.
+_Affiché_: Question
+_Avoid_: prompt, input, field, riddle, form, saisie, invite, énigme
+
 **Sample**:
 The short Story an Author is given when their account is created, written to be
 taken apart rather than read: three Scenes carrying Flags, Conditions and Images
@@ -317,22 +332,25 @@ Flags, plus the Scenes it has entered and the Exits it has taken. Entered and
 taken rather than counted, because a Reading stands in a Scene at most once and
 so takes an Exit out of it at most once. See
 `docs/adr/0048-a-scene-is-entered-once.md`. The two lists are the Path read
-back, never anything kept beside it. Never shared between Readings.
+back, never anything kept beside it, and so are the answers the Reader gave a
+Question, which are Flags of it like any other. Never shared between Readings.
 _Affiché_: État
 _Avoid_: variables, memory, save, progress, context, session data
 
 **Flag**:
 A single named value in State, set by the Author and tested by Conditions. A
-Scene carries the Flags it sets, and sets them as it is entered. A Scene may name
-several values for one Flag, and one of them is drawn as the Reading arrives —
-what holds a list is the Scene, never the State, where a Flag is the one value
-drawn.
+Scene carries the Flags it sets, and sets them as it is entered — or, for the
+one a Scene's Question holds its answer under, as that Question is answered,
+with whatever the Reader wrote. A Scene may name several values for one Flag,
+and one of them is drawn as the Reading arrives — what holds a list is the
+Scene, never the State, where a Flag is the one value drawn.
 A Flag is said as well as tested. A Shot's text, its Description and its
-Transcript, a Scene's Transcript and an Exit's text may write a Flag's name
-between braces, `{coat}`, and the Reader reads in its place the value this Reading
-holds, or nothing where it holds none. Only the name of a Flag some Scene of the
-Story sets is said, and any other run between braces is read as it is written,
-which is how a brace is written and how a misspelt name shows in the Preview.
+Transcript, a Scene's Transcript and its Question, and an Exit's text may write a
+Flag's name between braces, `{coat}`, and the Reader reads in its place the value
+this Reading holds, or nothing where it holds none. Only the name of a Flag some
+Scene of the Story sets, or holds a Question's answer under, is said, and any
+other run between braces is read as it is written, which is how a brace is
+written and how a misspelt name shows in the Preview.
 _Affiché_: Marqueur
 _Avoid_: variable, switch, toggle, key, drapeau, placeholder, interpolation,
 substitution, token, balise, espace réservé
@@ -352,11 +370,12 @@ _Avoid_: session, playthrough, run, visit
 
 **Path**:
 How far one Reading has got: the Exits it has taken, in order, how many Shots
-of the Scene it stands in are behind it, and the seed every draw a Scene makes
-comes out of. Everything else about a Reading — the Scene, the Shot on screen,
-the Exits on offer, the State — is computed from it. Both the route taken and the
-taking of it, which is why it is not a point: where a Shot or an Exit comes in its
-own list is a Place.
+of the Scene it stands in are behind it, the answers the Reader gave the
+Questions put to them, each under the Scene that asked it, and the seed every
+draw a Scene makes comes out of. Everything else about a Reading — the Scene,
+the Shot on screen, the Exits on offer, the State — is computed from it. Both
+the route taken and the taking of it, which is why it is not a point: where a
+Shot or an Exit comes in its own list is a Place.
 _Affiché_: Parcours
 _Avoid_: position, cursor, pointer, progress, step, index
 

@@ -242,11 +242,15 @@ function held(value: string) {
  * The ways out of the Scene the Reading stands in that it is not being offered —
  * the Exits the engine filtered out, found by asking the engine's own predicate
  * rather than by testing the Conditions again here. Only where the Scene has
- * played out, because that is where the ways on are the question.
+ * played out, because that is where the ways on are the question — and not while
+ * the Scene's own Question stands, because then no Exit is offered at all and
+ * none of them is hidden: they wait on the answer, which the State does not hold
+ * yet, and an Exit that tests it would be listed as failing a test nobody has
+ * been given the chance to pass.
  */
 const hidden = computed(() => {
   const now = shown.value
-  if (now.shot) return []
+  if (now.shot || now.question) return []
 
   return ways.value.filter(exit => !holds(exit.conditions, now.state))
 })
@@ -258,6 +262,11 @@ const hidden = computed(() => {
  * Shot has no place in the run at all. Standing beside the ways on for the same
  * reason: what a Condition is hiding is what an Author came to the reading to
  * find out.
+ *
+ * Read off the run rather than tested again against the State, because the State
+ * holds the answer of a Scene that asks while the run was judged against the one
+ * the Scene was arrived with. The run is the Scene's own Shots filtered, so a Shot
+ * absent from it is one the Reading skips.
  */
 const skipped = computed(() => {
   const now = shown.value
@@ -265,7 +274,7 @@ const skipped = computed(() => {
 
   return scene.value.shots
     .map((shot, place) => ({ shot, place: place + 1 }))
-    .filter(({ shot }) => !holds(shot.conditions, now.state))
+    .filter(({ shot }) => !now.run.includes(shot))
 })
 
 /**
