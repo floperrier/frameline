@@ -34,6 +34,7 @@ import {
   run,
   runsSaid,
   separator,
+  shotsOf,
   speech,
   splitFormatted,
   standing,
@@ -731,5 +732,75 @@ describe('a Shot’s words cut in two, and joined back', () => {
     const { formatted: joined, seam } = joinFormatted(formatted(line('A knock.')), marie)
     expect(joined).toEqual(formatted(line('A knock.'), ...marie.content))
     expect(schema.nodeFromJSON(joined).textBetween(0, seam)).toBe('A knock.')
+  })
+})
+
+describe('a text pasted under a Scene, read as the Shots it makes', () => {
+  /** What a text makes, each Shot held to the boundary a request is read at. */
+  const made = (text: string) => {
+    const shots = shotsOf(text)
+    for (const shot of shots) expect(parseFormatted(shot, 'refuse')).toHaveProperty('formatted')
+    return shots
+  }
+
+  it('cuts a Shot at one empty line and at several, a line of spaces being empty', () => {
+    expect(made('A door opens.\nShe steps out.\n\nRain.\n  \t\n\n   \nA car.')).toEqual([
+      formatted(line('A door opens.'), line('She steps out.')),
+      formatted(line('Rain.')),
+      formatted(line('A car.')),
+    ])
+  })
+
+  it('reads every line as a Shot where the text holds no empty line, its empty lines at either end set aside', () => {
+    expect(made('\n\nOne.\nTwo.\nThree.\n')).toEqual([
+      formatted(line('One.')), formatted(line('Two.')), formatted(line('Three.')),
+    ])
+  })
+
+  it('reads lines cut at any line break a paste brings', () => {
+    expect(made('One.\r\nTwo.\r\n\r\nThree.\rFour.')).toEqual([
+      formatted(line('One.'), line('Two.')), formatted(line('Three.'), line('Four.')),
+    ])
+  })
+
+  it('drops the spaces at the end of a line and keeps those at its start', () => {
+    expect(made('  Indented.   \nNot.\t\n\nNext.')).toEqual([
+      formatted(line('  Indented.'), line('Not.')), formatted(line('Next.')),
+    ])
+  })
+
+  it('gives a block whose first line is in capitals its Speaker, accents and full stops included', () => {
+    expect(made('MARIE\nCome in.\nSit down.\n\nÉLODIE\nNon.\n\nMRS. DALLOWAY\nThe flowers.')).toEqual([
+      formatted(speech('MARIE', line('Come in.'), line('Sit down.'))),
+      formatted(speech('ÉLODIE', line('Non.'))),
+      formatted(speech('MRS. DALLOWAY', line('The flowers.'))),
+    ])
+  })
+
+  it('takes a first line starting with @ for a Speaker whatever its case, and trims a Speaker’s name', () => {
+    expect(made('@McAllister\nRight.\n\n      PAUL  \n    Thank you.')).toEqual([
+      formatted(speech('McAllister', line('Right.'))),
+      formatted(speech('PAUL', line('    Thank you.'))),
+    ])
+  })
+
+  it('reads a block of one line in capitals as a line, and a first line with a small letter or no case as none', () => {
+    expect(made('BANG.\n\nMarie\nCome in.\n\n1984\nA year.\n\n東京\n夜。')).toEqual([
+      formatted(line('BANG.')),
+      formatted(line('Marie'), line('Come in.')),
+      formatted(line('1984'), line('A year.')),
+      formatted(line('東京'), line('夜。')),
+    ])
+  })
+
+  it('keeps braces, asterisks, underscores and brackets as they were typed', () => {
+    expect(made('She takes her {coat}.\n*Slowly* and _then_ [beat]')).toEqual([
+      formatted(line('She takes her {coat}.')), formatted(line('*Slowly* and _then_ [beat]')),
+    ])
+  })
+
+  it('makes nothing of an empty text or of white space alone', () => {
+    expect(made('')).toEqual([])
+    expect(made(' \n\t\n  ')).toEqual([])
   })
 })

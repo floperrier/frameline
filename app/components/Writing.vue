@@ -858,11 +858,11 @@ function dropImage(scene: Scene, shot: Shot, event: DragEvent) {
 }
 
 /**
- * The Scene a handful of Images is being made into Shots in, while it is. One
- * handful at a time across the document, because the status line saying how far
- * it has got is one line: the adding controls of every Scene stand disabled
- * meanwhile, so no beat lands between two of the pictures, and a drop arriving
- * meanwhile is let go of.
+ * The Scene a handful of Images, or a text pasted, is being made into Shots in,
+ * while it is. One handful at a time across the document, because the status line
+ * saying how far it has got is one line: the adding controls of every Scene stand
+ * disabled meanwhile, so no beat lands between two of the pictures, and a drop
+ * arriving meanwhile is let go of.
  */
 const filling = ref<string>()
 
@@ -966,6 +966,77 @@ async function addShotsFrom(scene: Scene, files: File[]) {
   ].join(' '))
 
   if (added[0]) return typeInShot(added[0])
+}
+
+/**
+ * The one field a text is pasted into under a Scene, while it is open — issue
+ * #438, `docs/adr/0076-pasted-text-is-cut-at-its-empty-lines.md`. One for the
+ * document, as the field a Shot is moved from is.
+ */
+const drafting = ref<{ sceneId: string, typed: string }>()
+
+/**
+ * What the text typed makes, read by `shotsOf` once for both the line under the
+ * field and the request, so what the line says is what is made.
+ */
+const drafted = computed(() => {
+  const made = shotsOf(drafting.value?.typed ?? '')
+  const long = made.findIndex(shot => textOf(shot).length > SHOT_TEXT_MAX_LENGTH)
+  const spoken = made.filter(shot => shot.content[0]!.type === 'speech').length
+  const n = made.length
+
+  const said = long !== -1 ? t('editor.textTooLong', { place: long + 1, max: SHOT_TEXT_MAX_LENGTH })
+    : n > SHOTS_ADDED_MAX ? t('editor.textTooMany', { n, max: SHOTS_ADDED_MAX })
+    : t('editor.textMakes', { n }, n) + (spoken ? t('editor.textSpoken', { m: spoken }, spoken) : '')
+  return { made, said, ready: n > 0 && n <= SHOTS_ADDED_MAX && long === -1 }
+})
+
+/** The button opens the field under the run with the hand in it, or closes it and takes the hand back. */
+async function toggleDrafting(scene: Scene) {
+  if (drafting.value?.sceneId === scene.id) return stopDrafting(scene)
+
+  drafting.value = { sceneId: scene.id, typed: '' }
+  await nextTick()
+  document.getElementById(`text-for-${scene.id}`)?.focus()
+}
+
+async function stopDrafting(scene: Scene) {
+  drafting.value = undefined
+  await nextTick()
+  document.getElementById(`from-text-${scene.id}`)?.focus()
+}
+
+/**
+ * The text as the Shots it makes, at the end of the run in one request. The
+ * bench stands busy meanwhile as it does over a handful of Images, and the field
+ * stays open until the Shots are made, so a refusal costs the Author nothing they
+ * typed. The caret then lands at the head of the first of them.
+ */
+async function addShotsFromText(held: SceneInDocument) {
+  const { made, ready } = drafted.value
+  if (drafting.value?.sceneId !== held.scene.id || filling.value || !ready) return
+
+  let added: Shot[] = []
+  filling.value = held.scene.id
+  try {
+    await changing(held.scene, async () => {
+      added = await send(`/api/scenes/${held.scene.id}/shots`, {
+        method: 'POST',
+        body: { formatted: made },
+      }) as Shot[]
+    })
+  }
+  finally {
+    filling.value = undefined
+  }
+
+  if (!added[0]) return
+  drafting.value = undefined
+  announce(t(added.length === 1 ? 'editor.oneShotAdded' : 'editor.shotsAdded', {
+    name: held.name,
+    count: added.length,
+  }))
+  return typeInShot(added[0].id, 0)
 }
 
 /**
@@ -3454,7 +3525,52 @@ function writeConditions(
             :accept="SHOT_IMAGE_ACCEPT"
             @change="addPickedShots(held.scene, $event)"
           >
+          <button
+            :id="`from-text-${held.scene.id}`"
+            type="button"
+            :disabled="!!filling"
+            :aria-expanded="drafting?.sceneId === held.scene.id"
+            :data-command="held.here ? $t('editor.addShotsFromText') : undefined"
+            @click="toggleDrafting(held.scene)"
+          >
+            {{ $t('editor.addShotsFromText') }}
+            <span class="visually-hidden">
+              {{ $t('editor.toScene', { name: held.name }) }}
+            </span>
+          </button>
         </p>
+
+        <!-- The beats of a draft at once: a text pasted here is cut at its empty
+             lines into as many Shots — see `shotsOf` and
+             `docs/adr/0076-pasted-text-is-cut-at-its-empty-lines.md` — and the line
+             under the field says what it makes as it is typed. -->
+        <form
+          v-if="drafting?.sceneId === held.scene.id"
+          class="drafting"
+          @submit.prevent="addShotsFromText(held)"
+          @keydown.esc.stop.prevent="stopDrafting(held.scene)"
+        >
+          <label class="eyebrow" :for="`text-for-${held.scene.id}`">
+            {{ $t('editor.textOfNewShots') }}
+            <span class="visually-hidden">{{ held.name }}</span>
+          </label>
+          <textarea
+            :id="`text-for-${held.scene.id}`"
+            v-model="drafting.typed"
+            rows="8"
+            :readonly="filling === held.scene.id"
+            :aria-describedby="`text-makes-${held.scene.id}`"
+          />
+          <p :id="`text-makes-${held.scene.id}`" class="makes">{{ drafted.said }}</p>
+          <p class="adds">
+            <button type="submit" :disabled="!drafted.ready || !!filling">
+              {{ $t('editor.addTheShots') }}
+            </button>
+            <button type="button" @click="stopDrafting(held.scene)">
+              {{ $t('editor.closeThisField') }}
+            </button>
+          </p>
+        </form>
       </section>
 
       <!-- Where the Question plays: after the run, before the Exits are judged,
@@ -4467,6 +4583,26 @@ function writeConditions(
   inline-size: min(100%, 24rem);
   padding: var(--s2) var(--s3);
   font-size: 0.875rem;
+}
+
+/* The text a run of beats is pasted from, under the controls that add them: the
+   same label and field as a way on's, a little wider than a Shot's measure, since
+   what is pasted is a draft of the very lines the run sets at it. */
+.drafting {
+  display: grid;
+  justify-items: start;
+  gap: var(--s1);
+  padding-block-start: var(--s2);
+}
+
+.drafting textarea {
+  inline-size: min(100%, 48ch);
+  font-size: 0.875rem;
+}
+
+.drafting .makes {
+  color: var(--muted);
+  font-size: 0.8125rem;
 }
 
 .row {
