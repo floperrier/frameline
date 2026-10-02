@@ -18,8 +18,8 @@ import {
 } from '../../shared/utils/scenes'
 import type { Path, State, StoryToRead } from '../../shared/utils/reading'
 import {
-  advance, answer, back, braced, cut, declaredIn, lastUnitAt, layout, lasting, moved, movement, movementEnds, movesItself, opening,
-  pathTo, pieces, reading, resumes, said, standOn, take, textArrival, textArrives, textMoves, timed, unmet,
+  advance, answer, back, braced, cut, declaredIn, imageHeld, lastUnitAt, layout, lasting, moved, movement, movementEnds, movesItself, opening,
+  needed, pathTo, pieces, reading, resumes, said, standOn, take, textArrival, textArrives, textMoves, timed, unmet,
 } from '../../shared/utils/reading'
 import { isPath } from '../../app/utils/kept'
 import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
@@ -2163,5 +2163,64 @@ describe('how an Exit is named where it is read', () => {
   it('reads white space alone as no words, as a text said of nothing leaves', () => {
     expect(named(exit('  '), () => 'The Bar', says)).toBe('Exit to The Bar')
     expect(named(exit(' '), () => 'The Bar', says)).toBe('Exit to The Bar')
+  })
+})
+
+describe('the Images a Reading will need next', () => {
+  /** The Story with an Image on every Shot, named after the Shot, but on the Shots `bare` names. */
+  function pictured(read: StoryToRead, bare: string[] = []): StoryToRead {
+    return {
+      ...read,
+      scenes: read.scenes.map(scene => ({
+        ...scene,
+        shots: scene.shots.map(shot => ({ ...shot, image: bare.includes(shot.id) ? null : `/${shot.id}` })),
+      })),
+    }
+  }
+
+  it('names the Images of the next two beats of the run, and the frame holds the beat on screen', () => {
+    const street = pictured(story({ Street: ['One.', 'Two.', 'Three.', 'Four.'] }))
+
+    expect(imageHeld(street, OPENING)).toBe('/Street-0')
+    expect(needed(street, OPENING)).toEqual(['/Street-1', '/Street-2'])
+    expect(needed(street, advance(advance(OPENING)))).toEqual(['/Street-3'])
+  })
+
+  it('never names a beat its Condition skips', () => {
+    const skipping = pictured(story({
+      Street: ['One.', ['Two.', [{ flag: 'lamp', is: 'lit' }]], 'Three.', 'Four.'],
+    }))
+
+    expect(needed(skipping, OPENING)).toEqual(['/Street-2', '/Street-3'])
+  })
+
+  it('passes over a beat with no Image to the next that has one, still within two beats', () => {
+    const carded = pictured(story({ Street: ['One.', 'A card.', 'Three.', 'Four.'] }), ['Street-1'])
+
+    expect(needed(carded, OPENING)).toEqual(['/Street-2'])
+  })
+
+  it('names the first beat behind each Exit offered at the end of a run, and nothing behind one that is not', () => {
+    const forked = pictured(story(
+      { Street: ['One.', 'Two.'], Bar: ['Smoke.', 'Later.'], Alley: ['Rain.'], Roof: ['Wind.'] },
+      [
+        ['Street', 'Go in', 'Bar'],
+        ['Street', 'Go round', 'Alley'],
+        ['Street', 'Go up', 'Roof', [{ flag: 'key', is: 'held' }]],
+      ],
+    ))
+    const last = advance(OPENING)
+
+    expect(needed(forked, last)).toEqual(['/Bar-0', '/Alley-0'])
+    // And while the ways on are offered, behind the frame the run ended on.
+    expect(imageHeld(forked, advance(last))).toBe('/Street-1')
+    expect(needed(forked, advance(last))).toEqual(['/Bar-0', '/Alley-0'])
+  })
+
+  it('names nothing past an ending', () => {
+    const alone = pictured(story({ Street: ['One.', 'Two.'] }))
+
+    expect(needed(alone, advance(OPENING))).toEqual([])
+    expect(needed(alone, advance(advance(OPENING)))).toEqual([])
   })
 })

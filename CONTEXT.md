@@ -95,7 +95,9 @@ screen there; a hard cut or a dissolve leave it standing, because a dissolve wit
 nothing to dissolve into is a fade to black the Author did not choose. A Shot
 whose text arrives in its own time is held for its time once the text has
 arrived, so the clock never cuts a text short, and a press made while the text
-is still arriving shows the rest of it rather than cutting.
+is still arriving shows the rest of it rather than cutting. A Cut's time counts
+from the moment the next beat can be shown, its Image in, so a Shot is never on
+screen waiting for its own picture.
 _Affiché_: Coupe
 _Avoid_: transition, timing, duration, delay, autoplay, timer, slideshow,
 durée, minuterie, défilement

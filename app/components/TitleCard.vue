@@ -20,21 +20,51 @@ const { id, story, begun = false, framed = false } = defineProps<{
   framed?: boolean
 }>()
 
-defineEmits<{ begin: [] }>()
+const emit = defineEmits<{ begin: [] }>()
 
 const localePath = useLocalePath()
+
+/**
+ * The seed the Reading will be set up with, drawn here as the card is rendered
+ * and read back by the Reading under the same name, so the beat it opens on is
+ * known before it is mounted — see `docs/adr/0060-the-seed-is-carried-to-the-browser.md`.
+ */
+const seed = useState('reading-seed', () => opening().seed)
 
 /**
  * `Resume` rather than `Begin` where this browser kept a Path for this Story,
  * read the same way the Reading itself reads it back — see `app/utils/kept.ts`
  * — so the one word said before the frame is on screen already tells a
  * returning Reader they are not starting over.
+ *
+ * The Image of the beat the Reading opens on, the one a kept Path resumes on or
+ * the opening one, is brought in while the card stands, and the press waits for
+ * it the way every move of the Reading does: the card stays until that beat can
+ * be shown, and says so past half a second. A second press while it waits does
+ * nothing. See `docs/adr/0073-a-beat-lands-when-its-image-can-be-shown.md`.
  */
 const resuming = ref(false)
+const onItsWay = ref(false)
+let first: string | null = null
+let beginning = false
 
 onMounted(() => {
-  resuming.value = Boolean(keptReading(id, story))
+  const kept = keptReading(id, story)
+  resuming.value = Boolean(kept)
+  first = imageHeld(story, kept ?? opening(seed.value))
+  if (first) bringIn(first)
 })
+
+async function begins() {
+  if (beginning) return
+  beginning = true
+  // A Story that carries a Sound is begun inside the press, waiting or not: the
+  // press is the consent its Sound plays on, and some browsers hear it only while
+  // it is being made. An Image in already is no wait either.
+  const ready = story.carriesSound ? undefined : untilShown(first, onItsWay)
+  if (ready) await ready
+  emit('begin')
+}
 </script>
 
 <template>
@@ -80,9 +110,10 @@ onMounted(() => {
   <!-- The one press every Story is given before it plays anything, and for a
        Story that carries a Sound the consent as well: consenting to sound is
        consenting to this one, not to sound in general. -->
-  <button v-if="!begun" type="button" class="beginning primary" @click="$emit('begin')">
+  <button v-if="!begun" type="button" class="beginning primary" @click="begins">
     {{ resuming ? $t('read.resume') : $t('read.begin') }}
   </button>
+  <p v-if="onItsWay && !begun" class="trail">{{ $t('reading.onItsWay') }}</p>
 </template>
 
 <style scoped>

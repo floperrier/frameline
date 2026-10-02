@@ -47,7 +47,8 @@ const at = defineModel<Path>('at', { default: () => UNDRAWN })
  * hydration. Drawn twice, a Flag said or tested on the opening beat would read one
  * value as the page is painted and another once it answers — issue #387. Every
  * Reading a Reader opens is set up in the browser alone now, behind its title
- * card, and draws it there; the carry is kept for a server that renders one again.
+ * card, and the card draws the seed as it is rendered, so it knows which beat the
+ * Reading opens on and brings that beat's Image in before the press.
  * It is the one impure moment in a Reading — see
  * `docs/adr/0024-the-seed-belongs-to-the-position.md`,
  * `docs/adr/0060-the-seed-is-carried-to-the-browser.md` and
@@ -176,17 +177,20 @@ let toldTaken = new Set<string>()
 
 /**
  * The Reader takes an Exit, by a press or by the clock — which is also a Scene
- * flowing on — and the Path that takes it, told the first time this Reading does.
+ * flowing on — told the first time this Reading does. Nothing at all while a move
+ * is held, so a take that is not made is not told either: see `moveTo`.
  */
-function taking(exit: Exit) {
+function taking(exit: Exit, byClock = false) {
+  if (holding) return
   if (!toldTaken.has(exit.id)) {
     toldTaken.add(exit.id)
     tell('taken', { exit: exit.id })
   }
-  return take(at.value, exit)
+  return passBy(exit.cutOver, exit.cutThrough, take(at.value, exit), byClock)
 }
 
 function readAgain() {
+  if (holding) return
   toldEnded = false
   toldTaken = new Set()
   tell('begun')
@@ -329,7 +333,54 @@ function land() {
 // they pressed went dark with the writing and took the focus with it.
 defineExpose({ land })
 
-async function moveTo(to: Path, byClock = false) {
+/**
+ * Whether a move is held while the Image of the beat it lands on is brought in,
+ * and whether that has gone on past half a second, which the frame and the trail
+ * say. One move at a time: a press made during the hold does nothing, because the
+ * beat being brought in is the one the Reader asked for, and two presses landing
+ * as two beats a split second apart would show them a beat they never saw. See
+ * `docs/adr/0073-a-beat-lands-when-its-image-can-be-shown.md`.
+ */
+let holding = false
+const onItsWay = ref(false)
+
+/**
+ * What is brought in ahead, whenever the Path moves or the Story under it does:
+ * every Image `needed` names, and the one on screen, kept so that a step back onto
+ * it asks for nothing. In the browser alone, which is the one place an Image is
+ * shown, and let go of as the Reading ends. See `app/utils/brought.ts`.
+ */
+if (import.meta.client) {
+  watchEffect(() => {
+    for (const image of [imageHeld(story, at.value), ...needed(story, at.value)]) {
+      if (image) bringIn(image)
+    }
+  })
+}
+
+onBeforeUnmount(letGo)
+
+async function moveTo(to: Path, byClock = false, passage?: { over: number, through: CutThrough }) {
+  if (holding) return
+  // The beat leaving stays on screen as it is until the one arriving can be shown,
+  // its own clock having run, so whatever the Author wrote about a beat's time is
+  // counted from a frame the Reader can see. A beat whose Image is in already is
+  // not waited on at all, and lands in this very task. Past the ceiling, or once
+  // a load has failed, it lands anyway. A move made from outside while this one
+  // was held — the bench drawing again — is the one that stands, and a move of the
+  // clock's is not made into a Reading stopped while it was held: the clock is
+  // armed again as it starts.
+  const from = at.value
+  const ready = untilShown(imageHeld(story, to), onItsWay)
+  if (ready) {
+    holding = true
+    await ready
+    holding = false
+    if (at.value !== from || (byClock && stopped.value)) return
+  }
+  // Set after the wait, since the frame still on screen through it reads it.
+  if (passage) passing.value = passage
+
   // Read before the Path moves: the beat on screen is the one about to leave, and
   // `leaving` blurs it a tick from now. Nothing at all — a page just opened, a
   // press that took its own button away — is the focus falling back to the
@@ -379,9 +430,7 @@ async function moveTo(to: Path, byClock = false) {
 const passing = ref<{ over: number, through: CutThrough }>({ over: 0, through: 'image' })
 
 function passBy(over: number, through: CutThrough, to: Path, byClock = false) {
-  passing.value = { over, through }
-
-  return moveTo(to, byClock)
+  return moveTo(to, byClock, { over, through })
 }
 
 /**
@@ -419,6 +468,7 @@ function passBy(over: number, through: CutThrough, to: Path, byClock = false) {
  * on screen — and a Shot on screen is a Shot of the run the Reading stands in.
  */
 function passOn(byClock = false) {
+  if (holding) return
   const last = shown.value.shot === shown.value.run.at(-1)
   const made = last ? { over: 0, through: 'image' as const } : cut(scene.value!, shown.value.shot!)
   const to = advance(at.value)
@@ -533,6 +583,7 @@ watch(() => shown.value.sceneId, () => {
 const behind = computed(() => back(story, at.value))
 
 function stepBack() {
+  if (holding) return
   // Somebody who goes back has asked to stop: a Reader carried forward again a
   // few seconds after stepping back has a control that undoes nothing, and the
   // clock they were ahead of would be reading the Story for them.
@@ -1149,7 +1200,7 @@ clock(() => {
 
   return {
     after: standing.value,
-    press: () => passBy(first.cutOver, first.cutThrough, taking(first), true),
+    press: () => taking(first, true),
   }
 })
 
@@ -1369,6 +1420,7 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
             }"
             :lang="story.language"
             :style="{ '--wait': `${wait}ms`, '--end-over': toBlack ? `${ending!.over}ms` : undefined }"
+            :aria-busy="onItsWay || undefined"
             tabindex="-1"
             @pointerdown="touches"
             @pointerup="lifts"
@@ -1506,6 +1558,12 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
       <template v-else>{{ $t('reading.next') }}</template>
     </button>
 
+    <!-- Said once a move has been held past half a second for the Image of the
+         beat it lands on, and gone as that beat lands. Quiet, and no live region:
+         the frame says it is busy, and the network is not to be read out over
+         the Story. -->
+    <p v-if="onItsWay" class="trail">{{ $t('reading.onItsWay') }}</p>
+
     <!-- The Question, drawn where the ways on are drawn and instead of them, under
          the frame the Scene played out on. Its sentence is the Author's, said with
          the Flags this Reading holds and set in the Story's Language, and it is the
@@ -1559,7 +1617,7 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
           type="button"
           class="splice"
           :lang="story.language"
-          @click="passBy(exit.cutOver, exit.cutThrough, taking(exit))"
+          @click="taking(exit)"
         >
           {{ offered(exit) }}
         </button>

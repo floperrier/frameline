@@ -842,6 +842,41 @@ export function take(at: Path, exit: Exit): Path {
 }
 
 /**
+ * The Image the frame holds on this Path: the Shot on screen, or the last of the
+ * run once it has played out, which stays behind the ways on and at the ending.
+ * Null where that beat is a card, or where there is no beat at all. What a move
+ * waits on before it lands — see
+ * `docs/adr/0073-a-beat-lands-when-its-image-can-be-shown.md`.
+ */
+export function imageHeld(story: StoryToRead, at: Path) {
+  const { shot, run } = reading(story, at)
+  return (shot ?? run.at(-1))?.image ?? null
+}
+
+/**
+ * The Images this Path will need next, which a Reading brings in before they are
+ * asked for: those of the next two beats of the run, and — at its last beat, or
+ * once its ways on are offered — those of the first beat behind every Exit on
+ * offer there, a Scene flowing into the next included. Every one is a Path the
+ * engine computes, so a Shot a Condition skips is never in it, and what is
+ * brought in and what plays cannot disagree. Two beats, because the shortest Cut
+ * an Author can write is half a second. See
+ * `docs/adr/0073-a-beat-lands-when-its-image-can-be-shown.md`.
+ */
+export function needed(story: StoryToRead, at: Path) {
+  const now = reading(story, at)
+  const next = advance(at)
+  const beats = now.shot ? [reading(story, next), reading(story, advance(next))] : []
+  // Where the ways on are offered: here, or once the last beat of the run is left.
+  const leaving = !now.shot ? at : beats[0]!.shot ? undefined : next
+  const behind = leaving
+    ? reading(story, leaving).exits.map(exit => reading(story, take(leaving, exit)))
+    : []
+
+  return [...new Set([...beats, ...behind].flatMap(({ shot }) => (shot?.image ? [shot.image] : [])))]
+}
+
+/**
  * The Reader steps back a beat. Inside a Scene that is one Shot fewer; on the
  * first Shot of one it is the last Exit untaken, landing at the end of the Scene
  * that Exit left with its ways on offered again — which is what a Reader means
