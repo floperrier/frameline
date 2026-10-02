@@ -96,7 +96,9 @@ function shapeOfCondition(work: Work, condition: WorkCondition) {
 
   return {
     setBy: work.scenes.findIndex(scene => scene === holderOf(work, condition.flag)),
-    asks: condition.is === '' ? 'nothing' : 'a value',
+    asks: 'is' in condition
+      ? condition.is === '' ? 'nothing' : 'a value'
+      : condition.isNot === '' ? 'anything' : 'anything but a value',
   }
 }
 
@@ -350,13 +352,23 @@ describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLan
     // Asked where a way on is offered, so the Question is put at all.
     expect(next.length).toBeGreaterThan(0)
 
-    const waiting = sample.scenes.filter(other => next.includes(other.name))
+    const shots = sample.scenes.filter(other => next.includes(other.name))
       .flatMap(other => other.shots)
-      .filter(shot => shot.when?.some(condition =>
-        'flag' in condition && condition.flag === flag && condition.is !== ''))
+    const waiting = shots.filter(shot => shot.when?.some(condition =>
+      'is' in condition && condition.flag === flag && condition.is !== ''))
     expect(waiting).toHaveLength(1)
     // The Shot waiting on the answer says it, between braces.
     expect(braced(wordsOf(waiting[0]!))).toContain(flag)
+
+    // And right after it, the one played to any other answer — one given, and not
+    // the one waited on — says it too, so a wrong answer is answered as well.
+    const right = waiting[0]!.when!.find(condition => 'is' in condition)!
+    const wrong = shots[shots.indexOf(waiting[0]!) + 1]!
+    expect(wrong.when).toEqual(expect.arrayContaining([
+      { flag, isNot: 'is' in right ? right.is : '' },
+      { flag, isNot: '' },
+    ]))
+    expect(braced(wordsOf(wrong))).toContain(flag)
   })
 
   it('ends once, and never by a Condition that did not hold', () => {

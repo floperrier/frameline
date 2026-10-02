@@ -488,8 +488,8 @@ function move(shot: Shot, axis: 'cropX' | 'cropY', event: Event) {
             <template v-if="'flag' in condition">
               {{ $t('conditions.flag') }}
               <span class="data">{{ condition.flag }}</span>
-              {{ $t('conditions.holds') }}
-              <span class="data">{{ condition.is }}</span>
+              {{ 'is' in condition ? $t('conditions.holds') : $t('conditions.doesNotHold') }}
+              <span class="data">{{ 'is' in condition ? condition.is : condition.isNot }}</span>
             </template>
             <template v-else-if="'scene' in condition">
               {{ $t('conditions.scene') }}

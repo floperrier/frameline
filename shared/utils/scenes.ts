@@ -958,11 +958,15 @@ export function scenesAExitMayLandOn(scenes: Scene[], exits: Exit[], fromSceneId
 /**
  * A flat test on the State of one Reading, carried by an Exit or by a Shot: the
  * Exit is offered, and the Shot played, only where every test it carries passes.
- * Three things can be tested and nothing else — what a Flag holds, whether a
- * Scene has been entered, or whether an Exit has been taken — with no arithmetic
- * and no nesting, so a Condition is one row of a form and one comparison in the
- * engine. A Flag that was never set reads as the empty value, which is how a
- * Condition asks for the absence of one.
+ * Three things can be tested and nothing else — what a Flag holds or does not
+ * hold, whether a Scene has been entered, or whether an Exit has been taken —
+ * with no arithmetic and no nesting, so a Condition is one row of a form and one
+ * comparison in the engine. A Flag that was never set reads as the empty value,
+ * which is how a Condition asks for the absence of one, and *does not hold*
+ * nothing is how it asks for anything at all — the way a Story asks whether its
+ * Question was answered. *Does not hold* is a member of its own rather than a
+ * second key on *holds*, so every Condition keeps its two keys and every one
+ * stored before it means what it meant.
  *
  * The Exit is the Scene's mirror and is no more counted than it: an Exit leaves
  * one Scene and a Scene is entered once, so an Exit is taken at most once — see
@@ -977,6 +981,7 @@ export function scenesAExitMayLandOn(scenes: Scene[], exits: Exit[], fromSceneId
  */
 export type Condition =
   | { flag: string, is: string }
+  | { flag: string, isNot: string }
   | { scene: string, entered: boolean }
   | { exit: string, taken: boolean }
 

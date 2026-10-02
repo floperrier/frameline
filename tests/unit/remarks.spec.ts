@@ -305,6 +305,15 @@ describe('the two halves of a Flag nobody joined up', () => {
     expect(remarks(story, says)).toEqual([])
   })
 
+  it('counts a Condition asking what a Flag does not hold as a test of it', () => {
+    const story = onTheBench([
+      { name: 'The bar', sets: { drink: 'whisky' } },
+      { name: 'The quay', shots: [{ text: 'Water.', conditions: [{ flag: 'drink', isNot: 'whisky' }] }] },
+    ], { exits: [['The bar', 'The quay']] })
+
+    expect(remarks(story, says)).toEqual([])
+  })
+
   it('passes over the empty name a row half typed leaves behind', () => {
     const story = onTheBench([{ name: 'The bar', sets: { '': 'whisky' } }])
 
@@ -405,6 +414,49 @@ describe('what can never hold', () => {
     ], { exits: [['The booth', 'The gate', { flag: 'reel', is: '' }]] })
 
     expect(remarks(story, says)).toEqual([])
+  })
+
+  it('leaves a value a Flag is asked not to hold alone, since a Flag nobody set does not hold it', () => {
+    const story = onTheBench([
+      { name: 'The bar', sets: { drink: 'whisky' } },
+      { name: 'The quay' },
+    ], { exits: [['The bar', 'The quay', { flag: 'drink', isNot: 'whisky' }]] })
+
+    expect(remarks(story, says)).toEqual([])
+  })
+
+  /**
+   * Not holding nothing is holding something, which a Flag nothing sets and no
+   * Question holds an answer under never does: the row is dead, and the Flag is
+   * unset as well — the two are said of different things.
+   */
+  it('names a row asking a Flag nothing sets to hold something', () => {
+    const story = onTheBench([
+      { name: 'The bar', shots: [{ text: 'A.', conditions: [{ flag: 'answer', isNot: ' ' }] }] },
+      { name: 'The quay' },
+    ], { exits: [['The bar', 'The quay', { flag: 'answer', isNot: '' }]] })
+    const said = remarks(story, says)
+      .filter(remark => remark.name.endsWith('ConditionNeverHolds'))
+      .map(remark => says(`remark.${remark.name}`, remark.said))
+
+    expect(named(story)).toContain('flagUnset')
+    expect(said).toEqual([
+      'Shot 1 of The bar plays only when answer holds something, and that is never so for a Reading that gets there.',
+      'The Exit 1 out of The bar is offered only when answer holds something, and that is never so for a Reading that gets there.',
+    ])
+  })
+
+  it('leaves a row asking a Flag to hold something alone where a Scene sets it or a Question holds it', () => {
+    const asking = [{ text: 'A.', conditions: [{ flag: 'answer', isNot: '' }] }]
+
+    for (const story of [
+      onTheBench([{ name: 'The bar', sets: { answer: 'yes' } }, { name: 'The quay', shots: asking }],
+        { exits: [['The bar', 'The quay']] }),
+      onTheBench([{ name: 'The bar', question: 'Who?', questionFlag: 'answer' }, { name: 'The quay', shots: asking }],
+        { exits: [['The bar', 'The quay']] }),
+    ]) {
+      expect(remarks(story, says)).toEqual([])
+    }
   })
 
   it('says only that the Flag is unset where nothing sets it at all', () => {

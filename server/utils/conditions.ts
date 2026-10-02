@@ -19,8 +19,8 @@ const TOO_MANY = {
  * none of them can hold another. `carrier` names what is being written in the
  * refusal, so an Author is told which thing they overloaded.
  *
- * Three shapes and no more: what a Flag holds, whether a Scene has been entered,
- * or whether an Exit has been taken. The shape that counted entries was taken
+ * Four shapes and no more: what a Flag holds, what it does not hold, whether a
+ * Scene has been entered, or whether an Exit has been taken. The shape that counted entries was taken
  * for one deploy, so that a browser holding the previous code could still send
  * its list back while the migration was on its way; #306 rewrote every row and
  * this no longer reads it. That is the contract half of
@@ -61,7 +61,10 @@ function readCondition(event: H3Event, condition: unknown): Condition {
   if ('flag' in condition) {
     if (parts !== 2) throw badCondition(event)
 
-    const { flag, is } = condition as { flag: unknown, is: unknown }
+    // What the Flag is asked to hold, or not to hold: the same value under either
+    // key, held to the same rules.
+    const not = 'isNot' in condition
+    const { flag, [not ? 'isNot' : 'is']: is } = condition as Record<string, unknown>
     const name = typeof flag === 'string' ? flag.trim() : ''
 
     if (!name || name.length > FLAG_NAME_MAX_LENGTH) throw badCondition(event)
@@ -69,7 +72,7 @@ function readCondition(event: H3Event, condition: unknown): Condition {
 
     // Trimmed on both sides of the comparison the engine will make: a Flag is
     // stored trimmed, so a Condition asking for `on ` could never match one.
-    return { flag: name, is: is.trim() }
+    return not ? { flag: name, isNot: is.trim() } : { flag: name, is: is.trim() }
   }
 
   if ('exit' in condition) {

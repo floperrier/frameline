@@ -160,18 +160,35 @@ function choose(place: number, kind: ConditionKind) {
 }
 
 /**
- * Which of the two answers the row wants to its question, about a Scene or about
- * an Exit. It writes the whole Condition rather than the one field, which is what
- * a row of a list of flat tests is: the list is sent whole on every change, so a
- * row is replaced rather than reached into. A Flag asks no such question.
+ * Which of the two answers the row wants to its question: about a Scene or about
+ * an Exit, or whether a Flag holds its value or does not. It writes the whole
+ * Condition rather than the one field, which is what a row of a list of flat
+ * tests is: the list is sent whole on every change, so a row is replaced rather
+ * than reached into — a Flag's keeping its name and its value.
  */
 function ask(place: number, answer: boolean) {
   const condition = conditions[place]!
   if ('scene' in condition) conditions[place] = { scene: condition.scene, entered: answer }
   else if ('exit' in condition) conditions[place] = { exit: condition.exit, taken: answer }
-  else return
+  else {
+    const value = valueOf(condition)
+    conditions[place] = answer ? { flag: condition.flag, is: value } : { flag: condition.flag, isNot: value }
+  }
 
   emit('write')
+}
+
+type FlagCondition = Extract<Condition, { flag: string }>
+
+/** The value a Flag's row compares against, whichever way round it asks. */
+function valueOf(condition: FlagCondition) {
+  return 'is' in condition ? condition.is : condition.isNot
+}
+
+/** The value typed into a Flag's row, kept on the row in place until it is written. */
+function retype(condition: FlagCondition, value: string) {
+  if ('is' in condition) condition.is = value
+  else condition.isNot = value
 }
 
 /**
@@ -238,17 +255,31 @@ function conditionCalled(place: number) {
           <datalist :id="`flags-${id}-${place}`">
             <option v-for="flag in flags" :key="flag" :value="flag" />
           </datalist>
-          <span class="says" aria-hidden="true">{{ $t('conditions.holds') }}</span>
+          <!-- Holds or does not hold, chosen the way a Scene's question is: the
+               value field is labelled by the word standing before it. -->
+          <label class="visually-hidden" :for="`holds-${id}-${place}`">
+            {{ $t('conditions.holdsOrNot') }}
+            {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
+          </label>
+          <select
+            :id="`holds-${id}-${place}`"
+            :value="String('is' in condition)"
+            @change="ask(place, ($event.target as HTMLSelectElement).value === 'true')"
+          >
+            <option value="true">{{ $t('conditions.holds') }}</option>
+            <option value="false">{{ $t('conditions.doesNotHold') }}</option>
+          </select>
           <label class="visually-hidden" :for="`is-${id}-${place}`">
-            {{ $t('conditions.holds') }}
+            {{ 'is' in condition ? $t('conditions.holds') : $t('conditions.doesNotHold') }}
             {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
           </label>
           <input
             :id="`is-${id}-${place}`"
-            v-model="condition.is"
+            :value="valueOf(condition)"
             class="data"
             size="8"
             :maxlength="FLAG_VALUE_MAX_LENGTH"
+            @input="retype(condition, ($event.target as HTMLInputElement).value)"
             @change="emit('write')"
           >
         </template>
@@ -411,16 +442,11 @@ function conditionCalled(place: number) {
 }
 
 /* The Condition's own number, in the gutter of its row — what the Author refers
-   to it by — and the connecting words between its fields, which are the sentence
-   itself and not a label of anything: both stencilled on the machine, the way
-   every other word around a field here is. */
-.numbered,
-.says {
+   to it by — stencilled on the machine, the way every other word around a field
+   here is. */
+.numbered {
   color: var(--muted);
   font-family: var(--data);
-}
-
-.numbered {
   font-variant-numeric: tabular-nums;
 }
 

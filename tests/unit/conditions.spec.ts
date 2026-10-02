@@ -60,6 +60,15 @@ describe('the Conditions a request writes', () => {
     ])
   })
 
+  it('takes a Flag asked not to hold a value, under the rules a Flag asked to hold one is', async () => {
+    await expect(asking({ conditions: [{ flag: ' answer ', isNot: ' Rosebud ' }, { flag: 'answer', isNot: '' }] }))
+      .resolves.toEqual([{ flag: 'answer', isNot: 'Rosebud' }, { flag: 'answer', isNot: '' }])
+    await expect(asking({ conditions: [{ flag: 'c'.repeat(FLAG_NAME_MAX_LENGTH + 1), isNot: 'on' }] }))
+      .rejects.toThrow(/A Condition tests/)
+    await expect(asking({ conditions: [{ flag: 'coat', isNot: 'o'.repeat(FLAG_VALUE_MAX_LENGTH + 1) }] }))
+      .rejects.toThrow(/A Condition tests/)
+  })
+
   it('takes both questions a Condition may ask of an Exit', async () => {
     await expect(asking({ conditions: [{ exit: EXIT, taken: true }, { exit: EXIT, taken: false }] }))
       .resolves.toEqual([{ exit: EXIT, taken: true }, { exit: EXIT, taken: false }])
@@ -106,6 +115,11 @@ describe('the Conditions a request writes', () => {
       { flag: '', is: 'on' },
       // A key too many is a Condition trying to carry a second one.
       { flag: 'coat', is: 'on', and: { flag: 'key', is: 'found' } },
+      // Holding and not holding at once is two Conditions in one.
+      { flag: 'coat', is: 'on', isNot: 'off' },
+      { flag: 'coat' },
+      { flag: '', isNot: 'on' },
+      { flag: 'coat', isNot: 7 },
       { scene: 'The arrival', entered: true },
       { scene: SCENE, entered: 'yes' },
       { scene: SCENE, entered: true, times: 2 },

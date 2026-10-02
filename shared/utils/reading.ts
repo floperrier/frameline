@@ -153,11 +153,13 @@ export type State = { flags: Flags, entered: string[], taken: string[] }
  * construction, so this is the whole of the language.
  *
  * A Flag's two sides are compared `folded`, whoever wrote them — a Scene, a draw
- * or a Reader answering a Question — so one rule says what *holds* means.
+ * or a Reader answering a Question — so one rule says what *holds* means, and
+ * *does not hold* is that rule the other way round.
  */
 export function holds(conditions: Condition[], state: State) {
   return conditions.every((condition) => {
-    if ('flag' in condition) return folded(state.flags[condition.flag] ?? '') === folded(condition.is)
+    if ('is' in condition) return folded(state.flags[condition.flag] ?? '') === folded(condition.is)
+    if ('isNot' in condition) return folded(state.flags[condition.flag] ?? '') !== folded(condition.isNot)
 
     if ('scene' in condition) return state.entered.includes(condition.scene) === condition.entered
 
@@ -547,9 +549,10 @@ export function unmet(
 ) {
   return conditions.filter(condition => !holds([condition], state)).map((condition) => {
     if ('flag' in condition) {
-      return say('preview.needsFlag', {
+      const is = 'is' in condition ? condition.is : condition.isNot
+      return say('is' in condition ? 'preview.needsFlag' : 'preview.needsFlagNot', {
         flag: condition.flag,
-        is: condition.is || say('preview.nothing'),
+        is: is || say('preview.nothing'),
         holds: state.flags[condition.flag] || say('preview.nothing'),
       })
     }
@@ -935,7 +938,11 @@ export function back(story: StoryToRead, at: Path): Path | undefined {
  * Those are the only answers that change what any Condition says — every other
  * reads like nothing to the ways on — so a Scene only one answer opens is
  * reached, and the Path that reaches it says what was answered. Two values that
- * fold alike are one answer, so they are tried once.
+ * fold alike are one answer, so they are tried once. A value a Condition asks the
+ * Flag not to hold is one of those it is tested against; and where every answer
+ * so far folds to one of them, nothing tried yet is *anything but* those, so one
+ * more is tried that folds to none — `?`, a `?` longer each time that too is
+ * excluded.
  */
 export function pathTo(story: StoryToRead, from: Path, sceneId: string): Path | undefined {
   const seen = new Set<string>()
@@ -948,16 +955,34 @@ export function pathTo(story: StoryToRead, from: Path, sceneId: string): Path | 
   const asked = new Set(story.exits.flatMap(exit => exit.conditions.flatMap(condition =>
     'scene' in condition ? [condition.scene] : 'exit' in condition ? [condition.exit] : [])))
   // What every Condition of the Story, on a Shot or on a way on, tests each Flag
-  // against, one spelling a folded value.
+  // against, one spelling a folded value; and the folded values it is asked not
+  // to hold, the empty one among them.
   const tested = new Map<string, Map<string, string>>()
+  const excluded = new Map<string, Set<string>>()
   for (const condition of [
     ...story.scenes.flatMap(scene => scene.shots.flatMap(shot => shot.conditions)),
     ...story.exits.flatMap(exit => exit.conditions),
   ]) {
-    if (!('flag' in condition) || !folded(condition.is)) continue
+    if (!('flag' in condition)) continue
+    const value = 'is' in condition ? condition.is : condition.isNot
+    if ('isNot' in condition) {
+      excluded.set(condition.flag, (excluded.get(condition.flag) ?? new Set<string>()).add(folded(value)))
+    }
+    if (!folded(value)) continue
     const values = tested.get(condition.flag) ?? new Map<string, string>()
-    if (!values.has(folded(condition.is))) values.set(folded(condition.is), condition.is)
+    if (!values.has(folded(value))) values.set(folded(value), value)
     tested.set(condition.flag, values)
+  }
+
+  // The answers a Question holding its answer under this Flag is given.
+  function answersFor(flag: string) {
+    const given = ['', ...tested.get(flag)?.values() ?? []]
+    const out = excluded.get(flag)
+    if (!out || !given.every(value => out.has(folded(value)))) return given
+
+    let other = '?'
+    while (out.has(folded(other))) other += '?'
+    return [...given, other]
   }
 
   // Every Scene the ways on lead to from this one, whatever they ask. Only a Story
@@ -989,8 +1014,7 @@ export function pathTo(story: StoryToRead, from: Path, sceneId: string): Path | 
 
       const scene = story.scenes.find(scene => scene.id === standing)
       const answerings = scene && asks(scene) && at.answers?.[standing] === undefined
-        ? ['', ...tested.get(scene.questionFlag.trim())?.values() ?? []]
-            .map(given => answer(at, standing, given))
+        ? answersFor(scene.questionFlag.trim()).map(given => answer(at, standing, given))
         : [at]
 
       for (const answering of answerings) {

@@ -335,6 +335,22 @@ describe('an Exit carrying Conditions', () => {
       .toEqual(['Stay outside'])
   })
 
+  it('is offered where the Flag does not hold what the Condition excludes, folded', () => {
+    const carrying = (held: Record<string, Sets>) => ways([{ flag: 'key', isNot: 'Rosebud' }], held)
+    expect(shown(carrying({ Street: { key: 'door' } }), endOfStreet).offered).toEqual(['Stay outside', 'Go in'])
+    expect(shown(carrying({ Street: { key: ' ROSÉBUD ' } }), endOfStreet).offered).toEqual(['Stay outside'])
+    // A Flag nobody set holds nothing, which is not the value excluded.
+    expect(shown(carrying({}), endOfStreet).offered).toEqual(['Stay outside', 'Go in'])
+  })
+
+  it('reads not holding nothing as holding something', () => {
+    const answered = (held: Record<string, Sets>) =>
+      shown(ways([{ flag: 'key', isNot: '' }], held), endOfStreet).offered
+    expect(answered({ Street: { key: 'door' } })).toEqual(['Stay outside', 'Go in'])
+    expect(answered({ Street: { key: '   ' } })).toEqual(['Stay outside'])
+    expect(answered({})).toEqual(['Stay outside'])
+  })
+
   it('compares what a Flag holds folded, its case, accents and spaces set aside', () => {
     const carrying = (held: string) => ways([{ flag: 'key', is: 'rosebud' }], { Street: { key: held } })
     for (const held of ['Rosebud', '  ROSÉBUD ', 'rosebud']) {
@@ -467,6 +483,14 @@ describe('the tests an Exit is hidden by', () => {
       .toEqual(['needs coat to hold on, holds nothing'])
     expect(unmet([{ flag: 'reel', is: '' }], state, named, exitNamed, says))
       .toEqual(['needs reel to hold nothing, holds spooled'])
+  })
+
+  it('names what a Flag was asked not to hold beside what it holds', () => {
+    expect(unmet([{ flag: 'reel', isNot: 'Spooled' }], state, named, exitNamed, says))
+      .toEqual(['needs reel not to hold Spooled, holds spooled'])
+    expect(unmet([{ flag: 'coat', isNot: '' }], state, named, exitNamed, says))
+      .toEqual(['needs coat not to hold nothing, holds nothing'])
+    expect(unmet([{ flag: 'reel', isNot: 'threaded' }], state, named, exitNamed, says)).toEqual([])
   })
 
   it('names the Scene a Condition asks about, and which way it asked', () => {
@@ -1560,6 +1584,44 @@ describe('a Scene that ends on a Question', () => {
     // Read from the second Shot of the Scene behind the Question, which the answer
     // the search gave plays.
     expect(reading(twice, standOn(twice, at, 'Vault-1')).shot?.text).toBe('Silver.')
+  })
+
+  /** A Gate whose one way into the Vault is offered under `conditions` alone. */
+  const gated = (...conditions: Condition[]) => story(
+    { Gate: ['A voice.'], Vault: ['Gold.'] },
+    [['Gate', 'Enter', 'Vault', conditions]],
+    'Gate',
+    {},
+    true,
+    { Gate: ['Password?', 'password'] },
+  )
+
+  it('is answered by the search with nothing, where the way on waits on anything but a value', () => {
+    const at = pathTo(gated({ flag: 'password', isNot: 'rosebud' }), OPENING, 'Vault')!
+    expect(at.answers).toEqual({ Gate: '' })
+  })
+
+  it('is answered by the search with a value no Condition excludes, where every one it tries is', () => {
+    const answered = (...conditions: Condition[]) => {
+      const vault = gated(...conditions)
+      const at = pathTo(vault, OPENING, 'Vault')
+      expect(at && reading(vault, at).sceneId).toBe('Vault')
+      return at!.answers!.Gate
+    }
+
+    expect(answered({ flag: 'password', isNot: '' })).toBe('?')
+    expect(answered({ flag: 'password', isNot: '' }, { flag: 'password', isNot: 'Rosebud' })).toBe('?')
+    expect(answered({ flag: 'password', isNot: ' ' }, { flag: 'password', isNot: '?' })).toBe('??')
+    // A value some Condition waits on and none excludes is tried before that.
+    const vault = story(
+      { Gate: ['A voice.'], Vault: ['Gold.', ['Silver.', [{ flag: 'password', is: 'door' }]]] },
+      [['Gate', 'Enter', 'Vault', [{ flag: 'password', isNot: '' }]]],
+      'Gate',
+      {},
+      true,
+      { Gate: ['Password?', 'password'] },
+    )
+    expect(pathTo(vault, OPENING, 'Vault')?.answers).toEqual({ Gate: 'door' })
   })
 
   it('declares the Flag it holds its answer under, and none for a sentence with no Flag', () => {
