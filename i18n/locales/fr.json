@@ -109,7 +109,10 @@
     "notPublished": "Non publié",
     "listed": "Répertorié",
     "oneComment": "{count} Commentaire",
-    "manyComments": "{count} Commentaires"
+    "manyComments": "{count} Commentaires",
+    "copyTitle": "Titre de la copie",
+    "copyLanguage": "Langue de la copie",
+    "writeCopy": "Écrire la copie"
   },
   "editor": {
     "allStories": "Tous les Récits",

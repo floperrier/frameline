@@ -485,9 +485,11 @@ _Avoid_: bookmark, saved, liked, wishlist, star, étoile, coup de cœur
 ### The languages
 
 **Language**:
-The one language a Story is written in, named by its Author. Nothing translates
-a Story: a Story written in French is read in French by everyone who opens its
-link, whatever their own Locale.
+The one language a Story is written in, named by its Author when the Story is
+created or copied. Nothing translates a Story: a Story written in French is read
+in French by everyone who opens its link, whatever their own Locale. A copy in
+another Language is not a translation either: its words are the original's until
+its Author rewrites them.
 _Affiché_: Langue
 _Avoid_: locale, translation, i18n, region
 

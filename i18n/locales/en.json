@@ -109,7 +109,10 @@
     "notPublished": "Not published",
     "listed": "Listed",
     "oneComment": "{count} Comment",
-    "manyComments": "{count} Comments"
+    "manyComments": "{count} Comments",
+    "copyTitle": "Title of the copy",
+    "copyLanguage": "Language of the copy",
+    "writeCopy": "Write the Copy"
   },
   "editor": {
     "allStories": "All Stories",
