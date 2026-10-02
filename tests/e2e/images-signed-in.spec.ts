@@ -621,6 +621,8 @@ test('what a Shot cannot carry is left out by its reason, and the rest are added
   await writing(page, 'The bar').getByRole('button', { name: 'Add Shots from Images to The bar' }).click()
   await (await opened).setFiles([
     { name: 'a.gif', type: 'image/gif', bytes: Buffer.from('GIF89a') },
+    // Too heavy to send as it is, so the bench develops it — and three megabytes of
+    // nothing is no picture a browser can draw.
     { name: 'big.jpg', type: 'image/jpeg', bytes: Buffer.alloc(3 * 1024 * 1024) },
     png('b-1.png'),
     // Called a PNG and not one: only the server can tell, and it refuses that
@@ -631,7 +633,7 @@ test('what a Shot cannot carry is left out by its reason, and the rest are added
 
   await expect(toast(page)).toHaveText('3 Shots added to “The bar”. '
     + 'a.gif was left out: A Shot carries a JPEG, a PNG or a WebP image, and nothing else. '
-    + 'big.jpg was left out: An image cannot weigh more than 2 MB.')
+    + 'big.jpg was left out: This browser cannot read it as an image.')
 
   // The file the server refused is a beat with no picture yet, and the one after
   // it still carries its own.
@@ -639,4 +641,60 @@ test('what a Shot cannot carry is left out by its reason, and the rest are added
   expect(await filesOf(request, shots)).toEqual([null, 'b-1.png', null, 'b-3.png'])
   await expect(page.getByRole('alert')).toHaveText(
     'In “The bar”: A Shot carries a JPEG, a PNG or a WebP image, and nothing else.')
+})
+
+test('an Image of any weight is developed to the size a Reading shows, and a light one is sent as it is', async ({ page, request }) => {
+  const { story, shots } = await openShots(request)
+  await page.goto(`/stories/${story.id}`)
+  await writeScene(page, 'The street')
+
+  // A photograph's weight, drawn in the page: a gradient under fine, low noise.
+  // Pure noise is the one picture no encoder makes light, and it would climb the
+  // whole ladder to a refusal.
+  const sent = await picking(page, 1).evaluate(async (input: HTMLInputElement) => {
+    const canvas = new OffscreenCanvas(3000, 2000)
+    const context = canvas.getContext('2d')!
+    const gradient = context.createLinearGradient(0, 0, 3000, 2000)
+    gradient.addColorStop(0, '#203040')
+    gradient.addColorStop(1, '#c08060')
+    context.fillStyle = gradient
+    context.fillRect(0, 0, 3000, 2000)
+
+    const pixels = context.getImageData(0, 0, 3000, 2000)
+    for (let at = 0; at < pixels.data.length; at++) {
+      if (at % 4 !== 3) pixels.data[at] = pixels.data[at]! + Math.random() * 8 - 4
+    }
+    context.putImageData(pixels, 0, 0)
+
+    const png = await canvas.convertToBlob({ type: 'image/png' })
+    const carried = new DataTransfer()
+    carried.items.add(new File([png], 'photograph.png', { type: 'image/png' }))
+    input.files = carried.files
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+
+    return png.size
+  })
+  expect(sent).toBeGreaterThan(SHOT_IMAGE_MAX_BYTES)
+
+  await expect(shown(page, 1)).toBeVisible()
+  const image = `/api/shots/${shots[0]!.id}/image`
+  const served = await request.get(image)
+  expect(served.headers()['content-type']).toBe('image/webp')
+  expect((await served.body()).length).toBeLessThanOrEqual(SHOT_IMAGE_MAX_BYTES)
+
+  // Decoded where a Reading would decode it: never wider than the size it shows.
+  const side = await page.evaluate(async (url) => {
+    const drawn = await createImageBitmap(await (await fetch(url)).blob())
+    return [drawn.width, drawn.height]
+  }, image)
+  expect(side).toEqual([2560, 1707])
+
+  // A PNG within the weight is not encoded again for nothing: what is served is
+  // the very bytes dropped.
+  await writing(page).locator('.image').nth(1).dispatchEvent('drop', {
+    dataTransfer: await droppedFiles(page, [png('light.png')]),
+  })
+  await expect(shown(page, 2)).toBeVisible()
+  const light = await request.get(`/api/shots/${shots[1]!.id}/image`)
+  expect(Buffer.compare(await light.body(), png('light.png').bytes)).toBe(0)
 })

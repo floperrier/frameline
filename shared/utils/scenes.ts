@@ -239,23 +239,58 @@ export const SHOT_IMAGE_TYPES = Object.keys(SHOT_IMAGE_SIGNATURES)
  */
 export const SHOT_IMAGE_MAX_BYTES = 2 * 1024 * 1024
 
+/**
+ * The pictures a browser may draw and a Shot does not carry, each by its type and
+ * by the extension a system that hands one over with no type at all is judged by —
+ * a HEIC often comes that way. The bench develops them into one a Shot carries.
+ */
+const DEVELOPED_IMAGES: Record<string, string> = {
+  'image/avif': '.avif',
+  'image/heic': '.heic',
+  'image/heif': '.heif',
+}
+
+/** What a picker of a Shot's Image offers: what a Shot carries, and what the bench develops into it. */
+export const SHOT_IMAGE_ACCEPT = [...SHOT_IMAGE_TYPES, ...Object.entries(DEVELOPED_IMAGES).flat()].join(',')
+
+/**
+ * How the bench takes one file as a Shot's Image. A JPEG, a PNG or a WebP within
+ * the weight is sent as it is, byte for byte, so a file exported with care is not
+ * encoded again for nothing. One over it, and a picture the browser draws but a
+ * Shot does not carry, is developed first — see `developImage` in
+ * `app/utils/develop.ts`. Anything else is left out by its type, a GIF among
+ * them: its first frame alone would be a loss nobody asked for.
+ *
+ * Read off the type and the weight the browser reports, which is a courtesy and
+ * not the guard — the server still reads the bytes.
+ */
+export function imageTaken(
+  file: { name: string, type: string, size: number },
+): 'as it is' | 'developed' | 'refusals.imageType' {
+  if (SHOT_IMAGE_TYPES.includes(file.type)) return file.size > SHOT_IMAGE_MAX_BYTES ? 'developed' : 'as it is'
+
+  const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase()
+  const drawn = Object.hasOwn(DEVELOPED_IMAGES, file.type)
+    || (!file.type && Object.values(DEVELOPED_IMAGES).includes(extension))
+  return drawn ? 'developed' : 'refusals.imageType'
+}
+
 /** `IMG_2` before `IMG_10`, and `a` beside `A`: the order a camera or an export numbers its files in. */
 const BY_NAME = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 
 /**
  * Several files picked or dropped on a Scene at once, as the Shots they become:
  * in the order of their names rather than the order the system handed them over
- * in, and without the ones a Shot cannot carry, each left out with the sentence
- * that says why. Read off the type and the weight the browser reports, which is
- * a courtesy and not the guard — the server still reads the bytes.
+ * in, and without the ones `imageTaken` refuses, each left out with the sentence
+ * that says why. Never for its weight: what is too heavy is developed, and a file
+ * the bench fails to develop is the bench's to say once it has tried.
  */
 export function imagesForShots<File extends { name: string, type: string, size: number }>(files: File[]) {
   const taken: File[] = []
-  const leftOut: { file: File, why: 'refusals.imageType' | 'refusals.imageHeavy' }[] = []
+  const leftOut: { file: File, why: 'refusals.imageType' }[] = []
 
   for (const file of [...files].sort((one, other) => BY_NAME.compare(one.name, other.name))) {
-    if (!SHOT_IMAGE_TYPES.includes(file.type)) leftOut.push({ file, why: 'refusals.imageType' })
-    else if (file.size > SHOT_IMAGE_MAX_BYTES) leftOut.push({ file, why: 'refusals.imageHeavy' })
+    if (imageTaken(file) === 'refusals.imageType') leftOut.push({ file, why: 'refusals.imageType' })
     else taken.push(file)
   }
 

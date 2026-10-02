@@ -181,6 +181,7 @@
     "oneShotAdded": "1 Plan ajouté à « {name} ».",
     "shotsAdded": "{count} Plans ajoutés à « {name} ».",
     "imageLeftOut": "{file} a été laissé de côté : {why}",
+    "imageUnreadable": "Ce navigateur ne sait pas le lire comme une image.",
     "offeredWhen": "Offerte quand",
     "noWayOnYet": "Aucune Sortie pour l’instant",
     "writingScene": "Écriture de {name}",
