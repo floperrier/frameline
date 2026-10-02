@@ -1,3 +1,4 @@
+import type { Changes } from './changes'
 import type { Align, Face, Formatted } from './formatted'
 import type { Phrase } from './phrases'
 
@@ -998,6 +999,8 @@ export type StoryInEditor = {
   publishedAt: string | null
   /** When Readers' edition was taken, or null where there is none yet. */
   editionAt: string | null
+  /** What differs from Readers' Edition, or null where there is none to differ from. */
+  changes: Changes | null
   /** Whether the Author has put the published Story in the Catalogue. */
   listed: boolean
   /** What an Exit of this Story answers when it has not answered for itself. */

@@ -19,6 +19,26 @@ const { data: story, refresh } = await useAsyncData(
 const { t } = useI18n()
 const { problem, keptAt, change, write } = useEditing(refresh)
 
+/**
+ * What differs from Readers' Edition, asked again each time a typed write is
+ * kept. A click reads the whole Story back and the answer with it; a typed write
+ * never does — `docs/adr/0008-refetch-is-for-a-refusal.md` — so without this the
+ * marks would go on saying what differed when the page was opened. Only the
+ * answer is taken from the read, so nothing being typed is replaced, and only the
+ * one asked last, so two answers crossing on the way back cannot leave the older
+ * standing. A read that fails leaves the marks as they were until the next. And
+ * only onto the Story it was asked about: a click's read-back replaces the Story
+ * whole, so an answer landing after it is older than what it brought, and dropped.
+ */
+let changesAsked = 0
+watch(keptAt, async () => {
+  const reading = story.value
+  if (!reading?.publishedAt) return
+  const asking = ++changesAsked
+  const read = await (send(`/api/stories/${id}`) as Promise<StoryInEditor>).catch(() => undefined)
+  if (read && asking === changesAsked && story.value === reading) reading.changes = read.changes
+})
+
 // The tab is named by the title as the field holds it, so it follows a rename
 // as it is typed.
 useHead({ title: () => story.value?.title })

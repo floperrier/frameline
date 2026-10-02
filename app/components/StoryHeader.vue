@@ -62,6 +62,23 @@ const kept = computed(() => keptAt && new Intl.DateTimeFormat(
   locale.value, { timeStyle: 'short' }).format(keptAt))
 
 /**
+ * What differs from Readers' Edition, said as the line beside the link says it:
+ * how many Scenes were written or rewritten since, how many Readers read are
+ * gone, and whether how the whole Story is read moved. Nothing where the Story
+ * has no Edition to differ from yet, which keeps the line as it was before there
+ * was anything to compare — see
+ * `docs/adr/0070-the-bench-says-what-changed-since-the-edition.md`.
+ */
+const changed = computed(() => story?.changes && {
+  scenes: story.changes.added.length + story.changes.changed.length,
+  gone: story.changes.gone,
+  story: story.changes.story,
+})
+/** Whether Readers read the Story as it is written, so there is nothing to publish. */
+const asItStands = computed(() =>
+  !!changed.value && !changed.value.scenes && !changed.value.gone && !changed.value.story)
+
+/**
  * The public link a Publish hands out. Built from the Story's own id, so it is
  * the same link every time — an Author who unpublishes and publishes again has
  * not invalidated what they sent anyone.
@@ -164,8 +181,8 @@ function unpublish() {
 /**
  * Taking a new edition of a published Story: what the Author has written since
  * the last Publish reaches Readers now, and not as it was typed. The Story is
- * read back so the sentence beside the button dates the new edition, and the
- * result is announced, since nothing else on screen moves — see
+ * read back so the line beside the link says Readers read it as it stands, and
+ * the result is announced, since the button it was pressed on is gone — see
  * `docs/adr/0069-a-published-story-is-read-as-it-was-published.md`.
  */
 async function publishChanges() {
@@ -405,18 +422,29 @@ function unlist() {
         <button type="button" :data-command="$t('editor.copyEmbed')" @click="copyEmbed">
           {{ $t('editor.copyEmbed') }}
         </button>
-        <!-- When Readers' edition was taken, and the act that takes another. The
-             time is drawn by <NuxtTime>, so the page the server renders and the
-             browser that hydrates it agree on the zone it is read in. Left out
-             where a Story published before editions has not been read since. -->
-        <i18n-t v-if="story?.editionAt" keypath="editor.editionAt" tag="span" class="edition">
-          <template #when>
-            <NuxtTime :datetime="story.editionAt" :locale="locale" date-style="long" time-style="short" />
-          </template>
-        </i18n-t>
-        <button type="button" :data-command="$t('editor.publishChanges')" @click="publishChanges">
-          {{ $t('editor.publishChanges') }}
-        </button>
+        <!-- What differs from Readers' Edition, and the act that takes another
+             only when something does: a Story Readers read as it stands is said
+             to be so, and offers nothing to publish. Otherwise the line dates the
+             Edition and counts what moved since. The time is drawn by <NuxtTime>,
+             so the page the server renders and the browser that hydrates it agree
+             on the zone it is read in. A Story published before Editions and not
+             read since has nothing to compare, so it keeps the act and no date. -->
+        <span v-if="asItStands" class="edition">{{ $t('editor.asItStands') }}</span>
+        <template v-else>
+          <span v-if="story?.editionAt || changed" class="edition">
+            <i18n-t v-if="story?.editionAt" keypath="editor.editionAt" tag="span">
+              <template #when>
+                <NuxtTime :datetime="story.editionAt" :locale="locale" date-style="long" time-style="short" />
+              </template>
+            </i18n-t>
+            <template v-if="changed?.scenes">{{ ' ' }}{{ $t('editor.scenesChanged', changed.scenes) }}</template>
+            <template v-if="changed?.gone">{{ ' ' }}{{ $t('editor.scenesGone', changed.gone) }}</template>
+            <template v-if="changed?.story">{{ ' ' }}{{ $t('editor.storyChanged') }}</template>
+          </span>
+          <button type="button" :data-command="$t('editor.publishChanges')" @click="publishChanges">
+            {{ $t('editor.publishChanges') }}
+          </button>
+        </template>
       </p>
 
       <div class="acts">
@@ -769,7 +797,7 @@ header {
   font-size: 0.75rem;
 }
 
-/* When Readers' edition was taken: a reading of the bench's, as quiet as the
+/* What differs from Readers' Edition: a reading of the bench's, as quiet as the
    time of the last write. */
 .edition {
   color: var(--muted);

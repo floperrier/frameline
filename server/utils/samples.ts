@@ -25,7 +25,8 @@ import type { Condition } from '../../shared/utils/scenes'
  * none — so a Story that only half arrived is deleted rather than left in the
  * Author's Stories, and planting never refuses the sign-in that asked for it: an
  * Author with no Sample has an account, and an Author with no account has
- * nothing.
+ * nothing. It answers the id of the Story it planted, and nothing where it
+ * planted none or deleted the one that half arrived.
  */
 export async function plantSample(
   authorId: string,
@@ -33,7 +34,7 @@ export async function plantSample(
   bench: Bench = { db: useDb(), image: sampleImage, sound: sampleSound },
 ) {
   const sample = SAMPLES[language as SampleLanguage]
-  if (!sample) return
+  if (!sample) return undefined
 
   const { db, image, sound } = bench
   let planted: string | undefined
@@ -168,10 +169,13 @@ export async function plantSample(
         publishedAt: new Date(),
       })
       .where(eq(stories.id, planted))
+
+    return planted
   }
   catch (failure) {
     console.error('Planting a Sample failed:', failure)
     if (planted) await db.delete(stories).where(eq(stories.id, planted)).catch(() => {})
+    return undefined
   }
 }
 
