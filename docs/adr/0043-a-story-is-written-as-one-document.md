@@ -77,7 +77,10 @@ in French, in #256, where it is first drawn.
 Typing is `docs/adr/0033-a-scene-is-written-as-one-document.md` unchanged, over a
 longer document. One field per Shot, nothing parsed, no Shot losing the id its
 Image and its Conditions hang off. `Enter` at the end of a Shot opens the next,
-`Backspace` at the head of an empty one joins it to the Shot before, and `Alt`
+`Backspace` at the head of an empty one joins it to the Shot before — and, since
+`docs/adr/0071-a-shots-words-are-cut-where-the-caret-stands.md`, `Enter` in the
+middle of a Shot cuts its words in two there and `Backspace` at the head of one
+holding words joins them back to the Shot before — and `Alt`
 with the two arrows walks the run. All three stay inside a Scene: `Enter` on the
 last Shot of a Scene opens a Shot and never a Scene. A Scene is written by naming
 where an Exit leads — `0034` — or by splitting one in two, which

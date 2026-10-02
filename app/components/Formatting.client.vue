@@ -15,7 +15,9 @@
  * bench counts and reads, with the text as it stands, which the Preview draws;
  * and it hands over the formatted text to be written — read through the
  * boundary first, so what is sent is the shape the server reads — when the caret
- * leaves it, and before the bench is asked about `Enter`. A shape the boundary
+ * leaves it, and before the bench is asked about `Enter` — unless words stand
+ * after the caret, where the bench is handed the text cut in two there and the cut
+ * writes both halves (#432). A shape the boundary
  * would refuse is handed over all the same rather than kept back without a word:
  * the server refuses it in a sentence the bench shows, and the Story read back
  * puts the text it holds in its place —
@@ -60,10 +62,13 @@ const props = defineProps<{
   lang: string
   /** The guided path's mark, on the first Shot of the Scene written. */
   step?: string
-  /** Where the caret lands: where the box was pressed, at the end, or over every word. */
-  at: 'end' | 'all' | { x: number, y: number }
-  /** The bench's own keys, put to it first; true where it took the key. */
-  keys: (event: KeyboardEvent, atHead: boolean) => boolean
+  /** Where the caret lands: where the box was pressed, at the end, over every word, or at a place in the text. */
+  at: 'end' | 'all' | number | { x: number, y: number }
+  /**
+   * The bench's own keys, put to it first; true where it took the key. `Enter`
+   * with words after the caret comes with the text cut in two there.
+   */
+  keys: (event: KeyboardEvent, atHead: boolean, halves?: [Formatted, Formatted]) => boolean
   /**
    * Whether where the text stands is read: under `full` with an Image, or on a
    * card. Elsewhere the Layout places it, and the select is not offered.
@@ -95,15 +100,19 @@ const state = shallowRef<EditorState>()
 /** Whether the text has changed since `change` last carried it. */
 let unwritten = false
 
+/** A text as it is handed over: read through the boundary, or as it is where the boundary would refuse it. */
+function handed(held: Formatted) {
+  const read = parseFormatted(held, 'refuse')
+  return 'formatted' in read ? read.formatted : held
+}
+
 function write() {
   if (!editor || !unwritten) return
   unwritten = false
   // Said as a field says it, so the page lights the text the write came from:
   // `useEditing` hears a `change` on its way down to the element it is about.
   editor.view.dom.dispatchEvent(new Event('change', { bubbles: true }))
-  const held = editor.getJSON() as Formatted
-  const read = parseFormatted(held, 'refuse')
-  emit('change', 'formatted' in read ? read.formatted : held)
+  emit('change', handed(editor.getJSON() as Formatted))
 }
 
 /**
@@ -125,13 +134,26 @@ function handleKeyDown(view: EditorView, event: KeyboardEvent) {
   const modified = event.metaKey || event.ctrlKey
 
   if (event.key === 'Enter' && !event.shiftKey && !modified) {
-    write()
-    return props.keys(event, false)
+    // A selection is replaced first, as `Enter` replaces one anywhere.
+    if (!view.state.selection.empty) view.dispatch(view.state.tr.deleteSelection())
+    const halves = splitFormatted(handed(view.state.doc.toJSON() as Formatted), view.state.selection.from)
+    if (blank(halves[1])) {
+      write()
+      return props.keys(event, false)
+    }
+    // The bench cuts the Shot here, and the cut writes both halves: the text
+    // handed over whole as well would be written over them.
+    unwritten = false
+    return props.keys(event, false, halves)
   }
 
   if (event.key === 'Backspace') {
     const { selection, doc } = view.state
-    return props.keys(event, selection.empty && selection.from === Selection.atStart(doc).from)
+    const atHead = selection.empty && selection.from === Selection.atStart(doc).from
+    // What is typed goes first, as before `Enter`: a join refused leaves these
+    // words written rather than put back as the server last had them.
+    if (atHead) write()
+    return props.keys(event, atHead)
   }
 
   if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && event.altKey && !modified) {
@@ -174,12 +196,13 @@ function open(element: HTMLElement) {
   editor = made
 
   const { view } = made
-  const pressed = typeof props.at === 'string' ? null : view.posAtCoords({ left: props.at.x, top: props.at.y })
+  const pressed = typeof props.at === 'object' ? view.posAtCoords({ left: props.at.x, top: props.at.y }) : null
   const { doc } = view.state
   // Over every word as a text selection rather than the whole document, so what
   // is typed over them keeps the kind of line the first of them stood in.
   view.dispatch(view.state.tr.setSelection(
     pressed ? Selection.near(doc.resolve(pressed.pos))
+    : typeof props.at === 'number' ? Selection.near(doc.resolve(Math.min(props.at, doc.content.size)))
     : props.at === 'all' ? TextSelection.between(Selection.atStart(doc).$from, Selection.atEnd(doc).$to)
     : Selection.atEnd(doc)))
   view.focus()

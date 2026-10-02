@@ -48,7 +48,7 @@ export function changesSince(edition: Edition, live: Edition): Changes {
  * stand in: `jsonb` keeps an object's keys in an order of its own, so an Edition
  * read back from the column does not have them where `takeEdition` wrote them.
  */
-function same(one: unknown, other: unknown): boolean {
+export function same(one: unknown, other: unknown): boolean {
   if (one === other) return true
   if (!one || !other || typeof one !== 'object' || typeof other !== 'object') return false
   if (Array.isArray(one) !== Array.isArray(other)) return false

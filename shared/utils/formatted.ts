@@ -4,6 +4,7 @@ import { SHOT_TEXT_MAX_LENGTH, REDACTION_HIDES_MAX_LENGTH, LETTERS_SPLIT_MAX, is
 import type { Arrival, Lasting } from './scenes.ts'
 import { STORY_LANGUAGES } from './stories.ts'
 import type { StoryLanguage } from './stories.ts'
+import { same } from './changes.ts'
 
 /**
  * How a Shot's text is formatted, and what it is read as with the formatting
@@ -185,6 +186,166 @@ export const separator: Separator = { type: 'separator' }
 
 export function standing(stands: Stands | null, value: Formatted): Formatted {
   return { ...value, attrs: { stands } }
+}
+
+// A Shot's words cut in two where the caret stands, and joined back — issue #432,
+// `docs/adr/0071-a-shots-words-are-cut-where-the-caret-stands.md`.
+
+type Piece = Block | Line | Source | Speaker | Inline
+
+/**
+ * How many places a node takes as ProseMirror counts them, which is what the
+ * caret's position is counted in: a letter one, a bar or a separator one, and a
+ * block one where it opens and one where it closes.
+ */
+function sizeOf(node: Piece): number {
+  if (node.type === 'text') return node.text.length
+  if (node.type === 'redaction' || node.type === 'separator') return 1
+  return 2 + (node.content ?? []).reduce((sum: number, child: Piece) => sum + sizeOf(child), 0)
+}
+
+/** Nodes before a place and nodes after it, the one the place falls inside cut by `through` at the place inside it. */
+function parted<T extends Piece>(nodes: T[], at: number, through: (node: T, at: number) => [T[], T[]]): [T[], T[]] {
+  const before: T[] = []
+  const after: T[] = []
+  let place = 0
+  for (const node of nodes) {
+    const size = sizeOf(node)
+    if (place + size <= at) before.push(node)
+    else if (place >= at) after.push(node)
+    else {
+      const [first, second] = through(node, at - place)
+      before.push(...first)
+      after.push(...second)
+    }
+    place += size
+  }
+  return [before, after]
+}
+
+const runAt = (inline: Inline, at: number): [Inline[], Inline[]] => {
+  const cut = inline as Run
+  return [[{ ...cut, text: cut.text.slice(0, at) }], [{ ...cut, text: cut.text.slice(at) }]]
+}
+
+/** A line, a Speaker or a Source holding other words, or none, which leaves out `content`. */
+function holding<T extends Line | Source | Speaker>(node: T, inlines: Inline[]): T {
+  const { content: _content, ...rest } = node
+  return (inlines.length ? { ...rest, content: inlines } : rest) as T
+}
+
+/** A line cut where the caret is, each piece left out where it holds nothing: no empty line is left behind. */
+function lineAt(cut: Line, at: number): [Line[], Line[]] {
+  const [before, after] = parted(cut.content ?? [], at - 1, runAt)
+  return [before.length ? [holding(cut, before)] : [], after.length ? [holding(cut, after)] : []]
+}
+
+const lineOrPart = <T extends Line | Source | Speaker>(cut: T, at: number): [T[], T[]] =>
+  cut.type === 'line' ? lineAt(cut, at) as [T[], T[]]
+  // The caret in a Speaker takes the whole Speech on; in a Source, the whole Quote stays.
+  : cut.type === 'speaker' ? [[], [cut]] : [[cut], []]
+
+/**
+ * A block cut where the caret is. A block whose one line is empty and holds the
+ * caret stays whole in the first half, rather than leave a Speaker or a Source
+ * with no line to stand over.
+ */
+function blockAt(cut: Block, at: number): [Block[], Block[]] {
+  switch (cut.type) {
+    case 'line': return lineAt(cut, at)
+    case 'verse': {
+      const [before, after] = parted(cut.content, at - 1, lineOrPart)
+      if (!before.length && !after.length) return [[cut], []]
+      return [before.length ? [{ ...cut, content: before } as Verse] : [], after.length ? [{ ...cut, content: after } as Verse] : []]
+    }
+    case 'quote': {
+      const [before, after] = parted<Line | Source>(cut.content, at - 1, lineOrPart)
+      // A Source goes with the lines it follows, and the Quote stays whole where none follow the caret.
+      if (!after.some(part => part.type === 'line')) return [[cut], []]
+      return [before.length ? [{ ...cut, content: before }] : [], [{ ...cut, content: after }]]
+    }
+    case 'speech': {
+      const [before, after] = parted<Speaker | Line>(cut.content, at - 1, lineOrPart)
+      const speaker = cut.content[0]
+      // Both beats say who speaks: the second takes the Speaker with it.
+      const said = (parts: (Speaker | Line)[]) => parts.some(part => part.type === 'line')
+        ? [{ ...cut, content: parts[0]!.type === 'speaker' ? parts : [speaker, ...parts] } as Speech]
+        : []
+      const [first, second] = [said(before), said(after)]
+      return first.length || second.length ? [first, second] : [[cut], []]
+    }
+    default: return [[cut], []]
+  }
+}
+
+/**
+ * A Shot's words cut in two at a place counted as ProseMirror counts the caret:
+ * the words before it and the words after, each a text the boundary takes. The
+ * block the caret is in is cut in two and each half keeps its attrs; a piece left
+ * empty is left out, so a cut at the edge of a line leaves no empty line behind; a
+ * half left with nothing is one empty line. The text's own `attrs` stay with both.
+ */
+export function splitFormatted(value: Formatted, at: number): [Formatted, Formatted] {
+  const halves = parted(value.content, at, blockAt)
+  return halves.map(content => ({ ...value, content: content.length ? content : [line()] })) as [Formatted, Formatted]
+}
+
+/** Whether a text holds nothing at all: one empty line. */
+export function blank(value: Formatted) {
+  const [only, ...rest] = value.content
+  return !rest.length && only?.type === 'line' && !only.content?.length
+}
+
+/** Two runs of words meeting, a run either side of the seam that carries the same Styles made one. */
+function meetingWords(first: Inline[] = [], second: Inline[] = []): Inline[] {
+  const last = first.at(-1)
+  const next = second[0]
+  if (last?.type === 'text' && next?.type === 'text' && same(last.marks ?? [], next.marks ?? [])) {
+    return [...first.slice(0, -1), { ...last, text: last.text + next.text }, ...second.slice(1)]
+  }
+  return [...first, ...second]
+}
+
+const meetingLines = (first: Line, second: Line) => holding(first, meetingWords(first.content, second.content))
+
+/** Two blocks meeting as two paragraphs do, the first one's line taking the second's; nothing where they are not of a kind to. */
+function meeting(first: Block, second: Block): Block | undefined {
+  if (first.type === 'line' && second.type === 'line') return meetingLines(first, second)
+
+  type Lines = { content: (Line | Source | Speaker)[] }
+  const into = (held: Lines, from: Lines, start: number) => ({
+    ...held,
+    content: [...held.content.slice(0, -1), meetingLines(held.content.at(-1) as Line, from.content[start] as Line), ...from.content.slice(start + 1)],
+  })
+  if (first.type === 'verse' && second.type === 'verse') return into(first, second, 0) as Verse
+  if (first.type === 'quote' && second.type === 'quote' && first.content.at(-1)!.type === 'line') return into(first, second, 0) as Quote
+  if (first.type === 'speech' && second.type === 'speech' && same(first.content[0], second.content[0])) {
+    return into(first, second, 1) as Speech
+  }
+  return undefined
+}
+
+/**
+ * The words of one Shot joined onto the end of the Shot before's, the last block
+ * of the one meeting the first of the other as two paragraphs meet, and laid end
+ * to end where they are not of a kind to. `seam` is the place where the first
+ * text's words ended, where the caret lands. A join gives back what a cut inside
+ * a line's words parted; a cut at the edge of a line spent the break between two
+ * lines, and the join meets them as `Backspace` meets two paragraphs.
+ */
+export function joinFormatted(first: Formatted, second: Formatted): { formatted: Formatted, seam: number } {
+  if (blank(first)) return { formatted: { ...first, content: second.content }, seam: 0 }
+
+  const size = first.content.reduce((sum, block) => sum + sizeOf(block), 0)
+  const last = first.content.at(-1)!
+  const seam = size - (last.type === 'separator' ? 0 : last.type === 'line' ? 1 : 2)
+  if (blank(second)) return { formatted: first, seam }
+
+  const met = meeting(last, second.content[0]!)
+  const content = met
+    ? [...first.content.slice(0, -1), met, ...second.content.slice(1)]
+    : [...first.content, ...second.content]
+  return { formatted: { ...first, content }, seam }
 }
 
 // The boundary.
