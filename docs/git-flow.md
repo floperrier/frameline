@@ -33,9 +33,9 @@ rather than the branch that deploys.
 
 The pull request is not a review surface here, it is the only place the
 end-to-end suite runs. `.github/workflows/ci.yml` runs `e2e` on `pull_request`
-alone, because each run takes a Neon branch of its own and proves the migrations
-against a database that has only ever seen them. A push to a topic branch runs
-nothing.
+alone, and each run makes a database of its own — a Postgres that has only ever
+seen the migrations, which proves them before the pull request can go green. A
+push to a topic branch runs nothing.
 
 There are no preview deployments. `vercel.json` disables Git deployments for
 every branch but `main`, because a preview cannot sign anyone in: the OAuth
@@ -61,7 +61,7 @@ than a preview origin would have bought.
 
 The `check` job also runs `pnpm test`, the Vitest suite over the Reading engine.
 That one needs no database at all, so it runs on every push rather than waiting
-for a Neon branch it would not use.
+for a database it would not use.
 
 Committing straight to either branch skips the tests, and on `main` it puts an
 unproven commit in production.
@@ -95,11 +95,22 @@ The git flow above has a database counterpart, and it matters more here than the
 branch names do: a Neon branch is cheap, but there is only one production
 dataset.
 
-| Where the code runs | Neon branch |
+| Where the code runs | Database |
 | --- | --- |
-| production deployment | `production` |
-| `pnpm dev` | `development` |
-| a CI run | a branch of its own, forked from `development`, deleted at the end |
+| production deployment | the Neon branch `production` |
+| `pnpm dev` | the Neon branch `development` |
+| a CI run | a Postgres container of its own, thrown away with the runner |
+| `pnpm test:e2e` on your machine | whatever `DATABASE_URL` names — `development`, or the container `pnpm test:db` starts |
+
+The end-to-end suite never needs Neon, and in CI it never touches it. Its runs
+used to take Neon branches in the project production lives in, until on
+2026-10-02 they spent that project's free quota and Neon suspended every compute
+in it, production's with them — see
+`docs/adr/0075-the-suite-brings-its-own-database.md`. On your machine,
+`pnpm test:db` starts the same two containers CI does (`compose.yaml`) and
+migrates them, and the suite reaches them with
+`DATABASE_URL=postgres://postgres:postgres@db.localtest.me:4445/main pnpm test:e2e`;
+`.env` still names `development`, for `pnpm dev`.
 
 So `pnpm db:migrate` on your machine touches `development`, never production. A
 migration reaches `production` in the deploy that carries the code needing it:
@@ -113,7 +124,7 @@ When `development` has drifted into a mess, throw it away rather than repairing
 it: `neon branches reset development --parent` refills it from `production`.
 
 One shared `development` branch is enough for one developer. A Neon branch per
-git branch would only add bookkeeping — the disposable CI branch already covers
+git branch would only add bookkeeping — the suite's own database already covers
 the case where isolation actually pays.
 
 ## Squash, not merge
