@@ -1,4 +1,6 @@
 import type { H3Event } from 'h3'
+import { parseFormatted, textOf } from '../../shared/utils/formatted'
+import type { Formatted } from '../../shared/utils/formatted'
 
 /**
  * Reads a Shot's text. A Shot is added empty and written afterwards, so empty is
@@ -22,6 +24,29 @@ export async function readShotText(event: H3Event) {
   }
 
   return text
+}
+
+/**
+ * Reads a Shot's formatted text, which the boundary parses key by key and which
+ * is refused with the phrase of whichever rule it broke: the body's `formatted`,
+ * or the half of a cut Shot it is named by.
+ */
+export async function readShotFormatted(event: H3Event, key: 'formatted' | 'before' | 'after' = 'formatted') {
+  const body = await readBody<Record<string, unknown>>(event)
+  const read = parseFormatted(body?.[key], 'refuse')
+
+  if ('formatted' in read) return read.formatted
+
+  const say = saying(event)
+  const message = {
+    shotTextLong: () => say('refusals.shotTextLong', { max: SHOT_TEXT_MAX_LENGTH }),
+    redactionHides: () => say('refusals.redactionHides', { max: REDACTION_HIDES_MAX_LENGTH }),
+    lettersSplit: () => say('refusals.lettersSplit', { max: LETTERS_SPLIT_MAX }),
+    effectArrives: () => say('refusals.effectArrives'),
+    effectLasts: () => say('refusals.effectLasts'),
+    formatted: () => say('refusals.formatted'),
+  }[read.refused]()
+  throw createError({ statusCode: 400, message })
 }
 
 /**
@@ -76,4 +101,131 @@ export async function readShotImage(event: H3Event) {
   }
 
   return bytes
+}
+
+/**
+ * One axis of the point an Image is cropped around: a whole percent from 0 to
+ * 100, which is the number `object-position` reads. Never null — the centre is
+ * 50, a value — so the two axes can never disagree about whether a point is said.
+ */
+async function readCrop(event: H3Event, field: 'cropX' | 'cropY') {
+  const body = await readBody<Record<string, unknown>>(event)
+  const held = body?.[field]
+
+  if (!Number.isInteger(held) || (held as number) < 0 || (held as number) > 100) {
+    throw createError({ statusCode: 400, message: saying(event)('refusals.crop') })
+  }
+
+  return held as number
+}
+
+/**
+ * What a PATCH may change about a Shot: its text, the Description of the image it
+ * carries, the Transcript of the Sound it strikes with, and its own Cut — cut
+ * after a time or at the press, over a duration or hard, through the image or
+ * through black — how it is laid out and the point its Image is cropped around,
+ * how its Image moves, its four Effects, on the Image and on the text, as it
+ * arrives and while it stands, and how its text arrives and how long it stays.
+ * Each is read only where the body names it — the shape `readStoryChanges` has —
+ * so the Transcript written beside a Sound does not have to carry the beat's text
+ * along with it.
+ *
+ * A body naming none is refused as the text being asked for, which is what a
+ * request that would erase the Shot is missing.
+ */
+export async function readShotChanges(event: H3Event) {
+  const body = await readBody<{
+    text?: unknown
+    formatted?: unknown
+    description?: unknown
+    transcript?: unknown
+    cutAfter?: unknown
+    cutOver?: unknown
+    cutThrough?: unknown
+    layout?: unknown
+    cropX?: unknown
+    cropY?: unknown
+    movementBy?: unknown
+    movementDirection?: unknown
+    movementOver?: unknown
+    imageArrives?: unknown
+    imageLasts?: unknown
+    textArrives?: unknown
+    textLasts?: unknown
+    textAfter?: unknown
+    textBy?: unknown
+    textPace?: unknown
+    textOver?: unknown
+    textStays?: unknown
+  }>(event)
+  const changes: {
+    text?: string
+    formatted?: Formatted | null
+    description?: string
+    transcript?: string
+    cutAfter?: number | null
+    cutOver?: number | null
+    cutThrough?: CutThrough | null
+    layout?: Layout | null
+    cropX?: number
+    cropY?: number
+    movementBy?: number | null
+    movementDirection?: MovementDirection | null
+    movementOver?: number | null
+    imageArrives?: Arrival | null
+    imageLasts?: Lasting | null
+    textArrives?: Arrival | null
+    textLasts?: Lasting | null
+    textAfter?: number | null
+    textBy?: TextBy | null
+    textPace?: number | null
+    textOver?: number | null
+    textStays?: number | null
+  } = {}
+
+  // The words are said once: `formatted` carries its plain words with it, and
+  // `text` alone is a plain Shot, which unsets whatever was formatted.
+  if (body?.text !== undefined && body?.formatted !== undefined) {
+    throw createError({ statusCode: 400, message: saying(event)('refusals.shotWordsTwice') })
+  }
+  if (body?.text !== undefined) {
+    changes.text = await readShotText(event)
+    changes.formatted = null
+  }
+  if (body?.formatted !== undefined) {
+    const formatted = await readShotFormatted(event)
+    changes.formatted = formatted
+    changes.text = textOf(formatted)
+  }
+  if (body?.description !== undefined) changes.description = await readShotDescription(event)
+  if (body?.transcript !== undefined) changes.transcript = await readTranscript(event)
+  // A Shot's own three answer as themselves or answer *as the Scene says*, so
+  // null is read here rather than refused, unlike the same fields on a Scene.
+  if (body?.cutAfter !== undefined) changes.cutAfter = await readCutAfter(event)
+  if (body?.cutOver !== undefined) changes.cutOver = await readCutOver(event)
+  if (body?.cutThrough !== undefined) changes.cutThrough = await readCutThrough(event)
+  // Layout answers as itself or *as the Scene says*, so null is read. The point
+  // has no such answer: it is a value on every Shot, the centre until moved.
+  if (body?.layout !== undefined) changes.layout = await readLayout(event)
+  if (body?.cropX !== undefined) changes.cropX = await readCrop(event, 'cropX')
+  if (body?.cropY !== undefined) changes.cropY = await readCrop(event, 'cropY')
+  // How the Image moves answers as itself or *as the Scene says*, so null is read.
+  if (body?.movementBy !== undefined) changes.movementBy = await readMovementBy(event)
+  if (body?.movementDirection !== undefined) {
+    changes.movementDirection = await readMovementDirection(event)
+  }
+  if (body?.movementOver !== undefined) changes.movementOver = await readMovementOver(event)
+  // An Effect is a whole object or null, and null is none rather than a refusal.
+  if (body?.imageArrives !== undefined) changes.imageArrives = await readArrival(event, 'imageArrives')
+  if (body?.imageLasts !== undefined) changes.imageLasts = await readLasting(event, 'imageLasts')
+  if (body?.textArrives !== undefined) changes.textArrives = await readArrival(event, 'textArrives')
+  if (body?.textLasts !== undefined) changes.textLasts = await readLasting(event, 'textLasts')
+  if (body?.textAfter !== undefined) changes.textAfter = await readTextAfter(event)
+  if (body?.textBy !== undefined) changes.textBy = await readTextBy(event)
+  if (body?.textPace !== undefined) changes.textPace = await readTextPace(event)
+  if (body?.textOver !== undefined) changes.textOver = await readTextOver(event)
+  if (body?.textStays !== undefined) changes.textStays = await readTextStays(event)
+  if (!Object.keys(changes).length) await readShotText(event)
+
+  return changes
 }

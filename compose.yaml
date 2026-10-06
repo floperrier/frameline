@@ -1,0 +1,72 @@
+# The end-to-end suite's database, in CI and on a development machine alike, so
+# a run never touches Neon — see
+# `docs/adr/0075-the-suite-brings-its-own-database.md`. `pnpm test:db` starts
+# it and applies the migrations; the suite then reaches it through
+# DATABASE_URL=postgres://postgres:postgres@db.localtest.me:4445/main.
+#
+# The data lives in memory: a database that has only ever seen the migrations is
+# the point, and `docker compose down` gives the next run another one.
+services:
+  postgres:
+    image: postgres:18
+    # The proxy keeps a pool of connections and opens more of its own to look
+    # up the role behind a request; Postgres's default of a hundred clients
+    # answered a suite running several specs at once with "too many clients
+    # already", which the suite read as a failed query.
+    command: postgres -c max_connections=1000
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: main
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d main']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Speaks Neon's HTTP protocol to the serverless driver, and Postgres's own to
+  # the database behind it. 4445 rather than its own 4444, which is often taken.
+  neon-proxy:
+    image: ghcr.io/timowilhelm/local-neon-http-proxy@sha256:cd2ae14edf2feafbc3330492de5c80506f77274c3bd013154cdef697bdeb768a
+    environment:
+      PG_CONNECTION_STRING: postgres://postgres:postgres@postgres:5432/main
+    # The image's own start script, with three things changed for a suite that
+    # sends thousands of queries rather than a developer who sends a few. Left
+    # as they were, CI ran a third of the suite in the twenty minutes it allows:
+    #
+    # - the password is hashed once rather than 4096 times, because the proxy
+    #   checks it on every request, four at a time;
+    # - connections are pooled whether the driver asks or not, where they were
+    #   opened afresh for every query at half a second each;
+    # - the cap on requests a second, which protects Neon's shared fleet, is
+    #   lifted, where it refused a busy suite outright.
+    entrypoint:
+      - bash
+      - -c
+      - |
+        psql -Atx "$$PG_CONNECTION_STRING" \
+          -c "SET scram_iterations = 1" \
+          -c "ALTER ROLE postgres PASSWORD 'postgres'" \
+          -c "CREATE SCHEMA IF NOT EXISTS neon_control_plane" \
+          -c "CREATE TABLE IF NOT EXISTS neon_control_plane.endpoints (endpoint_id VARCHAR(255) PRIMARY KEY, allowed_ips VARCHAR(255))" \
+          > /dev/null
+        ./neon-proxy -c server.pem -k server.key \
+          --auth-backend=postgres --auth-endpoint="$$PG_CONNECTION_STRING" \
+          --wss=0.0.0.0:4445 \
+          --sql-over-http-pool-opt-in=false \
+          --sql-over-http-pool-max-conns-per-endpoint=200 \
+          --endpoint-rps-limit=100000@1s &
+        exec caddy run --config ./Caddyfile --adapter caddyfile
+    ports:
+      - '4445:4444'
+    # Ready once the proxy itself listens behind Caddy, so that the migrations
+    # `pnpm test:db` runs next do not race it.
+    healthcheck:
+      test: ['CMD', 'bash', '-c', '</dev/tcp/127.0.0.1/4445']
+      interval: 1s
+      timeout: 2s
+      retries: 30
+    depends_on:
+      postgres:
+        condition: service_healthy

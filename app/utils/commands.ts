@@ -21,20 +21,10 @@
  * typing or not.
  */
 
+import { plainly } from '../../shared/utils/scenes'
+
 /** A control on the bench, under the name the bar offers it as. */
 export type Command = { name: string, press: () => void }
-
-/**
- * A name with its accents taken off and its case flattened, which is what both
- * sides of the matching are read as. An Author reaching for *Le café* types
- * `cafe` as often as `café` — it is the same word, and one of the two spellings
- * is on every keyboard — so the Scene has to answer to both. `NFD` splits an
- * accented letter into the letter and the mark that sits on it, and the marks
- * are what is dropped.
- */
-export function plainly(name: string) {
-  return name.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase()
-}
 
 /**
  * The Commands a typed name reaches, in the order the bench itself draws them:

@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test'
-import { writeScene, readShots, seedScene, seedStory, test } from './author'
+import { writeScene, readShots, seedScene, seedStory, test, writeShot } from './author'
 
 /**
  * The door shutting under an Author who is already writing — the one refusal that
@@ -35,7 +35,7 @@ test('a write with the door shut is refused in words, offers the door, and keeps
   await context.clearCookies()
 
   const shot = page.getByRole('textbox', { name: 'Shot 1' })
-  await shot.fill('Typed after the door shut.')
+  await writeShot(shot, 'Typed after the door shut.')
   await shot.blur()
 
   // The words are the server's, negotiated from the request that carried the
@@ -51,12 +51,12 @@ test('a write with the door shut is refused in words, offers the door, and keeps
   await expect(door).toHaveAttribute('href', '/')
   await expect(door).not.toBeFocused()
 
-  // Nothing navigated — the Scene being written is in the address since
-  // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`, and it is the
-  // one that was being written before the door shut — and what was typed is
-  // still on screen and still writable.
-  await expect(page).toHaveURL(`/stories/${story.id}?scene=${scene.id}`)
-  await expect(shot).toHaveValue('Typed after the door shut.')
+  // Nothing navigated — the Scene being written is still the one that was being
+  // written before the door shut — and what was typed is still on screen and
+  // still writable.
+  await expect(page).toHaveURL(new RegExp(`/stories/${story.id}`))
+  await expect(page.getByRole('group', { name: 'Writing The street' })).toBeVisible()
+  await expect(shot).toHaveText('Typed after the door shut.')
   await expect(shot).toBeEditable()
 
   // The refusal said nothing was written, and nothing was: the Scene still holds
@@ -64,7 +64,7 @@ test('a write with the door shut is refused in words, offers the door, and keeps
   await expect(readShots(scene.id)).resolves.toMatchObject([{ text: 'Their Shot' }])
 
   await context.addCookies(sealed)
-  await shot.fill('Typed once the door was open again.')
+  await writeShot(shot, 'Typed once the door was open again.')
   await shot.blur()
 
   // The next attempt clears the refusal — nothing watched for the door reopening.
@@ -92,5 +92,5 @@ test('the Stories list refuses in the same voice', async ({ page, context, autho
   // written again once the door is open.
   await expect(page).toHaveURL('/stories')
   await expect(titling).toHaveValue('A Story nobody may write')
-  await expect(page.getByRole('link', { name: 'Open A Story' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'A Story', exact: true })).toBeVisible()
 })

@@ -1,6 +1,6 @@
 import type { Browser, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { test, writeStory } from './author'
+import { begin, seedPublished, test, writeStory } from './author'
 
 /**
  * Someone arriving at the public link for the first time: their own context, so
@@ -16,16 +16,27 @@ async function readerAt(browser: Browser, link: string) {
 
 /** Reads the Story `writeStory` wrote from its first Shot to its ending. */
 async function readToTheEnd(page: Page) {
+  await begin(page)
   await expect(page.getByText('A door opens.')).toBeVisible()
   await page.getByRole('button', { name: 'Next Shot' }).click()
   await expect(page.getByText('She steps out.')).toBeVisible()
   await page.getByRole('button', { name: 'Next Shot' }).click()
   await page.getByRole('button', { name: 'Follow her out' }).click()
   await expect(page.getByText('Smoke, and no one she knows.')).toBeVisible()
-  await page.getByRole('button', { name: 'Next Shot' }).click()
-  await expect(page.getByRole('status')).toHaveText('The path ends here.')
-  // The button that was pressed is gone, so the one control left takes the focus it held.
-  await expect(page.getByRole('button', { name: 'Read Again from the Start' })).toBeFocused()
+  const next = page.getByRole('button', { name: 'Next Shot' })
+  const weight = await next.evaluate(el => getComputedStyle(el).backgroundColor)
+  await next.click()
+  await expect(page.getByRole('status')).toHaveText('The Reading ends here.')
+  // The button that was pressed is gone, so reading again from the start takes
+  // the focus it held — the move an ending is for, and not the step back beside it.
+  const again = page.getByRole('button', { name: 'Read Again from the Start' })
+  await expect(again).toBeFocused()
+  // And with no sentence of the interface's on the screen, the controls are what
+  // say the Reading has ended: reading again is drawn with the weight the press
+  // it replaces had. The pointer is taken off it first, since a hover is a
+  // weight of its own.
+  await page.mouse.move(0, 0)
+  await expect(again).toHaveCSS('background-color', weight)
 }
 
 /**
@@ -61,8 +72,9 @@ test('an Author publishes a Story and a Reader reads it at the public link', asy
   // A second Reader starts the Story over, and the first stays where they were:
   // a Reading carries its own State and shares it with nobody.
   const other = await readerAt(browser, publicLink)
+  await begin(other.page)
   await expect(other.page.getByText('A door opens.')).toBeVisible()
-  await expect(reader.page.getByRole('status')).toHaveText('The path ends here.')
+  await expect(reader.page.getByRole('status')).toHaveText('The Reading ends here.')
 
   // Unpublishing takes the link away from everyone who had it.
   await page.getByRole('button', { name: 'Unpublish this Story' }).click()
@@ -75,6 +87,7 @@ test('an Author publishes a Story and a Reader reads it at the public link', asy
   await expect(page.getByRole('link', { name: publicLink })).toBeVisible()
   const again = await readerAt(browser, publicLink)
   expect(again.status).toBe(200)
+  await begin(again.page)
   await expect(again.page.getByText('A door opens.')).toBeVisible()
 })
 
@@ -92,4 +105,23 @@ test('a Story with no opening Scene cannot be published', async ({ page, request
     'A Story needs an opening Scene before it can be published. '
     + 'Write a Scene on the Graph and mark it as the one to start on.')
   await expect(page.getByRole('button', { name: 'Publish this Story', exact: true })).toBeVisible()
+})
+
+test('the public link hands a Scene over by the fields the Reader\'s door names', async ({ request }) => {
+  const story = await writeStory(request)
+  await seedPublished(story)
+
+  const read = await (await request.get(`/api/read/${story.id}`)).json()
+
+  // Held as the whole set rather than as an absence: `readStoryGraph` selects
+  // nothing editor-only today, so a test naming what must not be here would go
+  // on passing with the narrowing taken out again. A column added to that query
+  // for the bench arrives here as a name nobody listed, and one a Reading is
+  // meant to have has to be named at the Reader's door and in this list at once.
+  expect(Object.keys(read.scenes[0]).sort()).toEqual([
+    'cutAfter', 'cutOver', 'cutThrough', 'exitsAfter', 'id', 'layout', 'movementBy',
+    'movementDirection', 'movementOver', 'name', 'question', 'questionFlag', 'sets', 'shots',
+    'sound', 'soundLoops',
+    'soundOfSceneId', 'textAfter', 'textBy', 'textOver', 'textPace', 'textStays', 'transcript',
+  ])
 })

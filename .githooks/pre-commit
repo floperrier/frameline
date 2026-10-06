@@ -1,0 +1,5 @@
+#!/bin/sh
+set -e
+pnpm exec lint-staged
+pnpm typecheck
+pnpm test

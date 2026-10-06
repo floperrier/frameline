@@ -9,6 +9,9 @@
 const localePath = useLocalePath()
 const { loggedIn } = useUserSession()
 const { data: catalogue } = await useFetch('/api/catalogue')
+const { t } = useI18n()
+
+useHead({ title: () => t('catalogue.heading') })
 </script>
 
 <template>

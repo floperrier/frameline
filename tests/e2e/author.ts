@@ -1,11 +1,17 @@
 import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { neon } from '@neondatabase/serverless'
-import { test as base, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test'
+import {
+  expect, test as base, type APIRequestContext, type BrowserContext, type Locator, type Page,
+} from '@playwright/test'
 import { DISMISSED } from '../../app/utils/steps'
-import type { Condition, Exit, Scene, Sets, Shot } from '../../shared/utils/scenes'
-import { NODE_GAP, NODE_SPACING, NODE_WIDTH, NODES_PER_COLUMN } from '../../shared/utils/scenes'
+import type { Condition, Exit, Scene, Sets, Shot, StoryInEditor } from '../../shared/utils/scenes'
 import { sealSession, type H3Event } from 'h3'
+import { routeToLocalProxy } from '../../server/db/endpoint'
 
+// The suite's own database sits behind a local proxy, not on Neon, and every
+// spec that writes to it directly comes through here.
+routeToLocalProxy()
 const sql = neon(process.env.DATABASE_URL!)
 
 /**
@@ -17,6 +23,14 @@ export const ONE_PIXEL = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==',
   'base64',
 )
+
+/**
+ * One real MP3, a few frames of silence, for the specs that deposit a Sound. A
+ * file rather than a shape, for the reason the pixel above is one — and an MP3
+ * rather than an `.m4a`, because the Chromium Playwright ships carries no AAC
+ * decoder and a browser that cannot decode what it is handed proves nothing.
+ */
+export const A_SOUND = readFileSync(new URL('silence.mp3', import.meta.url))
 
 export type Author = { id: string, email: string, name: string | null }
 type Story = { id: string, title: string }
@@ -69,6 +83,22 @@ export const test = base.extend<{ author: Author, otherAuthor: Author, guided: b
 
   extraHTTPHeaders: async ({ author }, use) => {
     await use({ cookie: `nuxt-session=${await sealAuthorSession(author)}` })
+  },
+
+  // One connection per request. Playwright sends every API request a worker makes
+  // through one keep-alive agent that sets no idle limit of its own — Node heeds
+  // the server's `Keep-Alive: timeout=5` only on an agent that has one — so the
+  // socket one test left idle is the one the next test's first request is written
+  // on. When that gap is the server's own, six seconds with its grace, and the
+  // server is busy rendering for three other browsers, its timer closes the socket
+  // under a request that has just arrived: `read ECONNRESET`, on a POST nothing may
+  // send again. A connection closed behind its response is never left idle.
+  request: async ({ playwright, extraHTTPHeaders }, use) => {
+    const request = await playwright.request.newContext({
+      extraHTTPHeaders: { ...extraHTTPHeaders, connection: 'close' },
+    })
+    await use(request)
+    await request.dispose()
   },
 })
 
@@ -211,18 +241,20 @@ export async function seedScene(story: Story, name: string) {
 
 /**
  * Writes a whole graph of Scenes at once, for one too large to build a request at
- * a time, laid out in the columns the API would have laid them out in.
+ * a time, and hands them back in the order it was asked for.
+ *
+ * The ids are drawn here rather than read back out of the insert, because Postgres
+ * promises no order for the rows `RETURNING` emits — `with ordinality` orders what
+ * the insert reads, never what comes back — so a chain of Exits built by walking
+ * the result was a chain whose depth nobody chose. See issue #261.
  */
 export async function seedScenes(story: Story, names: string[]) {
-  const scenes = await sql`
-    insert into scenes (story_id, name, x, y)
-    select
-      ${story.id},
-      name,
-      ((place - 1) / ${NODES_PER_COLUMN}) * ${NODE_WIDTH + NODE_GAP},
-      ((place - 1) % ${NODES_PER_COLUMN}) * ${NODE_SPACING}
-    from unnest(${names}::text[]) with ordinality as named (name, place)
-    returning id, name` as Pick<Scene, 'id' | 'name'>[]
+  const scenes: Pick<Scene, 'id' | 'name'>[] = names.map(name => ({ id: randomUUID(), name }))
+
+  await sql`
+    insert into scenes (id, story_id, name)
+    select id, ${story.id}, name
+    from unnest(${scenes.map(scene => scene.id)}::uuid[], ${names}::text[]) as seeded (id, name)`
 
   // A Shot apiece, written rather than empty, because a Scene the API made
   // arrives with none and an Author's first move inside one is to write a Shot:
@@ -235,21 +267,165 @@ export async function seedScenes(story: Story, names: string[]) {
 }
 
 /**
- * Puts a Scene on the surface it is written on, the way the Author would. A
- * card carries nothing to type into — the Scene's name, the image of its first
- * Shot, its Shot count and where its ways on land — so a test that writes
- * anything about a Scene from the page opens its panel first.
+ * A Story long enough to read down, in one known order: the Scenes named, each
+ * joined to the one after it, and the first marked as the Scene the Story opens
+ * on. The order a Story is written in is read off the Story — how far each Scene
+ * stands from the opening, in Exits taken — so a chain is the one shape whose
+ * document runs in the order it was asked for, and the opening has to be named or
+ * the walk starts from whichever Scene the insert happened to hand back first,
+ * which is issue #261 one column over. See
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ */
+export async function seedChain(story: Story, names: string[]) {
+  const scenes = await seedScenes(story, names)
+  for (const [place, scene] of scenes.entries()) {
+    if (place) await seedExit(scenes[place - 1]!.id, scene.id)
+  }
+  await sql`update stories set opening_scene_id = ${scenes[0]!.id} where id = ${story.id}`
+
+  return scenes
+}
+
+/**
+ * Puts the caret in a Scene, the way an Author would: by pressing its mark on the
+ * rail. Every Scene of the Story is written where it stands since #252, so the
+ * writing surface is up for all of them at once and waiting for it says nothing
+ * about where the caret is. What a press moves is the caret — the rail lights that
+ * Scene's mark, the address names it, and the marks a row carries for the bar of
+ * Commands and for the guided path go with it — so the lit mark is what this waits
+ * for. A Scene whose mark is already lit is left alone, because pressing it would
+ * be asking to go where the caret already is. See
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ *
+ * The server draws the first Scene lit, so a mark lit is no sign that anything
+ * answers yet: the page is waited on until it is `live` below, or the press the
+ * caller makes next lands on a button the browser has not taken over.
  */
 export async function writeScene(page: Page, name: string) {
-  // Folded into a rail, the card itself is what is pressed: the button on it is
-  // drawn at the rail's own scale and is no target for a hand — see
-  // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`. Either way the
-  // press is a toggle, so a Scene pressed twice is closed.
-  if (await page.locator('.bench.folded').count()) {
-    return await page.getByRole('article', { name }).click()
-  }
+  await live(page)
+  const mark = sceneNode(page, name)
+  await expect(mark).toBeVisible()
+  if (!(await mark.getAttribute('class'))?.split(' ').includes('here')) await mark.click()
 
-  await page.getByRole('button', { name: `Write Scene ${name}` }).click()
+  await expect(mark).toHaveClass(/\bhere\b/)
+}
+
+/**
+ * A Scene as the rail draws it: the Graph is two hundred and twenty pixels down
+ * the side of the document, and a Scene in it is a point and no words — no image,
+ * no name, nothing but where it stands and the lines arriving at it — see
+ * `docs/adr/0043-a-story-is-written-as-one-document.md` and
+ * `docs/adr/0045-the-rail-draws-the-ways-on.md`.
+ *
+ * `getByRole` cannot reach one, and that is the rail working as designed rather
+ * than an oversight to route around. The rail is `aria-hidden` with every mark at
+ * `tabindex="-1"`, because every fact it draws — where a Scene stands in the
+ * Story, whether the Story opens on it, whether anything arrives at it, which
+ * Scenes its ways on reach — is said in words in the document's own markup, and a drawing in the accessibility tree
+ * would be the whole Story announced twice with a tab order running through it.
+ * So a mark is found by the name the bar of Commands reads it under, which is the
+ * one thing about the rail that does still reach the keyboard:
+ * `app/components/Commands.vue` filters by `checkVisibility()`, which does not
+ * consult `aria-hidden` — see
+ * `docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`.
+ * Scoped to the rail all the same, because a way on's own row in the Scene being
+ * written carries a control named *Go to* the Scene it lands on.
+ *
+ * Still `sceneNode` rather than `sceneMark`. *Node* is `CONTEXT.md`'s word for a
+ * Scene as the Graph draws it, and the rail is the Graph read small rather than a
+ * second surface; *mark* is the class the rail gives it, and it is a word two
+ * other things on the bench already carry — the controls that renumber a row, and
+ * what `0035` calls a control named for the bar — so it is not the word to take
+ * for this one.
+ */
+export function sceneNode(page: Page, name: string) {
+  return page.locator(`.rail [data-command="Go to ${name}"]`)
+}
+
+/**
+ * Turns the middle of the bench onto the Story read on the engine a Reader runs.
+ * The rail and the Remarks do not move between the readings — what changes is
+ * what the middle is a reading of, never where anything is — so the Preview
+ * arrives in the document's own place rather than in a box of its own. See
+ * `docs/adr/0043-a-story-is-written-as-one-document.md`, which keeps `0030`'s
+ * engine rule and supersedes its *beside*.
+ */
+export async function readTheStory(page: Page) {
+  const preview = page.getByRole('region', { name: /^Preview/ })
+  if (!await preview.isVisible()) {
+    await page.getByRole('button', { name: 'Read the Story' }).click()
+  }
+  await expect(preview).toBeVisible()
+
+  return preview
+}
+
+/**
+ * Writes a Shot's text as an Author does since #359: a Shot nobody is writing in
+ * is its text drawn in a box, and pressing the box mounts the one editor in its
+ * place, under the same id and name and with the focus — so the press comes
+ * first, and nothing is typed until the editor has the caret, or the keys land on
+ * a box that is about to go. Everything in it is then replaced, a line at a time,
+ * because a line break in the editor is `Shift+Enter` and `Enter` opens the next
+ * Shot. It writes nothing until the caret leaves, as a field did, so a caller that
+ * wants it written blurs it.
+ */
+export async function writeShot(box: Locator, text: string) {
+  const page = box.page()
+  const id = await box.getAttribute('id')
+  await box.click()
+  await expect(page.locator(`[id="${id}"].ProseMirror`)).toBeFocused()
+
+  await page.keyboard.press('ControlOrMeta+A')
+  if (!text) return page.keyboard.press('Delete')
+  for (const [at, line] of text.split('\n').entries()) {
+    if (at) await page.keyboard.press('Shift+Enter')
+    if (line) await page.keyboard.type(line)
+  }
+}
+
+/**
+ * Opens what a Shot plays as, which its row keeps folded under one line since
+ * #401 — the Sound picker, the Cut, the Layout, the Movement, the Effects and how
+ * its text arrives — or how a Scene plays, which its head keeps folded the same
+ * way since #400. A fold already open is left alone, because a `<summary>`
+ * toggles and a second press would shut it. Found by the name its line carries,
+ * `Shot 2 of The street` or `The street`, and handed back for a caller that reads
+ * what it holds.
+ */
+export async function unfold(page: Page, named: string) {
+  await live(page)
+  const fold = page.locator('details.plays', {
+    has: page.locator('summary > .visually-hidden').getByText(named, { exact: true }),
+  })
+  if (!await fold.evaluate(details => (details as HTMLDetailsElement).open)) {
+    await fold.locator('summary').click()
+  }
+  await expect(fold).toHaveAttribute('open')
+
+  return fold
+}
+
+/**
+ * Opens the rest of a Shot's styles under the formatting bar's one row, which the
+ * bar keeps shut until *More Styles* is pressed since #398 — the small capitals,
+ * the scripts, every select but the line's kind, and the Effects of the words. A
+ * panel already open is left alone, because it stays open from Shot to Shot and a
+ * second press would shut it.
+ */
+export async function moreStyles(toolbar: Locator) {
+  const more = toolbar.getByRole('button', { name: /^More Styles/ })
+  if (await more.getAttribute('aria-expanded') !== 'true') await more.click()
+  await expect(more).toHaveAttribute('aria-expanded', 'true')
+}
+
+/**
+ * A Shot's words as the bench counts them — its lines joined by a line break —
+ * read off the box or the editor, whichever is drawn: `toHaveText` reads the text
+ * of every line run together.
+ */
+export function shotText(box: Locator) {
+  return box.evaluate(drawn => [...drawn.querySelectorAll('p')].map(line => line.textContent).join('\n'))
 }
 
 /**
@@ -287,14 +463,16 @@ export async function readExits(fromSceneId: string) {
  * opening Scene comes with it — the API refuses to publish a Story without one,
  * and a Scene seeded past the API leaves it unset — so what is seeded is a Story
  * the product would have allowed.
+ *
+ * Which Scene opens is named rather than looked up. The Scenes `seedScenes` writes
+ * share one `created_at` to the microsecond, being one insert, so asking the table
+ * for its earliest asks it to pick, which is issue #261 again one column over.
  */
-export async function seedPublication(story: Story) {
+export async function seedPublication(story: Story, opening?: Pick<Scene, 'id'>) {
   await sql`
     update stories set
       published_at = now(),
-      opening_scene_id = coalesce(
-        opening_scene_id,
-        (select id from scenes where story_id = ${story.id} order by created_at limit 1))
+      opening_scene_id = coalesce(opening_scene_id, ${opening?.id ?? null}::uuid)
     where id = ${story.id}`
 }
 
@@ -315,16 +493,6 @@ export async function readFlags(sceneId: string) {
     select sets from scenes where id = ${sceneId}` as { sets: Sets }[]
 
   return scene!.sets
-}
-
-/** Reads where a Scene sits in the graph, and which Scene its Story opens on. */
-export async function readScenePlacement(id: string) {
-  const [node] = await sql`
-    select scenes.x, scenes.y, stories.opening_scene_id as "openingSceneId"
-    from scenes join stories on stories.id = scenes.story_id
-    where scenes.id = ${id}` as { x: number, y: number, openingSceneId: string | null }[]
-
-  return node!
 }
 
 /** Reads what a Scene is called past the API, to see what a rename really wrote. */
@@ -417,4 +585,41 @@ export async function live(page: Page) {
     const mounted = document.getElementById('__nuxt')
     return !!mounted && '__vue_app__' in mounted
   })
+}
+
+/**
+ * `writeStory`, changed as the caller asks, published, and opened into a live
+ * Reading through the Reader's own door — the door `live` above waits for, so
+ * a clock the Reading arms as it mounts is armed before the caller looks for
+ * anything it starts. Shared by every spec that reads a Story published past
+ * the API rather than writes one, because each would otherwise open it in
+ * exactly the same few calls.
+ */
+export async function opened(
+  page: Page,
+  request: APIRequestContext,
+  write: (story: { id: string }, scenes: StoryInEditor['scenes']) => Promise<void>,
+) {
+  const story = await writeStory(request)
+  const { scenes } = await (await request.get(`/api/stories/${story.id}`))
+    .json() as StoryInEditor
+
+  await write(story, scenes)
+  await seedPublished(story)
+  await page.goto(`/read/${story.id}`)
+  await begin(page)
+}
+
+/**
+ * Begins a Reading from the title card every Story opens on since #409, which is
+ * where the Reading is mounted and its clock started: nothing of it is on the page
+ * before the press. Waited on until the page is `live` first, because a press on a
+ * button the browser has not taken over does nothing at all. Found by its mark
+ * rather than its name, because it says *Begin* or *Resume*, in the Reader's own
+ * Locale. See `docs/adr/0063-a-story-opens-on-its-title-card.md`.
+ */
+export async function begin(page: Page) {
+  await live(page)
+  await page.locator('button.beginning').click()
+  await expect(page.locator('.reading')).toBeVisible()
 }

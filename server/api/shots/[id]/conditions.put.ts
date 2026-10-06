@@ -6,7 +6,7 @@ import { useDb } from '../../../db'
  * the same reason an Exit's is: the Author is replacing the whole list every time,
  * and the way to say "every Reading sees this" is to send none.
  *
- * A Condition counting visits names a Scene, and every such Scene is looked up
+ * A Condition asking about a Scene names it, and every such Scene is looked up
  * in the one statement that writes the list, joined on the Story the Shot
  * belongs to, behind the same guard an Exit's endpoint writes behind.
  */
@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
     where shots.id = ${id}::uuid
       and owner.id = shots.scene_id
       and stories.author_id = ${author.id}::uuid
-      and ${countedWithinTheStory(conditions)}
+      and ${askedWithinTheStory(conditions)}
     returning shots.id, shots.conditions`)
 
   if (!rows[0]) throw notFound(event, 'Shot')

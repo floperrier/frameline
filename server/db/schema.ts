@@ -12,7 +12,19 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
-import type { Condition, Sets } from '../../shared/utils/scenes'
+import { CHARACTERS_A_SECOND } from '../../shared/utils/scenes'
+import type {
+  Arrival,
+  Condition,
+  CutThrough,
+  Lasting,
+  Layout,
+  MovementDirection,
+  Sets,
+  TextBy,
+} from '../../shared/utils/scenes'
+import type { Align, Face, Formatted } from '../../shared/utils/formatted'
+import type { Edition } from '../../shared/utils/reading'
 
 // `name` is the Name an Author appears under wherever somebody else meets them:
 // beside a Listed Story, on their Profile. It arrives from the provider they
@@ -65,8 +77,9 @@ export const authors = pgTable('authors', {
 //
 // `published_at` is what makes the Story readable at its public link, and null
 // is what keeps it the Author's alone. A timestamp rather than a flag because it
-// says when as well as whether, at no more cost. Nothing else changes on a
-// Publish — the link is the Story's own id, so it is the same link every time
+// says when as well as whether, at no more cost. Publishing the changes leaves
+// it where it is, so the when is the first Publish, which the Catalogue is
+// ordered by. The link is the Story's own id, so it is the same link every time
 // the Story is published again.
 //
 // `listed` is whether the Author has put the published Story in the Catalogue,
@@ -76,6 +89,10 @@ export const authors = pgTable('authors', {
 // `published_at` already says which side of publishing the Story is on. It
 // defaults to false and nothing backfills it: nobody agreed to appear in a
 // catalogue that did not exist when they published.
+// `steps_back` is what an Exit of this Story answers when it has not answered
+// for itself: true, the default, is the Reading a step back crosses every Exit
+// of — which is every Story written before the column existed, reading exactly
+// as it read.
 export const stories = pgTable('stories', {
   id: uuid('id').primaryKey().defaultRandom(),
   authorId: uuid('author_id').notNull().references(() => authors.id, { onDelete: 'cascade' }),
@@ -84,15 +101,44 @@ export const stories = pgTable('stories', {
   synopsis: text('synopsis').notNull().default(''),
   openingSceneId: uuid('opening_scene_id')
     .references((): AnyPgColumn => scenes.id, { onDelete: 'set null' }),
+  coverShotId: uuid('cover_shot_id')
+    .references((): AnyPgColumn => shots.id, { onDelete: 'set null' }),
   publishedAt: timestamp('published_at', { withTimezone: true }),
   listed: boolean('listed').notNull().default(false),
+  // What Readers of a published Story read: the work as it stood when its Author
+  // last published it, and when that was. Null on a Story never published, and on
+  // one published before editions existed until it is first read — see
+  // `docs/adr/0069-a-published-story-is-read-as-it-was-published.md`.
+  edition: jsonb('edition').$type<Edition>(),
+  editionAt: timestamp('edition_at', { withTimezone: true }),
+  stepsBack: boolean('steps_back').notNull().default(true),
+  textFace: text('text_face').$type<Face>().notNull().default('prose'),
+  textAlign: text('text_align').$type<Align>().notNull().default('start'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-// `x` and `y` are where the Author put the Scene's node in the Story graph, in
-// pixels from the graph's top left. They say nothing about the Story itself —
-// two Scenes may sit on top of each other — so nothing constrains them beyond
-// the reach of the graph.
+// The bytes of an image, which drizzle has no column for; the neon-http
+// driver hands a `bytea` back as a Buffer and takes one as a parameter, so
+// nothing is encoded on the way past.
+const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () => 'bytea' })
+
+// The bytes an edition plays, each distinct set held once per Story under the
+// hex of its SHA-256 — Postgres's own `sha256(bytea)` — so an edition does not
+// change when the Author replaces an Image or deletes a Shot, and bytes left
+// alone between two Publishes are not copied again.
+export const editionMedia = pgTable('edition_media', {
+  storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
+  digest: text('digest').notNull(),
+  bytes: bytea('bytes').notNull(),
+}, table => [primaryKey({ columns: [table.storyId, table.digest] })])
+
+// `x` and `y` were where the Author put the Scene's node in the Story's graph.
+// Nothing reads or writes them any more: where a Scene is drawn is read off the
+// Story itself — see `docs/adr/0041-the-graph-is-drawn-from-the-story.md`. They
+// stay one deploy longer, because the code running before this one still writes
+// them and a column dropped from under it would take that code down — see
+// `docs/adr/0002-the-schema-moves-with-the-deploy.md`. The migration that drops
+// them follows.
 //
 // `sets` is the Flags the Scene sets on every entry, as one flat object of names
 // to values — or, where the Author named several, to the list one value is drawn
@@ -101,6 +147,75 @@ export const stories = pgTable('stories', {
 // queried across Stories, never joined to anything — so a row apiece would buy a
 // join and nothing else. What keeps the shape honest is the validation at the
 // request boundary, since Postgres will take any jsonb at all.
+//
+// `sound` is the Sound the Scene is heard under, held under its run and crossing
+// the cut between its Shots. The bytes live here rather than in object storage
+// for the reason an Image's do — see
+// `docs/adr/0005-a-shots-image-lives-in-its-row.md` — and null is a Scene that
+// carries none of its own.
+//
+// `sound_of_scene_id` is the Scene this one takes its Sound from, which is how an
+// Author avoids depositing one bed twelve times. It is the Cover's own column for
+// the Cover's own reason: `on delete set null`, so a Scene whose carrier is
+// deleted falls silent rather than breaking. One hop and no further — a Scene
+// named here carries bytes of its own, which the request boundary is what holds.
+//
+// `transcript` is what the Sound makes heard, for a Reader who cannot hear it,
+// and `sound_loops` whether it is held in a loop until the Scene is left or the
+// Reading ends there, or played once and the Scene silent after. Both belong to
+// the bytes and are read off the row carrying them, so a Scene that names
+// another never has its own read: the same rain is transcribed once. Not null
+// with a default apiece, because a rollback leaves the old code inserting Scenes
+// that name neither — see `docs/adr/0002-the-schema-moves-with-the-deploy.md`.
+// A deposited Sound loops until the Author says otherwise, which is what a bed
+// usually is.
+//
+// `cut_after` is how long each Shot of the run stands before the cut is made,
+// in milliseconds, and null is the run that waits for the press — which is every
+// Story written before the column existed, reading exactly as it read.
+//
+// `cut_over` is how long that cut takes and `cut_through` what it passes
+// through: `image`, the outgoing Shot dissolving into the next, or `black`. A
+// hard cut is `cut_over` of nought, which is why there is no third value to
+// write: under no duration there is nothing for `cut_through` to be true of, so
+// a hard cut through black cannot be said rather than having to be refused —
+// `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`'s rule about
+// two settings that could disagree.
+//
+// `exits_after` is how long the ways on stand: null until one is taken, a
+// number of milliseconds after which the first one offered is taken, and nought
+// for the ways on never offered at all — the Scene flowing into the next without
+// asking. Three states of one fact rather than a flag beside a duration, which
+// could contradict it. See
+// `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
+//
+// `text_after`, `text_by`, `text_pace`, `text_over` and `text_stays` are how the
+// texts of the run arrive, the Cut's shape column for column: after a time, by a
+// unit, at a pace, over a time, and for how long they stay. Nought after is with
+// the Image and nought over is at once; a null stay is until the Cut. Every one
+// is defaulted or nullable, because the schema moves before the deploy — see
+// `docs/adr/0002-the-schema-moves-with-the-deploy.md` — and the defaults are
+// every Story written so far, reading exactly as it read. See
+// `docs/adr/0052-a-text-arrives-in-its-own-time.md`.
+//
+// `layout` is how the Shots of the run are laid out: `inset` is the Image above
+// the text in the reading column, `full` is the Image covering the room with the
+// text over it. It is defaulted, because the schema moves before the deploy, and
+// `inset` is every Story written so far, reading exactly as it read.
+//
+// `movement_by`, `movement_direction` and `movement_over` are how the Images of
+// the run move while each Shot is on screen: by a whole percent of the frame,
+// nought being held still, which way, and over how many milliseconds, nought
+// being as long as the Shot is on screen. The defaults are every Story already
+// written, whose Images hold still. See
+// `docs/adr/0057-the-image-moves-over-the-time-its-shot-is-on-screen.md`.
+//
+// `question` is the sentence put to the Reader once the run has played and
+// before the Exits, and `question_flag` is the Flag the answer is held under.
+// Both are empty on a Scene that asks nothing, and a Scene asks where both are
+// written. The answer itself is never stored: it lives in the Reader's own
+// browser with the rest of the Path, see
+// `docs/adr/0038-a-reading-is-kept-in-the-readers-browser.md`.
 export const scenes = pgTable('scenes', {
   id: uuid('id').primaryKey().defaultRandom(),
   storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
@@ -108,13 +223,30 @@ export const scenes = pgTable('scenes', {
   x: integer('x').notNull().default(0),
   y: integer('y').notNull().default(0),
   sets: jsonb('sets').$type<Sets>().notNull().default({}),
+  sound: bytea('sound'),
+  // `sound`'s SHA-256 in hex, kept by migration 0033's trigger and never written here (ADR 0070).
+  soundDigest: text('sound_digest'),
+  soundOfSceneId: uuid('sound_of_scene_id')
+    .references((): AnyPgColumn => scenes.id, { onDelete: 'set null' }),
+  transcript: text('transcript').notNull().default(''),
+  soundLoops: boolean('sound_loops').notNull().default(true),
+  cutAfter: integer('cut_after'),
+  cutOver: integer('cut_over').notNull().default(0),
+  cutThrough: text('cut_through').$type<CutThrough>().notNull().default('image'),
+  exitsAfter: integer('exits_after'),
+  layout: text('layout').$type<Layout>().notNull().default('inset'),
+  movementBy: integer('movement_by').notNull().default(0),
+  movementDirection: text('movement_direction').$type<MovementDirection>().notNull().default('closer'),
+  movementOver: integer('movement_over').notNull().default(0),
+  textAfter: integer('text_after').notNull().default(0),
+  textBy: text('text_by').$type<TextBy>().notNull().default('whole'),
+  textPace: integer('text_pace').notNull().default(CHARACTERS_A_SECOND),
+  textOver: integer('text_over').notNull().default(0),
+  textStays: integer('text_stays'),
+  question: text('question').notNull().default(''),
+  questionFlag: text('question_flag').notNull().default(''),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
-
-// The bytes of an image, which drizzle has no column for; the neon-http
-// driver hands a `bytea` back as a Buffer and takes one as a parameter, so
-// nothing is encoded on the way past.
-const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () => 'bytea' })
 
 // `position` is the Scene's own numbering of its Shots: 0, 1, 2 with no gaps.
 // Nothing else in a Shot says where it comes, and the Reader plays the run in
@@ -138,11 +270,45 @@ const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () =>
 // thing said about the one image, and empty is an Image nobody has described —
 // which is what a Shot of text alone carries too.
 //
+// `sound` is the Sound the Shot strikes with: it plays as the beat plays, does
+// not loop, and is gone. Null for a Shot that strikes with nothing. There is no
+// `sound_of_shot_id` beside it, deliberately: naming exists because depositing a
+// 400 KB bed twelve times is work, and a struck sound weighs 20 KB and is
+// re-picked from the library in one press.
+//
+// `transcript` is what it makes heard, beside the bytes the way a Description
+// sits beside an Image — one of each on a Shot carrying both.
+//
+// `cut_after`, `cut_over` and `cut_through` are this Shot's own answer about how
+// it leaves the screen, and null on each is the Shot saying nothing and being cut
+// as its Scene says — `steps_back` on an Exit, for `steps_back`'s own reason. The
+// one answer a Scene's default cannot give is *this one waits for the press*
+// while the rest of the run runs, and that is what nought is here: a Shot held
+// for no time would not be seen at all, so nought cannot mean a duration. See
+// `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
+//
+// `image_arrives`, `image_lasts`, `text_arrives` and `text_lasts` are the Effects
+// the Shot's Image and its whole text play, once as the beat arrives and while it
+// stands, and null on each is none, which is every Shot written before they
+// existed. Each is a whole Effect or null, held as jsonb and validated at the
+// request boundary, because a column apiece for the effect, the time and the
+// strength would leave a time beside no effect, a pair that can disagree — see
+// `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
+//
+// `text_after`, `text_by`, `text_pace`, `text_over` and `text_stays` are this
+// Shot's own answer about how its text arrives, the Cut's shape column for
+// column, and null on each is *as the Scene says*. A `text_stays` of nought is
+// *stays until the Cut*, the one answer a Shot under a Scene whose texts leave
+// has no other way to give. Every one is nullable, so the schema can move before
+// the deploy — `docs/adr/0002-the-schema-moves-with-the-deploy.md` — and every
+// Shot written so far says nothing. See
+// `docs/adr/0052-a-text-arrives-in-its-own-time.md`.
+//
 // `conditions` are the flat tests the Shot plays under, all of which must hold;
 // an empty list is a Shot every Reading sees. Held as jsonb, validated at the
-// request boundary and naming a Scene by an id no foreign key reaches, for the
-// same reasons an Exit's are — see the Exit below. A Shot skipped by one of these
-// is still a linear run and not a branch, so
+// request boundary and naming a Scene or an Exit by an id no foreign key
+// reaches, for the same reasons an Exit's are — see the Exit below. A Shot
+// skipped by one of these is still a linear run and not a branch, so
 // `docs/adr/0001-branching-only-between-scenes.md` is untouched.
 //
 // It defaults to the empty list, which nothing here needs — every Shot is
@@ -151,15 +317,72 @@ const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () =>
 // the code back alone, so for a while an insert naming no Conditions has to
 // succeed rather than take adding a Shot down with it — see
 // `docs/adr/0002-the-schema-moves-with-the-deploy.md`.
+//
+// `layout` is the Shot's own answer about how it is laid out, null being *as the
+// Scene says*, the way `cut_after` is. `crop_x` and `crop_y` are the point the
+// Image is cropped around, a whole percent across and down, which is the number
+// `object-position` reads. They are never null — the centre is 50, a value — so
+// the two axes cannot disagree about whether a point is said, and 50 by 50 is
+// every Shot written so far, cropped as it was.
+//
+// `movement_by`, `movement_direction` and `movement_over` are the Shot's own
+// answer about how its Image moves, each null being *as the Scene says*. A
+// `movement_by` of nought is this Image held still under a Scene whose Images
+// move, and a `movement_over` of nought is as long as this Shot is on screen.
 export const shots = pgTable('shots', {
   id: uuid('id').primaryKey().defaultRandom(),
   sceneId: uuid('scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
   text: text('text').notNull().default(''),
   position: integer('position').notNull(),
   image: bytea('image'),
+  // `image`'s SHA-256 in hex, kept by migration 0033's trigger and never written here (ADR 0070).
+  imageDigest: text('image_digest'),
   description: text('description').notNull().default(''),
+  sound: bytea('sound'),
+  // `sound`'s SHA-256 in hex, kept by migration 0033's trigger and never written here (ADR 0070).
+  soundDigest: text('sound_digest'),
+  transcript: text('transcript').notNull().default(''),
+  cutAfter: integer('cut_after'),
+  cutOver: integer('cut_over'),
+  cutThrough: text('cut_through').$type<CutThrough>(),
+  layout: text('layout').$type<Layout>(),
+  cropX: integer('crop_x').notNull().default(50),
+  cropY: integer('crop_y').notNull().default(50),
+  movementBy: integer('movement_by'),
+  movementDirection: text('movement_direction').$type<MovementDirection>(),
+  movementOver: integer('movement_over'),
+  formatted: jsonb('formatted').$type<Formatted>(),
+  imageArrives: jsonb('image_arrives').$type<Arrival>(),
+  imageLasts: jsonb('image_lasts').$type<Lasting>(),
+  textArrives: jsonb('text_arrives').$type<Arrival>(),
+  textLasts: jsonb('text_lasts').$type<Lasting>(),
+  textAfter: integer('text_after'),
+  textBy: text('text_by').$type<TextBy>(),
+  textPace: integer('text_pace'),
+  textOver: integer('text_over'),
+  textStays: integer('text_stays'),
   conditions: jsonb('conditions').$type<Condition[]>().notNull().default([]),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// A Shot deleted from the bench, held for a day so the Author can put it back
+// where it stood — see `docs/adr/0064-a-deleted-shot-is-held-for-a-day.md`.
+//
+// `row` is the deleted row whole, as `to_jsonb` writes it, and it goes back in
+// through `jsonb_populate_record`, so no column of `shots` is named here or in
+// either statement: a column added there later is held and put back with no
+// change here. `was_cover` is whether the Story's `cover_shot_id` named the Shot,
+// which the delete sets null and the way back names again.
+//
+// `scene_id` cascades, so a Shot whose Scene has since been deleted is gone with
+// it — there is nowhere left to put it back. `taken_at` is what the delete prunes
+// by: every held row older than a day goes with the next Shot deleted.
+export const deletedShots = pgTable('deleted_shots', {
+  shotId: uuid('shot_id').primaryKey(),
+  sceneId: uuid('scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
+  row: jsonb('row').notNull(),
+  wasCover: boolean('was_cover').notNull(),
+  takenAt: timestamp('taken_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // An Exit is an edge of the Story graph: it leaves one Scene for another and
@@ -171,9 +394,10 @@ export const shots = pgTable('shots', {
 // hold; an empty list is an Exit always offered. Held as jsonb for the same reason
 // as a Scene's Flags: it is read and written whole with the Exit, and the shape is
 // kept by the request boundary rather than by columns. A Condition naming a Scene
-// holds its id in the json, where no foreign key reaches — a Scene deleted out
-// from under it leaves a Condition counting visits to nowhere, which is a
-// Condition that never passes.
+// or an Exit holds its id in the json, where no foreign key reaches — one deleted
+// out from under it leaves a Condition asking about nowhere. Asked as entered or
+// taken it never passes, because nothing was ever entered or taken there; asked
+// as not entered or not taken it always does, for the same reason.
 //
 // `position` is the Scene's own numbering of the ways on leaving it: 0, 1, 2
 // with no gaps, the same Place a Shot has in its Scene's run. The Reader is
@@ -189,6 +413,20 @@ export const shots = pgTable('shots', {
 // for a while an insert naming no Place has to succeed rather than take drawing
 // an Exit down with it — see
 // `docs/adr/0002-the-schema-moves-with-the-deploy.md`.
+//
+// `steps_back` is whether a Reading crosses this Exit backwards, and it is the
+// one column here that is nullable on purpose: null is the Exit answering *as
+// the Story says*, which is what every Exit answers until an Author says
+// otherwise. The Story's own `steps_back` is what that answer resolves to, so
+// there is one fact per Exit and one default per Story rather than two settings
+// that can disagree — see
+// `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
+//
+// `cut_over` and `cut_through` are the passage from the Scene this Exit leaves to
+// the Scene it lands on, read the way a Scene's are and defaulting to the hard
+// cut every Story has always made. There is no `cut_after` beside them: an Exit
+// is taken rather than held, and how long the Reader has to take it is the
+// leaving Scene's `exits_after`.
 export const exits = pgTable('exits', {
   id: uuid('id').primaryKey().defaultRandom(),
   fromSceneId: uuid('from_scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
@@ -196,6 +434,9 @@ export const exits = pgTable('exits', {
   text: text('text').notNull().default(''),
   conditions: jsonb('conditions').$type<Condition[]>().notNull().default([]),
   position: integer('position').notNull().default(0),
+  stepsBack: boolean('steps_back'),
+  cutOver: integer('cut_over').notNull().default(0),
+  cutThrough: text('cut_through').$type<CutThrough>().notNull().default('image'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
@@ -220,6 +461,24 @@ export const comments = pgTable('comments', {
   text: text('text').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// How many Readings of a published Story began, how many ended and how often
+// each of its Exits was taken, told to its Author and to nobody else — see
+// `docs/adr/0072-a-reading-is-counted-for-its-author.md`. A row is a Story, a
+// kind and what it is counted under — the Story itself for `begun`, the Scene the
+// Reading ended in for `ended`, the Exit it took for `taken` — and one number.
+// Nothing about a Reader is here: no address, no browser, no Path, no answer.
+//
+// A table of its own, so nothing that copies a Story, a Scene or a Shot carries a
+// count with it, and a copy starts at nought. It cascades from the Story and from
+// nothing else: `subject_id` names a Scene or an Exit no foreign key reaches,
+// because the Readings that ended in a Scene since deleted did end there.
+export const readingCounts = pgTable('reading_counts', {
+  storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
+  kind: text('kind').$type<'begun' | 'ended' | 'taken'>().notNull(),
+  subjectId: uuid('subject_id').notNull(),
+  count: integer('count').notNull(),
+}, table => [primaryKey({ columns: [table.storyId, table.kind, table.subjectId] })])
 
 // A List is Stories an Author has gathered under a title of their own, and
 // Favourites is the List every account has from the start: the same table, with

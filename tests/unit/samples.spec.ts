@@ -7,7 +7,11 @@ import {
   imagePath,
   type SampleLanguage,
 } from '../../demonstration/samples.ts'
-import type { Work } from '../../demonstration/work.ts'
+import { wordsOf } from '../../demonstration/work.ts'
+import type { Work, WorkCondition } from '../../demonstration/work.ts'
+import { braced } from '../../shared/utils/reading.ts'
+import { linesOf } from '../../shared/utils/formatted.ts'
+import type { Formatted } from '../../shared/utils/formatted.ts'
 import {
   CONDITIONS_MAX,
   EXIT_TEXT_MAX_LENGTH,
@@ -16,11 +20,10 @@ import {
   SHOT_DESCRIPTION_MAX_LENGTH,
   SHOT_IMAGE_MAX_BYTES,
   SHOT_TEXT_MAX_LENGTH,
-  VISITS_MAX,
   imageTypeOf,
 } from '../../shared/utils/scenes.ts'
-import type { Condition } from '../../shared/utils/scenes.ts'
 import { STORY_LANGUAGES, STORY_TITLE_MAX_LENGTH } from '../../shared/utils/stories.ts'
+import { SOUND_LIBRARY } from '../../shared/utils/library.ts'
 
 /**
  * The Samples as data. A Sample is written to be taken apart by an Author who
@@ -32,6 +35,11 @@ import { STORY_LANGUAGES, STORY_TITLE_MAX_LENGTH } from '../../shared/utils/stor
  * Nothing here asks what a Sample says. The English one and the French one are
  * separate works and neither is a translation of the other, so the only thing
  * held against the other Sample is the shape.
+ *
+ * What the Cut's own times are — within their caps, and long enough for the text
+ * of the beat they hold — is asked of both works this repository carries at once,
+ * in `tests/unit/works.spec.ts`, because it is the same question of *Reel
+ * Change*. What is asked here is only that the two Samples answer it alike.
  */
 
 /** The Conditions a work carries, wherever they are carried. */
@@ -42,49 +50,141 @@ function conditionsOf(work: Work) {
   ]
 }
 
+/**
+ * The Flags a work holds a value under: those its Scenes set, and those its
+ * Questions hold the answer under.
+ */
+function heldIn(work: Work) {
+  return new Set(work.scenes.flatMap(scene => [
+    ...Object.keys(scene.sets ?? {}),
+    ...(scene.question && scene.questionFlag ? [scene.questionFlag] : []),
+  ]))
+}
+
+/** The Scene setting a Flag, or asking the Question whose answer it holds. */
+function holderOf(work: Work, flag: string) {
+  return work.scenes.find(scene => flag in (scene.sets ?? {}) || scene.questionFlag === flag)
+}
+
 /** Where a Scene comes in the work, which is how a Scene is named without its name. */
 function placeOf(work: Work, name: string) {
   return work.scenes.findIndex(scene => scene.name === name)
 }
 
 /**
- * A Condition as the two Samples can be compared by: the Scene it counts, or the
- * Scene whose Flag it tests, each by its Place in the work rather than by its
- * name, and whether the test asks for a value or for the absence of one.
+ * A Condition as the two Samples can be compared by: the Scene it asks about, the
+ * Scene the Exit it asks about leaves, or the Scene whose Flag it tests, each by
+ * its Place in the work rather than by its name, and whether the test asks for a
+ * value or for the absence of one. An Exit is already named by its Place, which
+ * the two languages share.
  */
-function shapeOfCondition(work: Work, condition: Condition) {
+function shapeOfCondition(work: Work, condition: WorkCondition) {
   if ('scene' in condition) {
-    return { visits: condition.visits, times: condition.times, of: placeOf(work, condition.scene) }
+    return {
+      entered: 'entered' in condition && condition.entered,
+      of: placeOf(work, condition.scene),
+    }
+  }
+
+  if ('exit' in condition) {
+    return {
+      taken: condition.taken,
+      from: placeOf(work, condition.exit.from),
+      place: condition.exit.place,
+    }
   }
 
   return {
-    setBy: work.scenes.findIndex(scene => condition.flag in (scene.sets ?? {})),
-    asks: condition.is === '' ? 'nothing' : 'a value',
+    setBy: work.scenes.findIndex(scene => scene === holderOf(work, condition.flag)),
+    asks: 'is' in condition
+      ? condition.is === '' ? 'nothing' : 'a value'
+      : condition.isNot === '' ? 'anything' : 'anything but a value',
+  }
+}
+
+/**
+ * What a formatted text is made of, with the words taken out: the kinds of block
+ * in order, and the kinds of style on its runs, sorted. Two Samples that set
+ * their cards alike agree here whatever the language the words are in.
+ */
+function setOf(shot: { formatted?: Formatted }) {
+  const value = shot.formatted
+  if (!value) return null
+  return {
+    blocks: value.content.map(block => block.type),
+    styles: [...new Set(linesOf(value).flat().flatMap(inline =>
+      inline.type === 'text'
+        ? (inline.marks ?? []).map(mark => mark.type === 'face' ? `face:${mark.attrs.face}` : mark.type === 'arrives' || mark.type === 'lasts' ? `${mark.type}:${mark.attrs.effect}` : mark.type)
+        : ['redaction']))].sort(),
   }
 }
 
 /**
  * A whole Sample with every word taken out of it: how many Scenes, how many
  * Shots in each, which image each Shot shows, what each carries by way of
- * Conditions, and which Scene leads to which. Two Samples that agree here are
- * the same work in two languages.
+ * Conditions, how each is cut, and which Scene leads to which. Two Samples that
+ * agree here are the same work in two languages.
+ *
+ * The Cut is read as the value itself rather than as whether there is one,
+ * because the three states of a time each mean something different and nought
+ * is one of them — a Sample held until the press in one language and cut after
+ * nine seconds in the other is not the same work twice.
  */
 function shapeOf(work: Work) {
   return {
     language: Boolean(work.language),
     opening: placeOf(work, work.opening ?? ''),
     scenes: work.scenes.map(scene => ({
-      at: scene.at,
-      sets: Object.keys(scene.sets ?? {}).length,
+      sets: Object.values(scene.sets ?? {}).map(held => [held].flat().length),
+      sound: scene.sound,
+      transcribed: Boolean(scene.transcript),
+      layout: scene.layout,
+      cutAfter: scene.cutAfter,
+      cutOver: scene.cutOver,
+      cutThrough: scene.cutThrough,
+      exitsAfter: scene.exitsAfter,
+      textAfter: scene.textAfter,
+      textBy: scene.textBy,
+      textPace: scene.textPace,
+      textOver: scene.textOver,
+      textStays: scene.textStays,
+      movementBy: scene.movementBy,
+      movementDirection: scene.movementDirection,
+      movementOver: scene.movementOver,
+      asks: Boolean(scene.question && scene.questionFlag),
       shots: scene.shots.map(shot => ({
         image: shot.image,
         described: Boolean(shot.description),
+        said: braced(wordsOf(shot)).length,
+        set: setOf(shot),
+        layout: shot.layout,
+        cropX: shot.cropX,
+        cropY: shot.cropY,
+        sound: shot.sound,
+        transcribed: Boolean(shot.transcript),
+        cutAfter: shot.cutAfter,
+        cutOver: shot.cutOver,
+        cutThrough: shot.cutThrough,
+        imageArrives: shot.imageArrives,
+        imageLasts: shot.imageLasts,
+        textArrives: shot.textArrives,
+        textLasts: shot.textLasts,
+        textAfter: shot.textAfter,
+        textBy: shot.textBy,
+        textPace: shot.textPace,
+        textOver: shot.textOver,
+        textStays: shot.textStays,
+        movementBy: shot.movementBy,
+        movementDirection: shot.movementDirection,
+        movementOver: shot.movementOver,
         when: (shot.when ?? []).map(condition => shapeOfCondition(work, condition)),
       })),
     })),
     exits: work.exits.map(exit => ({
       from: placeOf(work, exit.from),
       to: placeOf(work, exit.to),
+      cutOver: exit.cutOver,
+      cutThrough: exit.cutThrough,
       when: (exit.when ?? []).map(condition => shapeOfCondition(work, condition)),
     })),
   }
@@ -97,18 +197,20 @@ function textOf(work: Work) {
     ...work.exits.map(exit => exit.text),
     ...work.scenes.flatMap(scene => [
       scene.name,
-      ...scene.shots.flatMap(shot => [shot.text, shot.description ?? '']),
+      scene.transcript ?? '',
+      scene.question ?? '',
+      ...scene.shots.flatMap(shot => [wordsOf(shot), shot.description ?? '', shot.transcript ?? '']),
     ]),
   ].filter(Boolean)
 }
 
 /**
- * The Scenes a Reading can reach without ever entering one of them, taking only
- * the ways on that are offered to everybody. Under-counting on purpose: an Exit
- * carrying Conditions might be offered too, and a route that needs none is the
- * one an Author is certain to find.
+ * The Scenes a Reading can reach without ever entering one of them, or without
+ * ever taking one way on, taking only the ways on that are offered to everybody.
+ * Under-counting on purpose: an Exit carrying Conditions might be offered too,
+ * and a route that needs none is the one an Author is certain to find.
  */
-function reachedWithout(work: Work, avoiding: string) {
+function reachedWithout(work: Work, avoiding: string | Work['exits'][number]) {
   const reached = new Set<string>()
   const walking = [work.opening ?? work.scenes[0]!.name]
 
@@ -118,11 +220,16 @@ function reachedWithout(work: Work, avoiding: string) {
 
     reached.add(scene)
     walking.push(...work.exits
-      .filter(exit => exit.from === scene && !exit.when?.length)
+      .filter(exit => exit.from === scene && exit !== avoiding && !exit.when?.length)
       .map(exit => exit.to))
   }
 
   return reached
+}
+
+/** The way on a work names by the Scene it leaves and its Place there, counted from 1. */
+function exitAt(work: Work, { from, place }: { from: string, place: number }) {
+  return work.exits.filter(exit => exit.from === from)[place - 1]
 }
 
 describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLanguage) => {
@@ -144,7 +251,7 @@ describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLan
     for (const scene of sample.scenes) {
       expect(scene.shots.length).toBeGreaterThan(0)
       // A Shot with neither text nor an image is one nobody has written yet.
-      for (const shot of scene.shots) expect(shot.text || shot.image).toBeTruthy()
+      for (const shot of scene.shots) expect(wordsOf(shot) || shot.image).toBeTruthy()
     }
   })
 
@@ -158,18 +265,43 @@ describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLan
     expect(tested.length).toBeGreaterThan(0)
   })
 
-  it('counts visits somewhere, so a Condition needing no Flag is met', () => {
-    const counting = conditionsOf(sample).filter(condition => 'scene' in condition)
+  it('draws a Flag on entry to a Scene, and says it in a text', () => {
+    const drawn = sample.scenes.flatMap(scene =>
+      Object.entries(scene.sets ?? {}).filter(([, held]) => Array.isArray(held)).map(([name]) => name))
+    const said = sample.scenes.flatMap(scene => scene.shots.flatMap(shot => braced(wordsOf(shot))))
 
-    expect(counting.length).toBeGreaterThan(0)
-    for (const condition of counting) {
-      expect(sample.scenes.map(scene => scene.name)).toContain(condition.scene)
-      expect(condition.times).toBeLessThanOrEqual(VISITS_MAX)
+    expect(drawn.length).toBeGreaterThan(0)
+    expect(drawn.some(name => said.includes(name))).toBe(true)
+  })
+
+  it('names, in every run between braces, a Flag some Scene sets or a Question holds', () => {
+    const set = heldIn(sample)
+
+    for (const line of textOf(sample)) {
+      for (const name of braced(line)) expect(set).toContain(name)
     }
   })
 
-  it('names, in every Condition testing a Flag, a Flag some Scene sets', () => {
-    const set = new Set(sample.scenes.flatMap(scene => Object.keys(scene.sets ?? {})))
+  it('asks about a Scene somewhere, so a Condition needing no Flag is met', () => {
+    const asking = conditionsOf(sample).filter(condition => 'scene' in condition)
+
+    expect(asking.length).toBeGreaterThan(0)
+    for (const condition of asking) {
+      expect(sample.scenes.map(scene => scene.name)).toContain(condition.scene)
+      // In the shape that replaced the one that counted, and never in the old one:
+      // the Samples are written here rather than migrated, so #306 has nothing of
+      // theirs to rewrite.
+      expect(condition).toHaveProperty('entered')
+    }
+  })
+
+  it('asks about an Exit somewhere, so a Condition remembering an answer is met', () => {
+    expect(conditionsOf(sample).filter(condition => 'exit' in condition).length)
+      .toBeGreaterThan(0)
+  })
+
+  it('names, in every Condition testing a Flag, a Flag some Scene sets or a Question holds', () => {
+    const set = heldIn(sample)
 
     for (const condition of conditionsOf(sample)) {
       if ('flag' in condition) expect(set).toContain(condition.flag)
@@ -186,21 +318,74 @@ describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLan
         for (const condition of shot.when ?? []) {
           if (!('flag' in condition)) continue
 
-          const setter = sample.scenes.find(other => condition.flag in (other.sets ?? {}))!
+          const setter = holderOf(sample, condition.flag)!
           expect(reachedWithout(sample, setter.name)).toContain(scene.name)
         }
       }
     }
   })
 
-  it('leaves no Scene whose only way on carries Conditions', () => {
+  it('asks about an Exit on a Shot a Reading can arrive without taking it', () => {
+    // The same lesson as the Flag's: a Shot every Reading arrives at by the Exit
+    // it asks about is a Shot nobody watches the question fail on. So the Scene
+    // it is in has to be entered by another way on too.
+    for (const scene of sample.scenes) {
+      for (const shot of scene.shots) {
+        for (const condition of shot.when ?? []) {
+          if (!('exit' in condition)) continue
+
+          const asked = exitAt(sample, condition.exit)
+          expect(asked).toBeDefined()
+          expect(reachedWithout(sample, asked!)).toContain(scene.name)
+        }
+      }
+    }
+  })
+
+  it('ends a Scene on a Question, whose answer the next Scene says and a Shot waits on', () => {
+    const asking = sample.scenes.filter(scene => scene.question && scene.questionFlag)
+    expect(asking).toHaveLength(1)
+
+    const [scene] = asking
+    const flag = scene!.questionFlag!
+    const next = sample.exits.filter(exit => exit.from === scene!.name).map(exit => exit.to)
+    // Asked where a way on is offered, so the Question is put at all.
+    expect(next.length).toBeGreaterThan(0)
+
+    const shots = sample.scenes.filter(other => next.includes(other.name))
+      .flatMap(other => other.shots)
+    const waiting = shots.filter(shot => shot.when?.some(condition =>
+      'is' in condition && condition.flag === flag && condition.is !== ''))
+    expect(waiting).toHaveLength(1)
+    // The Shot waiting on the answer says it, between braces.
+    expect(braced(wordsOf(waiting[0]!))).toContain(flag)
+
+    // And right after it, the one played to any other answer — one given, and not
+    // the one waited on — says it too, so a wrong answer is answered as well.
+    const right = waiting[0]!.when!.find(condition => 'is' in condition)!
+    const wrong = shots[shots.indexOf(waiting[0]!) + 1]!
+    expect(wrong.when).toEqual(expect.arrayContaining([
+      { flag, isNot: 'is' in right ? right.is : '' },
+      { flag, isNot: '' },
+    ]))
+    expect(braced(wordsOf(wrong))).toContain(flag)
+  })
+
+  it('ends once, and never by a Condition that did not hold', () => {
+    const endings = sample.scenes.filter(scene => !sample.exits.some(exit => exit.from === scene.name))
+
+    // A Story read forwards has to stop somewhere — see
+    // `docs/adr/0048-a-scene-is-entered-once.md` — and the Sample stops once, on
+    // purpose. Every other Scene keeps a way on that no Condition can take away,
+    // because a Scene whose ways on are all conditional is one an unmet Condition
+    // turns into an ending nobody wrote.
+    expect(endings).toHaveLength(1)
+
     for (const scene of sample.scenes) {
       const leaving = sample.exits.filter(exit => exit.from === scene.name)
 
-      // A Scene with no way on at all is an ending, which a Sample does not have;
-      // a Scene whose ways on are all conditional is one an unmet Condition turns
-      // into an ending nobody wrote.
-      expect(leaving.length).toBeGreaterThan(0)
+      if (!leaving.length) continue
+
       expect(leaving.some(exit => !exit.when?.length)).toBe(true)
     }
   })
@@ -236,7 +421,7 @@ describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLan
       expect(Object.keys(scene.sets ?? {}).length).toBeLessThanOrEqual(FLAGS_PER_SCENE)
 
       for (const shot of scene.shots) {
-        expect(shot.text.length).toBeLessThanOrEqual(SHOT_TEXT_MAX_LENGTH)
+        expect(wordsOf(shot).length).toBeLessThanOrEqual(SHOT_TEXT_MAX_LENGTH)
         expect((shot.description ?? '').length).toBeLessThanOrEqual(SHOT_DESCRIPTION_MAX_LENGTH)
         expect(shot.when?.length ?? 0).toBeLessThanOrEqual(CONDITIONS_MAX)
       }
@@ -252,6 +437,33 @@ describe('the images a Sample shows', () => {
     // an image committed as something else would be refused as it was attached.
     expect(imageTypeOf(bytes)).toBe('image/webp')
     expect(bytes.length).toBeLessThanOrEqual(SHOT_IMAGE_MAX_BYTES)
+  })
+})
+
+describe('the Sound a Sample is heard under', () => {
+  const library = new Set(SOUND_LIBRARY.map(sound => sound.file))
+
+  it('is a file the library actually ships, in either language', () => {
+    for (const language of SAMPLE_LANGUAGES) {
+      for (const scene of SAMPLES[language].scenes) {
+        if (scene.sound) expect(library).toContain(scene.sound)
+        for (const shot of scene.shots) {
+          if (shot.sound) expect(library).toContain(shot.sound)
+        }
+      }
+    }
+  })
+
+  it('is transcribed wherever it is carried, in the language the Sample is written in', () => {
+    for (const language of SAMPLE_LANGUAGES) {
+      const carried = SAMPLES[language].scenes.flatMap(scene => [
+        ...(scene.sound ? [scene.transcript] : []),
+        ...scene.shots.filter(shot => shot.sound).map(shot => shot.transcript),
+      ])
+
+      expect(carried.length).toBeGreaterThan(0)
+      expect(carried.filter(said => !said?.trim())).toEqual([])
+    }
   })
 })
 
