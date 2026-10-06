@@ -7,7 +7,11 @@ import {
 import { DISMISSED } from '../../app/utils/steps'
 import type { Condition, Exit, Scene, Sets, Shot, StoryInEditor } from '../../shared/utils/scenes'
 import { sealSession, type H3Event } from 'h3'
+import { routeToLocalProxy } from '../../server/db/endpoint'
 
+// The suite's own database sits behind a local proxy, not on Neon, and every
+// spec that writes to it directly comes through here.
+routeToLocalProxy()
 const sql = neon(process.env.DATABASE_URL!)
 
 /**
