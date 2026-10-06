@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test'
-import { A_SOUND, seedPublication, seedScene, seedStory, test, writeStory } from './author'
+import { A_SOUND, seedPublication, seedScene, seedStory, test, unfold, writeStory } from './author'
 import { SOUND_MAX_BYTES, SOUND_TRANSCRIPT_MAX_LENGTH } from '../../shared/utils/sound'
 import type { APIRequestContext, Page } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
@@ -199,6 +199,7 @@ test('an Author takes a Sound from the library, and the Scene carries its own by
   const { story, scene } = await openScene(request)
 
   await page.goto(`/stories/${story.id}`)
+  await unfold(page, 'The street')
   const soundField = writing(page).getByLabel('The Sound of The street')
   // Selected by value rather than by the option's full label, which also carries
   // a duration this test has no reason to hardcode.
@@ -217,6 +218,7 @@ test('an Author deposits a Sound on a Scene by choosing a file, and the row carr
   const { story, scene } = await openScene(request)
 
   await page.goto(`/stories/${story.id}`)
+  await unfold(page, 'The street')
   const picker = writing(page).getByLabel('Upload a Sound for The street')
   await picker.scrollIntoViewIfNeeded()
   await picker.setInputFiles({ name: 'silence.mp3', mimeType: 'audio/mpeg', buffer: A_SOUND })
@@ -235,6 +237,7 @@ test('a Scene takes its Sound from another, and says whose it is', async ({ page
   await request.put(`/api/scenes/${scene.id}/sound`, { data: A_SOUND })
 
   await page.goto(`/stories/${story.id}`)
+  await unfold(page, 'The bar')
   await writing(page, 'The bar').getByLabel('The Sound of The bar')
     .selectOption({ label: 'The street' })
   await writing(page, 'The bar').getByRole('button', { name: 'Take This Sound The bar' }).click()
@@ -332,6 +335,7 @@ test('a beat strikes with a Sound taken from the library, transcribed beside it'
   // Selected by value rather than by the option's full label, which also carries
   // a duration this test has no reason to hardcode — the same reason the Scene's
   // own version of this test reads the value back first.
+  await unfold(page, 'Shot 1 of The street')
   const shotSoundField = writing(page).getByLabel('The Sound of Shot 1 of The street')
   const doorClosing = await shotSoundField.getByRole('option', { name: /A door closing/ })
     .getAttribute('value')
@@ -361,6 +365,7 @@ test('an Author deposits a Sound on a beat by choosing a file, and it plays besi
   const { story, shots } = await openScene(request)
 
   await page.goto(`/stories/${story.id}`)
+  await unfold(page, 'Shot 1 of The street')
   const picker = writing(page).getByLabel('Upload a Sound for Shot 1 of The street')
   await picker.scrollIntoViewIfNeeded()
   await picker.setInputFiles({ name: 'silence.mp3', mimeType: 'audio/mpeg', buffer: A_SOUND })
@@ -399,14 +404,6 @@ async function heardStory(
   return story
 }
 
-/** The same Story with nothing heard under it, which is the page as it was. */
-async function silentStory(request: APIRequestContext) {
-  const story = await writeStory(request)
-  await seedPublication(story)
-
-  return story
-}
-
 /** How far into the bed the browser has got, which is what says it did not restart. */
 function playedFor(page: Page) {
   return page.evaluate(() => {
@@ -428,14 +425,6 @@ test('the title card is what a Reader presses on a Story that carries a Sound', 
   await expect(page.getByText('A door opens.')).toBeVisible()
 })
 
-test('a silent Story keeps the page it had: nothing to press, the first Shot at load', async ({ page, request }) => {
-  const story = await silentStory(request)
-
-  await page.goto(`/read/${story.id}`)
-  await expect(page.getByText('A door opens.')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Begin' })).toHaveCount(0)
-})
-
 test('the Sound holds across the cut where both Scenes are heard under one carrier', async ({ page, request }) => {
   const story = await heardStory(request, { named: true })
 
@@ -455,6 +444,47 @@ test('the Sound holds across the cut where both Scenes are heard under one carri
   await expect(page.getByText('Smoke, and no one she knows.')).toBeVisible()
   await expect.poll(() => playedFor(page)).toBeGreaterThan(before)
 })
+
+/** What the bed is doing: whether it loops, whether it plays, and whether it has played out. */
+function bedIs(page: Page) {
+  return page.evaluate(() => {
+    const bed = document.querySelector<HTMLAudioElement>('[data-sound="scene"]')!
+
+    return { loop: bed.loop, paused: bed.paused, ended: bed.ended }
+  })
+}
+
+test('a bed held in a loop plays out its pass at the ending, and a step back gives the loop back',
+  async ({ page, request }) => {
+    const story = await heardStory(request, { named: true })
+
+    await page.goto(`/read/${story.id}`)
+    await page.getByRole('button', { name: 'Begin' }).click()
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await page.getByRole('button', { name: 'Follow her out' }).click()
+    await expect(page.getByText('Smoke, and no one she knows.')).toBeVisible()
+
+    // The bar is heard under the street's bed, which loops. Pressed early in a
+    // pass, so what is read at the ending is a pass still playing rather than one
+    // that ran out a moment after the press.
+    await expect.poll(() => bedIs(page)).toEqual({ loop: true, paused: false, ended: false })
+    await expect.poll(() => playedFor(page)).toBeLessThan(1.5)
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await expect(page.getByRole('status').and(page.locator('.ended')))
+      .toHaveText('The Reading ends here.')
+
+    // A Reading that ends in a Scene never leaves it, so the loop stops looping
+    // there and the bed finishes the pass it is in — the three seconds the file
+    // lasts, at the most — and stops by itself.
+    expect(await bedIs(page)).toEqual({ loop: false, paused: false, ended: false })
+    await expect.poll(() => bedIs(page)).toMatchObject({ ended: true })
+
+    // A step back lands on the last Shot, where the Reading has not ended: the
+    // loop is back, and the bed that played out is played again from its start.
+    await page.getByRole('button', { name: 'Step Back' }).click()
+    await expect.poll(() => bedIs(page)).toEqual({ loop: true, paused: false, ended: false })
+  })
 
 test('sound turned off stays off across a reload, and the Path is intact beside it', async ({ page, request }) => {
   const story = await heardStory(request)
@@ -548,6 +578,43 @@ test('muting reaches a Shot already striking, not only the next beat', async ({ 
   // The same element, still running: muting is not a pause.
   expect((await struck(page))?.paused).toBe(false)
 })
+
+test('the last Shot\'s own Sound plays out past the ending rather than being cut off by it',
+  async ({ page, request }) => {
+    const story = await writeStory(request)
+    const [, bar] = (await reread(request, story.id)).scenes
+    await request.put(`/api/shots/${bar!.shots[0]!.id}/sound`, { data: A_SOUND })
+    await seedPublication(story)
+
+    // Every pause the strike makes, said as the Sound played out to its end or as
+    // cut off before it. Media events do not bubble, so they are caught on the
+    // way down instead.
+    await page.addInitScript(() => {
+      const heard: string[] = []
+      Object.assign(window, { heard })
+      for (const type of ['pause', 'ended']) {
+        document.addEventListener(type, (event) => {
+          const element = event.target as HTMLAudioElement
+          if (element.dataset.sound !== 'shot') return
+          heard.push(type === 'pause' && element.currentTime < element.duration - 0.1 ? 'cut off' : type)
+        }, true)
+      }
+    })
+
+    await page.goto(`/read/${story.id}`)
+    await page.getByRole('button', { name: 'Begin' }).click()
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    await page.getByRole('button', { name: 'Follow her out' }).click()
+    await expect.poll(async () => (await struck(page))?.paused).toBe(false)
+
+    // The press past the last Shot is no beat, so it strikes nothing and stops
+    // nothing: the frame still holds the Shot, and the Shot is heard to its end.
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+    const heard = () => page.evaluate(() => (window as unknown as { heard: string[] }).heard)
+    await expect.poll(heard).toContain('ended')
+    expect(await heard()).not.toContain('cut off')
+  })
 
 test('the Transcript is in the page whether it is shown or not', async ({ page, request }) => {
   const story = await heardStory(request, { transcript: 'Rain on a tin roof.' })

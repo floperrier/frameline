@@ -88,6 +88,11 @@ Stories either side of hydration — so a Reading opens at `UNDRAWN`, the openin
 Position under a seed of none, and draws once it is in the browser it will stay
 in.
 
+*Amended by `docs/adr/0060-the-seed-is-carried-to-the-browser.md`:* the Reading
+draws its seed as it is set up, on the server where it is rendered first, and the
+browser hydrating it reads that seed out of the payload instead of drawing a
+second.
+
 The Author's control over the draw is the reroll and nothing more. The seed is
 never shown, never typed, and never carried in a link: a number an Author could
 set by hand would be a second thing to understand about a Story that is supposed

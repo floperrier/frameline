@@ -193,6 +193,30 @@ describe('the Step the bench is showing', () => {
     expect(asking(story)).toBe('publish')
   })
 
+  it('takes a Condition asking what a set Flag does not hold as the one it asked for', () => {
+    const story = joined()
+    sets(story, 0, { courage: 'high' })
+    playedWhen(story, 1, { flag: 'courage', isNot: ' HIGH' })
+
+    expect(asking(story)).toBe('previewCondition')
+  })
+
+  it('asks for the Publish once the value excluded is not every one the Flag is set to', () => {
+    const story = joined()
+    sets(story, 0, { courage: ['high', 'low'] })
+    playedWhen(story, 1, { flag: 'courage', isNot: 'high' })
+
+    expect(asking(story)).toBe('publish')
+  })
+
+  it('goes on asking for a Condition while the Flag excluded from is one no Scene sets', () => {
+    const story = joined()
+    sets(story, 0, { courage: 'high' })
+    playedWhen(story, 1, { flag: 'coat', isNot: 'on' })
+
+    expect(asking(story)).toBe('putCondition')
+  })
+
   it('asks nothing once that Story is published', () => {
     const story = joined()
     sets(story, 0, { courage: 'high' })

@@ -4,9 +4,10 @@ import { useDb } from '../../db'
 
 /**
  * Writes what an Author says about one Shot: its text, the Description of the
- * image it carries, the Transcript of the Sound it strikes with, and its own
- * Cut. Each comes through one door because each is one Shot's row, and each
- * lands on its own: a body naming one of them leaves the rest where they were.
+ * image it carries, the Transcript of the Sound it strikes with, its own Cut,
+ * how its Image moves, its four Effects and how its text arrives. Each comes
+ * through one door because each is one Shot's row, and each lands on its own: a
+ * body naming one of them leaves the rest where they were.
  */
 export default defineEventHandler(async (event) => {
   const author = await requireAuthor(event)
@@ -20,14 +21,30 @@ export default defineEventHandler(async (event) => {
     .returning({
       id: shots.id,
       text: shots.text,
+      formatted: shots.formatted,
       position: shots.position,
       description: shots.description,
       transcript: shots.transcript,
       cutAfter: shots.cutAfter,
       cutOver: shots.cutOver,
       cutThrough: shots.cutThrough,
+      layout: shots.layout,
+      cropX: shots.cropX,
+      cropY: shots.cropY,
+      movementBy: shots.movementBy,
+      movementDirection: shots.movementDirection,
+      movementOver: shots.movementOver,
+      imageArrives: shots.imageArrives,
+      imageLasts: shots.imageLasts,
+      textArrives: shots.textArrives,
+      textLasts: shots.textLasts,
+      textAfter: shots.textAfter,
+      textBy: shots.textBy,
+      textPace: shots.textPace,
+      textOver: shots.textOver,
+      textStays: shots.textStays,
     })
 
   if (!shot) throw notFound(event, 'Shot')
-  return shot
+  return { ...shot, formatted: formattedIn(shot) }
 })

@@ -48,6 +48,7 @@
  * predicate asks whether the Story holds the thing at all, in any Scene, and is
  * therefore the same answer from every Scene the Author stands in.
  */
+import { folded } from '../../shared/utils/scenes'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
 export type Step = {
@@ -177,7 +178,8 @@ function written(story: StoryInEditor) {
  *
  * `holding` asks the same question of the value as well: not merely a Flag that
  * is set, but the value it is set to, which is the Condition the Author corrected
- * after the Preview explained why the Shot did not play.
+ * after the Preview explained why the Shot did not play. A Condition asking what
+ * the Flag does not hold is met by a value set that is not the one excluded.
  *
  * Any Scene setting it to that value counts, the same way any Scene setting a
  * Flag at all meets the Step before this one. Asking whether the value is the one
@@ -194,12 +196,16 @@ function conditionTaught(story: StoryInEditor, holding = false) {
 
   // A Flag the Scene draws from several values counts where any one of them is
   // the value tested, for the same lenient reading: which one a Reading is shown
-  // is the engine's answer and not a predicate's.
+  // is the engine's answer and not a predicate's. Each is compared `folded`, as
+  // `holds` compares it.
   return story.scenes
     .flatMap(scene => scene.shots)
     .flatMap(shot => shot.conditions)
     .find(condition => 'flag' in condition && flagsSet.some(([flag, held]) =>
-      flag === condition.flag && (!holding || [held].flat().includes(condition.is))))
+      flag === condition.flag
+        && (!holding || [held].flat().some(value => 'is' in condition
+          ? folded(value) === folded(condition.is)
+          : folded(value) !== folded(condition.isNot)))))
 }
 
 /**

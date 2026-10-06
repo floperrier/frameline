@@ -1,8 +1,17 @@
 import { expect } from '@playwright/test'
-import { live, test, writeStory } from './author'
-import { CUT_AFTER_MAX, CUT_OVER_MAX, EXITS_AFTER_MAX } from '../../shared/utils/scenes'
+import { live, test, unfold, writeStory } from './author'
+import {
+  CUT_AFTER_MAX,
+  CUT_AFTER_MIN,
+  CUT_OVER_MAX,
+  EXITS_AFTER_MAX,
+  EXITS_AFTER_MIN,
+} from '../../shared/utils/scenes'
 import type { APIRequestContext, Page } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
+
+/** What a Shot's time and a Scene's run are refused in, out of bounds either way. */
+const aTime = 'A Shot stands for a whole number of milliseconds, from half a second up to a minute.'
 
 /**
  * The Cut written where the Scene, the Shot and the Exit are written: when a Shot
@@ -35,6 +44,7 @@ async function writing(page: Page, request: APIRequestContext) {
 test('a Scene says when its Shots are cut and how long its ways on stand',
   async ({ page, request }) => {
     const { story, scene, shot } = await writing(page, request)
+    await unfold(page, 'The street')
     const when = page.getByLabel('The Shots are cut The street', { exact: true })
     const stands = page.getByLabel('Seconds a Shot of The street stands', { exact: true })
 
@@ -75,7 +85,7 @@ test('a Scene says when its Shots are cut and how long its ways on stand',
       .toBe(0)
 
     await page.reload()
-    await live(page)
+    await unfold(page, 'The street')
     await expect(when).toHaveValue('clock')
     await expect(stands).toHaveValue('2.5')
     await expect(offered).toHaveValue('none')
@@ -88,6 +98,17 @@ test('a Scene says when its Shots are cut and how long its ways on stand',
     await stands.fill('0')
     await stands.blur()
     await expect(when).toHaveValue('clock')
+    await expect(stands).toHaveValue('2.5')
+    await expect.poll(async () => (await reread(request, story.id)).scenes[0]!.cutAfter)
+      .toBe(2500)
+
+    // A tenth of a second is a duration, and one no clock is let cut at: over a
+    // white Image and a black one it flashes past the three a second WCAG 2.3.1
+    // allows. So it is written and refused in the phrase that names the floor, and
+    // the Scene keeps the time it held — issue #356.
+    await stands.fill('0.1')
+    await stands.blur()
+    await expect(page.getByRole('alert')).toHaveText(`In “The street”: ${aTime}`)
     await expect(stands).toHaveValue('2.5')
     await expect.poll(async () => (await reread(request, story.id)).scenes[0]!.cutAfter)
       .toBe(2500)
@@ -121,6 +142,7 @@ test('a Shot answers as its Scene says until it answers for itself',
     const when = page.getByLabel('This Shot is cut Shot 1 of The street', { exact: true })
     const made = page.getByLabel('The Cut is made Shot 1 of The street', { exact: true })
 
+    await unfold(page, 'Shot 1 of The street')
     await expect(when).toHaveValue('scene')
     await expect(made).toHaveValue('scene')
 
@@ -140,6 +162,7 @@ test('a Shot answers as its Scene says until it answers for itself',
 
     await page.reload()
     await live(page)
+    await unfold(page, 'Shot 1 of The street')
     await expect(when).toHaveValue('press')
     await expect(made).toHaveValue('image')
 
@@ -209,6 +232,58 @@ test('an Exit says how the passage out is made, and a hard cut says nothing more
   })
 
 /**
+ * What *Duplicate Scene* and *Split* carry of the Cut, asked of the doors directly
+ * and read back off the Story — issue #344. A copy is the Scene met again, so it
+ * is cut as the Scene was. A split is the same run with one press between its
+ * halves: the second half is cut as the Scene was, its ways on stand as long as
+ * they stood, the press between the two is a press, and what the press cuts
+ * through is what the Shot before it was cut through.
+ */
+test('a Scene duplicated and a Scene split carry the Cut', async ({ request }) => {
+  const story = await writeStory(request)
+  const street = (await reread(request, story.id)).scenes[0]!
+  const [first, second] = street.shots
+  const cutOf = ({ cutAfter, cutOver, cutThrough }: NonNullable<typeof first>) =>
+    ({ cutAfter, cutOver, cutThrough })
+
+  await request.patch(`/api/scenes/${street.id}`, {
+    data: { cutAfter: 3000, cutOver: 800, cutThrough: 'image', exitsAfter: 10_000 },
+  })
+  await request.patch(`/api/shots/${first!.id}`, {
+    data: { cutAfter: 0, cutOver: 1200, cutThrough: 'black' },
+  })
+  const timed = { cutAfter: 3000, cutOver: 800, cutThrough: 'image', exitsAfter: 10_000 }
+
+  const made = await request.post(`/api/scenes/${street.id}/duplicate`)
+  expect(made.status()).toBe(201)
+  const { id: copyId } = await made.json() as { id: string }
+  const copy = (await reread(request, story.id)).scenes.find(scene => scene.id === copyId)!
+  expect(copy).toMatchObject(timed)
+  expect(copy.shots.map(cutOf)).toEqual([
+    { cutAfter: 0, cutOver: 1200, cutThrough: 'black' },
+    { cutAfter: null, cutOver: null, cutThrough: null },
+  ])
+
+  const split = await request.post(`/api/scenes/${street.id}/split`, {
+    data: { shotId: second!.id, name: 'The street, later' },
+  })
+  expect(split.status()).toBe(201)
+  const { id: laterId } = await split.json() as { id: string }
+  const { scenes, exits } = await reread(request, story.id)
+  const sceneOf = (id: string) => scenes.find(scene => scene.id === id)!
+
+  // The Shot that moved says nothing of its own, so it is cut as the Scene said.
+  expect(sceneOf(laterId)).toMatchObject(timed)
+  expect(sceneOf(laterId).shots.map(cutOf)).toEqual([
+    { cutAfter: null, cutOver: null, cutThrough: null },
+  ])
+  expect(sceneOf(street.id)).toMatchObject({ cutAfter: 3000, exitsAfter: null })
+  expect(exits.filter(exit => exit.fromSceneId === street.id)).toMatchObject([
+    { toSceneId: laterId, cutOver: 1200, cutThrough: 'black' },
+  ])
+})
+
+/**
  * The three doors themselves, asked directly rather than through the panel: which
  * field each carrier's row holds, and where a null is a sentence rather than a
  * gap. The panel writes none of these bodies — it offers a `<select>` of the
@@ -236,10 +311,10 @@ test('the three doors take the fields their own row holds, and refuse what is no
       expect([door, (await answer.json()).message]).toEqual([door, said])
     }
 
-    const aTime = 'A Shot stands for a whole number of milliseconds, up to a minute.'
     const aCut = 'A Cut takes a whole number of milliseconds, up to five seconds.'
     const aKind = 'A Cut is made in a dissolve or in a fade to black.'
-    const offered = 'The Exits are offered for a whole number of milliseconds, up to a minute.'
+    const offered =
+      'The Exits are offered for a whole number of milliseconds, from half a second up to a minute.'
 
     // A Scene and an Exit answer for their own cut with nothing above them, so
     // neither column takes the null a Shot may leave — and both doors refuse it
@@ -269,6 +344,14 @@ test('the three doors take the fields their own row holds, and refuse what is no
     // below it is not a duration at all.
     await refuses(shot, { cutAfter: -1 }, aTime)
     await refuses(exit, { cutOver: -1 }, aCut)
+
+    // And one under each floor a clock is held to, which keeps a run cut by it to
+    // two changes a second whatever its Images are — issue #356. A Shot's nought
+    // stays the sentence it is, and so does the ways on's.
+    await refuses(scene, { cutAfter: CUT_AFTER_MIN - 1 }, aTime)
+    await refuses(shot, { cutAfter: CUT_AFTER_MIN - 1 }, aTime)
+    await refuses(scene, { exitsAfter: EXITS_AFTER_MIN - 1 }, offered)
+    expect((await request.patch(scene, { data: { exitsAfter: 0 } })).status()).toBe(200)
 
     // A time is a whole number of milliseconds, so a fraction of one is refused
     // rather than rounded — the field writes whole milliseconds and the column

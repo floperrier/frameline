@@ -45,7 +45,9 @@ The document is read three ways, and a control chooses which. **The writing** is
 the document above, and it is where a Story is written. **The contact sheet** is
 every Shot of every Scene as the Image it carries, in bands, one band a Scene: the
 Story seen rather than read, which is how an Author judges what is still a grey
-rectangle. **The Preview** is the third, unchanged and under the name the glossary
+rectangle — and, since
+`docs/adr/0074-the-contact-sheet-writes-a-shots-place.md`, where a Shot's Place
+is written by carrying its frame, because it is where order is seen. **The Preview** is the third, unchanged and under the name the glossary
 already gives it: an Author reading their own Story on the engine a Reader runs,
 replaying the Path with the State it has accumulated. The rail and the Remarks do
 not move between the three. What changes is what the middle is a reading of, never
@@ -77,7 +79,10 @@ in French, in #256, where it is first drawn.
 Typing is `docs/adr/0033-a-scene-is-written-as-one-document.md` unchanged, over a
 longer document. One field per Shot, nothing parsed, no Shot losing the id its
 Image and its Conditions hang off. `Enter` at the end of a Shot opens the next,
-`Backspace` at the head of an empty one joins it to the Shot before, and `Alt`
+`Backspace` at the head of an empty one joins it to the Shot before — and, since
+`docs/adr/0071-a-shots-words-are-cut-where-the-caret-stands.md`, `Enter` in the
+middle of a Shot cuts its words in two there and `Backspace` at the head of one
+holding words joins them back to the Shot before — and `Alt`
 with the two arrows walks the run. All three stay inside a Scene: `Enter` on the
 last Shot of a Scene opens a Shot and never a Scene. A Scene is written by naming
 where an Exit leads — `0034` — or by splitting one in two, which

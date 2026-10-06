@@ -19,7 +19,7 @@
  * `docs/adr/0013-the-interfaces-locale-is-not-the-storys-language.md` — so it is
  * changed where the rest of what is theirs is, on the list of their own Stories.
  */
-const { id, story, keptAt, change, write } = defineProps<{
+const { id, story, keptAt, change, write, announce } = defineProps<{
   /**
    * The Story's own id, which every act here is sent against. It comes from the
    * route rather than from the Story, because the Publish is offered while a
@@ -38,6 +38,8 @@ const { id, story, keptAt, change, write } = defineProps<{
    * it back; what was typed is already on the screen it was typed on.
    */
   write: Write
+  /** The bench's one live region, for an act whose result is nowhere on screen. */
+  announce: (said: string) => void
 }>()
 
 const { t, locale } = useI18n()
@@ -60,11 +62,48 @@ const kept = computed(() => keptAt && new Intl.DateTimeFormat(
   locale.value, { timeStyle: 'short' }).format(keptAt))
 
 /**
+ * What differs from Readers' Edition, said as the line beside the link says it:
+ * how many Scenes were written or rewritten since, how many Readers read are
+ * gone, and whether how the whole Story is read moved. Nothing where the Story
+ * has no Edition to differ from yet, which keeps the line as it was before there
+ * was anything to compare — see
+ * `docs/adr/0070-the-bench-says-what-changed-since-the-edition.md`.
+ */
+const changed = computed(() => story?.changes && {
+  scenes: story.changes.added.length + story.changes.changed.length,
+  gone: story.changes.gone,
+  story: story.changes.story,
+})
+/** Whether Readers read the Story as it is written, so there is nothing to publish. */
+const asItStands = computed(() =>
+  !!changed.value && !changed.value.scenes && !changed.value.gone && !changed.value.story)
+
+/**
  * The public link a Publish hands out. Built from the Story's own id, so it is
  * the same link every time — an Author who unpublishes and publishes again has
  * not invalidated what they sent anyone.
  */
-const publicLink = `${useRequestURL().origin}/read/${id}`
+const origin = useRequestURL().origin
+const publicLink = `${origin}/read/${id}`
+
+/**
+ * The code that lays the Story inside another page — a blog, a portfolio, an
+ * itch.io page — handed over as the one line an Author pastes. One code, with
+ * nothing to choose: the frame takes the column's width, and a height at which
+ * a column 720 pixels wide shows a beat laid out full with its press. The title
+ * names the frame to a screen reader, escaped so that it stays one attribute
+ * whatever the Author called the Story. See
+ * `docs/adr/0068-a-story-plays-inside-another-page.md`.
+ */
+const ENTITIES: Record<string, string> = { '&': 'amp', '"': 'quot', '<': 'lt', '>': 'gt' }
+
+async function copyEmbed() {
+  const title = story!.title.replace(/[&"<>]/g, character => `&${ENTITIES[character]};`)
+  await navigator.clipboard.writeText(`<iframe src="${origin}/embed/${id}" title="${title}" `
+    + 'allow="fullscreen; autoplay" loading="lazy" '
+    + 'style="width: 100%; height: 640px; border: 0"></iframe>')
+  announce(t('editor.embedCopied'))
+}
 
 /**
  * The title and the Synopsis, each written on its own: the body names the one
@@ -118,9 +157,13 @@ const presented = computed(() => story && coverOf(story))
  * press settles it, and what it settles is how the whole work is read, so the
  * Story on the bench is reloaded around it the way listing and publishing are.
  * See `docs/adr/0047-an-exit-says-whether-it-is-crossed-backwards.md`.
+ *
+ * The face and the alignment a Shot's text is set in where it says nothing are
+ * answered the same way and for the same reason: each is one press, and each is
+ * how every Shot of the work is read — issue #359.
  */
-function readBack(stepsBack: boolean) {
-  return change(() => send(`/api/stories/${id}`, { method: 'PATCH', body: { stepsBack } }))
+function readAs(body: Partial<Pick<StoryInEditor, 'stepsBack' | 'textFace' | 'textAlign'>>) {
+  return change(() => send(`/api/stories/${id}`, { method: 'PATCH', body }))
 }
 
 function nameCover(coverShotId: string | null) {
@@ -133,6 +176,19 @@ function publish() {
 
 function unpublish() {
   return change(() => send(`/api/stories/${id}/publish`, { method: 'DELETE' }))
+}
+
+/**
+ * Taking a new edition of a published Story: what the Author has written since
+ * the last Publish reaches Readers now, and not as it was typed. The Story is
+ * read back so the line beside the link says Readers read it as it stands, and
+ * the result is announced, since the button it was pressed on is gone — see
+ * `docs/adr/0069-a-published-story-is-read-as-it-was-published.md`.
+ */
+async function publishChanges() {
+  if (await change(() => send(`/api/stories/${id}/publish`, { method: 'POST' }))) {
+    announce(t('editor.changesPublished'))
+  }
 }
 
 /**
@@ -273,7 +329,11 @@ function unlist() {
               :checked="shot.id === presented"
               @change="nameCover(shot.id)"
             >
-            <img :src="shot.image!" :alt="$t('editor.coverOf', { place, scene })">
+            <img
+              :src="shot.image!"
+              :style="{ objectPosition: cropPosition(shot) }"
+              :alt="$t('editor.coverOf', { place, scene })"
+            >
           </label>
         </div>
         <!-- Offered only while a Cover is named: with none, the Opening Scene is
@@ -290,8 +350,9 @@ function unlist() {
         </div>
       </details>
 
-      <!-- How the work is read, which is one question and is answered once: may a
-           Reading come back through an Exit that has not said otherwise? It folds
+      <!-- How the work is read, each question answered once for the whole of it:
+           may a Reading come back through an Exit that has not said otherwise, and
+           what is a Shot's text set in where it says nothing? It folds
            like the presentation beside it and for the same reason — it is settled
            when the Story is being thought about rather than while a Scene is
            being written — and it is a fold of its own because what a stranger is
@@ -312,10 +373,39 @@ function unlist() {
             <select
               id="story-steps-back"
               :value="story.stepsBack ? 'yes' : 'no'"
-              @change="readBack(($event.target as HTMLSelectElement).value === 'yes')"
+              @change="readAs({ stepsBack: ($event.target as HTMLSelectElement).value === 'yes' })"
             >
               <option value="yes">{{ $t('editor.steppingBackOffered') }}</option>
               <option value="no">{{ $t('editor.steppingBackRefused') }}</option>
+            </select>
+          </p>
+
+          <!-- What a Shot's text is set in and where its lines stand, wherever it
+               says nothing for itself: a run in a face of its own, a line aligned
+               on its own, depart from these. -->
+          <p class="crossing">
+            <label class="eyebrow" for="story-text-face">{{ $t('editor.storyTextFace') }}</label>
+            <select
+              id="story-text-face"
+              :value="story.textFace"
+              @change="readAs({ textFace: ($event.target as HTMLSelectElement).value as Face })"
+            >
+              <option value="prose">{{ $t('editor.faceProse') }}</option>
+              <option value="display">{{ $t('editor.faceDisplay') }}</option>
+              <option value="typewriter">{{ $t('editor.faceTypewriter') }}</option>
+              <option value="hand">{{ $t('editor.faceHand') }}</option>
+            </select>
+          </p>
+          <p class="crossing">
+            <label class="eyebrow" for="story-text-align">{{ $t('editor.storyTextAlign') }}</label>
+            <select
+              id="story-text-align"
+              :value="story.textAlign"
+              @change="readAs({ textAlign: ($event.target as HTMLSelectElement).value as Align })"
+            >
+              <option value="start">{{ $t('editor.alignStart') }}</option>
+              <option value="centre">{{ $t('editor.alignCentre') }}</option>
+              <option value="end">{{ $t('editor.alignEnd') }}</option>
             </select>
           </p>
         </div>
@@ -327,6 +417,42 @@ function unlist() {
       <p v-if="story?.publishedAt" class="live">
         <span class="visually-hidden">{{ $t('editor.readableAt') }}</span>
         <a class="link" :href="publicLink">{{ publicLink }}</a>
+        <!-- The same link laid inside somebody else's page, beside it because it
+             is the same Story reached the same way. -->
+        <button type="button" :data-command="$t('editor.copyEmbed')" @click="copyEmbed">
+          {{ $t('editor.copyEmbed') }}
+        </button>
+        <!-- What differs from Readers' Edition, and the act that takes another
+             only when something does: a Story Readers read as it stands is said
+             to be so, and offers nothing to publish. Otherwise the line dates the
+             Edition and counts what moved since. The time is drawn by <NuxtTime>,
+             so the page the server renders and the browser that hydrates it agree
+             on the zone it is read in. A Story published before Editions and not
+             read since has nothing to compare, so it keeps the act and no date. -->
+        <span v-if="asItStands" class="edition">{{ $t('editor.asItStands') }}</span>
+        <template v-else>
+          <span v-if="story?.editionAt || changed" class="edition">
+            <i18n-t v-if="story?.editionAt" keypath="editor.editionAt" tag="span">
+              <template #when>
+                <NuxtTime :datetime="story.editionAt" :locale="locale" date-style="long" time-style="short" />
+              </template>
+            </i18n-t>
+            <template v-if="changed?.scenes">{{ ' ' }}{{ $t('editor.scenesChanged', changed.scenes) }}</template>
+            <template v-if="changed?.gone">{{ ' ' }}{{ $t('editor.scenesGone', changed.gone) }}</template>
+            <template v-if="changed?.story">{{ ' ' }}{{ $t('editor.storyChanged') }}</template>
+          </span>
+          <button type="button" :data-command="$t('editor.publishChanges')" @click="publishChanges">
+            {{ $t('editor.publishChanges') }}
+          </button>
+        </template>
+        <!-- How many Readings began and ended, which the Author is told here and
+             on their shelf and nowhere anybody else looks: see
+             `docs/adr/0072-a-reading-is-counted-for-its-author.md`. -->
+        <span v-if="story" class="edition">
+          {{ story.readings.begun
+            ? $t('editor.readings', { ended: story.readings.ended }, story.readings.begun)
+            : $t('editor.noReadings') }}
+        </span>
       </p>
 
       <div class="acts">
@@ -466,7 +592,7 @@ header {
   cursor: pointer;
 }
 
-/* The one question this fold holds: the label and the answer on one line, the
+/* Each question this fold holds: the label and the answer on one line, the
    way the same question is written on an Exit in the document. */
 .crossing {
   display: flex;
@@ -676,6 +802,13 @@ header {
 .kept-at {
   color: var(--muted);
   font-family: var(--data);
+  font-size: 0.75rem;
+}
+
+/* What differs from Readers' Edition: a reading of the bench's, as quiet as the
+   time of the last write. */
+.edition {
+  color: var(--muted);
   font-size: 0.75rem;
 }
 

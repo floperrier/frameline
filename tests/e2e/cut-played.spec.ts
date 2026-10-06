@@ -1,4 +1,5 @@
 import { expect } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { opened, test } from './author'
 
 /**
@@ -163,8 +164,8 @@ test('a Story opened into a tab nobody is looking at holds its beat',
     // way to open a page that is genuinely not on screen, so the page is made to
     // answer *hidden* from before anything of the Reading has mounted. What is
     // being proved is that the Reading asks at all rather than waiting to be told
-    // — a silent Story opens with no press, so a link followed into the
-    // background would otherwise play itself out in a room nobody is looking at.
+    // — a Reading mounted out of sight would otherwise play itself out in a room
+    // nobody is looking at.
     await page.addInitScript(() => {
       Object.defineProperty(document, 'visibilityState', {
         get: () => 'hidden',
@@ -195,6 +196,33 @@ test('a Story opened into a tab nobody is looking at holds its beat',
     await expect(page.getByText('She steps out.')).toBeVisible()
   })
 
+/**
+ * What the frame is running, and the animation it is written to run. The name is
+ * read as well as the animations because an animation that has played out leaves
+ * the list, and the name stays: an arrival the product drew over every beat is
+ * caught whether or not it was still running when it was asked.
+ */
+function drawnWith(frame: Locator) {
+  return frame.evaluate(one => ({
+    text: one.querySelector('.shot')?.textContent?.trim(),
+    running: one.getAnimations().map(animation => animation.constructor.name),
+    named: getComputedStyle(one).animationName,
+  }))
+}
+
+test('a hard cut is hard, and the beat arrives whole in the tick the one before it leaves',
+  async ({ page, request }) => {
+    await opened(page, request, async () => {})
+
+    await expect(page.getByText('A door opens.')).toBeVisible()
+    await page.getByRole('button', { name: 'Next Shot' }).click()
+
+    // Read in the evaluate straight after the press, which is within the 320 ms
+    // the arrival nobody wrote used to fade the beat up over.
+    expect(await drawnWith(page.locator('.frame')))
+      .toEqual({ text: 'She steps out.', running: [], named: 'none' })
+  })
+
 test('one beat dissolves into the next, or the passage is made through black',
   async ({ page, request }) => {
     const frames = page.locator('.frame')
@@ -219,6 +247,11 @@ test('one beat dissolves into the next, or the passage is made through black',
     // for the whole of it.
     await expect(page.locator('.gate')).toHaveAttribute('style', /3000ms/)
     await expect.poll(() => frames.count()).toBe(2)
+
+    // And the beat arriving is faded up by the Author's passage and by nothing
+    // else: no second instruction over the same frame, and no rise no Cut says.
+    expect(await drawnWith(page.locator('.frame:not(.dissolve-leave-active)')))
+      .toEqual({ text: 'She steps out.', running: ['CSSTransition'], named: 'none' })
     await expect(page.getByText('She steps out.')).toBeVisible()
     await expect.poll(() => frames.count()).toBe(1)
 
@@ -262,8 +295,8 @@ test('the end of a run is no passage, and the Scene is left over the Exit\'s own
     await expect(frames).toHaveCount(1)
 
     // And the move that ends the run is not a passage at all: nothing leaves the
-    // screen there, so the beat is not thrown a second time and the frame is the
-    // one that was already standing, pushed back behind the ways on. See issue
+    // screen there, so nothing arrives and the frame is the one that was
+    // already standing, pushed back behind the ways on. See issue
     // #332 — a second fade here is a Scene going to black and coming back to the
     // image it went out on.
     await page.getByRole('button', { name: 'Next Shot' }).click()
@@ -276,6 +309,123 @@ test('the end of a run is no passage, and the Scene is left over the Exit\'s own
     // leave the screen.
     await page.getByRole('button', { name: 'Follow her out' }).click()
     await expect(gate).toHaveAttribute('style', /1000ms/)
+  })
+
+/** Reads `writeStory`'s Story as far as its last Shot, the bar's one, which ends the Reading. */
+async function toTheLastShot(page: Page) {
+  await expect(page.getByText('A door opens.')).toBeVisible()
+  await page.getByRole('button', { name: 'Next Shot' }).click()
+  await expect(page.getByText('She steps out.')).toBeVisible()
+  await page.getByRole('button', { name: 'Next Shot' }).click()
+  await page.getByRole('button', { name: 'Follow her out' }).click()
+  await expect(page.getByText('Smoke, and no one she knows.')).toBeVisible()
+}
+
+/** The press past the last Shot, and the sentence that says, to nobody looking, what it did. */
+async function toTheEnding(page: Page) {
+  await page.getByRole('button', { name: 'Next Shot' }).click()
+  await expect(page.getByRole('status').and(page.locator('.ended')))
+    .toHaveText('The Reading ends here.')
+}
+
+/** The opacity the frame is painted at now, read once rather than waited for. */
+function opacityOf(page: Page) {
+  return page.locator('.frame').evaluate(el => getComputedStyle(el).opacity)
+}
+
+test('the ending is the last Shot shown whole, and its Cut through black takes it to black',
+  async ({ page, request }) => {
+    const frames = page.locator('.frame')
+
+    await opened(page, request, async (_, scenes) => {
+      // The bar's one Shot leaves through black over a second, and nothing comes
+      // after it for the black to open onto.
+      await request.patch(`/api/shots/${scenes[1]!.shots[0]!.id}`, {
+        data: { cutOver: 1000, cutThrough: 'black' },
+      })
+    })
+
+    await toTheLastShot(page)
+    await toTheEnding(page)
+
+    // One frame, the one the Reading ended on, and not set behind a choice,
+    // because there is none. The time is the Cut's whole second rather than the
+    // half a passage spends going out, since nothing is coming in.
+    await expect(frames).toHaveCount(1)
+    await expect(page.locator('.frame.pushed-back')).toHaveCount(0)
+    await expect(frames).toHaveCSS('opacity', '0', { timeout: 2000 })
+
+    // And it stays there: the black is where the Author ended the Story.
+    await page.waitForTimeout(1000)
+    expect(await opacityOf(page)).toBe('0')
+    const again = page.getByRole('button', { name: 'Read Again from the Start' })
+    await expect(again).toBeVisible()
+    await expect(again).toBeFocused()
+  })
+
+test('a hard cut or a dissolve leaves the last Shot standing at the ending',
+  async ({ page, request }) => {
+    const words = page.locator('.frame .shot')
+
+    // A Scene written through black, and its last Shot saying *Hard* on its own
+    // row, which is how an Author keeps that Scene's ending on the screen; then a
+    // dissolve, which with nothing to dissolve into would be a fade to black under
+    // another name.
+    for (const [scene, shot] of [
+      [{ cutOver: 1000, cutThrough: 'black' }, { cutOver: 0 }],
+      [null, { cutOver: 1000, cutThrough: 'image' }],
+    ] as const) {
+      await opened(page, request, async (_, scenes) => {
+        if (scene) await request.patch(`/api/scenes/${scenes[1]!.id}`, { data: scene })
+        await request.patch(`/api/shots/${scenes[1]!.shots[0]!.id}`, { data: shot })
+      })
+
+      await toTheLastShot(page)
+      const ink = await words.evaluate(el => getComputedStyle(el).color)
+      await toTheEnding(page)
+
+      // Past the second either Cut would have taken, the frame is where it stood,
+      // at full strength, and its words are in the ink they were read in.
+      await page.waitForTimeout(1200)
+      expect(await opacityOf(page)).toBe('1')
+      await expect(words).toHaveCSS('color', ink)
+    }
+  })
+
+test('a step back off an ending through black brings the last Shot back whole',
+  async ({ page, request }) => {
+    await opened(page, request, async (_, scenes) => {
+      await request.patch(`/api/shots/${scenes[1]!.shots[0]!.id}`, {
+        data: { cutOver: 1000, cutThrough: 'black' },
+      })
+    })
+
+    await toTheLastShot(page)
+    await toTheEnding(page)
+    await expect(page.locator('.frame')).toHaveCSS('opacity', '0', { timeout: 2000 })
+
+    // The Reader correcting themselves rather than a raccord: cut hard, and the
+    // Shot is back from the black at the strength it was read at.
+    await page.getByRole('button', { name: 'Step Back' }).click()
+    await expect(page.getByRole('button', { name: 'Next Shot' })).toBeVisible()
+    await expect(page.locator('.frame')).toHaveCSS('opacity', '1')
+  })
+
+test('a Reader who asked for less motion is given the black at once',
+  async ({ page, request }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await opened(page, request, async (_, scenes) => {
+      await request.patch(`/api/shots/${scenes[1]!.shots[0]!.id}`, {
+        data: { cutOver: 3000, cutThrough: 'black' },
+      })
+    })
+
+    await toTheLastShot(page)
+    await toTheEnding(page)
+
+    // The fade is the decoration and the black is the work: three seconds of it
+    // would still be most of the way lit half a second from now.
+    await expect(page.locator('.frame')).toHaveCSS('opacity', '0', { timeout: 500 })
   })
 
 test('a Reader who asked for less motion is given the rhythm without the passage',

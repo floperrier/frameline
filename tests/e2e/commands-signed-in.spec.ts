@@ -276,6 +276,14 @@ test('the bar offers the acts of the Scene being written, and Escape leaves that
   // The act ran on the Story: a third Shot where the Scene had two.
   await expect(page.getByRole('textbox', { name: 'Shot 3 of The street', exact: true }))
     .toBeVisible()
+
+  // The act that adds several opens the picker, several files allowed, from the
+  // very keystroke that ran it: a browser opens a file dialog only inside one.
+  await open(page)
+  await typing(page).fill('Add Shots from Images')
+  const picker = page.waitForEvent('filechooser')
+  await typing(page).press('Enter')
+  expect((await picker).isMultiple()).toBe(true)
 })
 
 test('an Author publishes a Story from the bar', async ({ page, request, baseURL }) => {
@@ -371,6 +379,11 @@ test('the bar names every act marked on a Scene being written, and no other', as
   // Preview. Each is named for what pressing it does — the reading on screen is
   // the one the bar does not offer — so the bar carries the two the Author is not
   // on. See `docs/adr/0043-a-story-is-written-as-one-document.md`.
+  //
+  // *Ask the Reader a Question* is the one act added since, with #417: it stands
+  // between the Shots and the Exits where it plays, so it falls between the last
+  // act on a Shot and the first on an Exit. Once the Question is open it gives
+  // way to *Remove the Question*, which is then the act on offer instead.
   await expect(offered(page)).toHaveText([
     'See the Contact Sheet',
     'Read the Story',
@@ -383,6 +396,8 @@ test('the bar names every act marked on a Scene being written, and no other', as
     'Add a Condition to Shot 1 of The street',
     'Add a Condition to Shot 2 of The street',
     'Add a Shot',
+    'Add Shots from Images',
+    'Ask the Reader a Question',
     'Add a Condition to the Exit 1 to The bar, out of The street',
     'Add an Exit',
     'Close the Remarks',
@@ -504,13 +519,13 @@ test('an Author sets a Flag and marks the Opening Scene by naming them', async (
   // way out: a reload on top of an unfinished request cancels it, and the bench
   // comes back saying what the Story never heard. The reload is here to prove the
   // mark was kept rather than drawn, so it has to happen after the keeping.
-  const bar = await (await page.request.get(`/api/stories/${story.id}`)).json()
+  const bar = await (await request.get(`/api/stories/${story.id}`)).json()
     .then((read: { scenes: { id: string, name: string }[] }) =>
       read.scenes.find(scene => scene.name === 'The bar')!)
   const opens = page.getByRole('group', { name: 'Writing The bar' }).locator('.opening')
   await expect(opens).toHaveText(/^Opening Scene/)
   await expect
-    .poll(async () => (await (await page.request.get(`/api/stories/${story.id}`)).json())
+    .poll(async () => (await (await request.get(`/api/stories/${story.id}`)).json())
       .openingSceneId)
     .toBe(bar.id)
 
@@ -551,7 +566,7 @@ test('the bar reaches every act of the bench at the width of a phone', async ({ 
   await openByKey(page)
   await typing(page).fill('Publish')
   await offered(page).click()
-  await expect.poll(() => page.request.get(`/api/stories/${story.id}`)
+  await expect.poll(() => request.get(`/api/stories/${story.id}`)
     .then(read => read.json())
     .then(read => Boolean(read.publishedAt))).toBe(true)
 })

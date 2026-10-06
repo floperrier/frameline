@@ -8,6 +8,17 @@ const localePath = useLocalePath()
 // than no link. The address carries no locale, like every public link does:
 // `docs/adr/0012-the-public-link-carries-no-locale.md`.
 const landingStory = useRuntimeConfig().public.landingStory
+
+// The product's own address is named by the product alone, and pasted anywhere
+// it is presented by the pitch the page itself opens on.
+const { t } = useI18n()
+
+useHead({ title: 'Frameline', titleTemplate: null })
+useSeoMeta({
+  ogTitle: 'Frameline',
+  description: () => t('landing.pitch'),
+  ogDescription: () => t('landing.pitch'),
+})
 </script>
 
 <template>
@@ -28,11 +39,12 @@ const landingStory = useRuntimeConfig().public.landingStory
       <!-- The thesis, and the one thing worth showing before anyone signs in: a
            Story is a beat, and then what the Reader may take. It is a specimen and
            not a Reading, so nothing here is a control — a visitor cannot take a
-           Exit that leads nowhere. -->
+           Exit that leads nowhere. It shows what a Reading shows and nothing
+           more, so the Scene the beat belongs to goes unnamed here as it does
+           there. -->
       <figure class="specimen">
         <figcaption class="eyebrow">{{ $t('landing.specimen') }}</figcaption>
         <div class="frame">
-          <p class="eyebrow">{{ $t('landing.specimenScene') }}</p>
           <p class="shot">{{ $t('landing.specimenShot') }}</p>
         </div>
         <ul class="exits">

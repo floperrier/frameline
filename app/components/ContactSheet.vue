@@ -19,6 +19,15 @@
  * writes, through the same endpoint and in the same request, so the two readings
  * cannot hold two Descriptions of one Image.
  *
+ * And a Shot's Place is written here, by carrying its frame: within its band to
+ * another Place there, or into another band at the Place it is let go in. This is
+ * the reading where order is seen — every frame of every Scene at once, the close-up
+ * after the wide shot — so it is where an Author puts the frames in order, in one
+ * request rather than one ↑ per Place. The drag is the pointer's alone: ↑ and ↓
+ * beside each row of the document, and *Move to another Scene* by naming it, are the
+ * keyboard's and the finger's way to the same writes. See
+ * `docs/adr/0074-the-contact-sheet-writes-a-shots-place.md`.
+ *
  * Nothing else here is written. The words are the Shot's own, set in the reading
  * face because that is what a Shot's text is set in everywhere, and the
  * Conditions are the sentence `app/components/Conditions.vue` writes them as,
@@ -26,7 +35,7 @@
  * first while the first is only hidden, would be two sets of fields carrying one
  * pair of ids.
  */
-const { story, sceneWritten, write, imageOf } = defineProps<{
+const { story, sceneWritten, write, change, announce, imageOf } = defineProps<{
   /** The Story on the bench, whole: every band of the sheet is a Scene of it. */
   story: StoryInEditor
   /** The Scene the caret is in, which the sheet is wound to and opens on. */
@@ -37,6 +46,15 @@ const { story, sceneWritten, write, imageOf } = defineProps<{
    * has no section of the document on screen to say it in.
    */
   write: Write
+  /**
+   * The holder a frame carried to another Place goes through, the page's own for
+   * the same reason. It reads the Story back whether the order was taken or
+   * refused, so the sheet, the document, the rail and the Remarks all draw the
+   * order the server holds.
+   */
+  change: Change
+  /** What the sheet has just done, said once in the page's status. */
+  announce: (said: string) => void
   /** Where a Shot's image is asked for, under the time it was last attached. */
   imageOf: (shot: Shot) => string
 }>()
@@ -57,6 +75,9 @@ type Frame = { shot: Shot, scene: Scene, place: number, named: string }
  * `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
  */
 const names = computed(() => namesOnTheBench(story, t))
+
+/** The Exits of the Story as the bench names them, for a Condition that asks about one. */
+const exits = computed(() => exitsOnTheBench(story, names.value))
 
 /**
  * A Scene read by name where something else names it: the far side of an Exit, the
@@ -174,16 +195,177 @@ function walk(event: KeyboardEvent) {
 }
 
 /**
- * The Description, written where the Author is looking at the Image. The same
- * request the writing sends — the text goes with it, because the endpoint takes
- * the pair — so the two readings write one field and neither can be holding a
- * Description the other has not got.
+ * The Description, written where the Author is looking at the Image, to the
+ * endpoint the writing sends it to — so the two readings write one field and
+ * neither can be holding a Description the other has not got. Sent alone: the
+ * endpoint takes each field on its own, and a plain text sent beside it would
+ * take the Shot's formatting away with it.
  */
 function describe(shot: Shot) {
   return write(() => send(`/api/shots/${shot.id}`, {
     method: 'PATCH',
-    body: { text: shot.text, description: shot.description },
+    body: { description: shot.description },
   }))
+}
+
+/**
+ * The point an Image is cropped around, as the sheet draws it while a hand is on
+ * it. A range moves this on `input` — every step of a drag — and the Shot itself
+ * is written only on `change`, when the hand lets go: a drag across a range is
+ * one request, not forty, and the Shot is never holding a point it has not been
+ * told is final. Kept against the Shot it was moved for, so that choosing
+ * another frame mid-drag cannot draw one Shot's point on another's Image.
+ */
+const moving = ref<{ id: string, cropX: number, cropY: number }>()
+
+/** The point to draw a Shot's crops around: the one under the hand, else its own. */
+function pointOf(shot: Shot) {
+  return moving.value?.id === shot.id ? moving.value : shot
+}
+
+/**
+ * A press on the Image, which is a pointer's alone. The two ranges beneath it are
+ * the keyboard's and the screen reader's way to the same act (WCAG 2.1.1), so the
+ * Image is not made a button to be tabbed to and announced as one it could not
+ * be used from. The print is drawn at the Image's own shape, so its box is the
+ * picture and there is no letterbox to subtract from the press.
+ */
+function press(shot: Shot, event: MouseEvent) {
+  const box = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const whole = (at: number, of: number) => Math.min(100, Math.max(0, Math.round(at / of * 100)))
+
+  shot.cropX = whole(event.clientX - box.left, box.width)
+  shot.cropY = whole(event.clientY - box.top, box.height)
+  moving.value = undefined
+
+  return write(() => send(`/api/shots/${shot.id}`, {
+    method: 'PATCH',
+    body: { cropX: shot.cropX, cropY: shot.cropY },
+  }))
+}
+
+/** A range let go of: the point it moved is the Shot's, and is written. */
+function crop(shot: Shot, axis: 'cropX' | 'cropY', event: Event) {
+  shot[axis] = Number((event.target as HTMLInputElement).value)
+  moving.value = undefined
+
+  return write(() => send(`/api/shots/${shot.id}`, {
+    method: 'PATCH',
+    body: { [axis]: shot[axis] },
+  }))
+}
+
+/** A range in motion: the ring and the band's print follow, and nothing is sent. */
+function move(shot: Shot, axis: 'cropX' | 'cropY', event: Event) {
+  moving.value = { ...pointOf(shot), id: shot.id, [axis]: Number((event.target as HTMLInputElement).value) }
+}
+
+/**
+ * The type a frame is carried under: the sheet's own rather than `text/plain`, so
+ * a frame let go over the Description field beside the bands types nothing into it.
+ * Firefox starts no drag that carries nothing, so it carries the Shot's id.
+ */
+const CARRIED = 'application/x-frameline-shot'
+
+/**
+ * The frame in the hand, and the band and gap it would land in if let go now — the
+ * gap counted over the band as drawn, from nought before its first frame to its
+ * length after its last. No landing where the pointer is over no band, or where
+ * letting go would leave the frame at the Place it has.
+ */
+const carried = ref<Frame>()
+const landing = ref<{ band: string, gap: number }>()
+
+function lift(frame: Frame, event: DragEvent) {
+  carried.value = frame
+  event.dataTransfer!.effectAllowed = 'move'
+  event.dataTransfer!.setData(CARRIED, frame.shot.id)
+}
+
+function letGo() {
+  carried.value = landing.value = undefined
+}
+
+/**
+ * Where the frame would land, read off what the pointer is over: the first half of
+ * a frame is the gap before it and the second half the gap after, and anywhere
+ * else in a band — its heading, the room under its frames, the sentence a band with
+ * none wears — is the foot of that band.
+ *
+ * Written only when it moves, because `dragover` fires every few milliseconds and
+ * each write redraws a sheet that may hold some hundreds of frames.
+ */
+function aim(event: DragEvent) {
+  const aimed = aimedAt(event)
+  if (aimed) {
+    event.preventDefault()
+    event.dataTransfer!.dropEffect = 'move'
+  }
+  if (aimed?.band !== landing.value?.band || aimed?.gap !== landing.value?.gap) landing.value = aimed
+}
+
+function aimedAt(event: DragEvent) {
+  const lifted = carried.value
+  const over = event.target as Element
+  const band = bands.value.find(held => held.scene.id === over.closest<HTMLElement>('[data-band]')?.dataset.band)
+  if (!lifted || !band) return
+
+  const frame = over.closest<HTMLElement>('[data-place]')
+  const box = frame?.getBoundingClientRect()
+  const gap = frame && box
+    ? Number(frame.dataset.place) + (event.clientX > box.left + box.width / 2 ? 1 : 0)
+    : band.frames.length
+  const run = band.frames.map(held => held.shot.id)
+  const unmoved = band.scene.id === lifted.scene.id
+    && carriedTo(run, lifted.shot.id, gap).every((id, at) => id === run[at])
+
+  return unmoved ? undefined : { band: band.scene.id, gap }
+}
+
+/** The pointer gone off the bands altogether, which is no landing until it comes back. */
+function leave(event: DragEvent) {
+  if (!(event.currentTarget as Node).contains(event.relatedTarget as Node | null)) landing.value = undefined
+}
+
+/**
+ * The frame let go where the mark is. Within its own band the whole new order is
+ * written in one renumbering, the way ↑ and ↓ write it; into another band it is one
+ * move, given the Place it lands at, so the Story is never between two requests in
+ * an order nobody asked for. Then the frame takes the focus, which is what chooses
+ * it: the Shot beside the bands is the one the Author has just carried.
+ */
+async function drop(event: DragEvent) {
+  const lifted = carried.value
+  const aimed = landing.value
+  letGo()
+  const band = bands.value.find(held => held.scene.id === aimed?.band)
+  if (!lifted || !aimed || !band) return
+  event.preventDefault()
+
+  const id = lifted.shot.id
+  const left = { from: lifted.place + 1, name: sceneName(lifted.scene.id) }
+  const order = carriedTo(band.frames.map(held => held.shot.id), id, aimed.gap)
+
+  if (band.scene.id === lifted.scene.id) {
+    const placed = await change(() => send(`/api/scenes/${band.scene.id}/shots/places`, {
+      method: 'PUT',
+      body: { places: order },
+    }))
+    if (placed) announce(t('editor.shotPlaced', { ...left, to: order.indexOf(id) + 1 }))
+  }
+  else {
+    let landed: number | undefined
+    await change(async () => {
+      landed = (await send(`/api/shots/${id}/move`, {
+        method: 'POST',
+        body: { toSceneId: band.scene.id, place: order.indexOf(id) },
+      }) as { position: number }).position
+    })
+    if (landed !== undefined) announce(t('editor.shotMoved', { ...left, scene: band.name, place: landed + 1 }))
+  }
+
+  await nextTick()
+  document.getElementById(`frame-${id}`)?.focus()
 }
 </script>
 
@@ -197,8 +379,10 @@ function describe(shot: Shot) {
     <!-- The bands, which are what a long Story scrolls: the Shot under the hand
          keeps its own place beside them however far down the sheet the Author is
          looking, so the field the Description is written in is never scrolled off
-         by the act of choosing what to describe. -->
-    <div class="bands">
+         by the act of choosing what to describe. A frame carried is aimed and let
+         go of here, once for every band, so a drag across forty Scenes is listened
+         to by one element. -->
+    <div class="bands" @dragover="aim" @dragleave="leave" @drop="drop">
       <!-- A heading and no landmark, for the reason the document's own sections
            carry none: a Story of forty Scenes would put forty regions in a screen
            reader's rotor, and what an Author moves by is the Scene — which the
@@ -268,7 +452,13 @@ function describe(shot: Shot) {
           </p>
         </header>
 
-        <p v-if="!band.frames.length" class="none">{{ $t('editor.noShotYet') }}</p>
+        <p
+          v-if="!band.frames.length"
+          class="none"
+          :class="{ landing: landing?.band === band.scene.id }"
+        >
+          {{ $t('editor.noShotYet') }}
+        </p>
 
         <!-- One tab stop for the frames of the whole sheet and the arrows inside
              it, which is what makes the reading usable at the size it is for: a
@@ -277,9 +467,25 @@ function describe(shot: Shot) {
              just chosen hundreds of presses away. `Tab` reaches the chosen frame
              and leaves it for the field beside it; the arrows walk the frames. The
              marks in a band's header rove with them, for the same reason — see
-             them. -->
+             them.
+
+             The frame is carried by its `<li>` and not by the button, because
+             Firefox starts no drag on a `<button>`; and the Image inside it is not
+             draggable itself, so what is carried is the frame and never the file. -->
         <ol v-else class="frames">
-          <li v-for="frame in band.frames" :key="frame.shot.id">
+          <li
+            v-for="frame in band.frames"
+            :key="frame.shot.id"
+            draggable="true"
+            :data-place="frame.place"
+            :class="{
+              before: landing?.band === band.scene.id && landing.gap === frame.place,
+              after: landing?.band === band.scene.id && landing.gap === band.frames.length
+                && frame.place === band.frames.length - 1,
+            }"
+            @dragstart="lift(frame, $event)"
+            @dragend="letGo"
+          >
             <button
               :id="`frame-${frame.shot.id}`"
               type="button"
@@ -294,7 +500,9 @@ function describe(shot: Shot) {
               <img
                 v-if="frame.shot.image"
                 :src="imageOf(frame.shot)"
+                :style="{ objectPosition: cropPosition(pointOf(frame.shot)) }"
                 alt=""
+                draggable="false"
                 loading="lazy"
                 decoding="async"
               >
@@ -315,21 +523,43 @@ function describe(shot: Shot) {
     <section v-if="shown" class="shown" aria-labelledby="shown-heading">
       <h2 id="shown-heading" class="eyebrow">{{ shown.named }}</h2>
 
-      <p class="print big" :class="{ bare: !shown.shot.image }">
-        <img v-if="shown.shot.image" :src="imageOf(shown.shot)" :alt="$t('editor.imageOfShot', {
-          place: shown.place + 1,
-          scene: sceneName(shown.scene.id),
-        })">
+      <!-- The whole Image, at its own shape and not cropped: it is here that the
+           point the crops are made around is chosen, and a point chosen on a
+           crop would be chosen on what the crop has already thrown away. The
+           press is a pointer's alone — the ranges below are the way in for the
+           keyboard and the screen reader — so nothing here is a button, and the
+           ring is for the eye. -->
+      <p
+        class="print big"
+        :class="{ bare: !shown.shot.image, whole: shown.shot.image }"
+        @click="shown.shot.image && press(shown.shot, $event)"
+      >
+        <img
+          v-if="shown.shot.image"
+          :src="imageOf(shown.shot)"
+          :alt="$t('editor.imageOfShot', {
+            place: shown.place + 1,
+            scene: sceneName(shown.scene.id),
+          })"
+        >
+        <span
+          v-if="shown.shot.image"
+          class="ring"
+          aria-hidden="true"
+          :style="{ left: `${pointOf(shown.shot).cropX}%`, top: `${pointOf(shown.shot).cropY}%` }"
+        />
       </p>
 
       <!-- Everything about the Shot that is not the frame, held together so that
            the fold can put it beside the frame rather than under it: at the foot of
            the window there is width to spare and no height at all. -->
       <div class="about">
-        <!-- The Shot's words, in the face a Shot's text is set in everywhere. Not
-             at the reading measure, which this column is not wide enough to be and
-             which the writing and the Preview are both for: what these words are
-             here is what the frame beside them is a frame of.
+        <!-- The Shot's words as they were formatted, in the face and alignment
+             its Story is set in, as a Shot's text is set everywhere. Still and
+             silent: nothing here arrives in its own time. Not at the reading
+             measure, which this column is not wide enough to be and which the
+             writing and the Preview are both for: what these words are here is
+             what the frame beside them is a frame of.
 
              A Shot carrying none says so in its own words and not in the Scene's:
              the sentence a band with no frame in it wears — *Nothing is written in
@@ -337,8 +567,14 @@ function describe(shot: Shot) {
              Shot exists and its Scene may hold five more, and it offers an act this
              reading does not carry. Beats are added where they stand, in the
              writing. -->
-        <p v-if="shown.shot.text" class="shot" :lang="story.language">{{ shown.shot.text }}</p>
-        <p v-else class="none">{{ $t('editor.noWordsYet') }}</p>
+        <Formatted
+          v-if="shown.shot.text"
+          class="shot"
+          v-bind="setIn(story)"
+          :lang="story.language"
+          :formatted="shown.shot.formatted"
+        />
+        <p v-else class="none">{{ $t('editor.noWords') }}</p>
 
         <!-- What the image shows, for a Reader who cannot see it. The one field on
              this reading, and the reason the reading has one: an Author writes a
@@ -363,6 +599,37 @@ function describe(shot: Shot) {
           >
         </p>
 
+        <!-- The point the Image is cropped around, which is what a screen of
+             another shape keeps in view. Two native ranges, because this is the
+             keyboard's way to the act the press on the Image is the pointer's way
+             to. They move the ring on `input` and write on `change`, so a drag is
+             one request. Only where there is an Image to crop. -->
+        <fieldset v-if="shown.shot.image" class="crop">
+          <legend class="eyebrow">
+            {{ $t('editor.croppedAround') }}
+            <span class="visually-hidden">
+              {{ $t('editor.croppedAroundOfShot', {
+                place: shown.place + 1,
+                scene: sceneName(shown.scene.id),
+              }) }}
+            </span>
+          </legend>
+          <label v-for="axis in ([['cropX', 'cropAcross'], ['cropY', 'cropDown']] as const)" :key="axis[0]">
+            <span>{{ $t(`editor.${axis[1]}`) }}</span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              :value="pointOf(shown.shot)[axis[0]]"
+              :aria-valuetext="$t('editor.cropPercent', { value: pointOf(shown.shot)[axis[0]] })"
+              @input="move(shown.shot, axis[0], $event)"
+              @change="crop(shown.shot, axis[0], $event)"
+            >
+          </label>
+          <p class="none">{{ $t('editor.cropNote') }}</p>
+        </fieldset>
+
         <!-- What the Shot plays under, said in the words its own editor writes it
              in: "Played when — Flag coat holds on". Read and not offered — the list
              is written in the Scene, on the row the beat stands in. -->
@@ -372,14 +639,20 @@ function describe(shot: Shot) {
             <template v-if="'flag' in condition">
               {{ $t('conditions.flag') }}
               <span class="data">{{ condition.flag }}</span>
-              {{ $t('conditions.holds') }}
-              <span class="data">{{ condition.is }}</span>
+              {{ 'is' in condition ? $t('conditions.holds') : $t('conditions.doesNotHold') }}
+              <span class="data">{{ 'is' in condition ? condition.is : condition.isNot }}</span>
             </template>
-            <template v-else>
+            <template v-else-if="'scene' in condition">
               {{ $t('conditions.scene') }}
               <span class="data">{{ sceneName(condition.scene) }}</span>
               {{ condition.entered
                 ? $t('conditions.hasBeenEntered') : $t('conditions.hasNotBeenEntered') }}
+            </template>
+            <template v-else>
+              {{ $t('conditions.exit') }}
+              <span class="data">{{ exitOption(exits.get(condition.exit), t) }}</span>
+              {{ condition.taken
+                ? $t('conditions.hasBeenTaken') : $t('conditions.hasNotBeenTaken') }}
             </template>
           </span>
         </p>
@@ -505,6 +778,46 @@ function describe(shot: Shot) {
   gap: var(--s2);
 }
 
+/* Where a frame carried over a band will land, in the grease pencil the Author's
+   own marks are written in: a bar down the leading edge of the frame whose Place
+   it would take, or down the trailing edge of the last where it would come after
+   every one. On the frame's own edge rather than in the gap beside it, because the
+   gap at the start or end of a row is outside the bands, which clip it. */
+.frames > li {
+  position: relative;
+}
+
+.frames > li.before::before,
+.frames > li.after::after {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  inset-block: 0;
+  inline-size: var(--s1);
+  background: var(--grease);
+  pointer-events: none;
+}
+
+.frames > li.before::before {
+  inset-inline-start: 0;
+}
+
+.frames > li.after::after {
+  inset-inline-end: 0;
+}
+
+/* A band with no frame yet takes a carried one as its first: the bar stands at
+   the head of the sentence that says it has none. */
+.band > .none.landing::before {
+  content: '';
+  display: inline-block;
+  inline-size: var(--s1);
+  block-size: 1lh;
+  margin-inline-end: var(--s2);
+  vertical-align: top;
+  background: var(--grease);
+}
+
 /* One frame. Called a print because that is what a cell of a contact sheet is,
    and because `.frame` in `app/assets/css/frameline.css` is already the film
    gate — the one curve in the product, the surface a Shot is thrown onto — and a
@@ -588,6 +901,55 @@ function describe(shot: Shot) {
   border-inline-start: 1px solid var(--edge);
 }
 
+/* The Image beside the bands, whole and at its own shape: the box of the press is
+   the box of the picture, so the point is read straight off the pointer with no
+   letterbox to subtract. Capped in height so a tall Image does not push the words
+   and the ranges off the pane. */
+.shown .print.whole {
+  aspect-ratio: auto;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  border-width: 0;
+  line-height: 0;
+  cursor: crosshair;
+}
+
+.shown .print.whole img {
+  inline-size: auto;
+  max-inline-size: 100%;
+  block-size: auto;
+  max-block-size: 24rem;
+  object-fit: initial;
+}
+
+/* Where the Image is cropped around, drawn in the grease pencil the Author's own
+   marks are written in. Over the picture and never in the way of the press. */
+.ring {
+  position: absolute;
+  inline-size: var(--s4);
+  block-size: var(--s4);
+  border: 2px solid var(--grease);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--bench);
+  translate: -50% -50%;
+  pointer-events: none;
+}
+
+/* The ranges, one to an axis, each its label over a track the width of the pane. */
+.crop {
+  display: grid;
+  gap: var(--s2);
+  min-inline-size: 0;
+  padding: 0;
+  border: none;
+}
+
+.crop label {
+  display: grid;
+  gap: var(--s1);
+  font-size: 0.75rem;
+}
+
 /* Everything about the Shot that is not the frame, which is one block at every
    width: under the frame where the detail is a column, beside it where the fold
    has laid it along the foot. */
@@ -596,7 +958,7 @@ function describe(shot: Shot) {
   gap: var(--s3);
 }
 
-.shown .print.big {
+.shown .print.big:not(.whole) {
   cursor: default;
 }
 

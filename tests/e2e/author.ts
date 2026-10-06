@@ -1,11 +1,17 @@
 import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { neon } from '@neondatabase/serverless'
-import { expect, test as base, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test'
+import {
+  expect, test as base, type APIRequestContext, type BrowserContext, type Locator, type Page,
+} from '@playwright/test'
 import { DISMISSED } from '../../app/utils/steps'
 import type { Condition, Exit, Scene, Sets, Shot, StoryInEditor } from '../../shared/utils/scenes'
 import { sealSession, type H3Event } from 'h3'
+import { routeToLocalProxy } from '../../server/db/endpoint'
 
+// The suite's own database sits behind a local proxy, not on Neon, and every
+// spec that writes to it directly comes through here.
+routeToLocalProxy()
 const sql = neon(process.env.DATABASE_URL!)
 
 /**
@@ -77,6 +83,22 @@ export const test = base.extend<{ author: Author, otherAuthor: Author, guided: b
 
   extraHTTPHeaders: async ({ author }, use) => {
     await use({ cookie: `nuxt-session=${await sealAuthorSession(author)}` })
+  },
+
+  // One connection per request. Playwright sends every API request a worker makes
+  // through one keep-alive agent that sets no idle limit of its own — Node heeds
+  // the server's `Keep-Alive: timeout=5` only on an agent that has one — so the
+  // socket one test left idle is the one the next test's first request is written
+  // on. When that gap is the server's own, six seconds with its grace, and the
+  // server is busy rendering for three other browsers, its timer closes the socket
+  // under a request that has just arrived: `read ECONNRESET`, on a POST nothing may
+  // send again. A connection closed behind its response is never left idle.
+  request: async ({ playwright, extraHTTPHeaders }, use) => {
+    const request = await playwright.request.newContext({
+      extraHTTPHeaders: { ...extraHTTPHeaders, connection: 'close' },
+    })
+    await use(request)
+    await request.dispose()
   },
 })
 
@@ -274,8 +296,13 @@ export async function seedChain(story: Story, names: string[]) {
  * for. A Scene whose mark is already lit is left alone, because pressing it would
  * be asking to go where the caret already is. See
  * `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ *
+ * The server draws the first Scene lit, so a mark lit is no sign that anything
+ * answers yet: the page is waited on until it is `live` below, or the press the
+ * caller makes next lands on a button the browser has not taken over.
  */
 export async function writeScene(page: Page, name: string) {
+  await live(page)
   const mark = sceneNode(page, name)
   await expect(mark).toBeVisible()
   if (!(await mark.getAttribute('class'))?.split(' ').includes('here')) await mark.click()
@@ -331,6 +358,74 @@ export async function readTheStory(page: Page) {
   await expect(preview).toBeVisible()
 
   return preview
+}
+
+/**
+ * Writes a Shot's text as an Author does since #359: a Shot nobody is writing in
+ * is its text drawn in a box, and pressing the box mounts the one editor in its
+ * place, under the same id and name and with the focus — so the press comes
+ * first, and nothing is typed until the editor has the caret, or the keys land on
+ * a box that is about to go. Everything in it is then replaced, a line at a time,
+ * because a line break in the editor is `Shift+Enter` and `Enter` opens the next
+ * Shot. It writes nothing until the caret leaves, as a field did, so a caller that
+ * wants it written blurs it.
+ */
+export async function writeShot(box: Locator, text: string) {
+  const page = box.page()
+  const id = await box.getAttribute('id')
+  await box.click()
+  await expect(page.locator(`[id="${id}"].ProseMirror`)).toBeFocused()
+
+  await page.keyboard.press('ControlOrMeta+A')
+  if (!text) return page.keyboard.press('Delete')
+  for (const [at, line] of text.split('\n').entries()) {
+    if (at) await page.keyboard.press('Shift+Enter')
+    if (line) await page.keyboard.type(line)
+  }
+}
+
+/**
+ * Opens what a Shot plays as, which its row keeps folded under one line since
+ * #401 — the Sound picker, the Cut, the Layout, the Movement, the Effects and how
+ * its text arrives — or how a Scene plays, which its head keeps folded the same
+ * way since #400. A fold already open is left alone, because a `<summary>`
+ * toggles and a second press would shut it. Found by the name its line carries,
+ * `Shot 2 of The street` or `The street`, and handed back for a caller that reads
+ * what it holds.
+ */
+export async function unfold(page: Page, named: string) {
+  await live(page)
+  const fold = page.locator('details.plays', {
+    has: page.locator('summary > .visually-hidden').getByText(named, { exact: true }),
+  })
+  if (!await fold.evaluate(details => (details as HTMLDetailsElement).open)) {
+    await fold.locator('summary').click()
+  }
+  await expect(fold).toHaveAttribute('open')
+
+  return fold
+}
+
+/**
+ * Opens the rest of a Shot's styles under the formatting bar's one row, which the
+ * bar keeps shut until *More Styles* is pressed since #398 — the small capitals,
+ * the scripts, every select but the line's kind, and the Effects of the words. A
+ * panel already open is left alone, because it stays open from Shot to Shot and a
+ * second press would shut it.
+ */
+export async function moreStyles(toolbar: Locator) {
+  const more = toolbar.getByRole('button', { name: /^More Styles/ })
+  if (await more.getAttribute('aria-expanded') !== 'true') await more.click()
+  await expect(more).toHaveAttribute('aria-expanded', 'true')
+}
+
+/**
+ * A Shot's words as the bench counts them — its lines joined by a line break —
+ * read off the box or the editor, whichever is drawn: `toHaveText` reads the text
+ * of every line run together.
+ */
+export function shotText(box: Locator) {
+  return box.evaluate(drawn => [...drawn.querySelectorAll('p')].map(line => line.textContent).join('\n'))
 }
 
 /**
@@ -512,8 +607,19 @@ export async function opened(
   await write(story, scenes)
   await seedPublished(story)
   await page.goto(`/read/${story.id}`)
-  // The clock is started by the component that holds the Path, so a page that
-  // has loaded and not yet been attached to is a page nothing is holding a
-  // clock on.
+  await begin(page)
+}
+
+/**
+ * Begins a Reading from the title card every Story opens on since #409, which is
+ * where the Reading is mounted and its clock started: nothing of it is on the page
+ * before the press. Waited on until the page is `live` first, because a press on a
+ * button the browser has not taken over does nothing at all. Found by its mark
+ * rather than its name, because it says *Begin* or *Resume*, in the Reader's own
+ * Locale. See `docs/adr/0063-a-story-opens-on-its-title-card.md`.
+ */
+export async function begin(page: Page) {
   await live(page)
+  await page.locator('button.beginning').click()
+  await expect(page.locator('.reading')).toBeVisible()
 }

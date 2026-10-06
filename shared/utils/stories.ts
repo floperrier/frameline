@@ -29,6 +29,13 @@ export const STORY_LANGUAGE_DEFAULT: StoryLanguage = 'en'
 export const STORY_SYNOPSIS_MAX_LENGTH = 600
 
 /**
+ * What a shelf and the title card present a Story by: the address of the Image
+ * and the point it is cropped around, which is the Shot's own. See
+ * `docs/adr/0040-a-story-is-presented-by-one-of-its-own-frames.md`.
+ */
+export type Cover = { image: string, cropX: number, cropY: number }
+
+/**
  * The Shot whose Image presents a Story wherever it is met before it is opened:
  * the one the Author named as its Cover, where they named one and it still
  * carries an Image, and otherwise the first Shot of the Opening Scene that

@@ -17,7 +17,31 @@ const { data: story, refresh } = await useAsyncData(
   { deep: true },
 )
 const { t } = useI18n()
-const { problem, keptAt, change, write } = useEditing(refresh)
+const { problem, keptAt, change, write, settled } = useEditing(refresh)
+
+/**
+ * What differs from Readers' Edition, asked again each time a typed write is
+ * kept. A click reads the whole Story back and the answer with it; a typed write
+ * never does — `docs/adr/0008-refetch-is-for-a-refusal.md` — so without this the
+ * marks would go on saying what differed when the page was opened. Only the
+ * answer is taken from the read, so nothing being typed is replaced, and only the
+ * one asked last, so two answers crossing on the way back cannot leave the older
+ * standing. A read that fails leaves the marks as they were until the next. And
+ * only onto the Story it was asked about: a click's read-back replaces the Story
+ * whole, so an answer landing after it is older than what it brought, and dropped.
+ */
+let changesAsked = 0
+watch(keptAt, async () => {
+  const reading = story.value
+  if (!reading?.publishedAt) return
+  const asking = ++changesAsked
+  const read = await (send(`/api/stories/${id}`) as Promise<StoryInEditor>).catch(() => undefined)
+  if (read && asking === changesAsked && story.value === reading) reading.changes = read.changes
+})
+
+// The tab is named by the title as the field holds it, so it follows a rename
+// as it is typed.
+useHead({ title: () => story.value?.title })
 
 /**
  * Which Scene's section of the document the refusal on screen is drawn in, and
@@ -62,7 +86,7 @@ const refusedScene = computed(() => {
  * about the whole Story cannot be refused in somebody's section of the document.
  *
  * The Contact Sheet writes through them too, for the same reason read the other
- * way round: the one field it carries is about a Shot, but no section of the
+ * way round: its field and the frames it carries are about a Shot, but no section of the
  * document is on screen while the sheet is, so a refusal claimed for a Scene would
  * be a sentence said behind a surface nobody is looking at. Cleared, it is said
  * under the Story's edge, where it is on screen whichever reading is up.
@@ -254,7 +278,7 @@ async function goToScene(sceneId: string) {
   const framed = reading.value === 'sheet'
     ? document.querySelector<HTMLElement>(`[data-band="${CSS.escape(sceneId)}"] .frames button`)
     : null
-  const typing = document.querySelector<HTMLElement>('input:focus, textarea:focus')
+  const typing = document.querySelector<HTMLElement>('input:focus, textarea:focus, [contenteditable]:focus')
   const landing = moving ? named ?? (typing && framed) : null
   const lands = landing ?? typing
 
@@ -541,12 +565,32 @@ function inSceneWritten(held: HTMLElement) {
  * to be put back.
  */
 async function turnTo(turn: Reading, event: Event) {
+  shotRead.value = undefined
   reading.value = turn
   ;(event.currentTarget as HTMLElement).focus()
 
   await nextTick()
   if (turn === 'writing' && caret && inSceneWritten(caret)) caret.focus()
   else windOn('instant')
+}
+
+/**
+ * The Shot the Preview is to open standing on, which only a beat's own ▶ asks for.
+ * Every turn lets it go, so *Read the Story* opens the Preview where the Path
+ * stands, as it always has.
+ */
+const shotRead = ref<string>()
+
+/**
+ * The Story read from one beat: the address follows the beat's Scene, so the
+ * Preview routes there as it routes to any Scene being written, and the Preview
+ * opens standing on the beat. The mark pressed holds the caret, which is what a
+ * turn back to the writing puts the focus on — see `turnTo`.
+ */
+async function readFrom(sceneId: string, shotId: string) {
+  await follow(sceneId)
+  shotRead.value = shotId
+  reading.value = 'preview'
 }
 </script>
 
@@ -558,6 +602,7 @@ async function turnTo(turn: Reading, event: Event) {
       :kept-at="keptAt"
       :change="changeStory"
       :write="writeStory"
+      :announce="announce"
     >
       <!-- The bench's own acts, on the Story's own edge: the way into every act
            by naming it, and the two readings the middle of the bench is not
@@ -680,7 +725,8 @@ async function turnTo(turn: Reading, event: Event) {
         <!-- The one of the three regions that scrolls. Which reading it holds is
              the page's to say; where it is, is not. The Contact Sheet fills it and
              scrolls its bands inside itself, so this scrollbar belongs to the
-             writing and to the Preview. -->
+             writing; the Preview is one document tall and scrolls what it holds
+             itself. -->
         <div ref="scroller" class="document" @focusin="focusedIn">
           <!-- There is one notion of where the Author is and it is the Path, so a
                way on pressed in the reading moves the writing with it — see
@@ -691,6 +737,7 @@ async function turnTo(turn: Reading, event: Event) {
             v-model:at="at"
             :story="story"
             :scene-written="sceneWritten.id"
+            :shot-read="shotRead"
             :change="changeStory"
             @moved="follow"
           />
@@ -708,6 +755,8 @@ async function turnTo(turn: Reading, event: Event) {
             v-model:chosen="chosenFrame"
             :scene-written="sceneWritten?.id"
             :write="writeStory"
+            :change="changeStory"
+            :announce="announce"
             :image-of="imageOf"
             @open="goToScene"
           />
@@ -725,11 +774,13 @@ async function turnTo(turn: Reading, event: Event) {
             :scene-written="sceneWritten?.id"
             :change="change"
             :write="write"
+            :settled="settled"
             :ask="ask"
             :announce="announce"
             :image-of="imageOf"
             @attached="attachedAt[$event] = Date.now()"
             @open="writeScene"
+            @read="readFrom"
           />
         </div>
       </div>
@@ -850,10 +901,11 @@ main {
   overflow-y: auto;
 }
 
-/* The scroller the middle of the bench holds, and the only one the layout has: the
-   document is what the window is for at every width. The Contact Sheet takes the
-   whole of it and scrolls its own bands inside itself, which leaves this one with
-   nothing to do while that reading is up. Wound to the Scene the address names —
+/* The scroller the middle of the bench holds, and the one the layout is built
+   around: the document is what the window is for at every width. The Contact Sheet
+   takes the whole of it and scrolls its own bands inside itself, which leaves this
+   one with nothing to do while that reading is up, and the Preview is one document
+   tall and scrolls what it holds itself. Wound to the Scene the address names —
    smoothly when the Author asked for the move, and instantly on the first sight of
    the bench, which `windOn` says. The answer to `prefers-reduced-motion` is given
    once, here, rather than at each call. */
@@ -949,20 +1001,6 @@ main {
   display: inline-flex;
   align-items: center;
   gap: var(--s2);
-}
-
-.combination {
-  display: inline-flex;
-  gap: 2px;
-}
-
-kbd {
-  padding: 0 var(--s1);
-  border: 1px solid var(--edge);
-  border-radius: var(--machined);
-  color: var(--muted);
-  font-family: var(--data);
-  font-size: 0.6875rem;
 }
 
 /* The bench with nothing on it: a note where the document would be, and the one

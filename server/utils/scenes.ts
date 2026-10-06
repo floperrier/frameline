@@ -61,7 +61,7 @@ export async function readSplitShot(event: H3Event) {
  * or, where the Author named several for one Flag, to the list one value is drawn
  * from on each entry. A Flag is a name *and* a value, so neither half may be
  * blank: a Flag set to nothing is one the engine cannot tell from a Flag never
- * set. A name holds no newline and neither separator, and a value holds no
+ * set. A name holds no newline, no brace and neither separator, and a value holds no
  * newline and not the one that tells a draw's values apart — which is what lets
  * the editor show them back as one line apiece.
  */
@@ -84,6 +84,16 @@ export async function readSceneFlags(event: H3Event): Promise<Sets> {
     const flag = name.trim()
     if (!flag || flag.length > FLAG_NAME_MAX_LENGTH) throw badFlags(event)
     if (flag.includes(FLAG_SEPARATOR) || flag.includes('\n')) throw badFlags(event)
+
+    // A text writes a Flag's name between braces, so a name holding one could
+    // never be said. Refused by name, so the Author knows what to take out.
+    const brace = ['{', '}'].find(brace => flag.includes(brace))
+    if (brace) {
+      throw createError({
+        statusCode: 400,
+        message: saying(event)('refusals.flagNameBrace', { brace }),
+      })
+    }
 
     flags[flag] = Array.isArray(value) ? drawnFrom(event, value) : oneValue(event, value)
   }
@@ -160,7 +170,7 @@ export async function readTranscript(event: H3Event) {
   return written
 }
 
-/** Whether the Scene's Sound is held in a loop until the Scene is left, or played once. */
+/** Whether the Scene's Sound is held in a loop until the Scene is left or the Reading ends, or played once. */
 export async function readSoundLoops(event: H3Event) {
   const body = await readBody<{ soundLoops?: unknown }>(event)
 
@@ -229,11 +239,34 @@ export async function readNamedSound(event: H3Event, sceneId: string) {
 }
 
 /**
+ * How a run is laid out, or how one Shot is. Null is taken where the carrier
+ * allows one — a Shot saying nothing — and the two words are the whole of the
+ * language, so anything else is refused rather than stored.
+ *
+ * Overloaded the way `readCutThrough` is, so a Scene's `not null` column reads
+ * back a plain `Layout`.
+ */
+export function readLayout(event: H3Event, options: { nullable: false }): Promise<Layout>
+export function readLayout(event: H3Event, options?: { nullable?: boolean }): Promise<Layout | null>
+export async function readLayout(event: H3Event, { nullable = true }: { nullable?: boolean } = {}) {
+  const body = await readBody<Record<string, unknown>>(event)
+  const held = body?.layout
+
+  if (held === null && nullable) return null
+  if (!LAYOUTS.includes(held as Layout)) {
+    throw createError({ statusCode: 400, message: saying(event)('refusals.layout') })
+  }
+
+  return held as Layout
+}
+
+/**
  * What a PATCH may change about a Scene: its name, the three things that are
- * said about the Sound it is heard under, and its Cut — how its run is cut and
- * how long its ways on stand. Each is read only where the body names it, so the
- * bench can write the one field the Author touched without carrying the others
- * along — the shape `readStoryChanges` already has.
+ * said about the Sound it is heard under, its Cut — how its run is cut and how
+ * long its ways on stand — how its Images move and how its texts arrive. Each is
+ * read only where the body names it, so the bench can write the one field the
+ * Author touched without carrying the others along — the shape
+ * `readStoryChanges` already has.
  *
  * A body naming none is refused as a name being asked for: the name is the one
  * thing a Scene cannot be without, so that is what an empty change is missing.
@@ -248,6 +281,17 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
     cutOver?: unknown
     cutThrough?: unknown
     exitsAfter?: unknown
+    layout?: unknown
+    movementBy?: unknown
+    movementDirection?: unknown
+    movementOver?: unknown
+    textAfter?: unknown
+    textBy?: unknown
+    textPace?: unknown
+    textOver?: unknown
+    textStays?: unknown
+    question?: unknown
+    questionFlag?: unknown
   }>(event)
   const changes: {
     name?: string
@@ -259,6 +303,17 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
     cutOver?: number
     cutThrough?: CutThrough
     exitsAfter?: number | null
+    layout?: Layout
+    movementBy?: number
+    movementDirection?: MovementDirection
+    movementOver?: number
+    textAfter?: number
+    textBy?: TextBy
+    textPace?: number
+    textOver?: number
+    textStays?: number | null
+    question?: string
+    questionFlag?: string
   } = {}
 
   if (body?.name !== undefined) changes.name = await readSceneName(event)
@@ -296,8 +351,89 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
     changes.cutThrough = await readCutThrough(event, { nullable: false })
   }
   if (body?.exitsAfter !== undefined) changes.exitsAfter = await readExitsAfter(event)
+  // A Scene's Layout takes no null: only a Shot answering *as its Scene says*
+  // may leave one.
+  if (body?.layout !== undefined) changes.layout = await readLayout(event, { nullable: false })
+  // How the Images of the run move, each landing on its own. A Scene has nothing
+  // above it to defer to, so none of the three takes a null.
+  if (body?.movementBy !== undefined) {
+    changes.movementBy = await readMovementBy(event, { nullable: false })
+  }
+  if (body?.movementDirection !== undefined) {
+    changes.movementDirection = await readMovementDirection(event, { nullable: false })
+  }
+  if (body?.movementOver !== undefined) {
+    changes.movementOver = await readMovementOver(event, { nullable: false })
+  }
+  // How the texts of the run arrive, each landing on its own. The first four
+  // take no null on a Scene, which has nothing above it to defer to, and its
+  // stay is refused the nought a Shot keeps for *until the Cut* — the Scene's
+  // own word for that is null, and one fact in two shapes is what
+  // `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md` refused of
+  // `cut_after`. See `docs/adr/0052-a-text-arrives-in-its-own-time.md`.
+  if (body?.textAfter !== undefined) {
+    changes.textAfter = await readTextAfter(event, { nullable: false })
+  }
+  if (body?.textBy !== undefined) changes.textBy = await readTextBy(event, { nullable: false })
+  if (body?.textPace !== undefined) {
+    changes.textPace = await readTextPace(event, { nullable: false })
+  }
+  if (body?.textOver !== undefined) {
+    changes.textOver = await readTextOver(event, { nullable: false })
+  }
+  if (body?.textStays !== undefined) {
+    changes.textStays = await readTextStays(event)
+    if (changes.textStays === 0) {
+      throw createError({ statusCode: 400, message: saying(event)('refusals.textStaysNought') })
+    }
+  }
+  // The sentence a Scene puts to the Reader and the Flag its answer is held
+  // under, each written on its own; empty is how the Question is taken away.
+  if (body?.question !== undefined) changes.question = await readQuestion(event)
+  if (body?.questionFlag !== undefined) changes.questionFlag = await readQuestionFlag(event)
   // Which is a name asked for, by the reader that phrases the refusal.
   if (!Object.keys(changes).length) await readSceneName(event)
 
   return changes
+}
+
+/**
+ * Reads the sentence a Scene puts to the Reader before its Exits. Empty is a
+ * Scene that asks nothing, which is how a Question is taken away.
+ */
+export async function readQuestion(event: H3Event) {
+  const body = await readBody<{ question?: unknown }>(event)
+  const written = typeof body?.question === 'string' ? body.question.trim() : undefined
+
+  if (written === undefined || written.length > QUESTION_MAX_LENGTH) {
+    throw createError({
+      statusCode: 400,
+      message: saying(event)('refusals.question', { max: QUESTION_MAX_LENGTH }),
+    })
+  }
+
+  return written
+}
+
+/**
+ * Reads the Flag a Question's answer is held under, to the rules a Flag's name
+ * already has where a Scene sets one (`readSceneFlags`): no newline, no `=`, and
+ * no brace, refused by the same phrase. Empty is a Scene that asks nothing.
+ */
+export async function readQuestionFlag(event: H3Event) {
+  const body = await readBody<{ questionFlag?: unknown }>(event)
+  const flag = typeof body?.questionFlag === 'string' ? body.questionFlag.trim() : undefined
+  const refused = () => createError({
+    statusCode: 400,
+    message: saying(event)('refusals.questionFlag', { max: FLAG_NAME_MAX_LENGTH }),
+  })
+
+  if (flag === undefined || flag.length > FLAG_NAME_MAX_LENGTH) throw refused()
+  if (flag.includes(FLAG_SEPARATOR) || flag.includes('\n')) throw refused()
+  const brace = ['{', '}'].find(brace => flag.includes(brace))
+  if (brace) {
+    throw createError({ statusCode: 400, message: saying(event)('refusals.flagNameBrace', { brace }) })
+  }
+
+  return flag
 }

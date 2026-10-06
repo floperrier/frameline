@@ -80,8 +80,13 @@ export function useEditing(reload: () => Promise<unknown>) {
    * saying what that write would have said. Under a reduced-motion preference the
    * stylesheet cuts the animation to a single tick, which ends it at once and
    * leaves the class inert.
+   *
+   * A field taken off the page while its write was in flight is lit where it is
+   * drawn now, by its id: a Shot's editor goes the moment the caret moves to the
+   * next Shot, and the box drawn in its place is the same field.
    */
-  function flash(field: HTMLElement | undefined) {
+  function flash(written: HTMLElement | undefined) {
+    const field = written?.isConnected ? written : written?.id ? document.getElementById(written.id) : null
     if (!field) return
     field.classList.add('kept')
     field.addEventListener('animationend', () => field.classList.remove('kept'), { once: true })
@@ -188,5 +193,15 @@ export function useEditing(reload: () => Promise<unknown>) {
     return turn
   }
 
-  return { problem, keptAt, change, write }
+  /**
+   * Once every typed write sent so far has landed. A click goes out at once, which
+   * is right for every act but one that rewrites a Shot's words from the words the
+   * page holds — a cut, a join: a typed write of the same Shot still in the queue
+   * would land after it and write the words back as they were.
+   */
+  function settled() {
+    return previous
+  }
+
+  return { problem, keptAt, change, write, settled }
 }

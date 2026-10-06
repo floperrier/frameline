@@ -41,6 +41,8 @@ function takeOut(listId: string, storyId: string) {
 // Favourites has no title, so the word it is shown under is the interface's own.
 const { t } = useI18n()
 const titleOf = (title: string | null) => title ?? t('lists.favourites')
+
+useHead({ title: () => t('lists.heading') })
 </script>
 
 <template>

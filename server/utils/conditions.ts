@@ -19,11 +19,11 @@ const TOO_MANY = {
  * none of them can hold another. `carrier` names what is being written in the
  * refusal, so an Author is told which thing they overloaded.
  *
- * Two shapes and no more: what a Flag holds, or whether a Scene has been entered.
- * A third was taken for one deploy — the shape that counted entries — so that a
- * browser holding the previous code could still send its list back while the
- * migration was on its way; #306 rewrote every row and this no longer reads it.
- * That is the contract half of
+ * Four shapes and no more: what a Flag holds, what it does not hold, whether a
+ * Scene has been entered, or whether an Exit has been taken. The shape that counted entries was taken
+ * for one deploy, so that a browser holding the previous code could still send
+ * its list back while the migration was on its way; #306 rewrote every row and
+ * this no longer reads it. That is the contract half of
  * `docs/adr/0002-the-schema-moves-with-the-deploy.md`'s expand–contract, and the
  * end of `docs/adr/0048-a-scene-is-entered-once.md`'s work on the language.
  */
@@ -61,7 +61,10 @@ function readCondition(event: H3Event, condition: unknown): Condition {
   if ('flag' in condition) {
     if (parts !== 2) throw badCondition(event)
 
-    const { flag, is } = condition as { flag: unknown, is: unknown }
+    // What the Flag is asked to hold, or not to hold: the same value under either
+    // key, held to the same rules.
+    const not = 'isNot' in condition
+    const { flag, [not ? 'isNot' : 'is']: is } = condition as Record<string, unknown>
     const name = typeof flag === 'string' ? flag.trim() : ''
 
     if (!name || name.length > FLAG_NAME_MAX_LENGTH) throw badCondition(event)
@@ -69,7 +72,18 @@ function readCondition(event: H3Event, condition: unknown): Condition {
 
     // Trimmed on both sides of the comparison the engine will make: a Flag is
     // stored trimmed, so a Condition asking for `on ` could never match one.
-    return { flag: name, is: is.trim() }
+    return not ? { flag: name, isNot: is.trim() } : { flag: name, is: is.trim() }
+  }
+
+  if ('exit' in condition) {
+    if (parts !== 2) throw badCondition(event)
+
+    const { exit, taken } = condition as { exit: unknown, taken: unknown }
+
+    if (typeof exit !== 'string' || !UUID_PATTERN.test(exit)) throw badCondition(event)
+    if (typeof taken !== 'boolean') throw badCondition(event)
+
+    return { exit, taken }
   }
 
   if (parts !== 2) throw badCondition(event)
@@ -87,24 +101,35 @@ function badCondition(event: H3Event) {
 }
 
 /**
- * The guard both Conditions endpoints write their list behind: every Scene a
- * Condition names has to be a Scene of the Story the Exit or the Shot belongs to.
- * A Condition naming anything else matches nothing here, so nothing is written,
- * whichever Place it holds in the list — and a Condition can never be made to ask
- * about a Scene of another Story, or of another Author's.
+ * The guard both Conditions endpoints write their list behind: every Scene and
+ * every Exit a Condition names has to be the Story's own, the Story the Exit or
+ * the Shot belongs to. A Condition naming anything else matches nothing here, so
+ * nothing is written, whichever Place it holds in the list — and a Condition can
+ * never be made to ask about a Scene or an Exit of another Story, or of another
+ * Author's. An Exit belongs to the Story of the Scene it leaves.
  *
- * One fragment rather than one apiece, because it is the scoping and not merely
- * a lookup: two copies that had to stay in step by hand is one copy away from a
- * Condition reaching outside its Story. Both statements name the Story's Scene
- * `owner`, which is what lets the fragment be the same text in both.
+ * Named for what it scopes, which is what a Condition asks about — it counted
+ * Scenes once, and counts nothing now. One fragment rather than one apiece,
+ * because it is the scoping and not merely a lookup: two copies that had to stay
+ * in step by hand is one copy away from a Condition reaching outside its Story.
+ * Both statements name the Story's Scene `owner`, which is what lets the fragment
+ * be the same text in both.
  */
-export function countedWithinTheStory(conditions: Condition[]) {
-  const counts = conditions.flatMap(condition => 'scene' in condition ? [condition.scene] : [])
+export function askedWithinTheStory(conditions: Condition[]) {
+  const scenes = conditions.flatMap(condition => 'scene' in condition ? [condition.scene] : [])
+  const exits = conditions.flatMap(condition => 'exit' in condition ? [condition.exit] : [])
 
   return sql`not exists (
-    select 1 from jsonb_array_elements_text(${JSON.stringify(counts)}::jsonb) as counted(id)
-    where not exists (
-      select 1 from scenes as counted_scene
-      where counted_scene.id = counted.id::uuid
-        and counted_scene.story_id = owner.story_id))`
+      select 1 from jsonb_array_elements_text(${JSON.stringify(scenes)}::jsonb) as asked(id)
+      where not exists (
+        select 1 from scenes as asked_scene
+        where asked_scene.id = asked.id::uuid
+          and asked_scene.story_id = owner.story_id))
+    and not exists (
+      select 1 from jsonb_array_elements_text(${JSON.stringify(exits)}::jsonb) as asked(id)
+      where not exists (
+        select 1 from exits as asked_exit
+        join scenes as leaving on leaving.id = asked_exit.from_scene_id
+        where asked_exit.id = asked.id::uuid
+          and leaving.story_id = owner.story_id))`
 }

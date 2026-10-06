@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull } from 'drizzle-orm'
+import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
 import { authors, stories } from '../db/schema'
 import { useDb } from '../db'
 
@@ -36,12 +36,18 @@ export default defineEventHandler(async () => {
       publishedAt: stories.publishedAt,
       authorId: authors.id,
       authorName: authors.name,
-      cover: coverShotOf,
+      coverShotId: coverShotOf,
+      cropX: coverShot.cropX,
+      cropY: coverShot.cropY,
     })
     .from(stories)
     .innerJoin(authors, eq(stories.authorId, authors.id))
+    .leftJoin(coverShot, sql`${coverShot.id} = ${coverShotOf}`)
     .where(and(eq(stories.listed, true), isNotNull(stories.publishedAt)))
     .orderBy(desc(stories.publishedAt))
 
-  return rows.map(row => ({ ...row, cover: coverUrl(row.cover) }))
+  return rows.map(({ coverShotId, cropX, cropY, ...row }) => ({
+    ...row,
+    cover: coverFor({ coverShotId, cropX, cropY }),
+  }))
 })

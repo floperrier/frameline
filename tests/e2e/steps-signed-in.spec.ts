@@ -15,6 +15,7 @@ import {
   seedStory,
   test,
   toast,
+  writeShot,
 } from './author'
 
 /** One Scene's own section of the document, which is where that Scene is written. */
@@ -122,6 +123,7 @@ test('a Story that is past every step is guided not at all', async ({ page, auth
 test('an Author who deleted the Scene their Story opened on is sent to the mark', async ({
   page,
   author,
+  request,
 }) => {
   const story = await seedStory(author, 'A Story')
   const [arrival, platform, bar] = await seedScenes(
@@ -137,7 +139,7 @@ test('an Author who deleted the Scene their Story opened on is sent to the mark'
     const [shot] = await readShots(scene!.id)
     await seedShotConditions(shot!.id, [{ flag: 'courage', is: 'high' }])
   }
-  await page.request.post(`/api/scenes/${arrival!.id}/opening`)
+  await request.post(`/api/scenes/${arrival!.id}/opening`)
 
   await page.goto(`/stories/${story.id}`)
   await expect(bubble(page)).toContainText(/That is a Story that works/)
@@ -186,9 +188,15 @@ test('an Author who knows what they are doing waves the guidance away', async ({
 test('the bench walks an Author from a bare Story to a published one', async ({
   page,
   author,
+  request,
 }) => {
   const story = await seedStory(author, 'A Story')
-  await page.setViewportSize({ width: 1280, height: 1100 })
+  // A window tall enough to hold the first Scene down to the way on written at its
+  // foot, because this walk is about which control is lit and not about a target
+  // carried off the window — the specs below pose that. The window every Step held
+  // in before the Scene's head and a beat's row grew their choices: both fold them
+  // to one line since #401 and #400.
+  await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto(`/stories/${story.id}`)
 
   // Made, and the light is on the one control that makes a Scene out of nothing.
@@ -215,7 +223,7 @@ test('the bench walks an Author from a bare Story to a published one', async ({
   await adds.click()
   const shot = page.getByRole('textbox', { name: 'Shot 1' })
   await lights(page, shot)
-  await shot.fill('She steps off the train.')
+  await writeShot(shot, 'She steps off the train.')
   await shot.blur()
 
   // The second Scene and the Exit to it, which are one act and so one Step:
@@ -234,7 +242,7 @@ test('the bench walks an Author from a bare Story to a published one', async ({
 
   // Born under the name typed, already joined, and drawn on the Graph at once.
   await expect(sceneNode(page, 'The platform')).toHaveCount(1)
-  const read = await (await page.request.get(`/api/stories/${story.id}`)).json()
+  const read = await (await request.get(`/api/stories/${story.id}`)).json()
   const arrival = read.scenes.find((scene: { name: string }) => scene.name === 'The arrival')
 
   // A Flag on the first Scene, in the list the light moves to once the caret is
@@ -319,7 +327,12 @@ test('the bench walks an Author from a bare Story to a published one', async ({
  * question further down, and this one is which control.
  */
 async function lights(page: Page, target: Locator) {
-  await expect(target).toBeVisible()
+  // On the screen, and not merely drawn: a target under the foot of the window or
+  // wound out of the document is lit by nothing — the Step goes adrift — so one a
+  // taller row has pushed off the window is said as that, rather than as a light
+  // waited five seconds for. That is how the walk below went red on the branches
+  // that gave a Shot another row, and read as chance.
+  await expect(target).toBeInViewport()
   // The target is read until it holds still before it is read for the comparison,
   // because the bench moves under it — the document scrolls beside it, the graph
   // is pulled back — and a rectangle read while it is still on its way would be
@@ -380,7 +393,7 @@ test('the light follows its target as the document grows above it', async ({
   // second beat.
   const story = await seedStory(author, 'A Story')
   await seedScene(story, 'The arrival')
-  await page.setViewportSize({ width: 1280, height: 1500 })
+  await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto(`/stories/${story.id}`)
   await writeScene(page, 'The arrival')
 
@@ -414,6 +427,7 @@ test('the light follows its target as the document grows above it', async ({
 test('the guidance reaches every part of the bench at the width of a phone', async ({
   page,
   author,
+  request,
 }) => {
   const story = await seedStory(author, 'A Story')
   const arrival = await seedScene(story, 'The arrival')
@@ -467,7 +481,7 @@ test('the guidance reaches every part of the bench at the width of a phone', asy
   // The Story is past both of those, and what is left to point at is the Publish
   // in the header, which is on screen at every width.
   await seedShotConditions(platform.shots[0]!.id, [{ flag: 'courage', is: 'high' }])
-  await page.request.post(`/api/scenes/${arrival.id}/opening`)
+  await request.post(`/api/scenes/${arrival.id}/opening`)
   await page.reload()
   await expect(page.getByRole('group', { name: 'Writing The arrival' })).toBeVisible()
   await expect(bubble(page)).toContainText(/That is a Story that works/)

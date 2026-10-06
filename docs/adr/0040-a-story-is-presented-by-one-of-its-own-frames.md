@@ -67,3 +67,7 @@ nullable, and rollback leaves a column nothing reads.
 A shelf's entry and the reading page's title card carry the Image's address, so
 an unpublished Story's Cover is as unreachable as its Shots: the image endpoint's
 rule is the only rule.
+
+The Cover is cropped around the point of the Shot it is taken from, so a shelf's
+`cover` carries the Image's address and that point together — see
+`docs/adr/0055-a-shot-is-laid-out-as-its-scene-says.md`.

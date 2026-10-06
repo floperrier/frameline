@@ -4,6 +4,38 @@ status: accepted
 
 # The Cut is made by the hand or by the clock
 
+Amended in issue #357, by
+`docs/adr/0057-the-image-moves-over-the-time-its-shot-is-on-screen.md`: the
+pause is drawn wherever an Image moves as well, and it stops a Movement, which
+resumes where it stood as an Effect does. What that amends is the same pause
+`0051` amended. Everything else here stands.
+
+Amended in issue #360, by `docs/adr/0051-an-effect-is-said-of-one-beat.md`: the
+pause is drawn wherever an Effect lasts as well as wherever a clock runs, and it
+stops every Effect too, which resumes where it stood while a hold still starts
+again from the beginning of its time. What that amends is the pause in the
+paragraph beginning *What the Reader is owed*. Everything else here stands.
+
+Amended in issue #358, by `docs/adr/0052-a-text-arrives-in-its-own-time.md`: a
+press made while a text is still arriving shows the rest of it rather than
+cutting, and the hold counts from the text having arrived. What that amends is
+the press in the same paragraph.
+
+Amended in issue #356: a time a clock runs is held to half a second above
+nought, which the Consequences below carry.
+
+Amended in issue #353, by `docs/adr/0053-a-reading-ends-on-its-last-shot.md`: at
+an ending, where no Exit can make a passage out, the last Shot's own Cut is made
+once the move is, on the frame left standing — to black over the whole of its
+time, or standing where it is hard or a dissolve. What that completes is the
+consequence *The end of a run is not a passage*, whose move stays hard.
+
+Amended in issue #349, by `docs/adr/0054-the-reader-is-shown-what-the-author-wrote.md`:
+the fade and rise every beat arrived through, which no Cut wrote, is gone, so a
+hard cut is seen as one and every Story written before the Cut now arrives hard
+at every beat. What that amends is the consequence *Every Story written so far
+reads exactly as it read*, for the arrival alone.
+
 A Story is watched as well as read, and until now every cut in one was made by
 the Reader's hand and made hard. What an editor has and an Author here did not
 is when a Shot leaves the screen, and how it leaves it.
@@ -57,7 +89,9 @@ restarts the Shot it lands on, a visit resumed from the browser restarts the
 Shot it resumes at, and a Shot played again stands again for its whole time.
 
 **What the Reader is owed.** The press always cuts early, so a Reader ahead of
-the clock is never made to wait for it. A pause stands beside the mute, which is
+the clock is never made to wait for it — *amended by `0052`: a press made while
+a text is still arriving shows the rest of it first, and cuts on the next, under
+the name of what it does.* A pause stands beside the mute, which is
 what WCAG 2.2.2 asks the moment anything advances by itself; the pacing is the
 work rather than an ornament on it, which is the exception 2.2.1 grants where
 timing is essential. `prefers-reduced-motion` reads every `cut_over` as nought
@@ -143,6 +177,15 @@ carries.
   the reach over the way out that this document refused it above. So that one
   move is cut hard whatever the run says, and the passage out of a Scene is the
   Exit's own, made once. See issue #332.
+- **A clock is held to half a second.** A `cut_after` or an `exits_after` other
+  than nought is `CUT_AFTER_MIN` or `EXITS_AFTER_MIN` at the least, both 500,
+  and the doors refuse anything under it in the phrase that names the floor. A
+  run cut sooner changes the screen more than twice a second, and over a white
+  Image and a black one that is past the three flashes WCAG 2.3.1 allows; at half
+  a second it is one flash a second whatever the Images are. Nought keeps its
+  meaning on both, since it is not a duration, and `cut_over` has no floor,
+  because a dissolve makes the screen change no more often. Migration `0025`
+  raised every time written under the floor to it.
 - Every Story written so far reads exactly as it read. `cut_after` and
   `exits_after` default to null, `cut_over` to 0 and `cut_through` to `image`,
   which is a run that waits for the press, cut hard, with its ways on standing
@@ -152,3 +195,10 @@ carries.
 - The Contact Sheet is unchanged. A contact sheet is still and silent; `0049`
   refused it a Sound for that reason, and this refuses it a Cut for the same
   one.
+- *Duplicate Scene* copies the Cut: the Scene's four columns and each Shot's
+  three. *Split* gives the second half the Scene's `cut_after`, `cut_over` and
+  `cut_through`, and also its `exits_after`, since the ways on move with that
+  half. The first half goes back to null, so the press between the halves is a
+  press. The Exit that joins them passes through what the Shot before the split
+  was cut through, because the passage out of a Scene is the Exit's own. A copy
+  of an Exit keeps that Exit's passage and its `steps_back`. See issue #344.

@@ -56,7 +56,11 @@ async function whole(request: APIRequestContext) {
     scenes.push(await (await request.post(
       `/api/stories/${story.id}/scenes`, { data: { name } })).json())
   }
-  await request.post(`/api/scenes/${scenes[0]!.id}/exits`, { data: { toSceneId: scenes[1]!.id } })
+  // Phrased, because an Exit with no words is offered by the name of the Scene it
+  // leads to, and that is a Remark of its own.
+  const exit = await (await request.post(
+    `/api/scenes/${scenes[0]!.id}/exits`, { data: { toSceneId: scenes[1]!.id } })).json()
+  await request.patch(`/api/exits/${exit.id}`, { data: { text: 'Get off' } })
   for (const scene of scenes) {
     const shot = await (await request.post(`/api/scenes/${scene.id}/shots`)).json()
     await request.patch(`/api/shots/${shot.id}`, {
@@ -109,6 +113,31 @@ test('counts what it finds, and goes to the Scene a Remark names', async ({ page
   await openRemarks(page)
   await expect(found(page)).toContainText('No Exit arrives at The arrival')
 })
+
+test('reads the Flags the texts say: a name nearly right is named, a name exactly right is in use',
+  async ({ page, request, author }) => {
+    const story = await seedStory(author, 'A Story')
+    const arrival = await seedScene(story, 'The arrival')
+    const platform = await seedScene(story, 'The platform')
+    await seedExit(arrival.id, platform.id)
+    await seedFlags(arrival.id, { coat: 'on' })
+    await request.patch(`/api/shots/${platform.shots[0]!.id}`, { data: { text: '{Coat}' } })
+
+    await page.goto(`/stories/${story.id}`)
+    await writeScene(page, 'The arrival')
+    await openRemarks(page)
+
+    // Nearly named: the Remark names the Flag, and opens the Scene carrying the text.
+    await found(page).getByRole('button', { name: /only nearly names the Flag coat/ }).click()
+    await expect(page).toHaveURL(new RegExp(`scene=${platform.id}`))
+
+    // Said exactly, the Flag is used though no Condition tests it.
+    await request.patch(`/api/shots/${platform.shots[0]!.id}`, { data: { text: '{coat}' } })
+    await page.goto(`/stories/${story.id}`)
+    await openRemarks(page)
+    await expect(found(page)).not.toContainText('only nearly names')
+    await expect(found(page)).not.toContainText('sets the Flag coat')
+  })
 
 test('is opened and closed by naming it, like every other act of the bench',
   async ({ page, request }) => {

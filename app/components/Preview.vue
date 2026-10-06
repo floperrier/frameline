@@ -21,11 +21,13 @@
  * is worked out again from that Path — so a Reader's Reading carries no
  * inspection code to be kept switched off.
  */
-const { story, sceneWritten, change } = defineProps<{
+const { story, sceneWritten, shotRead, change } = defineProps<{
   /** The Story being written, which the reading is computed from as it is typed. */
   story: StoryInEditor
   /** The Scene the reading is stopped on, which is the one on the writing surface. */
   sceneWritten: string
+  /** The Shot of that Scene the reading opens standing on, where a beat's ▶ asked for one. */
+  shotRead?: string
   /** The one holder every write on this page goes through, which the order goes through too. */
   change: Change
 }>()
@@ -68,18 +70,49 @@ const reached = ref(true)
  * Author three Scenes in keeps what those Scenes set, and from the opening when
  * the Scene cannot be reached from where they are. The seed is carried into that
  * second search, because a Path found under another one would be another Reading.
+ *
+ * It hands back the Path that arrives there, because the Path handed down is read
+ * back only once the bench has drawn again, and a stand on a Shot is made from
+ * this one in the same tick.
  */
 function route() {
   if (standing.value === sceneWritten) {
     reached.value = true
-    return
+    return at.value
   }
 
   const found = pathTo(story, at.value, sceneWritten)
     ?? pathTo(story, opening(at.value.seed), sceneWritten)
   reached.value = !!found
   if (found) at.value = found
+  return found
 }
+
+/**
+ * The reading opened from a beat's own ▶: routed to its Scene as any Scene is,
+ * then stood on the beat in the same tick, so the Reading draws that Shot and
+ * none on the way to it. The pane is mounted afresh at every turn of the bench,
+ * so the beat is a frame drawn afresh too, and its arrival, its Movement and its
+ * Effects all play from their start — pressed again on the beat the Path already
+ * stands on, they play again.
+ *
+ * The Shot asked for is remembered once the pane is mounted, which is what lets
+ * the status line say it is not played as a change a screen reader announces.
+ * The ▶ went dark with the writing, so the focus goes to what the Reading
+ * puts the Reader on.
+ */
+const reel = useTemplateRef('reel')
+const asked = ref<string>()
+
+onMounted(async () => {
+  const found = route()
+  if (!shotRead) return
+
+  if (found) at.value = standOn(story, found, shotRead)
+  asked.value = shotRead
+  await nextTick()
+  reel.value?.land()
+})
 
 /**
  * The Reading moved somewhere the writing is not, and the writing asked to
@@ -91,8 +124,6 @@ function route() {
 watch(standing, (now) => {
   if (now && now !== sceneWritten) emit('moved', now)
 })
-
-onMounted(route)
 
 watch(() => sceneWritten, route)
 
@@ -115,8 +146,8 @@ const draws = computed(() =>
 /**
  * What the bench calls each Scene, which is what everything this pane says names
  * one by: the two marks that renumber a way on, the Scene the reading has not
- * reached, the Scenes the State says were entered, and the Exits a Condition is
- * hiding. This
+ * reached, where the reading stands, the Scenes the State says were entered, and
+ * the Exits a Condition is hiding. This
  * pane is the bench around the reading and never the reading itself — the frames
  * and the buttons a Reader would press are drawn by `Reading.vue`, in the words
  * the Author wrote — so two Scenes an Author called the same are numbered here
@@ -124,6 +155,7 @@ const draws = computed(() =>
  * `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
  */
 const names = computed(() => namesOnTheBench(story, t))
+const exits = computed(() => exitsOnTheBench(story, names.value))
 
 function sceneName(sceneId: string) {
   return sceneNamed(names.value, sceneId, t)
@@ -149,6 +181,32 @@ function placeOf(exit: Exit) {
  */
 const standsIn = computed(() => (standing.value ? sceneName(standing.value) : ''))
 
+/** The Scene the reading stands in, as the Author wrote it, which `skipped` reads too. */
+const scene = computed(() => story.scenes.find(({ id }) => id === standing.value))
+
+/**
+ * Where the reading stands, in the words the writing names the same Shot by, and
+ * said here because the Reader's frame says none of it — see
+ * `docs/adr/0054-the-reader-is-shown-what-the-author-wrote.md`. The Shot the
+ * frame holds is named by its Place in the Scene as written rather than in the
+ * run, so a Shot this Reading skips still holds its Place and this line agrees
+ * with the list of skipped Shots under it. Once the run has played out it names
+ * the last Shot of the run, which the frame still holds, and a Scene whose run
+ * holds nothing for this Reading is named alone.
+ *
+ * A plain line and not a live region: the beat is heard as the focus lands on
+ * the frame, and a region saying where it stands at every press would talk over
+ * it.
+ */
+const where = computed(() => {
+  const beat = shown.value.shot ?? shown.value.run.at(-1)
+  const place = scene.value?.shots.findIndex(({ id }) => id === beat?.id) ?? -1
+
+  return place < 0
+    ? standsIn.value
+    : t('editor.shotOfScene', { place: place + 1, scene: standsIn.value })
+})
+
 /**
  * The order the ways on are offered in, set here because this is the one screen
  * where the order means anything: they are buttons here and a list of Scene names
@@ -173,6 +231,7 @@ function moveWay(exit: Exit, step: -1 | 1) {
  */
 const flags = computed(() => Object.entries(shown.value.state.flags))
 const entered = computed(() => shown.value.state.entered)
+const taken = computed(() => shown.value.state.taken)
 
 /** What a Flag holds, and what stands in for a Flag holding the empty value. */
 function held(value: string) {
@@ -183,11 +242,15 @@ function held(value: string) {
  * The ways out of the Scene the Reading stands in that it is not being offered —
  * the Exits the engine filtered out, found by asking the engine's own predicate
  * rather than by testing the Conditions again here. Only where the Scene has
- * played out, because that is where the ways on are the question.
+ * played out, because that is where the ways on are the question — and not while
+ * the Scene's own Question stands, because then no Exit is offered at all and
+ * none of them is hidden: they wait on the answer, which the State does not hold
+ * yet, and an Exit that tests it would be listed as failing a test nobody has
+ * been given the chance to pass.
  */
 const hidden = computed(() => {
   const now = shown.value
-  if (now.shot) return []
+  if (now.shot || now.question) return []
 
   return ways.value.filter(exit => !holds(exit.conditions, now.state))
 })
@@ -195,24 +258,43 @@ const hidden = computed(() => {
 /**
  * The Shots of that Scene this Reading is not playing, named by the Place they
  * hold in the Scene the Author wrote — which is the number the writing surface
- * shows them under, and not the one the Reader's frame counts, because a skipped
+ * shows them under, and the one `where` names the Shot on screen by: a skipped
  * Shot has no place in the run at all. Standing beside the ways on for the same
  * reason: what a Condition is hiding is what an Author came to the reading to
  * find out.
+ *
+ * Read off the run rather than tested again against the State, because the State
+ * holds the answer of a Scene that asks while the run was judged against the one
+ * the Scene was arrived with. The run is the Scene's own Shots filtered, so a Shot
+ * absent from it is one the Reading skips.
  */
 const skipped = computed(() => {
   const now = shown.value
-  const scene = story.scenes.find(({ id }) => id === now.sceneId)
-  if (!scene) return []
+  if (!scene.value) return []
 
-  return scene.shots
+  return scene.value.shots
     .map((shot, place) => ({ shot, place: place + 1 }))
-    .filter(({ shot }) => !holds(shot.conditions, now.state))
+    .filter(({ shot }) => !now.run.includes(shot))
+})
+
+/**
+ * What the status line says: that the Scene being written is not reached, or that
+ * the Shot a ▶ asked for is one this Path does not play — said in a sentence,
+ * because the reading then stands on the next Shot that plays, and an Author
+ * watching it arrive would otherwise take it for the one they pressed. Nothing
+ * looks for a Path on which it would play. The Shot is among the skipped ones
+ * below too, with the tests it fails.
+ */
+const status = computed(() => {
+  if (!reached.value) return t('preview.notReached', { scene: sceneName(sceneWritten) })
+  const unplayed = skipped.value.find(({ shot }) => shot.id === asked.value)
+
+  return unplayed ? t('preview.notPlayed', { place: unplayed.place, scene: standsIn.value }) : ''
 })
 
 /** Which of the tests a hidden Exit or a skipped Shot carries this State fails, and by what. */
 function why(conditions: Condition[]) {
-  return unmet(conditions, shown.value.state, sceneName, t)
+  return unmet(conditions, shown.value.state, sceneName, id => exitCalled(exits.value.get(id), t), t)
 }
 </script>
 
@@ -235,14 +317,15 @@ function why(conditions: Condition[]) {
 
     <template v-else>
       <!-- A Scene nothing leads to yet: the reading stands where it got to, and
-           says so, rather than playing the Scene with no State behind it. The
+           says so, rather than playing the Scene with no State behind it. A Shot
+           asked for that this Path does not play is said here the same way. The
            element is in the document before it has anything to say, on one
            line so that Vue writes nothing at all into it: a live region
            announces a change to a node it already holds, never a node that
            arrives with its sentence inside it. -->
-      <p class="nothing" role="status">{{ reached ? '' : $t('preview.notReached', { scene: sceneName(sceneWritten) }) }}</p>
+      <p class="nothing" role="status">{{ status }}</p>
 
-      <Reading v-model:at="at" :story="story">
+      <Reading ref="reel" v-model:at="at" :story="story">
         <!-- The order the ways on are offered in, set on the buttons as they are
              read. A pair of controls rather than a drag, because an order that
              can only be set with a pointer is an order some Authors cannot set. -->
@@ -306,6 +389,8 @@ function why(conditions: Condition[]) {
           <span class="eyebrow">{{ $t('preview.bench') }}</span>
           <span class="aside">{{ $t('preview.benchNote') }}</span>
         </p>
+
+        <p v-if="where">{{ where }}</p>
 
         <!-- The one control on the bench, and no part of the Story: the same
              Reading at the same Path, read against another draw. Nothing moves,
@@ -379,6 +464,27 @@ function why(conditions: Condition[]) {
               </li>
             </ul>
           </div>
+
+          <div>
+            <p class="eyebrow">{{ $t('preview.exitsTaken') }}</p>
+            <!-- The Exits this Reading has taken, in the order it took them: the
+                 Path read back, which is what a question about an Exit asks of.
+                 Each is named the way the bench names it, and beside it the words
+                 as the Author wrote them, in the Story's own Language: a Flag said
+                 in them shows as its braces, because the bench quotes and the
+                 Reading says. Every id here is
+                 an Exit the Story still carries, because the walk only pushes
+                 Exits it found, so the lookups cannot miss. -->
+            <ul v-if="taken.length" class="taken">
+              <li v-for="exitId in taken" :key="exitId">
+                {{ $t('preview.exitTaken', exits.get(exitId)!) }}
+                <b :lang="story.language">{{
+                  exitNamed(story.exits.find(exit => exit.id === exitId)!, sceneName, t)
+                }}</b>
+              </li>
+            </ul>
+            <p v-else class="none">{{ $t('preview.noExitTaken') }}</p>
+          </div>
         </div>
       </section>
     </template>
@@ -393,9 +499,17 @@ function why(conditions: Condition[]) {
    `docs/adr/0043-a-story-is-written-as-one-document.md`. The reading is at the
    top because that is what the face is for, and the bench is pushed to the foot
    of it — a control desk under a screen, rather than a second card floating
-   halfway down an empty pane. */
+   halfway down an empty pane.
+
+   It is also the room a Shot laid out full covers, so it is a size container and
+   the frame is measured in its units rather than the window's: a frame one window
+   tall would run past the pane's foot. A size container is not sized by what it
+   holds, so the pane is given the height of the scroller it stands in, which is a
+   block and not a column it could grow in, and scrolls what it holds itself. */
 .preview {
   flex: 1;
+  container-type: size;
+  block-size: 100%;
   /* The containing block for what is inside it, for the reason the writing
      surface is one: see `Writing.vue`. */
   position: relative;
@@ -430,9 +544,11 @@ function why(conditions: Condition[]) {
 /* The reading is given the whole of the column's own width, none of the room the
    reading room pads itself out with — down here the desk under it is what ends
    the column — and whatever height is going, with the frame held in the middle of
-   it: a screen hangs in a room rather than resting on the top edge of one. */
+   it: a screen hangs in a room rather than resting on the top edge of one. Never
+   shorter than what it holds, so a Reading laid out full, which says how tall it
+   is at least, still grows past that with a text the room cannot carry. */
 .reading {
-  flex: 1;
+  flex: 1 0 auto;
   align-content: center;
   padding-block-end: 0;
 }
@@ -480,8 +596,8 @@ function why(conditions: Condition[]) {
   color: var(--grease);
 }
 
-/* Two lists side by side where there is room for two, and one under the other in
-   a narrow column. */
+/* Three lists side by side where there is room for them, and one under the other
+   in a narrow column. */
 .state {
   display: grid;
   gap: var(--s4);
@@ -492,7 +608,8 @@ function why(conditions: Condition[]) {
    contrast of a label, the value beside it in the machine's own light. The Scenes
    entered are a list of one thing apiece, so a line of it is only the light half. */
 .flags li,
-.entered li {
+.entered li,
+.taken li {
   display: flex;
   align-items: baseline;
   gap: var(--s2);
@@ -500,7 +617,8 @@ function why(conditions: Condition[]) {
 }
 
 .flags b,
-.entered b {
+.entered b,
+.taken b {
   color: var(--light);
   font-weight: 500;
 }
@@ -519,9 +637,9 @@ function why(conditions: Condition[]) {
   gap: var(--s2);
 }
 
-/* A Story with nowhere to start, or a Scene nothing leads to: a note where the
-   frame would be, in the voice the bench says the same of a Story with no Scene
-   in it. */
+/* A Story with nowhere to start, a Scene nothing leads to, or a Shot asked for
+   that this Path does not play: a note above the frame, in the voice the bench
+   says the same of a Story with no Scene in it. */
 .nothing {
   padding: var(--s3);
   border: 1px dashed var(--edge);

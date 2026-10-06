@@ -104,17 +104,30 @@ outright: the migration snapshots are the generator's to write.
 ## Tests
 
 `pnpm test` runs the Vitest suite over the modules that are pure functions: the
-Reading engine, what a Shot's image is read to be, the Conditions a request is
-allowed to write, the sequence of Places it renumbers a Scene by, the Scenes a
+Reading engine, down to how an Image moves while its Shot is on screen, what a
+Shot's image is read to be and which Images a Reading brings in before it needs
+them, the Conditions and the Effects
+a request is allowed to write, the shape a Shot's formatted text is held to at
+the request boundary and the markup-free renderer that draws it, the flicker a
+Reading draws held to three flashes
+in any second — its pattern read out of the Reading's stylesheet as source — the
+swipe a finger crossing the frame is read as, the sequence of Places a request renumbers a Scene by and the Place a frame let go of on the Contact Sheet lands at, the Scenes a
 Exit may land on, the columns a Story falls into and the order it is written in,
 the two message
-files held against each other, the language a refusal is phrased in, the Steps the
+files held against each other, the language a refusal is phrased in, where the driver sends a query, the Steps the
 bench asks a Story for — whose targets are held against the editor's template
-read as source — the Remarks the bench reads back out of a Story, and the two
+read as source — the Remarks the bench reads back out of a Story, what differs between a
+published Story's Edition and the Story as it is written, and the two
 Samples, that each holds together as a work and that the two of them are one
-shape in two languages. None of them needs a database, because none of them has
-one in reach. `pnpm test:e2e` runs
-Playwright against a built app and a real Neon branch — `docs/git-flow.md` says which branch.
+shape in two languages — and that the script that writes the works starts on
+Node as it stands, run with no Author so it stops before reaching for a
+database. None of them needs a database, because none of them has one in reach. `pnpm test:e2e` runs
+Playwright against a built app and the database `DATABASE_URL` names. Run it
+against the suite's own: `pnpm test:db` starts a Postgres and a proxy that speaks
+Neon's protocol (`compose.yaml`, Docker) and migrates them, then
+`DATABASE_URL=postgres://postgres:postgres@db.localtest.me:4445/main pnpm test:e2e`.
+CI does the same and never touches Neon, whose free quota is production's — see
+`docs/adr/0075-the-suite-brings-its-own-database.md`.
 
 ## Running the app
 

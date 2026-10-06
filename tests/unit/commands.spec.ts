@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { commandsReached, plainly, type Command } from '../../app/utils/commands'
+import { commandsReached, type Command } from '../../app/utils/commands'
+import { folded, plainly } from '../../shared/utils/scenes'
 
 /**
  * Which Commands a typed name reaches. The bar around this is a `<dialog>` and
@@ -66,5 +67,16 @@ describe('a name read plainly', () => {
 
   it('takes the mark off the letter it sits on and leaves the letter', () => {
     expect(plainly('Élan à côté')).toBe('elan a cote')
+  })
+})
+
+describe('a value read folded', () => {
+  it('reads plainly, trimmed, with every run of spaces one space', () => {
+    expect(folded('  Le   Café\tdu  Port ')).toBe('le cafe du port')
+  })
+
+  it('folds a value of spaces alone to the empty value, which is no value', () => {
+    expect(folded('   ')).toBe('')
+    expect(folded('')).toBe('')
   })
 })

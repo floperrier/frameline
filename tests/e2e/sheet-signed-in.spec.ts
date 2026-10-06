@@ -1,6 +1,7 @@
+import { readFileSync } from 'node:fs'
 import { expect } from '@playwright/test'
 import {
-  ONE_PIXEL, live, readShots, sceneNode, seedExit, seedScenes, seedStory, test,
+  ONE_PIXEL, live, readShots, sceneNode, seedExit, seedScenes, seedStory, test, toast,
 } from './author'
 import type { Author } from './author'
 import type { APIRequestContext, Page } from '@playwright/test'
@@ -20,6 +21,9 @@ import type { StoryInEditor } from '../../shared/utils/scenes'
  * `tests/unit/graph.spec.ts`, where `inDocumentOrder` is held against the boxes
  * the Graph draws. One walk answers both, so there is nothing to re-prove here.
  */
+
+/** A real landscape, because a press is read against the size the picture is drawn at. */
+const A_LANDSCAPE = readFileSync(new URL('../../demonstration/images/a-scene.webp', import.meta.url))
 
 /**
  * A Story written through the API the way an Author writes one: Scenes in the
@@ -624,7 +628,8 @@ test('lays the hidden span of the Shot under the hand out inside the pane that s
     // 1440 × 900. That is above the fold, which is why it cost the window nothing
     // yet, and why a page total would stay green with the cause still there. So
     // the claim is the cause, in the form #285 holds the Remarks in: every hidden
-    // span of the pane has the pane for `offsetParent`. One Shot with an Image is
+    // span of the pane beside the bands — the Description's label and the legend
+    // of the point — has the pane for `offsetParent`. One Shot with an Image is
     // the smallest Story that draws the pane with the field in it.
     const { story, scenes } = await sheetStory(request, [['The street', 1]])
     await request.put(`/api/shots/${scenes[0]!.shots[0]!.id}/image`, { data: ONE_PIXEL })
@@ -633,8 +638,190 @@ test('lays the hidden span of the Shot under the hand out inside the pane that s
     await page.goto(`/stories/${story.id}`)
     await live(page)
     await seeTheSheet(page)
-    await expect(page.locator('.sheet .shown input')).toBeVisible()
+    await expect(page.locator('.sheet .shown input[type=text]')).toBeVisible()
 
     expect(await page.locator('.sheet .shown .visually-hidden').evaluateAll(spans =>
-      spans.map(span => (span as HTMLElement).offsetParent?.className))).toEqual(['shown'])
+      spans.map(span => (span as HTMLElement).offsetParent?.className)))
+      .toEqual(['shown', 'shown'])
   })
+
+/** The crop point a Shot carries, read back past the page. */
+async function pointOf(request: APIRequestContext, storyId: string, at = 0) {
+  const { cropX, cropY } = (await reread(request, storyId)).scenes[0]!.shots[at]!
+
+  return { cropX, cropY }
+}
+
+test('presses the Image beside the bands to set the point it is cropped around',
+  async ({ page, request }) => {
+    const { story, scenes } = await sheetStory(request, [['The street', 1]])
+    await request.put(`/api/shots/${scenes[0]!.shots[0]!.id}/image`, { data: A_LANDSCAPE })
+
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto(`/stories/${story.id}`)
+    await live(page)
+    await seeTheSheet(page)
+
+    const print = page.locator('.sheet .shown .print.big')
+    const box = (await print.boundingBox())!
+    // The box of the press is the picture's: no letterbox to subtract.
+    expect(await print.locator('img').boundingBox()).toEqual(box)
+    await print.click({ position: { x: box.width * 0.25, y: box.height * 0.75 } })
+
+    await expect.poll(async () => (await pointOf(request, story.id)).cropX).toBeGreaterThanOrEqual(24)
+    const { cropX, cropY } = await pointOf(request, story.id)
+    expect(Math.abs(cropX - 25)).toBeLessThanOrEqual(1)
+    expect(Math.abs(cropY - 75)).toBeLessThanOrEqual(1)
+
+    // The ring is drawn there, and the band's own print crops around it.
+    await expect(page.locator('.sheet .shown .ring')).toHaveCSS('left', /\d/)
+    expect(await page.locator('.sheet .shown .ring').evaluate(ring => (ring as HTMLElement).style.left))
+      .toBe(`${cropX}%`)
+    expect(await page.locator('.sheet .frames img').evaluate(img => (img as HTMLElement).style.objectPosition))
+      .toBe(`${cropX}% ${cropY}%`)
+  })
+
+test('sets the point by two ranges, writing once per change and not per step',
+  async ({ page, request }) => {
+    const { story, scenes } = await sheetStory(request, [['The street', 2]])
+    await request.put(`/api/shots/${scenes[0]!.shots[0]!.id}/image`, { data: ONE_PIXEL })
+
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto(`/stories/${story.id}`)
+    await live(page)
+    const sheet = await seeTheSheet(page)
+
+    const across = sheet.getByLabel('Across', { exact: false })
+    const down = sheet.getByLabel('Down', { exact: false })
+    await across.fill('60')
+    await expect.poll(async () => (await pointOf(request, story.id)).cropX).toBe(60)
+    await down.fill('20')
+    await expect.poll(async () => (await pointOf(request, story.id)).cropY).toBe(20)
+    await expect(across).toHaveAttribute('aria-valuetext', '60%')
+
+    // The ring moves on `input`, and the band's print follows it.
+    await across.focus()
+    for (let at = 0; at < 10; at++) await page.keyboard.press('ArrowRight')
+    await page.keyboard.press('Tab')
+    await expect(sheet.locator('.ring')).toHaveJSProperty('style.left', '70%')
+    await expect.poll(async () => (await pointOf(request, story.id)).cropX).toBe(70)
+
+    // A drag across the range is one write: the ring moves along the way and the
+    // request waits for the hand to let go.
+    await page.waitForLoadState('networkidle')
+    const writes: string[] = []
+    page.on('request', (made) => {
+      if (made.method() === 'PATCH' && made.url().includes('/api/shots/')) writes.push(made.url())
+    })
+    const track = (await across.boundingBox())!
+    const mid = track.y + track.height / 2
+    await page.mouse.move(track.x + track.width * 0.5, mid)
+    await page.mouse.down()
+    await page.mouse.move(track.x + track.width * 0.3, mid, { steps: 8 })
+    await page.mouse.move(track.x + track.width * 0.1, mid, { steps: 8 })
+    expect(writes).toHaveLength(0)
+    await page.mouse.up()
+    await expect.poll(async () => (await pointOf(request, story.id)).cropX).toBeLessThan(20)
+    expect(writes).toHaveLength(1)
+  })
+
+test('offers no point to a Shot with no Image', async ({ page, request }) => {
+  const { story } = await sheetStory(request, [['The street', 1]])
+
+  await page.goto(`/stories/${story.id}`)
+  await live(page)
+  const sheet = await seeTheSheet(page)
+
+  await expect(sheet.locator('.shown')).toBeVisible()
+  await expect(sheet.getByRole('slider')).toHaveCount(0)
+  await expect(sheet.getByText('Press the Image on what must stay in view')).toHaveCount(0)
+  await expect(sheet.locator('.ring')).toHaveCount(0)
+  await expect(sheet.getByText('This Shot carries no words.')).toBeVisible()
+})
+
+/**
+ * Where the gap before a frame is, for a drag to be let go in: the leading edge
+ * of the frame, which is its first half and so the gap before it — issue #440.
+ */
+async function before(target: ReturnType<typeof frame>) {
+  const box = (await target.boundingBox())!
+  return { targetPosition: { x: 2, y: box.height / 2 } }
+}
+
+/** The ids of a Scene's rows as the document draws them, under the numbers it draws beside them. */
+function rows(page: Page, sceneId: string) {
+  return page.locator(`#scene-${sceneId} li.handed[data-shot]`).evaluateAll(drawn => drawn.map(row =>
+    [row.querySelector('.numbered')?.textContent?.trim(), (row as HTMLElement).dataset.shot]))
+}
+
+test('carries a frame to any Place by dragging it, in its own band or into another', async ({ page, request }) => {
+  const { story, scenes: [street, bar] } = await sheetStory(request, [['The street', 4], ['The bar', 2]])
+  const [s1, s2, s3, s4] = street!.shots.map(shot => shot.id)
+  const [b1, b2] = bar!.shots.map(shot => shot.id)
+  expect((await request.put(`/api/shots/${s1}/image`, { data: ONE_PIXEL })).ok()).toBeTruthy()
+  expect((await request.put(`/api/shots/${s1}/conditions`, {
+    data: { conditions: [{ flag: 'coat', is: 'red' }] },
+  })).ok()).toBeTruthy()
+
+  await page.goto(`/stories/${story.id}`)
+  await live(page)
+  await seeTheSheet(page)
+
+  // The fourth frame of the street, let go before the first: one renumbering.
+  const fourth = frame(page, 'Shot 4 of The street — no Image yet')
+  await fourth.dragTo(frame(page, 'Shot 1 of The street'), await before(frame(page, 'Shot 1 of The street')))
+  await expect(toast(page)).toHaveText('Shot 4 of The street is now Shot 1')
+  await expect(readShots(street!.id)).resolves.toMatchObject([
+    { id: s4, position: 0 }, { id: s1, position: 1 }, { id: s2, position: 2 }, { id: s3, position: 3 },
+  ])
+  await expect(frame(page, 'Shot 1 of The street — no Image yet')).toHaveAttribute('id', `frame-${s4}`)
+  await expect(frame(page, 'Shot 1 of The street — no Image yet')).toHaveAttribute('aria-current', 'true')
+
+  // Let go between the bar's first two frames: one move, and Shot 2 there.
+  const carried = frame(page, 'Shot 2 of The street')
+  const into = frame(page, 'Shot 2 of The bar — no Image yet')
+  await carried.dragTo(into, await before(into))
+  await expect(toast(page)).toHaveText('Shot 2 of The street moved to The bar, as Shot 2')
+  await expect(readShots(bar!.id)).resolves.toMatchObject([
+    { id: b1, position: 0 }, { id: s1, position: 1 }, { id: b2, position: 2 },
+  ])
+  await expect(readShots(street!.id)).resolves.toMatchObject([
+    { id: s4, position: 0 }, { id: s2, position: 1 }, { id: s3, position: 2 },
+  ])
+  await expect(frame(page, 'Shot 2 of The bar')).toHaveAttribute('aria-current', 'true')
+  const moved = (await reread(request, story.id)).scenes.find(scene => scene.id === bar!.id)!.shots[1]!
+  expect(moved).toMatchObject({ id: s1, conditions: [{ flag: 'coat', is: 'red' }] })
+  expect(await (await request.get(`/api/shots/${s1}/image`)).body()).toEqual(ONE_PIXEL)
+
+  // The document numbers the runs as the sheet left them.
+  await page.getByRole('button', { name: 'Write the Scene' }).click()
+  expect(await rows(page, street!.id)).toEqual([['1', s4], ['2', s2], ['3', s3]])
+  expect(await rows(page, bar!.id)).toEqual([['1', b1], ['2', s1], ['3', b2]])
+})
+
+test('writes nothing for a frame let go on its own Place, and says a refusal under the Story', async ({ page, request }) => {
+  const { story, scenes: [street, bar] } = await sheetStory(request, [['The street', 2], ['The bar', 0]])
+  const [s1, s2] = street!.shots.map(shot => shot.id)
+
+  await page.goto(`/stories/${story.id}`)
+  await live(page)
+  const sheet = await seeTheSheet(page)
+
+  const written: string[] = []
+  page.on('request', (sent) => {
+    if (sent.method() !== 'GET') written.push(sent.url())
+  })
+  const second = frame(page, 'Shot 2 of The street — no Image yet')
+  await second.dragTo(second)
+  await frame(page, 'Shot 1 of The street — no Image yet')
+    .dragTo(second, await before(second))
+  expect(written).toEqual([])
+
+  // A Shot deleted meanwhile: the move is refused under the Story's edge, and the
+  // sheet draws the order the server holds.
+  expect((await request.delete(`/api/shots/${s2}`)).ok()).toBeTruthy()
+  await second.dragTo(sheet.locator(`[data-band="${bar!.id}"] .none`))
+  await expect(page.getByRole('alert').filter({ hasText: 'No such Shot.' })).toBeVisible()
+  await expect(frames(page)).toHaveCount(1)
+  await expect(readShots(street!.id)).resolves.toMatchObject([{ id: s1, position: 0 }])
+})

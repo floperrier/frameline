@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import en from '../../i18n/locales/en.json'
 import fr from '../../i18n/locales/fr.json'
@@ -21,6 +22,37 @@ function keysOf(messages: object, under = ''): string[] {
 describe('the message files', () => {
   it('carry the same keys, all the way down', () => {
     expect(keysOf(fr).sort()).toEqual(keysOf(en).sort())
+  })
+
+  /**
+   * A key written twice in one object is no error to JSON: the second replaces the
+   * first without a word, so every test here reads a file that looks whole while
+   * one of the two sentences is never shown. Two features that each named a
+   * message `editor.textArrives` merged into exactly that, and the bench put the
+   * Effect's label over the Scene's `<select>`. So the source is read as text, a
+   * key a line and two spaces a level, which is how the pre-commit hook writes it.
+   */
+  it('write no key twice in one object', () => {
+    for (const file of ['en', 'fr']) {
+      const path: string[] = []
+      const seen = new Set<string>()
+      const doubled: string[] = []
+
+      for (const line of readFileSync(`i18n/locales/${file}.json`, 'utf8').split('\n')) {
+        const found = /^( *)"([^"]+)":/.exec(line)
+        if (!found) continue
+
+        const depth = found[1]!.length / 2 - 1
+        path.length = depth
+        path[depth] = found[2]!
+
+        const key = `${file}: ${path.join('.')}`
+        if (seen.has(key)) doubled.push(key)
+        seen.add(key)
+      }
+
+      expect(doubled).toEqual([])
+    }
   })
 
   it('leave no message empty, in either language', () => {

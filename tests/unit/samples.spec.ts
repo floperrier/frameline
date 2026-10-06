@@ -7,7 +7,11 @@ import {
   imagePath,
   type SampleLanguage,
 } from '../../demonstration/samples.ts'
-import type { Work } from '../../demonstration/work.ts'
+import { wordsOf } from '../../demonstration/work.ts'
+import type { Work, WorkCondition } from '../../demonstration/work.ts'
+import { braced } from '../../shared/utils/reading.ts'
+import { linesOf } from '../../shared/utils/formatted.ts'
+import type { Formatted } from '../../shared/utils/formatted.ts'
 import {
   CONDITIONS_MAX,
   EXIT_TEXT_MAX_LENGTH,
@@ -18,7 +22,6 @@ import {
   SHOT_TEXT_MAX_LENGTH,
   imageTypeOf,
 } from '../../shared/utils/scenes.ts'
-import type { Condition } from '../../shared/utils/scenes.ts'
 import { STORY_LANGUAGES, STORY_TITLE_MAX_LENGTH } from '../../shared/utils/stories.ts'
 import { SOUND_LIBRARY } from '../../shared/utils/library.ts'
 
@@ -47,17 +50,35 @@ function conditionsOf(work: Work) {
   ]
 }
 
+/**
+ * The Flags a work holds a value under: those its Scenes set, and those its
+ * Questions hold the answer under.
+ */
+function heldIn(work: Work) {
+  return new Set(work.scenes.flatMap(scene => [
+    ...Object.keys(scene.sets ?? {}),
+    ...(scene.question && scene.questionFlag ? [scene.questionFlag] : []),
+  ]))
+}
+
+/** The Scene setting a Flag, or asking the Question whose answer it holds. */
+function holderOf(work: Work, flag: string) {
+  return work.scenes.find(scene => flag in (scene.sets ?? {}) || scene.questionFlag === flag)
+}
+
 /** Where a Scene comes in the work, which is how a Scene is named without its name. */
 function placeOf(work: Work, name: string) {
   return work.scenes.findIndex(scene => scene.name === name)
 }
 
 /**
- * A Condition as the two Samples can be compared by: the Scene it asks about, or
- * the Scene whose Flag it tests, each by its Place in the work rather than by its
- * name, and whether the test asks for a value or for the absence of one.
+ * A Condition as the two Samples can be compared by: the Scene it asks about, the
+ * Scene the Exit it asks about leaves, or the Scene whose Flag it tests, each by
+ * its Place in the work rather than by its name, and whether the test asks for a
+ * value or for the absence of one. An Exit is already named by its Place, which
+ * the two languages share.
  */
-function shapeOfCondition(work: Work, condition: Condition) {
+function shapeOfCondition(work: Work, condition: WorkCondition) {
   if ('scene' in condition) {
     return {
       entered: 'entered' in condition && condition.entered,
@@ -65,9 +86,36 @@ function shapeOfCondition(work: Work, condition: Condition) {
     }
   }
 
+  if ('exit' in condition) {
+    return {
+      taken: condition.taken,
+      from: placeOf(work, condition.exit.from),
+      place: condition.exit.place,
+    }
+  }
+
   return {
-    setBy: work.scenes.findIndex(scene => condition.flag in (scene.sets ?? {})),
-    asks: condition.is === '' ? 'nothing' : 'a value',
+    setBy: work.scenes.findIndex(scene => scene === holderOf(work, condition.flag)),
+    asks: 'is' in condition
+      ? condition.is === '' ? 'nothing' : 'a value'
+      : condition.isNot === '' ? 'anything' : 'anything but a value',
+  }
+}
+
+/**
+ * What a formatted text is made of, with the words taken out: the kinds of block
+ * in order, and the kinds of style on its runs, sorted. Two Samples that set
+ * their cards alike agree here whatever the language the words are in.
+ */
+function setOf(shot: { formatted?: Formatted }) {
+  const value = shot.formatted
+  if (!value) return null
+  return {
+    blocks: value.content.map(block => block.type),
+    styles: [...new Set(linesOf(value).flat().flatMap(inline =>
+      inline.type === 'text'
+        ? (inline.marks ?? []).map(mark => mark.type === 'face' ? `face:${mark.attrs.face}` : mark.type === 'arrives' || mark.type === 'lasts' ? `${mark.type}:${mark.attrs.effect}` : mark.type)
+        : ['redaction']))].sort(),
   }
 }
 
@@ -87,21 +135,48 @@ function shapeOf(work: Work) {
     language: Boolean(work.language),
     opening: placeOf(work, work.opening ?? ''),
     scenes: work.scenes.map(scene => ({
-      sets: Object.keys(scene.sets ?? {}).length,
+      sets: Object.values(scene.sets ?? {}).map(held => [held].flat().length),
       sound: scene.sound,
       transcribed: Boolean(scene.transcript),
+      layout: scene.layout,
       cutAfter: scene.cutAfter,
       cutOver: scene.cutOver,
       cutThrough: scene.cutThrough,
       exitsAfter: scene.exitsAfter,
+      textAfter: scene.textAfter,
+      textBy: scene.textBy,
+      textPace: scene.textPace,
+      textOver: scene.textOver,
+      textStays: scene.textStays,
+      movementBy: scene.movementBy,
+      movementDirection: scene.movementDirection,
+      movementOver: scene.movementOver,
+      asks: Boolean(scene.question && scene.questionFlag),
       shots: scene.shots.map(shot => ({
         image: shot.image,
         described: Boolean(shot.description),
+        said: braced(wordsOf(shot)).length,
+        set: setOf(shot),
+        layout: shot.layout,
+        cropX: shot.cropX,
+        cropY: shot.cropY,
         sound: shot.sound,
         transcribed: Boolean(shot.transcript),
         cutAfter: shot.cutAfter,
         cutOver: shot.cutOver,
         cutThrough: shot.cutThrough,
+        imageArrives: shot.imageArrives,
+        imageLasts: shot.imageLasts,
+        textArrives: shot.textArrives,
+        textLasts: shot.textLasts,
+        textAfter: shot.textAfter,
+        textBy: shot.textBy,
+        textPace: shot.textPace,
+        textOver: shot.textOver,
+        textStays: shot.textStays,
+        movementBy: shot.movementBy,
+        movementDirection: shot.movementDirection,
+        movementOver: shot.movementOver,
         when: (shot.when ?? []).map(condition => shapeOfCondition(work, condition)),
       })),
     })),
@@ -123,18 +198,19 @@ function textOf(work: Work) {
     ...work.scenes.flatMap(scene => [
       scene.name,
       scene.transcript ?? '',
-      ...scene.shots.flatMap(shot => [shot.text, shot.description ?? '', shot.transcript ?? '']),
+      scene.question ?? '',
+      ...scene.shots.flatMap(shot => [wordsOf(shot), shot.description ?? '', shot.transcript ?? '']),
     ]),
   ].filter(Boolean)
 }
 
 /**
- * The Scenes a Reading can reach without ever entering one of them, taking only
- * the ways on that are offered to everybody. Under-counting on purpose: an Exit
- * carrying Conditions might be offered too, and a route that needs none is the
- * one an Author is certain to find.
+ * The Scenes a Reading can reach without ever entering one of them, or without
+ * ever taking one way on, taking only the ways on that are offered to everybody.
+ * Under-counting on purpose: an Exit carrying Conditions might be offered too,
+ * and a route that needs none is the one an Author is certain to find.
  */
-function reachedWithout(work: Work, avoiding: string) {
+function reachedWithout(work: Work, avoiding: string | Work['exits'][number]) {
   const reached = new Set<string>()
   const walking = [work.opening ?? work.scenes[0]!.name]
 
@@ -144,11 +220,16 @@ function reachedWithout(work: Work, avoiding: string) {
 
     reached.add(scene)
     walking.push(...work.exits
-      .filter(exit => exit.from === scene && !exit.when?.length)
+      .filter(exit => exit.from === scene && exit !== avoiding && !exit.when?.length)
       .map(exit => exit.to))
   }
 
   return reached
+}
+
+/** The way on a work names by the Scene it leaves and its Place there, counted from 1. */
+function exitAt(work: Work, { from, place }: { from: string, place: number }) {
+  return work.exits.filter(exit => exit.from === from)[place - 1]
 }
 
 describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLanguage) => {
@@ -170,7 +251,7 @@ describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLan
     for (const scene of sample.scenes) {
       expect(scene.shots.length).toBeGreaterThan(0)
       // A Shot with neither text nor an image is one nobody has written yet.
-      for (const shot of scene.shots) expect(shot.text || shot.image).toBeTruthy()
+      for (const shot of scene.shots) expect(wordsOf(shot) || shot.image).toBeTruthy()
     }
   })
 
@@ -182,6 +263,23 @@ describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLan
 
     expect(set.length).toBeGreaterThan(0)
     expect(tested.length).toBeGreaterThan(0)
+  })
+
+  it('draws a Flag on entry to a Scene, and says it in a text', () => {
+    const drawn = sample.scenes.flatMap(scene =>
+      Object.entries(scene.sets ?? {}).filter(([, held]) => Array.isArray(held)).map(([name]) => name))
+    const said = sample.scenes.flatMap(scene => scene.shots.flatMap(shot => braced(wordsOf(shot))))
+
+    expect(drawn.length).toBeGreaterThan(0)
+    expect(drawn.some(name => said.includes(name))).toBe(true)
+  })
+
+  it('names, in every run between braces, a Flag some Scene sets or a Question holds', () => {
+    const set = heldIn(sample)
+
+    for (const line of textOf(sample)) {
+      for (const name of braced(line)) expect(set).toContain(name)
+    }
   })
 
   it('asks about a Scene somewhere, so a Condition needing no Flag is met', () => {
@@ -197,8 +295,13 @@ describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLan
     }
   })
 
-  it('names, in every Condition testing a Flag, a Flag some Scene sets', () => {
-    const set = new Set(sample.scenes.flatMap(scene => Object.keys(scene.sets ?? {})))
+  it('asks about an Exit somewhere, so a Condition remembering an answer is met', () => {
+    expect(conditionsOf(sample).filter(condition => 'exit' in condition).length)
+      .toBeGreaterThan(0)
+  })
+
+  it('names, in every Condition testing a Flag, a Flag some Scene sets or a Question holds', () => {
+    const set = heldIn(sample)
 
     for (const condition of conditionsOf(sample)) {
       if ('flag' in condition) expect(set).toContain(condition.flag)
@@ -215,11 +318,57 @@ describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLan
         for (const condition of shot.when ?? []) {
           if (!('flag' in condition)) continue
 
-          const setter = sample.scenes.find(other => condition.flag in (other.sets ?? {}))!
+          const setter = holderOf(sample, condition.flag)!
           expect(reachedWithout(sample, setter.name)).toContain(scene.name)
         }
       }
     }
+  })
+
+  it('asks about an Exit on a Shot a Reading can arrive without taking it', () => {
+    // The same lesson as the Flag's: a Shot every Reading arrives at by the Exit
+    // it asks about is a Shot nobody watches the question fail on. So the Scene
+    // it is in has to be entered by another way on too.
+    for (const scene of sample.scenes) {
+      for (const shot of scene.shots) {
+        for (const condition of shot.when ?? []) {
+          if (!('exit' in condition)) continue
+
+          const asked = exitAt(sample, condition.exit)
+          expect(asked).toBeDefined()
+          expect(reachedWithout(sample, asked!)).toContain(scene.name)
+        }
+      }
+    }
+  })
+
+  it('ends a Scene on a Question, whose answer the next Scene says and a Shot waits on', () => {
+    const asking = sample.scenes.filter(scene => scene.question && scene.questionFlag)
+    expect(asking).toHaveLength(1)
+
+    const [scene] = asking
+    const flag = scene!.questionFlag!
+    const next = sample.exits.filter(exit => exit.from === scene!.name).map(exit => exit.to)
+    // Asked where a way on is offered, so the Question is put at all.
+    expect(next.length).toBeGreaterThan(0)
+
+    const shots = sample.scenes.filter(other => next.includes(other.name))
+      .flatMap(other => other.shots)
+    const waiting = shots.filter(shot => shot.when?.some(condition =>
+      'is' in condition && condition.flag === flag && condition.is !== ''))
+    expect(waiting).toHaveLength(1)
+    // The Shot waiting on the answer says it, between braces.
+    expect(braced(wordsOf(waiting[0]!))).toContain(flag)
+
+    // And right after it, the one played to any other answer — one given, and not
+    // the one waited on — says it too, so a wrong answer is answered as well.
+    const right = waiting[0]!.when!.find(condition => 'is' in condition)!
+    const wrong = shots[shots.indexOf(waiting[0]!) + 1]!
+    expect(wrong.when).toEqual(expect.arrayContaining([
+      { flag, isNot: 'is' in right ? right.is : '' },
+      { flag, isNot: '' },
+    ]))
+    expect(braced(wordsOf(wrong))).toContain(flag)
   })
 
   it('ends once, and never by a Condition that did not hold', () => {
@@ -272,7 +421,7 @@ describe.each(SAMPLE_LANGUAGES)('the Sample written in %s', (language: SampleLan
       expect(Object.keys(scene.sets ?? {}).length).toBeLessThanOrEqual(FLAGS_PER_SCENE)
 
       for (const shot of scene.shots) {
-        expect(shot.text.length).toBeLessThanOrEqual(SHOT_TEXT_MAX_LENGTH)
+        expect(wordsOf(shot).length).toBeLessThanOrEqual(SHOT_TEXT_MAX_LENGTH)
         expect((shot.description ?? '').length).toBeLessThanOrEqual(SHOT_DESCRIPTION_MAX_LENGTH)
         expect(shot.when?.length ?? 0).toBeLessThanOrEqual(CONDITIONS_MAX)
       }

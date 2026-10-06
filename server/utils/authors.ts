@@ -1,6 +1,6 @@
 import { eq, sql } from 'drizzle-orm'
 import type { H3Event } from 'h3'
-import { authors } from '../db/schema'
+import { authors, stories } from '../db/schema'
 import { useDb } from '../db'
 
 /**
@@ -61,10 +61,19 @@ export async function signInAuthor(
   // before the session is sealed so the account's first `Stories` page has it.
   // It never refuses: see `plantSample`.
   if (created) {
-    await plantSample(created.id, localeOf(
+    const sample = await plantSample(created.id, localeOf(
       getRequestHeader(event, 'accept-language'),
       getCookie(event, LOCALE_COOKIE),
     ))
+
+    // A Sample arrives published, so it arrives with the Edition Readers read
+    // too: the bench compares it from its first load. A refusal leaves it to the
+    // first read, as before, and never refuses the sign-in.
+    if (sample) {
+      await takeEdition(sample, sql`${stories.edition} is null`).catch((failure) => {
+        console.error('Taking a Sample\'s Edition failed:', failure)
+      })
+    }
   }
 
   await setUserSession(event, {

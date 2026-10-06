@@ -1,4 +1,5 @@
-import { and, eq, isNotNull } from 'drizzle-orm'
+import { and, eq, isNotNull, sql } from 'drizzle-orm'
+import type { H3Event } from 'h3'
 import { authors, stories } from '../../db/schema'
 import { useDb } from '../../db'
 
@@ -7,6 +8,12 @@ import { useDb } from '../../db'
  * Whether it is published is part of the lookup rather than a check after it, so
  * an unpublished Story cannot be answered by mistake: it gets the same not-found
  * as an id nobody ever wrote.
+ *
+ * What is read is the edition its Author last published, and not the rows the
+ * bench is writing: a Reader never meets a Shot half typed — see
+ * `docs/adr/0069-a-published-story-is-read-as-it-was-published.md`. What presents
+ * it — the title, the Synopsis, the Language, the Cover and the Author's Name — is
+ * read live beside it, as every shelf reads it.
  *
  * A Reading is not stored anywhere. The Reader is handed the Story and keeps
  * their own Path in it, which is why two Readers of one Story can never
@@ -25,51 +32,58 @@ export default defineEventHandler(async (event) => {
     .select({
       id: stories.id,
       title: stories.title,
+      // Not drawn on the page: it is what the link is presented by where it is
+      // pasted, which is where the Story meets somebody who has not read it.
+      synopsis: stories.synopsis,
       language: stories.language,
-      openingSceneId: stories.openingSceneId,
-      stepsBack: stories.stepsBack,
+      edition: stories.edition,
       // The title card wears the same Image the shelf did, so a Reader arrives
       // where the entry they pressed said they would.
-      cover: coverShotOf,
+      coverShotId: coverShotOf,
+      cropX: coverShot.cropX,
+      cropY: coverShot.cropY,
       authorId: authors.id,
       authorName: authors.name,
     })
     .from(stories)
     .innerJoin(authors, eq(stories.authorId, authors.id))
+    .leftJoin(coverShot, sql`${coverShot.id} = ${coverShotOf}`)
     .where(and(eq(stories.id, id), isNotNull(stories.publishedAt)))
 
   if (!story) throw notFound(event, 'Story')
 
-  const { scenes, exits } = await readStoryGraph(id)
-
-  // Where the Author put a Scene's node in the graph is none of a Reading's
-  // business, so it does not leave the editor. `readStoryGraph` is read by both
-  // doors, so what keeps it in is this door naming the fields a Scene leaves by,
-  // and not that query happening to select nothing else: a column added there
-  // for the bench stays behind it until somebody names it here, and a name added
-  // here that a Reading has no business with is refused by `StoryToShow`, which
-  // is the shape the Reader's page reads the answer as.
-  //
-  // The Cut is part of `readStoryGraph` itself now, so a Scene and a Shot
-  // arrive already carrying it — nothing here resolves it, that is `cut()`'s
-  // job for whoever plays the Reading.
-  const forTheReading = scenes.map(({
-    id, name, sets, shots, sound, soundOfSceneId, transcript, soundLoops,
-    cutAfter, cutOver, cutThrough, exitsAfter,
-  }): StoryToShow['scenes'][number] => ({
-    id, name, sets, shots, sound, soundOfSceneId, transcript, soundLoops,
-    cutAfter, cutOver, cutThrough, exitsAfter,
-  }))
+  // The Cover leaves as one object, the Image and its point together, so the
+  // columns it was read from are not sent beside it.
+  const { coverShotId, cropX, cropY, edition: kept, ...rest } = story
+  const edition = kept ?? await editionOnFirstRead(event, id)
 
   // Whether the Story carries a Sound anywhere, which is what makes the title
   // card a control: a Reader who presses it consents to being played something,
   // and a browser will not play into a page nobody has touched. Read off the
-  // addresses the graph already carries, so no query touches the bytes.
+  // addresses the edition already carries, so no query touches the bytes.
   return {
-    ...story,
-    cover: coverUrl(story.cover),
-    carriesSound: carriesSound({ scenes: forTheReading }),
-    scenes: forTheReading,
-    exits,
+    ...rest,
+    ...edition,
+    cover: coverFor({ coverShotId, cropX, cropY }),
+    carriesSound: carriesSound(edition),
   }
 })
+
+/**
+ * A Story published before editions existed has none until somebody reads it, and
+ * is given one then, so its Readers see no change. Two first reads at once both
+ * try; whichever writes second finds the other's. A Story that moved under the
+ * attempt is asked for again.
+ */
+async function editionOnFirstRead(event: H3Event, id: string) {
+  const taken = await takeEdition(
+    id, sql`${stories.publishedAt} is not null and ${stories.edition} is null`)
+  if (taken) return taken.edition
+
+  const [story] = await useDb().select({ edition: stories.edition }).from(stories)
+    .where(and(eq(stories.id, id), isNotNull(stories.publishedAt)))
+  if (!story) throw notFound(event, 'Story')
+  if (story.edition) return story.edition
+
+  throw createError({ statusCode: 409, message: saying(event)('refusals.editionMoved') })
+}

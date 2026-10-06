@@ -15,8 +15,16 @@
  * and not the entry's: the slot is where a surface puts its own gesture —
  * gathering it on the Catalogue, taking it off a List — and a page passing none
  * draws a row with nothing but the work on it.
+ *
+ * The Author's own shelf is the one that tells the entry more. Its title leads
+ * to the bench rather than to the Reading, which is what `to` says, and it adds
+ * where the Story stands to the facts — published or not, Listed, what was said
+ * under it — through the `facts` slot. Every other shelf passes neither, so
+ * none of them can lead anywhere but the Reading or draw a count.
  */
-const { story } = defineProps<{
+const { story, to } = defineProps<{
+  /** Where the title leads; the Reading, unless the shelf says otherwise. */
+  to?: string
   story: {
     id: string
     title: string
@@ -25,8 +33,8 @@ const { story } = defineProps<{
     publishedAt: string | null
     authorId?: string
     authorName?: string | null
-    /** The address of the Image the Story is presented by, or none. */
-    cover?: string | null
+    /** The Image the Story is presented by and its crop point, or none. */
+    cover?: Cover | null
   }
 }>()
 
@@ -42,8 +50,15 @@ const localePath = useLocalePath()
          Decorative beside the title that names the work, so it says nothing of
          its own: a Reader who cannot see it meets the Shot's Description when
          they read. -->
-    <img v-if="story.cover" class="cover" :src="story.cover" alt="" loading="lazy">
-    <NuxtLink class="open" :to="`/read/${story.id}`" :lang="story.language">
+    <img
+      v-if="story.cover"
+      class="cover"
+      :src="story.cover.image"
+      :style="{ objectPosition: cropPosition(story.cover) }"
+      alt=""
+      loading="lazy"
+    >
+    <NuxtLink class="open" :to="to ?? `/read/${story.id}`" :lang="story.language">
       {{ story.title }}
     </NuxtLink>
     <!-- The Synopsis in the Author's own words, so it is set in the Language the
@@ -66,6 +81,7 @@ const localePath = useLocalePath()
       <time v-if="story.publishedAt" class="eyebrow" :datetime="story.publishedAt">
         {{ published.format(new Date(story.publishedAt)) }}
       </time>
+      <slot name="facts" />
     </p>
     <div v-if="$slots.default" class="doing">
       <slot />

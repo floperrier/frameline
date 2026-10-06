@@ -4,7 +4,7 @@ import { CONDITIONS_MAX, SCENE_NAME_MAX_LENGTH } from '../../shared/utils/scenes
 import type { StoryInEditor } from '../../shared/utils/scenes'
 import {
   A_SOUND, ONE_PIXEL, writeScene, readExits, readSceneName, readShotConditions, readShots,
-  seedFlags, seedExit, seedScene, seedStory, test, toast,
+  seedFlags, seedExit, seedScene, seedStory, shotText, test, toast, unfold, writeShot,
 } from './author'
 
 const noId = '00000000-0000-4000-8000-000000000000'
@@ -158,12 +158,14 @@ async function sweptUnder(page: Page, sceneId: string, winds = 60, step = 8) {
         }
       }
 
-      for (const control of section.querySelectorAll('input, textarea, button, select, a')) {
+      for (const control of section.querySelectorAll('input, [role="textbox"], button, select, a')) {
         // A control the interface hides from the eye — the field an Image is
         // chosen in, which its own label is drawn in place of — is not a control
         // a pointer is aimed at, and the point at its middle is a point in
-        // whatever stands over it.
+        // whatever stands over it. Nor is one a shut fold keeps undrawn, whose box
+        // is nothing and whose middle is a point in whatever stands at the corner.
         if (control.classList.contains('visually-hidden')) continue
+        if (!control.checkVisibility()) continue
 
         const box = control.getBoundingClientRect()
         const middle = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
@@ -423,7 +425,7 @@ test('an Author renumbers the Shots of a Scene from the controls', async ({ page
   // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`, so the reload
   // comes back to it and there is nothing to open again.
   await page.reload()
-  await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('Second')
+  await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveText('Second')
 })
 
 test('a Shot’s three controls are marks on one line', async ({ page, request }) => {
@@ -526,7 +528,7 @@ test('the Story page shows a Scene and the Shots in it', async ({ page, request 
   // the moment the page is: a heading, and the run of Shots under it.
   await expect(page.getByRole('heading', { name: 'The arrival' })).toBeVisible()
   await writeScene(page, 'The arrival')
-  await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveValue('She steps off the train.')
+  await expect(page.getByRole('textbox', { name: 'Shot 1' })).toHaveText('She steps off the train.')
 
   await page.getByRole('button', { name: 'Add a Shot' }).click()
   await expect(page.getByRole('textbox', { name: 'Shot 2' })).toBeVisible()
@@ -546,13 +548,17 @@ test('everything a Scene holds is on the surface at once, each part counted',
     // so what is asked about one Scene is asked of that Scene's own section.
     const arrival = written(page, 'The arrival')
 
-    // The five parts of a Scene, in the order a Reader meets them, each headed
-    // and counted where it starts: the Flags set on entry, what it is heard
-    // under, how its run is cut, the run of beats, the ways on.
-    await expect(arrival.locator('.held > h3'))
-      .toHaveText([/Flags\s*1/, 'Sound', 'Cut', /Shots\s*2/, /Exits\s*1/])
+    // The parts of a Scene, in the order a Reader meets them, each headed and
+    // counted where it starts: the Flags set on entry, how it plays — what it is
+    // heard under, how its run is cut, how its texts arrive, how its Shots are
+    // laid out and how its Images move, folded to one line since #400 — the run
+    // of beats, the ways on. A Scene heard under nothing has no Sound to head:
+    // its picker is in the fold.
+    await expect(arrival.locator('.held > h3')).toHaveText([
+      /Flags\s*1/, 'How this Scene plays', /Shots\s*2/, /Exits\s*1/,
+    ])
 
-    // And all five are on the surface together, which is what taking the tabs
+    // And all of them are on the surface together, which is what taking the tabs
     // out bought: a Condition and the Flags that satisfy it are read at once.
     await expect(arrival.getByRole('textbox', { name: 'Shot 1 of The arrival', exact: true }))
       .toBeVisible()
@@ -563,7 +569,7 @@ test('everything a Scene holds is on the surface at once, each part counted',
 
     // The count follows the Story rather than the page it was drawn on.
     await arrival.getByRole('button', { name: 'Add a Shot' }).click()
-    await expect(arrival.locator('.held > h3').nth(3)).toHaveText(/Shots\s*3/)
+    await expect(arrival.locator('.held > h3').nth(2)).toHaveText(/Shots\s*3/)
   })
 
 test('a Scene is typed as one document, beat after beat', async ({ page, request }) => {
@@ -613,7 +619,7 @@ test('a Scene is typed as one document, beat after beat', async ({ page, request
   // Backspace at the head of an empty beat takes it away and puts the caret at
   // the end of the one before, the way it joins two paragraphs anywhere else.
   const second = page.getByRole('textbox', { name: 'Shot 2' })
-  await second.fill('')
+  await writeShot(second, '')
   await second.press('Backspace')
   await expect(page.getByRole('textbox', { name: 'Shot 1' })).toBeFocused()
   await expect.poll(() => readShots(scene.id)).toHaveLength(3)
@@ -627,7 +633,7 @@ test('a Scene is typed as one document, beat after beat', async ({ page, request
 
   // Shift held, it writes the second line of one beat rather than a second beat.
   await page.keyboard.press('Shift+Enter')
-  await expect.poll(() => page.getByRole('textbox', { name: 'Shot 1' }).inputValue())
+  await expect.poll(() => shotText(page.getByRole('textbox', { name: 'Shot 1' })))
     .toBe('She steps off the train.\n')
   await expect(page.getByRole('textbox', { name: 'Shot 4' })).toHaveCount(0)
 })
@@ -672,7 +678,7 @@ test('every Scene of the document is written where it stands', async ({ page, re
   // And so is a beat of the second, in the field that beat has of its own: one
   // field per Shot, over the whole document.
   const beat = shot(page, 1, 'The platform')
-  await beat.fill('The platform is bare.')
+  await writeShot(beat, 'The platform is bare.')
   await beat.blur()
   await expect.poll(() => readShots(platform!.id)).toMatchObject([{ text: 'The platform is bare.' }])
 })
@@ -862,14 +868,25 @@ test('renumbering and taking away a way on leave the words where the hand left t
     // nothing else; taking one away can only lengthen a Scene's distance or leave
     // it unreached, and a Scene nothing reaches is read after every column the
     // opening does. Both happen under the Author's hands, never over them.
+    //
+    // Each act is waited for on the page as well as in the Story, because the
+    // server holds the new order before the page has read it back and drawn it.
+    // Measured on the Story alone, the first measure was taken before anything had
+    // moved, and the press after it landed on rows being drawn in their new order:
+    // the button under the pointer was another row's, Playwright tried again, and
+    // its second try scrolls the button to the foot of the document — smoothly,
+    // which is the document's own scroll behaviour — and carries the words down
+    // with it. The press moved them, and nothing the bench did.
     await moveLaterButton.click()
     await expect.poll(async () => (await readExits(fifth.id)).map(way => way.toSceneId))
       .toEqual([scenes[6]!.id, scenes[5]!.id, scenes[7]!.id])
+    await expect(deleteButton).toHaveAccessibleName('Delete the Exit 1 to Seven, out of Five')
     await expect.poll(async () => Math.abs((await writing.boundingBox())!.y - before))
       .toBeLessThanOrEqual(2)
 
     await deleteButton.click()
     await expect.poll(async () => (await readExits(fifth.id)).length).toBe(2)
+    await expect(deleteButton).toHaveCount(0)
     await expect.poll(async () => Math.abs((await writing.boundingBox())!.y - before))
       .toBeLessThanOrEqual(2)
     await expect(writing).toBeInViewport()
@@ -921,12 +938,13 @@ test('the mark that moves where the Story opens is a tab stop on every Scene it 
   })
 
 /**
- * The Scene's own Sound section has an order too, and it is the order the section
+ * The Scene's own Sound picker has an order too, and it is the order the picker
  * is drawn in: the file of the Author's own first, then the list of what the
  * Story and the library already carry, then the two acts on what that list is
- * standing on. Held here because nothing else holds it — the section stands below
- * the Flags, so a control added to it breaks no walk and the next person to add
- * one would not know there was an order to keep.
+ * standing on. Held here because nothing else holds it — the picker stands in
+ * the fold of how the Scene plays, under the Flags, so a control added to it
+ * breaks no walk and the next person to add one would not know there was an order
+ * to keep.
  *
  * Walked twice, because *Listen* and *Take This Sound* both act on what the
  * `<select>` is standing on and do nothing at all on nothing: standing on nothing
@@ -937,6 +955,7 @@ test('the Sound a Scene is heard under is chosen in the order the section draws'
     const { story, scenes } = await chained(request, ['The arrival', 'The platform'])
     await page.goto(`/stories/${story.id}`)
     await expect(written(page, 'The arrival')).toBeVisible()
+    await unfold(page, 'The arrival')
 
     const section = sectionOf(page, scenes[0]!.id)
     const depositing = section.getByLabel('Upload a Sound for The arrival')
@@ -1368,25 +1387,25 @@ test('an Author writes a Story from the page alone', async ({ page, request }) =
     await page.getByRole('button', { name: 'Add a Shot' }).click()
     const beat = shot(page, place + 1)
     await expect(beat).toBeVisible()
-    await beat.fill(line)
+    await writeShot(beat, line)
     await beat.blur()
-    await expect(beat).toHaveValue(line)
+    await expect(beat).toHaveText(line)
   }
 
   await shot(page, 2).click()
   await page.getByRole('button', { name: 'Move Earlier Shot 2' }).click()
-  await expect(shot(page, 1)).toHaveValue('The platform is empty.')
-  await expect(shot(page, 2)).toHaveValue('She steps off the train.')
+  await expect(shot(page, 1)).toHaveText('The platform is empty.')
+  await expect(shot(page, 2)).toHaveText('She steps off the train.')
 
   // What the page shows has to be what was written, not what the page remembers.
   // The Scene being written is in the address since
   // `docs/adr/0029-writing-a-scene-is-a-state-of-the-bench.md`, so the reload
   // comes back to it and there is nothing to open again.
   await page.reload()
-  await expect(shot(page, 1)).toHaveValue('The platform is empty.')
+  await expect(shot(page, 1)).toHaveText('The platform is empty.')
 
   await page.getByRole('button', { name: 'Delete Shot 1' }).click()
-  await expect(shot(page, 1)).toHaveValue('She steps off the train.')
+  await expect(shot(page, 1)).toHaveText('She steps off the train.')
   await expect(shot(page, 2)).toHaveCount(0)
 
   // Deleting a Scene takes Shots and Exits with it, so it is asked about first —
@@ -1542,6 +1561,12 @@ test('a Shot’s Conditions are refused where an Exit’s would be', async ({
     data: { conditions: [{ scene: elsewhere.id, entered: true }] },
   })
   expect(outside.status()).toBe(404)
+  // And so is an Exit of theirs, which this Condition cannot ask about.
+  const theirExit = await seedExit(elsewhere.id, elsewhere.id)
+  const outsideExit = await request.put(`/api/shots/${shot!.id}/conditions`, {
+    data: { conditions: [{ exit: theirExit.id, taken: true }] },
+  })
+  expect(outsideExit.status()).toBe(404)
   const theirs = await request.put(`/api/shots/${elsewhere.shots[0]!.id}/conditions`, {
     data: { conditions: [{ flag: 'coat', is: 'on' }] },
   })

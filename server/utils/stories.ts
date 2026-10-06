@@ -1,7 +1,11 @@
 import { and, eq, isNotNull, sql } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 import type { H3Event } from 'h3'
 import { exits, scenes, shots, stories } from '../db/schema'
 import { useDb } from '../db'
+import type { Cover } from '../../shared/utils/stories'
+import { ALIGNS, FACES, formattedIn } from '../../shared/utils/formatted'
+import type { Align, Face } from '../../shared/utils/formatted'
 
 /**
  * Reads a Story title from the request body. A trust boundary: the title
@@ -88,18 +92,24 @@ export async function readStoryChanges(event: H3Event, storyId: string) {
     synopsis?: unknown
     coverShotId?: unknown
     stepsBack?: unknown
+    textFace?: unknown
+    textAlign?: unknown
   }>(event)
   const changes: {
     title?: string
     synopsis?: string
     coverShotId?: string | null
     stepsBack?: boolean
+    textFace?: Face
+    textAlign?: Align
   } = {}
 
   if (body?.title !== undefined) changes.title = await readStoryTitle(event)
   if (body?.synopsis !== undefined) changes.synopsis = await readStorySynopsis(event)
   if (body?.coverShotId !== undefined) changes.coverShotId = await readStoryCover(event, storyId)
   if (body?.stepsBack !== undefined) changes.stepsBack = await readStoryStepsBack(event)
+  if (body?.textFace !== undefined) changes.textFace = await readStoryText(event, 'textFace', FACES)
+  if (body?.textAlign !== undefined) changes.textAlign = await readStoryText(event, 'textAlign', ALIGNS)
   // Which is a title asked for, by the reader that phrases the refusal.
   if (!Object.keys(changes).length) await readStoryTitle(event)
 
@@ -123,6 +133,25 @@ export async function readStoryStepsBack(event: H3Event) {
 }
 
 /**
+ * Reads the face a Story's text is set in, or where its lines stand: one of a
+ * closed list, which is what the select that writes it offers and nothing else.
+ */
+async function readStoryText<T extends string>(
+  event: H3Event,
+  field: 'textFace' | 'textAlign',
+  options: readonly T[],
+) {
+  const body = await readBody<Record<string, unknown>>(event)
+  const held = body?.[field]
+
+  if (!options.includes(held as T)) {
+    throw createError({ statusCode: 400, message: saying(event)(`refusals.${field}`) })
+  }
+
+  return held as T
+}
+
+/**
  * The Shot whose Image presents a Story on a shelf, as one column of any query
  * over `stories`: the Cover the Author named where it still carries an Image, and
  * otherwise the first Shot of the Opening Scene that carries one. Null is a Story
@@ -139,9 +168,27 @@ export const coverShotOf = sql<string | null>`coalesce(
     order by ${shots.position} limit 1)
 )`
 
-/** The address of the Image a shelf shows for a Story, or null where it has none. */
-export function coverUrl(coverShotId: string | null) {
-  return coverShotId && shotImageUrl(coverShotId)
+/**
+ * The Shot `coverShotOf` names, joined once into the query it is selected by so
+ * the point its Image is cropped around arrives in the same round trip: a
+ * Catalogue of a hundred Stories is still one query. Left, because a Story
+ * presented by its words alone names none.
+ */
+export const coverShot = alias(shots, 'cover_shot')
+
+/**
+ * What a shelf shows a Story by: the address of the Image and the point it is
+ * cropped around, or null where it has none. One object rather than a point
+ * beside an address, so a Cover cannot be null beside a point that is not.
+ */
+export function coverFor(row: {
+  coverShotId: string | null
+  cropX: number | null
+  cropY: number | null
+}): Cover | null {
+  return row.coverShotId
+    ? { image: shotImageUrl(row.coverShotId), cropX: row.cropX ?? 50, cropY: row.cropY ?? 50 }
+    : null
 }
 
 /**
@@ -168,9 +215,9 @@ export async function readStoryLanguage(event: H3Event): Promise<StoryLanguage> 
  * and the Exits that join them. Shared because an Author's Story and a Reader's
  * are the same graph read by two different doors — a Preview and a Reading play
  * the same Story, so they cannot be assembled by two queries that could drift.
- * What it selects is the bench's own, and the Reader's door narrows it to the
- * fields a Reading reads: a column added here for the editor's sake reaches
- * `/api/stories/[id]` and stops there, until `/api/read/[id]` names it too.
+ * What it selects is the bench's own, and an edition narrows it to the fields a
+ * Reading reads: a column added here for the editor's sake reaches
+ * `/api/stories/[id]` and stops there, until `takeEdition` names it too.
  */
 export async function readStoryGraph(storyId: string) {
   // One pass over the join, so a Scene with no Shots still arrives (the Shot
@@ -190,8 +237,20 @@ export async function readStoryGraph(storyId: string) {
       cutOver: scenes.cutOver,
       cutThrough: scenes.cutThrough,
       exitsAfter: scenes.exitsAfter,
+      layout: scenes.layout,
+      movementBy: scenes.movementBy,
+      movementDirection: scenes.movementDirection,
+      movementOver: scenes.movementOver,
+      textAfter: scenes.textAfter,
+      textBy: scenes.textBy,
+      textPace: scenes.textPace,
+      textOver: scenes.textOver,
+      textStays: scenes.textStays,
+      question: scenes.question,
+      questionFlag: scenes.questionFlag,
       shotId: shots.id,
       text: shots.text,
+      formatted: shots.formatted,
       position: shots.position,
       description: shots.description,
       conditions: shots.conditions,
@@ -203,6 +262,21 @@ export async function readStoryGraph(storyId: string) {
       shotCutAfter: shots.cutAfter,
       shotCutOver: shots.cutOver,
       shotCutThrough: shots.cutThrough,
+      shotLayout: shots.layout,
+      cropX: shots.cropX,
+      cropY: shots.cropY,
+      shotMovementBy: shots.movementBy,
+      shotMovementDirection: shots.movementDirection,
+      shotMovementOver: shots.movementOver,
+      imageArrives: shots.imageArrives,
+      imageLasts: shots.imageLasts,
+      textArrives: shots.textArrives,
+      textLasts: shots.textLasts,
+      shotTextAfter: shots.textAfter,
+      shotTextBy: shots.textBy,
+      shotTextPace: shots.textPace,
+      shotTextOver: shots.textOver,
+      shotTextStays: shots.textStays,
     })
     .from(scenes)
     .leftJoin(shots, eq(shots.sceneId, scenes.id))
@@ -228,6 +302,17 @@ export async function readStoryGraph(storyId: string) {
         cutOver: row.cutOver,
         cutThrough: row.cutThrough,
         exitsAfter: row.exitsAfter,
+        layout: row.layout,
+        movementBy: row.movementBy,
+        movementDirection: row.movementDirection,
+        movementOver: row.movementOver,
+        textAfter: row.textAfter,
+        textBy: row.textBy,
+        textPace: row.textPace,
+        textOver: row.textOver,
+        textStays: row.textStays,
+        question: row.question,
+        questionFlag: row.questionFlag,
       }
       scenesOfStory.push(scene)
     }
@@ -235,6 +320,7 @@ export async function readStoryGraph(storyId: string) {
       scene.shots.push({
         id: row.shotId,
         text: row.text!,
+        formatted: formattedIn({ formatted: row.formatted, text: row.text! }),
         position: row.position!,
         image: row.hasImage ? shotImageUrl(row.shotId) : null,
         description: row.description!,
@@ -244,6 +330,21 @@ export async function readStoryGraph(storyId: string) {
         cutAfter: row.shotCutAfter,
         cutOver: row.shotCutOver,
         cutThrough: row.shotCutThrough,
+        layout: row.shotLayout,
+        cropX: row.cropX!,
+        cropY: row.cropY!,
+        movementBy: row.shotMovementBy,
+        movementDirection: row.shotMovementDirection,
+        movementOver: row.shotMovementOver,
+        imageArrives: row.imageArrives,
+        imageLasts: row.imageLasts,
+        textArrives: row.textArrives,
+        textLasts: row.textLasts,
+        textAfter: row.shotTextAfter,
+        textBy: row.shotTextBy,
+        textPace: row.shotTextPace,
+        textOver: row.shotTextOver,
+        textStays: row.shotTextStays,
       })
     }
   }

@@ -3,14 +3,16 @@
  * The Conditions one Exit or one Shot carries, a row apiece and all of them
  * holding for the Exit to be offered or the Shot to play: flat, so a Condition is
  * read as one sentence and the list is read as the whole of them. One carrying
- * none is offered to everyone, or played to everyone.
+ * none is offered to everyone, or played to everyone. A row asks one of three
+ * things: a Flag, whether a Scene has been entered, or whether an Exit has been
+ * taken.
  *
  * One component for both, because the language is one language: a row that read
  * differently on a Shot than on an Exit would be two Condition editors to keep
  * alike. What differs is only what the row is called — `carrier` is the phrase
  * every label ends in, so a Story of forty Exits and two hundred Shots has no two
- * labels alike — and where the Scene a fresh question about a Scene starts on
- * comes from.
+ * labels alike — and where the Scene a fresh question about a Scene, or about an
+ * Exit, starts on comes from.
  *
  * The sentence is written the way one is read: the connecting words between the
  * fields are plain text, and every field's label is read by assistive technology
@@ -27,7 +29,7 @@
  * `.handed` in `app/assets/css/frameline.css` is the whole of the rule, which is
  * why nothing about it is declared below.
  */
-const { carrier, conditions, names, counting, id, named = true } = defineProps<{
+const { carrier, conditions, names, exits, flags, counting, id, named = true } = defineProps<{
   /** The visible words the list opens on: "Offered when", "Played when". */
   lead: string
   /** What carries the list, as a label ends it: "the Exit to The House", "Shot 3". */
@@ -42,7 +44,23 @@ const { carrier, conditions, names, counting, id, named = true } = defineProps<{
    * `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
    */
   names: Map<string, string>
-  /** The Scene a freshly chosen question about a Scene starts on. */
+  /**
+   * The Exits a Condition may ask about — the Story's own, and no other's — each
+   * under the name the bench calls it by, `exitsOnTheBench`, in the order that
+   * gives. The option is read back rather than typed, like a Scene's, so an Exit
+   * is told from its siblings by its place and the words on it.
+   */
+  exits: Map<string, ExitOnTheBench>
+  /**
+   * The Flags of the Story, those its Scenes set and those its Questions hold an
+   * answer under — `declaredIn` — which a Flag's field offers as it is typed in,
+   * so an answered Flag is found the way a set one is.
+   */
+  flags: ReadonlySet<string>
+  /**
+   * The Scene a freshly chosen question about a Scene starts on, and the Scene
+   * whose Exit a freshly chosen question about an Exit starts on the first of.
+   */
   counting: string
   /** The id of the Exit or Shot carrying the list, which every field's own id is built from. */
   id: string
@@ -61,11 +79,13 @@ const emit = defineEmits<{ write: [] }>()
 
 const { t } = useI18n()
 
-/** Which of the two things one Condition tests. */
-type ConditionKind = 'flag' | 'entered'
+/** Which of the three things one Condition tests. */
+type ConditionKind = 'flag' | 'entered' | 'taken'
 
 function conditionKind(condition: Condition): ConditionKind {
-  return 'flag' in condition ? 'flag' : 'entered'
+  if ('flag' in condition) return 'flag'
+
+  return 'exit' in condition ? 'taken' : 'entered'
 }
 
 /**
@@ -118,29 +138,57 @@ function remove(place: number) {
 }
 
 /**
- * Turns one row into a Condition of the other kind, and writes what that leaves:
- * a question about a Scene is whole the moment it is chosen, and a Flag with no
- * name yet is a row the Story does not carry until it is typed. The question
- * starts on the Scene this thing belongs to, asked as *has been entered* — the
- * return the Author is writing for, which is the common one.
+ * Turns one row into a Condition of another kind, and writes what that leaves:
+ * a question about a Scene or an Exit is whole the moment it is chosen, and a Flag
+ * with no name yet is a row the Story does not carry until it is typed. The
+ * question about a Scene starts on the Scene this thing belongs to, asked as *has
+ * been entered* — the return the Author is writing for, which is the common one.
+ * The question about an Exit starts on the answer that brought the Reader here —
+ * an Exit landing on the Scene the carrier belongs to — asked as *has been
+ * taken*, which is the question this kind exists for.
  */
 function choose(place: number, kind: ConditionKind) {
-  conditions[place] = kind === 'flag' ? { flag: '', is: '' } : { scene: counting, entered: true }
+  if (kind === 'flag') conditions[place] = { flag: '', is: '' }
+  else if (kind === 'entered') conditions[place] = { scene: counting, entered: true }
+  else {
+    const landing = [...exits].find(([, called]) => called.toSceneId === counting) ?? [...exits][0]
+    if (!landing) return
+    conditions[place] = { exit: landing[0], taken: true }
+  }
 
   emit('write')
 }
 
 /**
- * Which of the two questions the row asks. It writes the whole Condition rather
- * than the one field, which is what a row of a list of flat tests is: the list is
- * sent whole on every change, so a row is replaced rather than reached into.
+ * Which of the two answers the row wants to its question: about a Scene or about
+ * an Exit, or whether a Flag holds its value or does not. It writes the whole
+ * Condition rather than the one field, which is what a row of a list of flat
+ * tests is: the list is sent whole on every change, so a row is replaced rather
+ * than reached into — a Flag's keeping its name and its value.
  */
-function ask(place: number, entered: boolean) {
+function ask(place: number, answer: boolean) {
   const condition = conditions[place]!
-  if ('flag' in condition) return
+  if ('scene' in condition) conditions[place] = { scene: condition.scene, entered: answer }
+  else if ('exit' in condition) conditions[place] = { exit: condition.exit, taken: answer }
+  else {
+    const value = valueOf(condition)
+    conditions[place] = answer ? { flag: condition.flag, is: value } : { flag: condition.flag, isNot: value }
+  }
 
-  conditions[place] = { scene: condition.scene, entered }
   emit('write')
+}
+
+type FlagCondition = Extract<Condition, { flag: string }>
+
+/** The value a Flag's row compares against, whichever way round it asks. */
+function valueOf(condition: FlagCondition) {
+  return 'is' in condition ? condition.is : condition.isNot
+}
+
+/** The value typed into a Flag's row, kept on the row in place until it is written. */
+function retype(condition: FlagCondition, value: string) {
+  if ('is' in condition) condition.is = value
+  else condition.isNot = value
 }
 
 /**
@@ -184,6 +232,7 @@ function conditionCalled(place: number) {
         >
           <option value="flag">{{ $t('conditions.flag') }}</option>
           <option value="entered">{{ $t('conditions.scene') }}</option>
+          <option value="taken" :disabled="!exits.size">{{ $t('conditions.exit') }}</option>
         </select>
 
         <template v-if="'flag' in condition">
@@ -196,25 +245,46 @@ function conditionCalled(place: number) {
             v-model="condition.flag"
             class="data"
             size="8"
+            :list="`flags-${id}-${place}`"
+            autocomplete="off"
             :maxlength="FLAG_NAME_MAX_LENGTH"
             @change="emit('write')"
           >
-          <span class="says" aria-hidden="true">{{ $t('conditions.holds') }}</span>
+          <!-- Drawn for a row testing a Flag and for no other, so a Story of two
+               hundred Shots draws only as many lists as it has such rows. -->
+          <datalist :id="`flags-${id}-${place}`">
+            <option v-for="flag in flags" :key="flag" :value="flag" />
+          </datalist>
+          <!-- Holds or does not hold, chosen the way a Scene's question is: the
+               value field is labelled by the word standing before it. -->
+          <label class="visually-hidden" :for="`holds-${id}-${place}`">
+            {{ $t('conditions.holdsOrNot') }}
+            {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
+          </label>
+          <select
+            :id="`holds-${id}-${place}`"
+            :value="String('is' in condition)"
+            @change="ask(place, ($event.target as HTMLSelectElement).value === 'true')"
+          >
+            <option value="true">{{ $t('conditions.holds') }}</option>
+            <option value="false">{{ $t('conditions.doesNotHold') }}</option>
+          </select>
           <label class="visually-hidden" :for="`is-${id}-${place}`">
-            {{ $t('conditions.holds') }}
+            {{ 'is' in condition ? $t('conditions.holds') : $t('conditions.doesNotHold') }}
             {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
           </label>
           <input
             :id="`is-${id}-${place}`"
-            v-model="condition.is"
+            :value="valueOf(condition)"
             class="data"
             size="8"
             :maxlength="FLAG_VALUE_MAX_LENGTH"
+            @input="retype(condition, ($event.target as HTMLInputElement).value)"
             @change="emit('write')"
           >
         </template>
 
-        <template v-else>
+        <template v-else-if="'scene' in condition">
           <label class="visually-hidden" :for="`counted-${id}-${place}`">
             {{ $t('conditions.scene') }}
             {{ $t('conditions.askedAboutBy', { condition: conditionCalled(place) }) }}
@@ -250,6 +320,39 @@ function conditionCalled(place: number) {
           >
             <option value="true">{{ $t('conditions.hasBeenEntered') }}</option>
             <option value="false">{{ $t('conditions.hasNotBeenEntered') }}</option>
+          </select>
+        </template>
+
+        <template v-else>
+          <label class="visually-hidden" :for="`exit-${id}-${place}`">
+            {{ $t('conditions.exit') }}
+            {{ $t('conditions.askedAboutBy', { condition: conditionCalled(place) }) }}
+          </label>
+          <select
+            :id="`exit-${id}-${place}`"
+            v-model="condition.exit"
+            @change="emit('write')"
+          >
+            <!-- An Exit taken out since the Condition was written is still what it
+                 asks about, and saying so beats showing an id. -->
+            <option v-if="!exits.has(condition.exit)" :value="condition.exit">
+              {{ $t('exit.goneOption') }}
+            </option>
+            <option v-for="[asked, called] in exits" :key="asked" :value="asked">
+              {{ exitOption(called, t) }}
+            </option>
+          </select>
+          <label class="visually-hidden" :for="`taken-${id}-${place}`">
+            {{ $t('conditions.taken') }}
+            {{ $t('conditions.forCondition', { condition: conditionCalled(place) }) }}
+          </label>
+          <select
+            :id="`taken-${id}-${place}`"
+            :value="String(condition.taken)"
+            @change="ask(place, ($event.target as HTMLSelectElement).value === 'true')"
+          >
+            <option value="true">{{ $t('conditions.hasBeenTaken') }}</option>
+            <option value="false">{{ $t('conditions.hasNotBeenTaken') }}</option>
           </select>
         </template>
       </div>
@@ -330,22 +433,20 @@ function conditionCalled(place: number) {
 
 /* A Scene's name is the Author's to write and can be long: the field says as much
    of it as the row has room for rather than pushing the rest of the sentence off
-   the line, so a visit count reads across two lines at worst. */
+   the line, so a question about a Scene reads across two lines at worst. The
+   Exit's field is not capped: what tells one Exit from its siblings is its place
+   first and then the Scene it leaves and its words, and six rem would cut those
+   off. */
 .when .counted {
   max-inline-size: 6rem;
 }
 
 /* The Condition's own number, in the gutter of its row — what the Author refers
-   to it by — and the connecting words between its fields, which are the sentence
-   itself and not a label of anything: both stencilled on the machine, the way
-   every other word around a field here is. */
-.numbered,
-.says {
+   to it by — stencilled on the machine, the way every other word around a field
+   here is. */
+.numbered {
   color: var(--muted);
   font-family: var(--data);
-}
-
-.numbered {
   font-variant-numeric: tabular-nums;
 }
 

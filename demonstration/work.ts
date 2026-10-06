@@ -16,7 +16,11 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { SHOT_IMAGE_MAX_BYTES } from '../shared/utils/scenes.ts'
-import type { Condition, CutThrough, Flags } from '../shared/utils/scenes.ts'
+import type {
+  Arrival, Condition, CutThrough, Lasting, Layout, MovementDirection, Sets, TextBy,
+} from '../shared/utils/scenes.ts'
+import { textOf } from '../shared/utils/formatted.ts'
+import type { Formatted } from '../shared/utils/formatted.ts'
 import type { StoryLanguage } from '../shared/utils/stories.ts'
 
 const run = promisify(execFile)
@@ -43,6 +47,14 @@ export type Image = {
   grain?: number
 }
 
+/** A Shot's words with the formatting set aside, whichever way it is written. */
+export const wordsOf = (shot: Shot) => shot.formatted ? textOf(shot.formatted) : shot.text
+
+/** A Condition as a work writes it: a Scene by its name, an Exit by the Scene it leaves and its Place there. */
+export type WorkCondition =
+  | Exclude<Condition, { exit: string }>
+  | { exit: { from: string, place: number }, taken: boolean }
+
 /**
  * One Shot of a work: the beat, what the image of it shows for a Reader who
  * cannot see it, the image itself, and the Conditions it plays under. The
@@ -53,11 +65,10 @@ export type Image = {
  * one of the WebP files in `images/`, developed once and committed. A Shot with
  * neither is a Shot that is text alone, which is a thing a Shot is allowed to be.
  */
-export type Shot = {
-  text: string
+export type Shot = ({ text: string, formatted?: never } | { formatted: Formatted, text?: never }) & {
   description?: string
   image?: Image | string
-  when?: Condition[]
+  when?: WorkCondition[]
   /**
    * The Sound the beat strikes with, named as one of the library's own files —
    * `shared/utils/library.ts`. A work carries no bytes of its own: the library is
@@ -77,6 +88,42 @@ export type Shot = {
   cutAfter?: number
   cutOver?: number
   cutThrough?: CutThrough
+  /**
+   * How this Shot is laid out where it answers for itself, and the point its
+   * Image is cropped around, in whole percent across and down. Saying nothing is
+   * *as the Scene says* and the centre, which is what the columns default to. See
+   * `docs/adr/0055-a-shot-is-laid-out-as-its-scene-says.md`.
+   */
+  layout?: Layout
+  cropX?: number
+  cropY?: number
+  /**
+   * This Shot's own answer about how its Image moves, where it answers at all:
+   * saying nothing is *as the Scene says*, a `movementBy` of nought is this Image
+   * held still, and a `movementOver` of nought is as long as the Shot is on
+   * screen. See `docs/adr/0057-the-image-moves-over-the-time-its-shot-is-on-screen.md`.
+   */
+  movementBy?: number
+  movementDirection?: MovementDirection
+  movementOver?: number
+  /**
+   * What the Image and the text play as the beat arrives and while it stands;
+   * saying nothing is none. See the `Effect` of `CONTEXT.md`.
+   */
+  imageArrives?: Arrival
+  imageLasts?: Lasting
+  textArrives?: Arrival
+  textLasts?: Lasting
+  /**
+   * This Shot's own answer about how its text arrives, where it answers at all:
+   * saying nothing is *as the Scene says*, and a `textStays` of nought is *until
+   * the Cut*. See `docs/adr/0052-a-text-arrives-in-its-own-time.md`.
+   */
+  textAfter?: number
+  textBy?: TextBy
+  textPace?: number
+  textOver?: number
+  textStays?: number
 }
 
 /**
@@ -84,8 +131,11 @@ export type Shot = {
  * out from the Story and from nothing else — see
  * `docs/adr/0041-the-graph-is-drawn-from-the-story.md` — so a coordinate written
  * here would have nowhere to go. An Exit names the Scenes it joins rather than
- * identifying them, and so does the Condition it is offered under — `write.ts`
- * puts the ids in once the Scenes exist.
+ * identifying them, and so does the Condition it is offered under. An Exit has no
+ * name, so a Condition names one by the Scene it leaves and its Place there,
+ * counted from 1 in the order the work writes that Scene's Exits: the work is
+ * written before any id exists, and nothing renumbers it. The writers put the
+ * ids in once the Scenes and the Exits exist.
  *
  * `language` is the Language the work is written in, English where it says
  * nothing, and never the Locale of whoever reads it. `opening` names the Scene a
@@ -98,11 +148,21 @@ export type Work = {
   opening?: string
   scenes: {
     name: string
-    sets?: Flags
+    sets?: Sets
     shots: Shot[]
     /** The Sound the Scene is heard under, named as one of the library's files. */
     sound?: string
     transcript?: string
+    /** How the Shots of this Scene's run are laid out; saying nothing is `inset`. */
+    layout?: Layout
+    /**
+     * How the Images of this Scene's run move. Saying nothing is every work
+     * before this one, each Image held still, which is a `movementBy` of nought;
+     * a `movementOver` of nought is as long as each Shot is on screen.
+     */
+    movementBy?: number
+    movementDirection?: MovementDirection
+    movementOver?: number
     /**
      * How the Shots of this Scene's run are cut, and how long its ways on
      * stand. Saying nothing is the run every work here was written as before
@@ -120,6 +180,24 @@ export type Work = {
     cutOver?: number
     cutThrough?: CutThrough
     exitsAfter?: number
+    /**
+     * How the texts of this Scene's run arrive. Saying nothing is every work
+     * before this one: each text landing with its Image, whole and at once, and
+     * staying until the Cut. A Scene's `textStays` is refused nought, because a
+     * Scene has no *as the Scene says* to fall back to.
+     */
+    textAfter?: number
+    textBy?: TextBy
+    textPace?: number
+    textOver?: number
+    textStays?: number
+    /**
+     * The Question the Scene ends on, before its Exits, and the Flag the answer is
+     * held under. Saying nothing is a Scene that asks nothing, which is what the
+     * two columns default to. See `docs/adr/0066-a-scene-may-end-on-a-question.md`.
+     */
+    question?: string
+    questionFlag?: string
   }[]
   /**
    * An Exit's own Cut is how the passage it makes is made, never when: an Exit
@@ -129,7 +207,7 @@ export type Work = {
     from: string
     to: string
     text: string
-    when?: Condition[]
+    when?: WorkCondition[]
     cutOver?: number
     cutThrough?: CutThrough
   }[]

@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test'
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
-import { ONE_PIXEL, live, readExits, sceneNode, seedExit, seedScenes, test, toast } from './author'
+import { ONE_PIXEL, live, readExits, sceneNode, seedExit, seedScenes, test, toast, unfold } from './author'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
 /**
@@ -305,7 +305,7 @@ test('draws a row\'s marks at the weight of the words until the hand arrives at 
       bound: NOTHING,
       written: (await drawnAs(place)).written,
     }
-    const asAControl = await drawnAs(page.locator(`#scene-${scenes[0]!.id} .adds button`))
+    const asAControl = await drawnAs(page.locator(`#scene-${scenes[0]!.id} .adds button`).first())
     expect(asAControl).not.toEqual(asWords)
 
     // Polled rather than read once: the weight changes over a tenth of a second,
@@ -328,22 +328,46 @@ test('draws a row\'s marks at the weight of the words until the hand arrives at 
     // so the Sound's own controls come before the acts, on the same side of the
     // words as the Description, because the Transcript sits under the Sound as the
     // Description sits under the Image. The Cut comes after both, because it is
-    // what the beat does at its end rather than what it carries.
+    // what the beat does at its end rather than what it carries, then the Layout,
+    // which is how the beat is thrown, and the Effects after both, because they are
+    // how it is drawn — see
+    // `docs/adr/0051-an-effect-is-said-of-one-beat.md`.
     //
     // This beat carries neither Image nor Sound, so neither thing said of them is
     // drawn, and *Listen* and *Take This Sound* are disabled until the `<select>`
     // is standing on something — a disabled control is no tab stop, which is two
-    // stops a row this row does not spend.
+    // stops a row this row does not spend. The Image's two Effects wait for an
+    // Image as its Description does, and an Effect's time and strength for an
+    // Effect, so the text's two `<select>`s are all the Effects spend.
+    //
+    // The words are a box until the caret is in them, and the caret in them is the
+    // editor, whose toolbar is the next stop and only one, however many controls
+    // it holds — issue #359.
+    //
+    // What the beat plays as is folded under the line that says it since #401, and
+    // the line comes first in `.beneath`, before the Conditions and the marks. Its
+    // fields are walked open, so every one of them is still counted here.
+    await unfold(page, 'Shot 2 of Scene 1')
     await page.mouse.move(0, 0)
-    await beat.locator('textarea').focus()
+    await beat.getByRole('textbox', { name: 'Shot 2 of Scene 1', exact: true }).focus()
+    await expect(beat.locator('.ProseMirror')).toBeFocused()
 
     for (const stop of [
+      beat.getByRole('toolbar', { name: 'Formatting of Shot 2 of Scene 1' })
+        .getByRole('button', { name: 'Italic' }),
+      beat.locator('details.plays > summary'),
       beat.getByLabel('The Sound of Shot 2 of Scene 1'),
       beat.getByLabel('Upload a Sound for Shot 2 of Scene 1'),
       beat.getByLabel('This Shot is cut Shot 2 of Scene 1', { exact: true }),
       beat.getByLabel('The Cut is made Shot 2 of Scene 1', { exact: true }),
+      beat.getByLabel('This Shot is laid out Shot 2 of Scene 1', { exact: true }),
+      beat.getByLabel('As the text arrives Shot 2 of Scene 1', { exact: true }),
+      beat.getByLabel('While the text is on screen Shot 2 of Scene 1', { exact: true }),
       beat.getByRole('button', { name: 'Add a Condition to Shot 2 of Scene 1' }),
+      beat.getByRole('button', { name: 'Read from Shot 2 of Scene 1' }),
       beat.getByRole('button', { name: 'Split Scene 1 before Shot 2' }),
+      beat.getByRole('button', { name: 'Move Shot 2 of Scene 1 to another Scene' }),
+      beat.getByRole('button', { name: 'Duplicate Shot 2 of Scene 1' }),
       beat.getByRole('button', { name: 'Move Earlier Shot 2 of Scene 1' }),
       beat.getByRole('button', { name: 'Move Later Shot 2 of Scene 1' }),
       beat.getByRole('button', { name: 'Delete Shot 2 of Scene 1' }),
@@ -712,7 +736,7 @@ test('winds the document back to the Scene the caret is already in', async ({ pa
  * name like any other.
  *
  * A heading is left out on purpose and not by oversight: every Scene's section
- * carries the same three — *Flags*, *Shots*, *Exits* — which
+ * carries the same four — *Layout*, *Flags*, *Shots*, *Exits* — which
  * `docs/adr/0043-a-story-is-written-as-one-document.md` chose over a hundred and
  * twenty named regions, so they repeat by design. So is an option, for the other
  * reason: an option is a value inside one field rather than a control of the
@@ -930,16 +954,16 @@ for (const spoken of [
           expect({ width, twice: await saidTwiceOn(page.locator('.writing')) })
             .toEqual({ width, twice: [] })
 
-          // Fifteen sentences on this Story: a beat nobody wrote and an Image nobody
+          // Eighteen sentences on this Story: a beat nobody wrote and an Image nobody
           // described in each of the four Scenes, the one Scene nothing arrives at,
-          // the four beats waiting on a dead pair, and the two ways on waiting on the
-          // same. Opened only where the fold left it closed: a `<summary>` toggles,
+          // the four beats waiting on a dead pair, the two ways on waiting on the
+          // same, and the three ways on nobody phrased. Opened only where the fold left it closed: a `<summary>` toggles,
           // and above the fold the list is already open beside the document.
           const found = page.locator('.found')
           if (!await found.evaluate(one => (one as HTMLDetailsElement).open)) {
             await found.locator('summary').click()
           }
-          await expect(found.getByRole('listitem')).toHaveCount(15)
+          await expect(found.getByRole('listitem')).toHaveCount(18)
           expect({ width, twice: await saidTwiceOn(found) }).toEqual({ width, twice: [] })
 
           // The Story's edge, with the Cover's frames opened over the table and

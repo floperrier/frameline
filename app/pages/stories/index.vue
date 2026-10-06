@@ -8,6 +8,8 @@ const { data: stories, refresh } = await useFetch('/api/stories')
 const { problem, change, write } = useEditing(refresh)
 const { asked, ask, answer } = useConfirming()
 
+useHead({ title: () => t('stories.heading') })
+
 // The Name the Author appears under wherever somebody else meets them. It is
 // shown here rather than their email, which appears on no screen in the product,
 // and it is rewritten here because this is the one page that is theirs rather
@@ -56,14 +58,70 @@ async function createStory() {
   if (writtenId) await navigateTo(localePath(`/stories/${writtenId}`))
 }
 
-function renameStory(id: string, title: string) {
-  return write(() => send(`/api/stories/${id}`, { method: 'PATCH', body: { title } }))
+// The Story whose copy is being named, while its form is open. One at a time, so
+// the form's fields can be the page's own rather than one pair per entry.
+const copying = ref<string>()
+const copyTitle = ref('')
+const copyLanguage = ref<StoryLanguage>(STORY_LANGUAGE_DEFAULT)
+
+/**
+ * Opens the form under a Story, filled with what the Story already is: its title
+ * selected, to be typed over, and its Language, to be kept or changed. A
+ * Language the form does not offer — the column holds any code — opens on the
+ * one a new Story would. Pressed again, the button closes the form it opened.
+ *
+ * Whatever was said before is taken away either way: the one refusal on the
+ * page is drawn under the form while it is open, and a sentence about naming a
+ * Story would otherwise move under a form it was never about.
+ */
+async function toggleCopy(story: { id: string, title: string, language: string }) {
+  if (copying.value === story.id) return closeCopy()
+
+  problem.value = undefined
+  copying.value = story.id
+  copyTitle.value = story.title
+  copyLanguage.value = STORY_LANGUAGES.includes(story.language as StoryLanguage)
+    ? story.language as StoryLanguage
+    : STORY_LANGUAGE_DEFAULT
+  await nextTick()
+  const field = document.getElementById('copy-title') as HTMLInputElement | null
+  field?.focus()
+  field?.select()
+}
+
+/** Closes the form and hands the focus back to the button that opened it. */
+async function closeCopy() {
+  const id = copying.value
+  copying.value = undefined
+  problem.value = undefined
+  await nextTick()
+  document.getElementById(`copy-${id}`)?.focus()
+}
+
+/**
+ * Writes the Story again under the title and in the Language named, and opens
+ * the copy, exactly as `createStory` opens a Story it named: the Author copied it
+ * to work on it. A refusal navigates nowhere and leaves the title as typed.
+ */
+async function copyStory() {
+  const id = copying.value
+  const title = copyTitle.value
+  const language = copyLanguage.value
+  let copiedId: string | undefined
+
+  await write(async () => {
+    const copied = await $fetch(`/api/stories/${id}/copy`, { method: 'POST', body: { title, language } })
+    copiedId = copied?.id
+  })
+
+  if (copiedId) await navigateTo(localePath(`/stories/${copiedId}`))
 }
 
 /**
  * A Story goes with everything written in it, none of which the Author named in
- * the act, so it is asked about — by title and by nothing else, which is all the
- * list carries. See `docs/adr/0017-a-confirmation-is-drawn-on-the-bench.md`.
+ * the act, so it is asked about — by title and by nothing else: the shelf knows
+ * how many Comments go with it, and no figure makes "everything written in it"
+ * truer. See `docs/adr/0017-a-confirmation-is-drawn-on-the-bench.md`.
  */
 async function deleteStory(id: string, title: string) {
   if (!await ask(t('stories.confirmDelete', { title }), t('stories.deleteStory'))) return
@@ -119,28 +177,82 @@ async function signOut() {
       </div>
     </form>
 
-    <Refusal :problem="problem" />
+    <Refusal v-if="!copying" :problem="problem" />
 
     <p v-if="!stories?.length" class="none">{{ $t('stories.none') }}</p>
-    <!-- One slate a Story: what it is called, and the two things that can be
-         done to the name from here. -->
-    <ul v-else class="slates">
-      <li v-for="story in stories" :key="story.id">
-        <NuxtLink class="open" :to="localePath(`/stories/${story.id}`)">
-          <span class="visually-hidden">{{ $t('stories.open') }} </span>{{ story.title }}
-        </NuxtLink>
-
-        <div class="controls">
-          <form @submit.prevent="renameStory(story.id, story.title)">
-            <label class="eyebrow" :for="`title-${story.id}`">{{ $t('stories.title') }}</label>
-            <input :id="`title-${story.id}`" v-model="story.title" required :maxlength="STORY_TITLE_MAX_LENGTH">
-            <button type="submit">{{ $t('stories.rename') }}</button>
-          </form>
-          <button type="button" class="danger" @click="deleteStory(story.id, story.title)">
-            {{ $t('common.delete') }} <span class="visually-hidden">{{ story.title }}</span>
-          </button>
-        </div>
-      </li>
+    <!-- The Author's works on the shelf every other surface draws a Story on,
+         newest first. The title leads to the bench, because a Story of their own
+         is somewhere to work rather than something to be handed; the rename is
+         done there too, where the title is written. What is said about each is
+         where it stands, as facts rather than controls: publishing and listing
+         are the bench's acts. -->
+    <ul v-else class="entries">
+      <Entry
+        v-for="story in stories"
+        :key="story.id"
+        :story="story"
+        :to="localePath(`/stories/${story.id}`)"
+      >
+        <template #facts>
+          <span v-if="!story.publishedAt" class="eyebrow">{{ $t('stories.notPublished') }}</span>
+          <span v-if="story.listed" class="eyebrow">{{ $t('stories.listed') }}</span>
+          <!-- What has been said, for the Author to go and read: a count on
+               their own shelf and nowhere else, so nothing ranks by it. Drawn
+               while the Story is published, because unpublished its reading
+               page is a not-found. The public link carries no locale — see
+               `docs/adr/0012-the-public-link-carries-no-locale.md`. -->
+          <NuxtLink
+            v-if="story.publishedAt && story.comments"
+            class="eyebrow said"
+            :to="`/read/${story.id}#comments`"
+          >
+            {{ $t(story.comments === 1 ? 'stories.oneComment' : 'stories.manyComments',
+                  { count: story.comments }) }}
+          </NuxtLink>
+          <!-- How many Readings began, on the same terms: the Author's count, on
+               their own shelf, ordering nothing. See
+               `docs/adr/0072-a-reading-is-counted-for-its-author.md`. -->
+          <span v-if="story.publishedAt && story.readings" class="eyebrow">
+            {{ $t('stories.readings', story.readings) }}
+          </span>
+        </template>
+        <button
+          :id="`copy-${story.id}`"
+          type="button"
+          :aria-expanded="copying === story.id"
+          @click="toggleCopy(story)"
+        >
+          {{ $t('common.duplicate') }} <span class="visually-hidden">{{ story.title }}</span>
+        </button>
+        <button type="button" class="danger" @click="deleteStory(story.id, story.title)">
+          {{ $t('common.delete') }} <span class="visually-hidden">{{ story.title }}</span>
+        </button>
+        <!-- The copy is named as a Story is: a title and the Language it is
+             written in, in the one act. The Language is chosen here rather than
+             changed on a written Story — see
+             `docs/adr/0067-a-story-is-copied-whole.md`. -->
+        <form
+          v-if="copying === story.id"
+          class="row copying"
+          @submit.prevent="copyStory"
+          @keydown.esc="closeCopy"
+        >
+          <p class="titling">
+            <label class="eyebrow" for="copy-title">{{ $t('stories.copyTitle') }}</label>
+            <input id="copy-title" v-model="copyTitle" required :maxlength="STORY_TITLE_MAX_LENGTH">
+          </p>
+          <p class="written-in">
+            <label class="eyebrow" for="copy-language">{{ $t('stories.copyLanguage') }}</label>
+            <select id="copy-language" v-model="copyLanguage">
+              <option v-for="code in STORY_LANGUAGES" :key="code" :value="code">
+                {{ $t(`languages.${code}`) }}
+              </option>
+            </select>
+          </p>
+          <button type="submit" class="primary">{{ $t('stories.writeCopy') }}</button>
+        </form>
+        <Refusal v-if="copying === story.id" :problem="problem" />
+      </Entry>
     </ul>
 
     <Confirmation :asked="asked" @answer="answer" />
@@ -148,8 +260,6 @@ async function signOut() {
 </template>
 
 <style scoped>
-@import '~/assets/css/folds.css';
-
 main {
   display: grid;
   gap: var(--s5);
@@ -193,8 +303,7 @@ h1 {
 }
 
 /* Who the Author is on their own page: the one field about themselves rather
-   than about a Story, laid out like the rename beside a title so the two read as
-   the same gesture. */
+   than about a Story, a field and its button on one line. */
 .who {
   grid-column: 1;
   display: grid;
@@ -246,70 +355,31 @@ h1 {
   flex: none;
 }
 
+/* The copy's form under the entry's buttons, as wide as the naming form above. */
+.copying {
+  max-inline-size: 44rem;
+  margin-block-start: var(--s2);
+}
+
 .none {
   color: var(--muted);
   max-inline-size: 44ch;
 }
 
-/* A hairline between slates and nothing else: the list is a stack of names, and
-   a box around each would be five borders where one rule does. */
-.slates {
+/* A hairline between entries and nothing else, as on the Catalogue: a stack of
+   works, where a box around each would be five borders where one rule does. */
+.entries {
   display: grid;
   border-block-start: 1px solid var(--edge);
 }
 
-.slates li {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--s3) var(--s4);
-  padding-block: var(--s4);
-  border-block-end: 1px solid var(--edge);
-}
-
-.open {
-  font-family: var(--display);
-  font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
-  font-weight: 600;
-  line-height: 1.1;
+/* The one fact in the row that leads anywhere, lit the way the Name is on the
+   Catalogue: the labels around it are stencil and stay muted. */
+.said {
   color: var(--paper);
-  text-decoration: none;
 }
 
-.open:hover {
+.said:hover {
   color: var(--light);
-}
-
-.controls {
-  display: flex;
-  align-items: end;
-  gap: var(--s2);
-}
-
-.controls form {
-  display: grid;
-  grid-template-columns: minmax(8rem, 16rem) auto;
-  /* Stretched, so the Rename button ends where the field does and Delete beside
-     it sits on the same line rather than a few pixels below. */
-  align-items: stretch;
-  gap: var(--s1) var(--s2);
-}
-
-.controls label {
-  grid-column: 1 / -1;
-}
-
-@media (--phone) {
-  .slates li {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .controls {
-    flex-wrap: wrap;
-  }
-
-  .controls form {
-    flex: 1;
-  }
 }
 </style>
