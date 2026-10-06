@@ -186,6 +186,7 @@ for branch in dev main; do
         "require_code_owner_review": false,
         "require_last_push_approval": false,
         "required_review_thread_resolution": false,
+        "require_extra_approval_for_unattributed_changes": false,
         "allowed_merge_methods": ["$method"]
       }
     },
@@ -207,4 +208,7 @@ done
 ```
 
 `15368` is GitHub Actions, so a status of the same name from anywhere else does
-not count.
+not count. `require_extra_approval_for_unattributed_changes` has to be said out
+loud: GitHub turns it on wherever a payload leaves it out, and it then holds any
+pull request carrying a commit no GitHub account claims until somebody approves
+it, which nobody here does.
