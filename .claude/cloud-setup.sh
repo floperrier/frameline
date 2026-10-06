@@ -45,8 +45,10 @@ step lsof lsof_installed
 step db.localtest.me local_name
 step dependencies pnpm install --frozen-lockfile
 step docker docker_up
-# One stack per machine, under the project name verify.sh starts it with.
-step database env COMPOSE_PROJECT_NAME=frameline pnpm test:db
+# One stack per machine, under the project name verify.sh starts it with. The
+# proxy's image comes from ghcr.io, whose blobs are served from another host.
+hint='the environment has to allow pkg-containers.githubusercontent.com' \
+  step database env COMPOSE_PROJECT_NAME=frameline pnpm test:db
 hint='the environment has to allow cdn.playwright.dev and playwright.download.prss.microsoft.com' \
   step chromium pnpm exec playwright install chromium
 exit 0
