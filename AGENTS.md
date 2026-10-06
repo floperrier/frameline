@@ -11,7 +11,9 @@ install it. The skills the backlog flow runs on are copied into `.claude/skills/
 instead, because a cloud session loads no plugin: `triage` and `to-spec` from
 `mattpocock/skills`, and the whole of pstack, whose per-role models are
 `.claude/rules/pstack-models.md`. `skills-lock.json` records where each copy came
-from. `verify` is the repository's own.
+from. `verify` is the repository's own. The copy of `triage` no longer asks for a
+line saying who wrote a comment, since nothing in the record mentions the tool;
+an update from upstream has to leave that out again.
 
 ### Issue tracker
 
