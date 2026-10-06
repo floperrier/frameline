@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { neon } from '@neondatabase/serverless'
 import { chromium, type Browser, type Page } from '@playwright/test'
 import { sealSession, type H3Event } from 'h3'
-import { DISMISSED } from '../../../app/utils/steps.ts'
+import { routeToLocalProxy } from '../../../server/db/endpoint.ts'
 
 export { expect } from '@playwright/test'
 
@@ -13,16 +13,30 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '../../..')
 const state = join(root, '.verify')
 const seeded = join(state, 'authors')
 
-export const sql = neon(process.env.DATABASE_URL!)
+// The prefix of the key that waves the guided path away, read out of the source:
+// `app/utils/steps.ts` imports without extensions, which Node does not resolve.
+const DISMISSED = readFileSync(join(root, 'app/utils/steps.ts'), 'utf8')
+  .match(/export const DISMISSED = '([^']+)'/)![1]!
+
+/**
+ * The e2e suite's own database from `compose.yaml`, which `verify.sh launch`
+ * starts and serves the build on. Named here rather than read from the
+ * environment, where `.env` would hand over Neon, whose free quota is
+ * production's: see `docs/adr/0075-the-suite-brings-its-own-database.md`.
+ */
+const DATABASE_URL = 'postgres://postgres:postgres@db.localtest.me:4445/main'
+
+routeToLocalProxy()
+export const sql = neon(DATABASE_URL)
 
 export type Author = { id: string, email: string, name: string | null }
 
 /**
  * Signs a fresh Author into the build `verify.sh launch` started, the way
  * `tests/e2e/author.ts` does: the row is inserted and the `nuxt-session` cookie
- * nuxt-auth-utils would have written is sealed with the same password, because
- * no agent can drive GitHub's or Google's login page. Everything past that
- * cookie is the real app.
+ * nuxt-auth-utils would have written is sealed with the password the server was
+ * started with, because no agent can drive GitHub's or Google's login page.
+ * Everything past that cookie is the real app.
  */
 export async function session(label: string, { guided = false } = {}) {
   const port = readFileSync(join(state, 'server.port'), 'utf8').trim()
@@ -110,7 +124,8 @@ async function seedAuthor() {
 async function seal(author: Author) {
   const session = { id: randomUUID(), createdAt: Date.now(), data: { user: author } }
   const event = { context: { sessions: { 'nuxt-session': session } } } as unknown as H3Event
-  return sealSession(event, { name: 'nuxt-session', password: process.env.NUXT_SESSION_PASSWORD! })
+  const password = readFileSync(join(state, 'session-password'), 'utf8').trim()
+  return sealSession(event, { name: 'nuxt-session', password })
 }
 
 /** Deletes the Authors a session seeded and never closed, with the Stories that cascade from them. */

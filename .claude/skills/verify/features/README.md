@@ -8,8 +8,8 @@ Exit leads from one Scene to another.
 | Feature | What it covers |
 | --- | --- |
 | [`stories.md`](stories.md) | The Author's list of Stories: create, open, delete, the Locale switch |
-| [`bench.md`](bench.md) | Writing a Story on the bench: Scenes, Shots, Exits, the Preview |
-| [`publishing-and-reading.md`](publishing-and-reading.md) | Publish, the public link, a Reader playing the Story to an ending |
+| [`bench.md`](bench.md) | Writing a Story on the bench: Scenes, Shots, Exits, the Preview, the Contact Sheet |
+| [`publishing-and-reading.md`](publishing-and-reading.md) | Publish, the public link, a Reader playing the Story to an ending, the Readings counted |
 | [`catalogue.md`](catalogue.md) | Listing a published Story where anyone finds it |
 
 ## Baseline preconditions
@@ -28,7 +28,9 @@ Exit leads from one Scene to another.
   one name contains another: *Publish this Story* is part of *Unpublish this
   Story*.
 - A typed field writes when it loses focus. Call `blur()`, then wait for the
-  row with `expect(async () => ...).toPass()`.
+  row with `expect(async () => ...).toPass({ timeout: 10_000 })`: outside the
+  test runner `toPass` has no timeout of its own and would wait forever.
+- A Shot's text is not a field: see **Write a Shot** in `bench.md`.
 
 ## Proof and skip reporting
 

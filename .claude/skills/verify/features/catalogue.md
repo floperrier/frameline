@@ -40,8 +40,9 @@ Preconditions:
 
 ## Gotchas
 
-- The Catalogue is shared by every Author in the `development` database, and
-  by the e2e suite when it runs locally. Find the entry by its unique title,
-  never by position or count.
+- The Catalogue is shared with every other session on the suite's database:
+  other worktrees, and the e2e suite when it runs locally. Find the entry by its
+  unique title, never by position or count. An empty one reads
+  `No Stories are listed yet.`
 - The Synopsis is written on the bench under **Synopsis and Cover**, with
   `getByRole('textbox', { name: 'Synopsis' })`.

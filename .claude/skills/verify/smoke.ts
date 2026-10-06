@@ -1,4 +1,4 @@
-#!/usr/bin/env -S node --env-file=.env
+#!/usr/bin/env node
 // The whole product in one path: a Story of two Scenes joined by an Exit,
 // published from the bench, and read to its ending by somebody with no account.
 import { expect, session, sql } from './drive.ts'
@@ -45,15 +45,29 @@ try {
   const reader = await s.reader()
   expect((await reader.goto(link))!.status(), 'published link answers 200').toBe(200)
   await s.live(reader)
-  await expect(reader.getByText('A door opens.')).toBeVisible()
+  await s.proof('reader-title-card', reader)
+  await reader.getByRole('button', { name: 'Begin' }).click()
+  await expect(reader.getByRole('figure', { name: 'A door opens.' })).toBeVisible()
   await reader.getByRole('button', { name: 'Next Shot' }).click()
-  await expect(reader.getByText('She steps out.')).toBeVisible()
+  await expect(reader.getByRole('figure', { name: 'She steps out.' })).toBeVisible()
   await reader.getByRole('button', { name: 'Next Shot' }).click()
   await reader.getByRole('button', { name: 'Follow her out' }).click()
-  await expect(reader.getByText('Smoke, and no one she knows.')).toBeVisible()
+  await expect(reader.getByRole('figure', { name: 'Smoke, and no one she knows.' })).toBeVisible()
   await reader.getByRole('button', { name: 'Next Shot' }).click()
-  await expect(reader.getByRole('status')).toHaveText('The path ends here.')
+  await expect(reader.getByRole('status')).toHaveText('The Reading ends here.')
   await s.proof('reader-at-the-ending', reader)
+  // A Reading is counted without being awaited, so the rows are waited for, and
+  // for a while only: outside the test runner `toPass` has no timeout of its own.
+  await expect(async () => {
+    const counts = await sql`
+      select kind, subject_id, count from reading_counts where story_id = ${story.id}
+      order by kind`
+    expect(counts, 'one Reading begun, its Exit taken, and the Reading ended in The bar').toEqual([
+      { kind: 'begun', subject_id: story.id, count: 1 },
+      { kind: 'ended', subject_id: scenes[1].id, count: 1 },
+      { kind: 'taken', subject_id: exit.id, count: 1 },
+    ])
+  }).toPass({ timeout: 10_000 })
 
   console.log(`smoke passed; proof in ${s.run}`)
 } finally {
