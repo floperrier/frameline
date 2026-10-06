@@ -14,7 +14,7 @@
     "test:db": "docker compose up -d --wait && DATABASE_URL=postgres://postgres:postgres@db.localtest.me:4445/main node server/db/migrate.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "prepare": "husky",
+    "prepare": "git config core.hooksPath .githooks || true",
     "pr": "n=$(git branch --show-current | grep -oE '^[0-9]+' || true); gh pr create --title \"$(git log -1 --format=%s)\" --body \"$(sed \"s/^Closes #$/Closes #$n/\" .github/pull_request_template.md)\""
   },
   "dependencies": {
@@ -35,7 +35,6 @@
     "@types/node": "^26.2.0",
     "drizzle-kit": "^0.31.10",
     "h3": "1.15.11",
-    "husky": "^9.1.7",
     "lint-staged": "^17.3.0",
     "postcss-custom-media": "^12.0.1",
     "prettier": "^3.9.6",
