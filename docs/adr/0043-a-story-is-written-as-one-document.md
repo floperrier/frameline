@@ -10,7 +10,7 @@ top, downwards, by typing. A Scene is a heading, the Flags it sets on entry, the
 Sound it is heard under, the run of its Shots, and the ways out of it named by
 where they lead, with the Conditions each is offered under. The next Scene is
 under it. Nothing has to be opened and nothing closes. Since
-`docs/adr/0075-a-change-costs-what-it-changes.md` the one document is drawn a
+`docs/adr/0077-a-change-costs-what-it-changes.md` the one document is drawn a
 row at a time, a Shot's row and a way on's each a component of its own, so a
 change draws again the row it changes rather than the Story.
 

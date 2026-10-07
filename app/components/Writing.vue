@@ -979,7 +979,7 @@ watch(() => story.scenes, (scenes) => {
  * draws its answers the first time it opens and keeps them drawn after: closed,
  * the browser draws none of them anyway, and a Story of forty Scenes and three
  * hundred beats would otherwise build three hundred and forty folds of fields on
- * every render nobody opened — see `docs/adr/0075-a-change-costs-what-it-changes.md`.
+ * every render nobody opened — see `docs/adr/0077-a-change-costs-what-it-changes.md`.
  * A Shot's is its row's own, in `ShotRow.vue`.
  */
 const unfolded = reactive<Record<string, boolean>>({})

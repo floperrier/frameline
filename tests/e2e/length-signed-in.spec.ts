@@ -10,7 +10,7 @@ import { live, seedLong, seedStory, test } from './author'
 
 /**
  * A change on the bench costs what it changes, not what the Story holds — issue
- * #449 and `docs/adr/0075-a-change-costs-what-it-changes.md`. The bench is measured
+ * #449 and `docs/adr/0077-a-change-costs-what-it-changes.md`. The bench is measured
  * on the Sample and then on a Story of forty Scenes, in the same browser one after
  * the other, and the long Story's figure is held to four times the Sample's. A
  * ratio taken inside one test holds on a slow runner, because the runner slows both

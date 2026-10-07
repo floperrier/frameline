@@ -8,7 +8,7 @@
  * of the Story, because the document read every Shot in its one render. Here a row
  * reads its own Shot, and is handed otherwise only values that are primitive or
  * kept while they say the same, so an act on one beat hands its neighbours nothing
- * new — see `docs/adr/0075-a-change-costs-what-it-changes.md`.
+ * new — see `docs/adr/0077-a-change-costs-what-it-changes.md`.
  *
  * What writes nothing but this Shot is written here: its words, its Image, its
  * Sound, how it plays and what it is played under. What touches what the document
@@ -503,7 +503,7 @@ function writeConditions(scene: Scene, shot: Shot) {
              Its answers are drawn the first time it opens and stay drawn
              after, so a Story of three hundred beats draws only the folds an
              Author has opened — see
-             `docs/adr/0075-a-change-costs-what-it-changes.md`. -->
+             `docs/adr/0077-a-change-costs-what-it-changes.md`. -->
         <details ref="fold" class="plays" @toggle="opened = true">
           <summary>
             {{ playsAs(shot, scene, t) }}

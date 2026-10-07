@@ -3,7 +3,7 @@
    `app/components/ExitRow.vue`. One sheet, included scoped by all three, rather
    than a block apiece: the rows were the document's own elements until each was
    made a component of its own, so that a change re-renders the row it changes —
-   see `docs/adr/0075-a-change-costs-what-it-changes.md` — and every rule here was
+   see `docs/adr/0077-a-change-costs-what-it-changes.md` — and every rule here was
    written against them standing in one template. Scoped three times over, a rule
    still matches exactly what it matched there, since a component's elements carry
    its own scope and the root of a row carries the document's as well, and nothing

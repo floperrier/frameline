@@ -22,7 +22,7 @@ const { t } = useI18n()
  * The Story read back after an act, or after a refusal, laid over the one the
  * bench holds by `sharing` rather than put in its place: a Scene, Shot or Exit the
  * act did not change keeps its object, so the row drawn from it is not drawn again —
- * see `docs/adr/0075-a-change-costs-what-it-changes.md`. Only the read asked last
+ * see `docs/adr/0077-a-change-costs-what-it-changes.md`. Only the read asked last
  * lands, so two acts' reads crossing on the way back cannot leave the older
  * standing. One that fails leaves the Story as the bench holds it, where a refetch
  * that failed used to empty the bench.
@@ -517,7 +517,7 @@ const counted = computed(() => {
  * taken when a typed write lands and whenever a read-back changes the Story, and
  * never as a key is struck — a reading of three hundred Shots redone on every
  * character is what made a keystroke cost what the Story holds, and nobody reads a
- * Remark mid-word. See `docs/adr/0075-a-change-costs-what-it-changes.md`. Copied off
+ * Remark mid-word. See `docs/adr/0077-a-change-costs-what-it-changes.md`. Copied off
  * the Story's raw object, so the copy follows no field it was read from; a Scene's
  * own count of its words is the one figure that still follows the key, in
  * `app/components/Words.vue`.

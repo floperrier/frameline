@@ -66,7 +66,7 @@ the tokens declared there and from nowhere else. See
 `docs/adr/0006-two-rooms-one-language.md`. The one block held in a file of its own
 is the writing's, `app/assets/css/writing.css`, because three components draw the
 document — `Writing.vue` and its two kinds of row — and each includes it scoped:
-see `docs/adr/0075-a-change-costs-what-it-changes.md`, which also says what a row
+see `docs/adr/0077-a-change-costs-what-it-changes.md`, which also says what a row
 may be handed so that a change costs what it changes.
 
 The widths the interface folds at are the one thing a token cannot carry, because

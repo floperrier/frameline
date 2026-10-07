@@ -8,7 +8,7 @@
  * `app/components/ShotRow.vue` is one: it reads its own Exit, and is handed
  * otherwise only values that are primitive or kept while they say the same, so an
  * act elsewhere in the Story hands it nothing new — see
- * `docs/adr/0075-a-change-costs-what-it-changes.md`.
+ * `docs/adr/0077-a-change-costs-what-it-changes.md`.
  *
  * What writes nothing but this Exit is written here. Going to the Scene it leads to
  * and renumbering the ways on are the document's, asked of it by an event.

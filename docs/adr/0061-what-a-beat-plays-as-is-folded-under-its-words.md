@@ -40,7 +40,7 @@ carries the Shot's name, visually hidden, as every control on the row does.
 bench is loaded. A fold the Author opens stays open through every write and every
 read of the Story back (`docs/adr/0008-refetch-is-for-a-refusal.md`), because the
 row is keyed by the Shot's id and the element is kept. Opening one fold touches no
-other. Since `docs/adr/0075-a-change-costs-what-it-changes.md` a fold draws its
+other. Since `docs/adr/0077-a-change-costs-what-it-changes.md` a fold draws its
 answers the first time it is opened, and keeps them drawn while its row stands.
 
 ## Considered Options

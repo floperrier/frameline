@@ -3,7 +3,7 @@ import { same } from '#shared/utils/changes'
 /**
  * The Story read back after an act, laid over the Story the bench holds so that
  * whatever did not change keeps the object it had — issue #449 and
- * `docs/adr/0075-a-change-costs-what-it-changes.md`.
+ * `docs/adr/0077-a-change-costs-what-it-changes.md`.
  *
  * A read-back used to replace the Story whole, which made every Scene, Shot and
  * Exit a new object and every row of the document a row to draw again: at forty
