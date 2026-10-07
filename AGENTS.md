@@ -144,7 +144,8 @@ Reading engine, down to how an Image moves while its Shot is on screen, what a
 Shot's image is read to be and which Images a Reading brings in before it needs
 them, the Conditions and the Effects
 a request is allowed to write, the shape a Shot's formatted text is held to at
-the request boundary and the markup-free renderer that draws it, the flicker a
+the request boundary and the markup-free renderer that draws it, the Shots a
+text pasted under a Scene is cut into, the flicker a
 Reading draws held to three flashes
 in any second — its pattern read out of the Reading's stylesheet as source — the
 swipe a finger crossing the frame is read as, the sequence of Places a request renumbers a Scene by and the Place a frame let go of on the Contact Sheet lands at, the Scenes a

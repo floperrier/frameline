@@ -27,13 +27,38 @@ export async function readShotText(event: H3Event) {
 }
 
 /**
- * Reads a Shot's formatted text, which the boundary parses key by key and which
- * is refused with the phrase of whichever rule it broke: the body's `formatted`,
- * or the half of a cut Shot it is named by.
+ * Reads a Shot's formatted text, which the boundary parses key by key: the body's
+ * `formatted`, or the half of a cut Shot it is named by.
  */
 export async function readShotFormatted(event: H3Event, key: 'formatted' | 'before' | 'after' = 'formatted') {
   const body = await readBody<Record<string, unknown>>(event)
-  const read = parseFormatted(body?.[key], 'refuse')
+
+  return formattedOrRefused(event, body?.[key])
+}
+
+/**
+ * The formatted texts of the Shots a Scene is given at once — issue #438: absent
+ * where the request makes one empty Shot, as it always has, and otherwise a list
+ * of one to `SHOTS_ADDED_MAX`, each held to the boundary a PATCH's text is.
+ */
+export async function readShotsFormatted(event: H3Event) {
+  const body = await readBody<{ formatted?: unknown }>(event)
+  const listed = body?.formatted
+  if (listed === undefined) return undefined
+
+  if (!Array.isArray(listed) || !listed.length || listed.length > SHOTS_ADDED_MAX) {
+    throw createError({
+      statusCode: 400,
+      message: saying(event)('refusals.shotsFromText', { max: SHOTS_ADDED_MAX }),
+    })
+  }
+
+  return listed.map(json => formattedOrRefused(event, json))
+}
+
+/** A formatted text read at the boundary, or refused with the phrase of whichever rule it broke. */
+function formattedOrRefused(event: H3Event, json: unknown) {
+  const read = parseFormatted(json, 'refuse')
 
   if ('formatted' in read) return read.formatted
 

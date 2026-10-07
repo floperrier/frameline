@@ -11,6 +11,13 @@ import type { Phrase } from './phrases'
 export const SCENE_NAME_MAX_LENGTH = 200
 export const SHOT_TEXT_MAX_LENGTH = 2000
 
+/**
+ * The most Shots one request makes from a text pasted under a Scene — issue #438.
+ * A bound on a request and not a rule about Scenes: a Scene of more is written in
+ * two pastes.
+ */
+export const SHOTS_ADDED_MAX = 200
+
 /** What a bar hides, said to a Reader who cannot see it, as a phrase like an Exit's line. */
 export const REDACTION_HIDES_MAX_LENGTH = 120
 
