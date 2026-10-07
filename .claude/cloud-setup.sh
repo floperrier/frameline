@@ -41,6 +41,8 @@ docker_up() {
 }
 
 step 'git hooks' git config core.hooksPath .githooks
+# A run commits as the developer, or the squash into dev names the tool as co-author.
+step 'git identity' sh -c 'git config user.name "Florian Perrier" && git config user.email florian.fp.perrier@gmail.com'
 step lsof lsof_installed
 step db.localtest.me local_name
 step dependencies pnpm install --frozen-lockfile
