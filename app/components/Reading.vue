@@ -396,12 +396,13 @@ async function moveTo(to: Path, byClock = false, passage?: { over: number, throu
   at.value = to
   resumed.value = false
   await nextTick()
-  // And theirs only for as long as what holds it is in the document. Every
-  // control here is drawn under a condition of its own — a Shot left to ask for,
-  // a beat behind, a Transcript to show, a way on still offered — so any of them
-  // can go out with the move, and one that has gone has taken the focus with it.
-  // Whatever the clock takes away, the beat arriving is where the focus lands.
-  if (theirs && was.isConnected) return
+  // And theirs only for as long as what holds it is on screen. Every control
+  // here is drawn under a condition of its own — a Shot left to ask for, a beat
+  // behind, a Transcript to show, a way on still offered, the list of Exits taken
+  // left open — so any of them can go out with the move, and one that has gone,
+  // from the document or only from sight, has taken the focus with it. Whatever
+  // the clock takes away, the beat arriving is where the focus lands.
+  if (theirs && was.getClientRects().length) return
   land()
   // The Reading's own head to the head of whatever scrolls it, which a Reading
   // laid out full fits under from there: the beat, its words and the press under
@@ -612,10 +613,12 @@ const forked = computed(() => forks(story, at.value).map(({ exit, index }) => {
 }))
 
 /**
- * Whether the list of them is open. Any move of the Reading closes it, since it
- * lists the Path that was, and a press on one of its entries took that entry
- * away with it. Esc closes it too, and puts the Reader back on the control that
- * opened it.
+ * Whether the list of them is open. A move that changes the Exits taken closes
+ * it, since it lists the ones that were, and a press on one of its entries took
+ * that entry away with it. A beat the clock cuts to inside the Scene leaves it
+ * open: it lists what it listed, and a Reader who opened it in a run playing
+ * itself is still reading it. Esc closes it too, and puts the Reader back on the
+ * control that opened it.
  *
  * Going back to one is a hard cut, as a step back is, and does not stop the
  * clock: the Reader has said where they want to stand, and a stand with a time
@@ -625,7 +628,7 @@ const othersOpen = ref(false)
 const othersId = useId()
 const another = useTemplateRef<HTMLElement>('another')
 
-watch(at, () => {
+watch(() => at.value.taken.join(' '), () => {
   othersOpen.value = false
 })
 
@@ -1770,7 +1773,7 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
         :aria-expanded="othersOpen"
         :aria-controls="othersId"
         @click="othersOpen = !othersOpen"
-        @keydown.esc="closeOthers"
+        @keydown.esc="othersOpen && closeOthers()"
       >
         {{ $t('reading.another') }}
       </button>

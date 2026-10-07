@@ -83,8 +83,12 @@ and in the middle of a run, because a Reader who sees where an Exit led them
 often knows at once that they wanted the other. It is a disclosure among the
 two ways back, between them since it goes further than a beat and less far than
 the start, and its list stands under the controls rather than among the ways on.
-Esc closes it and puts the Reader back on the control; any move of the Reading
-closes it.
+Esc closes it and puts the Reader back on the control; a move that changes the
+Exits taken closes it, and a beat the clock cuts to inside a Scene does not, so a
+list opened in a run playing itself stays open under the Reader's hand. Where the
+clock takes an Exit while the focus is in the list, the list goes from sight with
+the focus in it, and the focus lands on the beat arriving, as it does wherever the
+clock takes away the control the Reader stood on.
 
 **A go back is a move like every other.** It goes through `passBy` and `moveTo`
 as a hard cut, as a step back does, so it is kept in the Reader's browser
