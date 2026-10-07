@@ -13,7 +13,8 @@ export async function readReplacing(event: H3Event) {
     createError({ statusCode: 400, message: say(key, values) })
   const { find, replace, matchCase } = body ?? {}
   if (typeof find !== 'string' || !find) throw refused('refusals.findEmpty')
-  if (typeof replace !== 'string' || /[\r\n]/.test(find + replace)) throw refused('refusals.findLine')
+  if (typeof replace !== 'string') throw refused('refusals.replaceMissing')
+  if (/[\r\n]/.test(find + replace)) throw refused('refusals.findLine')
   if (find.length > FIND_MAX_LENGTH) throw refused('refusals.findLong', { max: FIND_MAX_LENGTH })
   if (replace.length > FIND_MAX_LENGTH) throw refused('refusals.replaceLong', { max: FIND_MAX_LENGTH })
   if (typeof matchCase !== 'boolean') throw refused('refusals.matchCase')

@@ -1,4 +1,4 @@
-import { SHOT_TEXT_MAX_LENGTH, exitsFrom, inDocumentOrder } from './scenes'
+import { SHOT_TEXT_MAX_LENGTH, exitsFrom, heldQuestion, inDocumentOrder } from './scenes'
 import type { Exit, Scene, Shot, StoryInEditor } from './scenes'
 import { linesOf } from './formatted'
 import type { Block, Formatted, Inline, Run } from './formatted'
@@ -210,7 +210,7 @@ export function replacements(story: Found, places: Place[], replace: string): Re
     const row = rowOf(story, place) as unknown as Record<Field, unknown>
     if (place.field === 'formatted') return { place, value: replacedFormatted(row.formatted as Formatted, held, replace) }
     const value = replacedText(row[place.field] as string, held, replace)
-    return { place, value: place.field === 'question' ? value.trim() : value }
+    return { place, value: place.field === 'question' ? heldQuestion(value) : value }
   })
 }
 

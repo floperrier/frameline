@@ -765,6 +765,7 @@
     "findEmpty": "Dites ce qu’il faut rechercher.",
     "findLine": "Ce qu’on recherche et ce qui le remplace tiennent chacun sur une ligne.",
     "findLong": "Ce qu’on recherche fait au plus {max} caractères.",
+    "replaceMissing": "Dites ce qui le remplace, même si ce n’est rien.",
     "replaceLong": "Ce qui le remplace fait au plus {max} caractères.",
     "matchCase": "Dites s’il faut respecter la casse.",
     "replacedLong": "Avec ce remplacement, {where} dépasserait {max} caractères : rien n’a été remplacé."

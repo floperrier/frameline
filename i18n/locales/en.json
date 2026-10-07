@@ -765,6 +765,7 @@
     "findEmpty": "Say what to find.",
     "findLine": "What is found and what replaces it are each one line of text.",
     "findLong": "What is found is at most {max} characters.",
+    "replaceMissing": "Say what replaces it, even if that is nothing.",
     "replaceLong": "What replaces it is at most {max} characters.",
     "matchCase": "Say whether the case is to be matched.",
     "replacedLong": "That would make {where} longer than {max} characters, so nothing was replaced."
