@@ -358,7 +358,9 @@ function writeConditions(scene: Scene, shot: Shot) {
            or not there is an image in it, so an unfinished beat reads as
            unfinished — at the size of a thumbnail here, because the size a
            Reader meets it at is what the Preview and the contact sheet are
-           for. -->
+           for. Brought in lazily, as the contact sheet's prints are: each is
+           the whole Image, and a long Story is hundreds of them that nobody
+           is looking at yet. -->
       <label
         class="image"
         :class="{ over }"
@@ -375,6 +377,8 @@ function writeConditions(scene: Scene, shot: Shot) {
             place: place + 1,
             scene: name,
           })"
+          loading="lazy"
+          decoding="async"
         >
         <input
           type="file"
