@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises'
-import type { APIRequestContext } from '@playwright/test'
+import type { APIRequestContext, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 import { drizzle } from 'drizzle-orm/neon-http'
 import { imagePath } from '../../demonstration/samples'
@@ -76,22 +76,40 @@ async function plant(author: Author) {
   })
 }
 
-test('the bench marks each Scene of the Sample written since Readers\' Edition, and says so beside the link',
+/**
+ * The Sample planted, with what the bench is read by. Its claims are split over
+ * two tests rather than run as one chain: run as one, a reload after nearly every
+ * step and a Shot typed back whole came to thirty-two seconds on a slow CI runner,
+ * over the thirty a test is given (#462).
+ */
+async function sample(page: Page, request: APIRequestContext, author: Author) {
+  await plant(author)
+  const [{ id }] = await (await request.get('/api/stories')).json()
+  const [opening, second, third] = (await onTheBench(request, id)).scenes
+
+  return {
+    id,
+    opening: opening!,
+    second: second!,
+    third: third!,
+    marks: page.locator('.published-mark'),
+    markOf: (sceneId: string) => page.locator(`#scene-${sceneId} .published-mark`),
+    line: page.locator('.live'),
+    publishChanges: page.getByRole('button', { name: 'Publish the Changes' }),
+  }
+}
+
+test('the bench marks the Scene of the Sample whose words differ from Readers\' Edition, and says so beside the link',
   async ({ page, request, author }) => {
-    await plant(author)
-    const [{ id }] = await (await request.get('/api/stories')).json()
-    const [opening, second, third] = (await onTheBench(request, id)).scenes
-    const marks = page.locator('.published-mark')
-    const markOf = (sceneId: string) => page.locator(`#scene-${sceneId} .published-mark`)
-    const line = page.locator('.live')
-    const publishChanges = page.getByRole('button', { name: 'Publish the Changes' })
+    const { id, opening, second, marks, markOf, line, publishChanges }
+      = await sample(page, request, author)
 
     // Before the first Publish the bench takes, the Story has no Edition to
     // differ from — it was planted through `plantSample` outside Nitro, so
     // without one — and no Scene is marked.
     await page.goto(`/stories/${id}`)
     await live(page)
-    await expect(page.locator(`#scene-${opening!.id}`)).toBeVisible()
+    await expect(page.locator(`#scene-${opening.id}`)).toBeVisible()
     await expect(marks).toHaveCount(0)
 
     // Published with its Images and Sounds, the Sample is read as it stands.
@@ -104,29 +122,37 @@ test('the bench marks each Scene of the Sample written since Readers\' Edition, 
 
     // Other words typed on the second Scene's first Shot mark that Scene and no
     // other, as soon as they are kept.
-    const box = page.locator(`#scene-${second!.id}`)
+    const box = page.locator(`#scene-${second.id}`)
       .getByRole('textbox', { name: 'Shot 1 of What an Exit offers', exact: true })
     await writeShot(box, 'Somewhere else entirely.')
     await box.blur()
-    await expect(markOf(second!.id)).toHaveText('Changed since published')
+    await expect(markOf(second.id)).toHaveText('Changed since published')
     await expect(marks).toHaveCount(1)
     await expect(line).toContainText('1 Scene changed since you published.')
     await expect(publishChanges).toBeVisible()
 
-    // The same words typed back are no change.
-    await writeShot(box, second!.shots[0]!.text)
+    // The same words written back are no change. Inserted rather than typed: what
+    // is compared is the words, and the Shot's are three hundred characters.
+    await writeShot(box, second.shots[0]!.text, 'inserted')
     await box.blur()
     await expect(marks).toHaveCount(0)
     await expect(line).toContainText('Readers read this Story as it stands.')
+  })
+
+test('the bench marks each Scene of the Sample written since Readers\' Edition, and says so beside the link',
+  async ({ page, request, author }) => {
+    const { id, opening, third, marks, markOf, line, publishChanges }
+      = await sample(page, request, author)
+    await publish(request, id)
 
     // Another Image on the first Shot that has one marks its Scene.
-    const framed = opening!.shots.find(shot => shot.image)!
+    const framed = opening.shots.find(shot => shot.image)!
     expect((await request.put(`/api/shots/${framed.id}/image`, {
       data: await readFile(imagePath('an-image')),
     })).ok()).toBe(true)
-    await page.reload()
+    await page.goto(`/stories/${id}`)
     await live(page)
-    await expect(markOf(opening!.id)).toHaveText('Changed since published')
+    await expect(markOf(opening.id)).toHaveText('Changed since published')
 
     // A Scene written since is one Readers have not been given.
     const platform = await (await request.post(`/api/stories/${id}/scenes`, {
@@ -143,7 +169,7 @@ test('the bench marks each Scene of the Sample written since Readers\' Edition, 
 
     // A Scene Readers read, deleted, is counted on the line, having no section left
     // to be marked on.
-    expect((await request.delete(`/api/scenes/${third!.id}`)).ok()).toBe(true)
+    expect((await request.delete(`/api/scenes/${third.id}`)).ok()).toBe(true)
     await page.reload()
     await live(page)
     await expect(line).toContainText('1 Scene Readers read is deleted.')

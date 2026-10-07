@@ -369,8 +369,13 @@ export async function readTheStory(page: Page) {
  * because a line break in the editor is `Shift+Enter` and `Enter` opens the next
  * Shot. It writes nothing until the caret leaves, as a field did, so a caller that
  * wants it written blurs it.
+ *
+ * `inserted` lands each line as one input instead of a key at a time, which is
+ * what a spec wants when the words are the claim and not the typing: a Shot of the
+ * Sample is three hundred characters, and typed it took twelve seconds of a
+ * thirty-second test on a CI runner (#462).
  */
-export async function writeShot(box: Locator, text: string) {
+export async function writeShot(box: Locator, text: string, how: 'typed' | 'inserted' = 'typed') {
   const page = box.page()
   const id = await box.getAttribute('id')
   await box.click()
@@ -380,7 +385,7 @@ export async function writeShot(box: Locator, text: string) {
   if (!text) return page.keyboard.press('Delete')
   for (const [at, line] of text.split('\n').entries()) {
     if (at) await page.keyboard.press('Shift+Enter')
-    if (line) await page.keyboard.type(line)
+    if (line) await (how === 'typed' ? page.keyboard.type(line) : page.keyboard.insertText(line))
   }
 }
 
