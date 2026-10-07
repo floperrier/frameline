@@ -349,7 +349,7 @@ export function joinFormatted(first: Formatted, second: Formatted): { formatted:
 }
 
 // A text pasted under a Scene, read as the Shots it makes — issue #438,
-// `docs/adr/0076-pasted-text-is-cut-at-its-empty-lines.md`.
+// `docs/adr/0081-pasted-text-is-cut-at-its-empty-lines.md`.
 
 /**
  * Whether a block's first line says who speaks: a line starting with `@`, or one

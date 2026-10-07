@@ -5,7 +5,7 @@ import { live, readShots, seedScene, seedStory, test, toast, writeScene, writeSt
 
 /**
  * A text pasted under a Scene, made into as many Shots as it has blocks — issue
- * #438, `docs/adr/0076-pasted-text-is-cut-at-its-empty-lines.md`.
+ * #438, `docs/adr/0081-pasted-text-is-cut-at-its-empty-lines.md`.
  */
 
 async function shotsIn(request: APIRequestContext, storyId: string, sceneId: string) {

@@ -970,7 +970,7 @@ async function addShotsFrom(scene: Scene, files: File[]) {
 
 /**
  * The one field a text is pasted into under a Scene, while it is open — issue
- * #438, `docs/adr/0076-pasted-text-is-cut-at-its-empty-lines.md`. One for the
+ * #438, `docs/adr/0081-pasted-text-is-cut-at-its-empty-lines.md`. One for the
  * document, as the field a Shot is moved from is.
  */
 const drafting = ref<{ sceneId: string, typed: string }>()
@@ -3542,7 +3542,7 @@ function writeConditions(
 
         <!-- The beats of a draft at once: a text pasted here is cut at its empty
              lines into as many Shots — see `shotsOf` and
-             `docs/adr/0076-pasted-text-is-cut-at-its-empty-lines.md` — and the line
+             `docs/adr/0081-pasted-text-is-cut-at-its-empty-lines.md` — and the line
              under the field says what it makes as it is typed. -->
         <form
           v-if="drafting?.sceneId === held.scene.id"
