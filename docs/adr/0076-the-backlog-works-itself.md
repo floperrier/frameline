@@ -67,6 +67,13 @@ promotion's reader which commits change what an Author or a Reader sees.
 trailers, the settings turn the attribution off, and `agent-guard` fails a pull
 request whose body or commits carry one. The commits already on `dev` from the
 laptop loop predate the guard, so a promotion is exempt from the commit check.
+A cloud session commits as `Claude <noreply@anthropic.com>`, and a squash
+carries every author of a branch into `dev` as `Co-authored-by`.
+`.claude/cloud-setup.sh` gives the session the developer's name instead, and
+`agent-guard` fails a pull request with a commit under the tool's name. The
+squash is then the developer's alone, and GitHub signs it. A branch's own
+commits go unverified, since the cloud signs with a key GitHub only accepts for
+its own address, and they are deleted with the branch.
 
 **The skills are copied into the repository.** A cloud session loads none of the
 developer's plugins. `.claude/skills/` therefore holds the triage, spec and

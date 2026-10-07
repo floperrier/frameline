@@ -21,6 +21,7 @@ jobs:
           pattern='Claude-Session|claude\.ai/code/session|Co-Authored-By: Claude|Generated with \[?Claude'
           if printf '%s' "$BODY" | grep -qiE "$pattern"; then echo "Trace dans la description"; exit 1; fi
           if [ "$BRANCH" != dev ] && git log --format=%B "$BASE..$HEAD" | grep -qiE "$pattern"; then echo "Trace dans un commit"; exit 1; fi
+          if [ "$BRANCH" != dev ] && git log --format='%an %ae %cn %ce' "$BASE..$HEAD" | grep -qiE 'claude|anthropic'; then echo "Commit sous une identité d'outil"; exit 1; fi
       - name: Nom de branche conforme
         env:
           BRANCH: ${{ github.head_ref }}

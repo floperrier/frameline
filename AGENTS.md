@@ -54,7 +54,9 @@ Après `/to-spec`, remplacer `ready-for-agent` par `needs-plan` sur la spec publ
 Branche : `<n>-<slug>` prise sur `dev`, `n` étant l'issue (`447-find-and-replace`).
 PR vers `dev` par `pnpm pr` : titre en Conventional Commits (`feat: …`,
 `fix(reading): …`), `Closes #<n>`, et la preuve du skill `verify` dans le corps.
-Aucune mention d'outil d'IA dans un commit, une PR ou un fichier.
+Aucune mention d'outil d'IA dans un commit, une PR, un commentaire ou un fichier :
+un commentaire se poste par `gh issue comment` ou `gh pr comment`, dont le texte
+part tel quel, sans pied de page.
 Un chemin de `.github/agent-sensitive-paths` ou une décision produit :
 `ready-for-human`, sans auto-merge. `dev` atteint `main` par une promotion humaine.
 
