@@ -5,10 +5,15 @@ Read `CONTEXT.md` before touching anything — the glossary is binding.
 
 ## Agent skills
 
-Skills come from the plugins `.claude/settings.json` enables — the Neon ones
-from `neon-postgres@neon`, whose marketplace the same file declares so a clone
-can install it. Nothing is vendored into the repository, so there is no copy
-here to update.
+The Neon skills come from the plugin `neon-postgres@neon`, which
+`.claude/settings.json` enables and whose marketplace it declares, so a clone can
+install it. The skills the backlog flow runs on are copied into `.claude/skills/`
+instead, because a cloud session loads no plugin: `triage` and `to-spec` from
+`mattpocock/skills`, and the whole of pstack, whose per-role models are
+`.claude/rules/pstack-models.md`. `skills-lock.json` records where each copy came
+from. `verify` is the repository's own. The copy of `triage` no longer asks for a
+line saying who wrote a comment, since nothing in the record mentions the tool;
+an update from upstream has to leave that out again.
 
 ### Issue tracker
 
@@ -24,6 +29,34 @@ string equal to its name. See `docs/agents/triage-labels.md`.
 
 Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See
 `docs/agents/domain.md`.
+
+## Produit
+
+Frameline est un éditeur d'œuvres narratives interactives qui parle la grammaire
+du cinéma. Un Auteur assemble des Plans en Scènes et relie les Scènes par des
+Sorties ; un Lecteur lit le Récit à un lien public. Le glossaire de `CONTEXT.md`
+est la conception même et lie le code comme l'écran. Un seul développeur, sans
+relecteur : ce qui demande une décision humaine lui revient, et rien n'attend
+l'approbation d'un tiers.
+
+## Flow backlog
+
+Trois routines vident le backlog, Triage, Atelier et Validation ; leur invite, leur
+cadence et leur modèle sont dans `.claude/routines/`.
+Labels du flow : `needs-plan` (spec à découper) devient `planned` une fois découpée
+en issues `ready-for-agent`, et `replanned` marque une issue revenue au plan après
+deux refus ; `agent-wip` dit qu'une issue est prise ; une PR `agent` + `to-verify`
+attend la Validation, qui la passe en `agent-verified` (auto-merge par
+`agent-merge.yml`) ou en `changes-needed`.
+Après `/to-spec`, remplacer `ready-for-agent` par `needs-plan` sur la spec publiée.
+`triage` et `to-spec` ne s'invoquent pas par l'outil Skill : lire et suivre
+`.claude/skills/<nom>/SKILL.md`.
+Branche : `<n>-<slug>` prise sur `dev`, `n` étant l'issue (`447-find-and-replace`).
+PR vers `dev` par `pnpm pr` : titre en Conventional Commits (`feat: …`,
+`fix(reading): …`), `Closes #<n>`, et la preuve du skill `verify` dans le corps.
+Aucune mention d'outil d'IA dans un commit, une PR ou un fichier.
+Un chemin de `.github/agent-sensitive-paths` ou une décision produit :
+`ready-for-human`, sans auto-merge. `dev` atteint `main` par une promotion humaine.
 
 ## Design
 
@@ -43,8 +76,9 @@ reached by name from the scoped block of every surface that folds at one. See
 
 A pull request per issue, squash-merged into `dev`, the default branch. `main`
 is what deploys to production, and `dev` reaches it whole in a promotion of its
-own. See `docs/git-flow.md` and
-`docs/adr/0039-autonomous-work-waits-on-dev.md`.
+own. See `docs/git-flow.md`,
+`docs/adr/0039-autonomous-work-waits-on-dev.md` and
+`docs/adr/0076-the-backlog-works-itself.md`.
 
 ## Languages
 
@@ -114,7 +148,7 @@ in any second — its pattern read out of the Reading's stylesheet as source —
 swipe a finger crossing the frame is read as, the sequence of Places a request renumbers a Scene by and the Place a frame let go of on the Contact Sheet lands at, the Scenes a
 Exit may land on, the columns a Story falls into and the order it is written in,
 the two message
-files held against each other, the language a refusal is phrased in, the Steps the
+files held against each other, the language a refusal is phrased in, where the driver sends a query, the Steps the
 bench asks a Story for — whose targets are held against the editor's template
 read as source — the Remarks the bench reads back out of a Story, what differs between a
 published Story's Edition and the Story as it is written, the places a word is
@@ -123,7 +157,12 @@ Samples, that each holds together as a work and that the two of them are one
 shape in two languages — and that the script that writes the works starts on
 Node as it stands, run with no Author so it stops before reaching for a
 database. None of them needs a database, because none of them has one in reach. `pnpm test:e2e` runs
-Playwright against a built app and a real Neon branch — `docs/git-flow.md` says which branch.
+Playwright against a built app and the database `DATABASE_URL` names. Run it
+against the suite's own: `pnpm test:db` starts a Postgres and a proxy that speaks
+Neon's protocol (`compose.yaml`, Docker) and migrates them, then
+`DATABASE_URL=postgres://postgres:postgres@db.localtest.me:4445/main pnpm test:e2e`.
+CI does the same and never touches Neon, whose free quota is production's — see
+`docs/adr/0075-the-suite-brings-its-own-database.md`.
 
 ## Running the app
 

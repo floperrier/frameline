@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { Browser, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { begin, test, seedPublished, seedStory, writeStory } from './author'
+import { begin, live, test, seedPublished, seedStory, writeStory } from './author'
 
 /**
  * The Catalogue as anyone browsing meets it. Every assertion below about what is
@@ -150,6 +150,10 @@ test('unpublishing a listed Story unlists it', async ({ page, request, browser, 
   await request.post(`/api/stories/${story.id}/listed`)
 
   await page.goto(`/stories/${story.id}`)
+  // A press before Vue has the page lands on the server's button, which answers
+  // nothing: half the runs against a local database, quick enough to draw the
+  // bench before the browser had taken it over, unpublished nothing.
+  await live(page)
   await page.getByRole('button', { name: 'Unpublish this Story' }).click()
 
   await expect(page.getByRole('button', { name: 'Publish this Story', exact: true }))
