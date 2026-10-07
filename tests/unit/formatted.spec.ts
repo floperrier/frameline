@@ -784,6 +784,12 @@ describe('a text pasted under a Scene, read as the Shots it makes', () => {
     ])
   })
 
+  it('reads an @ that names nobody as a line', () => {
+    expect(made('@\nHi.\n\n@ \nThere.')).toEqual([
+      formatted(line('@'), line('Hi.')), formatted(line('@'), line('There.')),
+    ])
+  })
+
   it('reads a block of one line in capitals as a line, and a first line with a small letter or no case as none', () => {
     expect(made('BANG.\n\nMarie\nCome in.\n\n1984\nA year.\n\n東京\n夜。')).toEqual([
       formatted(line('BANG.')),

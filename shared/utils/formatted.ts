@@ -354,11 +354,12 @@ export function joinFormatted(first: Formatted, second: Formatted): { formatted:
 /**
  * Whether a block's first line says who speaks: a line starting with `@`, or one
  * written in capitals — a capital and no small letter, so a script with no case
- * never reads as a Speaker. The name the Speaker is given, or undefined.
+ * never reads as a Speaker; an `@` naming nobody is a line like any other. The
+ * name the Speaker is given, or undefined.
  */
 function speakerOf(first: string): string | undefined {
   const name = first.trim()
-  if (name.startsWith('@')) return name.slice(1)
+  if (name.startsWith('@')) return name.slice(1).trimStart() || undefined
   return /\p{Lu}/u.test(name) && !/\p{Ll}/u.test(name) ? name : undefined
 }
 
