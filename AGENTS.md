@@ -69,7 +69,7 @@ The widths the interface folds at are the one thing a token cannot carry, becaus
 a custom property cannot be read inside a media query. They are declared as
 custom media queries in `app/assets/css/folds.css` — names and no rules — and
 reached by name from the scoped block of every surface that folds at one. See
-`docs/adr/0042-the-scene-is-written-where-it-stands.md` and
+`docs/adr/0006-two-rooms-one-language.md` and
 `docs/adr/0041-the-graph-is-drawn-from-the-story.md`.
 
 ## Git flow
@@ -108,7 +108,7 @@ with the `_Affiché_` word carrying its own capital: *Ajouter un Plan*, *Fermer 
 panneau*.
 
 What makes it worth settling is the bar of Commands —
-`docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md`. Matching
+`docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`. Matching
 there ignores case, so nothing breaks; but the bar is the one surface that reads
 every label in the product side by side, and a list where half the acts are
 titled and half are not is the mixed convention on show.
