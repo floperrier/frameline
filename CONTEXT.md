@@ -387,7 +387,7 @@ the route taken and the taking of it, which is why it is not a point: where a
 Shot or an Exit comes in its own list is a Place.
 A Path is gone back along by naming an Exit it took where another was on offer,
 which lets go of every Exit taken after it — as far as the first Exit that is not
-crossed backwards: see `docs/adr/0075-a-reader-goes-back-to-the-exit-they-name.md`.
+crossed backwards: see `docs/adr/0080-a-reader-goes-back-to-the-exit-they-name.md`.
 _Affiché_: Parcours
 _Avoid_: position, cursor, pointer, progress, step, index
 

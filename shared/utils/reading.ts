@@ -942,7 +942,7 @@ function crossesBack(story: StoryToRead, exitId: string | undefined) {
  * enters and no others, so the Scene the Exit left keeps the answer it was given
  * before the Exit was taken, and a Scene entered later asks again. It asks
  * nothing of the doors it crosses: `back` and `forks` ask that first. See
- * `docs/adr/0075-a-reader-goes-back-to-the-exit-they-name.md`.
+ * `docs/adr/0080-a-reader-goes-back-to-the-exit-they-name.md`.
  */
 export function backTo(story: StoryToRead, at: Path, index: number): Path {
   const before: Path = { ...at, taken: at.taken.slice(0, index), shot: 0 }

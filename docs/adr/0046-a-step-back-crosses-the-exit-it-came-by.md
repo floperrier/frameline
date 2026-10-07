@@ -13,7 +13,7 @@ Everything else here stands, and the reason an Exit can be closed by saying so
 rather than by unwinding anything is exactly what this record settles.
 
 Amended in issue #439, by
-`docs/adr/0075-a-reader-goes-back-to-the-exit-they-name.md`: a Reader may now go
+`docs/adr/0080-a-reader-goes-back-to-the-exit-they-name.md`: a Reader may now go
 back across several Exits at once by naming the one they took, among those taken
 where another was on offer, and no further than `0047`'s first closed door. It
 is safe for the reason this record gives, and `back` across an Exit is now

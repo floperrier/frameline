@@ -604,7 +604,7 @@ function stepBack() {
  * there: said with the Flags held on that Path, or the Scene it leads to where
  * its Author left it without words. The engine says which, and where a door
  * closed backwards cuts the list — see
- * `docs/adr/0075-a-reader-goes-back-to-the-exit-they-name.md`.
+ * `docs/adr/0080-a-reader-goes-back-to-the-exit-they-name.md`.
  */
 const forked = computed(() => forks(story, at.value).map(({ exit, index }) => {
   const to = backTo(story, at.value, index)
