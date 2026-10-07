@@ -19,10 +19,18 @@ deploy _is_ a release, and the merge commit of a promotion is what marks one.
 1. Branch from `dev`, named after the issue it closes:
    `git switch -c 12-rename-a-scene`.
 2. Commit as you go and push early.
-3. Open the pull request on the first push, against `dev`: `pnpm pr`. It fills
-   the body from `.github/pull_request_template.md`, with `Closes #` already
+3. Open the pull request on the first push, against `dev`: `pnpm pr`. It takes
+   the title from the last commit's subject, so that subject is written in
+   Conventional Commits (`feat: let an Author rename a Scene`), and fills the
+   body from `.github/pull_request_template.md`, with `Closes #` already
    carrying the number the branch is named after. `gh pr create --fill` would
    take the commit messages instead and never see the template.
+
+The backlog's routines run this same loop, from an issue labelled
+`ready-for-agent` to a pull request that lands once another routine has
+verified it: see `docs/adr/0076-the-backlog-works-itself.md`. `agent-guard`
+holds every pull request to the branch name, the Conventional Commits title and
+a record free of any mention of the tool that wrote it.
 
 `dev` is the repository's default branch, so nothing has to be told where to
 aim and `Closes #` closes its issue on merge. GitHub records that link for the
@@ -33,9 +41,9 @@ rather than the branch that deploys.
 
 The pull request is not a review surface here, it is the only place the
 end-to-end suite runs. `.github/workflows/ci.yml` runs `e2e` on `pull_request`
-alone, because each run takes a Neon branch of its own and proves the migrations
-against a database that has only ever seen them. A push to a topic branch runs
-nothing.
+alone, and each run makes a database of its own — a Postgres that has only ever
+seen the migrations, which proves them before the pull request can go green. A
+push to a topic branch runs nothing.
 
 There are no preview deployments. `vercel.json` disables Git deployments for
 every branch but `main`, because a preview cannot sign anyone in: the OAuth
@@ -61,7 +69,7 @@ than a preview origin would have bought.
 
 The `check` job also runs `pnpm test`, the Vitest suite over the Reading engine.
 That one needs no database at all, so it runs on every push rather than waiting
-for a Neon branch it would not use.
+for a database it would not use.
 
 Committing straight to either branch skips the tests, and on `main` it puts an
 unproven commit in production.
@@ -78,10 +86,9 @@ one squashed sentence per change, so there is no work in progress left to bury,
 and squashing the batch would replace thirty-five sentences with one. The merge
 commit is also the release marker this repository has no tags for.
 
-Merging it closes it, so the next one has to be opened. The agent loop does that
-when it finishes a night, which is the moment there is something new to promote;
-opening it by hand is `gh pr create --base main --head dev`. It is deliberately
-not opened by a workflow: a pull request created with `GITHUB_TOKEN` triggers no
+Merging it closes it, so the next one has to be opened, by hand:
+`gh pr create --base main --head dev --title 'chore: promote dev to main'`, a
+title `agent-guard` accepts. It is deliberately not opened by a workflow: a pull request created with `GITHUB_TOKEN` triggers no
 workflow of its own, so it would arrive with neither `check` nor `e2e` and
 `main`'s protection would refuse it.
 
@@ -95,11 +102,22 @@ The git flow above has a database counterpart, and it matters more here than the
 branch names do: a Neon branch is cheap, but there is only one production
 dataset.
 
-| Where the code runs | Neon branch |
+| Where the code runs | Database |
 | --- | --- |
-| production deployment | `production` |
-| `pnpm dev` | `development` |
-| a CI run | a branch of its own, forked from `development`, deleted at the end |
+| production deployment | the Neon branch `production` |
+| `pnpm dev` | the Neon branch `development` |
+| a CI run | a Postgres container of its own, thrown away with the runner |
+| `pnpm test:e2e` on your machine | whatever `DATABASE_URL` names — `development`, or the container `pnpm test:db` starts |
+
+The end-to-end suite never needs Neon, and in CI it never touches it. Its runs
+used to take Neon branches in the project production lives in, until on
+2026-10-02 they spent that project's free quota and Neon suspended every compute
+in it, production's with them — see
+`docs/adr/0075-the-suite-brings-its-own-database.md`. On your machine,
+`pnpm test:db` starts the same two containers CI does (`compose.yaml`) and
+migrates them, and the suite reaches them with
+`DATABASE_URL=postgres://postgres:postgres@db.localtest.me:4445/main pnpm test:e2e`;
+`.env` still names `development`, for `pnpm dev`.
 
 So `pnpm db:migrate` on your machine touches `development`, never production. A
 migration reaches `production` in the deploy that carries the code needing it:
@@ -113,47 +131,84 @@ When `development` has drifted into a mess, throw it away rather than repairing
 it: `neon branches reset development --parent` refills it from `production`.
 
 One shared `development` branch is enough for one developer. A Neon branch per
-git branch would only add bookkeeping — the disposable CI branch already covers
+git branch would only add bookkeeping — the suite's own database already covers
 the case where isolation actually pays.
 
 ## Squash, not merge
 
-Commit messages here are sentences describing a change ("Let an Author create,
-rename and delete Stories"), not micro-steps. Squashing keeps one such sentence
-per change on `dev`; a merge commit would bury it under the work in progress
-that led there.
-
-The pull request body is where the detail goes — it stays reachable from the
-squashed commit.
+A change lands on `dev` as one commit whose subject is its pull request's title,
+in Conventional Commits (`feat: let an Author rename a Scene`), and whose body is
+the pull request's description. The repository squashes with exactly those two,
+so a branch's work in progress never reaches `dev`, and the prefix says at a
+glance which commits of a promotion change what an Author or a Reader sees.
 
 The one merge commit is the promotion above, where there is no work in progress
-left to bury and squashing would cost one sentence per change.
+left to bury and squashing would cost one subject per change.
 
 ## Protecting both branches
 
-`dev` and `main` each require the `check` and `e2e` status checks to pass before
-a merge. The point is not to guard against other people; it is to stop a tired
-evening from merging red, and to make the quarantine a rule of the repository
-rather than a habit of whatever opened the pull request.
+Two rulesets, one per branch, hold `dev` and `main` to the same rules: a change
+arrives by pull request, `check`, `e2e` and `agent-guard` pass before it merges,
+the branch is never force-pushed nor deleted, and nobody bypasses any of it, the
+repository's owner included. `dev` takes squash merges alone and `main` merge
+commits alone, so each branch can only be written the way this document says.
+
+No bypass is the point. The routines act under the owner's GitHub account, and a
+rule that account could bypass would not stop them: a broken production deploy
+now goes through a pull request like everything else, which `check` makes a few
+minutes long.
+
+The checks are not `strict`. A routine verifies several pull requests in one run
+and auto-merge does not bring a branch up to date with its base, so asking for it
+would hold every pull request but the first until somebody updated it by hand. A
+change two green pull requests break together surfaces in the next pull
+request's CI, which builds on `dev` as it then stands, and at the latest in the
+promotion's.
 
 ```sh
-for branch in main dev; do
-  gh api -X PUT "repos/floperrier/frameline/branches/$branch/protection" \
-    --input - <<'JSON'
+for branch in dev main; do
+  method=$([ "$branch" = dev ] && echo squash || echo merge)
+  gh api -X POST repos/floperrier/frameline/rulesets --input - <<JSON
 {
-  "required_status_checks": { "strict": true, "contexts": ["check", "e2e"] },
-  "enforce_admins": false,
-  "required_pull_request_reviews": null,
-  "restrictions": null
+  "name": "$branch",
+  "target": "branch",
+  "enforcement": "active",
+  "bypass_actors": [],
+  "conditions": { "ref_name": { "include": ["refs/heads/$branch"], "exclude": [] } },
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": false,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": false,
+        "require_extra_approval_for_unattributed_changes": false,
+        "allowed_merge_methods": ["$method"]
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "required_status_checks": [
+          { "context": "check", "integration_id": 15368 },
+          { "context": "e2e", "integration_id": 15368 },
+          { "context": "agent-guard", "integration_id": 15368 }
+        ]
+      }
+    }
+  ]
 }
 JSON
 done
 ```
 
-`enforce_admins` stays off deliberately: a broken production deploy needs a
-hotfix path, and with one developer that path is an admin override.
-
-`strict` asks a branch to be up to date with its base before it merges. It costs
-nothing here because the loop lands one pull request at a time by design, and it
-is what makes `e2e` on a pull request a statement about `dev` and not only about
-the branch in isolation.
+`15368` is GitHub Actions, so a status of the same name from anywhere else does
+not count. `require_extra_approval_for_unattributed_changes` has to be said out
+loud: GitHub turns it on wherever a payload leaves it out, and it then holds any
+pull request carrying a commit no GitHub account claims until somebody approves
+it, which nobody here does.
