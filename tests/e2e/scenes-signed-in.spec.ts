@@ -1125,85 +1125,90 @@ test('a write that lands in one Scene leaves the Scene another write is waiting 
     await expect(page.locator('main > [role="alert"]')).toHaveCount(0)
   })
 
-test('a refusal takes its room out of the document and moves nothing under the hands',
-  async ({ page, request }) => {
-    const { story, scenes } = await chained(request, ['The arrival', 'The platform'])
-    const [, platform] = scenes
-    // A run long enough to carry the window past the Scene above it, so the
-    // scroller has room above the hands to give back: that is what the correction
-    // winds on, and what a document standing at its own head has none of.
-    const beats = await writeShots(
-      request, platform!.id, Array.from({ length: 20 }, (_, beat) => `Beat ${beat + 1}.`))
+// Posed across the range in two halves, a test each: ten widths in one test, each
+// a write kept and a write refused, came to thirty-two seconds on a slow CI runner,
+// over the thirty a test is given (#462).
+for (const range of [widths.slice(0, 5), widths.slice(5)]) {
+  test(`a refusal takes its room out of the document and moves nothing under the hands, at ${range.join(', ')}`,
+    async ({ page, request }) => {
+      const { story, scenes } = await chained(request, ['The arrival', 'The platform'])
+      const [, platform] = scenes
+      // A run long enough to carry the window past the Scene above it, so the
+      // scroller has room above the hands to give back: that is what the correction
+      // winds on, and what a document standing at its own head has none of.
+      const beats = await writeShots(
+        request, platform!.id, Array.from({ length: 20 }, (_, beat) => `Beat ${beat + 1}.`))
 
-    await page.goto(`/stories/${story.id}`)
+      await page.goto(`/stories/${story.id}`)
 
-    // The beat under the hands is the one whose write is refused, which is the
-    // worst case for a sentence that takes its room above the document: the Author
-    // is looking at the field, and the whole document is about to be pushed down by
-    // the height of a band they did not ask for.
-    let refusing = true
-    await page.route(`**/api/shots/${beats[14]!.id}`, route => refusing
-      ? route.fulfill({ status: 401, json: { message: SIGNED_OUT } })
-      : route.continue())
+      // The beat under the hands is the one whose write is refused, which is the
+      // worst case for a sentence that takes its room above the document: the Author
+      // is looking at the field, and the whole document is about to be pushed down by
+      // the height of a band they did not ask for.
+      let refusing = true
+      await page.route(`**/api/shots/${beats[14]!.id}`, route => refusing
+        ? route.fulfill({ status: 401, json: { message: SIGNED_OUT } })
+        : route.continue())
 
-    const beat = shot(page, 15, 'The platform')
-    const held = []
+      const beat = shot(page, 15, 'The platform')
+      const held = []
 
-    // Posed across the range, because the room the sentence takes is not one
-    // number: at 1440 it is a line and at 390 in either language it is three or
-    // four, and a correction that answered for one line would pass the width it was
-    // written at and move the writing by three at the width under it.
-    for (const width of widths) {
-      await page.setViewportSize({ width, height: 844 })
+      // Posed across the range, because the room the sentence takes is not one
+      // number: at 1440 it is a line and at 390 in either language it is three or
+      // four, and a correction that answered for one line would pass the width it was
+      // written at and move the writing by three at the width under it.
+      for (const width of range) {
+        await page.setViewportSize({ width, height: 844 })
 
-      // Cleared first, so that what the next reading measures is the sentence
-      // arriving rather than one sentence replaced by another.
-      refusing = false
-      await beat.click()
-      await page.keyboard.type('.')
-      // Waited for, because the next write is only refused if it goes out after the
-      // route has been turned round: a clearing write still in the air would be
-      // refused itself and the reading would be of no arrival at all.
-      const kept = page.waitForResponse(`**/api/shots/${beats[14]!.id}`)
-      await beat.blur()
-      await kept
-      await expect(refusal(page)).toBeHidden()
-      // The mark that says the write was kept arrives with it and grows the Story's
-      // own edge, which moves the bench under it: a reading taken before it lands
-      // would read that as the sentence moving the writing.
-      await expect(page.getByText(/^Kept at /)).toBeVisible()
+        // Cleared first, so that what the next reading measures is the sentence
+        // arriving rather than one sentence replaced by another.
+        refusing = false
+        await beat.click()
+        await page.keyboard.type('.')
+        // Waited for, because the next write is only refused if it goes out after the
+        // route has been turned round: a clearing write still in the air would be
+        // refused itself and the reading would be of no arrival at all.
+        const kept = page.waitForResponse(`**/api/shots/${beats[14]!.id}`)
+        await beat.blur()
+        await kept
+        await expect(refusal(page)).toBeHidden()
+        // The mark that says the write was kept arrives with it and grows the Story's
+        // own edge, which moves the bench under it: a reading taken before it lands
+        // would read that as the sentence moving the writing.
+        await expect(page.getByText(/^Kept at /)).toBeVisible()
 
-      refusing = true
-      await beat.click()
-      await page.keyboard.type(' She waits.')
-      const before = await where(beat)
+        refusing = true
+        await beat.click()
+        await page.keyboard.type(' She waits.')
+        const before = await where(beat)
 
-      await beat.blur()
-      await expect(refusal(page)).toContainText(SIGNED_OUT)
-      const after = await where(beat)
+        await beat.blur()
+        await expect(refusal(page)).toContainText(SIGNED_OUT)
+        const after = await where(beat)
 
-      held.push({
-        width,
-        // Rounded rather than held to the pixel: the scroller is wound back in
-        // device pixels and what is left of a correction of forty-odd is the
-        // rounding. A correction that stopped being made would move the beat by the
-        // whole room the sentence took.
-        moved: Math.round(after.beat - before.beat) || 0,
-        // Nothing above the scroller before, a sentence of its own height above it
-        // after, and the scroller beginning exactly where that sentence ends: it
-        // keeps its own height out here as it kept it in the flow, and what it took
-        // it took out of the document rather than off the top of it.
-        room: Math.round(before.head - before.column) === 0
-          && after.tall > 0 && Math.round(after.head - after.ends) === 0
-          ? 'its own'
-          : `${before.head - before.column} above the scroller before, `
-            + `${after.head - after.column} after, for a sentence `
-            + `${after.tall} tall ending at ${after.ends}`,
-      })
-    }
+        held.push({
+          width,
+          // Rounded rather than held to the pixel: the scroller is wound back in
+          // device pixels and what is left of a correction of forty-odd is the
+          // rounding. A correction that stopped being made would move the beat by the
+          // whole room the sentence took.
+          moved: Math.round(after.beat - before.beat) || 0,
+          // Nothing above the scroller before, a sentence of its own height above it
+          // after, and the scroller beginning exactly where that sentence ends: it
+          // keeps its own height out here as it kept it in the flow, and what it took
+          // it took out of the document rather than off the top of it.
+          room: Math.round(before.head - before.column) === 0
+            && after.tall > 0 && Math.round(after.head - after.ends) === 0
+            ? 'its own'
+            : `${before.head - before.column} above the scroller before, `
+              + `${after.head - after.column} after, for a sentence `
+              + `${after.tall} tall ending at ${after.ends}`,
+        })
+      }
 
-    expect(held).toEqual(widths.map(width => ({ width, moved: 0, room: 'its own' })))
-  })
+      expect(held).toEqual(range.map(width => ({ width, moved: 0, room: 'its own' })))
+    })
+}
 
 test('a refusal at the foot of a long Scene is read without leaving the foot of it',
   async ({ page, request }) => {
