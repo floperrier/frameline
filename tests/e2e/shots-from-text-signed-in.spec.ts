@@ -96,6 +96,52 @@ test('a text pasted under a new Scene becomes a Shot per block, its spoken one g
     ])
   })
 
+test('the field outlives a request refused, Esc and its close control standing still while it is out',
+  async ({ page, request }) => {
+    const story = await writeStory(request)
+    const yard = await (await request.post(`/api/stories/${story.id}/scenes`, { data: { name: 'The yard' } })).json()
+
+    // The request is held at the door, and then sent on as a list of none, so the
+    // server refuses it for real while the test says when.
+    let land = () => {}
+    const landing = new Promise<void>((resolve) => { land = resolve })
+    let asked = false
+    await page.route(`**/api/scenes/${yard.id}/shots`, async (route) => {
+      if (route.request().method() !== 'POST') return route.continue()
+      asked = true
+      await landing
+      await route.continue({ postData: JSON.stringify({ formatted: [] }) })
+    })
+
+    await page.goto(`/stories/${story.id}`)
+    await writeScene(page, 'The yard')
+    await page.getByRole('button', { name: 'Add Shots from Text to The yard', exact: true }).click()
+    const field = page.getByRole('textbox', { name: 'Text of the new Shots The yard' })
+    const typed = 'A door opens.\n\nRain on the glass.'
+    await field.fill(typed)
+    await page.getByRole('button', { name: 'Add the Shots', exact: true }).click()
+    await expect.poll(() => asked).toBe(true)
+
+    // While it is out, neither Esc nor the close control takes the field away.
+    const closing = page.getByRole('button', { name: 'Close this Field', exact: true })
+    await expect(closing).toBeDisabled()
+    await field.press('Escape')
+    await expect(field).toBeVisible()
+    await closing.click({ force: true })
+    await expect(field).toBeVisible()
+
+    land()
+    await expect(page.getByRole('alert')).toHaveText('In “The yard”: Shots are added from a list of 1 to 200 texts.')
+    await expect(field).toBeVisible()
+    await expect(field).toHaveValue(typed)
+    await expect(field).toHaveJSProperty('readOnly', false)
+    await expect(readShots(yard.id)).resolves.toHaveLength(0)
+
+    // And once it has landed, both close it again.
+    await field.press('Escape')
+    await expect(field).toBeHidden()
+  })
+
 test('the door makes the Shots it is given in one request, and refuses a list of none',
   async ({ request, otherAuthor }) => {
     const story = await writeStory(request)

@@ -1000,7 +1000,12 @@ async function toggleDrafting(scene: Scene) {
   document.getElementById(`text-for-${scene.id}`)?.focus()
 }
 
+/**
+ * Neither Esc nor *Close this Field* closes it while its text is being sent: the
+ * field outlives the request, so a refusal leaves the Author what they typed.
+ */
 async function stopDrafting(scene: Scene) {
+  if (filling.value === scene.id) return
   drafting.value = undefined
   await nextTick()
   document.getElementById(`from-text-${scene.id}`)?.focus()
@@ -3534,6 +3539,7 @@ function writeConditions(
             type="button"
             :disabled="!!filling"
             :aria-expanded="drafting?.sceneId === held.scene.id"
+            :aria-controls="drafting?.sceneId === held.scene.id ? `drafting-${held.scene.id}` : undefined"
             :data-command="held.here ? $t('editor.addShotsFromText') : undefined"
             @click="toggleDrafting(held.scene)"
           >
@@ -3550,6 +3556,7 @@ function writeConditions(
              under the field says what it makes as it is typed. -->
         <form
           v-if="drafting?.sceneId === held.scene.id"
+          :id="`drafting-${held.scene.id}`"
           class="drafting"
           @submit.prevent="addShotsFromText(held)"
           @keydown.esc.stop.prevent="stopDrafting(held.scene)"
@@ -3570,7 +3577,7 @@ function writeConditions(
             <button type="submit" :disabled="!drafted.ready || !!filling">
               {{ $t('editor.addTheShots') }}
             </button>
-            <button type="button" @click="stopDrafting(held.scene)">
+            <button type="button" :disabled="filling === held.scene.id" @click="stopDrafting(held.scene)">
               {{ $t('editor.closeThisField') }}
             </button>
           </p>
