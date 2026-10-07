@@ -4,7 +4,7 @@ import { useDb } from '../../../db'
 
 /**
  * Replaces a word everywhere a Story says it — issue #447, and
- * `docs/adr/0075-the-storys-words-are-found-where-a-reader-is-given-them.md` for
+ * `docs/adr/0078-the-storys-words-are-found-where-a-reader-is-given-them.md` for
  * what counts as the Story's words. The places are counted by the same
  * `placesIn` the bench lights them with, taken from the Author's own Story, and
  * a replacement that would take any field past what it may hold writes nothing

@@ -12,7 +12,7 @@ import type { Phrase } from './phrases'
  * so the bench that lights the places and the route that replaces them count
  * the same ones. What counts as the Story's words, and why a place never leaves
  * the run it starts in, is
- * `docs/adr/0075-the-storys-words-are-found-where-a-reader-is-given-them.md`.
+ * `docs/adr/0078-the-storys-words-are-found-where-a-reader-is-given-them.md`.
  */
 
 /** The longest thing to find or to put in its place: nothing longer is held by any field. */

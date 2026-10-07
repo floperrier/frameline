@@ -6,7 +6,7 @@
  * are `placesIn` over the Story the page holds, so they follow every keystroke,
  * and the route that replaces them all counts the same ones. What counts as the
  * Story's words is
- * `docs/adr/0075-the-storys-words-are-found-where-a-reader-is-given-them.md`.
+ * `docs/adr/0078-the-storys-words-are-found-where-a-reader-is-given-them.md`.
  *
  * A `<form role="search">` and not a dialog, because the Author goes on reading
  * and typing in the writing behind it: a modal bar would make the document it is

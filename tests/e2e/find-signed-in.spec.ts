@@ -12,7 +12,7 @@ import { live, seedStory, test, toast, writeStory, type Author } from './author'
 
 /**
  * Find and Replace on the bench — issue #447,
- * `docs/adr/0075-the-storys-words-are-found-where-a-reader-is-given-them.md`.
+ * `docs/adr/0078-the-storys-words-are-found-where-a-reader-is-given-them.md`.
  * Held on the English Sample, which says *Flag* in several Shots, *neither* in
  * italics and *coin* once as a word and once as the Flag `{coin}`.
  */
