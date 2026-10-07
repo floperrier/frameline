@@ -1,0 +1,10 @@
+^\.github/
+^\.claude/
+^\.githooks/
+^server/db/migrations/
+^server/db/schema\.ts$
+^server/routes/auth/
+^vercel\.json$
+^compose\.yaml$
+^package\.json$
+^pnpm-lock\.yaml$
