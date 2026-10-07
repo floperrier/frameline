@@ -1,6 +1,7 @@
 import type { H3Event } from 'h3'
 import { parseFormatted, textOf } from '../../shared/utils/formatted'
-import type { Formatted } from '../../shared/utils/formatted'
+import type { Formatted, FormattedRefusal } from '../../shared/utils/formatted'
+import type { Phrase } from '../../shared/utils/phrases'
 
 /**
  * Reads a Shot's text. A Shot is added empty and written afterwards, so empty is
@@ -24,6 +25,18 @@ export async function readShotText(event: H3Event) {
   }
 
   return text
+}
+
+/** The phrase of the rule a Shot's formatted text broke at the boundary. */
+export function formattedRefused(say: Phrase, refused: FormattedRefusal): string {
+  return {
+    shotTextLong: () => say('refusals.shotTextLong', { max: SHOT_TEXT_MAX_LENGTH }),
+    redactionHides: () => say('refusals.redactionHides', { max: REDACTION_HIDES_MAX_LENGTH }),
+    lettersSplit: () => say('refusals.lettersSplit', { max: LETTERS_SPLIT_MAX }),
+    effectArrives: () => say('refusals.effectArrives'),
+    effectLasts: () => say('refusals.effectLasts'),
+    formatted: () => say('refusals.formatted'),
+  }[refused]()
 }
 
 /**
@@ -62,16 +75,7 @@ function formattedOrRefused(event: H3Event, json: unknown) {
 
   if ('formatted' in read) return read.formatted
 
-  const say = saying(event)
-  const message = {
-    shotTextLong: () => say('refusals.shotTextLong', { max: SHOT_TEXT_MAX_LENGTH }),
-    redactionHides: () => say('refusals.redactionHides', { max: REDACTION_HIDES_MAX_LENGTH }),
-    lettersSplit: () => say('refusals.lettersSplit', { max: LETTERS_SPLIT_MAX }),
-    effectArrives: () => say('refusals.effectArrives'),
-    effectLasts: () => say('refusals.effectLasts'),
-    formatted: () => say('refusals.formatted'),
-  }[read.refused]()
-  throw createError({ statusCode: 400, message })
+  throw createError({ statusCode: 400, message: formattedRefused(saying(event), read.refused) })
 }
 
 /**

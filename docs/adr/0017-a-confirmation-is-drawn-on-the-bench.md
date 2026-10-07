@@ -4,13 +4,20 @@ status: accepted
 
 # A confirmation is drawn on the bench
 
+Amended in issue #447, by
+`docs/adr/0078-the-storys-words-are-found-where-a-reader-is-given-them.md`:
+*Replace All* asks as well, because it writes over places the Author did not
+name one by one, and it is the sixth act in the table below. Everything else
+here stands.
+
 An act is asked about when it takes something with it that the Author did not
-name in the act. Deleting a Récit and deleting a Scène ask. Deleting a Plan,
+name in the act. Deleting a Récit and deleting a Scène ask, and so does
+*Replace All*, which takes every place the Author did not name one by one. Deleting a Plan,
 deleting a Coupe and unpublishing do not. The question is a `<dialog>` drawn
 from the tokens in `app/assets/css/frameline.css`, and `window.confirm` appears
 nowhere in the product.
 
-Four points settle it, and they settle all five acts rather than the two that
+Four points settle it, and they settle all six acts rather than the two that
 happened to ask before.
 
 **A confirmation guards the Author's writing, and only that.** A Reader's
@@ -54,6 +61,7 @@ Author's goes.
 | Delete a Plan | No | Takes only the Plan pointed at; its Photogramme, its Description and its Conditions are the Plan |
 | Delete a Coupe | No | Takes only the Coupe pointed at; its text and its Conditions are the Coupe |
 | Unpublish | No | Destroys nothing of the Author's, and carries no mark either |
+| Replace All | **Yes**, naming what is found, what replaces it and in how many places | It writes over every place at once, most of them places the Author did not look at, and nothing undoes it; see `docs/adr/0078-the-storys-words-are-found-where-a-reader-is-given-them.md` |
 
 The Scène phrase counts three separate figures rather than one total, because
 "its Coupes" reads as the ones belonging to it and the Coupes drawn into it from
@@ -119,5 +127,5 @@ asks nothing, and leaves a slim row with *Put It Back* on it for as long as the
 page is open, the row held whole on the server for a day — see
 `docs/adr/0064-a-deleted-shot-is-held-for-a-day.md`.
 
-Reopening any of the five verdicts means amending this ADR, not adding a
+Reopening any of the six verdicts means amending this ADR, not adding a
 `confirm`.

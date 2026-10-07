@@ -199,6 +199,25 @@ type Reading = 'writing' | 'sheet' | 'preview'
 const reading = ref<Reading>('writing')
 
 /**
+ * Whether the bar Find and Replace is done in is up, at the head of the middle of
+ * the bench — issue #447, and `app/components/Finding.vue`. It works over the
+ * writing, so it turns the middle to the writing as it opens, and every way off
+ * the writing closes it: the places it lights are fields only the writing draws.
+ */
+const finding = ref(false)
+
+watch(reading, (now) => {
+  if (now !== 'writing') finding.value = false
+})
+
+/** Opens the bar, or puts the caret back in its first field where it is up already. */
+function openFinding() {
+  reading.value = 'writing'
+  if (finding.value) return document.getElementById('finding-what')?.focus()
+  finding.value = true
+}
+
+/**
  * Puts the caret in one Scene, leaving the middle of the bench on the reading it
  * was showing: a mark pressed on the rail while the Story is being read is the
  * Author reading on, not asking to write. A Remark is the same press — it stands
@@ -605,10 +624,10 @@ async function readFrom(sceneId: string, shotId: string) {
       :announce="announce"
     >
       <!-- The bench's own acts, on the Story's own edge: the way into every act
-           by naming it, and the two readings the middle of the bench is not
-           showing. Three controls, because the document under them is what the
-           screen is for — the Remarks left this row for a region of their own
-           beside the document, see
+           by naming it, the bar a word is found and replaced in, and the two
+           readings the middle of the bench is not showing. Four controls, because
+           the document under them is what the screen is for — the Remarks left
+           this row for a region of their own beside the document, see
            `docs/adr/0043-a-story-is-written-as-one-document.md`. -->
       <div class="tools">
         <!-- The key does the same thing as the control, drawn on the control where
@@ -617,6 +636,15 @@ async function readFrom(sceneId: string, shotId: string) {
         <button type="button" class="commanding" @click="commanding = true">
           {{ $t('editor.commands') }}
           <span class="combination"><kbd>{{ modifier }}</kbd><kbd>K</kbd></span>
+        </button>
+
+        <button
+          v-if="sceneWritten"
+          type="button"
+          :data-command="$t('find.findAndReplace')"
+          @click="openFinding"
+        >
+          {{ $t('find.findAndReplace') }}
         </button>
 
         <!-- The two readings the middle is not showing, each named for what
@@ -711,6 +739,20 @@ async function readFrom(sceneId: string, shotId: string) {
            it, and under that the reading. The name is the page's own word for this
            region — `.drawing` is the Graph's, for the plate it draws a Story on. -->
       <div class="middle">
+        <!-- Find and Replace, over the reading rather than in it, like the
+             sentence under it: the document scrolls under the bar and never
+             behind it. Not a dialog, because the writing stays live. -->
+        <Finding
+          v-if="finding"
+          :story="story"
+          :write="writeStory"
+          :change="changeStory"
+          :settled="settled"
+          :ask="ask"
+          :announce="announce"
+          @close="finding = false"
+        />
+
         <!-- Why the last change in one Scene of the document was refused. Said
              above the reading rather than inside it, and naming the Scene it is
              about rather than standing on it — `.refused` says why that is not a

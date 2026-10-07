@@ -364,6 +364,15 @@ export const FLAGS_PER_SCENE = 20
 export const QUESTION_MAX_LENGTH = 250
 
 /**
+ * A Question as it is held: the sentence without the blanks round it. Its own
+ * write and a replacement both hold it so, and a Question left with nothing but
+ * blanks is a Scene that asks nothing.
+ */
+export function heldQuestion(written: string): string {
+  return written.trim()
+}
+
+/**
  * How many values one Flag may be given to draw from. Two at the least — a line
  * with no separator is a plain value and stays one — and six at the most: a draw
  * is a beat coming back differently, not a table an Author rolls on. Past half a
@@ -805,7 +814,7 @@ export function countedWords(many: number, say: Phrase) {
  * far the rule reaches, is
  * `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
  */
-export function namesOnTheBench(story: StoryInEditor, say: Phrase) {
+export function namesOnTheBench(story: Pick<StoryInEditor, 'scenes' | 'exits' | 'openingSceneId'>, say: Phrase) {
   const alike = new Map<string, number>()
   for (const scene of story.scenes) alike.set(scene.name, (alike.get(scene.name) ?? 0) + 1)
 

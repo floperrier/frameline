@@ -403,7 +403,7 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
  */
 export async function readQuestion(event: H3Event) {
   const body = await readBody<{ question?: unknown }>(event)
-  const written = typeof body?.question === 'string' ? body.question.trim() : undefined
+  const written = typeof body?.question === 'string' ? heldQuestion(body.question) : undefined
 
   if (written === undefined || written.length > QUESTION_MAX_LENGTH) {
     throw createError({
