@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+sed -i.bak -E '/^Co-[Aa]uthored-[Bb]y: Claude/d; /Generated with \[Claude Code\]/d; /^Claude-Session:/d' "$1" && rm -f "$1.bak"

@@ -1,0 +1,36 @@
+name: agent-guard
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+jobs:
+  agent-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Aucune trace d'outil
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BRANCH: ${{ github.head_ref }}
+        # A promotion carries dev's commits, each checked by its own pull request;
+        # those that landed before this guard existed cannot be rewritten.
+        run: |
+          pattern='Claude-Session|claude\.ai/code/session|Co-Authored-By: Claude|Generated with \[?Claude'
+          if printf '%s' "$BODY" | grep -qiE "$pattern"; then echo "Trace dans la description"; exit 1; fi
+          if [ "$BRANCH" != dev ] && git log --format=%B "$BASE..$HEAD" | grep -qiE "$pattern"; then echo "Trace dans un commit"; exit 1; fi
+      - name: Nom de branche conforme
+        env:
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          printf '%s' "$BRANCH" | grep -qE "$(cat .github/branch-name-pattern)" \
+            || { echo "Branche non conforme : $BRANCH"; exit 1; }
+      - name: Titre en Conventional Commits
+        if: ${{ !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'renovate/') }}
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          printf '%s' "$TITLE" | grep -qE '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9-]+\))?!?: .+' \
+            || { echo "Titre non conforme : $TITLE"; exit 1; }
