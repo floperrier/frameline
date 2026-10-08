@@ -6,6 +6,7 @@ import type { Phrase } from './phrases'
 import type { Cover } from './stories'
 import type { Align, Face } from './formatted'
 import { runLastings } from './formatted'
+import { heardUnder } from './sound'
 
 /**
  * A Story as a Reader receives it. Narrower than the Story an Author edits — no
@@ -869,6 +870,26 @@ export function imageHeld(story: StoryToRead, at: Path) {
  * `docs/adr/0073-a-beat-lands-when-its-image-can-be-shown.md`.
  */
 export function needed(story: StoryToRead, at: Path) {
+  return [...new Set(ahead(story, at).flatMap(({ shot }) => (shot?.image ? [shot.image] : [])))]
+}
+
+/**
+ * The Sounds this Path will need next, by the rule `needed` brings Images in by
+ * and out of the same beats: the strike of each, and the Sound its Scene is heard
+ * under, which is the carrier's address for a Scene naming another's. A beat with
+ * no Shot of its own still names its Scene's Sound, which is held there too.
+ */
+export function soundsNeeded(story: StoryToRead, at: Path) {
+  return [...new Set(ahead(story, at).flatMap(beat => played(story, beat)))]
+}
+
+/** The Sounds the beat on this Path plays: what a move onto it waits on while sound is on. */
+export function soundsHeld(story: StoryToRead, at: Path) {
+  return played(story, reading(story, at))
+}
+
+/** The beats `needed` and `soundsNeeded` look ahead to, as `needed` says. */
+function ahead(story: StoryToRead, at: Path) {
   const now = reading(story, at)
   const next = advance(at)
   const beats = now.shot ? [reading(story, next), reading(story, advance(next))] : []
@@ -878,7 +899,13 @@ export function needed(story: StoryToRead, at: Path) {
     ? reading(story, leaving).exits.map(exit => reading(story, take(leaving, exit)))
     : []
 
-  return [...new Set([...beats, ...behind].flatMap(({ shot }) => (shot?.image ? [shot.image] : [])))]
+  return [...beats, ...behind]
+}
+
+/** What one beat is heard by: its Shot's strike, and its Scene's Sound. */
+function played(story: StoryToRead, { shot, sceneId }: Shown) {
+  return [shot?.sound, heardUnder(story.scenes, sceneId)?.sound]
+    .filter((sound): sound is string => Boolean(sound))
 }
 
 /**

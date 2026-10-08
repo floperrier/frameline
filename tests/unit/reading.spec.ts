@@ -19,7 +19,8 @@ import {
 import type { Path, State, StoryToRead } from '../../shared/utils/reading'
 import {
   advance, answer, back, backTo, braced, cut, declaredIn, forks, imageHeld, lastUnitAt, layout, lasting, moved, movement, movementEnds, movesItself, opening,
-  needed, pathTo, pieces, reading, resumes, said, standOn, take, textArrival, textArrives, textMoves, timed, unmet,
+  needed, pathTo, pieces, reading, resumes, said, soundsHeld, soundsNeeded, standOn, take, textArrival, textArrives,
+  textMoves, timed, unmet,
 } from '../../shared/utils/reading'
 import { isPath } from '../../app/utils/kept'
 import { DEFAULT_LOCALE, phrase } from '../../server/utils/phrases'
@@ -2387,5 +2388,84 @@ describe('the Images a Reading will need next', () => {
 
     expect(needed(alone, advance(OPENING))).toEqual([])
     expect(needed(alone, advance(advance(OPENING)))).toEqual([])
+  })
+})
+
+describe('the Sounds a Reading will need next', () => {
+  /**
+   * The Story with a strike on every Shot, named after the Shot, a Sound under
+   * each Scene `beds` names, named after the Scene, and each Scene `naming` maps
+   * heard under the Scene it maps to.
+   */
+  function sounded(read: StoryToRead, beds: string[] = [], naming: Record<string, string> = {}): StoryToRead {
+    return {
+      ...read,
+      scenes: read.scenes.map(scene => ({
+        ...scene,
+        sound: beds.includes(scene.id) ? `/${scene.id}` : null,
+        soundOfSceneId: naming[scene.id] ?? null,
+        shots: scene.shots.map(shot => ({ ...shot, sound: `/${shot.id}.mp3` })),
+      })),
+    }
+  }
+
+  it('names the strikes of the next two beats, and the beat on screen plays its own', () => {
+    const street = sounded(story({ Street: ['One.', 'Two.', 'Three.', 'Four.'] }), ['Street'])
+
+    expect(soundsHeld(street, OPENING)).toEqual(['/Street-0.mp3', '/Street'])
+    expect(soundsNeeded(street, OPENING)).toEqual(['/Street-1.mp3', '/Street', '/Street-2.mp3'])
+  })
+
+  it('never names the strike of a beat its Condition skips', () => {
+    const skipping = sounded(story({
+      Street: ['One.', ['Two.', [{ flag: 'lamp', is: 'lit' }]], 'Three.', 'Four.'],
+    }))
+
+    expect(soundsNeeded(skipping, OPENING)).toEqual(['/Street-2.mp3', '/Street-3.mp3'])
+  })
+
+  it('names the Sound of the Scene behind each Exit offered, and nothing behind one that is not', () => {
+    const forked = sounded(story(
+      { Street: ['One.', 'Two.'], Bar: ['Smoke.'], Alley: ['Rain.'], Roof: ['Wind.'] },
+      [
+        ['Street', 'Go in', 'Bar'],
+        ['Street', 'Go round', 'Alley'],
+        ['Street', 'Go up', 'Roof', [{ flag: 'key', is: 'held' }]],
+      ],
+    ), ['Bar', 'Alley', 'Roof'])
+    const last = advance(OPENING)
+
+    expect(soundsNeeded(forked, last)).toEqual(['/Bar-0.mp3', '/Bar', '/Alley-0.mp3', '/Alley'])
+    // And while the ways on are offered, where the strike of the last beat is let play out.
+    expect(soundsHeld(forked, advance(last))).toEqual([])
+    expect(soundsNeeded(forked, advance(last))).toEqual(['/Bar-0.mp3', '/Bar', '/Alley-0.mp3', '/Alley'])
+  })
+
+  it('names the carrier\'s Sound for a Scene heard under another Scene\'s', () => {
+    const naming = sounded(
+      story({ Street: ['One.'], Bar: ['Smoke.'], Cellar: ['Damp.'] }, [['Street', 'Go in', 'Bar']]),
+      ['Cellar'],
+      { Bar: 'Cellar' },
+    )
+    const exit = naming.exits[0]!
+
+    expect(soundsNeeded(naming, OPENING)).toEqual(['/Bar-0.mp3', '/Cellar'])
+    expect(soundsHeld(naming, take(advance(OPENING), exit))).toEqual(['/Bar-0.mp3', '/Cellar'])
+  })
+
+  it('names nothing past an ending', () => {
+    const alone = sounded(story({ Street: ['One.', 'Two.'] }))
+
+    expect(soundsNeeded(alone, advance(OPENING))).toEqual([])
+    expect(soundsNeeded(alone, advance(advance(OPENING)))).toEqual([])
+  })
+
+  it('names nothing at all for a Story without a Sound', () => {
+    const silent = story({ Street: ['One.', 'Two.'], Bar: ['Smoke.'] }, [['Street', 'Go in', 'Bar']])
+
+    for (const at of [OPENING, advance(OPENING), advance(advance(OPENING))]) {
+      expect(soundsHeld(silent, at)).toEqual([])
+      expect(soundsNeeded(silent, at)).toEqual([])
+    }
   })
 })
