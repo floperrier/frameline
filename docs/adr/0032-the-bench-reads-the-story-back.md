@@ -77,7 +77,9 @@ them no longer follow every key: they are read off a copy of the Story taken whe
 a typed write lands or a read-back changes it. A reading of three hundred Shots
 redone on every character made a keystroke cost what the Story holds, and nobody
 reads a Remark mid-word. They still cannot disagree with the screen once the
-writing is kept, which is what they are for.
+writing is kept, which is what they are for. An act whose own read does not come
+back is said to be kept and not read back, and the Story on the bench is left as
+the last read that landed — see `docs/adr/0008-refetch-is-for-a-refusal.md`.
 
 ## Consequences
 

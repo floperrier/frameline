@@ -28,60 +28,21 @@ const { t } = useI18n()
  * the bench holds equal to the read, and laid over, nothing would put the control
  * back. See `docs/adr/0008-refetch-is-for-a-refusal.md`.
  *
- * Reads that cross on the way back land newest first: one answering after a newer
- * one has landed is older than what is on the bench, and dropped. One that fails
- * drops nothing, so where the newer read fails the older that came back is the
- * one the bench shows. A read restoring after a refusal stays owed until a read
- * asked as late as it has landed, so whichever lands first is put in place whole.
- *
- * Every read in flight is done when the last of them is, which is what `refresh`
- * did by handing a cancelled call the newer one's promise. Whoever awaits an act —
- * the cut that says the Scene it made and puts the caret in it, the Shot added and
- * typed into — resumes on a Story that holds the act; resumed on an older answer,
- * the Scene or Shot it reaches for would not be there yet. Where none of them came
- * back the promise fails with the error of the last to fail, and `useEditing` says
- * so the way it says a refusal: the bench goes on showing the Story as it was
- * before the act, where a refetch that failed used to empty it.
+ * Reads that cross on the way back are answered by `readsBack`, newest first and
+ * each to the act that asked it: whoever awaits an act — the cut that says the
+ * Scene it made and puts the caret in it, the Shot added and typed into — resumes
+ * once a read asked as late as theirs has landed, on a Story that holds the act,
+ * and where none of those came back their promise fails and `useEditing` says so.
+ * An older read that came back stays on the bench. The bench goes on showing the
+ * Story as it was before, where a refetch that failed used to empty it.
  */
-let readsAsked = 0
-let readOnBench = 0
-let restoreAsked = 0
-let inFlight = 0
-let round: { done: Promise<void>, end: (unread?: unknown) => void } | undefined
-
-function readBack(whole = false) {
-  const asking = ++readsAsked
-  if (whole) restoreAsked = asking
-  changesAsked++
-
-  if (!round) {
-    let end = (_unread?: unknown) => {}
-    const done = new Promise<void>((landed, failed) => {
-      end = unread => (readOnBench >= asking ? landed() : failed(unread))
-    })
-    round = { done, end }
-  }
-  const reads = round
-  inFlight++
-
-  let unread: unknown
-  void (send(`/api/stories/${id}`) as Promise<StoryInEditor>).then(
-    (read) => {
-      if (asking < readOnBench) return
-      story.value = story.value && restoreAsked <= readOnBench
-        ? sharing(toRaw(story.value), read)
-        : read
-      readOnBench = asking
-    },
-    (error: unknown) => (unread = error),
-  ).finally(() => {
-    if (--inFlight) return
-    round = undefined
-    reads.end(unread)
-  })
-
-  return reads.done
-}
+const readBack = readsBack(
+  () => send(`/api/stories/${id}`) as Promise<StoryInEditor>,
+  (read, whole) => {
+    story.value = story.value && !whole ? sharing(toRaw(story.value), read) : read
+    changesAsked++
+  },
+)
 
 const { problem, keptAt, change, write, settled } = useEditing(
   () => readBack(),
@@ -96,8 +57,9 @@ const { problem, keptAt, change, write, settled } = useEditing(
  * answer is taken from the read, so nothing being typed is replaced, and only the
  * one asked last, so two answers crossing on the way back cannot leave the older
  * standing. A read that fails leaves the marks as they were until the next. And
- * none asked before a read-back, which brings the answer too and is the newer of
- * the two: `readBack` counts itself as asked.
+ * none asked before a read-back lands, which brings the answer too and is the
+ * newer of the two: a read that lands counts itself as asked, and one that fails
+ * drops nothing.
  */
 let changesAsked = 0
 watch(keptAt, async () => {
@@ -531,14 +493,16 @@ async function makeScene(name = t('editor.provisionalSceneName')) {
   let writtenId: string | undefined
 
   await changeStory(async () => {
-    const written = await send(`/api/stories/${id}/scenes`, {
+    const made = await send(`/api/stories/${id}/scenes`, {
       method: 'POST',
       body: { name },
     }) as Scene
 
-    writtenId = written.id
+    writtenId = made.id
   })
-  if (!writtenId) return
+  // Kept but not read back, the Scene is not on the bench to be named or written
+  // in: `useEditing` has said so, and the Author reloads to find it.
+  if (!writtenId || !story.value?.scenes.some(scene => scene.id === writtenId)) return
 
   // After the read the change asks for: the sentence names the Scene as the bench
   // does, and `names` cannot number a Scene the Story does not hold yet; and the

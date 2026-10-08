@@ -20,6 +20,9 @@ const sql = neon(process.env.DATABASE_URL!)
 /** What the server answers once, in the place of the request it was asked to refuse. */
 const REFUSED = 'Not that one.'
 
+/** What the bench says when an act was kept and the Story could not be read back after it. */
+const KEPT_UNREAD = 'Kept, but the Story could not be read back. Reload the bench to see it.'
+
 /** The sentence a refusal is said in. There is one on the bench at a time. */
 function refusal(page: Page) {
   return page.getByRole('alert')
@@ -115,12 +118,14 @@ test('stepping back goes back to what the Story offers when the server refuses i
  * Two acts whose reads cross on the way back, the newer of them failing. The older
  * came back, and it is what the bench shows: a read that fails drops nothing, where
  * on #471 the older answer was thrown away for being overtaken and the bench stayed
- * as it was before either act, without a word.
+ * as it was before either act, without a word. The newer act is kept but not on the
+ * bench, and that is said: the older read answers nothing for it.
  */
 test('a read that came back is kept when a newer one fails', async ({ page, request }) => {
   const { story, street, bar } = await benchWithThreeScenes(page, request)
 
   let reads = 0
+  let firstRead = false
   let overtaken = () => {}
   const failed = new Promise<void>(done => (overtaken = done))
   await page.route(`**/api/stories/${story.id}`, async (route) => {
@@ -130,6 +135,7 @@ test('a read that came back is kept when a newer one fails', async ({ page, requ
       // Read now, so the answer holds the first act and not the second, and held
       // until the second read has failed.
       const response = await route.fetch()
+      firstRead = true
       await failed
       return route.fulfill({ response })
     }
@@ -143,30 +149,54 @@ test('a read that came back is kept when a newer one fails', async ({ page, requ
   await expect(shotsOf('The street')).toHaveCount(2)
 
   await page.locator(`.writing [data-scene="${bar.id}"]`).getByRole('button', { name: /^Add a Shot/ }).click()
-  await expect.poll(() => reads).toBe(1)
+  // The second act is sent once the first read has its answer, so the answer
+  // cannot hold the second act's Shot.
+  await expect.poll(() => firstRead).toBe(true)
   await page.locator(`.writing [data-scene="${street.id}"]`).getByRole('button', { name: /^Add a Shot/ }).click()
 
   // The first act's read lands: the bar has the Shot it added. The second act's
-  // never came back, so its Shot is not on the bench yet, and nothing is said,
-  // because the bench does show a Story the server held.
+  // never came back, so its Shot is not on the bench yet, and the bench says the
+  // act was kept rather than letting the Author take it for one that never was.
   await expect(shotsOf('The bar')).toHaveCount(2)
+  await expect(refusal(page)).toContainText(KEPT_UNREAD)
   await expect(shotsOf('The street')).toHaveCount(2)
-  await expect(refusal(page)).toHaveCount(0)
+  const shots = await sql`select id from shots where scene_id = ${street.id}`
+  expect(shots).toHaveLength(3)
 })
 
-/** Where no read comes back at all, the Author is told, and the bench keeps what it showed. */
-test('a read that fails is said beside the bench', async ({ page, request }) => {
+/**
+ * Where no read comes back at all after an act the server kept, the Author is told
+ * it was kept, whatever the read was answered with, and the bench keeps what it
+ * showed. Told it did not work, they would do it again and have it twice.
+ */
+test('a read that fails after a kept act is said as kept beside the bench', async ({ page, request }) => {
   const { story, bar } = await benchWithThreeScenes(page, request)
-  const said = 'The Story could not be read.'
 
   // Every read fails, the one `$fetch` sends again on a 503 as well.
   await page.route(`**/api/stories/${story.id}`, route => route.request().method() === 'GET'
-    ? route.fulfill({ status: 503, json: { message: said } })
+    ? route.fulfill({ status: 503, json: { message: 'The Story could not be read.' } })
     : route.continue())
 
   await page.locator(`.writing [data-scene="${bar.id}"]`).getByRole('button', { name: /^Add a Shot/ }).click()
 
-  await expect(refusal(page)).toContainText(said)
+  await expect(refusal(page)).toContainText(KEPT_UNREAD)
+  await expect(page.getByRole('textbox', { name: 'Shot 1 of The bar', exact: true })).toBeVisible()
+  const shots = await sql`select id from shots where scene_id = ${bar.id}`
+  expect(shots).toHaveLength(2)
+})
+
+/** A read that gets no answer at all — no status, no body — is said as kept just the same. */
+test('a read that gets no answer after a kept act is said as kept', async ({ page, request }) => {
+  const { story, bar } = await benchWithThreeScenes(page, request)
+
+  await page.route(`**/api/stories/${story.id}`, route => route.request().method() === 'GET'
+    ? route.abort()
+    : route.continue())
+
+  await page.locator(`.writing [data-scene="${bar.id}"]`).getByRole('button', { name: /^Add a Shot/ }).click()
+
+  await expect(refusal(page)).toContainText(KEPT_UNREAD)
+  await expect(refusal(page)).not.toContainText('That did not work.')
   await expect(page.getByRole('textbox', { name: 'Shot 1 of The bar', exact: true })).toBeVisible()
   const shots = await sql`select id from shots where scene_id = ${bar.id}`
   expect(shots).toHaveLength(2)

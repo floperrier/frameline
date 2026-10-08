@@ -121,7 +121,7 @@ export function useEditing(
    * carried the change.
    */
   function heard(error: unknown): Problem {
-    const refused = error as { statusCode?: number, data?: { message?: string } }
+    const refused = (error ?? {}) as { statusCode?: number, data?: { message?: string } }
 
     return {
       said: refused.data?.message ?? t('error.refused'),
@@ -156,12 +156,15 @@ export function useEditing(
    * door this refusal already offers. See
    * `docs/adr/0016-the-door-is-reopened-beside-the-bench.md`.
    *
-   * A read that fails is said the way a refused write is, since the page goes on
-   * showing the Story as it was before the act and the Author would otherwise take
-   * that for what the Story holds. It is said only where nothing is said already:
-   * a refusal the read was meant to put right is the more useful sentence, and the
-   * Author who reads it knows the bench is worth reloading — unless the read found
-   * the door shut, which is the one thing worth saying over it.
+   * A read that fails is said, since the page goes on showing the Story as it was
+   * before the act and the Author would otherwise take that for what the Story
+   * holds. After an act the server kept it is said as that and never as a
+   * refusal: the act is in the database, and an Author told it did not work would
+   * do it again and have it twice. After a refusal it is said only where nothing is
+   * said already: the refusal the read was meant to put right is the more useful
+   * sentence, and the Author who reads it knows the bench is worth reloading —
+   * unless the read found the door shut, which is the one thing worth saying over
+   * it.
    */
   async function readBack(kept: boolean) {
     if (problem.value?.door) return
@@ -170,7 +173,8 @@ export function useEditing(
     }
     catch (error) {
       const unread = heard(error)
-      if (!problem.value || unread.door) problem.value = unread
+      if (kept) problem.value = { said: t('error.keptUnread'), door: unread.door }
+      else if (!problem.value || unread.door) problem.value = unread
     }
   }
 

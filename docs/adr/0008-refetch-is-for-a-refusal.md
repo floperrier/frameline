@@ -64,10 +64,14 @@ Story first — where an Exit lands, the face a Story is set in, whether it step
 back — leaves the held Story equal to the read, and laid over, the refused value
 would have stayed in its control while the database kept the old one. Put in
 place whole, every control is drawn again from what persisted, which is the
-promise this record makes. Two reads crossing land newest first, one that fails
-drops nothing, and where none of them comes back the bench says so beside the
-document the way it says a refusal, instead of going on silently with the Story as
-it was before the act. `tests/e2e/refused-choice-signed-in.spec.ts` holds both.
+promise this record makes. Two reads crossing land newest first, and one that
+fails drops nothing (`app/utils/reads.ts`). Each act is answered on its own read:
+it resumes once a read asked as late as its own has landed, and an older read
+coming back answers nothing for it. Where none of those comes back the bench says
+so beside the document, instead of going on silently with the Story as it was
+before the act — after a kept act as kept, *Kept, but the Story could not be read
+back*, and never as a refusal, which the Author would answer by doing the act a
+second time. `tests/e2e/refused-choice-signed-in.spec.ts` holds both.
 
 The server trims what it stores — a Condition's Flag name and the value it holds.
 A value typed with a trailing space is now stored trimmed and shown untrimmed
