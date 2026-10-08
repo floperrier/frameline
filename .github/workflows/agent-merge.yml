@@ -6,8 +6,11 @@ name: agent-merge
 on:
   pull_request:
     types: [labeled, synchronize]
+# issues: write lets the merge close the issues the pull request names; without it
+# the merge goes through and they stay open, with nothing reported.
 permissions:
   contents: write
+  issues: write
   pull-requests: write
 env:
   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
