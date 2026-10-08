@@ -160,18 +160,23 @@ Samples, that each holds together as a work and that the two of them are one
 shape in two languages — and that the script that writes the works starts on
 Node as it stands, run with no Author so it stops before reaching for a
 database. None of them needs a database, because none of them has one in reach. `pnpm test:e2e` runs
-Playwright against a built app and the database `DATABASE_URL` names. Run it
-against the suite's own: `pnpm test:db` starts a Postgres and a proxy that speaks
-Neon's protocol (`compose.yaml`, Docker) and migrates them, then
-`DATABASE_URL=postgres://postgres:postgres@db.localtest.me:4445/main pnpm test:e2e`.
-CI does the same and never touches Neon, whose free quota is production's — see
+Playwright against a built app and the suite's own database: `pnpm test:db`
+starts a Postgres and a proxy that speaks Neon's protocol (`compose.yaml`,
+Docker) and migrates them, and the suite reaches them at
+`postgres://postgres:postgres@db.localtest.me:4445/main` unless the environment
+sets another `DATABASE_URL`. It never takes the one in `.env`, which is
+`pnpm dev`'s. CI does the same and never touches Neon, whose free quota is production's — see
 `docs/adr/0075-the-suite-brings-its-own-database.md`.
 
 ## Running the app
 
-`pnpm dev` after copying `.env.example` to `.env` and filling it in. The Neon
-schema is applied with `pnpm db:migrate`; never edit the database by hand.
-Migrations are generated from `server/db/schema.ts` with `pnpm db:generate`.
+`pnpm dev` after copying `.env.example` to `.env` and filling it in, with Docker
+running. It first starts the database it runs on, the suite's two containers
+started again as a stack of their own (`compose.dev.yaml`, port 4446) whose data
+is kept in a volume, and applies the migrations to it. Then Nuxt starts. See
+`docs/adr/0082-development-brings-its-own-database.md`. Never edit the database
+by hand. Migrations are generated from `server/db/schema.ts` with
+`pnpm db:generate`; `pnpm db:migrate` is the deploy's, against Neon.
 
 ## The demonstration work
 

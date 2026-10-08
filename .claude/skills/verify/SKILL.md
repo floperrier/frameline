@@ -28,7 +28,7 @@ with `server/db/migrate.ts`, builds with that database's URL, and serves
 `.output` with it, whatever the build or `.env` hold. It prints
 `serving http://localhost:<port> (pid <pid>)` once `GET /` answers. The port is
 the first free one from 3190 to 3199. Never drive 3100: that is somebody's
-`pnpm dev`, on Neon's `development` branch, and it does not pick up a new
+`pnpm dev`, on the developer's own database, and it does not pick up a new
 auto-import in an existing file, so it can hide a `ReferenceError` a build would
 show. 3101 belongs to the e2e suite. A second `launch` while the server lives
 reports it and starts nothing.

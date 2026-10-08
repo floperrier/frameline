@@ -2,13 +2,17 @@ import { existsSync } from 'node:fs'
 import { defineConfig } from '@playwright/test'
 
 // The tests seal their own session cookie and seed their own Author, so they need
-// the same password and database the preview server is about to use. Loading
-// `.env` here — Nuxt does it for us everywhere else — keeps one source for both,
-// and CI can supply the two variables directly instead.
+// the same password and database the preview server is about to use. The
+// database is the suite's own, which `pnpm test:db` starts, rather than the one
+// `.env` names for `pnpm dev` — see
+// `docs/adr/0082-development-brings-its-own-database.md`; a `DATABASE_URL` in
+// the environment still wins. The password comes from `.env` — Nuxt loads it for
+// us everywhere else — and CI supplies both directly instead.
+process.env.DATABASE_URL ??= 'postgres://postgres:postgres@db.localtest.me:4445/main'
 if (existsSync('.env')) process.loadEnvFile('.env')
 
-for (const name of ['NUXT_SESSION_PASSWORD', 'DATABASE_URL'] as const) {
-  if (!process.env[name]) throw new Error(`${name} is not set — run \`neon env pull\``)
+if (!process.env.NUXT_SESSION_PASSWORD) {
+  throw new Error('NUXT_SESSION_PASSWORD is not set — copy .env.example to .env')
 }
 
 export default defineConfig({

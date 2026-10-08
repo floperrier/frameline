@@ -4,7 +4,7 @@
   "type": "module",
   "packageManager": "pnpm@11.7.0",
   "scripts": {
-    "dev": "nuxt dev",
+    "dev": "pnpm db:dev && nuxt dev",
     "build": "nuxt build",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:db": "docker compose up -d --wait && DATABASE_URL=postgres://postgres:postgres@db.localtest.me:4445/main node server/db/migrate.ts",
+    "db:dev": "docker compose -f compose.yaml -f compose.dev.yaml up -d --wait && DATABASE_URL=postgres://postgres:postgres@db.localtest.me:4446/main node server/db/migrate.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "prepare": "git config core.hooksPath .githooks || true",

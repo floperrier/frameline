@@ -50,7 +50,7 @@ launch() {
   database
   if [ "${1:-}" != --no-build ]; then
     # The build writes DATABASE_URL into the server as its default, and would
-    # otherwise take it from .env, which names Neon.
+    # otherwise take it from .env, which names the development database.
     DATABASE_URL=$database pnpm build > "$state/build.log" 2>&1 ||
       { tail -30 "$state/build.log"; exit 1; }
   fi

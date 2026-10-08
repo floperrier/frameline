@@ -5,15 +5,11 @@ credentials, so they are run by a human once.
 
 ## 1. Database
 
-Create a Neon project, then two branches that never mix:
-
-| Neon branch | Who connects to it |
-| --- | --- |
-| `production` (default) | the production deployment, nothing else |
-| `development` | `pnpm dev` |
-
-Each CI run forks a third, disposable branch from `development` and deletes it
-afterwards, so the end-to-end suite never touches either of these.
+Create a Neon project. Its default branch, `production`, is the production
+deployment's and nothing else's. Neither `pnpm dev` nor the end-to-end suite
+reaches Neon: each starts a Postgres of its own on the machine it runs on — see
+`docs/adr/0075-the-suite-brings-its-own-database.md` and
+`docs/adr/0082-development-brings-its-own-database.md`.
 
 Apply the schema to a branch by pointing `DATABASE_URL` at it:
 
@@ -21,14 +17,14 @@ Apply the schema to a branch by pointing `DATABASE_URL` at it:
 DATABASE_URL='postgres://…' pnpm db:migrate
 ```
 
-Locally, `neon checkout development` writes the right `DATABASE_URL` into
-`.env` for you — see `docs/git-flow.md` for why the separation matters. You
-never name `production` yourself: the deploy applies migrations to it, as
+Locally, `.env` names the database `pnpm dev` starts, and `pnpm dev` migrates it
+itself — see `docs/git-flow.md` for why the separation matters. You never name
+`production` yourself: the deploy applies migrations to it, as
 `docs/adr/0002-the-schema-moves-with-the-deploy.md` explains.
 
 Neon's branch protection needs a paid plan, so `production` is not protected.
-What keeps the branches apart is that `.env` points at `development` and that
-the only automation naming production is the deploy itself.
+What keeps it apart is that `.env` names a database on the machine and that the
+only automation naming production is the deploy itself.
 
 ## 2. OAuth applications
 
