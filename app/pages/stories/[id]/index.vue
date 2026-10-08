@@ -11,13 +11,82 @@ const headers = useRequestHeaders(['cookie'])
 // `deep`, because the page edits the fetched Story in place — a Condition
 // chosen, a name typed — and Nuxt hands back a shallow ref by default, which
 // would leave those changes on the object and off the screen.
-const { data: story, refresh } = await useAsyncData(
+const { data: story } = await useAsyncData(
   `story-${id}`,
   () => send(`/api/stories/${id}`, { headers }) as Promise<StoryInEditor>,
   { deep: true },
 )
 const { t } = useI18n()
-const { problem, keptAt, change, write, settled } = useEditing(refresh)
+
+/**
+ * The Story read back after an act, laid over the one the bench holds by `sharing`
+ * rather than put in its place: a Scene, Shot or Exit the act did not change keeps
+ * its object, so the row drawn from it is not drawn again — issue #449 and
+ * `docs/adr/0032-the-bench-reads-the-story-back.md`. After a refusal it is put in
+ * place whole instead, so that every control is drawn again from what the database
+ * holds: a choice sent without being written into the Story first leaves the Story
+ * the bench holds equal to the read, and laid over, nothing would put the control
+ * back. See `docs/adr/0008-refetch-is-for-a-refusal.md`.
+ *
+ * Reads that cross on the way back land newest first: one answering after a newer
+ * one has landed is older than what is on the bench, and dropped. One that fails
+ * drops nothing, so where the newer read fails the older that came back is the
+ * one the bench shows. A read restoring after a refusal stays owed until a read
+ * asked as late as it has landed, so whichever lands first is put in place whole.
+ *
+ * Every read in flight is done when the last of them is, which is what `refresh`
+ * did by handing a cancelled call the newer one's promise. Whoever awaits an act —
+ * the cut that says the Scene it made and puts the caret in it, the Shot added and
+ * typed into — resumes on a Story that holds the act; resumed on an older answer,
+ * the Scene or Shot it reaches for would not be there yet. Where none of them came
+ * back the promise fails with the error of the last to fail, and `useEditing` says
+ * so the way it says a refusal: the bench goes on showing the Story as it was
+ * before the act, where a refetch that failed used to empty it.
+ */
+let readsAsked = 0
+let readOnBench = 0
+let restoreAsked = 0
+let inFlight = 0
+let round: { done: Promise<void>, end: (unread?: unknown) => void } | undefined
+
+function readBack(whole = false) {
+  const asking = ++readsAsked
+  if (whole) restoreAsked = asking
+  changesAsked++
+
+  if (!round) {
+    let end = (_unread?: unknown) => {}
+    const done = new Promise<void>((landed, failed) => {
+      end = unread => (readOnBench >= asking ? landed() : failed(unread))
+    })
+    round = { done, end }
+  }
+  const reads = round
+  inFlight++
+
+  let unread: unknown
+  void (send(`/api/stories/${id}`) as Promise<StoryInEditor>).then(
+    (read) => {
+      if (asking < readOnBench) return
+      story.value = story.value && restoreAsked <= readOnBench
+        ? sharing(toRaw(story.value), read)
+        : read
+      readOnBench = asking
+    },
+    (error: unknown) => (unread = error),
+  ).finally(() => {
+    if (--inFlight) return
+    round = undefined
+    reads.end(unread)
+  })
+
+  return reads.done
+}
+
+const { problem, keptAt, change, write, settled } = useEditing(
+  () => readBack(),
+  () => readBack(true),
+)
 
 /**
  * What differs from Readers' Edition, asked again each time a typed write is
@@ -27,8 +96,8 @@ const { problem, keptAt, change, write, settled } = useEditing(refresh)
  * answer is taken from the read, so nothing being typed is replaced, and only the
  * one asked last, so two answers crossing on the way back cannot leave the older
  * standing. A read that fails leaves the marks as they were until the next. And
- * only onto the Story it was asked about: a click's read-back replaces the Story
- * whole, so an answer landing after it is older than what it brought, and dropped.
+ * none asked before a read-back, which brings the answer too and is the newer of
+ * the two: `readBack` counts itself as asked.
  */
 let changesAsked = 0
 watch(keptAt, async () => {
@@ -487,14 +556,31 @@ async function makeScene(name = t('editor.provisionalSceneName')) {
  * `docs/adr/0043-a-story-is-written-as-one-document.md`.
  */
 const counted = computed(() => {
-  const shots = story.value?.scenes.flatMap(scene => scene.shots) ?? []
+  const shots = written.value?.scenes.flatMap(scene => scene.shots) ?? []
 
   return {
-    scenes: countedScenes(story.value?.scenes.length ?? 0, t),
+    scenes: countedScenes(written.value?.scenes.length ?? 0, t),
     shots: countedShots(shots.length, t),
     words: countedWords(wordsOf(shots), t),
-    exits: countedExits(story.value?.exits.length ?? 0, t),
+    exits: countedExits(written.value?.exits.length ?? 0, t),
   }
+})
+
+/**
+ * The Story as it was last written, which is what the readings of the whole of it
+ * beside the document are taken from: the counts above and the Remarks. A copy,
+ * taken when a typed write lands and whenever a read-back changes the Story, and
+ * never as a key is struck — a reading of three hundred Shots redone on every
+ * character is what made a keystroke cost what the Story holds, and nobody reads a
+ * Remark mid-word. See `docs/adr/0032-the-bench-reads-the-story-back.md`. Copied
+ * off the Story's raw object, so the copy follows no field it was read from; a
+ * Scene's own count of its words is the one figure that still follows the key, in
+ * `app/components/Words.vue`.
+ */
+const written = computed(() => {
+  void keptAt.value
+
+  return story.value ? JSON.parse(JSON.stringify(toRaw(story.value))) as StoryInEditor : undefined
 })
 
 /**
@@ -845,7 +931,7 @@ async function readFrom(sceneId: string, shotId: string) {
              reading the Author is on stays up. See
              `docs/adr/0032-the-bench-reads-the-story-back.md`. -->
         <Remarks
-          :story="story"
+          :story="written"
           :scene-written="sceneWritten?.id"
           :previewed="reading === 'preview'"
           @open="goToScene"
