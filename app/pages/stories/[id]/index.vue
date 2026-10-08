@@ -11,13 +11,43 @@ const headers = useRequestHeaders(['cookie'])
 // `deep`, because the page edits the fetched Story in place — a Condition
 // chosen, a name typed — and Nuxt hands back a shallow ref by default, which
 // would leave those changes on the object and off the screen.
-const { data: story, refresh } = await useAsyncData(
+const { data: story } = await useAsyncData(
   `story-${id}`,
   () => send(`/api/stories/${id}`, { headers }) as Promise<StoryInEditor>,
   { deep: true },
 )
 const { t } = useI18n()
-const { problem, keptAt, change, write, settled } = useEditing(refresh)
+
+/**
+ * The Story read back after an act, laid over the one the bench holds by `sharing`
+ * rather than put in its place: a Scene, Shot or Exit the act did not change keeps
+ * its object, so the row drawn from it is not drawn again — issue #449 and
+ * `docs/adr/0032-the-bench-reads-the-story-back.md`. After a refusal it is put in
+ * place whole instead, so that every control is drawn again from what the database
+ * holds: a choice sent without being written into the Story first leaves the Story
+ * the bench holds equal to the read, and laid over, nothing would put the control
+ * back. See `docs/adr/0008-refetch-is-for-a-refusal.md`.
+ *
+ * Reads that cross on the way back are answered by `readsBack`, newest first and
+ * each to the act that asked it: whoever awaits an act — the cut that says the
+ * Scene it made and puts the caret in it, the Shot added and typed into — resumes
+ * once a read asked as late as theirs has landed, on a Story that holds the act,
+ * and where none of those came back their promise fails and `useEditing` says so.
+ * An older read that came back stays on the bench. The bench goes on showing the
+ * Story as it was before, where a refetch that failed used to empty it.
+ */
+const readBack = readsBack(
+  () => send(`/api/stories/${id}`) as Promise<StoryInEditor>,
+  (read, whole) => {
+    story.value = story.value && !whole ? sharing(toRaw(story.value), read) : read
+    changesAsked++
+  },
+)
+
+const { problem, keptAt, change, write, settled } = useEditing(
+  () => readBack(),
+  () => readBack(true),
+)
 
 /**
  * What differs from Readers' Edition, asked again each time a typed write is
@@ -27,8 +57,9 @@ const { problem, keptAt, change, write, settled } = useEditing(refresh)
  * answer is taken from the read, so nothing being typed is replaced, and only the
  * one asked last, so two answers crossing on the way back cannot leave the older
  * standing. A read that fails leaves the marks as they were until the next. And
- * only onto the Story it was asked about: a click's read-back replaces the Story
- * whole, so an answer landing after it is older than what it brought, and dropped.
+ * none asked before a read-back lands, which brings the answer too and is the
+ * newer of the two: a read that lands counts itself as asked, and one that fails
+ * drops nothing.
  */
 let changesAsked = 0
 watch(keptAt, async () => {
@@ -462,14 +493,16 @@ async function makeScene(name = t('editor.provisionalSceneName')) {
   let writtenId: string | undefined
 
   await changeStory(async () => {
-    const written = await send(`/api/stories/${id}/scenes`, {
+    const made = await send(`/api/stories/${id}/scenes`, {
       method: 'POST',
       body: { name },
     }) as Scene
 
-    writtenId = written.id
+    writtenId = made.id
   })
-  if (!writtenId) return
+  // Kept but not read back, the Scene is not on the bench to be named or written
+  // in: `useEditing` has said so, and the Author reloads to find it.
+  if (!writtenId || !story.value?.scenes.some(scene => scene.id === writtenId)) return
 
   // After the read the change asks for: the sentence names the Scene as the bench
   // does, and `names` cannot number a Scene the Story does not hold yet; and the
@@ -487,14 +520,31 @@ async function makeScene(name = t('editor.provisionalSceneName')) {
  * `docs/adr/0043-a-story-is-written-as-one-document.md`.
  */
 const counted = computed(() => {
-  const shots = story.value?.scenes.flatMap(scene => scene.shots) ?? []
+  const shots = written.value?.scenes.flatMap(scene => scene.shots) ?? []
 
   return {
-    scenes: countedScenes(story.value?.scenes.length ?? 0, t),
+    scenes: countedScenes(written.value?.scenes.length ?? 0, t),
     shots: countedShots(shots.length, t),
     words: countedWords(wordsOf(shots), t),
-    exits: countedExits(story.value?.exits.length ?? 0, t),
+    exits: countedExits(written.value?.exits.length ?? 0, t),
   }
+})
+
+/**
+ * The Story as it was last written, which is what the readings of the whole of it
+ * beside the document are taken from: the counts above and the Remarks. A copy,
+ * taken when a typed write lands and whenever a read-back changes the Story, and
+ * never as a key is struck — a reading of three hundred Shots redone on every
+ * character is what made a keystroke cost what the Story holds, and nobody reads a
+ * Remark mid-word. See `docs/adr/0032-the-bench-reads-the-story-back.md`. Copied
+ * off the Story's raw object, so the copy follows no field it was read from; a
+ * Scene's own count of its words is the one figure that still follows the key, in
+ * `app/components/Words.vue`.
+ */
+const written = computed(() => {
+  void keptAt.value
+
+  return story.value ? JSON.parse(JSON.stringify(toRaw(story.value))) as StoryInEditor : undefined
 })
 
 /**
@@ -845,7 +895,7 @@ async function readFrom(sceneId: string, shotId: string) {
              reading the Author is on stays up. See
              `docs/adr/0032-the-bench-reads-the-story-back.md`. -->
         <Remarks
-          :story="story"
+          :story="written"
           :scene-written="sceneWritten?.id"
           :previewed="reading === 'preview'"
           @open="goToScene"

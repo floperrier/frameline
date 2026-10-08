@@ -53,6 +53,26 @@ a refusal is the one moment where what persisted matters more than what was
 typed, and making it granular means buying the shape change we just declined,
 for a path the Author reaches by accident.
 
+*Amended.* A read-back no longer replaces the Story after an act the server kept:
+it is laid over the Story the bench holds (`app/utils/sharing.ts`), and every
+Scene, Shot and Exit the read finds equal keeps the object the bench had, so the
+row drawn from it is not drawn again. A part that differs is the read's own
+object, and nothing the bench holds is written into, so a typed write still in
+the queue sends what was typed. A refusal is where that stops: its read is put in
+place **whole**, as before. A choice sent without being written into the held
+Story first — where an Exit lands, the face a Story is set in, whether it steps
+back — leaves the held Story equal to the read, and laid over, the refused value
+would have stayed in its control while the database kept the old one. Put in
+place whole, every control is drawn again from what persisted, which is the
+promise this record makes. Two reads crossing land newest first, and one that
+fails drops nothing (`app/utils/reads.ts`). Each act is answered on its own read:
+it resumes once a read asked as late as its own has landed, and an older read
+coming back answers nothing for it. Where none of those comes back the bench says
+so beside the document, instead of going on silently with the Story as it was
+before the act — after a kept act as kept, *Kept, but the Story could not be read
+back*, and never as a refusal, which the Author would answer by doing the act a
+second time. `tests/e2e/refused-choice-signed-in.spec.ts` holds both.
+
 The server trims what it stores — a Condition's Flag name and the value it holds.
 A value typed with a trailing space is now stored trimmed and shown untrimmed
 until the Story is next read for some other reason. Mirroring the trim in the

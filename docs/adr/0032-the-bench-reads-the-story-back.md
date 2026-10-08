@@ -69,6 +69,18 @@ disagree with the screen, costs no request, and updates as the Author types. It
 is the same argument `docs/adr/0020-progress-is-the-story.md` makes for the
 guided path, and the Remarks are computed the same way for the same reasons.
 
+*Amended.* The Story the editor reads back is laid over the one it holds rather
+than put in its place, so whatever the act did not change keeps its object, and
+a refusal's read is put in place whole — see
+`docs/adr/0008-refetch-is-for-a-refusal.md`. The Remarks and the counts beside
+them no longer follow every key: they are read off a copy of the Story taken when
+a typed write lands or a read-back changes it. A reading of three hundred Shots
+redone on every character made a keystroke cost what the Story holds, and nobody
+reads a Remark mid-word. They still cannot disagree with the screen once the
+writing is kept, which is what they are for. An act whose own read does not come
+back is said to be kept and not read back, and the Story on the bench is left as
+the last read that landed — see `docs/adr/0008-refetch-is-for-a-refusal.md`.
+
 ## Consequences
 
 **It stands in the row above the bench, beside the Commands.** That row is the

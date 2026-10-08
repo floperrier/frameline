@@ -6,12 +6,10 @@
  * added, a Scene's Shots renumbered, an Exit drawn — learns its result from the
  * server and nowhere else, so it reads the Story back afterwards. What the
  * Author typed is already on screen in the field they typed it into, and reading
- * the Story back would replace that field along with everything else: the next
- * thing they type lands in a form the refetch has just emptied under their
- * hands. So a typed
- * write reads back only when it was refused, which is the one moment where what
- * persisted beats what was typed. See
- * `docs/adr/0008-refetch-is-for-a-refusal.md`.
+ * the Story back after each word left would put what the server held a moment
+ * ago over the field they are still typing in. So a typed write reads back only
+ * when it was refused, which is the one moment where what persisted beats what
+ * was typed. See `docs/adr/0008-refetch-is-for-a-refusal.md`.
  *
  * Saying nothing at all, though, leaves an Author who typed a Shot and walked
  * away with no way to know the Story holds it, so a write that landed leaves two
@@ -19,6 +17,13 @@
  * in the field the writing came from. Both are marks rather than messages —
  * nothing is announced, because a live region firing every time a field is left
  * would interrupt the next thing typed.
+ *
+ * The read after a refusal is `restore` rather than `reload` where a page tells
+ * them apart: the bench lays a read kept by an act over the Story it holds, and a
+ * refused choice sent without being written into that Story would leave the read
+ * equal to it, so nothing would put the control back. Restored, the read is put in
+ * place whole and every control says what the database holds. See
+ * `docs/adr/0032-the-bench-reads-the-story-back.md`.
  */
 /**
  * Why the last change was refused, and — at most — the one gesture that refusal
@@ -39,7 +44,10 @@ export type Problem = { said: string, door?: boolean }
 export type Change = (act: () => Promise<unknown>) => Promise<boolean>
 export type Write = (act: () => Promise<unknown>) => Promise<void>
 
-export function useEditing(reload: () => Promise<unknown>) {
+export function useEditing(
+  reload: () => Promise<unknown>,
+  restore: () => Promise<unknown> = reload,
+) {
   const { t } = useI18n()
   const problem = ref<Problem>()
   /**
@@ -99,23 +107,30 @@ export function useEditing(reload: () => Promise<unknown>) {
       return true
     }
     catch (error) {
-      // The refusal travels in the body rather than on the status line, where
-      // `error.statusMessage` reads it as a reason phrase and h3 sanitizes it
-      // down to ASCII. See `docs/adr/0009-a-refusal-travels-in-the-body.md`.
-      // The refusal itself arrives already in the Author's language, negotiated
-      // by the server from the same request that carried the change.
-      const refused = error as { statusCode?: number, data?: { message?: string } }
-
-      problem.value = {
-        said: refused.data?.message ?? t('error.refused'),
-        // A shut door is recognised by the status and never by the phrase: the
-        // words are the server's, and a sentence cannot say whether a door
-        // belongs beside it. A `401` carrying no body — a proxy's, not ours —
-        // therefore offers the door beside the general refusal, which is the
-        // right gesture under a sentence that says less than it could.
-        door: refused.statusCode === 401,
-      }
+      problem.value = heard(error)
       return false
+    }
+  }
+
+  /**
+   * What a refused request says, as the Author is told it. The refusal travels in
+   * the body rather than on the status line, where `error.statusMessage` reads it
+   * as a reason phrase and h3 sanitizes it down to ASCII — see
+   * `docs/adr/0009-a-refusal-travels-in-the-body.md` — and it arrives already in
+   * the Author's language, negotiated by the server from the same request that
+   * carried the change.
+   */
+  function heard(error: unknown): Problem {
+    const refused = (error ?? {}) as { statusCode?: number, data?: { message?: string } }
+
+    return {
+      said: refused.data?.message ?? t('error.refused'),
+      // A shut door is recognised by the status and never by the phrase: the
+      // words are the server's, and a sentence cannot say whether a door
+      // belongs beside it. A `401` carrying no body — a proxy's, not ours —
+      // therefore offers the door beside the general refusal, which is the
+      // right gesture under a sentence that says less than it could.
+      door: refused.statusCode === 401,
     }
   }
 
@@ -127,21 +142,40 @@ export function useEditing(reload: () => Promise<unknown>) {
    */
   async function change(act: () => Promise<unknown>) {
     const succeeded = await attempt(act)
-    await readBack()
+    await readBack(succeeded)
     return succeeded
   }
 
   /**
-   * The read that follows a refusal, except behind a shut door — where the read
-   * would be refused as well, and a refused read is what empties the page:
-   * `useAsyncData` puts its default back when a fetch fails, so the Story would
-   * go to nothing and take the field being typed in with it. That is the work
-   * this refusal exists to keep. See
+   * The read that follows an act, laid over what the page holds where the act
+   * was kept and restored whole where it was refused — except behind a shut door,
+   * where the read would be refused as well. A page that reads through
+   * `useAsyncData`'s `refresh` would have its default put back by that failure and
+   * go to nothing under the Author's hands; the bench, which keeps what it holds
+   * when a read fails, would only say the door is shut a second time beside the
+   * door this refusal already offers. See
    * `docs/adr/0016-the-door-is-reopened-beside-the-bench.md`.
+   *
+   * A read that fails is said, since the page goes on showing the Story as it was
+   * before the act and the Author would otherwise take that for what the Story
+   * holds. After an act the server kept it is said as that and never as a
+   * refusal: the act is in the database, and an Author told it did not work would
+   * do it again and have it twice. After a refusal it is said only where nothing is
+   * said already: the refusal the read was meant to put right is the more useful
+   * sentence, and the Author who reads it knows the bench is worth reloading —
+   * unless the read found the door shut, which is the one thing worth saying over
+   * it.
    */
-  async function readBack() {
+  async function readBack(kept: boolean) {
     if (problem.value?.door) return
-    await reload()
+    try {
+      await (kept ? reload : restore)()
+    }
+    catch (error) {
+      const unread = heard(error)
+      if (kept) problem.value = { said: t('error.keptUnread'), door: unread.door }
+      else if (!problem.value || unread.door) problem.value = unread
+    }
   }
 
   /**
@@ -178,7 +212,7 @@ export function useEditing(reload: () => Promise<unknown>) {
 
     const turn = previous.then(async () => {
       if (!await attempt(act)) {
-        await readBack()
+        await readBack(false)
         return
       }
 
@@ -186,9 +220,9 @@ export function useEditing(reload: () => Promise<unknown>) {
       flash(field)
     })
 
-    // What the next write waits on cannot be a promise that rejects: a refetch
-    // that failed would otherwise end the queue and take every write typed after
-    // it down with itself. The caller still gets the rejection.
+    // What the next write waits on cannot be a promise that rejects: a turn that
+    // threw would otherwise end the queue and take every write typed after it
+    // down with itself. The caller still gets the rejection.
     previous = turn.catch(() => {})
     return turn
   }

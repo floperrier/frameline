@@ -666,6 +666,7 @@
   },
   "error": {
     "refused": "Cela n'a pas fonctionné. Réessayez.",
+    "keptUnread": "C'est enregistré, mais le Récit n'a pas pu être relu. Rechargez la table de montage pour le voir.",
     "wentWrong": "Quelque chose s'est mal passé.",
     "home": "Retour à Frameline",
     "signInAgain": "Se reconnecter dans un nouvel onglet",
