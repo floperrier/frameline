@@ -141,8 +141,9 @@ outright: the migration snapshots are the generator's to write.
 
 `pnpm test` runs the Vitest suite over the modules that are pure functions: the
 Reading engine, down to how an Image moves while its Shot is on screen, what a
-Shot's image is read to be and which Images a Reading brings in before it needs
-them, the Conditions and the Effects
+Shot's image is read to be and which Images and Sounds a Reading brings in before
+it needs them, and how a Sound brought in is held as bytes, asked for once and
+asked for again where it failed, the Conditions and the Effects
 a request is allowed to write, the shape a Shot's formatted text is held to at
 the request boundary and the markup-free renderer that draws it, the Shots a
 text pasted under a Scene is cut into, the flicker a
