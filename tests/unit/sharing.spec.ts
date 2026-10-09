@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { sharing, steady } from '../../app/utils/sharing'
+import { effect, reactive, toRaw } from 'vue'
+import { keep, sharing, steady } from '../../app/utils/sharing'
 
 /**
  * A Story read back is laid over the Story the bench holds so that whatever did
@@ -194,5 +195,133 @@ describe('steady', () => {
     expect(steady(before, { class: undefined, style: { '--shot-face': 'var(--serif)' } })).toBe(before)
     const moved = { class: 'align-center', style: { '--shot-face': 'var(--serif)' } }
     expect(steady(before, moved)).toBe(moved)
+  })
+})
+
+/**
+ * What the document hands every row once and keeps up to date in place: an entry
+ * that changed is written over, one that did not is left as the object it was, and
+ * the Map or the Set is the same object throughout. Read through Vue's `reactive`
+ * as the document reads it, so what is asserted is also what a row reading one
+ * entry is told: nothing, where its entry did not change.
+ */
+describe('keep', () => {
+  it('writes over the entry that changed and leaves the others as they were', () => {
+    const out = { place: 1, scene: 'The bar', text: 'Go' }
+    const back = { place: 1, scene: 'The street', text: 'Back' }
+    const held = new Map([['out', out], ['back', back]])
+
+    keep(held, new Map([['out', { ...out, text: 'Go in' }], ['back', { ...back }]]))
+
+    expect([...held.keys()]).toEqual(['out', 'back'])
+    expect(held.get('out')).toEqual({ place: 1, scene: 'The bar', text: 'Go in' })
+    expect(held.get('back')).toBe(back)
+  })
+
+  it('tells a reader of an entry that did not change nothing', () => {
+    const held = reactive(new Map([['out', 'Go'], ['back', 'Back']]))
+    const readings = { out: 0, back: 0 }
+    const stops = (['out', 'back'] as const).map(key => effect(() => {
+      held.get(key)
+      readings[key]++
+    }))
+
+    keep(held, new Map([['out', 'Go in'], ['back', 'Back']]))
+
+    expect(readings).toEqual({ out: 2, back: 1 })
+    for (const stop of stops) stop.effect.stop()
+  })
+
+  it('fills it again in the order it now holds, where the entries are others or in another order', () => {
+    const held = new Map([['street', 'The street'], ['bar', 'The bar']])
+
+    keep(held, new Map([['bar', 'The bar'], ['street', 'The street']]))
+    expect([...held]).toEqual([['bar', 'The bar'], ['street', 'The street']])
+
+    keep(held, new Map([['bar', 'The bar']]))
+    expect([...held]).toEqual([['bar', 'The bar']])
+  })
+
+  // A keystroke into an Exit's words changes one field of one entry. Written over
+  // inside the object the Map holds, no key is set, so what walks the Map or reads
+  // its size — every list of Conditions reads whether there is an Exit to ask
+  // about — is told nothing.
+  it('writes over a plain entry inside the object it holds, and tells only the reader of the field', () => {
+    const out = { place: 1, scene: 'The bar', text: 'Go' }
+    const held = reactive(new Map([['out', out], ['back', { place: 1, scene: 'The street', text: 'Back' }]]))
+    const readings = { size: 0, walked: 0, text: 0, back: 0 }
+    const stops = [
+      effect(() => (held.size, readings.size++)),
+      effect(() => ([...held.keys()], readings.walked++)),
+      effect(() => (held.get('out')!.text, readings.text++)),
+      effect(() => (held.get('back')!.text, readings.back++)),
+    ]
+
+    keep(held, new Map([
+      ['out', { place: 1, scene: 'The bar', text: 'Go in' }],
+      ['back', { place: 1, scene: 'The street', text: 'Back' }],
+    ]))
+
+    expect(readings).toEqual({ size: 1, walked: 1, text: 2, back: 1 })
+    expect(held.get('out')!.text).toBe('Go in')
+    expect(toRaw(held).get('out')).toBe(out)
+    for (const stop of stops) stop.effect.stop()
+  })
+
+  it('keeps a Set holding the same members, and tells no reader anything', () => {
+    const held = reactive(new Set(['lit', 'coat']))
+    let readings = 0
+    const stop = effect(() => {
+      held.has('lit')
+      readings++
+    })
+
+    keep(held, new Set(['lit', 'coat']))
+    expect(readings).toBe(1)
+    stop.effect.stop()
+  })
+
+  it('puts a member held anew at the end, and tells a reader of another member nothing', () => {
+    const held = reactive(new Set(['lit', 'coat']))
+    const readings = { lit: 0, hat: 0, walked: 0 }
+    const read: Record<string, boolean> = {}
+    const stops = [
+      effect(() => (read.lit = held.has('lit'), readings.lit++)),
+      effect(() => (read.hat = held.has('hat'), readings.hat++)),
+      effect(() => ([...held], readings.walked++)),
+    ]
+
+    keep(held, new Set(['lit', 'coat', 'hat']))
+
+    expect([...held]).toEqual(['lit', 'coat', 'hat'])
+    expect(held.has('hat')).toBe(true)
+    expect(held.size).toBe(3)
+    expect(read).toEqual({ lit: true, hat: true })
+    expect(readings).toEqual({ lit: 1, hat: 2, walked: 2 })
+    for (const stop of stops) stop.effect.stop()
+  })
+
+  // A Flag typed into is one member taken out and another put in, where the old
+  // one stood: what stands before it is not touched, what stands after it is put
+  // back after it, so the order stays the order the Story declares them in.
+  it('takes out a member no longer held and puts the new one where it falls', () => {
+    const held = reactive(new Set(['lit', 'wa', 'coat']))
+    const readings = { lit: 0, wa: 0, way: 0, coat: 0 }
+    const stops = (['lit', 'wa', 'way', 'coat'] as const).map(member => effect(() => {
+      held.has(member)
+      readings[member]++
+    }))
+
+    keep(held, new Set(['lit', 'way', 'coat']))
+
+    expect([...held]).toEqual(['lit', 'way', 'coat'])
+    expect([held.has('wa'), held.has('way')]).toEqual([false, true])
+    expect(readings.lit).toBe(1)
+    expect(readings.wa).toBe(2)
+    expect(readings.way).toBe(2)
+    for (const stop of stops) stop.effect.stop()
+
+    keep(held, new Set(['lit']))
+    expect([...held]).toEqual(['lit'])
   })
 })

@@ -205,7 +205,8 @@ The bench's use of it did not go either, and this Consequence is what #258 found
 to be wrong about the code rather than the other way round. `--phone` is read by
 `app/components/Graph.vue`, where the rail narrows to the strip of dots this same
 record asks for, and by `app/components/StoryHeader.vue`,
-`app/components/Writing.vue`, where a Shot falls to one column, and
+`app/components/ShotRow.vue`, where a Shot falls to one column, and
+`app/components/ExitRow.vue`, where a way on does, and
 `app/pages/stories/[id]/index.vue`, where the row of tools becomes a scroller.
 What went was the surface that covered the bench at that width, which is a
 different thing from the width itself.
@@ -288,6 +289,55 @@ is defined as a control whose box intersects the viewport and which is not
 page rather than from the template. An end-to-end spec counts them at 1440 on a
 Story of three Scenes and on a Story of forty, and the second is no larger than
 the first. The number the redesign is answering is 92, measured on the gate.
+
+**The one document is drawn a row at a time (#449, #480).** Written as one
+template, the document was one render: a key struck in a beat drew every Scene,
+Shot and Exit of the Story again, and at forty Scenes that was a third of a second
+for each key on an ordinary laptop. So a beat's row is
+`app/components/ShotRow.vue`, its fold of how it plays
+`app/components/ShotPlays.vue`, a way on's row `app/components/ExitRow.vue` and a
+Scene's Question `app/components/Asking.vue`, each handed its own Shot, Exit or
+Scene. What a row is handed besides is primitive, or kept while it says the same:
+the names the bench gives the Scenes and the Exits and the Flags of the Story are
+one Map and one Set each for the document's whole life, laid over in place
+(`keep` in `app/utils/sharing.ts`), and the lists of where a way on may land are
+handed the ids of the Scenes and nothing else of them. So a row reads the entries
+it draws and nothing else, and a key struck draws again exactly this:
+
+- in a beat's words, that beat's row and the line of its fold, which says what it
+  plays as;
+- in a way on's words, that way on's row, and every list of Conditions holding a
+  Condition on an Exit, since each offers every Exit by its words. An Exit's
+  entry is written over field by field inside the object the Map holds, so a list
+  of Conditions that only asks whether there is an Exit to ask about is not told;
+- in a Question, that Question;
+- in the Flag a Question is held under, that Question, and every list of
+  Conditions holding a Condition on a Flag, since each offers the Flags of the
+  Story. The Flag typed is one member taken out of the Set and another put in,
+  and a Flag declared after it is taken out and put back after it to keep the
+  order, so a reader of one of those is told too; nothing on the bench reads one
+  Flag alone.
+
+A Scene's name is the one field still drawn by the document's own template, and a
+key struck in it draws the document again, and with it whatever says that name:
+every row of its section, the lists of Conditions on them among them, since every
+control there is named by it; every way on that leads to it; every list of
+Conditions holding a Condition on a Scene, which offers every Scene, or on an
+Exit, which names each by the Scenes at both ends; and every list of where a way
+on may land that offers it. The rows of other Scenes are handed nothing new and
+are not drawn again. Drawing the name alone would make the Scene's whole section a
+component, which no measure has asked for yet.
+
+`tests/e2e/rows-drawn-signed-in.spec.ts` counts the updates of every row, of every
+list of Conditions and of every list of landings on a Story of three Scenes whose
+Shots carry a Condition of each kind, and holds each of these.
+
+Nothing of this is virtualization, and nothing in it changes what this record
+says: every Scene stays in the document, written where it stands, and the
+browser's find reaches every word the Author wrote in it. Each row's elements are
+styled by its own scoped block, which holds the rules of the writing that reach
+its elements and none that do not, so every rule matches the elements it matched
+when the rows stood in one template.
 
 **Two claims are named for tests and one is not measurable.** The three widths
 above, the two control counts, and the layout order held by

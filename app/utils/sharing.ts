@@ -86,3 +86,78 @@ export function steady<T>(previous: T | undefined, next: T): T {
 function listed(value: unknown) {
   return value instanceof Map || value instanceof Set ? [...value] : value
 }
+
+/**
+ * A Map or a Set the document works out of the whole Story again on every change
+ * to what it reads, laid over the one the rows were handed, in place, and the
+ * same object throughout. Handed to every row of the document and never handed
+ * again, so through Vue's `reactive` a row is told of a change only where it
+ * reads what changed, and not because the whole was worked out anew. What it
+ * does, and so who is told:
+ *
+ * - An entry that says the same is not touched, and no reader of it is told.
+ * - An entry of a Map whose value is a plain object and says something else is
+ *   written over field by field, inside the object it holds: a reader of one of
+ *   those fields is told, and a reader of the Map's size or of the order of its
+ *   keys is not, since no key was set. An Exit's words or a Scene's name typed
+ *   into keep the Exits the bench names this way — see
+ *   `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ * - An entry whose value is anything else, a Scene's name, is set: a reader of
+ *   that key is told, and so is anything that walks the whole Map, as Vue tells
+ *   it of any `set`.
+ * - A key or a member no longer held is taken out, and one held anew is put in:
+ *   a reader of that key is told, and so is anything that reads the size or
+ *   walks the whole. A Flag being typed is one member taken out and another put
+ *   in, keystroke by keystroke.
+ * - The order is the order a list of it offers, and a Map or a Set only ever
+ *   puts a key at its end. So where the keys still held part from the order
+ *   they are now held in — one put in anywhere but last, two that changed
+ *   places — every key from that point on is taken out and put back in order,
+ *   and a reader of each of those is told as well.
+ *
+ * Where `steady` keeps the old value whole while nothing in it changed, this
+ * keeps it whole while something does: a keystroke into one way on's words
+ * changes one entry of the Exits the bench names, and with `steady` that is a new
+ * Map handed to every row.
+ */
+export function keep<K, V>(held: Map<K, V>, next: ReadonlyMap<K, V>): void
+export function keep<K>(held: Set<K>, next: ReadonlySet<K>): void
+export function keep<K, V>(held: Map<K, V> | Set<K>, next: ReadonlyMap<K, V> | ReadonlySet<K>) {
+  for (const key of [...held.keys()]) {
+    if (!next.has(key)) held.delete(key)
+  }
+
+  const standing = [...held.keys()]
+  const order = [...next.keys()]
+  let parted = 0
+  while (parted < standing.length && Object.is(standing[parted], order[parted])) parted++
+  for (const key of standing.slice(parted)) held.delete(key)
+
+  if (held instanceof Map && next instanceof Map) {
+    order.forEach((key, at) => {
+      const value = next.get(key) as V
+      if (at >= parted) held.set(key, value)
+      else writeOver(held, key, value)
+    })
+  }
+  else if (held instanceof Set) {
+    for (const key of order.slice(parted)) held.add(key)
+  }
+}
+
+/** One entry of a Map laid over in place: field by field where both are plain objects, set otherwise. */
+function writeOver<K, V>(held: Map<K, V>, key: K, value: V) {
+  const kept: unknown = held.get(key)
+  if (same(kept, value)) return
+  if (!plain(kept) || !plain(value)) {
+    held.set(key, value)
+    return
+  }
+
+  for (const field of Object.keys(kept)) {
+    if (!Object.hasOwn(value, field)) delete kept[field]
+  }
+  for (const [field, said] of Object.entries(value)) {
+    if (!same(kept[field], said)) kept[field] = said
+  }
+}

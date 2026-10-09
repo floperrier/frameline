@@ -330,13 +330,14 @@ test('a beat strikes with a Sound taken from the library, transcribed beside it'
   // The picker beside a beat carries the library alone and no second group: a
   // Shot's Sound is never named, because a struck sound weighs 20 KB and is
   // re-picked in one press.
+  await unfold(page, 'Shot 1 of The street')
+  const shotSoundField = writing(page).getByLabel('The Sound of Shot 1 of The street')
+  await expect(shotSoundField.getByRole('option', { name: /A door closing/ })).toHaveCount(1)
   await expect(writing(page).locator('[data-shot] optgroup')).toHaveCount(0)
 
   // Selected by value rather than by the option's full label, which also carries
   // a duration this test has no reason to hardcode — the same reason the Scene's
   // own version of this test reads the value back first.
-  await unfold(page, 'Shot 1 of The street')
-  const shotSoundField = writing(page).getByLabel('The Sound of Shot 1 of The street')
   const doorClosing = await shotSoundField.getByRole('option', { name: /A door closing/ })
     .getAttribute('value')
   await shotSoundField.selectOption(doorClosing!)

@@ -690,7 +690,7 @@ export function flagsSet(rows: FlagRow[]): Sets {
  * panel both ask it: one answer, so the number in the node and the number on the
  * bench cannot say two different things.
  */
-export function exitsFrom(exits: Exit[], sceneId: string) {
+export function exitsFrom<Leaving extends Pick<Exit, 'fromSceneId'>>(exits: Leaving[], sceneId: string) {
   return exits.filter(exit => exit.fromSceneId === sceneId)
 }
 
@@ -981,7 +981,7 @@ export function exitNamed(exit: Exit, sceneName: (id: string) => string, say: Ph
  * and the server refuses a way on with it, rather than the boundary holding a
  * second copy of it in SQL.
  */
-export function reaches(exits: Exit[], from: string, to: string) {
+export function reaches(exits: Pick<Exit, 'fromSceneId' | 'toSceneId'>[], from: string, to: string) {
   const walked = new Set([from])
   const edge = [from]
 
@@ -1015,7 +1015,9 @@ export function reaches(exits: Exit[], from: string, to: string) {
  * are for: what the hand cannot do by accident is still written on purpose, from
  * the Exit's own row — see `docs/adr/0015-a-cut-is-drawn-by-hand.md`.
  */
-export function scenesAExitMayLandOn(scenes: Scene[], exits: Exit[], fromSceneId: string) {
+export function scenesAExitMayLandOn(
+  scenes: Pick<Scene, 'id'>[], exits: Pick<Exit, 'fromSceneId' | 'toSceneId'>[], fromSceneId: string,
+) {
   const reached = new Set(
     exits.filter(exit => exit.fromSceneId === fromSceneId).map(exit => exit.toSceneId))
 
