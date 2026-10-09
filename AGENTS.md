@@ -54,9 +54,12 @@ Après `/to-spec`, remplacer `ready-for-agent` par `needs-plan` sur la spec publ
 Branche : `<n>-<slug>` prise sur `dev`, `n` étant l'issue (`447-find-and-replace`).
 PR vers `dev` par `pnpm pr` : titre en Conventional Commits (`feat: …`,
 `fix(reading): …`), `Closes #<n>`, et la preuve du skill `verify` dans le corps.
-Aucune mention d'outil d'IA dans un commit, une PR, un commentaire ou un fichier :
-un commentaire se poste par `gh issue comment` ou `gh pr comment`, dont le texte
-part tel quel, sans pied de page.
+Aucune mention d'outil d'IA dans un commit ou un fichier. Le proxy GitHub du cloud
+termine tout ce qu'une session publie par un pied qui le nomme : il reste dans les
+commentaires et les issues, et `agent-merge.yml` le retire du squash, si bien qu'il
+n'est pas un motif de refus. Dans le cloud, GraphQL est refusé, et avec lui
+`pnpm pr`, `gh pr create` et `gh issue comment` : publier par `gh api` (REST) ou
+l'outil GitHub intégré.
 Un chemin de `.github/agent-sensitive-paths` ou une décision produit :
 `ready-for-human`, sans auto-merge. `dev` atteint `main` par une promotion humaine.
 
