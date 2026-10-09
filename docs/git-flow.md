@@ -59,11 +59,12 @@ preview deployment cannot do. Before a promotion:
 
 ```sh
 git switch dev && git pull
-pnpm install && pnpm db:migrate && pnpm dev
+pnpm install && pnpm dev
 ```
 
-`pnpm db:migrate` touches the `development` branch of the database and never
-production, so a migration waiting in the promotion is exercised on the way in.
+`pnpm dev` applies the migrations to the database on your machine before it
+serves, never to production, so a migration waiting in the promotion is
+exercised on the way in.
 A promotion is therefore read as a diff *and* used as a product, which is more
 than a preview origin would have bought.
 
@@ -99,15 +100,15 @@ started.
 ## Which database a change talks to
 
 The git flow above has a database counterpart, and it matters more here than the
-branch names do: a Neon branch is cheap, but there is only one production
+branch names do: a database is cheap, but there is only one production
 dataset.
 
 | Where the code runs | Database |
 | --- | --- |
 | production deployment | the Neon branch `production` |
-| `pnpm dev` | the Neon branch `development` |
+| `pnpm dev` | a Postgres container on your machine, kept in a volume, which `pnpm dev` starts |
 | a CI run | a Postgres container of its own, thrown away with the runner |
-| `pnpm test:e2e` on your machine | whatever `DATABASE_URL` names — `development`, or the container `pnpm test:db` starts |
+| `pnpm test:e2e` on your machine | the container `pnpm test:db` starts, unless the environment names another |
 
 The end-to-end suite never needs Neon, and in CI it never touches it. Its runs
 used to take Neon branches in the project production lives in, until on
@@ -115,11 +116,19 @@ used to take Neon branches in the project production lives in, until on
 in it, production's with them — see
 `docs/adr/0075-the-suite-brings-its-own-database.md`. On your machine,
 `pnpm test:db` starts the same two containers CI does (`compose.yaml`) and
-migrates them, and the suite reaches them with
-`DATABASE_URL=postgres://postgres:postgres@db.localtest.me:4445/main pnpm test:e2e`;
-`.env` still names `development`, for `pnpm dev`.
+migrates them, and `pnpm test:e2e` reaches them at
+`postgres://postgres:postgres@db.localtest.me:4445/main` unless the environment
+names another database.
 
-So `pnpm db:migrate` on your machine touches `development`, never production. A
+`pnpm dev` stopped reaching Neon too, once the same suspension left it with no
+database at all — see `docs/adr/0082-development-brings-its-own-database.md`. It
+runs `pnpm db:dev` first, which starts those two containers again as a stack of
+their own (`compose.dev.yaml`, named `frameline-dev`, on 4446) and migrates them.
+That stack keeps its data in a volume, and `.env` names it. Neither stack ever
+touches the other's database.
+
+So a migration on your machine reaches the database `pnpm dev` starts, never
+production. A
 migration reaches `production` in the deploy that carries the code needing it:
 `vercel.json` builds with `pnpm db:migrate && pnpm build`, so a migration that
 fails takes the deploy down with it and the previous one keeps serving. Nobody
@@ -127,12 +136,14 @@ runs a migration against production by hand — see
 `docs/adr/0002-the-schema-moves-with-the-deploy.md`, which also says what that
 demands of a migration that drops something.
 
-When `development` has drifted into a mess, throw it away rather than repairing
-it: `neon branches reset development --parent` refills it from `production`.
+When the database on your machine has drifted into a mess, throw it away rather
+than repairing it: `docker compose -f compose.yaml -f compose.dev.yaml down -v`,
+and the next `pnpm dev` starts an empty one.
 
-One shared `development` branch is enough for one developer. A Neon branch per
-git branch would only add bookkeeping — the suite's own database already covers
-the case where isolation actually pays.
+One database on the machine is enough for one developer, whichever worktree runs
+`pnpm dev`: the stack's name is fixed rather than taken from the directory. A
+database per git branch would only add bookkeeping — the suite's own database
+already covers the case where isolation actually pays.
 
 ## Squash, not merge
 

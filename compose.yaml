@@ -6,6 +6,8 @@
 #
 # The data lives in memory: a database that has only ever seen the migrations is
 # the point, and `docker compose down` gives the next run another one.
+# `compose.dev.yaml` starts these two again, with their data kept, as the
+# database `pnpm dev` runs on.
 services:
   postgres:
     image: postgres:18

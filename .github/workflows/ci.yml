@@ -64,10 +64,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       # Every migration, in order, on a database that has seen nothing else: what
-      # the deploy will run against production, proven before the pull request
-      # can go green. drizzle's own migrator over the app's driver, because
-      # `drizzle-kit migrate` reaches Neon alone — `server/db/migrate.ts` says
-      # why that is the same thing.
+      # the deploy will run against production, proven by the same
+      # `drizzle-kit migrate` before the pull request can go green.
       - name: Make this run's database and apply the migrations to it
         run: pnpm test:db
 
