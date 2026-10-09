@@ -12,7 +12,8 @@
  * never a part: one deposited is on the row in plain view, and one picked from the
  * library and not taken is not on the Shot yet.
  */
-import type { Scene, Shot } from '#shared/utils/scenes'
+import { IMAGE_ARRIVALS, IMAGE_LASTINGS, TEXT_ARRIVALS, TEXT_LASTINGS } from '#shared/utils/scenes'
+import type { CutThrough, Exit, MovementDirection, Scene, Shot } from '#shared/utils/scenes'
 import type { Phrase } from '#shared/utils/phrases'
 import { EFFECT_LABELS, effectTime } from './effects'
 
@@ -113,4 +114,193 @@ export function scenePlaysAs(scene: Scene, say: Phrase) {
   }
 
   return parts.join(' · ')
+}
+
+/*
+ * What the Scene's head in `app/components/Writing.vue` and the rows it is drawn
+ * with, `app/components/ShotRow.vue`, `app/components/ShotPlays.vue` and
+ * `app/components/ExitRow.vue`, all read and write how something plays by: the
+ * answers a carrier's columns are read as, what an answer writes and where a
+ * number starts. Pure, so a row reads them without asking the document for
+ * anything, and written once here rather than in each of them. What is sent and
+ * how a file is taken off a picker are `app/composables/send.ts`'s.
+ */
+/**
+ * How a cut is made, read off the two columns that say it. Nought over is a hard
+ * cut and there is no third value to read: under a duration of nought there is
+ * nothing for `cutThrough` to be true of, so the panel offers one answer of three
+ * where the columns hold two facts, and neither can disagree with the other. A
+ * Shot alone may say nothing at all, which is the null both of its columns hold
+ * and which reads here as *as the Scene says*. See
+ * `docs/adr/0050-the-cut-is-made-by-the-hand-or-by-the-clock.md`.
+ */
+export function cutKind(carrier: { cutOver: number | null, cutThrough: CutThrough | null }) {
+  if (carrier.cutOver === null) return 'scene'
+
+  return carrier.cutOver === 0 ? 'hard' : carrier.cutThrough ?? 'image'
+}
+
+/**
+ * When a Shot leaves the screen, in the three answers its one column holds: as
+ * its Scene says, at the press, or after a time of its own. A Scene has two of
+ * them — it is what a Shot falls back on, so it has nothing to fall back on
+ * itself — and its null is the press rather than a deferral.
+ */
+export function cutWhen(shot: Shot) {
+  if (shot.cutAfter === null) return 'scene'
+
+  return shot.cutAfter === 0 ? 'press' : 'clock'
+}
+
+/** How long the ways on stand: until one is taken, for a time, or not at all. */
+export function exitsOffered(scene: Scene) {
+  if (scene.exitsAfter === null) return 'taken'
+
+  return scene.exitsAfter === 0 ? 'none' : 'clock'
+}
+
+/**
+ * What each answer about how a cut is made writes. *Hard* names no `cutThrough`
+ * at all rather than naming a third value: the column is left where it was,
+ * because under a duration of nought nothing is passed through — and a Scene's
+ * and an Exit's own column would refuse the null a Shot is allowed to leave.
+ *
+ * The two durations are where the clock starts and not what it is: an Author
+ * writes over either in the field beside the answer.
+ */
+export type CutMade = 'hard' | 'image' | 'black'
+
+export const CUT_MADE: Record<CutMade, Partial<Pick<Exit, 'cutOver' | 'cutThrough'>>> = {
+  hard: { cutOver: 0 },
+  image: { cutOver: 800, cutThrough: 'image' },
+  black: { cutOver: 1200, cutThrough: 'black' },
+}
+
+export function cutMade(answer: string) {
+  return CUT_MADE[answer as CutMade]
+}
+
+/**
+ * Where a clock starts on the answer that asks for one: four seconds for a beat,
+ * which is a Shot read rather than glanced at, and ten for the ways on, which are
+ * read and then chosen between.
+ */
+export const A_TIME_HELD = 4000
+export const A_TIME_OFFERED = 10_000
+
+/** A body one of those empty fields is in is a body with no change in it. */
+export function wholeCut(body: object) {
+  return Object.values(body).every(held => held !== undefined)
+}
+
+/**
+ * Where a Movement starts when the Author chooses a direction for an Image held
+ * still: fifteen percent of the frame, as *A dissolve* starts at 800 ms — the
+ * number is where the field starts and not what it is.
+ */
+export const MOVEMENT_BY_START = 15
+
+export type MovementSaid = Partial<Pick<Shot, 'movementBy' | 'movementDirection' | 'movementOver'>>
+
+/**
+ * How an Image moves, read off the two columns that say it: still where it moves
+ * by nought, whatever direction stands — *Not at all* leaves it, as *Hard* leaves
+ * `cut_through` — its direction otherwise, and on a Shot that says nothing, *as
+ * the Scene says*.
+ */
+export function movementKind(carrier: { movementBy: number | null, movementDirection: MovementDirection | null }) {
+  if (carrier.movementBy === 0) return 'still'
+
+  return carrier.movementDirection ?? 'scene'
+}
+
+/** How long it takes: as the Scene says, as long as its Shot is on screen, or a time of its own. */
+export function movementTakesKind(carrier: { movementOver: number | null }) {
+  if (carrier.movementOver === null) return 'scene'
+
+  return carrier.movementOver === 0 ? 'whole' : 'time'
+}
+
+/**
+ * A field of percent read back as the amount, by `secondsWritten`'s rule: nought
+ * is handed back, because *Not at all* is what says it, and an empty field is no
+ * change. Anything else is written, and refused by its phrase where it is out of
+ * bounds, as the pace is.
+ */
+export function percentWritten(event: Event, stood: number | null) {
+  const field = event.target as HTMLInputElement
+  const written = field.valueAsNumber
+
+  if (written) return written
+  if (stood && !Number.isNaN(written)) field.value = String(stood)
+
+  return undefined
+}
+
+export type EffectSlot = 'imageArrives' | 'imageLasts' | 'textArrives' | 'textLasts'
+
+/**
+ * The four sentences a beat says about its Effects, in the order they are read:
+ * the Image arriving and staying, then the text arriving and staying. A slot
+ * whose Effects are an arrival takes a time always, and one whose are a lasting
+ * only where the Effect has a round.
+ */
+export const EFFECT_SLOTS: {
+  slot: EffectSlot, image: boolean, arrives: boolean, effects: readonly string[]
+}[] = [
+  { slot: 'imageArrives', image: true, arrives: true, effects: IMAGE_ARRIVALS },
+  { slot: 'imageLasts', image: true, arrives: false, effects: IMAGE_LASTINGS },
+  { slot: 'textArrives', image: false, arrives: true, effects: TEXT_ARRIVALS },
+  { slot: 'textLasts', image: false, arrives: false, effects: TEXT_LASTINGS },
+]
+
+/**
+ * Where a text's times start on the answer that asks for one: a second's wait,
+ * the brief fade of a fifth of a second, and three seconds of stay. The fade is
+ * also written beside a wait or a unit where the text would otherwise appear at
+ * once, because a text that arrives late or by the word and then snaps on is the
+ * arrival nobody meant — as *A dissolve* writes its 800 ms.
+ */
+export const A_TEXT_WAIT = 1000
+export const A_TEXT_FADE = 200
+export const A_TEXT_STAY = 3000
+
+export type TextSaid = Partial<Pick<Shot, 'textAfter' | 'textBy' | 'textPace' | 'textOver' | 'textStays'>>
+
+export function faded(over: number, body: TextSaid): TextSaid {
+  return over === 0 ? { ...body, textOver: A_TEXT_FADE } : body
+}
+
+/**
+ * A field of characters a second read back as the pace, and nothing where it is
+ * empty. A pace out of bounds is written and refused by its phrase.
+ */
+export function paceWritten(event: Event) {
+  const written = (event.target as HTMLInputElement).valueAsNumber
+
+  return Number.isNaN(written) ? undefined : written
+}
+
+/**
+ * The four answers a text is given, read off the columns that say them. Each of a
+ * Shot's is null where it answers as its Scene says, which a Scene's never is —
+ * except for how long the text stays, whose null on a Scene is *until the Cut* and
+ * on a Shot is the Scene's answer, with nought there the Cut.
+ */
+export function textArrivesKind(carrier: { textAfter: number | null }) {
+  if (carrier.textAfter === null) return 'scene'
+
+  return carrier.textAfter === 0 ? 'image' : 'time'
+}
+
+export function textAppearsKind(carrier: { textOver: number | null }) {
+  if (carrier.textOver === null) return 'scene'
+
+  return carrier.textOver === 0 ? 'once' : 'time'
+}
+
+export function textStaysKind(shot: { textStays: number | null }) {
+  if (shot.textStays === null) return 'scene'
+
+  return shot.textStays === 0 ? 'cut' : 'time'
 }

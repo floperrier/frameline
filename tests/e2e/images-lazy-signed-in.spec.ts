@@ -42,15 +42,19 @@ test('the bench of a long Story asks for the Images in the window, and for the r
 
     const asked: string[] = []
     const bodies: Promise<number>[] = []
+    let weighing = true
     page.on('request', (sent) => {
       const { pathname } = new URL(sent.url())
       if (!AN_IMAGE.test(pathname)) return
       asked.push(pathname)
-      bodies.push(sent.response().then(answered => answered!.body()).then(body => body.length))
+      // Only the opening is weighed: a body still on its way when the test ends
+      // would reject with nobody waiting on it.
+      if (weighing) bodies.push(sent.response().then(answered => answered!.body()).then(body => body.length))
     })
 
     await page.goto(`/stories/${long.id}`)
     await page.waitForTimeout(2000)
+    weighing = false
     const bytes = (await Promise.all(bodies)).reduce((sum, length) => sum + length, 0)
     const opening = { requests: asked.length, megabytes: Math.round(bytes / 1e5) / 10 }
     test.info().annotations.push({ type: 'measured', description: JSON.stringify(opening) })

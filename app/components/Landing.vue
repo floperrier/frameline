@@ -10,13 +10,16 @@
  * lists of forty, and the document is re-rendered on every character typed into a
  * beat — which is the quadratic redraw this whole surface is arranged to avoid.
  * A component whose props have not changed is not re-rendered at all, and a
- * keystroke changes none of these, so a keystroke rebuilds none of them.
+ * keystroke changes none of these, so a keystroke rebuilds none of them. Nor
+ * does an act elsewhere in the Story: what it is handed is the two fields of a
+ * Scene and of an Exit it reads, projected by the document and kept while they
+ * say the same — see `steady` in `app/utils/sharing.ts`.
  */
 const { scenes, exits, from, led, names } = defineProps<{
   /** Every Scene of the Story, which is what a way on chooses among. */
-  scenes: Scene[]
+  scenes: Pick<Scene, 'id' | 'name'>[]
   /** Every Exit of the Story, which is what says what this Scene already reaches. */
-  exits: Exit[]
+  exits: Pick<Exit, 'fromSceneId' | 'toSceneId'>[]
   /** The Scene the way on leaves. */
   from: string
   /**

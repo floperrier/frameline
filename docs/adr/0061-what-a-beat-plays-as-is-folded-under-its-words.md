@@ -119,3 +119,31 @@ Commands offers what it did: *Remove the Sound* stands open, and nothing in the
 fold is marked. The specs that write a Scene's answers open its fold first with
 `unfold(page, 'The street')`, which finds a fold by the name its line carries,
 and the Steps walk in the 1280 × 900 window they held in before the head grew.
+
+## Amendment: a fold draws its answers once it is wanted (#480)
+
+Shut, a fold drew every one of its answers all the same, and a Shot's are most of
+what a beat costs: the Sound library's options, the Cut, the Layout, the Movement,
+four Effects with their times and strengths, and how the text arrives. A Story of
+forty Scenes and three hundred beats drew three hundred and forty folds of fields
+that nobody had opened, and drew them again on every change — #449.
+
+**A fold draws its answers once it is wanted, and keeps them drawn while its row
+stands.** A Shot's fold is its own component, `app/components/ShotPlays.vue`; a
+Scene's is drawn by `app/components/Writing.vue` under the same rule. Shut and
+never opened, a fold is its `<summary>` and nothing else. It is wanted on the
+`click` of its `<summary>`, which the keyboard's `Enter` and `Space` fire too and
+which is heard before the browser opens the fold, so its answers are drawn in the
+same task and it never shows open and empty for a frame. Its `toggle` wants it as
+well, for a fold opened another way: the browser's find in the page, which opens a
+`<details>` holding what it found. And a fold the browser opened before the
+bench's script took over is wanted as the row mounts, since its `toggle` was heard
+by nobody. Nothing in the bench opens a fold from code: no Command is marked in
+one, by the Consequence above, and no Step points into one.
+
+**What stays the same.** The fold is still the browser's: no `open` is bound, and
+it stays open through every write and every read of the Story back. Opened, it
+holds the same fields under the same names, in the same order. What changes is
+what a shut fold holds, which nobody could see: the browser's find no longer
+finds a label inside a fold that was never opened, because the label is not there
+to find. The summary, which says every answer the fold holds, still is.

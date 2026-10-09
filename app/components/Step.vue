@@ -65,8 +65,9 @@ const measured = ref({ panel: 0, across: 0, down: 0 })
  * Nothing has to be scoped to a Scene by id, although the document holds every
  * Scene of the Story at once: a Step that points into the writing is marked on the
  * Scene the caret is in and on no other — `app/components/Writing.vue` writes
- * `data-step` under `held.here` — so a selector finds one element however long
- * the Story is. The rest are drawn once, outside the document.
+ * `data-step` under `held.here`, and the row of a beat under the same answer
+ * handed to it as `here` — so a selector finds one element however long the
+ * Story is. The rest are drawn once, outside the document.
  *
  * More than one because a Step is about a row the Scene may not have written yet:
  * the Scene a Step asks for a Shot in arrives with none, so the same Step points at

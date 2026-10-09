@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { sharing, steady } from '../../app/utils/sharing'
+import { effect, reactive } from 'vue'
+import { keep, sharing, steady } from '../../app/utils/sharing'
 
 /**
  * A Story read back is laid over the Story the bench holds so that whatever did
@@ -194,5 +195,66 @@ describe('steady', () => {
     expect(steady(before, { class: undefined, style: { '--shot-face': 'var(--serif)' } })).toBe(before)
     const moved = { class: 'align-center', style: { '--shot-face': 'var(--serif)' } }
     expect(steady(before, moved)).toBe(moved)
+  })
+})
+
+/**
+ * What the document hands every row once and keeps up to date in place: an entry
+ * that changed is written over, one that did not is left as the object it was, and
+ * the Map or the Set is the same object throughout. Read through Vue's `reactive`
+ * as the document reads it, so what is asserted is also what a row reading one
+ * entry is told: nothing, where its entry did not change.
+ */
+describe('keep', () => {
+  it('writes over the entry that changed and leaves the others as they were', () => {
+    const out = { place: 1, scene: 'The bar', text: 'Go' }
+    const back = { place: 1, scene: 'The street', text: 'Back' }
+    const held = new Map([['out', out], ['back', back]])
+
+    keep(held, new Map([['out', { ...out, text: 'Go in' }], ['back', { ...back }]]))
+
+    expect([...held.keys()]).toEqual(['out', 'back'])
+    expect(held.get('out')).toEqual({ place: 1, scene: 'The bar', text: 'Go in' })
+    expect(held.get('back')).toBe(back)
+  })
+
+  it('tells a reader of an entry that did not change nothing', () => {
+    const held = reactive(new Map([['out', 'Go'], ['back', 'Back']]))
+    const readings = { out: 0, back: 0 }
+    const stops = (['out', 'back'] as const).map(key => effect(() => {
+      held.get(key)
+      readings[key]++
+    }))
+
+    keep(held, new Map([['out', 'Go in'], ['back', 'Back']]))
+
+    expect(readings).toEqual({ out: 2, back: 1 })
+    for (const stop of stops) stop.effect.stop()
+  })
+
+  it('fills it again in the order it now holds, where the entries are others or in another order', () => {
+    const held = new Map([['street', 'The street'], ['bar', 'The bar']])
+
+    keep(held, new Map([['bar', 'The bar'], ['street', 'The street']]))
+    expect([...held]).toEqual([['bar', 'The bar'], ['street', 'The street']])
+
+    keep(held, new Map([['bar', 'The bar']]))
+    expect([...held]).toEqual([['bar', 'The bar']])
+  })
+
+  it('keeps a Set holding the same members, and fills it again where it holds others', () => {
+    const held = reactive(new Set(['lit', 'coat']))
+    let readings = 0
+    const stop = effect(() => {
+      held.has('lit')
+      readings++
+    })
+
+    keep(held, new Set(['lit', 'coat']))
+    expect(readings).toBe(1)
+
+    keep(held, new Set(['lit', 'coat', 'hat']))
+    expect([...held]).toEqual(['lit', 'coat', 'hat'])
+    stop.effect.stop()
   })
 })

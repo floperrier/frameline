@@ -844,7 +844,7 @@ test('renumbering and taking away a way on leave the words where the hand left t
     const moveLaterButton = writing
       .getByRole('button', { name: 'Move Later the Exit 1 to Six, out of Five', exact: true })
     // Named by place as well as destination (see the comment beside the mark
-    // in Writing.vue), and the place moving later is the point of the first
+    // in ExitRow.vue), and the place moving later is the point of the first
     // act below — so this is matched on the destination alone, which the
     // renumbering never touches, rather than on a place number the renumbering
     // is about to change out from under it.

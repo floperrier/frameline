@@ -86,3 +86,37 @@ export function steady<T>(previous: T | undefined, next: T): T {
 function listed(value: unknown) {
   return value instanceof Map || value instanceof Set ? [...value] : value
 }
+
+/**
+ * A Map or a Set the document works out of the whole Story again on every change
+ * to what it reads, laid over the one the rows were handed, in place: an entry
+ * that says the same is left as it is, one that differs is written over, and the
+ * Map or the Set is the same object throughout. Handed to every row of the
+ * document and never handed again, so a row is drawn again only where it reads
+ * the entry that changed — the way on whose words are being typed, the Flag a
+ * Question is being given — and not because the whole was worked out anew. Where
+ * what it holds is no longer what it held, in the same order, it is emptied and
+ * filled again, since the order is the order a list of it offers.
+ *
+ * Where `steady` keeps the old value whole while nothing in it changed, this
+ * keeps it whole while something does: a keystroke into one way on's words changes
+ * one entry of the Exits the bench names, and with `steady` that is a new Map
+ * handed to every row. See `docs/adr/0043-a-story-is-written-as-one-document.md`.
+ */
+export function keep<K, V>(held: Map<K, V>, next: Map<K, V>): void
+export function keep<K>(held: Set<K>, next: Set<K>): void
+export function keep<K, V>(held: Map<K, V> | Set<K>, next: Map<K, V> | Set<K>) {
+  const keys = [...held.keys()]
+  const reordered = keys.length !== next.size || [...next.keys()].some((key, at) => !Object.is(key, keys[at]))
+
+  if (held instanceof Map && next instanceof Map) {
+    if (reordered) held.clear()
+    for (const [key, value] of next) {
+      if (reordered || !same(held.get(key), value)) held.set(key, value)
+    }
+  }
+  else if (held instanceof Set && next instanceof Set && reordered) {
+    held.clear()
+    for (const key of next) held.add(key)
+  }
+}
