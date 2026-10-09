@@ -434,6 +434,18 @@ export async function writeShot(box: Locator, text: string, how: 'typed' | 'inse
 }
 
 /**
+ * The fold of what a Shot or a Scene plays as, found by the name its line
+ * carries: `Shot 2 of The street` or `The street`. Shut, it holds its line and
+ * nothing under it, since #480 — so what a spec says a shut fold hides is said of
+ * the fold, not of a control that is not drawn yet.
+ */
+export function foldNamed(page: Page, named: string) {
+  return page.locator('details.plays', {
+    has: page.locator('summary > .visually-hidden').getByText(named, { exact: true }),
+  })
+}
+
+/**
  * Opens what a Shot plays as, which its row keeps folded under one line since
  * #401 — the Sound picker, the Cut, the Layout, the Movement, the Effects and how
  * its text arrives — or how a Scene plays, which its head keeps folded the same
@@ -444,9 +456,7 @@ export async function writeShot(box: Locator, text: string, how: 'typed' | 'inse
  */
 export async function unfold(page: Page, named: string) {
   await live(page)
-  const fold = page.locator('details.plays', {
-    has: page.locator('summary > .visually-hidden').getByText(named, { exact: true }),
-  })
+  const fold = foldNamed(page, named)
   if (!await fold.evaluate(details => (details as HTMLDetailsElement).open)) {
     await fold.locator('summary').click()
   }

@@ -135,11 +135,15 @@ never opened, a fold is its `<summary>` and nothing else. It is wanted on the
 `click` of its `<summary>`, which the keyboard's `Enter` and `Space` fire too and
 which is heard before the browser opens the fold, so its answers are drawn in the
 same task and it never shows open and empty for a frame. Its `toggle` wants it as
-well, for a fold opened another way: the browser's find in the page, which opens a
-`<details>` holding what it found. And a fold the browser opened before the
-bench's script took over is wanted as the row mounts, since its `toggle` was heard
-by nobody. Nothing in the bench opens a fold from code: no Command is marked in
-one, by the Consequence above, and no Step points into one.
+well, for a fold opened from code: `wind` in `app/components/Finding.vue` sets
+`open` on the `<details>` a found word stands in. None of the fields find and
+replace reads stands in one of these folds today, and a fold opened that way
+would show open and empty for a frame before its `toggle` is heard. And a fold
+the browser opened before the bench's script took over is wanted as the row
+mounts, since its `toggle` was heard by nobody. The browser's find in the page
+opens none of them: with `v-if`, a shut fold's answers are not in the document,
+so there is nothing in it to find and nothing to open it for. No Command is
+marked in a fold, by the Consequence above, and no Step points into one.
 
 **What stays the same.** The fold is still the browser's: no `open` is bound, and
 it stays open through every write and every read of the Story back. Opened, it

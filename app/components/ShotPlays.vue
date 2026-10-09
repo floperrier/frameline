@@ -10,12 +10,16 @@
  * So a fold draws none of it until it is wanted, and keeps it drawn after while
  * its row stands. It is wanted on the press of its line, which is heard before the
  * browser opens the fold, so the answers are drawn in the same task and the fold
- * never shows open and empty; on the `toggle` that opens it any other way, which
- * is the browser's find in the page; and as the row mounts on a fold the browser
- * opened before the bench's script took over, whose `toggle` was heard by nobody.
- * Nothing in the bench opens one from code: no Command and no Step points inside a
- * fold. See issue #449, and `app/components/ShotRow.vue`, which is the row this
- * stands on.
+ * never shows open and empty; on the `toggle` of a fold opened from code, which
+ * is `wind` in `app/components/Finding.vue` opening the fold a found word stands
+ * in — none of the fields it finds stands in this one today, and a fold opened
+ * that way would show open for a frame before its answers are drawn; and as the
+ * row mounts on a fold the browser opened before the bench's script took over,
+ * whose `toggle` was heard by nobody. The browser's find in the page does not
+ * open a shut fold: what it holds is not in the document until it is wanted, so
+ * there is nothing in it to find. No Command and no Step points inside a fold.
+ * See issue #449, and `app/components/ShotRow.vue`, which is the row this stands
+ * on.
  */
 const { changing, writing } = defineProps<{
   /** The Shot whose fold this is, and the Scene it falls back on wherever it says nothing. */

@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test'
-import { live, test, unfold, writeStory } from './author'
+import { foldNamed, live, test, unfold, writeStory } from './author'
 import {
   TEXT_AFTER_MAX,
   TEXT_OVER_MAX,
@@ -49,7 +49,7 @@ test('a Scene says how its texts arrive, and the Story comes back holding it',
     // folded with everything else the Scene's head chooses from a list, and said
     // on its line by nothing, because a Scene that says only that spends no words
     // on it.
-    await expect(arrives).toBeHidden()
+    await expect(foldNamed(page, 'The street')).not.toHaveAttribute('open')
     const fold = await unfold(page, 'The street')
     await expect(fold.locator('summary')).not.toContainText('Text')
     await expect(arrives).toBeVisible()
@@ -88,7 +88,7 @@ test('a Scene says how its texts arrive, and the Story comes back holding it',
     // unasked, and its fold comes back shut like every other.
     await page.reload()
     await live(page)
-    await expect(arrives).toBeHidden()
+    await expect(fold).not.toHaveAttribute('open')
     await expect(fold.locator('summary')).toContainText(
       'Text after 2.5 s · Text word by word, 20 characters a second · Text stays 3 s')
     await unfold(page, 'The street')
@@ -126,7 +126,7 @@ test('a Shot answers as its Scene says until it answers for itself',
     const fold = page.locator('summary', { hasText: 'As its Scene plays Shot 1 of The street' })
 
     // A beat that answers as its Scene says keeps the row folded under its words.
-    await expect(arrives).toBeHidden()
+    await expect(foldNamed(page, 'Shot 1 of The street')).not.toHaveAttribute('open')
     await unfold(page, 'Shot 1 of The street')
     for (const select of [arrives, comes, appears, stays]) {
       await expect(select).toHaveValue('scene')
@@ -143,7 +143,7 @@ test('a Shot answers as its Scene says until it answers for itself',
     // A reload brings the fold back shut, whatever the Shot says: its line says it.
     await page.reload()
     await live(page)
-    await expect(stays).toBeHidden()
+    await expect(foldNamed(page, 'Shot 1 of The street')).not.toHaveAttribute('open')
     await unfold(page, 'Shot 1 of The street')
     await expect(stays).toHaveValue('cut')
     await expect(comes).toHaveValue('letter')
@@ -164,9 +164,12 @@ test('a Shot answers as its Scene says until it answers for itself',
     const empty = await (await request.post(`/api/scenes/${scene.id}/shots`)).json()
     await page.reload()
     await live(page)
-    await expect(page.locator(`#shot-text-after-${empty.id}`)).toHaveCount(0)
     await expect(fold).toBeVisible()
-    await expect(arrives).toBeHidden()
+    await expect(foldNamed(page, 'Shot 1 of The street')).not.toHaveAttribute('open')
+    // Opened, the wordless beat's fold holds its other answers and not that row.
+    await unfold(page, 'Shot 3 of The street')
+    await expect(page.locator(`#shot-cut-after-${empty.id}`)).toBeVisible()
+    await expect(page.locator(`#shot-text-after-${empty.id}`)).toHaveCount(0)
   })
 
 test('the doors take the fields their own row holds, and refuse what is not one',

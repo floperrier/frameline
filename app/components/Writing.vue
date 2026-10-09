@@ -257,10 +257,12 @@ function standingIn(scene: Scene) {
  *
  * This and the two under it are read off the whole Story and handed to every row
  * of the document, and each is one Map or Set for the document's whole life,
- * whose entries are written over where they change — see `keep` in
- * `app/utils/sharing.ts`. A row reads the entries it draws and nothing else, so a
- * keystroke into one way on's words, or into the Flag a Question is held under,
- * draws again only what names that Exit or offers that Flag, where a new Map would
+ * laid over in place where what it holds changes — see `keep` in
+ * `app/utils/sharing.ts`, which says exactly who is told of what. A row reads the
+ * entries it draws and nothing else, so a keystroke into one way on's words draws
+ * again that way on's row and the lists of Conditions that offer that Exit by its
+ * words, and a keystroke into the Flag a Question is held under draws again that
+ * Question and the lists of Conditions that offer the Flags, where a new Map would
  * have been handed to all three hundred rows.
  */
 const named = reactive(new Map<string, string>())
@@ -283,17 +285,30 @@ watch(() => declaredIn(story), next => keep(flags, next), { immediate: true })
 const set = computed<ReturnType<typeof setIn>>(previous => steady(previous, setIn(story)))
 
 /**
- * The two fields of each Scene and of each Exit the lists of where a way on may
- * land read — see `app/components/Landing.vue` — and nothing else of either, so a
- * beat written in a Scene leaves every one of those lists as it was.
+ * The fields of each Scene and of each Exit the lists of where a way on may land
+ * read to say which Scenes they offer — see `app/components/Landing.vue` — and
+ * nothing else of either: ids, and no name. So a beat written in a Scene, or a
+ * Scene's name typed into, leaves this the object it was, and a way on's row
+ * handed it is handed nothing new. What a list shows each Scene as is read from
+ * a Map by its id, the entry alone.
  */
 const landing = computed<{
-  scenes: Pick<Scene, 'id' | 'name'>[]
+  scenes: Pick<Scene, 'id'>[]
   exits: Pick<Exit, 'fromSceneId' | 'toSceneId'>[]
 }>(previous => steady(previous, {
-  scenes: story.scenes.map(({ id, name }) => ({ id, name })),
+  scenes: story.scenes.map(({ id }) => ({ id })),
   exits: story.exits.map(({ fromSceneId, toSceneId }) => ({ fromSceneId, toSceneId })),
 }))
+
+/**
+ * Each Scene's name as the Author typed it, which the list at the foot of a
+ * Scene offers to be typed: a name typed there is the name the Scene is written
+ * under, so it is not the bench's number. Kept like the names above it, so a
+ * Scene's name typed into draws again only the lists that offer that Scene.
+ */
+const typed = reactive(new Map<string, string>())
+watch(() => new Map(story.scenes.map(({ id, name }) => [id, name])), next => keep(typed, next),
+  { immediate: true })
 
 /** The name the bench gives one Scene, which is the map above read for it. */
 function nameOf(sceneId: string) {
@@ -1067,10 +1082,12 @@ watch(() => story.scenes, (scenes) => {
  * folds of fields nobody opened — see
  * `docs/adr/0061-what-a-beat-plays-as-is-folded-under-its-words.md`. Wanted on the
  * press of its line, heard before the browser opens it, so the answers are drawn
- * in the same task and the fold never shows open and empty; on the `toggle` that
- * opens it any other way, which is the browser's find in the page; and, as the
- * document mounts, wherever the browser opened one before the bench's script took
- * over, its `toggle` heard by nobody. Kept drawn after. A Shot's is
+ * in the same task and the fold never shows open and empty; on the `toggle` of a
+ * fold opened from code, as `wind` in `app/components/Finding.vue` opens the fold
+ * a found word stands in; and, as the document mounts, wherever the browser
+ * opened one before the bench's script took over, its `toggle` heard by nobody.
+ * Kept drawn after. The browser's find in the page opens none: a shut fold's
+ * answers are not in the document, so there is nothing in it to find. A Shot's is
  * `app/components/ShotPlays.vue`, which wants its own the same way.
  */
 const unfolded = reactive<Record<string, boolean>>({})
@@ -2399,7 +2416,13 @@ function writeFlags(scene: Scene, sets: Sets) {
             @change="addExit(held.scene)"
           >
           <datalist :id="`landing-${held.scene.id}`">
-            <Landing :scenes="landing.scenes" :exits="landing.exits" :from="held.scene.id" />
+            <Landing
+              :scenes="landing.scenes"
+              :exits="landing.exits"
+              :from="held.scene.id"
+              :names="typed"
+              typed
+            />
           </datalist>
         </form>
       </section>
@@ -2655,16 +2678,6 @@ function writeFlags(scene: Scene, sets: Sets) {
 .transcribed input:hover,
 .transcribed input:focus-visible {
   border-color: var(--edge);
-}
-
-/* The Question and its Flag, one field to a line under the run of Shots, each
-   read as a label over a box the width of the column. */
-.asks {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--s2);
-  margin-block: var(--s3);
 }
 
 /* The picker takes what is left of its line in the fold, so *Listen* and *Take

@@ -34,7 +34,7 @@ const { name, toName, changing, writing, announce } = defineProps<{
   exits: Map<string, ExitOnTheBench>
   flags: ReadonlySet<string>
   /** The Scenes and the Exits of the Story as `Landing` reads them, which say where it may be led. */
-  landing: { scenes: Pick<Scene, 'id' | 'name'>[], exits: Pick<Exit, 'fromSceneId' | 'toSceneId'>[] }
+  landing: { scenes: Pick<Scene, 'id'>[], exits: Pick<Exit, 'fromSceneId' | 'toSceneId'>[] }
   /** The document's own two doors, which say a refusal in the Scene the act was in. */
   changing: (scene: Scene, act: () => Promise<unknown>) => Promise<boolean>
   writing: (scene: Scene, written: string, act: () => Promise<unknown>) => Promise<void>
