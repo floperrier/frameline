@@ -176,7 +176,8 @@ started again as a stack of their own (`compose.dev.yaml`, port 4446) whose data
 is kept in a volume, and applies the migrations to it. Then Nuxt starts. See
 `docs/adr/0082-development-brings-its-own-database.md`. Never edit the database
 by hand. Migrations are generated from `server/db/schema.ts` with
-`pnpm db:generate`; `pnpm db:migrate` is the deploy's, against Neon.
+`pnpm db:generate` and applied with `pnpm db:migrate` to the database
+`DATABASE_URL` names: `.env`'s on a development machine, Neon in the deploy.
 
 ## The demonstration work
 

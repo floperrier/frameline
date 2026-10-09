@@ -20,7 +20,7 @@ containers from `compose.yaml`, a Postgres and the proxy that speaks Neon's
 protocol, started a second time by `compose.dev.yaml` as a stack of its own:
 named `frameline-dev`, published on 4446 rather than 4445, with its data in a
 volume rather than in memory. `pnpm dev` runs `pnpm db:dev` first, which starts
-the stack and applies the migrations through `server/db/migrate.ts` before Nuxt
+the stack and applies the migrations with `drizzle-kit migrate` before Nuxt
 starts. That takes about two seconds when the stack is already up. `.env.example`
 names `postgres://postgres:postgres@db.localtest.me:4446/main`, and the app
 reaches it through `server/db/endpoint.ts`, the same way the suite reaches its
@@ -59,9 +59,25 @@ in Neon. Copying it to the machine has to wait until Neon answers again. A
 migration on its way to production is still applied on the way into `dev`: it
 reaches the developer's database the next time `pnpm dev` starts.
 
-**`pnpm db:migrate` is what the deploy runs, and nothing else.** `drizzle-kit
-migrate` cannot reach the proxy (0075). On a development machine, `pnpm dev` or
-`pnpm db:dev` applies the migrations.
+**One migrator again, and it is the deploy's.** Amends 0075 on one point. That
+ADR found `drizzle-kit migrate` could not reach the proxy, and gave the suite
+`server/db/migrate.ts`, drizzle's migrator over the app's HTTP driver. Over HTTP
+that migrator applies each statement on its own, with no transaction around
+them, so a migration that failed halfway would leave a database half migrated
+and unrecorded. Once `.env` named the local database, `pnpm db:migrate` failed
+there too. The proxy does answer the driver's WebSocket, at `/v2` and without
+TLS, so `drizzle.config.ts` sends drizzle-kit there whenever the connection
+string names `db.localtest.me`, and `server/db/migrate.ts` is gone. `pnpm
+test:db`, `pnpm db:dev`, `pnpm db:migrate` and the deploy all run `drizzle-kit
+migrate`, which applies every pending migration in one transaction. What proves
+a migration in CI is now the very command that applies it to production.
+
+The price is drizzle-kit's spinner. When a migration fails, the spinner swallows
+the error, and drizzle-kit exits 1 with nothing else to say, in CI as it always
+has in the deploy. The error is read by running the migration's own file in the
+container, which answers with the failing statement and Postgres's reason:
+`docker compose exec -T postgres psql -U postgres -d main -v ON_ERROR_STOP=1 <
+server/db/migrations/<file>.sql`.
 
 **`demonstration/write.ts` reaches the local database**, through the same routing,
 so the works can be written into a checkout once its Author has signed in.

@@ -24,7 +24,7 @@ the `DATABASE_URL` in `.env`, and never run `pnpm db:migrate` to verify.
 ```
 
 It starts the database if nothing answers on 4445, applies the migrations to it
-with `server/db/migrate.ts`, builds with that database's URL, and serves
+with `drizzle-kit migrate`, builds with that database's URL, and serves
 `.output` with it, whatever the build or `.env` hold. It prints
 `serving http://localhost:<port> (pid <pid>)` once `GET /` answers. The port is
 the first free one from 3190 to 3199. Never drive 3100: that is somebody's

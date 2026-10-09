@@ -29,7 +29,7 @@ database() {
     docker compose -p frameline up -d --wait > "$state/database.log" 2>&1 ||
       { tail -20 "$state/database.log"; exit 1; }
   fi
-  DATABASE_URL=$database node server/db/migrate.ts > "$state/migrate.log" 2>&1 ||
+  DATABASE_URL=$database pnpm exec drizzle-kit migrate > "$state/migrate.log" 2>&1 ||
     { tail -20 "$state/migrate.log"; exit 1; }
 }
 
