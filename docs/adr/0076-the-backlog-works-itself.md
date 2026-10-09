@@ -73,7 +73,10 @@ carries every author of a branch into `dev` as `Co-authored-by`.
 `agent-guard` fails a pull request with a commit under the tool's name. The
 squash is then the developer's alone, and GitHub signs it. A branch's own
 commits go unverified, since the cloud signs with a key GitHub only accepts for
-its own address, and they are deleted with the branch.
+its own address, and they are deleted with the branch. The cloud's GitHub tool
+also ends every comment, issue and pull request description it posts with a line
+naming itself, which no setting turns off; `agent-footer.yml` strips it once
+posted, and the edit history keeps the original.
 
 **The skills are copied into the repository.** A cloud session loads none of the
 developer's plugins. `.claude/skills/` therefore holds the triage, spec and
