@@ -157,7 +157,9 @@ Exit may land on, the columns a Story falls into and the order it is written in,
 the two message
 files held against each other, the language a refusal is phrased in, where the driver sends a query, the Steps the
 bench asks a Story for — whose targets are held against the editor's template
-read as source — the Remarks the bench reads back out of a Story, what differs between a
+read as source — the Remarks the bench reads back out of a Story, how a Story read
+back is laid over the one the bench holds so that what did not change keeps its
+object, and which of two reads that cross lands, what differs between a
 published Story's Edition and the Story as it is written, the places a word is
 found at in a Story and what replacing them writes, and the two
 Samples, that each holds together as a work and that the two of them are one
