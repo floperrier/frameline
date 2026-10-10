@@ -108,7 +108,7 @@ export type Shot = ({ text: string, formatted?: never } | { formatted: Formatted
   movementOver?: number
   /**
    * What the Image and the text play as the beat arrives and while it stands;
-   * saying nothing is none. See the `Effect` of `CONTEXT.md`.
+   * saying nothing is none. See the `Effect` of `GLOSSARY.md`.
    */
   imageArrives?: Arrival
   imageLasts?: Lasting

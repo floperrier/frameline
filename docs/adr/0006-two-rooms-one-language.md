@@ -46,7 +46,7 @@ time by `@nuxt/fonts`, which needs
 `experimental.processCSSVariables` because every face here is reached through a
 custom property.
 
-`CONTEXT.md` puts "frame" on the list of words to avoid for a Shot, and it stays
+`GLOSSARY.md` puts "frame" on the list of words to avoid for a Shot, and it stays
 there: nothing user-visible, and no name for a Shot, calls it a frame. What the
 design calls the frame is the apparatus — the gate a Shot is thrown onto, shared
 by the Reading and by the specimen on the signed-out page — and a Shot's own

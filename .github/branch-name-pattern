@@ -1,1 +1,1 @@
-^([0-9]+-[a-z0-9]+(-[a-z0-9]+)*|dev|(dependabot|renovate)/.+)$
+^([0-9]+-[a-z0-9]+(-[a-z0-9]+)*|dev|(dependabot|renovate|prototype|research)/.+)$

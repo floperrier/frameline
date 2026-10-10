@@ -2,7 +2,7 @@
 
 This directory is the maintained source for proving what an Author or a Reader
 sees. Read the index, then use the matching file as the recipe. The words are
-`CONTEXT.md`'s: a Story is made of Scenes, a Scene is a run of Shots, and an
+`GLOSSARY.md`'s: a Story is made of Scenes, a Scene is a run of Shots, and an
 Exit leads from one Scene to another.
 
 | Feature | What it covers |

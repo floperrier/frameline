@@ -51,5 +51,5 @@ not holding a pointer.
 
 A Cut is now an Exit, shown as _Sortie_ — see
 `docs/adr/0022-the-metaphor-stops-at-the-edge-of-the-work.md` and the glossary in
-`CONTEXT.md`. What was decided here is untouched by the renaming: read Cut as
+`GLOSSARY.md`. What was decided here is untouched by the renaming: read Cut as
 Exit throughout.

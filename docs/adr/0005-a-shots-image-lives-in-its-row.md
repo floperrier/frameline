@@ -52,7 +52,7 @@ bytes are served back under whatever type we believe — and read out of them ag
 on the way out, so there is one answer to what a still is and no column that can
 disagree with the file. That is also what limits the formats to JPEG, PNG and
 WebP: each is one signature to recognise, and an animated GIF is not the one still
-image `CONTEXT.md` says a Shot carries.
+image `GLOSSARY.md` says a Shot carries.
 
 A Still now carries a Description — what it shows, written by the Author for a
 Reader who cannot see it — in the Shot's own row beside the bytes, which is where

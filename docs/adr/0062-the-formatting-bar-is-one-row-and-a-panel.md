@@ -19,7 +19,7 @@ read.
 **The bar is one row of what a writer reaches for while typing.** *Italic*,
 *Bold*, *Underline* and *Strikethrough*, glyphs carrying their keys as before;
 *This line is*, the one select left in the row, because a line's kind is the
-formatting `CONTEXT.md` names first and its options name themselves (*A
+formatting `GLOSSARY.md` names first and its options name themselves (*A
 quotation*, *Someone speaking*); *Add a Separator*; *Redact the Selection*; and
 **More Styles**, the one control of the row written in words. At 1280 wide or
 more, with the panel shut, that is one row, under 48 px. Narrower, it wraps as
