@@ -19,7 +19,7 @@ Both Shots and Exits can carry **Conditions**, flat tests against the Reader's
 ever becoming non-linear.
 
 The full vocabulary — every term, and the words deliberately avoided — is in
-[`CONTEXT.md`](CONTEXT.md). It is worth reading before the code: the domain
+[`GLOSSARY.md`](GLOSSARY.md). It is worth reading before the code: the domain
 language is the design.
 
 ## Stack
@@ -56,7 +56,7 @@ machine alike, and never against Neon or the database `pnpm dev` uses.
 
 | Where | What |
 | --- | --- |
-| [`CONTEXT.md`](CONTEXT.md) | The domain vocabulary — the canonical reference |
+| [`GLOSSARY.md`](GLOSSARY.md) | The domain vocabulary — the canonical reference |
 | [`docs/adr/`](docs/adr) | Architecture decisions and why they were made |
 | [`docs/deploy.md`](docs/deploy.md) | First-time Neon, OAuth and Vercel setup |
 | [`docs/git-flow.md`](docs/git-flow.md) | Branch and database separation |

@@ -1,0 +1,39 @@
+# Rapport de rétro — workflow planifié, sans modèle ni quota
+# Lit : les signaux de la semaine dans GitHub
+# Écrit : une issue « Rétro de la semaine » (label retro), que le Triage ignore
+name: retro-report
+on:
+  schedule:
+    - cron: '0 6 * * 1' # lundi, 6 h UTC
+  workflow_dispatch:
+permissions:
+  actions: read
+  issues: write
+  pull-requests: read
+env:
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  REPO: ${{ github.repository }}
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          since=$(date -u -d '7 days ago' +%Y-%m-%d)
+          section() {
+            title=$1; shift
+            out=$("$@")
+            echo "## $title"; echo
+            if [ -n "$out" ]; then printf '%s\n' "$out" | sed 's/^/- /'; else echo "- aucun"; fi
+            echo
+          }
+          {
+            echo "Signaux depuis le $since. Lance /retro sur les sessions liées, choisis ce qui mérite un changement, puis ferme l'issue."
+            echo
+            section "PR du flow fermées sans merge (deux refus)" gh pr list --repo "$REPO" --state closed --label agent --search "is:unmerged closed:>=$since" --json number,title,url --jq '.[] | "#\(.number) \(.title) \(.url)"'
+            section "PR en changes-needed" gh pr list --repo "$REPO" --label changes-needed --json number,title,url --jq '.[] | "#\(.number) \(.title) \(.url)"'
+            section "Escalades ready-for-human" gh issue list --repo "$REPO" --label ready-for-human --search "updated:>=$since" --json number,title,url --jq '.[] | "#\(.number) \(.title) \(.url)"'
+            section "Échecs d'agent-guard" gh run list --repo "$REPO" --workflow agent-guard.yml --status failure --created ">=$since" --json displayTitle,url --jq '.[] | "\(.displayTitle) \(.url)"'
+            section "Ruptures de dev (dev-broken)" gh issue list --repo "$REPO" --label dev-broken --state all --search "created:>=$since" --json number,title,url --jq '.[] | "#\(.number) \(.title) \(.url)"'
+            section "Bugs corrigés (PR fix mergées) : qu'est-ce qui les aurait empêchés ?" gh pr list --repo "$REPO" --state merged --search "merged:>=$since" --json number,title,url --jq '.[] | select(.title | startswith("fix")) | "#\(.number) \(.title) \(.url)"'
+          } > report.md
+          gh issue create --repo "$REPO" --title "Rétro de la semaine du $since" --label retro --body-file report.md

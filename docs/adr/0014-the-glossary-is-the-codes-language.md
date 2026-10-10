@@ -4,7 +4,7 @@ status: accepted
 
 # The glossary is the code's language, the screen has its own
 
-`CONTEXT.md` stays in English and stays binding: `Story`, `Scene`, `Shot`,
+`GLOSSARY.md` stays in English and stays binding: `Story`, `Scene`, `Shot`,
 `Cut`, `Still`, `Place`. Every entry now also carries an `_Affiché_` line — the
 one word the French interface shows that term as — and that word binds as
 tightly as the English one. Story is *Récit* on screen and `Story` in the code,
@@ -64,5 +64,5 @@ glossary states the word; the message file is the only place it may be written
 in a rendered string. A French synonym invented at a call site is a bug of the
 same kind as calling a Scene a chapter.
 
-**Adding a term to `CONTEXT.md` now requires two words, not one.** An entry
+**Adding a term to `GLOSSARY.md` now requires two words, not one.** An entry
 without an `_Affiché_` line is unfinished.

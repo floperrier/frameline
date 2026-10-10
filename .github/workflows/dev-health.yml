@@ -1,0 +1,29 @@
+# Frein d'urgence — workflow déclenché à la fin de chaque CI de dev, sans modèle
+# Lit : le résultat de la CI de dev
+# Écrit : une issue dev-broken prioritaire ; tant qu'elle est ouverte, agent-merge ne
+#         merge que la PR qui la ferme
+name: dev-health
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [dev]
+permissions:
+  issues: write
+env:
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  REPO: ${{ github.repository }}
+jobs:
+  alert:
+    if: github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          open=$(gh issue list --repo "$REPO" --label dev-broken --state open --json number --jq '.[].number')
+          [ -z "$open" ] || exit 0
+          gh issue create --repo "$REPO" --label dev-broken --label ready-for-agent \
+            --title "fix: la CI de dev est rouge" \
+            --body "La CI de dev échoue depuis le commit $SHA : $RUN_URL. Répare dev avant toute autre tâche ; tant que cette issue est ouverte, agent-merge ne merge que la PR qui la ferme."

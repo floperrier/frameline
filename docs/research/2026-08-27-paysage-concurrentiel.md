@@ -6,7 +6,7 @@ source des dépôts officiels, registres npm et API GitHub. Aucune source
 secondaire n'est citée comme fait ; là où seules des sources secondaires
 existaient, l'outil est renvoyé à la section « Trous ».
 
-Le vocabulaire de Frameline suit le glossaire de `CONTEXT.md` — Récit, Scène,
+Le vocabulaire de Frameline suit le glossaire de `GLOSSARY.md` — Récit, Scène,
 Plan, Photogramme, Description, Rang, Coupe, Graphe, Scène d'ouverture,
 Condition, Amorce, Repère, État, Marqueur, Lecture, Position, Auteur, Lecteur,
 Aperçu, Publier, Langue, Langue de l'interface. Chaque concurrent est décrit
