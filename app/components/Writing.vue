@@ -210,12 +210,13 @@ type SceneInDocument = {
   published?: 'editor.notYetPublished' | 'editor.changedSincePublished'
   /**
    * What each Exit leaving it says of how often Readers took it, by the Exit, and
-   * how many Readings ended in it: both only while the Story is published, and
-   * read by its Author and nobody else — see
+   * how many Readings ended in it and how many left off there: all only while the
+   * Story is published, and read by its Author and nobody else — see
    * `docs/adr/0072-a-reading-is-counted-for-its-author.md`.
    */
   taken: Record<string, string>
   ended: number
+  leftOff: number
 }
 
 /**
@@ -345,6 +346,7 @@ const sections = computed<SceneInDocument[]>(() => {
         : story.changes?.changed.includes(scene.id) ? 'editor.changedSincePublished' : undefined,
       taken: story.publishedAt ? takenFrom(ways) : {},
       ended: story.publishedAt ? story.readings.endedIn[scene.id] ?? 0 : 0,
+      leftOff: story.publishedAt ? story.readings.leftOff[scene.id] ?? 0 : 0,
     }
   })
 })
@@ -1594,6 +1596,7 @@ function writeFlags(scene: Scene, sets: Sets) {
           </button>
           <span v-if="held.published" class="eyebrow published-mark">{{ $t(held.published) }}</span>
           <span v-if="held.ended" class="eyebrow read-mark">{{ $t('editor.endedHere', held.ended) }}</span>
+          <span v-if="held.leftOff" class="eyebrow read-mark">{{ $t('editor.leftOffHere', held.leftOff) }}</span>
         </p>
 
         <p class="arrivals">{{ held.arrivals }}</p>

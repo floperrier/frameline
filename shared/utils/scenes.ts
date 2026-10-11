@@ -1073,9 +1073,16 @@ export type StoryInEditor = {
   /**
    * How many Readings began, and how many ended in any Scene, counted for the
    * Author alone — and, by id, how often each Exit the Story holds was taken and
-   * how many Readings ended in each Scene it holds, where any were.
+   * how many Readings ended in each Scene it holds, where any were, and how many
+   * left off in each Scene it holds, where that is above nought.
    */
-  readings: { begun: number, ended: number, taken: Record<string, number>, endedIn: Record<string, number> }
+  readings: {
+    begun: number
+    ended: number
+    taken: Record<string, number>
+    endedIn: Record<string, number>
+    leftOff: Record<string, number>
+  }
   /** Whether the Author has put the published Story in the Catalogue. */
   listed: boolean
   /** What an Exit of this Story answers when it has not answered for itself. */
