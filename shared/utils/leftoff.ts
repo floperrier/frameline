@@ -28,8 +28,9 @@ export function readingsLeftOff({ exits, openingSceneId, begun, taken, endedIn }
 
   if (openingSceneId) add(openingSceneId, begun)
   for (const { id, fromSceneId, toSceneId } of exits) {
-    add(toSceneId, taken[id] ?? 0)
-    add(fromSceneId, -(taken[id] ?? 0))
+    const takes = taken[id] ?? 0
+    add(toSceneId, takes)
+    add(fromSceneId, -takes)
   }
   for (const [sceneId, count] of left) left.set(sceneId, count - (endedIn[sceneId] ?? 0))
 

@@ -140,9 +140,11 @@ test('the Author reads how often each Exit was taken and how many Readings ended
     // The Reading left off in the second Scene goes on to the third and ends
     // there, told from the stranger's page the way a Reading tells it: no Scene
     // has a Reading left off in it any more.
-    const tell = (kind: string, body: object) => stranger.evaluate(async ([url, sent]) =>
-      (await fetch(url!, { method: 'POST', headers: { 'content-type': 'application/json' }, body: sent })).status,
-    [`/api/read/${id}/${kind}`, JSON.stringify(body)])
+    const tell = (kind: string, body: object) => stranger.evaluate(async ([url, sent]) => (await fetch(url!, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: sent,
+    })).status, [`/api/read/${id}/${kind}`, JSON.stringify(body)])
     expect(await tell('taken', { exit: on.id })).toBe(204)
     expect(await tell('ended', { scene: last.id })).toBe(204)
     await context.close()
