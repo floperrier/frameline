@@ -8,6 +8,12 @@ Decided on 2026-10-06. Amends `docs/adr/0039-autonomous-work-waits-on-dev.md`
 on who merges into `dev`, and `docs/git-flow.md` on how a commit is titled and
 how the two branches are protected.
 
+Amended in issue #494, by
+`docs/adr/0083-the-backlog-runs-on-one-set-of-skills.md`: the routines run on
+`mattpocock/skills` alone, a spec arrives cut by the developer, an issue refused
+twice goes to the developer, and the flow's own GitHub App merges into `dev` so
+that `dev`'s CI runs after each merge.
+
 Until now the autonomous work was one loop on the developer's laptop. It chose
 the next issue, built it, opened the pull request and armed its auto-merge, all
 in the one run that wrote the change. Nothing it merged had been looked at by

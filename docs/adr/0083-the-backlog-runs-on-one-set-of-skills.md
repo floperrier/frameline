@@ -35,7 +35,9 @@ The routines now run on `mattpocock/skills` v1.3.1 alone, copied into
   flow's own GitHub App, because a merge made with `GITHUB_TOKEN` triggers no
   workflow. `ci.yml` runs `check` on a push to `dev`. When that fails,
   `dev-health.yml` opens a `dev-broken` issue, and until it is closed
-  `agent-merge.yml` lands only the pull request that closes it. The same token
+  `agent-merge.yml` lands only the pull request that closes it; a green run on
+  `dev` closes it too, and the Validation leaves the other pull requests waiting
+  meanwhile. The same token
   lets `promotion.yml` keep a draft promotion open from `dev` to `main`.
 - **Two weekly reports.** `retro-report.yml` gathers the week's refusals,
   escalations and breaks into an issue labelled `retro`. The Architecture
