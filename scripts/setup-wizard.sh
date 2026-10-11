@@ -200,6 +200,10 @@ finish() {
 
 run_wizard() {
 
+# Run through Claude Code's `!`, stdin is not a terminal: the first question would
+# read nothing and the wizard would stop there, with the browser already open.
+[[ -t 0 ]] || { echo "Ce wizard attend tes réponses : lance-le dans un terminal, pas avec « ! »." >&2; exit 1; }
+
 TOTAL_STAGES=2
 REPO=floperrier/frameline
 
