@@ -42,7 +42,9 @@ route that takes a List's id and hands its contents over, and no Profile draws
 one — the glossary's Profile is the Name and the Stories that Author has Listed,
 never what they thought of other people's. Public Lists would be a second surface
 of public text to answer for and are out of scope until there is enough published
-to be worth arranging.
+to be worth arranging. *Amended by `docs/adr/0085-a-list-may-be-made-public.md`:* a List
+may be made public, showing only the Stories in it that are Listed, and
+Favourites may keep another Author's public List.
 
 **A List hands over only a Story anybody can still read.** The entry leads to the
 public link, so a Story unpublished since it was gathered is left out of the

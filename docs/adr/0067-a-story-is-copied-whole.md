@@ -23,7 +23,10 @@ Language the Author names, and the copy opens on the bench.** *Duplicate*
 stands beside *Delete* on `/stories` and opens a form under the entry, filled
 with the Story's title and Language. `POST /api/stories/:id/copy` takes
 `{ title, language }`, holds them to the rules a new Story's are held to, and
-writes the copy in one statement.
+writes the copy in one statement. *Amended by
+`docs/adr/0090-a-story-may-be-open-to-copying.md`:* another Author may copy a
+Story whose Author made it Open to Copying, taking its Edition and carrying a
+Credit for good.
 
 ## Why the copy is whole
 

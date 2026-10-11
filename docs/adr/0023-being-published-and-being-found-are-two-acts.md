@@ -16,7 +16,10 @@ already there, rather than one column naming three states. `published_at` alread
 distinguishes private from published and says when as well as whether; the state
 between them — published, reachable by link, in no catalogue — is precisely what
 that column has always meant on its own. A three-valued column would re-say what
-it says and would have to be kept consistent with it.
+it says and would have to be kept consistent with it. *Amended by
+`docs/adr/0084-the-catalogue-is-ordered-by-nothing-counted.md`:* the day a
+Story first enters the Catalogue is kept beside `listed`, never written again, and
+the Catalogue is sorted by it rather than by `published_at`.
 
 ## Consequences
 

@@ -403,7 +403,8 @@ _Affiché_: Auteur
 _Avoid_: user, creator, owner, writer, director, member, community member
 
 **Reader**:
-Anyone who plays a published Story. Needs no account. Shown what the Author wrote
+Anyone who plays a published Story. Needs no account, except to read a Story
+For Adults. Shown what the Author wrote
 and nothing the bench works by: never the name of the Scene a Shot belongs to,
 never a Shot's Place, never how many Shots a run holds. Each of those would tell
 somebody reading the Story how it is built, which is why a Comment is never said
@@ -465,10 +466,39 @@ _Affiché_: Répertorié
 _Avoid_: public, private, visible, indexed, featured, promoted, unlisted
 
 **Catalogue**:
-Every Listed Story, most recently published first, readable by anyone with or
-without an account. The one place a Story is found rather than sent.
+Every Listed Story, readable by anyone with or without an account, and the one
+place a Story is found rather than sent. It is searched, filtered and sorted by
+what each Story is — the day it was first Listed, its Reading Time, or a shuffle
+that changes with the day — and never by anything counted, so no place in it can
+be played for.
 _Affiché_: Catalogue
 _Avoid_: programme, feed, gallery, explore, discover, browse, library, showcase
+
+**Genre**:
+One of a short, fixed set of kinds a Story is filed under in the Catalogue —
+one, or two at most — named by its Author when they list it. The set is
+Frameline's and never written by an Author, so a Genre reads the same in every
+Locale and finds a Story whatever its Language.
+_Affiché_: Genre
+_Avoid_: category, type, kind, catégorie, rubrique
+
+**Reading Time**:
+How long the longest Reading a published Story allows would take, estimated from
+its Edition each time it is published and shown rounded, as an upper bound. A
+time rather than a count of Scenes or Shots, which would tell a Reader how the
+Story is built.
+_Affiché_: Temps de lecture
+_Avoid_: length, duration, runtime, size, longueur, durée
+
+**For Adults**:
+Said of a Story its Author marks as written for adults only. Such a Story is
+presented and read only to Authors who said in their Settings that they are
+adults and want to see such Stories — never to anybody without an account, never
+inside another page — and its link, unfolded elsewhere, never shows its Cover. A
+Story filed under the Genre for erotica is For Adults whatever else its Author
+says.
+_Affiché_: Pour adultes
+_Avoid_: NSFW, mature, explicit, sensitive, 18+, adulte, explicite, sensible
 
 **Name**:
 What an Author is called wherever they appear to someone else — beside a Listed
@@ -478,30 +508,89 @@ Author's email is never it.
 _Affiché_: Nom
 _Avoid_: pseudo, username, handle, display name, nickname, alias
 
+**Settings**:
+The one page where an Author says how Frameline treats them — their Name, how
+they are sent Notifications, whether they see Stories For Adults. Never the
+Profile, which is what others see of them.
+_Affiché_: Paramètres
+_Avoid_: preferences, options, account, configuration, préférences, compte,
+réglages
+
+**Share**:
+To send somebody the link to something anybody can read — a published Story, a
+public List, a Profile — by the device's own way of sending, or by copying the
+link where it has none. Never Publish, which is what makes a Story readable at a
+link in the first place.
+_Affiché_: Partager
+_Avoid_: send, copy link, spread, envoyer, diffuser, copier le lien
+
+**Follow**:
+To have another Author's new work brought to one's Feed. The Author followed
+knows who follows them; nobody else is shown who follows whom, or how many.
+_Affiché_: Suivre
+_Avoid_: subscribe, fan, friend, connect, s'abonner, abonné, ami
+
+**Feed**:
+What the Authors one follows have newly Listed or made public, and what has
+newly been gathered into the public Lists one keeps in one's Favourites, newest
+first, for one Author alone. Never the Catalogue, which is the same for everyone
+and ordered by what each Story is.
+_Affiché_: Fil d'actualité
+_Avoid_: timeline, stream, wall, activity, news, actualités, flux, mur
+
+**Notification**:
+A word to an Author that somebody has done something with what they made or
+said — answered it, copied it, gathered it into a public List. Read in
+Frameline, and sent to their device where they asked for it, and by email
+gathered into one a day, on a day that brought any.
+_Affiché_: Notification
+_Avoid_: alert, activity, inbox, mention, ping, alerte, activité
+
+**Open to Copying**:
+Said of a Story whose Author lets other Authors copy it whole into a Story of
+their own. Withdrawing it stops the copies to come and never the ones made.
+_Affiché_: Ouvert à la copie
+_Avoid_: remixable, forkable, free, licensed, open source, libre, remix
+
+**Credit**:
+The line a Story copied from another Author's carries for good, naming the Story
+it was copied from and its Author as they stood when it was copied. Its new Author
+cannot take it off, and it names the Story copied, never the ones before it.
+_Affiché_: Crédit — shown as *d'après « Titre » de Nom*
+_Avoid_: attribution, source, origin, fork, inspiration, origine
+
 **Profile**:
-The page an Author's Name leads to: that Name, and the Stories they have Listed.
-Never a place where what an Author has said about other people's Stories is
-gathered up.
+The page an Author's Name leads to: that Name, the Stories they have Listed and
+the Lists they have made public. Never a place where the Comments an Author has
+written about other people's Stories are gathered up.
 _Affiché_: Profil
 _Avoid_: account, page, wall, bio, biography, dashboard
 
 **Comment**:
-What one Author writes to another about a published Story, carrying their Name.
-It is said of the Story whole and never of one Scene or Shot, which would tell
-somebody who has not read it how it is built.
+What one Author writes to another about a published Story, carrying their Name —
+about the Story itself, or in answer to any other Comment under it. It is said of
+the Story whole and never of one Scene or Shot, which would tell somebody who has
+not read it how it is built. How many a Story has is shown wherever it is
+presented, and nothing is ordered by it. One taken away while others answer it
+leaves its place behind, without its words or its Name, so the answers keep what
+they answer.
 _Affiché_: Commentaire
 _Avoid_: review, feedback, note, rating, score, reaction, avis, retour
 
 **List**:
 Stories an Author has gathered together under a title of their own. A List is
-theirs alone until they say otherwise.
-_Affiché_: Liste
+private until its Author makes it public, which puts it at a link of its own and
+on their Profile, with a few lines of theirs saying why. A public List shows only
+the Stories in it that are Listed, so it never gives away a link another Author
+kept out of the Catalogue.
+_Affiché_: Liste — and *publique* for one anybody can read
 _Avoid_: collection, playlist, folder, shelf, watchlist, sélection
 
 **Favourites**:
 The one List every account has from the start, which no Author writes the title
-of and none can delete. To favourite a Story is to put it in this List and
-nothing else — there is no second mechanism.
+of, none can delete and none can make public. It is the one List that may hold
+other Authors' public Lists as well as Stories. To favourite a Story or a List is
+to put it in this List and nothing else — there is no second mechanism.
 _Affiché_: Favoris
 _Avoid_: bookmark, saved, liked, wishlist, star, étoile, coup de cœur
 
