@@ -915,7 +915,7 @@ export type ExitOnTheBench = {
 
 /**
  * Every Exit of the Story, in the order the Story is written in and each Scene's
- * in its Places. An Exit has no name of its own — see `CONTEXT.md` — so the bench
+ * in its Places. An Exit has no name of its own — see `GLOSSARY.md` — so the bench
  * names it by its Place out of the Scene it leaves: the Places the writing shows
  * and the Remarks count, because all of them read `exitsFrom`. The names of the
  * Scenes at both ends are the bench's own, so a Scene called twice is told apart

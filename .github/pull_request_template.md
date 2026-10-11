@@ -1,7 +1,14 @@
 Closes #
 
-**Description :**
+## Summary
 
-**How to test :**
+## Evidence
 
-- [ ]
+- **Before:**
+  **After:**
+
+## Merge Danger
+
+**Door:**
+
+**Blast Radius:**

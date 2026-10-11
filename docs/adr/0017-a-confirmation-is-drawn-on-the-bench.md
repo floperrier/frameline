@@ -98,7 +98,7 @@ Reader's Position was already lost to any reload. Asking here would make the
 rule about consequences in general, which is the confirm-everything rule
 arriving by a side door.
 
-**An entry in `CONTEXT.md`.** The glossary is the language of the work — Story,
+**An entry in `GLOSSARY.md`.** The glossary is the language of the work — Story,
 Scene, Shot, Cut — and a confirmation is furniture the Author uses rather than
 something a Story is made of. It gains nothing; the phrases it displays take
 their French from the glossary, per

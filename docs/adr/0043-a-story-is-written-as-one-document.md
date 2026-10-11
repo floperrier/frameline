@@ -73,7 +73,7 @@ That leaves *contact sheet*, out of the grammar of cinema, which
 work. The seam holds where that record puts it: a reading is a way of looking at
 the work, so it takes the work's grammar, while the control that chooses between
 the three is a tool of the bench and takes plain words. It is a term the moment it
-is on a screen, so it takes an entry in `CONTEXT.md` with the word it is shown as
+is on a screen, so it takes an entry in `GLOSSARY.md` with the word it is shown as
 in French, in #256, where it is first drawn.
 
 Typing is `docs/adr/0033-a-scene-is-written-as-one-document.md` unchanged, over a
@@ -355,7 +355,7 @@ that a Scene nothing arrives at comes last.
 around the Scene being written and its share of `tests/unit/graph.spec.ts`. The
 layout answers one question again.
 
-**`CONTEXT.md` is amended when the gate goes, not now.** The glossary describes
+**`GLOSSARY.md` is amended when the gate goes, not now.** The glossary describes
 the product, and its `Graph` and `Preview` entries describe the gate because the
 gate is what the screens show until this is built. They change in #258, which is
 the change that removes it, and `0014` is the reason they cannot be left

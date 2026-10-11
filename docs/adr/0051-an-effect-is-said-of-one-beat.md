@@ -186,7 +186,7 @@ which is #361's, because the whole text runs to two thousand characters.
 
 **Cinema's words.** An iris closes to a point and ends a Scene, a rack focus moves
 between planes, a whip and a crash zoom are #357's movements, a strobe is the
-flash 2.3.1 forbids, and an optical is also a dissolve. `CONTEXT.md` already keeps
+flash 2.3.1 forbids, and an optical is also a dissolve. `GLOSSARY.md` already keeps
 *vignette* off the Cover and *vignettes* off the Contact Sheet, and *grain* is
 kept as the plain word in both languages.
 

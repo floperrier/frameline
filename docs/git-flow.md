@@ -28,7 +28,10 @@ deploy _is_ a release, and the merge commit of a promotion is what marks one.
 
 The backlog's routines run this same loop, from an issue labelled
 `ready-for-agent` to a pull request that lands once another routine has
-verified it: see `docs/adr/0076-the-backlog-works-itself.md`. `agent-guard`
+verified it: see `docs/adr/0076-the-backlog-works-itself.md` and
+`docs/adr/0083-the-backlog-runs-on-one-set-of-skills.md`. A push to `dev` runs
+`check`, and when it fails `dev-health` opens a `dev-broken` issue: until that
+issue is closed, `agent-merge` lands only the pull request that closes it. `agent-guard`
 holds every pull request to the branch name, the Conventional Commits title and
 a record free of any mention of the tool that wrote it.
 
@@ -87,11 +90,13 @@ one squashed sentence per change, so there is no work in progress left to bury,
 and squashing the batch would replace thirty-five sentences with one. The merge
 commit is also the release marker this repository has no tags for.
 
-Merging it closes it, so the next one has to be opened, by hand:
-`gh pr create --base main --head dev --title 'chore: promote dev to main'`, a
-title `agent-guard` accepts. It is deliberately not opened by a workflow: a pull request created with `GITHUB_TOKEN` triggers no
-workflow of its own, so it would arrive with neither `check` nor `e2e` and
-`main`'s protection would refuse it.
+`.github/workflows/promotion.yml` keeps it: on every push to `dev` it opens the
+pull request as a draft if none stands open, and rewrites its description as
+`dev`'s log since the last promotion, grouped by Conventional Commits type.
+Reading it means marking it ready and merging it. The workflow opens it with the
+token of the flow's GitHub App, not `GITHUB_TOKEN`: a pull request created with
+`GITHUB_TOKEN` triggers no workflow of its own, so it would arrive with neither
+`check` nor `e2e` and `main`'s protection would refuse it.
 
 Let a promotion be small enough to read. A batch that has grown past reading is
 a batch that gets promoted unread, which puts the quarantine back where it

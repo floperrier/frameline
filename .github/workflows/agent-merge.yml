@@ -1,7 +1,9 @@
 # Merge — workflow GitHub Actions, déclenché par le label agent-verified
-# Lit : la PR vérifiée, et .github/agent-sensitive-paths depuis la branche de base
-# Écrit : auto-merge squash, ou renvoi vers toi (ready-for-human) si chemin sensible ;
-#         un nouveau push sur une PR vérifiée annule la vérification
+# Lit : la PR vérifiée, .github/agent-sensitive-paths depuis dev, les issues dev-broken
+# Écrit : squash dans dev par auto-merge, sans le pied du proxy ; renvoi vers toi
+#         (ready-for-human) si chemin sensible ; retour en to-verify si dev est rouge.
+#         Un nouveau push sur une PR vérifiée annule la vérification. Ne touche
+#         jamais à main : la promotion reste humaine.
 name: agent-merge
 on:
   pull_request:
@@ -13,25 +15,46 @@ permissions:
   issues: write
   pull-requests: write
 env:
-  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   PR: ${{ github.event.pull_request.number }}
   REPO: ${{ github.repository }}
 jobs:
   reset:
     if: github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'agent-verified')
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - run: |
           gh pr merge "$PR" --repo "$REPO" --disable-auto || true
           gh pr edit "$PR" --repo "$REPO" --remove-label agent-verified --add-label to-verify
   merge:
-    if: github.event.action == 'labeled' && github.event.label.name == 'agent-verified' && contains(github.event.pull_request.labels.*.name, 'agent')
+    if: github.event.action == 'labeled' && github.event.label.name == 'agent-verified' && github.event.pull_request.base.ref == 'dev' && contains(github.event.pull_request.labels.*.name, 'agent')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # A merge made with GITHUB_TOKEN triggers no other workflow: neither dev's CI,
+      # nor dev-health, nor promotion. The flow's own App merges instead.
+      - uses: actions/create-github-app-token@v3
+        id: app
         with:
-          ref: ${{ github.base_ref }}
-      - run: |
+          client-id: ${{ vars.AGENT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+      - uses: actions/checkout@v6
+        with:
+          ref: dev
+      - env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          # The brake: while a dev-broken issue is open, only the pull request that
+          # closes it may land, and the others go back to the Validation.
+          broken=$(gh issue list --repo "$REPO" --label dev-broken --state open --json number --jq '.[].number')
+          if [ -n "$broken" ]; then
+            closes=$(gh pr view "$PR" --repo "$REPO" --json closingIssuesReferences --jq '.closingIssuesReferences[].number')
+            if ! printf '%s\n' "$closes" | grep -qxFf <(printf '%s\n' "$broken"); then
+              gh pr edit "$PR" --repo "$REPO" --remove-label agent-verified --add-label to-verify
+              gh pr comment "$PR" --repo "$REPO" --body "dev est rouge : merge suspendu jusqu'à sa réparation, puis nouvelle validation."
+              exit 0
+            fi
+          fi
           files=$(gh pr diff "$PR" --repo "$REPO" --name-only)
           if printf '%s\n' "$files" | grep -qEf .github/agent-sensitive-paths; then
             gh pr edit "$PR" --repo "$REPO" --remove-label agent-verified --add-label ready-for-human

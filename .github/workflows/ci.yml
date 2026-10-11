@@ -1,8 +1,10 @@
 name: CI
 
 on:
+  # A push to dev is a squash landing: dev-health reads its result and pulls the
+  # brake when it fails.
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
 
 # A force-push can leave two runs racing over the same commit, each building

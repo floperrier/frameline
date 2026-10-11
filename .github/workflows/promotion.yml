@@ -1,0 +1,47 @@
+# Promotion — workflow déclenché à chaque push sur dev, sans modèle
+# Lit : les squashs de dev depuis la dernière promotion
+# Écrit : une PR brouillon dev → main, avec le journal regroupé par type de commit.
+#         Tu la relis, la passes en prête et la merges en merge commit.
+name: promotion
+on:
+  push:
+    branches: [dev]
+permissions:
+  contents: read
+env:
+  REPO: ${{ github.repository }}
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      # A pull request opened with GITHUB_TOKEN would run no CI, and main's ruleset
+      # waits on it.
+      - uses: actions/create-github-app-token@v3
+        id: app
+        with:
+          client-id: ${{ vars.AGENT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          git fetch origin main
+          log=$(git log --first-parent --format='%s' origin/main..origin/dev)
+          [ -n "$log" ] || exit 0
+          {
+            echo "Promotion de dev vers main. Relis le journal et le diff cumulé, passe la PR en prête, puis merge en merge commit."
+            echo
+            for t in feat fix perf refactor docs test build ci chore revert; do
+              lines=$(printf '%s\n' "$log" | grep -E "^$t(\(|!|:)" || true)
+              if [ -n "$lines" ]; then echo "## $t"; printf '%s\n' "$lines" | sed 's/^/- /'; echo; fi
+            done
+          } > body.md
+          pr=$(gh pr list --repo "$REPO" --base main --head dev --state open --json number --jq '.[0].number // empty')
+          if [ -n "$pr" ]; then
+            gh pr edit "$pr" --repo "$REPO" --body-file body.md
+          else
+            gh pr create --repo "$REPO" --base main --head dev --draft \
+              --title "chore: promotion dev → main" --body-file body.md
+          fi

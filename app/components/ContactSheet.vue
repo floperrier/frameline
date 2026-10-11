@@ -6,7 +6,7 @@
  * of the bench turns over to, and the one an Author judges by looking: how much
  * of the work is still a grey rectangle is a question no amount of reading
  * answers. See `docs/adr/0043-a-story-is-written-as-one-document.md`, which
- * coined the term, and `CONTEXT.md`, which now carries it.
+ * coined the term, and `GLOSSARY.md`, which now carries it.
  *
  * A Shot with no Image is drawn as a Shot with no Image and not as an empty box:
  * the frame keeps its size and wears the hatch, so the holes are countable at a

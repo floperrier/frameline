@@ -1735,7 +1735,7 @@ function writeFlags(scene: Scene, sets: Sets) {
            columns hold — a Shot held until the press, Exits offered for no time
            at all — are sentences the Author reads rather than sentinels they have
            to know to type. That is also why none of these is marked for the bar of
-           Commands: no press opens a `<select>`, which is the exemption `CONTEXT.md`
+           Commands: no press opens a `<select>`, which is the exemption `GLOSSARY.md`
            writes into the Command entry, and a control in a shut fold is not one
            the bar finds. -->
       <section class="held playing">

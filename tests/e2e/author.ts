@@ -375,7 +375,7 @@ export async function writeScene(page: Page, name: string) {
  * Scoped to the rail all the same, because a way on's own row in the Scene being
  * written carries a control named *Go to* the Scene it lands on.
  *
- * Still `sceneNode` rather than `sceneMark`. *Node* is `CONTEXT.md`'s word for a
+ * Still `sceneNode` rather than `sceneMark`. *Node* is `GLOSSARY.md`'s word for a
  * Scene as the Graph draws it, and the rail is the Graph read small rather than a
  * second surface; *mark* is the class the rail gives it, and it is a word two
  * other things on the bench already carry — the controls that renumber a row, and

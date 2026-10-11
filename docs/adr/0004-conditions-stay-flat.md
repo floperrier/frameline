@@ -50,7 +50,7 @@ same cap, read by the same reader and judged by the same `holds`. Where the thir
 amendment took a count away, this one adds none, because a Reading takes an Exit
 at most once. So the language is three shapes, one comparison, and an `every`.
 
-`CONTEXT.md` calls a Condition "a flat test on State, carried by a Cut or by a
+`GLOSSARY.md` calls a Condition "a flat test on State, carried by a Cut or by a
 Shot", and the flatness is this: each test stands alone and is read on its own,
 however many of them one of them carries.
 
