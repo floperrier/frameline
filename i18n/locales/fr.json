@@ -139,6 +139,7 @@
     "takenTimes": "Prise une fois ({share} %) | Prise {n} fois ({share} %)",
     "notTakenYet": "Pas encore prise",
     "endedHere": "1 Lecture achevée ici | {n} Lectures achevées ici",
+    "leftOffHere": "1 Lecture s’est interrompue ici | {n} Lectures se sont interrompues ici",
     "publishChanges": "Publier les modifications",
     "changesPublished": "Vos modifications sont publiées : les Lecteurs les lisent désormais.",
     "keptAt": "Enregistré à {time}",

@@ -166,7 +166,8 @@ bench asks a Story for — whose targets are held against the editor's template
 read as source — the Remarks the bench reads back out of a Story, how a Story read
 back is laid over the one the bench holds so that what did not change keeps its
 object, and which of two reads that cross lands, what differs between a
-published Story's Edition and the Story as it is written, the places a word is
+published Story's Edition and the Story as it is written, how many Readings left
+off in each of its Scenes, the places a word is
 found at in a Story and what replacing them writes, and the two
 Samples, that each holds together as a work and that the two of them are one
 shape in two languages — and that the script that writes the works starts on

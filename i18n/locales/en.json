@@ -139,6 +139,7 @@
     "takenTimes": "Taken once ({share} %) | Taken {n} times ({share} %)",
     "notTakenYet": "Not taken yet",
     "endedHere": "1 Reading ended here | {n} Readings ended here",
+    "leftOffHere": "1 Reading left off here | {n} Readings left off here",
     "publishChanges": "Publish the Changes",
     "changesPublished": "Your changes are published: Readers read them from now on.",
     "keptAt": "Kept at {time}",
