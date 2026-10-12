@@ -21,7 +21,9 @@ protocol, started a second time by `compose.dev.yaml` as a stack of its own:
 named `frameline-dev`, published on 4446 rather than 4445, with its data in a
 volume rather than in memory. `pnpm dev` runs `pnpm db:dev` first, which starts
 the stack and applies the migrations with `drizzle-kit migrate` before Nuxt
-starts. That takes about two seconds when the stack is already up. `.env.example`
+starts. That takes about two seconds when the stack is already up. *Amended by
+`docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`:* the stack also
+starts a bucket of its own, kept in a volume like the database. `.env.example`
 names `postgres://postgres:postgres@db.localtest.me:4446/main`, and the app
 reaches it through `server/db/endpoint.ts`, the same way the suite reaches its
 own.
