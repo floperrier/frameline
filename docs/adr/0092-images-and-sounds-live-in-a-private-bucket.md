@@ -66,8 +66,9 @@ stop answering within five minutes. A public bucket would have kept them
 answering for good. Presigned addresses are answered only on R2's own S3 domain,
 `<account>.eu.r2.cloudflarestorage.com`. The bucket's CORS rule allows `GET` and
 `HEAD` from any origin, because a Reading brings its Sounds in with `fetch`: the
-signed address is the permission, and naming origins would restrict nothing and
-break the preview deployments.
+signed address is the permission, so naming origins would restrict nothing, and
+one rule serves production, the suite and development, whatever origin each
+runs on.
 
 **Nothing deletes an object when a row goes.** A Story deleted cascades through
 its Scenes, Shots and Edition inside Postgres without the server seeing a row,
