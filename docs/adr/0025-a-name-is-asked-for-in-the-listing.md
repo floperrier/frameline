@@ -22,7 +22,10 @@ from that moment: a later sign in never writes over it. It is rewritten on the
 list of their own Stories, which is the one page in the product that is about
 them rather than about a Story, and the session carries it so every surface
 showing it — the Catalogue, their Profile, that header — shows what was last
-written.
+written. *Amended by
+`docs/adr/0089-a-notification-reaches-an-author-three-ways.md`:* the Name is
+rewritten in Settings, a page that now holds three things, and the listing still
+asks for it where it is missing.
 
 ## Consequences
 

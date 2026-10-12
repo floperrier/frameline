@@ -20,7 +20,9 @@ Comments are read oldest first, which is how a conversation is read, and
 `created_at` is the whole of the ordering. Nothing is counted, rated or reacted
 to: there is no column a score could be kept in, so there is nothing to play and
 nothing to farm. This is the same refusal the Catalogue makes about its own
-ordering — see ADR 0023.
+ordering — see ADR 0023. *Amended by `docs/adr/0086-a-comment-may-answer-another.md`:* a
+Comment may answer any other, and how many a Story has is shown wherever it is
+presented, though nothing is ordered by it.
 
 ## Consequences
 
@@ -43,4 +45,6 @@ a second Name form on a page about somebody else's Story.
 
 **There is no report queue.** It is an ongoing commitment rather than a feature,
 and there is nobody to report yet. The day it is needed, a `mailto:` link is five
-lines.
+lines. *Amended by `docs/adr/0087-anything-public-can-be-reported.md`:* that day
+came with public Lists, answers, copies and Stories For Adults, and anything
+public now carries a control to report it.
