@@ -1,8 +1,14 @@
 ---
-status: accepted
+status: superseded by 0092
 ---
 
 # A Shot's image lives in the Shot's row
+
+Superseded by `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`: the
+ceiling below arrived as the free plan's quotas rather than as invocations on a
+bill, and an Image's bytes now live in a private bucket, reached through the
+same door by an address signed for five minutes. What follows is the decision as
+it was taken.
 
 The bytes of a Shot's still image are held in a `bytea` column on `shots`, capped
 at two megabytes, and served by an endpoint of our own that applies the same
