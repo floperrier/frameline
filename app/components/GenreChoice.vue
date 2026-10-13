@@ -78,7 +78,17 @@ function heldBack(code: string) {
 .set label {
   display: flex;
   align-items: center;
-  gap: var(--s1);
+  justify-content: start;
+  gap: var(--s2);
+  text-align: start;
+}
+
+/* A box keeps its own size beside its name, whatever width fields are given. */
+.set input {
+  flex: none;
+  inline-size: auto;
+  margin: 0;
+  accent-color: var(--grease);
 }
 
 .set label:has(:disabled) {
