@@ -29,6 +29,9 @@ test('an Author writes, renames and deletes a Story', async ({ request }) => {
     title: 'Renamed',
     language: 'en',
     synopsis: '',
+    // Never published, so never measured; and filed under nothing until listed.
+    readingTime: null,
+    genres: [],
     publishedAt: null,
     listed: false,
     cover: null,

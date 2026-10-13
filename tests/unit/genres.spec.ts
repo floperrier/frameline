@@ -22,7 +22,8 @@ const { readStoryGenres } = await import('../../server/utils/stories')
 
 const filing = (body: unknown) => readStoryGenres({ body } as unknown as H3Event)
 
-const REFUSED = 'A Story is filed under one Genre or two, each from the list Frameline offers, and none twice.'
+const REFUSED =
+  'A Story is filed under one Genre or two, each from the list Frameline offers, and none twice.'
 
 describe('the Genres a request files a Story under', () => {
   it('takes one Genre, or two, from the set', async () => {

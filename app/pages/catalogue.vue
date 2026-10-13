@@ -84,7 +84,13 @@ useHead({ title: () => t('catalogue.heading') })
          browser follows it, and with it the same URL is pushed without the empty
          fields. The field keeps what the URL asked for, so a reloaded search is
          the search still filled in. -->
-    <form class="asking" role="search" method="get" :action="localePath('/catalogue')" @submit.prevent="search">
+    <form
+      class="asking"
+      role="search"
+      method="get"
+      :action="localePath('/catalogue')"
+      @submit.prevent="search"
+    >
       <label class="eyebrow" for="catalogue-q">{{ $t('catalogue.searchLabel') }}</label>
       <div class="row">
         <input
@@ -107,7 +113,12 @@ useHead({ title: () => t('catalogue.heading') })
           <label class="eyebrow" for="catalogue-language">{{ $t('catalogue.language') }}</label>
           <select id="catalogue-language" name="language" @change="narrow">
             <option value="" :selected="!asked.language">{{ $t('catalogue.anyLanguage') }}</option>
-            <option v-for="code in STORY_LANGUAGES" :key="code" :value="code" :selected="code === asked.language">
+            <option
+              v-for="code in STORY_LANGUAGES"
+              :key="code"
+              :value="code"
+              :selected="code === asked.language"
+            >
               {{ languageNamed(code) }}
             </option>
           </select>
@@ -116,7 +127,12 @@ useHead({ title: () => t('catalogue.heading') })
           <label class="eyebrow" for="catalogue-genre">{{ $t('catalogue.genre') }}</label>
           <select id="catalogue-genre" name="genre" @change="narrow">
             <option value="" :selected="!asked.genre">{{ $t('catalogue.anyGenre') }}</option>
-            <option v-for="code in STORY_GENRES" :key="code" :value="code" :selected="code === asked.genre">
+            <option
+              v-for="code in STORY_GENRES"
+              :key="code"
+              :value="code"
+              :selected="code === asked.genre"
+            >
               {{ genreNamed(code) }}
             </option>
           </select>
@@ -125,7 +141,12 @@ useHead({ title: () => t('catalogue.heading') })
           <label class="eyebrow" for="catalogue-time">{{ $t('catalogue.time') }}</label>
           <select id="catalogue-time" name="time" @change="narrow">
             <option value="" :selected="!asked.time">{{ $t('catalogue.anyTime') }}</option>
-            <option v-for="band in READING_TIME_BAND_NAMES" :key="band" :value="band" :selected="band === asked.time">
+            <option
+              v-for="band in READING_TIME_BAND_NAMES"
+              :key="band"
+              :value="band"
+              :selected="band === asked.time"
+            >
               {{ $t(`catalogue.times.${band}`) }}
             </option>
           </select>
@@ -133,7 +154,12 @@ useHead({ title: () => t('catalogue.heading') })
         <p>
           <label class="eyebrow" for="catalogue-sort">{{ $t('catalogue.sort') }}</label>
           <select id="catalogue-sort" name="sort" @change="narrow">
-            <option v-for="sort in CATALOGUE_SORTS" :key="sort" :value="sort" :selected="sort === asked.sort">
+            <option
+              v-for="sort in CATALOGUE_SORTS"
+              :key="sort"
+              :value="sort"
+              :selected="sort === asked.sort"
+            >
               {{ $t(`catalogue.sorts.${sort}`) }}
             </option>
           </select>

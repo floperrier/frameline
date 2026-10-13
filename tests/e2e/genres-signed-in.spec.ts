@@ -10,7 +10,8 @@ import { live, seedListedStories, seedPresentation, test, writeStory } from './a
  * Locale — see `docs/adr/0084-the-catalogue-is-ordered-by-nothing-counted.md`.
  */
 
-const REFUSED_WITHOUT = 'A Story is filed under a Genre before it is listed, so that a Reader can find it by one.'
+const REFUSED_WITHOUT =
+  'A Story is filed under a Genre before it is listed, so that a Reader can find it by one.'
 
 /** The Catalogue as somebody with no account meets it, in the Locale given. */
 async function catalogueFor(browser: Browser, baseURL: string | undefined, path: string, locale = 'en-US') {

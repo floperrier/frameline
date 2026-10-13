@@ -27,7 +27,11 @@ function toggle(code: string, checked: boolean) {
   chosen.value = STORY_GENRES.filter(genre => kept.has(genre))
 }
 
-function held(code: string) {
+/**
+ * Whether a Genre's box is held where it stands: unchecked once the most are
+ * chosen, or the last one of a Listed Story, which cannot be let go.
+ */
+function heldBack(code: string) {
   const on = chosen.value.includes(code)
   return on
     ? keepOne && chosen.value.length === 1
@@ -45,7 +49,7 @@ function held(code: string) {
           name="genres"
           :value="code"
           :checked="chosen.includes(code)"
-          :disabled="held(code)"
+          :disabled="heldBack(code)"
           @change="toggle(code, ($event.target as HTMLInputElement).checked)"
         >
         {{ genreNamed(code) }}

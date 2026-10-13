@@ -116,7 +116,8 @@ function ordered(sort: CatalogueSort) {
 
 /** The Stories whose Reading Time falls in a band; one not measured falls in none. */
 function lasting(time: ReadingTimeBand) {
-  const band: { under?: number, from?: number, upTo?: number, over?: number } = READING_TIME_BANDS[time]
+  const band: { under?: number, from?: number, upTo?: number, over?: number } =
+    READING_TIME_BANDS[time]
   if (band.under !== undefined) return sql`${stories.readingTime} < ${band.under}`
   if (band.over !== undefined) return sql`${stories.readingTime} > ${band.over}`
   return sql`${stories.readingTime} between ${band.from} and ${band.upTo}`
@@ -134,5 +135,7 @@ function searched(term: string) {
   const holds = (column: SQL | AnyColumn) =>
     sql`public.unaccent(${column}) ilike public.unaccent(${pattern}) escape '\\'`
 
-  return sql`(${holds(stories.title)} or ${holds(stories.synopsis)} or ${holds(sql`coalesce(${authors.name}, '')`)})`
+  const name = sql`coalesce(${authors.name}, '')`
+
+  return sql`(${holds(stories.title)} or ${holds(stories.synopsis)} or ${holds(name)})`
 }
