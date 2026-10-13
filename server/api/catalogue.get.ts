@@ -14,6 +14,13 @@ import { useDb } from '../db'
  * link sent long ago still opens on a Catalogue. Nothing in the answer depends
  * on who asks, so the same URL is the same Catalogue for everybody.
  *
+ * It answers one page of entries, with how many Stories match and how many
+ * pages that makes, so a page draws its own navigation. A page past the last
+ * answers no entries and the totals, which is how the page says there is
+ * nothing there and offers the way back. A page is never more than
+ * `CATALOGUE_PAGE_SIZE` Covers: the shelf whole used to pull every one of them
+ * through the database on every view (#499).
+ *
  * Being published is asked for beside being Listed, though unpublishing unlists
  * in the same statement and the two cannot drift apart: an entry here leads
  * straight to `/read/<id>`, so a row that got out of step would be an entry
@@ -40,7 +47,7 @@ export default defineEventHandler(async (event) => {
   const where: SQL[] = [eq(stories.listed, true), isNotNull(stories.publishedAt)]
   if (state.q) where.push(searched(state.q))
 
-  const rows = await useDb()
+  const [rows, [counted]] = await Promise.all([useDb()
     .select({
       id: stories.id,
       title: stories.title,
@@ -60,11 +67,25 @@ export default defineEventHandler(async (event) => {
     .leftJoin(coverShot, sql`${coverShot.id} = ${coverShotOf}`)
     .where(and(...where))
     .orderBy(sql`${stories.firstListedAt} desc nulls last`, asc(stories.id))
+    .limit(CATALOGUE_PAGE_SIZE)
+    .offset((state.page - 1) * CATALOGUE_PAGE_SIZE),
+  useDb()
+    .select({ total: sql<number>`count(*)::int` })
+    .from(stories)
+    .innerJoin(authors, eq(stories.authorId, authors.id))
+    .where(and(...where))])
 
-  return rows.map(({ coverShotId, cropX, cropY, ...row }) => ({
-    ...row,
-    cover: coverFor({ coverShotId, cropX, cropY }),
-  }))
+  const total = counted?.total ?? 0
+
+  return {
+    entries: rows.map(({ coverShotId, cropX, cropY, ...row }) => ({
+      ...row,
+      cover: coverFor({ coverShotId, cropX, cropY }),
+    })),
+    total,
+    pages: Math.ceil(total / CATALOGUE_PAGE_SIZE),
+    page: state.page,
+  }
 })
 
 /**

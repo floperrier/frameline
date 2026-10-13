@@ -7,7 +7,16 @@
 export type CatalogueState = {
   /** The words searched for, trimmed; empty is no search. */
   q: string
+  /** The page asked for, counted from one. */
+  page: number
 }
+
+/**
+ * How many Stories a page of the Catalogue holds. Few enough that a page never
+ * pulls more than this many Covers through the database, which is what a view of
+ * the whole shelf used to cost (#499).
+ */
+export const CATALOGUE_PAGE_SIZE = 24
 
 /** The longest search a Reader's words are cut to: a title, and some. */
 export const CATALOGUE_SEARCH_MAX_LENGTH = 200
@@ -30,17 +39,29 @@ function first(held: unknown) {
 export function catalogueState(query: Record<string, unknown>): CatalogueState {
   return {
     q: first(query.q).trim().slice(0, CATALOGUE_SEARCH_MAX_LENGTH),
+    page: pageOf(first(query.page)),
   }
+}
+
+/**
+ * A page number written in a URL: a whole number from one, written as digits and
+ * nothing else, and page one for anything that is not — `abc`, `0`, `-2`, `1.5`.
+ */
+function pageOf(written: string) {
+  if (!/^\d{1,9}$/.test(written)) return 1
+  return Math.max(1, Number(written))
 }
 
 /**
  * The query string a state is written as, naming only what differs from the
  * Catalogue as it opens, so the bare Catalogue is `/catalogue` and a search is
- * `/catalogue?q=…` and nothing longer.
+ * `/catalogue?q=…` and nothing longer. Page one is not written either, so the
+ * first page of a search and the search are one link.
  */
 export function catalogueQuery(state: CatalogueState): Record<string, string> {
   const query: Record<string, string> = {}
   if (state.q) query.q = state.q
+  if (state.page > 1) query.page = String(state.page)
   return query
 }
 
@@ -52,4 +73,14 @@ export function catalogueQuery(state: CatalogueState): Record<string, string> {
  */
 export function containing(term: string) {
   return `%${term.replace(/[\\%_]/g, '\\$&')}%`
+}
+
+/**
+ * The pages the Catalogue's navigation offers around the one a Reader is on:
+ * that page and two on each side, within the pages there are.
+ */
+export function pagesAround(page: number, pages: number) {
+  const from = Math.max(1, Math.min(page, pages) - 2)
+  const to = Math.min(pages, Math.max(page, 1) + 2)
+  return Array.from({ length: Math.max(0, to - from + 1) }, (_, at) => from + at)
 }
