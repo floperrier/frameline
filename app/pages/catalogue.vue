@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// The Catalogue: every Listed Story, most recently published first, read by
-// anyone with or without an account. Its own page rather than a shelf on the
+// The Catalogue: every Listed Story, the latest to enter it first, read by
+// anyone with or without an account, a page of them at a time. Its own page rather than a shelf on the
 // landing page, because the landing page argues for the product and this one
 // hands over other people's work.
 //
@@ -19,8 +19,22 @@ const asked = computed(() => catalogueState(route.query))
 const { data: catalogue } = await useFetch('/api/catalogue', { query })
 const { t } = useI18n()
 
-/** Whether the Reader has narrowed the Catalogue, which is what an empty answer is owed. */
-const narrowed = computed(() => Object.keys(query.value).length > 0)
+/**
+ * Whether the Reader has narrowed the Catalogue — the page aside, which narrows
+ * nothing — which is what an answer with nothing in it is owed.
+ */
+const narrowed = computed(() =>
+  Object.keys(catalogueQuery({ ...asked.value, page: 1 })).length > 0)
+
+/** What the Reader is shown: a page of entries, a page past the last, or nothing. */
+const entries = computed(() => catalogue.value?.entries ?? [])
+const pages = computed(() => catalogue.value?.pages ?? 0)
+const pastTheEnd = computed(() => !entries.value.length && !!catalogue.value?.total)
+
+/** The link to one page of what the Reader asked for, carrying the rest of the query. */
+function toPage(page: number) {
+  return { query: catalogueQuery({ ...asked.value, page }) }
+}
 
 /**
  * The search, sent the way the form would send it, minus the empty values a
@@ -70,24 +84,66 @@ useHead({ title: () => t('catalogue.heading') })
       </div>
     </form>
 
-    <p v-if="!catalogue?.length && narrowed" class="none">
+    <!-- A page past the last says so and hands back the first; nothing matching
+         says so and hands back the whole shelf. Neither is a blank page. -->
+    <p v-if="pastTheEnd" class="none">
+      {{ $t('catalogue.pastTheEnd', { page: asked.page, pages }) }}
+      <NuxtLink :to="toPage(1)">{{ $t('catalogue.firstPageAgain') }}</NuxtLink>
+    </p>
+    <p v-else-if="!entries.length && narrowed" class="none">
       {{ $t('catalogue.nothingMatches') }}
       <NuxtLink :to="localePath('/catalogue')">{{ $t('catalogue.clear') }}</NuxtLink>
     </p>
-    <p v-else-if="!catalogue?.length" class="none">{{ $t('catalogue.none') }}</p>
+    <p v-else-if="!entries.length" class="none">{{ $t('catalogue.none') }}</p>
     <!-- One entry a Story, and the entry is the link: the Catalogue's whole job
          is to hand a Reader the public link they were never sent. It carries no
          count and no rating — nothing here is a score, and nothing counted
          orders it. -->
     <ul v-else class="entries">
-      <Entry v-for="story in catalogue" :key="story.id" :story="story">
+      <Entry v-for="story in entries" :key="story.id" :story="story">
         <Gathering :story-id="story.id" :title="story.title" />
       </Entry>
     </ul>
+
+    <!-- The pages, as real links drawn on the server, each carrying the rest of
+         what was asked: the first and the last, the one before and the one
+         after, and the page the Reader is on with two either side, marked as
+         the current one. A link that would lead to the page already on screen
+         is left out rather than drawn as a second current page. -->
+    <nav v-if="pages > 1 || pastTheEnd" class="pages" :aria-label="$t('catalogue.pages')">
+      <ul>
+        <li v-if="asked.page > 1">
+          <NuxtLink :to="toPage(1)">{{ $t('catalogue.firstPage') }}</NuxtLink>
+        </li>
+        <li v-if="asked.page > 1">
+          <NuxtLink :to="toPage(Math.min(asked.page - 1, pages))" rel="prev">
+            {{ $t('catalogue.previousPage') }}
+          </NuxtLink>
+        </li>
+        <li v-for="page in pagesAround(asked.page, pages)" :key="page">
+          <NuxtLink
+            :to="toPage(page)"
+            :aria-label="$t('catalogue.page', { page })"
+            :aria-current="page === asked.page ? 'page' : undefined"
+            :class="{ current: page === asked.page }"
+          >
+            {{ page }}
+          </NuxtLink>
+        </li>
+        <li v-if="asked.page < pages">
+          <NuxtLink :to="toPage(asked.page + 1)" rel="next">{{ $t('catalogue.nextPage') }}</NuxtLink>
+        </li>
+        <li v-if="asked.page < pages">
+          <NuxtLink :to="toPage(pages)">{{ $t('catalogue.lastPage') }}</NuxtLink>
+        </li>
+      </ul>
+    </nav>
   </main>
 </template>
 
 <style scoped>
+@import '~/assets/css/folds.css';
+
 main {
   display: grid;
   gap: var(--s5);
@@ -167,5 +223,25 @@ h1 {
 .entries {
   display: grid;
   border-block-start: 1px solid var(--edge);
+}
+
+/* The pages, a row of small links under the shelf that wraps rather than runs
+   off a phone's edge. The page on screen is the one lit, as the Name is the one
+   thing lit in an entry. */
+.pages ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s3);
+  padding: 0;
+  list-style: none;
+}
+
+.pages a {
+  color: var(--muted);
+}
+
+.pages a.current {
+  color: var(--paper);
+  text-decoration: none;
 }
 </style>

@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import type { APIRequestContext, Browser, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { begin, live, test, seedDates, seedListed, seedPublished, seedStory, writeStory } from './author'
+import {
+  begin, live, test, seedDates, seedListed, seedListedStories, seedPublished, seedStory, writeStory,
+} from './author'
 
 /**
  * The Catalogue as anyone browsing meets it. Every assertion below about what is
@@ -411,4 +413,80 @@ test('a published Story\'s card shows how long its longest Reading takes', async
   const bare = entryFor(await catalogueFor(browser, baseURL, title), title)
   await expect(bare).toBeVisible()
   await expect(bare).not.toContainText('up to')
+})
+
+/** So many titles, each carrying the token and its own place, newest first. */
+function numbered(token: string, many: number) {
+  return Array.from({ length: many }, (_, at) => `The night shift ${token} No. ${at + 1}`)
+}
+
+/** The pages: twenty-four Stories a page, and a navigation of real links between them. */
+test('twenty-five Stories make two pages, and the Back button returns to the page', async ({
+  author, browser, baseURL,
+}) => {
+  const token = randomUUID()
+  const titles = numbered(token, 25)
+  await seedListedStories(author, titles)
+
+  const catalogue = await catalogueFor(browser, baseURL, token)
+  expect(await titlesIn(catalogue)).toEqual(titles.slice(0, 24))
+
+  const pages = catalogue.getByRole('navigation', { name: 'Pages of the Catalogue' })
+  await expect(pages.getByRole('link', { name: 'Page 1' })).toHaveAttribute('aria-current', 'page')
+  await expect(pages.getByRole('link', { name: 'Previous Page' })).toBeHidden()
+  await expect(pages.getByRole('link', { name: 'Page 2' })).not.toHaveAttribute('aria-current', 'page')
+
+  await pages.getByRole('link', { name: 'Next Page' }).click()
+  await expect(catalogue).toHaveURL(new RegExp(`\\?q=${token}&page=2$`))
+  await expect(catalogue.locator('li a.open')).toHaveText([titles[24]!])
+  await expect(pages.getByRole('link', { name: 'Page 2' })).toHaveAttribute('aria-current', 'page')
+  await expect(pages.getByRole('link', { name: 'Next Page' })).toBeHidden()
+
+  // Opening a Story and coming back lands on the page it was opened from.
+  await catalogue.getByRole('link', { name: titles[24]! }).click()
+  await expect(catalogue).toHaveURL(/\/read\//)
+  await catalogue.goBack()
+  await expect(catalogue).toHaveURL(new RegExp(`\\?q=${token}&page=2$`))
+  await expect(catalogue.locator('li a.open')).toHaveText([titles[24]!])
+
+  await pages.getByRole('link', { name: 'First Page' }).click()
+  await expect(catalogue.locator('li a.open')).toHaveCount(24)
+})
+
+test('a page past the last says so and offers the way back', async ({ author, browser, baseURL }) => {
+  const token = randomUUID()
+  const titles = numbered(token, 2)
+  await seedListedStories(author, titles)
+
+  const catalogue = await catalogueFor(browser, baseURL, `?q=${token}&page=5`)
+  await expect(catalogue.getByText('There is nothing on page 5: what you asked for ends on page 1.'))
+    .toBeVisible()
+  await expect(catalogue.getByRole('navigation', { name: 'Pages of the Catalogue' })
+    .getByRole('link', { name: 'Page 1' })).toBeVisible()
+
+  await catalogue.getByRole('link', { name: 'Go to Page 1' }).click()
+  await expect(catalogue.locator('li a.open')).toHaveText(titles)
+})
+
+test('a page that is not a number is the first page', async ({ author, browser, baseURL }) => {
+  const token = randomUUID()
+  const titles = numbered(token, 25)
+  await seedListedStories(author, titles)
+
+  const catalogue = await catalogueFor(browser, baseURL, `?q=${token}&page=abc`)
+  expect(await titlesIn(catalogue)).toEqual(titles.slice(0, 24))
+  await expect(catalogue.getByRole('link', { name: 'Page 1' })).toHaveAttribute('aria-current', 'page')
+})
+
+/** Each page is drawn on the server: its HTML already holds its entries and its pages. */
+test('a page arrives drawn, with its entries and its navigation', async ({ author, request }) => {
+  const token = randomUUID()
+  const titles = numbered(token, 25)
+  await seedListedStories(author, titles)
+
+  const html = await (await request.get(`/catalogue?q=${token}&page=2`)).text()
+  expect(html).toContain(titles[24])
+  expect(html).not.toContain(`${titles[23]}<`)
+  expect(html).toContain('aria-label="Pages of the Catalogue"')
+  expect(html).toContain(`href="/catalogue?q=${token}"`)
 })

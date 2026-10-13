@@ -165,6 +165,20 @@ export async function seedListed(story: Story) {
 }
 
 /**
+ * Writes, publishes and lists many Stories at once on behalf of an Author, in
+ * one statement, each entering the Catalogue a second before the next: the
+ * first title given is the latest to enter it, so the Catalogue's own order is
+ * the order given. For the specs that need more Stories than a page holds.
+ */
+export async function seedListedStories(author: Author, titles: string[]) {
+  return await sql`
+    insert into stories (author_id, title, published_at, listed, first_listed_at)
+    select ${author.id}, title, now(), true, now() - place * interval '1 second'
+    from unnest(${titles}::text[]) with ordinality as titles(title, place)
+    returning id, title` as Story[]
+}
+
+/**
  * Dates a Story's first Publish and its first entry into the Catalogue past the
  * API, so a test can stand two Stories in an order that a day apart would give.
  */

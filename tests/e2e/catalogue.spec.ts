@@ -7,7 +7,11 @@ test('the Catalogue is read without an account, and listing needs an Author', as
   // asks — signed in or not.
   const catalogue = await request.get('/api/catalogue')
   expect(catalogue.status()).toBe(200)
-  expect(Array.isArray(await catalogue.json())).toBe(true)
+  // One page of it, with what a page needs to draw its way to the others.
+  const page = await catalogue.json()
+  expect(Array.isArray(page.entries)).toBe(true)
+  expect(page.entries.length).toBeLessThanOrEqual(24)
+  expect(page).toMatchObject({ page: 1, total: expect.any(Number), pages: expect.any(Number) })
 
   const responses = await Promise.all([
     request.post(`/api/stories/${anyStoryId}/listed`),
