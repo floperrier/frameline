@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { expect } from '@playwright/test'
 import { ONE_PIXEL, live, seedListed, test, writeStory } from './author'
 import type { StoryInEditor } from '../../shared/utils/scenes'
@@ -10,7 +11,9 @@ import type { StoryInEditor } from '../../shared/utils/scenes'
 
 /** A Story whose two Scenes each carry one Image, read back the way the bench reads it. */
 async function storyWithImages(request: Parameters<typeof writeStory>[0]) {
-  const story = await writeStory(request)
+  // A title nothing else carries, which is what the Catalogue is searched for.
+  const story = { ...await writeStory(request), title: `A Story ${randomUUID()}` }
+  await request.patch(`/api/stories/${story.id}`, { data: { title: story.title } })
   const read: StoryInEditor = await (await request.get(`/api/stories/${story.id}`)).json()
   const [street, bar] = read.scenes
   const first = street!.shots[0]!
@@ -47,7 +50,7 @@ test('the Opening Scene stands in until the Author names a Cover, on the bench a
   // The shelf shows the named frame, and the reading page opens on it.
   await request.post(`/api/stories/${story.id}/publish`)
   await seedListed(story)
-  await page.goto('/catalogue')
+  await page.goto(`/catalogue?q=${encodeURIComponent(story.title)}`)
   const entry = page.locator('li', { has: page.getByRole('link', { name: story.title, exact: true }) })
   await expect(entry.locator('img.cover')).toHaveAttribute('src', `/api/shots/${late.id}/image`)
   await page.goto(`/read/${story.id}`)
@@ -59,7 +62,7 @@ test('the Opening Scene stands in until the Author names a Cover, on the bench a
   await page.getByText('Synopsis and Cover').click()
   await cover.getByRole('button', { name: 'Let the Opening Scene Stand In' }).click()
   await expect(standingIn).toBeChecked()
-  await page.goto('/catalogue')
+  await page.goto(`/catalogue?q=${encodeURIComponent(story.title)}`)
   await expect(entry.locator('img.cover')).toHaveAttribute('src', `/api/shots/${first.id}/image`)
 })
 
@@ -95,7 +98,7 @@ test('the Cover carries the point its Image is cropped around, on the shelf and 
   const read = await (await request.get(`/api/read/${story.id}`)).json()
   expect(read.cover).toEqual({ image: `/api/shots/${first.id}/image`, cropX: 84, cropY: 49 })
 
-  await page.goto('/catalogue')
+  await page.goto(`/catalogue?q=${encodeURIComponent(story.title)}`)
   const entry = page.locator('li', { has: page.getByRole('link', { name: story.title, exact: true }) })
   await expect(entry.locator('img.cover')).toHaveCSS('object-position', '84% 49%')
   await page.goto(`/read/${story.id}`)

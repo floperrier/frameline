@@ -1,0 +1,12 @@
+-- The Catalogue's search ignores accents as well as case, so *memoire* finds
+-- *Mémoire*, and Postgres folds them with `unaccent`. Neon lists the extension
+-- for every Postgres it serves, and Postgres counts it as trusted, so the role
+-- that applies the migrations may create it — see
+-- `docs/research/2026-10-13-unaccent-on-neon.md` and issue #504.
+--
+-- A hand-written statement in a generated directory, as `0025` is: drizzle-kit
+-- writes the schema and has no word for an extension. The code before this one
+-- never calls `unaccent`, so the deploy has no window to fall into —
+-- `docs/adr/0002-the-schema-moves-with-the-deploy.md`. A second run finds the
+-- extension there and creates nothing.
+CREATE EXTENSION IF NOT EXISTS unaccent;

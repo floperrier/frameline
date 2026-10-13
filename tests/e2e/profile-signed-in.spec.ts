@@ -86,7 +86,7 @@ test('a Catalogue entry carries the Name, and the Name opens the Profile', async
   await expect(page.getByLabel('Your Name')).toHaveValue(name)
   await request.post(`/api/stories/${story.id}/listed`)
 
-  const catalogue = await reader(browser, baseURL, '/catalogue')
+  const catalogue = await reader(browser, baseURL, `/catalogue?q=${encodeURIComponent(title)}`)
   const entry = catalogue.getByRole('listitem').filter({ hasText: title })
   await expect(entry).toContainText(name)
 
@@ -143,7 +143,7 @@ test('rewriting the Name follows everywhere it appears', async ({ page, request,
   await page.getByRole('button', { name: 'Save' }).click()
   await expect.poll(() => readAuthorName(author.id)).toBe(second)
 
-  const catalogue = await reader(browser, baseURL, '/catalogue')
+  const catalogue = await reader(browser, baseURL, `/catalogue?q=${encodeURIComponent(title)}`)
   const entry = catalogue.getByRole('listitem').filter({ hasText: title })
   await expect(entry).toContainText(second)
   await expect(entry).not.toContainText(first)
