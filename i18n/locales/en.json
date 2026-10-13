@@ -72,10 +72,19 @@
     "search": "Search",
     "language": "Language of the Story",
     "anyLanguage": "Any Language",
+    "time": "Reading Time",
+    "anyTime": "Any Reading Time",
+    "times": {
+      "short": "Under 10 minutes",
+      "medium": "From 10 to 30 minutes",
+      "long": "Over 30 minutes"
+    },
     "sort": "Order",
     "sorts": {
       "recent": "Most recently Listed",
-      "shuffle": "Shuffled for today"
+      "shuffle": "Shuffled for today",
+      "shortest": "Shortest",
+      "longest": "Longest"
     },
     "nothingMatches": "Nothing listed in the Catalogue matches this search.",
     "clear": "Clear the Search",

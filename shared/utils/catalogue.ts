@@ -3,14 +3,29 @@ import type { StoryLanguage } from './stories'
 
 /**
  * The orders the Catalogue is offered in. None of them counts anything: the day
- * a Story first entered the Catalogue, and a shuffle drawn from the day, the
- * same for everybody — see
+ * a Story first entered the Catalogue, a shuffle drawn from the day, the same
+ * for everybody, and the Reading Time either way round — see
  * `docs/adr/0084-the-catalogue-is-ordered-by-nothing-counted.md`. The first is
  * the order it opens in.
  */
-export const CATALOGUE_SORTS = ['recent', 'shuffle'] as const
+export const CATALOGUE_SORTS = ['recent', 'shuffle', 'shortest', 'longest'] as const
 
 export type CatalogueSort = typeof CATALOGUE_SORTS[number]
+
+/**
+ * The bands of Reading Time a Reader keeps to, in seconds: under ten minutes,
+ * from ten to thirty, over thirty. A Story with no Reading Time yet falls in
+ * none of them.
+ */
+export const READING_TIME_BANDS = {
+  short: { under: 600 },
+  medium: { from: 600, upTo: 1_800 },
+  long: { over: 1_800 },
+} as const
+
+export type ReadingTimeBand = keyof typeof READING_TIME_BANDS
+
+export const READING_TIME_BAND_NAMES = Object.keys(READING_TIME_BANDS) as ReadingTimeBand[]
 
 /**
  * What a Reader has asked the Catalogue for: the words they search, and later
@@ -23,6 +38,8 @@ export type CatalogueState = {
   q: string
   /** The one Language kept to, or none; nothing picks one for the Reader. */
   language: StoryLanguage | ''
+  /** The band of Reading Time kept to, or none. */
+  time: ReadingTimeBand | ''
   /** The order the Stories stand in. */
   sort: CatalogueSort
   /** The page asked for, counted from one. */
@@ -58,6 +75,7 @@ export function catalogueState(query: Record<string, unknown>): CatalogueState {
   return {
     q: first(query.q).trim().slice(0, CATALOGUE_SEARCH_MAX_LENGTH),
     language: oneOf(STORY_LANGUAGES, first(query.language)) ?? '',
+    time: oneOf(READING_TIME_BAND_NAMES, first(query.time)) ?? '',
     sort: oneOf(CATALOGUE_SORTS, first(query.sort)) ?? CATALOGUE_SORTS[0],
     page: pageOf(first(query.page)),
   }
@@ -87,6 +105,7 @@ export function catalogueQuery(state: CatalogueState): Record<string, string> {
   const query: Record<string, string> = {}
   if (state.q) query.q = state.q
   if (state.language) query.language = state.language
+  if (state.time) query.time = state.time
   if (state.sort !== CATALOGUE_SORTS[0]) query.sort = state.sort
   if (state.page > 1) query.page = String(state.page)
   return query

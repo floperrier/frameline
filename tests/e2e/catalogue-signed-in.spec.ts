@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { APIRequestContext, Browser, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
+import type { Author } from './author'
 import {
   begin, live, test, seedDates, seedListed, seedListedStories, seedPresentation, seedPublished, seedStory,
   writeStory,
@@ -564,4 +565,50 @@ test('the Catalogue\'s controls fit a phone', async ({ browser, baseURL }) => {
   await expect(page.getByLabel('Order')).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(360)
+})
+
+/** Five Stories either side of each edge of the bands, and one not measured yet. */
+async function measured(author: Author, token: string) {
+  const [short, medium, longer, long, unmeasured] = await seedListedStories(author, numbered(token, 5))
+  for (const [story, readingTime] of [[short, 599], [medium, 600], [longer, 1_800], [long, 1_801]] as const) {
+    await seedPresentation(story!, { readingTime })
+  }
+  return { short: short!, medium: medium!, longer: longer!, long: long!, unmeasured: unmeasured! }
+}
+
+test('a Reader keeps the Catalogue to a band of Reading Time', async ({ author, browser, baseURL }) => {
+  const token = randomUUID()
+  const { short, medium, longer, long } = await measured(author, token)
+  await seedPresentation(medium, { language: 'fr' })
+
+  const shown = async (query: string) =>
+    await titlesIn(await catalogueFor(browser, baseURL, `?q=${token}&${query}`))
+
+  expect(await shown('time=short')).toEqual([short.title])
+  expect(await shown('time=medium')).toEqual([medium.title, longer.title])
+  expect(await shown('time=long')).toEqual([long.title])
+  expect(await shown('time=medium&language=fr')).toEqual([medium.title])
+})
+
+test('the Catalogue sorts by the shortest or the longest Reading Time, the unmeasured last', async ({
+  author, page,
+}) => {
+  const token = randomUUID()
+  const { short, medium, longer, long, unmeasured } = await measured(author, token)
+
+  await page.goto(`/catalogue?q=${token}&sort=shortest`)
+  expect(await titlesIn(page))
+    .toEqual([short, medium, longer, long, unmeasured].map(story => story.title))
+
+  await page.goto(`/catalogue?q=${token}&sort=longest&time=medium`)
+  expect(await titlesIn(page)).toEqual([longer.title, medium.title])
+
+  // The URL is the whole of it: reloaded, the lists say what it asked.
+  await page.reload()
+  await expect(page.getByLabel('Reading Time')).toHaveValue('medium')
+  await expect(page.getByLabel('Order')).toHaveValue('longest')
+
+  await page.goto(`/catalogue?q=${token}&sort=longest`)
+  expect(await titlesIn(page))
+    .toEqual([long, longer, medium, short, unmeasured].map(story => story.title))
 })
