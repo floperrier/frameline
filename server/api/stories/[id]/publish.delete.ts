@@ -12,8 +12,9 @@ import { useDb } from '../../../db'
  * Publishing again does not put it back: listing is the Author's to say, and
  * saying it once is not saying it for ever.
  *
- * The edition and the bytes it played go with the link, and the next Publish
- * takes a new one.
+ * The edition, the Reading Time measured on it and the bytes it played go with
+ * the link, and the next Publish takes a new one. The day the Story first entered
+ * the Catalogue stays: it is what keeps a Story listed again where it stood.
  */
 export default defineEventHandler(async (event) => {
   const author = await requireAuthor(event)
@@ -21,7 +22,7 @@ export default defineEventHandler(async (event) => {
 
   const [story] = await useDb()
     .update(stories)
-    .set({ publishedAt: null, listed: false, edition: null, editionAt: null })
+    .set({ publishedAt: null, listed: false, edition: null, editionAt: null, readingTime: null })
     .where(and(eq(stories.id, id), eq(stories.authorId, author.id)))
     .returning({ id: stories.id, publishedAt: stories.publishedAt, listed: stories.listed })
 

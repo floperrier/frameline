@@ -260,6 +260,13 @@
       "when": 1791922683901,
       "tag": "0036_the_catalogue_is_searched_by_a_word",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1791923083437,
+      "tag": "0037_a_storys_reading_time_is_measured_at_every_publish",
+      "breakpoints": true
     }
   ]
 }

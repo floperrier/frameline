@@ -122,6 +122,13 @@ export const stories = pgTable('stories', {
   // `docs/adr/0069-a-published-story-is-read-as-it-was-published.md`.
   edition: jsonb('edition').$type<Edition>(),
   editionAt: timestamp('edition_at', { withTimezone: true }),
+  // How long the longest Reading of the Edition would take, in whole seconds,
+  // measured from the Edition in the statement that takes it and cleared with it
+  // when the Story is unpublished. Null until then: a Story published before the
+  // column existed shows none until its next Publish, because a wrong figure is
+  // worse than no figure — see
+  // `docs/adr/0084-the-catalogue-is-ordered-by-nothing-counted.md`.
+  readingTime: integer('reading_time'),
   stepsBack: boolean('steps_back').notNull().default(true),
   textFace: text('text_face').$type<Face>().notNull().default('prose'),
   textAlign: text('text_align').$type<Align>().notNull().default('start'),

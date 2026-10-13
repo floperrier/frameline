@@ -24,6 +24,7 @@ export default defineEventHandler(async (event) => {
       title: stories.title,
       language: stories.language,
       synopsis: stories.synopsis,
+      readingTime: stories.readingTime,
       publishedAt: stories.publishedAt,
       listed: stories.listed,
       comments: sql<number>`(select count(*)::int from ${comments}
