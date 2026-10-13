@@ -14,6 +14,11 @@ Amended in issue #494, by
 twice goes to the developer, and the flow's own GitHub App merges into `dev` so
 that `dev`'s CI runs after each merge.
 
+Amended in issue #520, by
+`docs/adr/0093-a-sensitive-path-is-built-and-merged-by-hand.md`: a change to the
+schema, the migrations, the dependencies, `compose.yaml` or `vercel.json` is built
+and verified, and only its merge is the developer's.
+
 Until now the autonomous work was one loop on the developer's laptop. It chose
 the next issue, built it, opened the pull request and armed its auto-merge, all
 in the one run that wrote the change. Nothing it merged had been looked at by
