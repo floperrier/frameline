@@ -49,6 +49,7 @@ export default defineEventHandler(async (event) => {
   const where: SQL[] = [eq(stories.listed, true), isNotNull(stories.publishedAt)]
   if (state.q) where.push(searched(state.q))
   if (state.language) where.push(eq(stories.language, state.language))
+  if (state.genre) where.push(sql`${state.genre} = any(${stories.genres})`)
   if (state.time) where.push(lasting(state.time))
 
   const [rows, [counted]] = await Promise.all([useDb()
@@ -58,6 +59,7 @@ export default defineEventHandler(async (event) => {
       language: stories.language,
       synopsis: stories.synopsis,
       readingTime: stories.readingTime,
+      genres: stories.genres,
       publishedAt: stories.publishedAt,
       listedAt: stories.firstListedAt,
       authorId: authors.id,

@@ -18,7 +18,7 @@ const query = computed(() => catalogueQuery(catalogueState(route.query)))
 const asked = computed(() => catalogueState(route.query))
 const { data: catalogue } = await useFetch('/api/catalogue', { query })
 const { t } = useI18n()
-const { languageNamed } = useEntries()
+const { languageNamed, genreNamed } = useEntries()
 
 /**
  * Whether the Reader has narrowed the Catalogue — the page aside, which narrows
@@ -109,6 +109,15 @@ useHead({ title: () => t('catalogue.heading') })
             <option value="" :selected="!asked.language">{{ $t('catalogue.anyLanguage') }}</option>
             <option v-for="code in STORY_LANGUAGES" :key="code" :value="code" :selected="code === asked.language">
               {{ languageNamed(code) }}
+            </option>
+          </select>
+        </p>
+        <p>
+          <label class="eyebrow" for="catalogue-genre">{{ $t('catalogue.genre') }}</label>
+          <select id="catalogue-genre" name="genre" @change="narrow">
+            <option value="" :selected="!asked.genre">{{ $t('catalogue.anyGenre') }}</option>
+            <option v-for="code in STORY_GENRES" :key="code" :value="code" :selected="code === asked.genre">
+              {{ genreNamed(code) }}
             </option>
           </select>
         </p>

@@ -19,6 +19,10 @@ import { useDb } from '../../../db'
  * it, and the bench answers it by asking for the Name in the listing itself —
  * see `docs/adr/0025-a-name-is-asked-for-in-the-listing.md`.
  *
+ * A Genre comes before listing too, for the same reason and in the same
+ * statement: a Story in the Catalogue is found by its Genre, and one filed under
+ * none would be found by nobody looking for one.
+ *
  * The first listing dates the Story's entry into the Catalogue, which is what its
  * default order counts, and no later one does: a Story taken out and listed again
  * keeps the day it first entered, so doing it every morning keeps nobody on top —
@@ -39,20 +43,24 @@ export default defineEventHandler(async (event) => {
       eq(stories.id, id),
       eq(stories.authorId, author.id),
       isNotNull(stories.publishedAt),
+      sql`cardinality(${stories.genres}) > 0`,
     ))
     .returning({ id: stories.id, listed: stories.listed })
 
   if (listed) return listed
 
   // Nothing was listed, so the Story is either not this Author's — absent, like
-  // everywhere else — or it is theirs and unpublished, which is a refusal they
-  // can act on and so is worth saying out loud.
+  // everywhere else — or it is theirs and unpublished, or filed under no Genre:
+  // each a refusal they can act on and so worth saying out loud.
   const [own] = await useDb()
-    .select({ id: stories.id })
+    .select({ publishedAt: stories.publishedAt })
     .from(stories)
     .where(and(eq(stories.id, id), eq(stories.authorId, author.id)))
 
   if (!own) throw notFound(event, 'Story')
+  if (!own.publishedAt) {
+    throw createError({ statusCode: 400, message: saying(event)('refusals.listPublished') })
+  }
 
-  throw createError({ statusCode: 400, message: saying(event)('refusals.listPublished') })
+  throw createError({ statusCode: 400, message: saying(event)('refusals.genreBeforeListing') })
 })

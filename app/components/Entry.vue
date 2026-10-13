@@ -3,8 +3,8 @@
  * One Story as it is met before it is opened: its title, which is the link to
  * the Reading, the Synopsis its Author wrote for whoever is deciding whether to
  * read it, and what is said about it on the shelf — the Author who wrote it, the
- * Language it is written in, how long its longest Reading takes and the day it
- * was published.
+ * Language it is written in, the Genres it is filed under, how long its longest
+ * Reading takes and the day it was published.
  *
  * Drawn by every surface that hands over other people's work — the Catalogue, a
  * Profile, and an Author's own Lists — so they are all the same shelf, seen by
@@ -46,12 +46,14 @@ const { story, to } = defineProps<{
      * last Publish; null where it has not been measured yet, which shows none.
      */
     readingTime?: number | null
+    /** The Genres it is filed under, as codes, named here in the Locale. */
+    genres?: string[]
     /** The Image the Story is presented by and its crop point, or none. */
     cover?: Cover | null
   }
 }>()
 
-const { published, languageNamed } = useEntries()
+const { published, languageNamed, genreNamed } = useEntries()
 const localePath = useLocalePath()
 
 /** The day the shelf dates the Story by: when it entered the Catalogue, or else its Publish. */
@@ -94,6 +96,11 @@ const dated = computed(() => story.listedAt ?? story.publishedAt)
         </NuxtLink>
       </span>
       <span class="eyebrow">{{ languageNamed(story.language) }}</span>
+      <!-- The Genres in the Reader's Locale whatever the Language of the work:
+           the set is Frameline's, so a Genre reads the same on every shelf. -->
+      <span v-for="genre in story.genres ?? []" :key="genre" class="eyebrow">
+        {{ genreNamed(genre) }}
+      </span>
       <time v-if="dated" class="eyebrow" :datetime="dated">
         {{ published.format(new Date(dated)) }}
       </time>

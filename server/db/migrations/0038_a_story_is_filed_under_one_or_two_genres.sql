@@ -1,0 +1,1 @@
+ALTER TABLE "stories" ADD COLUMN "genres" text[] DEFAULT '{}'::text[] NOT NULL;

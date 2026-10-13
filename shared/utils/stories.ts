@@ -56,3 +56,23 @@ export function coverOf(story: {
   const opening = story.scenes.find(scene => scene.id === story.openingSceneId)
   return opening?.shots.find(shot => shot.image)?.id ?? null
 }
+
+/**
+ * The Genres a Story may be filed under in the Catalogue, as codes that never
+ * change; their names are in the message files, so a Genre reads the same in
+ * every Locale and finds a Story whatever its Language. The set is Frameline's
+ * and closed: an Author picks from it and never writes one. The Genre for
+ * erotica is left out until a Story can be marked For Adults, which it imposes —
+ * see `docs/adr/0084-the-catalogue-is-ordered-by-nothing-counted.md` and
+ * `docs/adr/0091-a-story-for-adults-is-read-behind-an-account.md`.
+ */
+export const STORY_GENRES = [
+  'drama', 'comedy', 'crime', 'thriller', 'horror', 'supernatural', 'fantasy',
+  'science-fiction', 'romance', 'adventure', 'historical', 'war', 'slice-of-life',
+  'poetry', 'documentary', 'experimental',
+] as const
+
+export type StoryGenre = typeof STORY_GENRES[number]
+
+/** The most Genres a Story is filed under, so that a Genre stays meaningful. */
+export const STORY_GENRES_MAX = 2

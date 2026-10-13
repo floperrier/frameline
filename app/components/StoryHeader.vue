@@ -47,10 +47,12 @@ const localePath = useLocalePath()
 const { languageNamed } = useEntries()
 const { user: author, fetch: refreshAuthor } = useUserSession()
 
-// Whether the listing is standing there asking for a Name, and what has been
-// typed into it. Both start where an Author with a Name never sees them.
-const askingName = ref(false)
+// What the listing is standing there asking for — a Name, Genres, or both — and
+// what has been answered. All of it starts where an Author with a Name and a
+// Story with Genres never sees it.
+const asking = ref<{ name: boolean, genres: boolean } | null>(null)
 const authorName = ref(author.value?.name ?? '')
+const chosenGenres = ref<string[]>([])
 
 /**
  * The time of the last write, told the way a clock is read in the Locale rather
@@ -203,9 +205,15 @@ function list() {
   // asked for one here, in the act that needs it. It is the only moment the
   // product asks: publishing never does, and a settings page would be a room
   // built for one field somebody would have to be sent to — see
-  // `docs/adr/0025-a-name-is-asked-for-in-the-listing.md`.
-  if (!author.value?.name) {
-    askingName.value = true
+  // `docs/adr/0025-a-name-is-asked-for-in-the-listing.md`. A Story filed under
+  // no Genre is asked for one in the same panel and the same gesture, because
+  // a Story in the Catalogue is found by its Genre — see
+  // `docs/adr/0084-the-catalogue-is-ordered-by-nothing-counted.md`.
+  const name = !author.value?.name
+  const genres = !story?.genres.length
+  if (name || genres) {
+    chosenGenres.value = [...story?.genres ?? []]
+    asking.value = { name, genres }
     return
   }
 
@@ -213,21 +221,35 @@ function list() {
 }
 
 /**
- * The Name, and the listing it was asked for, in one gesture: the Author wrote
- * the Name to get the Story listed, so being asked and then having to click
- * again would be the product asking twice for one decision. The session carries
- * the Name and the server reseals it, so it is read back here — from then on the
- * button lists without asking anything.
+ * The Name, the Genres, and the listing they were asked for, in one gesture: the
+ * Author answered to get the Story listed, so being asked and then having to
+ * click again would be the product asking twice for one decision. The session
+ * carries the Name and the server reseals it, so it is read back here — from
+ * then on the button lists without asking for it. No Genre chosen is sent as
+ * none, and the listing says why it is refused.
  */
 async function listUnder() {
   const name = authorName.value
+  const genres = chosenGenres.value
   const listed = await change(async () => {
-    await send('/api/author', { method: 'PATCH', body: { name } })
+    if (asking.value?.name) await send('/api/author', { method: 'PATCH', body: { name } })
+    if (asking.value?.genres && genres.length) {
+      await send(`/api/stories/${id}`, { method: 'PATCH', body: { genres } })
+    }
     await send(`/api/stories/${id}/listed`, { method: 'POST' })
   })
 
-  await refreshAuthor()
-  if (listed) askingName.value = false
+  if (asking.value?.name) await refreshAuthor()
+  if (listed) asking.value = null
+}
+
+/**
+ * The Genres of a Listed Story, changed without unlisting it: they are part of
+ * how the Story is presented, read live like its title, and never part of an
+ * Edition. A click rather than a typed write, so the Story is read back.
+ */
+function refile(genres: string[]) {
+  return change(() => send(`/api/stories/${id}`, { method: 'PATCH', body: { genres } }))
 }
 
 function unlist() {
@@ -415,6 +437,23 @@ function unlist() {
         </div>
       </details>
 
+      <!-- The Genres of a Listed Story, folded like the presentation beside it
+           and for the same reason: chosen when it was listed, and changed now
+           and then rather than all day. Changed here without unlisting it; its
+           last Genre stays, because a Listed Story is filed under one at least.
+           Only while it is Listed: before that, listing is what asks. -->
+      <details v-if="story?.listed" class="filing" name="bench-fold">
+        <summary class="eyebrow">{{ $t('editor.genres') }}</summary>
+        <div class="folded">
+          <GenreChoice
+            :model-value="story.genres"
+            :legend="$t('editor.genresOfStory')"
+            keep-one
+            @update:model-value="refile"
+          />
+        </div>
+      </details>
+
       <!-- The link, shown in full so it can be copied out of the page. It is
            what publishing hands over, and it goes on working whether or not
            the Story is in the Catalogue. -->
@@ -502,13 +541,13 @@ function unlist() {
         </button>
       </div>
 
-      <!-- The Name asked for in the listing itself, and only where there is
-           none: an Author who has one lists in a single click and is asked
-           nothing. -->
-      <form v-if="askingName" class="signing" @submit.prevent="listUnder">
-        <p class="asked">{{ $t('author.askedBeforeListing') }}</p>
-        <label class="eyebrow" for="author-name">{{ $t('author.name') }}</label>
-        <div class="row">
+      <!-- The Name and the Genres asked for in the listing itself, and only
+           what is missing: an Author who has a Name, listing a Story filed under
+           a Genre, lists in a single click and is asked nothing. -->
+      <form v-if="asking" class="signing" @submit.prevent="listUnder">
+        <template v-if="asking.name">
+          <p class="asked">{{ $t('author.askedBeforeListing') }}</p>
+          <label class="eyebrow" for="author-name">{{ $t('author.name') }}</label>
           <input
             id="author-name"
             v-model="authorName"
@@ -516,7 +555,15 @@ function unlist() {
             autofocus
             :maxlength="AUTHOR_NAME_MAX_LENGTH"
           >
-          <button type="submit" class="primary">{{ $t('author.list') }}</button>
+        </template>
+        <template v-if="asking.genres">
+          <p class="asked">{{ $t('editor.genresAsked') }}</p>
+          <GenreChoice v-model="chosenGenres" :legend="$t('editor.genresOfStory')" />
+        </template>
+        <div class="row">
+          <button type="submit" class="primary">
+            {{ $t(asking.name ? 'author.list' : 'editor.listUnderGenres') }}
+          </button>
         </div>
       </form>
     </section>
@@ -592,7 +639,8 @@ header {
    making the edge two rows tall: they are written once, and the Story is laid
    out under them all day. */
 .presenting summary,
-.how summary {
+.how summary,
+.filing summary {
   cursor: pointer;
 }
 
