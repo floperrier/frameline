@@ -9,8 +9,8 @@ which skills the routines run, who cuts a spec, and what merges into `dev`.
 
 Amended in issue #520, by
 `docs/adr/0093-a-sensitive-path-is-built-and-merged-by-hand.md`: a change to the
-schema, the migrations, the dependencies, `compose.yaml` or `vercel.json` is built
-and verified, and only its merge is the developer's.
+schema, the migrations, the sign-in, the dependencies, `compose.yaml` or
+`vercel.json` is built and verified, and only its merge is the developer's.
 
 The routines 0076 set up ran on two methods at once. Triage and specs followed
 `mattpocock/skills`, building and verifying followed pstack's `poteto-mode`, and
