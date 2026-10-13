@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto'
 import type { APIRequestContext, Browser, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 import {
-  begin, live, test, seedDates, seedListed, seedListedStories, seedPublished, seedStory, writeStory,
+  begin, live, test, seedDates, seedListed, seedListedStories, seedPresentation, seedPublished, seedStory,
+  writeStory,
 } from './author'
 
 /**
@@ -489,4 +490,78 @@ test('a page arrives drawn, with its entries and its navigation', async ({ autho
   expect(html).not.toContain(`${titles[23]}<`)
   expect(html).toContain('aria-label="Pages of the Catalogue"')
   expect(html).toContain(`href="/catalogue?q=${token}"`)
+})
+
+/** The Language a Reader keeps to, alone or beside a search. */
+test('a Reader keeps the Catalogue to one Language', async ({ author, browser, baseURL }) => {
+  const token = randomUUID()
+  const [italian, english] = await seedListedStories(author, numbered(token, 2))
+  await seedPresentation(italian!, { language: 'it' })
+
+  const searched = await catalogueFor(browser, baseURL, `?q=${token}&language=it`)
+  await expect(searched.locator('li a.open')).toHaveText([italian!.title])
+  await expect(searched.getByLabel('Language of the Story')).toHaveValue('it')
+
+  // Alone, it keeps the whole shelf to the Language: the Italian Story stands
+  // there, the English one does not.
+  const alone = await catalogueFor(browser, baseURL, '?language=it')
+  await expect(entryFor(alone, italian!.title)).toBeVisible()
+  await expect(entryFor(alone, english!.title)).toBeHidden()
+})
+
+test('the shuffle is the same all day for everybody, and never repeats a Story across pages', async ({
+  author, browser, baseURL,
+}) => {
+  const token = randomUUID()
+  const titles = numbered(token, 25)
+  await seedListedStories(author, titles)
+
+  const first = await titlesIn(await catalogueFor(browser, baseURL, `?q=${token}&sort=shuffle`))
+  const again = await titlesIn(await catalogueFor(browser, baseURL, `?q=${token}&sort=shuffle`))
+  expect(again).toEqual(first)
+  expect(first).toHaveLength(24)
+
+  const second = await titlesIn(await catalogueFor(browser, baseURL, `?q=${token}&sort=shuffle&page=2`))
+  expect(second).toHaveLength(1)
+  expect(new Set([...first, ...second])).toEqual(new Set(titles))
+})
+
+test('changing a list applies it at once, and lands on the first page', async ({ author, page }) => {
+  const token = randomUUID()
+  await seedListedStories(author, numbered(token, 25))
+
+  await page.goto(`/catalogue?q=${token}&page=2`)
+  await live(page)
+  await page.getByLabel('Language of the Story').selectOption({ label: 'English' })
+  await expect(page).toHaveURL(new RegExp(`\\?q=${token}&language=en$`))
+  await expect(page.locator('li a.open')).toHaveCount(24)
+
+  await page.getByLabel('Order').selectOption({ label: 'Shuffled for today' })
+  await expect(page).toHaveURL(new RegExp(`\\?q=${token}&language=en&sort=shuffle$`))
+})
+
+test('a reload restores the search, the Language, the order and the page', async ({ author, page }) => {
+  const token = randomUUID()
+  await seedListedStories(author, numbered(token, 25))
+
+  await page.goto(`/catalogue?q=${token}&language=en&sort=shuffle&page=2`)
+  for (const _ of [1, 2]) {
+    await expect(page.getByLabel('Look for a title, a Synopsis or a Name')).toHaveValue(token)
+    await expect(page.getByLabel('Language of the Story')).toHaveValue('en')
+    await expect(page.getByLabel('Order')).toHaveValue('shuffle')
+    await expect(page.getByRole('link', { name: 'Page 2' })).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator('li a.open')).toHaveCount(1)
+    await page.reload()
+  }
+})
+
+/** On a phone, the controls fold into the width of the screen. */
+test('the Catalogue\'s controls fit a phone', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({
+    baseURL, locale: 'en-US', extraHTTPHeaders: {}, viewport: { width: 360, height: 740 } })
+  const page = await context.newPage()
+  await page.goto('/catalogue?language=fr')
+  await expect(page.getByLabel('Order')).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(360)
 })

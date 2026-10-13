@@ -1,3 +1,17 @@
+import { STORY_LANGUAGES } from './stories'
+import type { StoryLanguage } from './stories'
+
+/**
+ * The orders the Catalogue is offered in. None of them counts anything: the day
+ * a Story first entered the Catalogue, and a shuffle drawn from the day, the
+ * same for everybody — see
+ * `docs/adr/0084-the-catalogue-is-ordered-by-nothing-counted.md`. The first is
+ * the order it opens in.
+ */
+export const CATALOGUE_SORTS = ['recent', 'shuffle'] as const
+
+export type CatalogueSort = typeof CATALOGUE_SORTS[number]
+
 /**
  * What a Reader has asked the Catalogue for: the words they search, and later
  * the filters, the order and the page. All of it lives in the URL, so a narrowed
@@ -7,6 +21,10 @@
 export type CatalogueState = {
   /** The words searched for, trimmed; empty is no search. */
   q: string
+  /** The one Language kept to, or none; nothing picks one for the Reader. */
+  language: StoryLanguage | ''
+  /** The order the Stories stand in. */
+  sort: CatalogueSort
   /** The page asked for, counted from one. */
   page: number
 }
@@ -39,8 +57,15 @@ function first(held: unknown) {
 export function catalogueState(query: Record<string, unknown>): CatalogueState {
   return {
     q: first(query.q).trim().slice(0, CATALOGUE_SEARCH_MAX_LENGTH),
+    language: oneOf(STORY_LANGUAGES, first(query.language)) ?? '',
+    sort: oneOf(CATALOGUE_SORTS, first(query.sort)) ?? CATALOGUE_SORTS[0],
     page: pageOf(first(query.page)),
   }
+}
+
+/** A value written in a URL, where it is one of a closed list. */
+function oneOf<T extends string>(list: readonly T[], written: string) {
+  return list.includes(written as T) ? written as T : undefined
 }
 
 /**
@@ -61,6 +86,8 @@ function pageOf(written: string) {
 export function catalogueQuery(state: CatalogueState): Record<string, string> {
   const query: Record<string, string> = {}
   if (state.q) query.q = state.q
+  if (state.language) query.language = state.language
+  if (state.sort !== CATALOGUE_SORTS[0]) query.sort = state.sort
   if (state.page > 1) query.page = String(state.page)
   return query
 }

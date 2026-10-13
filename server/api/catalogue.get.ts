@@ -2,6 +2,7 @@ import { and, asc, eq, isNotNull, sql } from 'drizzle-orm'
 import type { AnyColumn, SQL } from 'drizzle-orm'
 import { authors, stories } from '../db/schema'
 import { useDb } from '../db'
+import type { CatalogueSort } from '../../shared/utils/catalogue'
 
 /**
  * The Catalogue: the Listed Stories a Reader asked for, the latest to enter it
@@ -27,10 +28,11 @@ import { useDb } from '../db'
  * pointing at a not-found rather than a row nobody notices.
  *
  * Nothing is counted, rated or ordered by anything an Author can influence. The
- * day a Story first entered the Catalogue is the whole of the ranking, and it is
- * the one ranking nobody can play: neither republishing nor listing again moves
- * it — see `docs/adr/0084-the-catalogue-is-ordered-by-nothing-counted.md`. The
- * Story's id breaks a tie, so the order is the same on every request.
+ * day a Story first entered the Catalogue is the order it opens in, and it is the
+ * one ranking nobody can play: neither republishing nor listing again moves it —
+ * see `docs/adr/0084-the-catalogue-is-ordered-by-nothing-counted.md`. The others
+ * are what `ordered` says. The Story's id breaks a tie, so the order is the same
+ * on every request.
  *
  * Each entry is signed: the Author's id and Name, so the entry leads to the work
  * one way and to whoever wrote it the other. The join is an inner one because a
@@ -46,6 +48,7 @@ export default defineEventHandler(async (event) => {
 
   const where: SQL[] = [eq(stories.listed, true), isNotNull(stories.publishedAt)]
   if (state.q) where.push(searched(state.q))
+  if (state.language) where.push(eq(stories.language, state.language))
 
   const [rows, [counted]] = await Promise.all([useDb()
     .select({
@@ -66,7 +69,7 @@ export default defineEventHandler(async (event) => {
     .innerJoin(authors, eq(stories.authorId, authors.id))
     .leftJoin(coverShot, sql`${coverShot.id} = ${coverShotOf}`)
     .where(and(...where))
-    .orderBy(sql`${stories.firstListedAt} desc nulls last`, asc(stories.id))
+    .orderBy(ordered(state.sort), asc(stories.id))
     .limit(CATALOGUE_PAGE_SIZE)
     .offset((state.page - 1) * CATALOGUE_PAGE_SIZE),
   useDb()
@@ -87,6 +90,22 @@ export default defineEventHandler(async (event) => {
     page: state.page,
   }
 })
+
+/**
+ * What the Stories stand in order of, before their ids break a tie. The day a
+ * Story first entered the Catalogue, newest first; or the shuffle, a hash of the
+ * Story's id and the day in UTC, which is the same for everybody all day and
+ * changes overnight — and, being one order over every Story, never puts a Story
+ * on two pages. An older Story gets its turn at the top without anybody scoring
+ * it.
+ */
+function ordered(sort: CatalogueSort) {
+  if (sort === 'shuffle') {
+    const today = new Date().toISOString().slice(0, 10)
+    return sql`md5(${stories.id}::text || ${today})`
+  }
+  return sql`${stories.firstListedAt} desc nulls last`
+}
 
 /**
  * The Stories whose title, Synopsis or Author's Name holds the term anywhere,
