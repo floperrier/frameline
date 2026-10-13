@@ -70,6 +70,13 @@
     "none": "No Stories are listed yet. The first one an Author lists appears here.",
     "searchLabel": "Look for a title, a Synopsis or a Name",
     "search": "Search",
+    "language": "Language of the Story",
+    "anyLanguage": "Any Language",
+    "sort": "Order",
+    "sorts": {
+      "recent": "Most recently Listed",
+      "shuffle": "Shuffled for today"
+    },
     "nothingMatches": "Nothing listed in the Catalogue matches this search.",
     "clear": "Clear the Search",
     "pastTheEnd": "There is nothing on page {page}: what you asked for ends on page {pages}.",

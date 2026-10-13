@@ -179,6 +179,22 @@ export async function seedListedStories(author: Author, titles: string[]) {
 }
 
 /**
+ * Writes what a shelf presents a Story by past the API: its Language, and the
+ * Reading Time a Publish would have measured.
+ */
+export async function seedPresentation(story: Pick<Story, 'id'>, presented: {
+  language?: string
+  readingTime?: number | null
+}) {
+  if (presented.language !== undefined) {
+    await sql`update stories set language = ${presented.language} where id = ${story.id}`
+  }
+  if (presented.readingTime !== undefined) {
+    await sql`update stories set reading_time = ${presented.readingTime} where id = ${story.id}`
+  }
+}
+
+/**
  * Dates a Story's first Publish and its first entry into the Catalogue past the
  * API, so a test can stand two Stories in an order that a day apart would give.
  */

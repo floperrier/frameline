@@ -18,6 +18,7 @@ const query = computed(() => catalogueQuery(catalogueState(route.query)))
 const asked = computed(() => catalogueState(route.query))
 const { data: catalogue } = await useFetch('/api/catalogue', { query })
 const { t } = useI18n()
+const { languageNamed } = useEntries()
 
 /**
  * Whether the Reader has narrowed the Catalogue — the page aside, which narrows
@@ -44,6 +45,19 @@ function toPage(page: number) {
 async function search(event: Event) {
   const form = new FormData(event.target as HTMLFormElement)
   await navigateTo({ query: catalogueQuery(catalogueState(Object.fromEntries(form))) })
+}
+
+/**
+ * A list changed, which applies at once rather than waiting for the button: the
+ * query is replaced by what the form now asks, and the page fetches again. The
+ * page is not part of the form, so any change but the page lands on page one.
+ * The words typed in the search apply on submit and not here, so a Reader
+ * changing a list is given what the URL already searched for.
+ */
+async function narrow(event: Event) {
+  const form = new FormData((event.target as HTMLSelectElement).form!)
+  form.set('q', asked.value.q)
+  await navigateTo({ query: catalogueQuery(catalogueState(Object.fromEntries(form))) }, { replace: true })
 }
 
 useHead({ title: () => t('catalogue.heading') })
@@ -81,6 +95,31 @@ useHead({ title: () => t('catalogue.heading') })
           :maxlength="CATALOGUE_SEARCH_MAX_LENGTH"
         >
         <button type="submit">{{ $t('catalogue.search') }}</button>
+      </div>
+      <!-- Each list keeps to one thing or puts the shelf in an order, and is
+           named in the Reader's Locale. The option a URL asked for is marked
+           selected on the server, so a reloaded or a sent link draws its lists
+           as they were left, with JavaScript or without. Nothing is picked for them: a small
+           Catalogue kept to the Locale's Language would look empty, and the
+           Stories written in other Languages are theirs to come across. -->
+      <div class="lists">
+        <p>
+          <label class="eyebrow" for="catalogue-language">{{ $t('catalogue.language') }}</label>
+          <select id="catalogue-language" name="language" @change="narrow">
+            <option value="" :selected="!asked.language">{{ $t('catalogue.anyLanguage') }}</option>
+            <option v-for="code in STORY_LANGUAGES" :key="code" :value="code" :selected="code === asked.language">
+              {{ languageNamed(code) }}
+            </option>
+          </select>
+        </p>
+        <p>
+          <label class="eyebrow" for="catalogue-sort">{{ $t('catalogue.sort') }}</label>
+          <select id="catalogue-sort" name="sort" @change="narrow">
+            <option v-for="sort in CATALOGUE_SORTS" :key="sort" :value="sort" :selected="sort === asked.sort">
+              {{ $t(`catalogue.sorts.${sort}`) }}
+            </option>
+          </select>
+        </p>
       </div>
     </form>
 
@@ -215,6 +254,31 @@ h1 {
 .asking input {
   flex: 1 1 16rem;
   min-inline-size: 0;
+}
+
+/* The lists side by side under the search, each its label over its select, as
+   many to a row as the width holds. */
+.lists {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3) var(--s4);
+  margin-block-start: var(--s2);
+}
+
+.lists p {
+  display: grid;
+  gap: var(--s1);
+}
+
+/* On a phone each list takes the width, so nothing runs off the edge. */
+@media (--phone) {
+  .lists p {
+    flex: 1 1 100%;
+  }
+
+  .lists select {
+    inline-size: 100%;
+  }
 }
 
 /* A hairline between entries and nothing else, as on the list of an Author's own
