@@ -1,4 +1,4 @@
-import { and, eq, isNotNull } from 'drizzle-orm'
+import { and, eq, isNotNull, sql } from 'drizzle-orm'
 import { stories } from '../../../db/schema'
 import { useDb } from '../../../db'
 
@@ -18,6 +18,11 @@ import { useDb } from '../../../db'
  * is a refusal the Author can act on rather than a silent entry with no name on
  * it, and the bench answers it by asking for the Name in the listing itself —
  * see `docs/adr/0025-a-name-is-asked-for-in-the-listing.md`.
+ *
+ * The first listing dates the Story's entry into the Catalogue, which is what its
+ * default order counts, and no later one does: a Story taken out and listed again
+ * keeps the day it first entered, so doing it every morning keeps nobody on top —
+ * see `docs/adr/0084-the-catalogue-is-ordered-by-nothing-counted.md`.
  */
 export default defineEventHandler(async (event) => {
   const id = readId(event, 'Story')
@@ -29,7 +34,7 @@ export default defineEventHandler(async (event) => {
 
   const [listed] = await useDb()
     .update(stories)
-    .set({ listed: true })
+    .set({ listed: true, firstListedAt: sql`coalesce(${stories.firstListedAt}, now())` })
     .where(and(
       eq(stories.id, id),
       eq(stories.authorId, author.id),

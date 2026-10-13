@@ -1,9 +1,9 @@
-import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
+import { and, asc, eq, isNotNull, sql } from 'drizzle-orm'
 import { authors, stories } from '../db/schema'
 import { useDb } from '../db'
 
 /**
- * The Catalogue: every Listed Story, most recently published first, answered to
+ * The Catalogue: every Listed Story, the latest to enter it first, answered to
  * anyone with or without an account. The one place a Story is found rather than
  * sent — see
  * `docs/adr/0023-being-published-and-being-found-are-two-acts.md`.
@@ -14,8 +14,10 @@ import { useDb } from '../db'
  * pointing at a not-found rather than a row nobody notices.
  *
  * Nothing is counted, rated or ordered by anything an Author can influence. The
- * date a Story was published is the whole of the ranking, and it is the one
- * ranking nobody can play.
+ * day a Story first entered the Catalogue is the whole of the ranking, and it is
+ * the one ranking nobody can play: neither republishing nor listing again moves
+ * it — see `docs/adr/0084-the-catalogue-is-ordered-by-nothing-counted.md`. The
+ * Story's id breaks a tie, so the order is the same on every request.
  *
  * Each entry is signed: the Author's id and Name, so the entry leads to the work
  * one way and to whoever wrote it the other. The join is an inner one because a
@@ -34,6 +36,7 @@ export default defineEventHandler(async () => {
       language: stories.language,
       synopsis: stories.synopsis,
       publishedAt: stories.publishedAt,
+      listedAt: stories.firstListedAt,
       authorId: authors.id,
       authorName: authors.name,
       coverShotId: coverShotOf,
@@ -44,7 +47,7 @@ export default defineEventHandler(async () => {
     .innerJoin(authors, eq(stories.authorId, authors.id))
     .leftJoin(coverShot, sql`${coverShot.id} = ${coverShotOf}`)
     .where(and(eq(stories.listed, true), isNotNull(stories.publishedAt)))
-    .orderBy(desc(stories.publishedAt))
+    .orderBy(sql`${stories.firstListedAt} desc nulls last`, asc(stories.id))
 
   return rows.map(({ coverShotId, cropX, cropY, ...row }) => ({
     ...row,
