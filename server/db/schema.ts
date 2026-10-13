@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm'
 import {
   boolean,
   customType,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -89,6 +90,15 @@ export const authors = pgTable('authors', {
 // `published_at` already says which side of publishing the Story is on. It
 // defaults to false and nothing backfills it: nobody agreed to appear in a
 // catalogue that did not exist when they published.
+//
+// `first_listed_at` is the day the Story first entered the Catalogue, which is
+// what the Catalogue's default order counts — not the first Publish, so a Story
+// published privately in January and Listed today is new today. Listing writes
+// it only where it is empty, and neither unlisting nor unpublishing clears it,
+// so neither republishing nor listing again every morning moves a Story back to
+// the top — see `docs/adr/0084-the-catalogue-is-ordered-by-nothing-counted.md`.
+// Null until the Story is first Listed; the migration that added it gave every
+// Story Listed then its `published_at`.
 // `steps_back` is what an Exit of this Story answers when it has not answered
 // for itself: true, the default, is the Reading a step back crosses every Exit
 // of — which is every Story written before the column existed, reading exactly
@@ -105,6 +115,7 @@ export const stories = pgTable('stories', {
     .references((): AnyPgColumn => shots.id, { onDelete: 'set null' }),
   publishedAt: timestamp('published_at', { withTimezone: true }),
   listed: boolean('listed').notNull().default(false),
+  firstListedAt: timestamp('first_listed_at', { withTimezone: true }),
   // What Readers of a published Story read: the work as it stood when its Author
   // last published it, and when that was. Null on a Story never published, and on
   // one published before editions existed until it is first read — see
@@ -115,7 +126,11 @@ export const stories = pgTable('stories', {
   textFace: text('text_face').$type<Face>().notNull().default('prose'),
   textAlign: text('text_align').$type<Align>().notNull().default('start'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-})
+}, table => [
+  // The Catalogue's default order over the Stories it holds: Listed, newest to
+  // enter it first, the id breaking a tie so that pages never overlap.
+  index('stories_catalogue_idx').on(table.listed, table.firstListedAt.desc(), table.id),
+])
 
 // The bytes of an image, which drizzle has no column for; the neon-http
 // driver hands a `bytea` back as a Buffer and takes one as a parameter, so

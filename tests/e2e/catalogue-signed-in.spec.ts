@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
-import type { Browser, Page } from '@playwright/test'
+import type { APIRequestContext, Browser, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { begin, live, test, seedPublished, seedStory, writeStory } from './author'
+import { begin, live, test, seedDates, seedPublished, seedStory, writeStory } from './author'
 
 /**
  * The Catalogue as anyone browsing meets it. Every assertion below about what is
@@ -168,21 +168,83 @@ test('unpublishing a listed Story unlists it', async ({ page, request, browser, 
   await expect(entryFor(await catalogueFor(browser, baseURL), title)).toBeHidden()
 })
 
-test('the Catalogue shows the most recently published first', async ({ request, browser, baseURL }) => {
-  const [earlier, later] = [unlikelyTitle(), unlikelyTitle()]
+/**
+ * Writes a Story, publishes it and lists it through the API, the way the bench
+ * does, under a title nothing else in the database carries.
+ */
+async function listedStory(request: APIRequestContext, title = unlikelyTitle()) {
+  const story = await writeStory(request)
+  await request.patch(`/api/stories/${story.id}`, { data: { title } })
+  await request.post(`/api/stories/${story.id}/publish`)
+  await request.post(`/api/stories/${story.id}/listed`)
+  return { ...story, title }
+}
 
-  for (const title of [earlier, later]) {
-    const story = await writeStory(request)
-    await request.patch(`/api/stories/${story.id}`, { data: { title } })
-    await request.post(`/api/stories/${story.id}/publish`)
-    await request.post(`/api/stories/${story.id}/listed`)
-  }
+/** The titles of the Catalogue's entries, in the order a Reader meets them. */
+async function titlesIn(page: Page) {
+  return await page.getByRole('listitem').getByRole('link', { name: /The night shift/ })
+    .allTextContents()
+}
+
+/** Whether `first` stands before `second` on the page, both being there. */
+async function standsBefore(page: Page, first: string, second: string) {
+  const titles = (await titlesIn(page)).map(title => title.trim())
+  expect(titles).toContain(first)
+  expect(titles).toContain(second)
+  return titles.indexOf(first) < titles.indexOf(second)
+}
+
+const MINUTE = 60_000
+
+/**
+ * The Catalogue counts the day a Story first entered it, not its first Publish:
+ * a Story published privately long ago and listed just now is what is new to the
+ * Catalogue.
+ */
+test('the Catalogue shows first the Story that entered it last, whenever it was published', async ({
+  request, browser, baseURL,
+}) => {
+  const [early, late] = [await listedStory(request), await listedStory(request)]
+  const now = Date.now()
+  await seedDates(early, { publishedAt: new Date(now - 30 * 24 * 60 * MINUTE), firstListedAt: new Date(now - MINUTE) })
+  await seedDates(late, { publishedAt: new Date(now - 2 * MINUTE), firstListedAt: new Date(now - 2 * MINUTE) })
 
   const catalogue = await catalogueFor(browser, baseURL)
-  const titles = await catalogue.getByRole('listitem').getByRole('link').allTextContents()
+  expect(await standsBefore(catalogue, early.title, late.title)).toBe(true)
 
-  expect(titles.indexOf(later!)).toBeLessThan(titles.indexOf(earlier!))
-  expect(titles.indexOf(later!)).toBeGreaterThan(-1)
+  // The day the card shows is the day it entered the Catalogue.
+  await expect(entryFor(catalogue, early.title).locator('time'))
+    .toHaveAttribute('datetime', new Date(now - MINUTE).toISOString())
+})
+
+/** Publishing the changes again leaves a Story where it stood. */
+test('republishing a Story does not move it in the Catalogue', async ({ request, browser, baseURL }) => {
+  const first = await listedStory(request)
+  const second = await listedStory(request)
+  const now = Date.now()
+  await seedDates(first, { publishedAt: new Date(now - 2 * MINUTE), firstListedAt: new Date(now - 2 * MINUTE) })
+  await seedDates(second, { publishedAt: new Date(now - MINUTE), firstListedAt: new Date(now - MINUTE) })
+
+  expect((await request.post(`/api/stories/${first.id}/publish`)).status()).toBe(200)
+
+  expect(await standsBefore(await catalogueFor(browser, baseURL), second.title, first.title)).toBe(true)
+})
+
+/** Taking a Story out and listing it again keeps the day it first entered. */
+test('unlisting a Story and listing it again does not move it', async ({ request, browser, baseURL }) => {
+  const first = await listedStory(request)
+  const second = await listedStory(request)
+  const now = Date.now()
+  await seedDates(first, { publishedAt: new Date(now - 2 * MINUTE), firstListedAt: new Date(now - 2 * MINUTE) })
+  await seedDates(second, { publishedAt: new Date(now - MINUTE), firstListedAt: new Date(now - MINUTE) })
+
+  expect((await request.delete(`/api/stories/${first.id}/listed`)).status()).toBe(200)
+  expect((await request.post(`/api/stories/${first.id}/listed`)).status()).toBe(200)
+
+  const catalogue = await catalogueFor(browser, baseURL)
+  expect(await standsBefore(catalogue, second.title, first.title)).toBe(true)
+  await expect(entryFor(catalogue, first.title).locator('time'))
+    .toHaveAttribute('datetime', new Date(now - 2 * MINUTE).toISOString())
 })
 
 test('a Story published before the Catalogue existed is not listed', async ({ author, browser, baseURL }) => {

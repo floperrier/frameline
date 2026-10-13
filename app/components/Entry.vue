@@ -31,6 +31,13 @@ const { story, to } = defineProps<{
     language: string
     synopsis?: string
     publishedAt: string | null
+    /**
+     * The day the Story first entered the Catalogue, which the Catalogue dates
+     * its entries by rather than by the first Publish — see
+     * `docs/adr/0084-the-catalogue-is-ordered-by-nothing-counted.md`. A shelf
+     * that passes none dates the Story by its Publish.
+     */
+    listedAt?: string | null
     authorId?: string
     authorName?: string | null
     /** The Image the Story is presented by and its crop point, or none. */
@@ -40,6 +47,9 @@ const { story, to } = defineProps<{
 
 const { published, languageNamed } = useEntries()
 const localePath = useLocalePath()
+
+/** The day the shelf dates the Story by: when it entered the Catalogue, or else its Publish. */
+const dated = computed(() => story.listedAt ?? story.publishedAt)
 </script>
 
 <template>
@@ -78,8 +88,8 @@ const localePath = useLocalePath()
         </NuxtLink>
       </span>
       <span class="eyebrow">{{ languageNamed(story.language) }}</span>
-      <time v-if="story.publishedAt" class="eyebrow" :datetime="story.publishedAt">
-        {{ published.format(new Date(story.publishedAt)) }}
+      <time v-if="dated" class="eyebrow" :datetime="dated">
+        {{ published.format(new Date(dated)) }}
       </time>
       <slot name="facts" />
     </p>

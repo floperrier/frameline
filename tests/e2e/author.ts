@@ -154,9 +154,26 @@ export async function readAuthorName(id: string) {
   return author!.name
 }
 
-/** Lists a Story past the API, on behalf of an Author nobody is signed in as. */
+/**
+ * Lists a Story past the API, on behalf of an Author nobody is signed in as, and
+ * dates its entry into the Catalogue the way the listing does: the first time.
+ */
 export async function seedListed(story: Story) {
-  await sql`update stories set listed = true where id = ${story.id}`
+  await sql`
+    update stories set listed = true, first_listed_at = coalesce(first_listed_at, now())
+    where id = ${story.id}`
+}
+
+/**
+ * Dates a Story's first Publish and its first entry into the Catalogue past the
+ * API, so a test can stand two Stories in an order that a day apart would give.
+ */
+export async function seedDates(story: Pick<Story, 'id'>, dates: { publishedAt: Date, firstListedAt: Date }) {
+  await sql`
+    update stories set
+      published_at = ${dates.publishedAt.toISOString()},
+      first_listed_at = ${dates.firstListedAt.toISOString()}
+    where id = ${story.id}`
 }
 
 /**
