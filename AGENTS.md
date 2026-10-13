@@ -65,12 +65,9 @@ n'est pas un motif de refus. Dans le cloud, GraphQL est refusé, et avec lui
 `pnpm pr`, `gh pr create`, `gh pr ready`, `gh issue comment`, `gh pr comment` et
 les autres commandes `gh` qui en dépendent : publier par `gh api` (REST) ou l'outil
 GitHub intégré.
-Une décision produit, ou un chemin du flow (`.github/`, `.claude/`, `.githooks/`) :
-`ready-for-human`, sans rien construire. Les autres chemins de
-`.github/agent-sensitive-paths` — schéma, migrations, authentification,
-dépendances, `compose.yaml`, `vercel.json` — se construisent et se valident, puis `agent-merge.yml` en laisse le merge au développeur : voir
-`docs/adr/0093-a-sensitive-path-is-built-and-merged-by-hand.md`. `dev` atteint
-`main` par une promotion humaine.
+Une décision produit : `ready-for-human`, sans rien construire. Aucun chemin ne
+retient un changement : voir `docs/adr/0094-no-path-is-held-back.md`. `dev`
+atteint `main` par une promotion humaine.
 
 ## Design
 

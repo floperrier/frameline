@@ -1,8 +1,12 @@
 ---
-status: accepted
+status: superseded by 0094
 ---
 
 # A sensitive path is built, and merged by hand
+
+Superseded by `docs/adr/0094-no-path-is-held-back.md`: the list is gone, and no
+change is held back by the paths it touches. What follows is the decision as it
+was taken.
 
 Decided on 2026-10-13, in issue #520. Amends
 `docs/adr/0076-the-backlog-works-itself.md` and
