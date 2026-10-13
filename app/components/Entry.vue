@@ -3,7 +3,8 @@
  * One Story as it is met before it is opened: its title, which is the link to
  * the Reading, the Synopsis its Author wrote for whoever is deciding whether to
  * read it, and what is said about it on the shelf — the Author who wrote it, the
- * Language it is written in and the day it was published.
+ * Language it is written in, how long its longest Reading takes and the day it
+ * was published.
  *
  * Drawn by every surface that hands over other people's work — the Catalogue, a
  * Profile, and an Author's own Lists — so they are all the same shelf, seen by
@@ -40,6 +41,11 @@ const { story, to } = defineProps<{
     listedAt?: string | null
     authorId?: string
     authorName?: string | null
+    /**
+     * How long the Story's longest Reading takes, in seconds, measured at its
+     * last Publish; null where it has not been measured yet, which shows none.
+     */
+    readingTime?: number | null
     /** The Image the Story is presented by and its crop point, or none. */
     cover?: Cover | null
   }
@@ -91,6 +97,12 @@ const dated = computed(() => story.listedAt ?? story.publishedAt)
       <time v-if="dated" class="eyebrow" :datetime="dated">
         {{ published.format(new Date(dated)) }}
       </time>
+      <!-- An upper bound, rounded, so it reads as the estimate it is, and a time
+           rather than a count, so it says nothing of how the Story is built. A
+           Story not measured yet shows none rather than a wrong one. -->
+      <span v-if="story.readingTime != null" class="eyebrow">
+        {{ $t('catalogue.readingTime', { minutes: readingMinutes(story.readingTime) }) }}
+      </span>
       <slot name="facts" />
     </p>
     <div v-if="$slots.default" class="doing">

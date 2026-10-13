@@ -158,8 +158,11 @@ export async function takeEdition(storyId: string, may: SQL) {
   if (unheld) return
 
   // The edition and the Story's row in one statement: the four answers the work is
-  // read by come off the row it is written to, the first Publish is the one the
-  // Catalogue keeps its order by, and the bytes no edition names any more are let go.
+  // read by come off the row it is written to, the first Publish is kept, and the
+  // bytes no edition names any more are let go. The Reading Time is measured on
+  // the work from every Scene, and the row picks the one its own Opening Scene
+  // names, so it is the Edition's and not the Story's of a moment before.
+  const times = readingTimesFrom(work)
   const { rows: [taken] } = await useDb().execute<{
     id: string
     publishedAt: string
@@ -180,6 +183,7 @@ export async function takeEdition(storyId: string, may: SQL) {
           'textFace', text_face,
           'textAlign', text_align),
         edition_at = now(),
+        reading_time = (${JSON.stringify(times)}::jsonb ->> opening_scene_id::text)::integer,
         published_at = coalesce(published_at, now())
       where id = ${storyId}::uuid and ${may}
         and (opening_scene_id is null or opening_scene_id::text in (

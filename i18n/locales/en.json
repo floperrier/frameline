@@ -72,7 +72,8 @@
     "search": "Search",
     "nothingMatches": "Nothing listed in the Catalogue matches this search.",
     "clear": "Clear the Search",
-    "by": "By"
+    "by": "By",
+    "readingTime": "up to {minutes} min"
   },
   "author": {
     "name": "Your Name",

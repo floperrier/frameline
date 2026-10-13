@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { APIRequestContext, Browser, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { begin, live, test, seedDates, seedPublished, seedStory, writeStory } from './author'
+import { begin, live, test, seedDates, seedListed, seedPublished, seedStory, writeStory } from './author'
 
 /**
  * The Catalogue as anyone browsing meets it. Every assertion below about what is
@@ -384,4 +384,31 @@ test('the search works without JavaScript', async ({ request, browser, baseURL }
 
   await expect(page).toHaveURL(new RegExp(`/catalogue\\?q=${token}`))
   await expect(entryFor(page, story.title)).toBeVisible()
+})
+
+/**
+ * The Reading Time: measured from the Edition at each Publish and shown on the
+ * card as an upper bound, rounded to the minute.
+ */
+test('a published Story\'s card shows how long its longest Reading takes', async ({
+  request, browser, baseURL, author,
+}) => {
+  const story = await listedStory(request)
+
+  const entry = entryFor(await catalogueFor(browser, baseURL, story.title), story.title)
+  await expect(entry).toContainText('up to 1 min')
+
+  // Publishing the changes measures it again, and it stays.
+  expect((await request.post(`/api/stories/${story.id}/publish`)).status()).toBe(200)
+  await expect(entryFor(await catalogueFor(browser, baseURL, story.title), story.title))
+    .toContainText('up to 1 min')
+
+  // A Story published before the figure existed shows none rather than a wrong one.
+  const title = unlikelyTitle()
+  const older = await seedStory(author, title)
+  await seedPublished(older)
+  await seedListed(older)
+  const bare = entryFor(await catalogueFor(browser, baseURL, title), title)
+  await expect(bare).toBeVisible()
+  await expect(bare).not.toContainText('up to')
 })
