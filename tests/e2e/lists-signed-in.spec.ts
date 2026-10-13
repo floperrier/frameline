@@ -12,8 +12,8 @@ import {
 } from './author'
 
 /** A title no other Story in the database has, so a locator can trust it. */
-function unlikelyTitle() {
-  return `The night shift ${randomUUID()}`
+function unlikelyTitle(token: string = randomUUID()) {
+  return `The night shift ${token} ${randomUUID().slice(0, 8)}`
 }
 
 /**
@@ -21,8 +21,8 @@ function unlikelyTitle() {
  * people's work found where it is found, so nothing here is written by the
  * Author doing the gathering.
  */
-async function listedByAnother(otherAuthor: Author) {
-  const title = unlikelyTitle()
+async function listedByAnother(otherAuthor: Author, token?: string) {
+  const title = unlikelyTitle(token)
   const story = await seedStory(otherAuthor, title)
   await seedPublished(story)
   await seedListed(story)
@@ -61,7 +61,7 @@ async function gathered(page: Page, act: () => Promise<void>) {
 test('an Author favourites a Story where they meet it, and finds it in Favourites', async ({ page, otherAuthor }) => {
   const story = await listedByAnother(otherAuthor)
 
-  await page.goto('/catalogue')
+  await page.goto(`/catalogue?q=${encodeURIComponent(story.title)}`)
   await expect(favouriting(page, story.title)).toHaveAttribute('aria-pressed', 'false')
 
   await favouriting(page, story.title).click()
@@ -90,8 +90,10 @@ test('an Author favourites a Story where they meet it, and finds it in Favourite
 
 /** A List of the Author's own: written, filled, emptied, renamed and deleted. */
 test('an Author writes a List, gathers Stories into it, and takes it away', async ({ page, otherAuthor }) => {
-  const first = await listedByAnother(otherAuthor)
-  const second = await listedByAnother(otherAuthor)
+  // One token for both, so the one search the Catalogue is opened at finds them.
+  const token = randomUUID()
+  const first = await listedByAnother(otherAuthor, token)
+  const second = await listedByAnother(otherAuthor, token)
 
   await page.goto('/lists')
   await page.getByLabel('Title of a new List').fill('To read on the train')
@@ -99,7 +101,7 @@ test('an Author writes a List, gathers Stories into it, and takes it away', asyn
   await expect(page.getByRole('heading', { name: 'To read on the train' })).toBeVisible()
 
   // A Story is put on a shelf where the Story is, which is the Catalogue.
-  await page.goto('/catalogue')
+  await page.goto(`/catalogue?q=${token}`)
   for (const story of [first, second]) {
     // A `summary` is not a button and is addressed as what it is: the one
     // disclosure inside this Story's entry.

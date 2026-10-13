@@ -68,6 +68,10 @@
     "heading": "Catalogue",
     "line": "Les Récits que leurs Auteurs ont répertoriés ici. N’importe qui peut les lire, avec ou sans compte.",
     "none": "Aucun Récit n’est encore répertorié. Le premier qu’un Auteur répertorie paraîtra ici.",
+    "searchLabel": "Chercher un titre, un Synopsis ou un Nom",
+    "search": "Chercher",
+    "nothingMatches": "Rien de répertorié au Catalogue ne répond à cette recherche.",
+    "clear": "Effacer la recherche",
     "by": "Par"
   },
   "author": {

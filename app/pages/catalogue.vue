@@ -6,10 +6,31 @@
 //
 // No middleware: a Reader has no account, and an Author browsing is a Reader
 // like any other until they open the bench.
+//
+// What a Reader asks of it lives in the URL and nowhere else, so a narrowed
+// Catalogue is a link, the Back button returns to it, and the page re-fetches
+// whenever the query changes. The controls are a plain `GET` form, so they work
+// with no JavaScript at all: submitting it is following the URL it answers.
 const localePath = useLocalePath()
+const route = useRoute()
 const { loggedIn } = useUserSession()
-const { data: catalogue } = await useFetch('/api/catalogue')
+const query = computed(() => catalogueQuery(catalogueState(route.query)))
+const asked = computed(() => catalogueState(route.query))
+const { data: catalogue } = await useFetch('/api/catalogue', { query })
 const { t } = useI18n()
+
+/** Whether the Reader has narrowed the Catalogue, which is what an empty answer is owed. */
+const narrowed = computed(() => Object.keys(query.value).length > 0)
+
+/**
+ * The search, sent the way the form would send it, minus the empty values a
+ * browser writes for every field it has: the URL a Reader is left holding names
+ * what they asked for and nothing else.
+ */
+async function search(event: Event) {
+  const form = new FormData(event.target as HTMLFormElement)
+  await navigateTo({ query: catalogueQuery(catalogueState(Object.fromEntries(form))) })
+}
 
 useHead({ title: () => t('catalogue.heading') })
 </script>
@@ -31,11 +52,33 @@ useHead({ title: () => t('catalogue.heading') })
       <NuxtLink :to="localePath('/lists')">{{ $t('lists.yourLists') }}</NuxtLink>
     </p>
 
-    <p v-if="!catalogue?.length" class="none">{{ $t('catalogue.none') }}</p>
+    <!-- The search, as a form whose answer is a URL: without JavaScript the
+         browser follows it, and with it the same URL is pushed without the empty
+         fields. The field keeps what the URL asked for, so a reloaded search is
+         the search still filled in. -->
+    <form class="asking" role="search" method="get" :action="localePath('/catalogue')" @submit.prevent="search">
+      <label class="eyebrow" for="catalogue-q">{{ $t('catalogue.searchLabel') }}</label>
+      <div class="row">
+        <input
+          id="catalogue-q"
+          name="q"
+          type="search"
+          :value="asked.q"
+          :maxlength="CATALOGUE_SEARCH_MAX_LENGTH"
+        >
+        <button type="submit">{{ $t('catalogue.search') }}</button>
+      </div>
+    </form>
+
+    <p v-if="!catalogue?.length && narrowed" class="none">
+      {{ $t('catalogue.nothingMatches') }}
+      <NuxtLink :to="localePath('/catalogue')">{{ $t('catalogue.clear') }}</NuxtLink>
+    </p>
+    <p v-else-if="!catalogue?.length" class="none">{{ $t('catalogue.none') }}</p>
     <!-- One entry a Story, and the entry is the link: the Catalogue's whole job
          is to hand a Reader the public link they were never sent. It carries no
-         count and no rating — nothing here is a score, and the order is the date
-         alone. -->
+         count and no rating — nothing here is a score, and nothing counted
+         orders it. -->
     <ul v-else class="entries">
       <Entry v-for="story in catalogue" :key="story.id" :story="story">
         <Gathering :story-id="story.id" :title="story.title" />
@@ -98,6 +141,24 @@ h1 {
 .none {
   color: var(--muted);
   max-inline-size: 44ch;
+}
+
+/* What the Reader asks of the shelf, stencilled like every label on it, above
+   the entries it narrows. */
+.asking {
+  display: grid;
+  gap: var(--s1);
+}
+
+.asking .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.asking input {
+  flex: 1 1 16rem;
+  min-inline-size: 0;
 }
 
 /* A hairline between entries and nothing else, as on the list of an Author's own

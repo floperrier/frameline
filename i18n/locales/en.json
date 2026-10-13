@@ -68,6 +68,10 @@
     "heading": "Catalogue",
     "line": "Stories their Authors have listed here. Anyone can read them, with or without an account.",
     "none": "No Stories are listed yet. The first one an Author lists appears here.",
+    "searchLabel": "Look for a title, a Synopsis or a Name",
+    "search": "Search",
+    "nothingMatches": "Nothing listed in the Catalogue matches this search.",
+    "clear": "Clear the Search",
     "by": "By"
   },
   "author": {
