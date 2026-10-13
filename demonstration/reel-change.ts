@@ -92,6 +92,7 @@ const BOULEVARD: Image = {
 
 export const REEL_CHANGE: Work = {
   title: 'Reel Change',
+  genres: ['drama'],
 
   scenes: [
     {

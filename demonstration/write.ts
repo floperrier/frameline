@@ -169,6 +169,8 @@ if (work === REEL_CHANGE) {
       + `Write one on ${origin}/stories, then run this again.`)
   }
 
+  // A Story in the Catalogue is filed under a Genre, which listing asks for.
+  await api('PATCH', `/api/stories/${story.id}`, { genres: work.genres })
   await api('POST', `/api/stories/${story.id}/listed`)
 }
 

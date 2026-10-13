@@ -267,6 +267,13 @@
       "when": 1791923083437,
       "tag": "0037_a_storys_reading_time_is_measured_at_every_publish",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1791923743585,
+      "tag": "0038_a_story_is_filed_under_one_or_two_genres",
+      "breakpoints": true
     }
   ]
 }

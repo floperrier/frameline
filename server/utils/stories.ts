@@ -3,7 +3,7 @@ import { alias } from 'drizzle-orm/pg-core'
 import type { H3Event } from 'h3'
 import { exits, scenes, shots, stories } from '../db/schema'
 import { useDb } from '../db'
-import type { Cover } from '../../shared/utils/stories'
+import type { Cover, StoryGenre } from '../../shared/utils/stories'
 import { ALIGNS, FACES, formattedIn } from '../../shared/utils/formatted'
 import type { Align, Face } from '../../shared/utils/formatted'
 
@@ -77,10 +77,14 @@ export async function readStoryCover(event: H3Event, storyId: string) {
 }
 
 /**
- * What a PATCH may change about a Story: its title, its Synopsis, its Cover, or
- * any of them together. Each is read only where the body names it, so the bench
- * can write the one field the Author typed in without carrying the others along
- * — three fields in one header, each landing on its own.
+ * What a PATCH may change about a Story: its title, its Synopsis, its Cover, its
+ * Genres, how it is read, or any of them together. The Genres are presentation,
+ * written live like the title and never part of an Edition, so a Listed Story's
+ * are changed without unlisting it.
+ *
+ * Each is read only where the body names it, so the bench can write the one
+ * field the Author typed in without carrying the others along — several fields
+ * in one header, each landing on its own.
  *
  * A body naming none is a request that changes nothing, and is refused as a
  * title being asked for: the title is the one thing a Story cannot be without,
@@ -94,6 +98,7 @@ export async function readStoryChanges(event: H3Event, storyId: string) {
     stepsBack?: unknown
     textFace?: unknown
     textAlign?: unknown
+    genres?: unknown
   }>(event)
   const changes: {
     title?: string
@@ -102,6 +107,7 @@ export async function readStoryChanges(event: H3Event, storyId: string) {
     stepsBack?: boolean
     textFace?: Face
     textAlign?: Align
+    genres?: StoryGenre[]
   } = {}
 
   if (body?.title !== undefined) changes.title = await readStoryTitle(event)
@@ -110,6 +116,7 @@ export async function readStoryChanges(event: H3Event, storyId: string) {
   if (body?.stepsBack !== undefined) changes.stepsBack = await readStoryStepsBack(event)
   if (body?.textFace !== undefined) changes.textFace = await readStoryText(event, 'textFace', FACES)
   if (body?.textAlign !== undefined) changes.textAlign = await readStoryText(event, 'textAlign', ALIGNS)
+  if (body?.genres !== undefined) changes.genres = await readStoryGenres(event)
   // Which is a title asked for, by the reader that phrases the refusal.
   if (!Object.keys(changes).length) await readStoryTitle(event)
 
@@ -208,6 +215,28 @@ export async function readStoryLanguage(event: H3Event): Promise<StoryLanguage> 
   }
 
   return language as StoryLanguage
+}
+
+/**
+ * Reads the Genres a Story is filed under. A trust boundary like the Language,
+ * held to the closed list the listing offers: at least one, because a Story in
+ * the Catalogue is found by its Genre, at most `STORY_GENRES_MAX`, so that a
+ * Genre stays meaningful, and none twice. Anything else is refused whole rather
+ * than trimmed into something the Author did not choose.
+ */
+export async function readStoryGenres(event: H3Event): Promise<StoryGenre[]> {
+  const body = await readBody<{ genres?: unknown }>(event)
+  const genres = body?.genres
+
+  if (!Array.isArray(genres)
+    || genres.length < 1
+    || genres.length > STORY_GENRES_MAX
+    || new Set(genres).size !== genres.length
+    || !genres.every(genre => STORY_GENRES.includes(genre as StoryGenre))) {
+    throw createError({ statusCode: 400, message: saying(event)('refusals.storyGenres') })
+  }
+
+  return genres as StoryGenre[]
 }
 
 /**

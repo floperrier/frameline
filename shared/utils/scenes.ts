@@ -1085,6 +1085,8 @@ export type StoryInEditor = {
   }
   /** Whether the Author has put the published Story in the Catalogue. */
   listed: boolean
+  /** The Genres the Story is filed under in the Catalogue, codes from `STORY_GENRES`. */
+  genres: string[]
   /** What an Exit of this Story answers when it has not answered for itself. */
   stepsBack: boolean
   /** The face a run that says nothing is set in, and where a line that says nothing stands. */

@@ -1,5 +1,5 @@
-import { STORY_LANGUAGES } from './stories'
-import type { StoryLanguage } from './stories'
+import { STORY_GENRES, STORY_LANGUAGES } from './stories'
+import type { StoryGenre, StoryLanguage } from './stories'
 
 /**
  * The orders the Catalogue is offered in. None of them counts anything: the day
@@ -38,6 +38,8 @@ export type CatalogueState = {
   q: string
   /** The one Language kept to, or none; nothing picks one for the Reader. */
   language: StoryLanguage | ''
+  /** The one Genre kept to, or none. */
+  genre: StoryGenre | ''
   /** The band of Reading Time kept to, or none. */
   time: ReadingTimeBand | ''
   /** The order the Stories stand in. */
@@ -75,6 +77,7 @@ export function catalogueState(query: Record<string, unknown>): CatalogueState {
   return {
     q: first(query.q).trim().slice(0, CATALOGUE_SEARCH_MAX_LENGTH),
     language: oneOf(STORY_LANGUAGES, first(query.language)) ?? '',
+    genre: oneOf(STORY_GENRES, first(query.genre)) ?? '',
     time: oneOf(READING_TIME_BAND_NAMES, first(query.time)) ?? '',
     sort: oneOf(CATALOGUE_SORTS, first(query.sort)) ?? CATALOGUE_SORTS[0],
     page: pageOf(first(query.page)),
@@ -105,6 +108,7 @@ export function catalogueQuery(state: CatalogueState): Record<string, string> {
   const query: Record<string, string> = {}
   if (state.q) query.q = state.q
   if (state.language) query.language = state.language
+  if (state.genre) query.genre = state.genre
   if (state.time) query.time = state.time
   if (state.sort !== CATALOGUE_SORTS[0]) query.sort = state.sort
   if (state.page > 1) query.page = String(state.page)

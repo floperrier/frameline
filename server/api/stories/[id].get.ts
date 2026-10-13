@@ -27,6 +27,7 @@ export default defineEventHandler(async (event) => {
       editionAt: stories.editionAt,
       edition: stories.edition,
       listed: stories.listed,
+      genres: stories.genres,
       stepsBack: stories.stepsBack,
       textFace: stories.textFace,
       textAlign: stories.textAlign,

@@ -26,6 +26,7 @@ import type {
 } from '../../shared/utils/scenes'
 import type { Align, Face, Formatted } from '../../shared/utils/formatted'
 import type { Edition } from '../../shared/utils/reading'
+import type { StoryGenre } from '../../shared/utils/stories'
 
 // `name` is the Name an Author appears under wherever somebody else meets them:
 // beside a Listed Story, on their Profile. It arrives from the provider they
@@ -99,6 +100,12 @@ export const authors = pgTable('authors', {
 // the top — see `docs/adr/0084-the-catalogue-is-ordered-by-nothing-counted.md`.
 // Null until the Story is first Listed; the migration that added it gave every
 // Story Listed then its `published_at`.
+//
+// `genres` is the one or two Genres the Story is filed under in the Catalogue,
+// as codes from `STORY_GENRES`, which listing asks for. Part of how the Story is
+// presented, like its title and its Synopsis, so it is read live and never part
+// of an Edition; kept when the Story is unlisted, so listing it again asks for
+// nothing. Empty by default, which is every Story written before Genres existed.
 // `steps_back` is what an Exit of this Story answers when it has not answered
 // for itself: true, the default, is the Reading a step back crosses every Exit
 // of — which is every Story written before the column existed, reading exactly
@@ -116,6 +123,7 @@ export const stories = pgTable('stories', {
   publishedAt: timestamp('published_at', { withTimezone: true }),
   listed: boolean('listed').notNull().default(false),
   firstListedAt: timestamp('first_listed_at', { withTimezone: true }),
+  genres: text('genres').array().$type<StoryGenre[]>().notNull().default(sql`'{}'::text[]`),
   // What Readers of a published Story read: the work as it stood when its Author
   // last published it, and when that was. Null on a Story never published, and on
   // one published before editions existed until it is first read — see

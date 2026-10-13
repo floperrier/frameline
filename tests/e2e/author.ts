@@ -179,13 +179,17 @@ export async function seedListedStories(author: Author, titles: string[]) {
 }
 
 /**
- * Writes what a shelf presents a Story by past the API: its Language, and the
- * Reading Time a Publish would have measured.
+ * Writes what a shelf presents a Story by past the API: its Language, its
+ * Genres, and the Reading Time a Publish would have measured.
  */
 export async function seedPresentation(story: Pick<Story, 'id'>, presented: {
   language?: string
   readingTime?: number | null
+  genres?: string[]
 }) {
+  if (presented.genres !== undefined) {
+    await sql`update stories set genres = ${presented.genres}::text[] where id = ${story.id}`
+  }
   if (presented.language !== undefined) {
     await sql`update stories set language = ${presented.language} where id = ${story.id}`
   }
@@ -650,8 +654,11 @@ async function sealAuthorSession(author: Author) {
  * Author's own hands would write it — so a Preview and a Reading both have real
  * Shots to play. Shared by the two specs that need a readable Story, because a
  * Reader must meet exactly what a Preview showed.
+ *
+ * It is filed under a Genre, so that a spec listing it is asked for nothing it
+ * is not about; a spec about Genres asks for a Story filed under none.
  */
-export async function writeStory(request: APIRequestContext, language = 'en') {
+export async function writeStory(request: APIRequestContext, language = 'en', genres: string[] = ['drama']) {
   const story = await (await request.post('/api/stories', {
     data: { title: 'A Story', language },
   })).json()
@@ -675,6 +682,7 @@ export async function writeStory(request: APIRequestContext, language = 'en') {
     data: { toSceneId: scenes[1]!.id },
   })).json()
   await request.patch(`/api/exits/${exit.id}`, { data: { text: 'Follow her out' } })
+  if (genres.length) await request.patch(`/api/stories/${story.id}`, { data: { genres } })
 
   return story as { id: string, title: string, language: string }
 }

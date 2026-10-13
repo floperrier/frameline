@@ -33,6 +33,7 @@ export default defineEventHandler(async (event) => {
       language: stories.language,
       synopsis: stories.synopsis,
       readingTime: stories.readingTime,
+      genres: stories.genres,
       publishedAt: stories.publishedAt,
       coverShotId: coverShotOf,
       cropX: coverShot.cropX,
