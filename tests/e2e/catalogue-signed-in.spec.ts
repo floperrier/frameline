@@ -219,8 +219,9 @@ test('the Catalogue shows first the Story that entered it last, whenever it was 
   const [early, late] = [
     await listedStory(request, unlikelyTitle(token)), await listedStory(request, unlikelyTitle(token))]
   const now = Date.now()
-  await seedDates(early, { publishedAt: new Date(now - 30 * 24 * 60 * MINUTE), firstListedAt: new Date(now - MINUTE) })
-  await seedDates(late, { publishedAt: new Date(now - 2 * MINUTE), firstListedAt: new Date(now - 2 * MINUTE) })
+  const ago = (minutes: number) => new Date(now - minutes * MINUTE)
+  await seedDates(early, { publishedAt: ago(30 * 24 * 60), firstListedAt: ago(1) })
+  await seedDates(late, { publishedAt: ago(2), firstListedAt: ago(2) })
 
   const catalogue = await catalogueFor(browser, baseURL, token)
   expect(await standsBefore(catalogue, early.title, late.title)).toBe(true)
@@ -236,12 +237,14 @@ test('republishing a Story does not move it in the Catalogue', async ({ request,
   const first = await listedStory(request, unlikelyTitle(token))
   const second = await listedStory(request, unlikelyTitle(token))
   const now = Date.now()
-  await seedDates(first, { publishedAt: new Date(now - 2 * MINUTE), firstListedAt: new Date(now - 2 * MINUTE) })
-  await seedDates(second, { publishedAt: new Date(now - MINUTE), firstListedAt: new Date(now - MINUTE) })
+  const ago = (minutes: number) => new Date(now - minutes * MINUTE)
+  await seedDates(first, { publishedAt: ago(2), firstListedAt: ago(2) })
+  await seedDates(second, { publishedAt: ago(1), firstListedAt: ago(1) })
 
   expect((await request.post(`/api/stories/${first.id}/publish`)).status()).toBe(200)
 
-  expect(await standsBefore(await catalogueFor(browser, baseURL, token), second.title, first.title)).toBe(true)
+  const catalogue = await catalogueFor(browser, baseURL, token)
+  expect(await standsBefore(catalogue, second.title, first.title)).toBe(true)
 })
 
 /** Taking a Story out and listing it again keeps the day it first entered. */
@@ -250,8 +253,9 @@ test('unlisting a Story and listing it again does not move it', async ({ request
   const first = await listedStory(request, unlikelyTitle(token))
   const second = await listedStory(request, unlikelyTitle(token))
   const now = Date.now()
-  await seedDates(first, { publishedAt: new Date(now - 2 * MINUTE), firstListedAt: new Date(now - 2 * MINUTE) })
-  await seedDates(second, { publishedAt: new Date(now - MINUTE), firstListedAt: new Date(now - MINUTE) })
+  const ago = (minutes: number) => new Date(now - minutes * MINUTE)
+  await seedDates(first, { publishedAt: ago(2), firstListedAt: ago(2) })
+  await seedDates(second, { publishedAt: ago(1), firstListedAt: ago(1) })
 
   expect((await request.delete(`/api/stories/${first.id}/listed`)).status()).toBe(200)
   expect((await request.post(`/api/stories/${first.id}/listed`)).status()).toBe(200)
@@ -338,7 +342,9 @@ test('a search ignores accents', async ({ request, browser, baseURL }) => {
 })
 
 /** What is typed is what is looked for: a wildcard of `LIKE` is a character like any other. */
-test('a percent sign and an underscore are looked for as themselves', async ({ request, browser, baseURL }) => {
+test('a percent sign and an underscore are looked for as themselves', async ({
+  request, browser, baseURL,
+}) => {
   const token = randomUUID()
   const percent = await listedStory(request, `${token} 100% sure`)
   const digits = await listedStory(request, `${token} 1000 sure`)

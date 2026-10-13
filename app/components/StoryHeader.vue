@@ -827,9 +827,6 @@ header {
   gap: var(--s2);
 }
 
-.signing .row input {
-  flex: 1 1 14rem;
-}
 
 /* A published Story wears the grease pencil: the link is the one thing on the
    bench that anyone outside can reach. Along the edge it is a mark rather than a
