@@ -1,7 +1,7 @@
 # Merge — workflow GitHub Actions, déclenché par le label agent-verified
-# Lit : la PR vérifiée, .github/agent-sensitive-paths depuis dev, les issues dev-broken
-# Écrit : squash dans dev par auto-merge, sans le pied du proxy ; renvoi vers toi
-#         (ready-for-human) si chemin sensible ; retour en to-verify si dev est rouge.
+# Lit : la PR vérifiée, les issues dev-broken
+# Écrit : squash dans dev par auto-merge, sans le pied du proxy ; retour en
+#         to-verify si dev est rouge.
 #         Un nouveau push sur une PR vérifiée annule la vérification. Ne touche
 #         jamais à main : la promotion reste humaine.
 name: agent-merge
@@ -38,9 +38,6 @@ jobs:
         with:
           client-id: ${{ vars.AGENT_APP_CLIENT_ID }}
           private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
-      - uses: actions/checkout@v6
-        with:
-          ref: dev
       - env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
         run: |
@@ -54,12 +51,6 @@ jobs:
               gh pr comment "$PR" --repo "$REPO" --body "dev est rouge : merge suspendu jusqu'à sa réparation, puis nouvelle validation."
               exit 0
             fi
-          fi
-          files=$(gh pr diff "$PR" --repo "$REPO" --name-only)
-          if printf '%s\n' "$files" | grep -qEf .github/agent-sensitive-paths; then
-            gh pr edit "$PR" --repo "$REPO" --remove-label agent-verified --add-label ready-for-human
-            gh pr comment "$PR" --repo "$REPO" --body "Chemin sensible touché : revue et merge manuels."
-            exit 0
           fi
           # The cloud's GitHub proxy ends every description a session posts with a line
           # naming the tool, and the squash takes the description as its message.

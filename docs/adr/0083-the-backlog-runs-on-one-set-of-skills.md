@@ -7,10 +7,9 @@ status: accepted
 Decided on 2026-10-11. Amends `docs/adr/0076-the-backlog-works-itself.md` on
 which skills the routines run, who cuts a spec, and what merges into `dev`.
 
-Amended in issue #520, by
-`docs/adr/0093-a-sensitive-path-is-built-and-merged-by-hand.md`: a change to the
-schema, the migrations, the sign-in, the dependencies, `compose.yaml` or
-`vercel.json` is built and verified, and only its merge is the developer's.
+Amended in issue #522, by `docs/adr/0094-no-path-is-held-back.md`:
+`.github/agent-sensitive-paths` is gone, and `agent-merge.yml` merges whatever
+the Validation passes, whichever paths it touches.
 
 The routines 0076 set up ran on two methods at once. Triage and specs followed
 `mattpocock/skills`, building and verifying followed pstack's `poteto-mode`, and
