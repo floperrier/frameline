@@ -72,10 +72,19 @@
     "search": "Chercher",
     "language": "Langue du Récit",
     "anyLanguage": "Toutes les Langues",
+    "time": "Temps de lecture",
+    "anyTime": "Tout Temps de lecture",
+    "times": {
+      "short": "Moins de 10 minutes",
+      "medium": "De 10 à 30 minutes",
+      "long": "Plus de 30 minutes"
+    },
     "sort": "Ordre",
     "sorts": {
       "recent": "Répertoriés le plus récemment",
-      "shuffle": "Mélangés pour aujourd’hui"
+      "shuffle": "Mélangés pour aujourd’hui",
+      "shortest": "Les plus courts",
+      "longest": "Les plus longs"
     },
     "nothingMatches": "Rien de répertorié au Catalogue ne répond à cette recherche.",
     "clear": "Effacer la recherche",

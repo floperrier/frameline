@@ -113,6 +113,15 @@ useHead({ title: () => t('catalogue.heading') })
           </select>
         </p>
         <p>
+          <label class="eyebrow" for="catalogue-time">{{ $t('catalogue.time') }}</label>
+          <select id="catalogue-time" name="time" @change="narrow">
+            <option value="" :selected="!asked.time">{{ $t('catalogue.anyTime') }}</option>
+            <option v-for="band in READING_TIME_BAND_NAMES" :key="band" :value="band" :selected="band === asked.time">
+              {{ $t(`catalogue.times.${band}`) }}
+            </option>
+          </select>
+        </p>
+        <p>
           <label class="eyebrow" for="catalogue-sort">{{ $t('catalogue.sort') }}</label>
           <select id="catalogue-sort" name="sort" @change="narrow">
             <option v-for="sort in CATALOGUE_SORTS" :key="sort" :value="sort" :selected="sort === asked.sort">

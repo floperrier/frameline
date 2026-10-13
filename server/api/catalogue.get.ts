@@ -2,7 +2,7 @@ import { and, asc, eq, isNotNull, sql } from 'drizzle-orm'
 import type { AnyColumn, SQL } from 'drizzle-orm'
 import { authors, stories } from '../db/schema'
 import { useDb } from '../db'
-import type { CatalogueSort } from '../../shared/utils/catalogue'
+import type { CatalogueSort, ReadingTimeBand } from '../../shared/utils/catalogue'
 
 /**
  * The Catalogue: the Listed Stories a Reader asked for, the latest to enter it
@@ -49,6 +49,7 @@ export default defineEventHandler(async (event) => {
   const where: SQL[] = [eq(stories.listed, true), isNotNull(stories.publishedAt)]
   if (state.q) where.push(searched(state.q))
   if (state.language) where.push(eq(stories.language, state.language))
+  if (state.time) where.push(lasting(state.time))
 
   const [rows, [counted]] = await Promise.all([useDb()
     .select({
@@ -104,7 +105,19 @@ function ordered(sort: CatalogueSort) {
     const today = new Date().toISOString().slice(0, 10)
     return sql`md5(${stories.id}::text || ${today})`
   }
+  // A Story not measured yet comes last either way round: it is neither short
+  // nor long, and is not to be met first as if it were.
+  if (sort === 'shortest') return sql`${stories.readingTime} asc nulls last`
+  if (sort === 'longest') return sql`${stories.readingTime} desc nulls last`
   return sql`${stories.firstListedAt} desc nulls last`
+}
+
+/** The Stories whose Reading Time falls in a band; one not measured falls in none. */
+function lasting(time: ReadingTimeBand) {
+  const band: { under?: number, from?: number, upTo?: number, over?: number } = READING_TIME_BANDS[time]
+  if (band.under !== undefined) return sql`${stories.readingTime} < ${band.under}`
+  if (band.over !== undefined) return sql`${stories.readingTime} > ${band.over}`
+  return sql`${stories.readingTime} between ${band.from} and ${band.upTo}`
 }
 
 /**
