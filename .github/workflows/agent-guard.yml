@@ -2,13 +2,17 @@ name: agent-guard
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
+# It runs a script from the pull request's own branch.
+permissions:
+  contents: read
 jobs:
   agent-guard:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Aucune trace d'outil
         env:
           BODY: ${{ github.event.pull_request.body }}

@@ -31,8 +31,32 @@ jobs:
           log=$(git log --first-parent --format='%s' origin/main..origin/dev)
           [ -n "$log" ] || exit 0
           {
-            echo "Promotion de dev vers main. Relis le journal et le diff cumulé, passe la PR en prête, puis merge en merge commit."
+            echo "Promotion de dev vers main. Relis d'abord les nouvelles dépendances et les zones à relire, puis le journal et le diff cumulé, passe la PR en prête, puis merge en merge commit."
             echo
+            # New direct dependencies (package.json) and new crates (Cargo.lock).
+            deps=""
+            q='[.dependencies, .devDependencies, .optionalDependencies, .peerDependencies] | map((. // {}) | keys) | add | .[]'
+            for f in $(git diff --name-only origin/main origin/dev -- '*package.json'); do
+              before=$( (git show "origin/main:$f" 2>/dev/null || echo '{}') | jq -r "$q" | sort -u)
+              after=$( (git show "origin/dev:$f" 2>/dev/null || echo '{}') | jq -r "$q" | sort -u)
+              deps="$deps$(comm -13 <(printf '%s\n' "$before") <(printf '%s\n' "$after") | sed "s#^#$f : #")"$'\n'
+            done
+            for f in $(git diff --name-only origin/main origin/dev -- '*Cargo.lock'); do
+              before=$( (git show "origin/main:$f" 2>/dev/null || true) | sed -n 's/^name = "\(.*\)"/\1/p' | sort -u)
+              after=$(git show "origin/dev:$f" | sed -n 's/^name = "\(.*\)"/\1/p' | sort -u)
+              deps="$deps$(comm -13 <(printf '%s\n' "$before") <(printf '%s\n' "$after") | sed "s#^#$f : #")"$'\n'
+            done
+            deps=$(printf '%s' "$deps" | sed '/^$/d')
+            if [ -n "$deps" ]; then echo "## Nouvelles dépendances"; printf '%s\n' "$deps" | sed 's/^/- /'; echo; fi
+            # The areas to read, declared in .github/promotion-watch.
+            if [ -f .github/promotion-watch ]; then
+              changed=$(git diff --name-only origin/main origin/dev)
+              while IFS='|' read -r title regex; do
+                case "$title" in ''|'#'*) continue ;; esac
+                hits=$(printf '%s\n' "$changed" | grep -E "$regex" || true)
+                if [ -n "$hits" ]; then echo "## À relire : $title"; printf '%s\n' "$hits" | sed 's/^/- /'; echo; fi
+              done < .github/promotion-watch
+            fi
             for t in feat fix perf refactor docs test build ci chore revert; do
               lines=$(printf '%s\n' "$log" | grep -E "^$t(\(|!|:)" || true)
               if [ -n "$lines" ]; then echo "## $t"; printf '%s\n' "$lines" | sed 's/^/- /'; echo; fi

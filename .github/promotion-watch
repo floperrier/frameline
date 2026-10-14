@@ -1,0 +1,5 @@
+# Titre|regex des chemins : chaque zone touchée depuis la dernière promotion est listée dans sa PR.
+Schéma et migrations|^server/db/(schema\.ts|migrations/)
+Authentification et sessions|^server/(routes/auth/|middleware/|utils/authors\.ts)
+Le flow (workflows, routines, hooks, skills)|^(\.github/|\.claude/|\.githooks/|scripts/)
+Dépendances et scripts d'installation|(^|/)package\.json$|^pnpm-(lock|workspace)\.yaml$

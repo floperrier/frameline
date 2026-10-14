@@ -10,6 +10,10 @@ Decided on 2026-10-13, in issue #522. Supersedes
 `docs/adr/0083-the-backlog-runs-on-one-set-of-skills.md` on what holds a change
 back from `dev`.
 
+Amended in issue #526, by `docs/adr/0095-the-flow-settles-what-it-can-undo.md`:
+the approved install scripts are held back, and a small product decision that can
+be undone is the agent's to settle.
+
 `.github/agent-sensitive-paths` is gone. The Atelier builds whatever a spec or a
 ticket asks for, the flow's own workflows, routines and hooks included. The
 Validation judges it like any other change, and `agent-merge.yml` merges what

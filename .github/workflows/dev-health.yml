@@ -1,5 +1,5 @@
 # Frein d'urgence — workflow déclenché à la fin de chaque CI de dev, sans modèle
-# Lit : le résultat de la CI de dev
+# Lit : le résultat de la CI d'un push sur dev (celle des PR ne compte pas)
 # Écrit : une issue dev-broken prioritaire ; tant qu'elle est ouverte, agent-merge ne
 #         merge que la PR qui la ferme. Une CI de dev verte la ferme.
 name: dev-health

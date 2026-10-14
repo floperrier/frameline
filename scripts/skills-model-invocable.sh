@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Rend invocables par le modèle les skills de Matt qu'appellent les routines, et retire
 # du triage la mention d'IA qu'il ferait poser en tête de chaque commentaire.
-# À relancer après chaque `npx skills update`. Avec --check, échoue si l'un d'eux
-# est redevenu réservé à l'utilisateur ou si la mention est revenue (utilisé par
+# À relancer après chaque `npx skills update`. Avec --check, échoue si l'un d'eux est
+# redevenu réservé à l'utilisateur ou si la mention est revenue (utilisé par
 # agent-guard).
 set -euo pipefail
 mode=${1:-apply}
-for name in triage implement implement-spec improve-codebase-architecture; do
+for name in triage implement implement-spec improve-codebase-architecture to-tickets; do
   files=$(grep -rlE "^name:[[:space:]]*${name}[[:space:]]*$" --include=SKILL.md \
           .claude/skills .agents/skills 2>/dev/null || true)
   [ -n "$files" ] || { echo "Skill introuvable : $name"; exit 1; }

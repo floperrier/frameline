@@ -10,6 +10,7 @@ playwright-report
 
 .serena
 .claude/settings.local.json
+CLAUDE.local.md
 .claude/.headroom_wrap_marker.json
 .env.local
 .verify
