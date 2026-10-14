@@ -56,7 +56,8 @@ jusqu'à sa réparation. Le flow ignore `retro` et `architecture`, deux rapports
 hebdomadaires.
 Toute branche et toute PR partent de `dev`. Branche : `<n>-<slug>`, `n` étant
 l'issue (`447-find-and-replace`), ou `prototype/<nom>` et `research/<nom>`, et
-`chore/skills-update` pour l'Entretien.
+`chore/skills-update` pour l'Entretien, `chore/flow-backlog-<étape>` pour le kit qui
+installe et met à niveau le flow.
 PR vers `dev` par `pnpm pr` : titre en Conventional Commits (`feat: …`,
 `fix(reading): …`), `Closes #<n>`, et le corps du skill `pr`, la preuve du skill
 `verify` dans son Evidence.
