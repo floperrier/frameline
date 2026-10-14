@@ -17,6 +17,9 @@ jobs:
   report:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - run: |
           since=$(date -u -d '7 days ago' +%Y-%m-%d)
           section() {
@@ -35,5 +38,6 @@ jobs:
             section "Échecs d'agent-guard" gh run list --repo "$REPO" --workflow agent-guard.yml --status failure --created ">=$since" --json displayTitle,url --jq '.[] | "\(.displayTitle) \(.url)"'
             section "Ruptures de dev (dev-broken)" gh issue list --repo "$REPO" --label dev-broken --state all --search "created:>=$since" --json number,title,url --jq '.[] | "#\(.number) \(.title) \(.url)"'
             section "Bugs corrigés (PR fix mergées) : qu'est-ce qui les aurait empêchés ?" gh pr list --repo "$REPO" --state merged --search "merged:>=$since" --json number,title,url --jq '.[] | select(.title | startswith("fix")) | "#\(.number) \(.title) \(.url)"'
+            section "ADR ajoutés : décisions prises par les agents, à relire" git log --since="$since" --diff-filter=A --name-only --format= -- docs/adr
           } > report.md
           gh issue create --repo "$REPO" --title "Rétro de la semaine du $since" --label retro --body-file report.md

@@ -1,0 +1,22 @@
+# Entrée des mises à jour de dépendances — workflow sans modèle
+# Lit : les PR ouvertes par Dependabot ou Renovate
+# Écrit : les labels agent et to-verify ; la Validation les vérifie, agent-merge les
+#         merge comme les autres. pull_request_target, parce qu'un workflow déclenché
+#         par Dependabot n'a qu'un jeton en lecture seule ; le code de la PR n'est
+#         jamais exécuté ici.
+name: deps-intake
+on:
+  pull_request_target:
+    types: [opened, reopened]
+permissions:
+  pull-requests: write
+jobs:
+  label:
+    if: github.event.pull_request.user.login == 'dependabot[bot]' || github.event.pull_request.user.login == 'renovate[bot]'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR: ${{ github.event.pull_request.number }}
+      REPO: ${{ github.repository }}
+    steps:
+      - run: gh pr edit "$PR" --repo "$REPO" --add-label agent --add-label to-verify

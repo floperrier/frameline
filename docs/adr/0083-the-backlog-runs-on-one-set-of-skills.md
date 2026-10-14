@@ -11,6 +11,11 @@ Amended in issue #522, by `docs/adr/0094-no-path-is-held-back.md`:
 `.github/agent-sensitive-paths` is gone, and `agent-merge.yml` merges whatever
 the Validation passes, whichever paths it touches.
 
+Amended in issue #526, by `docs/adr/0095-the-flow-settles-what-it-can-undo.md`:
+a second refusal re-cuts the issue once, as `replanned`, before it goes to the
+developer, and `agent-merge.yml` waits on every check itself rather than through
+auto-merge.
+
 The routines 0076 set up ran on two methods at once. Triage and specs followed
 `mattpocock/skills`, building and verifying followed pstack's `poteto-mode`, and
 the two did not share a vocabulary: since v1.3, Matt Pocock's skills read a

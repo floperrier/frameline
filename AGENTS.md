@@ -13,7 +13,7 @@ v1.3.1 the routines call, the ones those call in turn, and the ones the develope
 runs by hand (`grill-with-docs`, `to-spec`, `to-tickets`, `wayfinder`,
 `to-questionnaire`, `retro`). `skills-lock.json` records where each copy came
 from. `verify` is the repository's own. After `npx skills update`, run
-`scripts/skills-model-invocable.sh`: it lets the model invoke the four skills a
+`scripts/skills-model-invocable.sh`: it lets the model invoke the five skills a
 routine names that upstream keeps for the user, and takes out of `triage` the line
 it would start every comment with to say who wrote it. `agent-guard` fails a pull
 request on which either has come back.
@@ -44,15 +44,19 @@ l'approbation d'un tiers.
 
 ## Flow backlog
 
-Quatre routines, Triage, Atelier, Validation et Architecture ; leur invite, leur
-cadence et leur modèle sont dans `.claude/routines/`. Une spec arrive découpée par
-`/to-tickets` en sous-issues `ready-for-agent`, que l'Atelier construit d'un bloc.
+Cinq routines, Triage, Atelier, Validation, Architecture et Entretien ; leur
+invite, leur cadence et leur modèle sont dans `.claude/routines/`. Une spec arrive
+découpée par `/to-tickets` en sous-issues `ready-for-agent`, que l'Atelier
+construit d'un bloc.
 Labels du flow : une PR `agent` + `to-verify` attend la Validation, qui la passe en
-`agent-verified` (auto-merge par `agent-merge.yml`) ou en `changes-needed` ;
-`dev-broken` dit que la CI de `dev` est rouge et suspend les merges jusqu'à sa
-réparation. Le flow ignore `retro` et `architecture`, deux rapports hebdomadaires.
+`agent-verified`, qu'`agent-merge.yml` squashe une fois tous ses checks verts, ou
+en `changes-needed` ; refusée deux fois, son issue est redécoupée et reçoit
+`replanned`. `dev-broken` dit que la CI de `dev` est rouge et suspend les merges
+jusqu'à sa réparation. Le flow ignore `retro` et `architecture`, deux rapports
+hebdomadaires.
 Toute branche et toute PR partent de `dev`. Branche : `<n>-<slug>`, `n` étant
-l'issue (`447-find-and-replace`), ou `prototype/<nom>` et `research/<nom>`.
+l'issue (`447-find-and-replace`), ou `prototype/<nom>` et `research/<nom>`, et
+`chore/skills-update` pour l'Entretien.
 PR vers `dev` par `pnpm pr` : titre en Conventional Commits (`feat: …`,
 `fix(reading): …`), `Closes #<n>`, et le corps du skill `pr`, la preuve du skill
 `verify` dans son Evidence.
@@ -65,9 +69,14 @@ n'est pas un motif de refus. Dans le cloud, GraphQL est refusé, et avec lui
 `pnpm pr`, `gh pr create`, `gh pr ready`, `gh issue comment`, `gh pr comment` et
 les autres commandes `gh` qui en dépendent : publier par `gh api` (REST) ou l'outil
 GitHub intégré.
-Une décision produit : `ready-for-human`, sans rien construire. Aucun chemin ne
-retient un changement : voir `docs/adr/0094-no-path-is-held-back.md`. `dev`
-atteint `main` par une promotion humaine.
+Une décision produit petite et réversible, l'agent la tranche d'après la section
+Produit et les ADR, et la consigne dans un ADR avec `domain-modeling` ; une
+décision irréversible ou structurante : `ready-for-human`, sans rien construire.
+Un seul chemin retient un changement, les scripts d'installation approuvés : voir
+`docs/adr/0094-no-path-is-held-back.md` et
+`docs/adr/0095-the-flow-settles-what-it-can-undo.md`. `dev` atteint `main` par
+une promotion humaine, qui liste les nouvelles dépendances et les zones de
+`.github/promotion-watch`.
 
 ## Design
 
