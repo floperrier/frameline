@@ -6,6 +6,7 @@
 # agent-guard).
 set -euo pipefail
 mode=${1:-apply}
+case $mode in apply|--check) ;; *) echo "usage : $0 [--check]" >&2; exit 2 ;; esac
 for name in triage implement implement-spec improve-codebase-architecture to-tickets; do
   files=$(grep -rlE "^name:[[:space:]]*${name}[[:space:]]*$" --include=SKILL.md \
           .claude/skills .agents/skills 2>/dev/null || true)

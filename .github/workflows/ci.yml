@@ -25,6 +25,9 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+      # agent-guard, agent-merge and the commit-msg hook read the tool's traces
+      # through it.
+      - run: scripts/trace.test.sh
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:

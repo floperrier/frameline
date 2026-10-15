@@ -1,2 +1,5 @@
 #!/usr/bin/env bash
 sed -i.bak -E '/^Co-[Aa]uthored-[Bb]y: Claude/d; /Generated with \[Claude Code\]/d; /^Claude-Session:/d' "$1" && rm -f "$1.bak"
+# A trace left over stops the commit here rather than agent-guard after the push.
+# git's comment lines, the diff of --verbose among them, never reach the message.
+sed -e '/^# -* >8 -*$/,$d' -e '/^#/d' "$1" | scripts/trace check || { echo "commit-msg : trace d'outil dans le message, à retirer" >&2; exit 1; }
