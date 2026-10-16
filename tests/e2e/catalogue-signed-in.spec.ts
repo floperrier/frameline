@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto'
-import type { Browser, Page } from '@playwright/test'
+import type { APIRequestContext, Browser, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
-import { begin, live, test, seedPublished, seedStory, writeStory } from './author'
+import type { Author } from './author'
+import {
+  begin, live, test, seedDates, seedListed, seedListedStories, seedPresentation, seedPublished, seedStory,
+  writeStory,
+} from './author'
 
 /**
  * The Catalogue as anyone browsing meets it. Every assertion below about what is
@@ -15,11 +19,15 @@ import { begin, live, test, seedPublished, seedStory, writeStory } from './autho
  * English. It does inherit `extraHTTPHeaders`, though, which is where the fixture
  * puts the Author's sealed session, so those are emptied: without that this is
  * the Author's own browser with a fresh cookie jar rather than a stranger's.
+ *
+ * The suite's database is shared and only grows, so no test reads the Catalogue
+ * whole: each one searches for a token only its own Stories carry — a title, or
+ * a query string naming one — and its assertions hold whatever else is listed.
  */
-async function catalogueFor(browser: Browser, baseURL?: string) {
+async function catalogueFor(browser: Browser, baseURL: string | undefined, query: string) {
   const context = await browser.newContext({ baseURL, locale: 'en-US', extraHTTPHeaders: {} })
   const page = await context.newPage()
-  await page.goto('/catalogue')
+  await page.goto(`/catalogue${query.startsWith('?') ? query : `?q=${encodeURIComponent(query)}`}`)
   return page
 }
 
@@ -28,9 +36,13 @@ function entryFor(page: Page, title: string) {
   return page.getByRole('listitem').filter({ hasText: title })
 }
 
-/** A title no other Story in the database has, so a locator can trust it. */
-function unlikelyTitle() {
-  return `The night shift ${randomUUID()}`
+/**
+ * A title no other Story in the database has, so a locator can trust it — and,
+ * given a token, one every Story of the same test shares, so a search for the
+ * token finds that test's Stories and nobody else's.
+ */
+function unlikelyTitle(token: string = randomUUID()) {
+  return `The night shift ${token} ${randomUUID().slice(0, 8)}`
 }
 
 /**
@@ -56,7 +68,7 @@ test('an Author lists a published Story and anyone finds it in the Catalogue', a
   await page.getByRole('button', { name: 'Publish this Story', exact: true }).click()
   await expect(page.getByRole('button', { name: 'List this Story in the Catalogue' }))
     .toBeVisible()
-  await expect(entryFor(await catalogueFor(browser, baseURL), title)).toBeHidden()
+  await expect(entryFor(await catalogueFor(browser, baseURL, title), title)).toBeHidden()
 
   await page.getByRole('button', { name: 'List this Story in the Catalogue' }).click()
   await expect(page.getByRole('button', { name: 'Take this Story Out of the Catalogue' }))
@@ -65,7 +77,7 @@ test('an Author lists a published Story and anyone finds it in the Catalogue', a
   // What an entry carries: the Title, the Language the work is written in, and
   // the day it was published — the date read in the Locale, and held against the
   // machine-readable one beside it so the two cannot say different days.
-  const catalogue = await catalogueFor(browser, baseURL)
+  const catalogue = await catalogueFor(browser, baseURL, title)
   const entry = entryFor(catalogue, title)
   await expect(entry).toBeVisible()
   await expect(entry).toContainText('English')
@@ -88,7 +100,7 @@ test('an Author lists a published Story and anyone finds it in the Catalogue', a
   await page.getByRole('button', { name: 'Take this Story Out of the Catalogue' }).click()
   await expect(page.getByRole('button', { name: 'List this Story in the Catalogue' }))
     .toBeVisible()
-  await expect(entryFor(await catalogueFor(browser, baseURL), title)).toBeHidden()
+  await expect(entryFor(await catalogueFor(browser, baseURL, title), title)).toBeHidden()
   expect((await request.get(`/api/read/${story.id}`)).status()).toBe(200)
 })
 
@@ -110,7 +122,7 @@ test('an Author writes a Synopsis and whoever browses the Catalogue reads it', a
 
   // Listed with no Synopsis, the entry is the entry it has always been: nothing
   // is invented out of the Story's own text to fill the gap.
-  const bare = entryFor(await catalogueFor(browser, baseURL), title)
+  const bare = entryFor(await catalogueFor(browser, baseURL, title), title)
   await expect(bare).toBeVisible()
   await expect(bare).not.toContainText('A door opens.')
 
@@ -122,7 +134,7 @@ test('an Author writes a Synopsis and whoever browses the Catalogue reads it', a
   // A typed write, so what says it landed is the mark on the bench.
   await expect(page.getByText(/^Kept at /)).toBeVisible()
 
-  const entry = entryFor(await catalogueFor(browser, baseURL), title)
+  const entry = entryFor(await catalogueFor(browser, baseURL, title), title)
   await expect(entry).toContainText(
     'A woman leaves a door open behind her, and the street takes her.')
 
@@ -137,7 +149,7 @@ test('an Author writes a Synopsis and whoever browses the Catalogue reads it', a
       && response.request().method() === 'PATCH'),
     synopsis.blur(),
   ])
-  await expect(entryFor(await catalogueFor(browser, baseURL), title))
+  await expect(entryFor(await catalogueFor(browser, baseURL, title), title))
     .not.toContainText('A woman leaves a door open behind her')
 })
 
@@ -160,29 +172,98 @@ test('unpublishing a listed Story unlists it', async ({ page, request, browser, 
     .toBeVisible()
   await expect(page.getByRole('button', { name: 'List this Story in the Catalogue' }))
     .toBeHidden()
-  await expect(entryFor(await catalogueFor(browser, baseURL), title)).toBeHidden()
+  await expect(entryFor(await catalogueFor(browser, baseURL, title), title)).toBeHidden()
 
   // Publishing again does not put it back: listing is the Author's to say, and
   // saying it once is not saying it for ever.
   await page.getByRole('button', { name: 'Publish this Story', exact: true }).click()
-  await expect(entryFor(await catalogueFor(browser, baseURL), title)).toBeHidden()
+  await expect(entryFor(await catalogueFor(browser, baseURL, title), title)).toBeHidden()
 })
 
-test('the Catalogue shows the most recently published first', async ({ request, browser, baseURL }) => {
-  const [earlier, later] = [unlikelyTitle(), unlikelyTitle()]
+/**
+ * Writes a Story, publishes it and lists it through the API, the way the bench
+ * does, under a title nothing else in the database carries.
+ */
+async function listedStory(request: APIRequestContext, title = unlikelyTitle()) {
+  const story = await writeStory(request)
+  await request.patch(`/api/stories/${story.id}`, { data: { title } })
+  await request.post(`/api/stories/${story.id}/publish`)
+  await request.post(`/api/stories/${story.id}/listed`)
+  return { ...story, title }
+}
 
-  for (const title of [earlier, later]) {
-    const story = await writeStory(request)
-    await request.patch(`/api/stories/${story.id}`, { data: { title } })
-    await request.post(`/api/stories/${story.id}/publish`)
-    await request.post(`/api/stories/${story.id}/listed`)
-  }
+/** The titles of the Catalogue's entries, in the order a Reader meets them. */
+async function titlesIn(page: Page) {
+  return await page.locator('li a.open').allTextContents()
+}
 
-  const catalogue = await catalogueFor(browser, baseURL)
-  const titles = await catalogue.getByRole('listitem').getByRole('link').allTextContents()
+/** Whether `first` stands before `second` on the page, both being there. */
+async function standsBefore(page: Page, first: string, second: string) {
+  const titles = (await titlesIn(page)).map(title => title.trim())
+  expect(titles).toContain(first)
+  expect(titles).toContain(second)
+  return titles.indexOf(first) < titles.indexOf(second)
+}
 
-  expect(titles.indexOf(later!)).toBeLessThan(titles.indexOf(earlier!))
-  expect(titles.indexOf(later!)).toBeGreaterThan(-1)
+const MINUTE = 60_000
+
+/**
+ * The Catalogue counts the day a Story first entered it, not its first Publish:
+ * a Story published privately long ago and listed just now is what is new to the
+ * Catalogue.
+ */
+test('the Catalogue shows first the Story that entered it last, whenever it was published', async ({
+  request, browser, baseURL,
+}) => {
+  const token = randomUUID()
+  const [early, late] = [
+    await listedStory(request, unlikelyTitle(token)), await listedStory(request, unlikelyTitle(token))]
+  const now = Date.now()
+  const ago = (minutes: number) => new Date(now - minutes * MINUTE)
+  await seedDates(early, { publishedAt: ago(30 * 24 * 60), firstListedAt: ago(1) })
+  await seedDates(late, { publishedAt: ago(2), firstListedAt: ago(2) })
+
+  const catalogue = await catalogueFor(browser, baseURL, token)
+  expect(await standsBefore(catalogue, early.title, late.title)).toBe(true)
+
+  // The day the card shows is the day it entered the Catalogue.
+  await expect(entryFor(catalogue, early.title).locator('time'))
+    .toHaveAttribute('datetime', new Date(now - MINUTE).toISOString())
+})
+
+/** Publishing the changes again leaves a Story where it stood. */
+test('republishing a Story does not move it in the Catalogue', async ({ request, browser, baseURL }) => {
+  const token = randomUUID()
+  const first = await listedStory(request, unlikelyTitle(token))
+  const second = await listedStory(request, unlikelyTitle(token))
+  const now = Date.now()
+  const ago = (minutes: number) => new Date(now - minutes * MINUTE)
+  await seedDates(first, { publishedAt: ago(2), firstListedAt: ago(2) })
+  await seedDates(second, { publishedAt: ago(1), firstListedAt: ago(1) })
+
+  expect((await request.post(`/api/stories/${first.id}/publish`)).status()).toBe(200)
+
+  const catalogue = await catalogueFor(browser, baseURL, token)
+  expect(await standsBefore(catalogue, second.title, first.title)).toBe(true)
+})
+
+/** Taking a Story out and listing it again keeps the day it first entered. */
+test('unlisting a Story and listing it again does not move it', async ({ request, browser, baseURL }) => {
+  const token = randomUUID()
+  const first = await listedStory(request, unlikelyTitle(token))
+  const second = await listedStory(request, unlikelyTitle(token))
+  const now = Date.now()
+  const ago = (minutes: number) => new Date(now - minutes * MINUTE)
+  await seedDates(first, { publishedAt: ago(2), firstListedAt: ago(2) })
+  await seedDates(second, { publishedAt: ago(1), firstListedAt: ago(1) })
+
+  expect((await request.delete(`/api/stories/${first.id}/listed`)).status()).toBe(200)
+  expect((await request.post(`/api/stories/${first.id}/listed`)).status()).toBe(200)
+
+  const catalogue = await catalogueFor(browser, baseURL, token)
+  expect(await standsBefore(catalogue, second.title, first.title)).toBe(true)
+  await expect(entryFor(catalogue, first.title).locator('time'))
+    .toHaveAttribute('datetime', new Date(now - 2 * MINUTE).toISOString())
 })
 
 test('a Story published before the Catalogue existed is not listed', async ({ author, browser, baseURL }) => {
@@ -192,7 +273,7 @@ test('a Story published before the Catalogue existed is not listed', async ({ au
 
   // Nobody agreed to appear in a catalogue that did not exist when they
   // published, so the flag defaults to false and nothing backfills it.
-  await expect(entryFor(await catalogueFor(browser, baseURL), title)).toBeHidden()
+  await expect(entryFor(await catalogueFor(browser, baseURL, title), title)).toBeHidden()
 })
 
 test('an unpublished Story cannot be listed, and someone else\'s is not there at all', async ({ request, otherAuthor }) => {
@@ -209,4 +290,331 @@ test('an unpublished Story cannot be listed, and someone else\'s is not there at
   await seedPublished(theirs)
   expect((await request.post(`/api/stories/${theirs.id}/listed`)).status()).toBe(404)
   expect((await request.delete(`/api/stories/${theirs.id}/listed`)).status()).toBe(404)
+})
+
+/**
+ * The search: one field, matched anywhere in the title, the Synopsis or the
+ * Author's Name, whatever its case.
+ */
+test('a Reader finds a Story by a word of its title, its Synopsis or its Author\'s Name', async ({
+  request, browser, baseURL,
+}) => {
+  const token = randomUUID()
+  const byTitle = await listedStory(request, `A Title ${token}`)
+  const bySynopsis = await listedStory(request)
+  await request.patch(`/api/stories/${bySynopsis.id}`, { data: { synopsis: `Somewhere in it, ${token}.` } })
+
+  const catalogue = await catalogueFor(browser, baseURL, token.toUpperCase())
+  await expect(entryFor(catalogue, byTitle.title)).toBeVisible()
+  await expect(entryFor(catalogue, bySynopsis.title)).toBeVisible()
+  expect(await titlesIn(catalogue)).toHaveLength(2)
+
+  // The field says what was searched, so a reloaded search is the same search.
+  await expect(catalogue.getByLabel('Look for a title, a Synopsis or a Name'))
+    .toHaveValue(token.toUpperCase())
+  await catalogue.reload()
+  await expect(catalogue.getByLabel('Look for a title, a Synopsis or a Name'))
+    .toHaveValue(token.toUpperCase())
+  expect(await titlesIn(catalogue)).toHaveLength(2)
+})
+
+test('a Reader finds every Story of an Author by their Name', async ({ request, browser, baseURL }) => {
+  const name = `Nadia ${randomUUID()}`
+  expect((await request.patch('/api/author', { data: { name } })).status()).toBe(200)
+  const story = await listedStory(request)
+
+  const catalogue = await catalogueFor(browser, baseURL, name.toLowerCase())
+  await expect(entryFor(catalogue, story.title)).toBeVisible()
+  expect(await titlesIn(catalogue)).toHaveLength(1)
+})
+
+/** Accents are folded on both sides, so a Reader need not type them. */
+test('a search ignores accents', async ({ request, browser, baseURL }) => {
+  const token = randomUUID()
+  const story = await listedStory(request, `Mémoire ${token}`)
+
+  await expect(entryFor(await catalogueFor(browser, baseURL, `memoire ${token}`), story.title))
+    .toBeVisible()
+  await expect(entryFor(await catalogueFor(browser, baseURL, `MÉMOÏRE ${token}`), story.title))
+    .toBeVisible()
+  await expect(entryFor(await catalogueFor(browser, baseURL, `memoires ${token}`), story.title))
+    .toBeHidden()
+})
+
+/** What is typed is what is looked for: a wildcard of `LIKE` is a character like any other. */
+test('a percent sign and an underscore are looked for as themselves', async ({
+  request, browser, baseURL,
+}) => {
+  const token = randomUUID()
+  const percent = await listedStory(request, `${token} 100% sure`)
+  const digits = await listedStory(request, `${token} 1000 sure`)
+  const underscore = await listedStory(request, `${token} a_b`)
+
+  const catalogue = await catalogueFor(browser, baseURL, `${token} 100%`)
+  await expect(entryFor(catalogue, percent.title)).toBeVisible()
+  await expect(entryFor(catalogue, digits.title)).toBeHidden()
+
+  const underscored = await catalogueFor(browser, baseURL, `${token} a_`)
+  await expect(entryFor(underscored, underscore.title)).toBeVisible()
+  // Read as a wildcard, `_` would stand for the first character of every title
+  // above; read as itself, it stands for none of them.
+  await expect((await catalogueFor(browser, baseURL, `${token} _`))
+    .getByText('Nothing listed in the Catalogue matches this search.')).toBeVisible()
+})
+
+/** A link carrying something the Catalogue does not know still opens on the Catalogue. */
+test('an unknown parameter is ignored', async ({ request, browser, baseURL }) => {
+  const token = randomUUID()
+  const story = await listedStory(request, unlikelyTitle(token))
+
+  const catalogue = await catalogueFor(browser, baseURL, `?q=${token}&colour=red&q=ignored`)
+  await expect(entryFor(catalogue, story.title)).toBeVisible()
+})
+
+test('a search that matches nothing says so, and offers the way back', async ({ browser, baseURL }) => {
+  const catalogue = await catalogueFor(browser, baseURL, randomUUID())
+
+  await expect(catalogue.getByText('Nothing listed in the Catalogue matches this search.')).toBeVisible()
+  await catalogue.getByRole('link', { name: 'Clear the Search' }).click()
+  await expect(catalogue).toHaveURL(`${baseURL}/catalogue`)
+  await expect(catalogue.getByLabel('Look for a title, a Synopsis or a Name')).toHaveValue('')
+})
+
+/** The search is a plain form: with no JavaScript, its answer is the URL. */
+test('the search works without JavaScript', async ({ request, browser, baseURL }) => {
+  const token = randomUUID()
+  const story = await listedStory(request, unlikelyTitle(token))
+
+  const context = await browser.newContext({
+    baseURL, locale: 'en-US', extraHTTPHeaders: {}, javaScriptEnabled: false })
+  const page = await context.newPage()
+  await page.goto('/catalogue')
+  await page.getByLabel('Look for a title, a Synopsis or a Name').fill(token)
+  await page.getByRole('button', { name: 'Search' }).click()
+
+  await expect(page).toHaveURL(new RegExp(`/catalogue\\?q=${token}`))
+  await expect(entryFor(page, story.title)).toBeVisible()
+})
+
+/**
+ * The Reading Time: measured from the Edition at each Publish and shown on the
+ * card as an upper bound, rounded to the minute.
+ */
+test('a published Story\'s card shows how long its longest Reading takes', async ({
+  request, browser, baseURL, author,
+}) => {
+  const story = await listedStory(request)
+
+  const entry = entryFor(await catalogueFor(browser, baseURL, story.title), story.title)
+  await expect(entry).toContainText('up to 1 min')
+
+  // Publishing the changes measures it again, and it stays.
+  expect((await request.post(`/api/stories/${story.id}/publish`)).status()).toBe(200)
+  await expect(entryFor(await catalogueFor(browser, baseURL, story.title), story.title))
+    .toContainText('up to 1 min')
+
+  // A Story published before the figure existed shows none rather than a wrong one.
+  const title = unlikelyTitle()
+  const older = await seedStory(author, title)
+  await seedPublished(older)
+  await seedListed(older)
+  const bare = entryFor(await catalogueFor(browser, baseURL, title), title)
+  await expect(bare).toBeVisible()
+  await expect(bare).not.toContainText('up to')
+})
+
+/** So many titles, each carrying the token and its own place, newest first. */
+function numbered(token: string, many: number) {
+  return Array.from({ length: many }, (_, at) => `The night shift ${token} No. ${at + 1}`)
+}
+
+/** The pages: twenty-four Stories a page, and a navigation of real links between them. */
+test('twenty-five Stories make two pages, and the Back button returns to the page', async ({
+  author, browser, baseURL,
+}) => {
+  const token = randomUUID()
+  const titles = numbered(token, 25)
+  await seedListedStories(author, titles)
+
+  const catalogue = await catalogueFor(browser, baseURL, token)
+  expect(await titlesIn(catalogue)).toEqual(titles.slice(0, 24))
+
+  const pages = catalogue.getByRole('navigation', { name: 'Pages of the Catalogue' })
+  await expect(pages.getByRole('link', { name: 'Page 1' })).toHaveAttribute('aria-current', 'page')
+  await expect(pages.getByRole('link', { name: 'Previous Page' })).toBeHidden()
+  await expect(pages.getByRole('link', { name: 'Page 2' })).not.toHaveAttribute('aria-current', 'page')
+
+  await pages.getByRole('link', { name: 'Next Page' }).click()
+  await expect(catalogue).toHaveURL(new RegExp(`\\?q=${token}&page=2$`))
+  await expect(catalogue.locator('li a.open')).toHaveText([titles[24]!])
+  await expect(pages.getByRole('link', { name: 'Page 2' })).toHaveAttribute('aria-current', 'page')
+  await expect(pages.getByRole('link', { name: 'Next Page' })).toBeHidden()
+
+  // Opening a Story and coming back lands on the page it was opened from.
+  await catalogue.getByRole('link', { name: titles[24]! }).click()
+  await expect(catalogue).toHaveURL(/\/read\//)
+  await catalogue.goBack()
+  await expect(catalogue).toHaveURL(new RegExp(`\\?q=${token}&page=2$`))
+  await expect(catalogue.locator('li a.open')).toHaveText([titles[24]!])
+
+  await pages.getByRole('link', { name: 'First Page' }).click()
+  await expect(catalogue.locator('li a.open')).toHaveCount(24)
+})
+
+test('a page past the last says so and offers the way back', async ({ author, browser, baseURL }) => {
+  const token = randomUUID()
+  const titles = numbered(token, 2)
+  await seedListedStories(author, titles)
+
+  const catalogue = await catalogueFor(browser, baseURL, `?q=${token}&page=5`)
+  await expect(catalogue.getByText('There is nothing on page 5: what you asked for ends on page 1.'))
+    .toBeVisible()
+  await expect(catalogue.getByRole('navigation', { name: 'Pages of the Catalogue' })
+    .getByRole('link', { name: 'Page 1' })).toBeVisible()
+
+  await catalogue.getByRole('link', { name: 'Go to Page 1' }).click()
+  await expect(catalogue.locator('li a.open')).toHaveText(titles)
+})
+
+test('a page that is not a number is the first page', async ({ author, browser, baseURL }) => {
+  const token = randomUUID()
+  const titles = numbered(token, 25)
+  await seedListedStories(author, titles)
+
+  const catalogue = await catalogueFor(browser, baseURL, `?q=${token}&page=abc`)
+  expect(await titlesIn(catalogue)).toEqual(titles.slice(0, 24))
+  await expect(catalogue.getByRole('link', { name: 'Page 1' })).toHaveAttribute('aria-current', 'page')
+})
+
+/** Each page is drawn on the server: its HTML already holds its entries and its pages. */
+test('a page arrives drawn, with its entries and its navigation', async ({ author, request }) => {
+  const token = randomUUID()
+  const titles = numbered(token, 25)
+  await seedListedStories(author, titles)
+
+  const html = await (await request.get(`/catalogue?q=${token}&page=2`)).text()
+  expect(html).toContain(titles[24])
+  expect(html).not.toContain(`${titles[23]}<`)
+  expect(html).toContain('aria-label="Pages of the Catalogue"')
+  expect(html).toContain(`href="/catalogue?q=${token}"`)
+})
+
+/** The Language a Reader keeps to, alone or beside a search. */
+test('a Reader keeps the Catalogue to one Language', async ({ author, browser, baseURL }) => {
+  const token = randomUUID()
+  const [italian, english] = await seedListedStories(author, numbered(token, 2))
+  await seedPresentation(italian!, { language: 'it' })
+
+  const searched = await catalogueFor(browser, baseURL, `?q=${token}&language=it`)
+  await expect(searched.locator('li a.open')).toHaveText([italian!.title])
+  await expect(searched.getByLabel('Language of the Story')).toHaveValue('it')
+
+  // Alone, it keeps the whole shelf to the Language: the Italian Story stands
+  // there, the English one does not.
+  const alone = await catalogueFor(browser, baseURL, '?language=it')
+  await expect(entryFor(alone, italian!.title)).toBeVisible()
+  await expect(entryFor(alone, english!.title)).toBeHidden()
+})
+
+test('the shuffle is the same all day for everybody, and never repeats a Story across pages', async ({
+  author, browser, baseURL,
+}) => {
+  const token = randomUUID()
+  const titles = numbered(token, 25)
+  await seedListedStories(author, titles)
+
+  const first = await titlesIn(await catalogueFor(browser, baseURL, `?q=${token}&sort=shuffle`))
+  const again = await titlesIn(await catalogueFor(browser, baseURL, `?q=${token}&sort=shuffle`))
+  expect(again).toEqual(first)
+  expect(first).toHaveLength(24)
+
+  const second = await titlesIn(await catalogueFor(browser, baseURL, `?q=${token}&sort=shuffle&page=2`))
+  expect(second).toHaveLength(1)
+  expect(new Set([...first, ...second])).toEqual(new Set(titles))
+})
+
+test('changing a list applies it at once, and lands on the first page', async ({ author, page }) => {
+  const token = randomUUID()
+  await seedListedStories(author, numbered(token, 25))
+
+  await page.goto(`/catalogue?q=${token}&page=2`)
+  await live(page)
+  await page.getByLabel('Language of the Story').selectOption({ label: 'English' })
+  await expect(page).toHaveURL(new RegExp(`\\?q=${token}&language=en$`))
+  await expect(page.locator('li a.open')).toHaveCount(24)
+
+  await page.getByLabel('Order').selectOption({ label: 'Shuffled for today' })
+  await expect(page).toHaveURL(new RegExp(`\\?q=${token}&language=en&sort=shuffle$`))
+})
+
+test('a reload restores the search, the Language, the order and the page', async ({ author, page }) => {
+  const token = randomUUID()
+  await seedListedStories(author, numbered(token, 25))
+
+  await page.goto(`/catalogue?q=${token}&language=en&sort=shuffle&page=2`)
+  for (const _ of [1, 2]) {
+    await expect(page.getByLabel('Look for a title, a Synopsis or a Name')).toHaveValue(token)
+    await expect(page.getByLabel('Language of the Story')).toHaveValue('en')
+    await expect(page.getByLabel('Order')).toHaveValue('shuffle')
+    await expect(page.getByRole('link', { name: 'Page 2' })).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator('li a.open')).toHaveCount(1)
+    await page.reload()
+  }
+})
+
+/** On a phone, the controls fold into the width of the screen. */
+test('the Catalogue\'s controls fit a phone', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({
+    baseURL, locale: 'en-US', extraHTTPHeaders: {}, viewport: { width: 360, height: 740 } })
+  const page = await context.newPage()
+  await page.goto('/catalogue?language=fr')
+  await expect(page.getByLabel('Order')).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(360)
+})
+
+/** Five Stories either side of each edge of the bands, and one not measured yet. */
+async function measured(author: Author, token: string) {
+  const [short, medium, longer, long, unmeasured] = await seedListedStories(author, numbered(token, 5))
+  for (const [story, readingTime] of [[short, 599], [medium, 600], [longer, 1_800], [long, 1_801]] as const) {
+    await seedPresentation(story!, { readingTime })
+  }
+  return { short: short!, medium: medium!, longer: longer!, long: long!, unmeasured: unmeasured! }
+}
+
+test('a Reader keeps the Catalogue to a band of Reading Time', async ({ author, browser, baseURL }) => {
+  const token = randomUUID()
+  const { short, medium, longer, long } = await measured(author, token)
+  await seedPresentation(medium, { language: 'fr' })
+
+  const shown = async (query: string) =>
+    await titlesIn(await catalogueFor(browser, baseURL, `?q=${token}&${query}`))
+
+  expect(await shown('time=short')).toEqual([short.title])
+  expect(await shown('time=medium')).toEqual([medium.title, longer.title])
+  expect(await shown('time=long')).toEqual([long.title])
+  expect(await shown('time=medium&language=fr')).toEqual([medium.title])
+})
+
+test('the Catalogue sorts by the shortest or the longest Reading Time, the unmeasured last', async ({
+  author, page,
+}) => {
+  const token = randomUUID()
+  const { short, medium, longer, long, unmeasured } = await measured(author, token)
+
+  await page.goto(`/catalogue?q=${token}&sort=shortest`)
+  expect(await titlesIn(page))
+    .toEqual([short, medium, longer, long, unmeasured].map(story => story.title))
+
+  await page.goto(`/catalogue?q=${token}&sort=longest&time=medium`)
+  expect(await titlesIn(page)).toEqual([longer.title, medium.title])
+
+  // The URL is the whole of it: reloaded, the lists say what it asked.
+  await page.reload()
+  await expect(page.getByLabel('Reading Time')).toHaveValue('medium')
+  await expect(page.getByLabel('Order')).toHaveValue('longest')
+
+  await page.goto(`/catalogue?q=${token}&sort=longest`)
+  expect(await titlesIn(page))
+    .toEqual([long, longer, medium, short, unmeasured].map(story => story.title))
 })

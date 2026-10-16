@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm'
 import {
   boolean,
   customType,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -25,6 +26,7 @@ import type {
 } from '../../shared/utils/scenes'
 import type { Align, Face, Formatted } from '../../shared/utils/formatted'
 import type { Edition } from '../../shared/utils/reading'
+import type { StoryGenre } from '../../shared/utils/stories'
 
 // `name` is the Name an Author appears under wherever somebody else meets them:
 // beside a Listed Story, on their Profile. It arrives from the provider they
@@ -89,6 +91,21 @@ export const authors = pgTable('authors', {
 // `published_at` already says which side of publishing the Story is on. It
 // defaults to false and nothing backfills it: nobody agreed to appear in a
 // catalogue that did not exist when they published.
+//
+// `first_listed_at` is the day the Story first entered the Catalogue, which is
+// what the Catalogue's default order counts — not the first Publish, so a Story
+// published privately in January and Listed today is new today. Listing writes
+// it only where it is empty, and neither unlisting nor unpublishing clears it,
+// so neither republishing nor listing again every morning moves a Story back to
+// the top — see `docs/adr/0084-the-catalogue-is-ordered-by-nothing-counted.md`.
+// Null until the Story is first Listed; the migration that added it gave every
+// Story Listed then its `published_at`.
+//
+// `genres` is the one or two Genres the Story is filed under in the Catalogue,
+// as codes from `STORY_GENRES`, which listing asks for. Part of how the Story is
+// presented, like its title and its Synopsis, so it is read live and never part
+// of an Edition; kept when the Story is unlisted, so listing it again asks for
+// nothing. Empty by default, which is every Story written before Genres existed.
 // `steps_back` is what an Exit of this Story answers when it has not answered
 // for itself: true, the default, is the Reading a step back crosses every Exit
 // of — which is every Story written before the column existed, reading exactly
@@ -105,17 +122,30 @@ export const stories = pgTable('stories', {
     .references((): AnyPgColumn => shots.id, { onDelete: 'set null' }),
   publishedAt: timestamp('published_at', { withTimezone: true }),
   listed: boolean('listed').notNull().default(false),
+  firstListedAt: timestamp('first_listed_at', { withTimezone: true }),
+  genres: text('genres').array().$type<StoryGenre[]>().notNull().default(sql`'{}'::text[]`),
   // What Readers of a published Story read: the work as it stood when its Author
   // last published it, and when that was. Null on a Story never published, and on
   // one published before editions existed until it is first read — see
   // `docs/adr/0069-a-published-story-is-read-as-it-was-published.md`.
   edition: jsonb('edition').$type<Edition>(),
   editionAt: timestamp('edition_at', { withTimezone: true }),
+  // How long the longest Reading of the Edition would take, in whole seconds,
+  // measured from the Edition in the statement that takes it and cleared with it
+  // when the Story is unpublished. Null until then: a Story published before the
+  // column existed shows none until its next Publish, because a wrong figure is
+  // worse than no figure — see
+  // `docs/adr/0084-the-catalogue-is-ordered-by-nothing-counted.md`.
+  readingTime: integer('reading_time'),
   stepsBack: boolean('steps_back').notNull().default(true),
   textFace: text('text_face').$type<Face>().notNull().default('prose'),
   textAlign: text('text_align').$type<Align>().notNull().default('start'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-})
+}, table => [
+  // The Catalogue's default order over the Stories it holds: Listed, newest to
+  // enter it first, the id breaking a tie so that pages never overlap.
+  index('stories_catalogue_idx').on(table.listed, table.firstListedAt.desc(), table.id),
+])
 
 // The bytes of an image, which drizzle has no column for; the neon-http
 // driver hands a `bytea` back as a Buffer and takes one as a parameter, so

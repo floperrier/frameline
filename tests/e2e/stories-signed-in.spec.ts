@@ -29,6 +29,9 @@ test('an Author writes, renames and deletes a Story', async ({ request }) => {
     title: 'Renamed',
     language: 'en',
     synopsis: '',
+    // Never published, so never measured; and filed under nothing until listed.
+    readingTime: null,
+    genres: [],
     publishedAt: null,
     listed: false,
     cover: null,
@@ -327,7 +330,7 @@ test('every other shelf still leads to the Reading and counts nothing', async ({
   const [favourites] = await (await request.get('/api/lists')).json()
   expect((await request.put(`/api/lists/${favourites.id}/stories/${story.id}`)).status()).toBe(200)
 
-  for (const shelf of ['/catalogue', `/profile/${author.id}`, '/lists']) {
+  for (const shelf of [`/catalogue?q=${story.id}`, `/profile/${author.id}`, '/lists']) {
     await page.goto(shelf)
     const named = page.getByRole('link', { name: title, exact: true })
     await expect(named).toHaveAttribute('href', `/read/${story.id}`)

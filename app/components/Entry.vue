@@ -3,7 +3,8 @@
  * One Story as it is met before it is opened: its title, which is the link to
  * the Reading, the Synopsis its Author wrote for whoever is deciding whether to
  * read it, and what is said about it on the shelf — the Author who wrote it, the
- * Language it is written in and the day it was published.
+ * Language it is written in, the Genres it is filed under, how long its longest
+ * Reading takes and the day it was published.
  *
  * Drawn by every surface that hands over other people's work — the Catalogue, a
  * Profile, and an Author's own Lists — so they are all the same shelf, seen by
@@ -31,15 +32,32 @@ const { story, to } = defineProps<{
     language: string
     synopsis?: string
     publishedAt: string | null
+    /**
+     * The day the Story first entered the Catalogue, which the Catalogue dates
+     * its entries by rather than by the first Publish — see
+     * `docs/adr/0084-the-catalogue-is-ordered-by-nothing-counted.md`. A shelf
+     * that passes none dates the Story by its Publish.
+     */
+    listedAt?: string | null
     authorId?: string
     authorName?: string | null
+    /**
+     * How long the Story's longest Reading takes, in seconds, measured at its
+     * last Publish; null where it has not been measured yet, which shows none.
+     */
+    readingTime?: number | null
+    /** The Genres it is filed under, as codes, named here in the Locale. */
+    genres?: string[]
     /** The Image the Story is presented by and its crop point, or none. */
     cover?: Cover | null
   }
 }>()
 
-const { published, languageNamed } = useEntries()
+const { published, languageNamed, genreNamed } = useEntries()
 const localePath = useLocalePath()
+
+/** The day the shelf dates the Story by: when it entered the Catalogue, or else its Publish. */
+const dated = computed(() => story.listedAt ?? story.publishedAt)
 </script>
 
 <template>
@@ -78,9 +96,20 @@ const localePath = useLocalePath()
         </NuxtLink>
       </span>
       <span class="eyebrow">{{ languageNamed(story.language) }}</span>
-      <time v-if="story.publishedAt" class="eyebrow" :datetime="story.publishedAt">
-        {{ published.format(new Date(story.publishedAt)) }}
+      <!-- The Genres in the Reader's Locale whatever the Language of the work:
+           the set is Frameline's, so a Genre reads the same on every shelf. -->
+      <span v-for="genre in story.genres ?? []" :key="genre" class="eyebrow">
+        {{ genreNamed(genre) }}
+      </span>
+      <time v-if="dated" class="eyebrow" :datetime="dated">
+        {{ published.format(new Date(dated)) }}
       </time>
+      <!-- An upper bound, rounded, so it reads as the estimate it is, and a time
+           rather than a count, so it says nothing of how the Story is built. A
+           Story not measured yet shows none rather than a wrong one. -->
+      <span v-if="story.readingTime != null" class="eyebrow">
+        {{ $t('catalogue.readingTime', { minutes: readingMinutes(story.readingTime) }) }}
+      </span>
       <slot name="facts" />
     </p>
     <div v-if="$slots.default" class="doing">

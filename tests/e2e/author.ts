@@ -154,9 +154,60 @@ export async function readAuthorName(id: string) {
   return author!.name
 }
 
-/** Lists a Story past the API, on behalf of an Author nobody is signed in as. */
+/**
+ * Lists a Story past the API, on behalf of an Author nobody is signed in as, and
+ * dates its entry into the Catalogue the way the listing does: the first time.
+ */
 export async function seedListed(story: Story) {
-  await sql`update stories set listed = true where id = ${story.id}`
+  await sql`
+    update stories set listed = true, first_listed_at = coalesce(first_listed_at, now())
+    where id = ${story.id}`
+}
+
+/**
+ * Writes, publishes and lists many Stories at once on behalf of an Author, in
+ * one statement, each entering the Catalogue a second before the next: the
+ * first title given is the latest to enter it, so the Catalogue's own order is
+ * the order given. For the specs that need more Stories than a page holds.
+ */
+export async function seedListedStories(author: Author, titles: string[]) {
+  return await sql`
+    insert into stories (author_id, title, published_at, listed, first_listed_at)
+    select ${author.id}, title, now(), true, now() - place * interval '1 second'
+    from unnest(${titles}::text[]) with ordinality as titles(title, place)
+    returning id, title` as Story[]
+}
+
+/**
+ * Writes what a shelf presents a Story by past the API: its Language, its
+ * Genres, and the Reading Time a Publish would have measured.
+ */
+export async function seedPresentation(story: Pick<Story, 'id'>, presented: {
+  language?: string
+  readingTime?: number | null
+  genres?: string[]
+}) {
+  if (presented.genres !== undefined) {
+    await sql`update stories set genres = ${presented.genres}::text[] where id = ${story.id}`
+  }
+  if (presented.language !== undefined) {
+    await sql`update stories set language = ${presented.language} where id = ${story.id}`
+  }
+  if (presented.readingTime !== undefined) {
+    await sql`update stories set reading_time = ${presented.readingTime} where id = ${story.id}`
+  }
+}
+
+/**
+ * Dates a Story's first Publish and its first entry into the Catalogue past the
+ * API, so a test can stand two Stories in an order that a day apart would give.
+ */
+export async function seedDates(story: Pick<Story, 'id'>, dates: { publishedAt: Date, firstListedAt: Date }) {
+  await sql`
+    update stories set
+      published_at = ${dates.publishedAt.toISOString()},
+      first_listed_at = ${dates.firstListedAt.toISOString()}
+    where id = ${story.id}`
 }
 
 /**
@@ -603,8 +654,11 @@ async function sealAuthorSession(author: Author) {
  * Author's own hands would write it — so a Preview and a Reading both have real
  * Shots to play. Shared by the two specs that need a readable Story, because a
  * Reader must meet exactly what a Preview showed.
+ *
+ * It is filed under a Genre, so that a spec listing it is asked for nothing it
+ * is not about; a spec about Genres asks for a Story filed under none.
  */
-export async function writeStory(request: APIRequestContext, language = 'en') {
+export async function writeStory(request: APIRequestContext, language = 'en', genres: string[] = ['drama']) {
   const story = await (await request.post('/api/stories', {
     data: { title: 'A Story', language },
   })).json()
@@ -628,6 +682,7 @@ export async function writeStory(request: APIRequestContext, language = 'en') {
     data: { toSceneId: scenes[1]!.id },
   })).json()
   await request.patch(`/api/exits/${exit.id}`, { data: { text: 'Follow her out' } })
+  if (genres.length) await request.patch(`/api/stories/${story.id}`, { data: { genres } })
 
   return story as { id: string, title: string, language: string }
 }

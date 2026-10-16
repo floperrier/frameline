@@ -21,7 +21,7 @@ import type {
 } from '../shared/utils/scenes.ts'
 import { textOf } from '../shared/utils/formatted.ts'
 import type { Formatted } from '../shared/utils/formatted.ts'
-import type { StoryLanguage } from '../shared/utils/stories.ts'
+import type { StoryGenre, StoryLanguage } from '../shared/utils/stories.ts'
 
 const run = promisify(execFile)
 
@@ -140,11 +140,13 @@ export type Shot = ({ text: string, formatted?: never } | { formatted: Formatted
  * `language` is the Language the work is written in, English where it says
  * nothing, and never the Locale of whoever reads it. `opening` names the Scene a
  * Reading starts on; saying nothing leaves it the first Scene written, which is
- * what the editor does for an Author.
+ * what the editor does for an Author. `genres` are what a listed work is filed
+ * under in the Catalogue; a work nobody lists names none.
  */
 export type Work = {
   title: string
   language?: StoryLanguage
+  genres?: StoryGenre[]
   opening?: string
   scenes: {
     name: string

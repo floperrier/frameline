@@ -1,6 +1,6 @@
 /**
- * How a Story is labelled on a shelf: the day it was published and the Language
- * it is written in. Written once because the Catalogue and a Profile hand over
+ * How a Story is labelled on a shelf: the day it was published, the Language it
+ * is written in and the Genres it is filed under. Written once because the Catalogue and a Profile hand over
  * the same entries in two orders, and a date formatted one way on one shelf and
  * another way on the next would be two answers to one question.
  */
@@ -29,5 +29,14 @@ export function useEntries() {
     return te(`languages.${code}`) ? t(`languages.${code}`) : code
   }
 
-  return { published, languageNamed }
+  /**
+   * A Genre a Story is filed under, named in the Locale. The set is closed, so
+   * a code with no name is one written by a later version of the set, and is
+   * shown as the code rather than as a blank.
+   */
+  function genreNamed(code: string) {
+    return te(`genres.${code}`) ? t(`genres.${code}`) : code
+  }
+
+  return { published, languageNamed, genreNamed }
 }
