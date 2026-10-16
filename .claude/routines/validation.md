@@ -6,15 +6,17 @@ Modèle : un modèle léger (Sonnet) ; chaque sous-agent sur le plus solide (Opu
 Lit : PR agent + to-verify
 Écrit : agent-verified ou changes-needed, avec un commentaire de preuve
 
-Valide les PR ouvertes qui portent agent et to-verify, les plus anciennes d'abord.
-Déclenchée par un événement de PR, le clone n'est pas sur dev mais sur le commit de tête
-de la PR (gh api "repos/{owner}/{repo}/commits/$(git rev-parse HEAD)/pulls") : valide
-celle-là seulement, si elle porte agent et to-verify ; sinon termine sans rien changer.
-Tant qu'une issue dev-broken est ouverte, ne valide que la PR qui la ferme : agent-merge
-renverrait les autres en to-verify sans les merger. Tu ne juges aucune PR toi-même :
-confie chacune à un sous-agent distinct, lancé avec model: opus, qui part d'un contexte
-propre et ne reçoit que le numéro de la PR et la section « Pour chaque PR » ci-dessous.
-Demande-lui de signaler dans son rapport les écarts du flow qu'il a rencontrés.
+Valide les PR ouvertes qui portent agent et to-verify, les plus anciennes d'abord, une
+à la fois. Déclenchée par un événement de PR, le bloc <github-trigger-context> du run
+nomme la PR et son commit de tête : valide celle-là seulement, si elle porte agent et
+to-verify ; sinon termine sans rien changer. Tant qu'une issue dev-broken est ouverte,
+ne valide que la PR qui la ferme : agent-merge renverrait les autres en to-verify sans
+les merger.
+Sous-agents : toi seul peux en lancer, un sous-agent n'en lance aucun. Juge donc
+chaque PR toi-même, exécute toi-même le skill code-review, et lance avec model: opus
+chaque sous-agent qu'il demande : ses deux axes y gagnent le modèle le plus solide et
+chacun son contexte. Demande-leur de signaler dans leur rapport les écarts du flow
+qu'ils ont rencontrés.
 L'auteur d'une PR ne corrige qu'après le verdict, selon l'étape 1 de l'Atelier.
 Ne merge rien, ne pousse aucun commit. Fin de run : `git worktree remove` sur chaque
 worktree que le run a créé.
@@ -25,7 +27,8 @@ label to-verify.
 script ou consigne d'une routine) et non sur le code du dépôt, ajoute un commentaire à
 l'issue ouverte « Écarts du flow » (label flow-kit), ou crée-la : ce qui s'est passé,
 avec le message d'erreur exact, la cause, le contournement, et la modification du flow
-qui l'aurait évité. L'Entretien en fait un retour d'expérience sur le skill.
+qui l'aurait évité. L'Entretien en fait un retour d'expérience sur le skill. Une
+consigne muette ou un contournement en est un, même sans erreur.
 
 Pour chaque PR :
 Tu n'as écrit aucun de ces changements, et la PR se juge sur son commit courant. Son
