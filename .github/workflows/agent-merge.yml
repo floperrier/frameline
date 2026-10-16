@@ -5,9 +5,10 @@
 # Écrit : squash dans dev, sans le pied du proxy, une fois tous les checks réussis ;
 #         sinon attend, ou renvoie : changes-needed si un check échoue, to-verify
 #         si dev est rouge ou si la Validation n'a pas vu ce commit, ready-for-human
-#         si la PR change les scripts d'installation approuvés. Un nouveau push sur une PR vérifiée annule la
-#         vérification. C'est ce workflow, pas l'auto-merge de GitHub, qui attend la
-#         CI. Ne touche jamais à main : la promotion reste humaine.
+#         si la PR change les scripts d'installation approuvés. Un nouveau push sur une
+#         PR vérifiée annule la vérification. C'est ce workflow, pas
+#         l'auto-merge de GitHub, qui attend la CI : il fonctionne donc aussi sans
+#         ruleset (mode dégradé). Ne touche jamais à main : la promotion reste humaine.
 name: agent-merge
 on:
   # pull_request_target reads this workflow from dev, not from the pull request, so a
@@ -22,8 +23,10 @@ on:
   # verified pull request would wait if one of them finished last.
   check_suite:
     types: [completed]
+# By branch, whether the event is a label or the end of a check: one evaluation at a
+# time per pull request, each reading the current state.
 concurrency:
-  group: agent-merge-${{ github.event.pull_request.number || github.event.workflow_run.head_branch || github.event.check_suite.head_branch }}
+  group: agent-merge-${{ github.event.pull_request.head.ref || github.event.workflow_run.head_branch || github.event.check_suite.head_branch }}
 # issues: write lets the merge close the issues the pull request names; without it
 # the merge goes through and they stay open, with nothing reported.
 permissions:
@@ -43,7 +46,9 @@ jobs:
     steps:
       - run: gh pr edit "$PR" --repo "$REPO" --remove-label agent-verified --add-label to-verify
   agent-merge-gate:
-    if: (github.event_name == 'pull_request_target' && github.event.action == 'labeled' && github.event.label.name == 'agent-verified') || (github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request') || github.event_name == 'check_suite'
+    # A check suite with no pull request (an outside App's on dev, say) has nothing to
+    # merge, and starting the job would spend a minute of Actions on it.
+    if: (github.event_name == 'pull_request_target' && github.event.action == 'labeled' && github.event.label.name == 'agent-verified') || (github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request') || (github.event_name == 'check_suite' && github.event.check_suite.pull_requests[0])
     runs-on: ubuntu-latest
     steps:
       # A merge made with GITHUB_TOKEN triggers no other workflow: neither dev's CI,

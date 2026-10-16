@@ -18,6 +18,11 @@ Amended in issue #522, by `docs/adr/0094-no-path-is-held-back.md`:
 `.github/agent-sensitive-paths` is gone, and `agent-merge.yml` merges whatever
 the Validation passes, whichever paths it touches.
 
+Amended in issue #531, by
+`docs/adr/0096-a-change-is-proved-by-a-test-that-fails-on-dev.md`: Triage
+locates a bug in `dev`'s code instead of reproducing it with `verify`, which is
+gone.
+
 Until now the autonomous work was one loop on the developer's laptop. It chose
 the next issue, built it, opened the pull request and armed its auto-merge, all
 in the one run that wrote the change. Nothing it merged had been looked at by

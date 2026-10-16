@@ -9,6 +9,10 @@ Decided on 2026-10-15, in issue #526. Amends
 refusal does and how `agent-merge.yml` waits for CI, and
 `docs/adr/0094-no-path-is-held-back.md` on what still comes to the developer.
 
+Amended in issue #531, by
+`docs/adr/0096-a-change-is-proved-by-a-test-that-fails-on-dev.md`: the
+Entretien runs every Monday, and also brings the flow's files up to the kit.
+
 The flow moves to the current version of the kit it was installed from. What it
 changes, the protection staying the full one of two rulesets:
 
