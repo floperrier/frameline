@@ -15,7 +15,8 @@ puis la même requête avec label:needs-triage, et avec label:needs-info, à la 
 de no:label.
 
 Écarts par rapport au skill :
-- reproduis les bugs sur dev avec le skill verify avant de conclure ;
+- localise chaque bug dans le code de dev avant de conclure ; le test qui le reproduit
+  revient à l'Atelier ;
 - personne ne répond pendant ce run : avant toute question, cherche la réponse dans
   le code, GLOSSARY.md, les ADR et, pour un service tiers, avec le skill research ;
   si rien ne permet de trancher, poste une seule question en commentaire et mets
@@ -25,3 +26,8 @@ de no:label.
   domain-modeling ; décision irréversible ou structurante : ready-for-human ;
 - ferme les needs-info sans réponse depuis 14 jours.
 N'écris aucun code.
+Écart du flow : si tu as buté sur le flow lui-même (hook, workflow, script ou consigne
+d'une routine) et non sur le code du dépôt, ajoute un commentaire à l'issue ouverte
+« Écarts du flow » (label flow-kit), ou crée-la : ce qui s'est passé, avec le message
+d'erreur exact, la cause, le contournement, et la modification du flow qui l'aurait
+évité. L'Entretien en fait un retour d'expérience sur le skill.

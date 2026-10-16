@@ -16,6 +16,11 @@ a second refusal re-cuts the issue once, as `replanned`, before it goes to the
 developer, and `agent-merge.yml` waits on every check itself rather than through
 auto-merge.
 
+Amended in issue #531, by
+`docs/adr/0096-a-change-is-proved-by-a-test-that-fails-on-dev.md`: the
+Validation no longer runs `verify`; a changed behaviour arrives with a test that
+fails on `dev` and passes on the pull request.
+
 The routines 0076 set up ran on two methods at once. Triage and specs followed
 `mattpocock/skills`, building and verifying followed pstack's `poteto-mode`, and
 the two did not share a vocabulary: since v1.3, Matt Pocock's skills read a

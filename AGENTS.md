@@ -12,7 +12,7 @@ instead, because a cloud session loads no plugin: those of `mattpocock/skills`
 v1.3.1 the routines call, the ones those call in turn, and the ones the developer
 runs by hand (`grill-with-docs`, `to-spec`, `to-tickets`, `wayfinder`,
 `to-questionnaire`, `retro`). `skills-lock.json` records where each copy came
-from. `verify` is the repository's own. After `npx skills update`, run
+from. After `npx skills update`, run
 `scripts/skills-model-invocable.sh`: it lets the model invoke the five skills a
 routine names that upstream keeps for the user, and takes out of `triage` the line
 it would start every comment with to say who wrote it. `agent-guard` fails a pull
@@ -45,7 +45,7 @@ l'approbation d'un tiers.
 ## Flow backlog
 
 Cinq routines, Triage, Atelier, Validation, Architecture et Entretien ; leur
-invite, leur cadence et leur modèle sont dans `.claude/routines/`. Une spec arrive
+invite, leur cadence, leur déclencheur et leur modèle sont dans `.claude/routines/`. Une spec arrive
 découpée par `/to-tickets` en sous-issues `ready-for-agent`, que l'Atelier
 construit d'un bloc.
 Labels du flow : une PR `agent` + `to-verify` attend la Validation, qui la passe en
@@ -53,14 +53,17 @@ Labels du flow : une PR `agent` + `to-verify` attend la Validation, qui la passe
 en `changes-needed` ; refusée deux fois, son issue est redécoupée et reçoit
 `replanned`. `dev-broken` dit que la CI de `dev` est rouge et suspend les merges
 jusqu'à sa réparation. Le flow ignore `retro` et `architecture`, deux rapports
-hebdomadaires.
+hebdomadaires, et `flow-kit`, l'issue « Écarts du flow » où les routines notent ce
+sur quoi le flow lui-même a buté, et dont l'Entretien fait un retour au kit.
 Toute branche et toute PR partent de `dev`. Branche : `<n>-<slug>`, `n` étant
 l'issue (`447-find-and-replace`), ou `prototype/<nom>` et `research/<nom>`, et
 `chore/skills-update` pour l'Entretien, `chore/flow-backlog-<étape>` pour le kit qui
 installe et met à niveau le flow.
 PR vers `dev` par `pnpm pr` : titre en Conventional Commits (`feat: …`,
-`fix(reading): …`), `Closes #<n>`, et le corps du skill `pr`, la preuve du skill
-`verify` dans son Evidence.
+`fix(reading): …`), `Closes #<n>`, et le corps du skill `pr`. Son Evidence nomme,
+pour chaque comportement changé, le test qui échoue sur `dev` et passe sur la PR ;
+ce qui ne se voit qu'en lançant l'app y tient sur une ligne Non testé, que la
+promotion relit.
 Une question sur une API, une librairie ou un service tiers passe par le skill
 `research`, avec sa note dans `docs/research/`.
 Aucune mention d'outil d'IA dans un commit ou un fichier. Le proxy GitHub du cloud

@@ -13,4 +13,3 @@ playwright-report
 CLAUDE.local.md
 .claude/.headroom_wrap_marker.json
 .env.local
-.verify
