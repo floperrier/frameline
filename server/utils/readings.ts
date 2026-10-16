@@ -75,21 +75,37 @@ export function readingsCounted(kind: Counted) {
  * How often each Exit of a Story was taken and how many Readings ended in each of
  * its Scenes, for the Exits and the Scenes it still holds: a count under one
  * deleted since stays in the table, and in the sum of endings, and is not
- * answered on its own.
+ * answered on its own. And how many Readings left off in each Scene it still
+ * holds, worked out on Readers' Edition from the counts as they were kept, so
+ * that an Exit deleted on the bench since the last Publish, which Readers are
+ * still taking, still counts as a way out of its Scene — see *Where Readings
+ * leave off* in `docs/adr/0072-a-reading-is-counted-for-its-author.md`.
  */
-export async function readingsUnder(storyId: string, held: { scenes: { id: string }[], exits: { id: string }[] }) {
+export async function readingsUnder(
+  storyId: string,
+  held: { scenes: { id: string }[], exits: { id: string }[] },
+  read: { edition: Pick<Edition, 'openingSceneId' | 'exits'> | null, begun: number },
+) {
   const rows = await useDb()
     .select({ kind: readingCounts.kind, subjectId: readingCounts.subjectId, count: readingCounts.count })
     .from(readingCounts)
     .where(and(eq(readingCounts.storyId, storyId), ne(readingCounts.kind, 'begun')))
 
-  const holds = (among: { id: string }[], id: string) => among.some(each => each.id === id)
-  const taken: Record<string, number> = {}
-  const endedIn: Record<string, number> = {}
+  const counted = { taken: {} as Record<string, number>, endedIn: {} as Record<string, number> }
   for (const { kind, subjectId, count } of rows) {
-    if (kind === 'taken' && holds(held.exits, subjectId)) taken[subjectId] = count
-    if (kind === 'ended' && holds(held.scenes, subjectId)) endedIn[subjectId] = count
+    if (kind === 'taken') counted.taken[subjectId] = count
+    if (kind === 'ended') counted.endedIn[subjectId] = count
   }
 
-  return { taken, endedIn }
+  const leftOff = read.edition
+    ? readingsLeftOff({ ...read.edition, begun: read.begun, ...counted })
+    : {}
+  const holding = (among: { id: string }[], counts: Record<string, number>) =>
+    Object.fromEntries(among.filter(({ id }) => id in counts).map(({ id }) => [id, counts[id]!]))
+
+  return {
+    taken: holding(held.exits, counted.taken),
+    endedIn: holding(held.scenes, counted.endedIn),
+    leftOff: holding(held.scenes, leftOff),
+  }
 }

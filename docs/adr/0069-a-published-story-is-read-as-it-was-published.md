@@ -86,6 +86,10 @@ at two megabytes a medium is acceptable. *Amended by
 keep their own digests, so a Publish hashes nothing and reads only the bytes it
 does not hold yet. The digest is stored as hex text rather
 than as `bytea`, so the address, the key and the door's lookup are one string.
+*Amended by `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`:* the
+bytes now live once in a private bucket, named by that digest, so `edition_media`
+keeps the Story and the digest without a second copy, and the door answers with
+an address signed for five minutes.
 
 The door serves a digest only while the Story is published and only under the
 Story that holds it. Another Story's digest, a malformed one and an unpublished

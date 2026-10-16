@@ -1,38 +1,130 @@
-# Merge — workflow GitHub Actions, déclenché par le label agent-verified
-# Lit : la PR vérifiée, et .github/agent-sensitive-paths depuis la branche de base
-# Écrit : auto-merge squash, ou renvoi vers toi (ready-for-human) si chemin sensible ;
-#         un nouveau push sur une PR vérifiée annule la vérification
+# Merge — workflow GitHub Actions, déclenché par le label agent-verified et par la fin
+#         de chaque CI ou d'agent-guard sur une PR
+# Lit : la PR, le commentaire de la Validation et l'état de tous ses checks sur le
+#       commit courant, les issues dev-broken
+# Écrit : squash dans dev, sans le pied du proxy, une fois tous les checks réussis ;
+#         sinon attend, ou renvoie : changes-needed si un check échoue, to-verify
+#         si dev est rouge ou si la Validation n'a pas vu ce commit, ready-for-human
+#         si la PR change les scripts d'installation approuvés. Un nouveau push sur une
+#         PR vérifiée annule la vérification. C'est ce workflow, pas
+#         l'auto-merge de GitHub, qui attend la CI : il fonctionne donc aussi sans
+#         ruleset (mode dégradé). Ne touche jamais à main : la promotion reste humaine.
 name: agent-merge
 on:
-  pull_request:
+  # pull_request_target reads this workflow from dev, not from the pull request, so a
+  # fix reaches the pull requests already open too. It is safe as long as nothing
+  # from the pull request runs here: its diff is read with git show, never executed.
+  pull_request_target:
     types: [labeled, synchronize]
+  workflow_run:
+    workflows: [CI, agent-guard]
+    types: [completed]
+  # GitGuardian and the other checks of an outside App start no workflow_run: a
+  # verified pull request would wait if one of them finished last.
+  check_suite:
+    types: [completed]
+# By branch, whether the event is a label or the end of a check: one evaluation at a
+# time per pull request, each reading the current state.
+concurrency:
+  group: agent-merge-${{ github.event.pull_request.head.ref || github.event.workflow_run.head_branch || github.event.check_suite.head_branch }}
+# issues: write lets the merge close the issues the pull request names; without it
+# the merge goes through and they stay open, with nothing reported.
 permissions:
+  checks: read
   contents: write
+  issues: write
   pull-requests: write
 env:
-  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  PR: ${{ github.event.pull_request.number }}
   REPO: ${{ github.repository }}
 jobs:
-  reset:
-    if: github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'agent-verified')
+  agent-merge-reset:
+    if: github.event_name == 'pull_request_target' && github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'agent-verified')
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR: ${{ github.event.pull_request.number }}
+    steps:
+      - run: gh pr edit "$PR" --repo "$REPO" --remove-label agent-verified --add-label to-verify
+  agent-merge-gate:
+    # A check suite with no pull request (an outside App's on dev, say) has nothing to
+    # merge, and starting the job would spend a minute of Actions on it.
+    if: (github.event_name == 'pull_request_target' && github.event.action == 'labeled' && github.event.label.name == 'agent-verified') || (github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request') || (github.event_name == 'check_suite' && github.event.check_suite.pull_requests[0])
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          gh pr merge "$PR" --repo "$REPO" --disable-auto || true
-          gh pr edit "$PR" --repo "$REPO" --remove-label agent-verified --add-label to-verify
-  merge:
-    if: github.event.action == 'labeled' && github.event.label.name == 'agent-verified' && contains(github.event.pull_request.labels.*.name, 'agent')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      # A merge made with GITHUB_TOKEN triggers no other workflow: neither dev's CI,
+      # nor dev-health, nor promotion. The flow's own App merges instead; reads,
+      # labels and comments go through GITHUB_TOKEN.
+      - uses: actions/create-github-app-token@v3
+        id: app
         with:
-          ref: ${{ github.base_ref }}
-      - run: |
-          files=$(gh pr diff "$PR" --repo "$REPO" --name-only)
-          if printf '%s\n' "$files" | grep -qEf .github/agent-sensitive-paths; then
-            gh pr edit "$PR" --repo "$REPO" --remove-label agent-verified --add-label ready-for-human
-            gh pr comment "$PR" --repo "$REPO" --body "Chemin sensible touché : revue et merge manuels."
+          client-id: ${{ vars.AGENT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+      - uses: actions/checkout@v6
+        with:
+          ref: dev
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_TOKEN: ${{ steps.app.outputs.token }}
+          PR_FROM_EVENT: ${{ github.event.pull_request.number || github.event.check_suite.pull_requests[0].number }}
+          BRANCH: ${{ github.event.workflow_run.head_branch || github.event.check_suite.head_branch }}
+        run: |
+          PR=${PR_FROM_EVENT:-$(gh pr list --repo "$REPO" --head "$BRANCH" --state open --json number --jq '.[0].number // empty')}
+          [ -n "$PR" ] || exit 0
+          info=$(gh pr view "$PR" --repo "$REPO" --json state,baseRefName,isDraft,headRefOid,labels)
+          [ "$(jq -r '.state + .baseRefName + (.isDraft | tostring)' <<<"$info")" = "OPENdevfalse" ] || exit 0
+          jq -e '[.labels[].name] | index("agent") and index("agent-verified")' <<<"$info" >/dev/null || exit 0
+          SHA=$(jq -r .headRefOid <<<"$info")
+          # The label alone is not enough: the Validation first comments its proof, whose
+          # first line names the commit it verified. Without one, this commit was never
+          # seen. (The cloud's proxy refuses to write a commit status, hence a comment.)
+          if ! gh api "repos/$REPO/issues/$PR/comments?per_page=100" --paginate \
+              --jq ".[] | select(.body | split(\"\\n\")[0] | contains(\"Validation\") and contains(\"$SHA\")) | .id" | grep -q .; then
+            gh pr edit "$PR" --repo "$REPO" --remove-label agent-verified --add-label to-verify
+            gh pr comment "$PR" --repo "$REPO" --body "Aucune validation ne nomme le commit $SHA : il repasse en validation."
             exit 0
           fi
-          gh pr merge "$PR" --repo "$REPO" --auto --squash --delete-branch
+          # Every check on the current commit, this workflow's aside, has to have
+          # finished and passed. Only the latest run of each counts: the API also returns
+          # the runs a new one replaced (agent-guard rerun by a corrected description).
+          checks=$(gh api "repos/$REPO/commits/$SHA/check-runs?per_page=100" \
+            --jq '[.check_runs[] | select(.name | startswith("agent-merge-") | not)] | group_by(.name) | map(max_by(.started_at))')
+          [ "$(jq 'length' <<<"$checks")" -gt 0 ] || exit 0
+          [ "$(jq '[.[] | select(.status != "completed")] | length' <<<"$checks")" -eq 0 ] || exit 0
+          if [ "$(jq '[.[] | select(.conclusion | IN("success", "skipped", "neutral") | not)] | length' <<<"$checks")" -gt 0 ]; then
+            gh pr edit "$PR" --repo "$REPO" --remove-label agent-verified --add-label changes-needed
+            gh pr comment "$PR" --repo "$REPO" --body "La CI a échoué sur le commit $SHA : à corriger avant le merge."
+            exit 0
+          fi
+          # The brake: while a dev-broken issue is open, only the pull request that
+          # closes it may land, and the others go back to the Validation.
+          broken=$(gh issue list --repo "$REPO" --label dev-broken --state open --json number --jq '.[].number')
+          if [ -n "$broken" ]; then
+            closes=$(gh pr view "$PR" --repo "$REPO" --json closingIssuesReferences --jq '.closingIssuesReferences[].number')
+            if ! printf '%s\n' "$closes" | grep -qxFf <(printf '%s\n' "$broken"); then
+              gh pr edit "$PR" --repo "$REPO" --remove-label agent-verified --add-label to-verify
+              gh pr comment "$PR" --repo "$REPO" --body "dev est rouge : merge suspendu jusqu'à sa réparation, puis nouvelle validation."
+              exit 0
+            fi
+          fi
+          # A pull request that changes which dependencies may run an install script
+          # goes to the developer: once on dev, the script runs on their machine and in
+          # every cloud session. pnpm 10 and later approve them in pnpm-workspace.yaml;
+          # yq reads it, and reads a package.json too, JSON being YAML.
+          git fetch -q origin "pull/$PR/head"
+          approvals='[.pnpm.onlyBuiltDependencies, .pnpm.allowBuilds, .trustedDependencies, .onlyBuiltDependencies, .allowBuilds, .dangerouslyAllowAllBuilds]'
+          for f in $(git diff --name-only HEAD FETCH_HEAD -- '*package.json' pnpm-workspace.yaml); do
+            before=$( (git show "HEAD:$f" 2>/dev/null || echo '{}') | yq -o json | jq -cS "$approvals")
+            after=$( (git show "FETCH_HEAD:$f" 2>/dev/null || echo '{}') | yq -o json | jq -cS "$approvals")
+            if [ "$before" != "$after" ]; then
+              gh pr edit "$PR" --repo "$REPO" --remove-label agent-verified --add-label ready-for-human
+              gh pr comment "$PR" --repo "$REPO" --body "Scripts d'installation approuvés modifiés dans $f : revue et merge manuels."
+              exit 0
+            fi
+          done
+          # The cloud's GitHub proxy ends every description a session posts with a line
+          # naming the tool, and the squash takes the description as its message.
+          # --match-head-commit refuses the merge if a commit arrived in the meantime.
+          gh pr view "$PR" --repo "$REPO" --json body --jq .body |
+            scripts/trace strip |
+            GH_TOKEN="$APP_TOKEN" gh pr merge "$PR" --repo "$REPO" --squash --delete-branch \
+              --match-head-commit "$SHA" --body-file -

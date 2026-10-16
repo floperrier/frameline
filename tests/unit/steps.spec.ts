@@ -291,13 +291,16 @@ describe('the Step the bench is showing', () => {
 
 /**
  * The bench with a Story on it: the page, the header over it, the document the
- * Story is written in and the reading the middle of the bench turns over to. Every
- * Step but the first is read in that state, so this is where its target has to be.
+ * Story is written in and the two kinds of row it is drawn with, and the reading
+ * the middle of the bench turns over to. Every Step but the first is read in that
+ * state, so this is where its target has to be.
  */
 const WRITING = [
   'app/pages/stories/[id]/index.vue',
   'app/components/StoryHeader.vue',
   'app/components/Writing.vue',
+  'app/components/ShotRow.vue',
+  'app/components/ExitRow.vue',
   'app/components/Preview.vue',
 ]
 

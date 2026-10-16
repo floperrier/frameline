@@ -28,7 +28,11 @@ deploy _is_ a release, and the merge commit of a promotion is what marks one.
 
 The backlog's routines run this same loop, from an issue labelled
 `ready-for-agent` to a pull request that lands once another routine has
-verified it: see `docs/adr/0076-the-backlog-works-itself.md`. `agent-guard`
+verified it: see `docs/adr/0076-the-backlog-works-itself.md` and
+`docs/adr/0083-the-backlog-runs-on-one-set-of-skills.md` and
+`docs/adr/0095-the-flow-settles-what-it-can-undo.md`. A push to `dev` runs
+`check`, and when it fails `dev-health` opens a `dev-broken` issue: until that
+issue is closed, `agent-merge` lands only the pull request that closes it. `agent-guard`
 holds every pull request to the branch name, the Conventional Commits title and
 a record free of any mention of the tool that wrote it.
 
@@ -59,11 +63,12 @@ preview deployment cannot do. Before a promotion:
 
 ```sh
 git switch dev && git pull
-pnpm install && pnpm db:migrate && pnpm dev
+pnpm install && pnpm dev
 ```
 
-`pnpm db:migrate` touches the `development` branch of the database and never
-production, so a migration waiting in the promotion is exercised on the way in.
+`pnpm dev` applies the migrations to the database on your machine before it
+serves, never to production, so a migration waiting in the promotion is
+exercised on the way in.
 A promotion is therefore read as a diff *and* used as a product, which is more
 than a preview origin would have bought.
 
@@ -86,11 +91,13 @@ one squashed sentence per change, so there is no work in progress left to bury,
 and squashing the batch would replace thirty-five sentences with one. The merge
 commit is also the release marker this repository has no tags for.
 
-Merging it closes it, so the next one has to be opened, by hand:
-`gh pr create --base main --head dev --title 'chore: promote dev to main'`, a
-title `agent-guard` accepts. It is deliberately not opened by a workflow: a pull request created with `GITHUB_TOKEN` triggers no
-workflow of its own, so it would arrive with neither `check` nor `e2e` and
-`main`'s protection would refuse it.
+`.github/workflows/promotion.yml` keeps it: on every push to `dev` it opens the
+pull request as a draft if none stands open, and rewrites its description as
+`dev`'s log since the last promotion, grouped by Conventional Commits type.
+Reading it means marking it ready and merging it. The workflow opens it with the
+token of the flow's GitHub App, not `GITHUB_TOKEN`: a pull request created with
+`GITHUB_TOKEN` triggers no workflow of its own, so it would arrive with neither
+`check` nor `e2e` and `main`'s protection would refuse it.
 
 Let a promotion be small enough to read. A batch that has grown past reading is
 a batch that gets promoted unread, which puts the quarantine back where it
@@ -99,15 +106,15 @@ started.
 ## Which database a change talks to
 
 The git flow above has a database counterpart, and it matters more here than the
-branch names do: a Neon branch is cheap, but there is only one production
+branch names do: a database is cheap, but there is only one production
 dataset.
 
 | Where the code runs | Database |
 | --- | --- |
 | production deployment | the Neon branch `production` |
-| `pnpm dev` | the Neon branch `development` |
+| `pnpm dev` | a Postgres container on your machine, kept in a volume, which `pnpm dev` starts |
 | a CI run | a Postgres container of its own, thrown away with the runner |
-| `pnpm test:e2e` on your machine | whatever `DATABASE_URL` names — `development`, or the container `pnpm test:db` starts |
+| `pnpm test:e2e` on your machine | the container `pnpm test:db` starts, unless the environment names another |
 
 The end-to-end suite never needs Neon, and in CI it never touches it. Its runs
 used to take Neon branches in the project production lives in, until on
@@ -115,11 +122,19 @@ used to take Neon branches in the project production lives in, until on
 in it, production's with them — see
 `docs/adr/0075-the-suite-brings-its-own-database.md`. On your machine,
 `pnpm test:db` starts the same two containers CI does (`compose.yaml`) and
-migrates them, and the suite reaches them with
-`DATABASE_URL=postgres://postgres:postgres@db.localtest.me:4445/main pnpm test:e2e`;
-`.env` still names `development`, for `pnpm dev`.
+migrates them, and `pnpm test:e2e` reaches them at
+`postgres://postgres:postgres@db.localtest.me:4445/main` unless the environment
+names another database.
 
-So `pnpm db:migrate` on your machine touches `development`, never production. A
+`pnpm dev` stopped reaching Neon too, once the same suspension left it with no
+database at all — see `docs/adr/0082-development-brings-its-own-database.md`. It
+runs `pnpm db:dev` first, which starts those two containers again as a stack of
+their own (`compose.dev.yaml`, named `frameline-dev`, on 4446) and migrates them.
+That stack keeps its data in a volume, and `.env` names it. Neither stack ever
+touches the other's database.
+
+So a migration on your machine reaches the database `pnpm dev` starts, never
+production. A
 migration reaches `production` in the deploy that carries the code needing it:
 `vercel.json` builds with `pnpm db:migrate && pnpm build`, so a migration that
 fails takes the deploy down with it and the previous one keeps serving. Nobody
@@ -127,12 +142,14 @@ runs a migration against production by hand — see
 `docs/adr/0002-the-schema-moves-with-the-deploy.md`, which also says what that
 demands of a migration that drops something.
 
-When `development` has drifted into a mess, throw it away rather than repairing
-it: `neon branches reset development --parent` refills it from `production`.
+When the database on your machine has drifted into a mess, throw it away rather
+than repairing it: `docker compose -f compose.yaml -f compose.dev.yaml down -v`,
+and the next `pnpm dev` starts an empty one.
 
-One shared `development` branch is enough for one developer. A Neon branch per
-git branch would only add bookkeeping — the suite's own database already covers
-the case where isolation actually pays.
+One database on the machine is enough for one developer, whichever worktree runs
+`pnpm dev`: the stack's name is fixed rather than taken from the directory. A
+database per git branch would only add bookkeeping — the suite's own database
+already covers the case where isolation actually pays.
 
 ## Squash, not merge
 
@@ -159,7 +176,7 @@ now goes through a pull request like everything else, which `check` makes a few
 minutes long.
 
 The checks are not `strict`. A routine verifies several pull requests in one run
-and auto-merge does not bring a branch up to date with its base, so asking for it
+and `agent-merge` does not bring a branch up to date with its base, so asking for it
 would hold every pull request but the first until somebody updated it by hand. A
 change two green pull requests break together surfaces in the next pull
 request's CI, which builds on `dev` as it then stands, and at the latest in the

@@ -23,7 +23,10 @@ Language the Author names, and the copy opens on the bench.** *Duplicate*
 stands beside *Delete* on `/stories` and opens a form under the entry, filled
 with the Story's title and Language. `POST /api/stories/:id/copy` takes
 `{ title, language }`, holds them to the rules a new Story's are held to, and
-writes the copy in one statement.
+writes the copy in one statement. *Amended by
+`docs/adr/0090-a-story-may-be-open-to-copying.md`:* another Author may copy a
+Story whose Author made it Open to Copying, taking its Edition and carrying a
+Credit for good.
 
 ## Why the copy is whole
 
@@ -33,7 +36,10 @@ Exit with every column it has, the bytes of each Image and Sound among them. No
 column is listed. Each row goes in as `to_jsonb` writes it, with the copy's own
 ids laid over it, and is read back through `jsonb_populate_record`, the way a
 deleted Shot is put back (`docs/adr/0064-a-deleted-shot-is-held-for-a-day.md`).
-A column added later is copied without anybody remembering this route.
+A column added later is copied without anybody remembering this route. *Amended
+by `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`:* a row now
+carries its Images and Sounds as digests, so the copy names the same objects and
+copies no bytes.
 
 The ids are drawn before any row is written, one map per table, so every
 reference inside the copy names the copy's own rows: the opening Scene, the

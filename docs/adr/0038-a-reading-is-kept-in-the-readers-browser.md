@@ -50,7 +50,9 @@ own browser can. A Reading kept on the server would be a Reading somebody could
 be signed in to, and a Reader needs no account by design. *Amended by
 `docs/adr/0072-a-reading-is-counted-for-its-author.md`:* nothing a Reading holds
 reaches the server, but that one began or ended is added to a number its Author
-reads.
+reads. *Amended by
+`docs/adr/0091-a-story-for-adults-is-read-behind-an-account.md`:* a Story For
+Adults is read only by a signed-in Author who asked to see such Stories.
 
 **Preview keeps nothing.** The Preview draws the same component and does not
 name a Story to keep the Reading for. An Author on the bench restarts, rerolls

@@ -18,7 +18,9 @@ decoy and have it pressed.
 
 **A published Story gets a page made to be framed, `/embed/<id>`, and the bench
 hands its Author the code that frames it. Every other response refuses to be
-framed by another site.**
+framed by another site.** *Amended by
+`docs/adr/0091-a-story-for-adults-is-read-behind-an-account.md`:* a Story For
+Adults is never framed.
 
 The page reads the Story through `GET /api/read/:id`, as the reading page does,
 and gives the same not-found for a Story that is unpublished or was never

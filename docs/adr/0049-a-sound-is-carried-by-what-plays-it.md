@@ -27,7 +27,10 @@ reason and at the same cap: nothing of the work lives outside the work, a
 published Story depends on no file the product might later withdraw, and a
 `bytea` that big is TOASTed out of the row by Postgres and never touched by a
 query that does not select it — which is why `readStoryGraph` selects
-`sound is not null` and never the column itself.
+`sound is not null` and never the column itself. *Amended by
+`docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`:* the row now
+names its Sound by digest, and the bytes live in a private bucket the product
+keeps, once for every row that plays them.
 
 **A Scene may name a Scene instead of carrying bytes, one hop and no further.**
 Depositing a 400 KB bed twelve times is work; naming is how an Author avoids it,

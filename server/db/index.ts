@@ -7,7 +7,7 @@ let client: ReturnType<typeof drizzle<typeof schema>> | undefined
 export function useDb() {
   if (!client) {
     const url = useRuntimeConfig().databaseUrl
-    if (!url) throw new Error('DATABASE_URL is not set — run `neon env pull`')
+    if (!url) throw new Error('DATABASE_URL is not set — copy .env.example to .env')
     routeToLocalProxy()
     client = drizzle(url, { schema })
   }

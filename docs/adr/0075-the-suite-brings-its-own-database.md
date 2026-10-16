@@ -28,7 +28,10 @@ Neon's HTTP protocol to the serverless driver
 development uses, pinned by digest), and `pnpm test:db` starts both and migrates
 them — in CI and on a development machine alike. `server/db/endpoint.ts` sends a
 connection string naming `db.localtest.me` — a name that resolves to the machine
-itself — to that proxy, and every other host to Neon exactly as before.
+itself — to that proxy, and every other host to Neon exactly as before. *Amended
+by `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`:* the stack also
+holds a bucket of its own, Versity Gateway on a `tmpfs`, so a run never reaches
+Cloudflare either.
 
 The proxy is Neon's own, tuned for a service shared by thousands of databases
 and run here for one suite. As the image starts it, it checks the password on

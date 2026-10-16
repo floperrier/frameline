@@ -348,6 +348,47 @@ export function joinFormatted(first: Formatted, second: Formatted): { formatted:
   return { formatted: { ...first, content }, seam }
 }
 
+// A text pasted under a Scene, read as the Shots it makes — issue #438,
+// `docs/adr/0081-pasted-text-is-cut-at-its-empty-lines.md`.
+
+/**
+ * Whether a block's first line says who speaks: a line starting with `@`, or one
+ * written in capitals — a capital and no small letter, so a script with no case
+ * never reads as a Speaker; an `@` naming nobody is a line like any other. The
+ * name the Speaker is given, or undefined.
+ */
+function speakerOf(first: string): string | undefined {
+  const name = first.trim()
+  if (name.startsWith('@')) return name.slice(1).trimStart() || undefined
+  return /\p{Lu}/u.test(name) && !/\p{Ll}/u.test(name) ? name : undefined
+}
+
+/**
+ * The Shots a text makes, in order. It is cut at every run of empty lines (a line
+ * of white space is empty), and where it holds none, every line is a Shot.
+ * Empty lines at its head and foot are set aside first, so a trailing line break
+ * does not count as a cut. A block of two lines or more whose first line is a
+ * Speaker is a speech, and nothing else in the text is read. Each line keeps the
+ * spaces at its start and loses those at its end.
+ */
+export function shotsOf(text: string): Formatted[] {
+  const lines = text.split(/\r\n?|\n/).map(held => held.trimEnd())
+  const from = lines.findIndex(Boolean)
+  if (from === -1) return []
+  const kept = lines.slice(from, lines.findLastIndex(Boolean) + 1)
+
+  const blocks = kept.includes('')
+    ? kept.join('\n').split(/\n{2,}/).map(block => block.split('\n'))
+    : kept.map(held => [held])
+
+  return blocks.map(([first, ...rest]) => {
+    const speaker = rest.length ? speakerOf(first!) : undefined
+    return speaker === undefined
+      ? formatted(...[first!, ...rest].map(held => line(held)))
+      : formatted(speech(speaker, ...rest.map(held => line(held)) as [Line, ...Line[]]))
+  })
+}
+
 // The boundary.
 
 export type FormattedRefusal = 'formatted' | 'redactionHides' | 'shotTextLong'

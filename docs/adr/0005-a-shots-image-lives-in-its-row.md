@@ -1,8 +1,14 @@
 ---
-status: accepted
+status: superseded by 0092
 ---
 
 # A Shot's image lives in the Shot's row
+
+Superseded by `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`: the
+ceiling below arrived as the free plan's quotas rather than as invocations on a
+bill, and an Image's bytes now live in a private bucket, reached through the
+same door by an address signed for five minutes. What follows is the decision as
+it was taken.
 
 The bytes of a Shot's still image are held in a `bytea` column on `shots`, capped
 at two megabytes, and served by an endpoint of our own that applies the same
@@ -52,7 +58,7 @@ bytes are served back under whatever type we believe — and read out of them ag
 on the way out, so there is one answer to what a still is and no column that can
 disagree with the file. That is also what limits the formats to JPEG, PNG and
 WebP: each is one signature to recognise, and an animated GIF is not the one still
-image `CONTEXT.md` says a Shot carries.
+image `GLOSSARY.md` says a Shot carries.
 
 A Still now carries a Description — what it shows, written by the Author for a
 Reader who cannot see it — in the Shot's own row beside the bytes, which is where

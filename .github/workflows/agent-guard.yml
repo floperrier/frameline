@@ -2,13 +2,17 @@ name: agent-guard
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
+# It runs a script from the pull request's own branch.
+permissions:
+  contents: read
 jobs:
   agent-guard:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Aucune trace d'outil
         env:
           BODY: ${{ github.event.pull_request.body }}
@@ -17,10 +21,12 @@ jobs:
           BRANCH: ${{ github.head_ref }}
         # A promotion carries dev's commits, each checked by its own pull request;
         # those that landed before this guard existed cannot be rewritten.
+        # The footer the cloud's proxy adds, session link included, is expected:
+        # agent-merge leaves it out of the squash.
         run: |
-          pattern='Claude-Session|claude\.ai/code/session|Co-Authored-By: Claude|Generated with \[?Claude'
-          if printf '%s' "$BODY" | grep -qiE "$pattern"; then echo "Trace dans la description"; exit 1; fi
-          if [ "$BRANCH" != dev ] && git log --format=%B "$BASE..$HEAD" | grep -qiE "$pattern"; then echo "Trace dans un commit"; exit 1; fi
+          printf '%s' "$BODY" | scripts/trace strip | scripts/trace check || { echo "Trace dans la description"; exit 1; }
+          if [ "$BRANCH" != dev ] && ! git log --format=%B "$BASE..$HEAD" | scripts/trace check; then echo "Trace dans un commit"; exit 1; fi
+          if [ "$BRANCH" != dev ] && git log --format='%an %ae %cn %ce' "$BASE..$HEAD" | grep -qiE 'claude|anthropic'; then echo "Commit sous une identité d'outil"; exit 1; fi
       - name: Nom de branche conforme
         env:
           BRANCH: ${{ github.head_ref }}
@@ -34,3 +40,5 @@ jobs:
         run: |
           printf '%s' "$TITLE" | grep -qE '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9-]+\))?!?: .+' \
             || { echo "Titre non conforme : $TITLE"; exit 1; }
+      - name: Skills des routines invocables par le modèle
+        run: bash scripts/skills-model-invocable.sh --check

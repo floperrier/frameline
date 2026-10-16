@@ -10,13 +10,18 @@
  * lists of forty, and the document is re-rendered on every character typed into a
  * beat — which is the quadratic redraw this whole surface is arranged to avoid.
  * A component whose props have not changed is not re-rendered at all, and a
- * keystroke changes none of these, so a keystroke rebuilds none of them.
+ * keystroke changes none of these, so a keystroke rebuilds none of them. Nor
+ * does an act elsewhere in the Story, nor a Scene's name typed into: what it is
+ * handed to say which Scenes it offers is ids alone, projected by the document
+ * and kept while they say the same — see `steady` in `app/utils/sharing.ts` —
+ * and what it shows each of them as is read from `names` by id, so a name typed
+ * into draws again only the lists that offer that Scene.
  */
-const { scenes, exits, from, led, names } = defineProps<{
+const { scenes, exits, from, led, names, typed = false } = defineProps<{
   /** Every Scene of the Story, which is what a way on chooses among. */
-  scenes: Scene[]
+  scenes: Pick<Scene, 'id'>[]
   /** Every Exit of the Story, which is what says what this Scene already reaches. */
-  exits: Exit[]
+  exits: Pick<Exit, 'fromSceneId' | 'toSceneId'>[]
   /** The Scene the way on leaves. */
   from: string
   /**
@@ -24,15 +29,18 @@ const { scenes, exits, from, led, names } = defineProps<{
    * a new way on may not land there.
    */
   led?: string
+  /** What each Scene is shown as, by its id. */
+  names: ReadonlyMap<string, string>
   /**
-   * What the bench calls each Scene, `namesOnTheBench`, where the field chooses a
-   * Scene by id and shows it under that name: two Scenes an Author called the same
-   * are told apart there the way every other control tells them apart. Left out
-   * where the list is one a name is typed from — there an option is the Author's
-   * own name, because a name typed there is the name the Scene is written under.
-   * See `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
+   * Whether the list is one a name is typed from, rather than a field that
+   * chooses a Scene by id. Where it chooses, `names` is what the bench calls each
+   * Scene, `namesOnTheBench`, so two Scenes an Author called the same are told
+   * apart there the way every other control tells them apart. Where a name is
+   * typed, an option is the Author's own name, because a name typed there is the
+   * name the Scene is written under. See
+   * `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
    */
-  names?: Map<string, string>
+  typed?: boolean
 }>()
 
 const landings = computed(() => {
@@ -44,7 +52,7 @@ const landings = computed(() => {
 
 <template>
   <template v-for="landing in landings" :key="landing.id">
-    <option v-if="names" :value="landing.id">{{ names.get(landing.id) }}</option>
-    <option v-else :value="landing.name" />
+    <option v-if="typed" :value="names.get(landing.id)" />
+    <option v-else :value="landing.id">{{ names.get(landing.id) }}</option>
   </template>
 </template>

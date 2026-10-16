@@ -1,17 +1,22 @@
 # Frameline
 
 An editor for interactive narrative works that speaks the grammar of cinema.
-Read `CONTEXT.md` before touching anything — the glossary is binding.
+Read `GLOSSARY.md` before touching anything — the glossary is binding.
 
 ## Agent skills
 
 The Neon skills come from the plugin `neon-postgres@neon`, which
 `.claude/settings.json` enables and whose marketplace it declares, so a clone can
 install it. The skills the backlog flow runs on are copied into `.claude/skills/`
-instead, because a cloud session loads no plugin: `triage` and `to-spec` from
-`mattpocock/skills`, and the whole of pstack, whose per-role models are
-`.claude/rules/pstack-models.md`. `skills-lock.json` records where each copy came
-from. `verify` is the repository's own.
+instead, because a cloud session loads no plugin: those of `mattpocock/skills`
+v1.3.1 the routines call, the ones those call in turn, and the ones the developer
+runs by hand (`grill-with-docs`, `to-spec`, `to-tickets`, `wayfinder`,
+`to-questionnaire`, `retro`). `skills-lock.json` records where each copy came
+from. After `npx skills update`, run
+`scripts/skills-model-invocable.sh`: it lets the model invoke the five skills a
+routine names that upstream keeps for the user, and takes out of `triage` the line
+it would start every comment with to say who wrote it. `agent-guard` fails a pull
+request on which either has come back.
 
 ### Issue tracker
 
@@ -25,36 +30,57 @@ string equal to its name. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
-Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See
+Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See
 `docs/agents/domain.md`.
 
 ## Produit
 
 Frameline est un éditeur d'œuvres narratives interactives qui parle la grammaire
 du cinéma. Un Auteur assemble des Plans en Scènes et relie les Scènes par des
-Sorties ; un Lecteur lit le Récit à un lien public. Le glossaire de `CONTEXT.md`
+Sorties ; un Lecteur lit le Récit à un lien public. Le glossaire, `GLOSSARY.md`,
 est la conception même et lie le code comme l'écran. Un seul développeur, sans
 relecteur : ce qui demande une décision humaine lui revient, et rien n'attend
 l'approbation d'un tiers.
 
 ## Flow backlog
 
-Trois routines vident le backlog, Triage, Atelier et Validation ; leur invite, leur
-cadence et leur modèle sont dans `.claude/routines/`.
-Labels du flow : `needs-plan` (spec à découper) devient `planned` une fois découpée
-en issues `ready-for-agent`, et `replanned` marque une issue revenue au plan après
-deux refus ; `agent-wip` dit qu'une issue est prise ; une PR `agent` + `to-verify`
-attend la Validation, qui la passe en `agent-verified` (auto-merge par
-`agent-merge.yml`) ou en `changes-needed`.
-Après `/to-spec`, remplacer `ready-for-agent` par `needs-plan` sur la spec publiée.
-`triage` et `to-spec` ne s'invoquent pas par l'outil Skill : lire et suivre
-`.claude/skills/<nom>/SKILL.md`.
-Branche : `<n>-<slug>` prise sur `dev`, `n` étant l'issue (`447-find-and-replace`).
+Cinq routines, Triage, Atelier, Validation, Architecture et Entretien ; leur
+invite, leur cadence, leur déclencheur et leur modèle sont dans `.claude/routines/`. Une spec arrive
+découpée par `/to-tickets` en sous-issues `ready-for-agent`, que l'Atelier
+construit d'un bloc.
+Labels du flow : une PR `agent` + `to-verify` attend la Validation, qui la passe en
+`agent-verified`, qu'`agent-merge.yml` squashe une fois tous ses checks verts, ou
+en `changes-needed` ; refusée deux fois, son issue est redécoupée et reçoit
+`replanned`. `dev-broken` dit que la CI de `dev` est rouge et suspend les merges
+jusqu'à sa réparation. Le flow ignore `retro` et `architecture`, deux rapports
+hebdomadaires, et `flow-kit`, l'issue « Écarts du flow » où les routines notent ce
+sur quoi le flow lui-même a buté, et dont l'Entretien fait un retour au kit.
+Toute branche et toute PR partent de `dev`. Branche : `<n>-<slug>`, `n` étant
+l'issue (`447-find-and-replace`), ou `prototype/<nom>` et `research/<nom>`, et
+`chore/skills-update` pour l'Entretien, `chore/flow-backlog-<étape>` pour le kit qui
+installe et met à niveau le flow.
 PR vers `dev` par `pnpm pr` : titre en Conventional Commits (`feat: …`,
-`fix(reading): …`), `Closes #<n>`, et la preuve du skill `verify` dans le corps.
-Aucune mention d'outil d'IA dans un commit, une PR ou un fichier.
-Un chemin de `.github/agent-sensitive-paths` ou une décision produit :
-`ready-for-human`, sans auto-merge. `dev` atteint `main` par une promotion humaine.
+`fix(reading): …`), `Closes #<n>`, et le corps du skill `pr`. Son Evidence nomme,
+pour chaque comportement changé, le test qui échoue sur `dev` et passe sur la PR ;
+ce qui ne se voit qu'en lançant l'app y tient sur une ligne Non testé, que la
+promotion relit.
+Une question sur une API, une librairie ou un service tiers passe par le skill
+`research`, avec sa note dans `docs/research/`.
+Aucune mention d'outil d'IA dans un commit ou un fichier. Le proxy GitHub du cloud
+termine tout ce qu'une session publie par un pied qui le nomme : il reste dans les
+commentaires et les issues, et `agent-merge.yml` le retire du squash, si bien qu'il
+n'est pas un motif de refus. Dans le cloud, GraphQL est refusé, et avec lui
+`pnpm pr`, `gh pr create`, `gh pr ready`, `gh issue comment`, `gh pr comment` et
+les autres commandes `gh` qui en dépendent : publier par `gh api` (REST) ou l'outil
+GitHub intégré.
+Une décision produit petite et réversible, l'agent la tranche d'après la section
+Produit et les ADR, et la consigne dans un ADR avec `domain-modeling` ; une
+décision irréversible ou structurante : `ready-for-human`, sans rien construire.
+Un seul chemin retient un changement, les scripts d'installation approuvés : voir
+`docs/adr/0094-no-path-is-held-back.md` et
+`docs/adr/0095-the-flow-settles-what-it-can-undo.md`. `dev` atteint `main` par
+une promotion humaine, qui liste les nouvelles dépendances et les zones de
+`.github/promotion-watch`.
 
 ## Design
 
@@ -67,7 +93,7 @@ The widths the interface folds at are the one thing a token cannot carry, becaus
 a custom property cannot be read inside a media query. They are declared as
 custom media queries in `app/assets/css/folds.css` — names and no rules — and
 reached by name from the scoped block of every surface that folds at one. See
-`docs/adr/0042-the-scene-is-written-where-it-stands.md` and
+`docs/adr/0006-two-rooms-one-language.md` and
 `docs/adr/0041-the-graph-is-drawn-from-the-story.md`.
 
 ## Git flow
@@ -75,8 +101,9 @@ reached by name from the scoped block of every surface that folds at one. See
 A pull request per issue, squash-merged into `dev`, the default branch. `main`
 is what deploys to production, and `dev` reaches it whole in a promotion of its
 own. See `docs/git-flow.md`,
-`docs/adr/0039-autonomous-work-waits-on-dev.md` and
-`docs/adr/0076-the-backlog-works-itself.md`.
+`docs/adr/0039-autonomous-work-waits-on-dev.md`,
+`docs/adr/0076-the-backlog-works-itself.md` and
+`docs/adr/0083-the-backlog-runs-on-one-set-of-skills.md`.
 
 ## Languages
 
@@ -84,7 +111,7 @@ The interface is read in French or in English, and the two message files —
 `i18n/locales/en.json` and `i18n/locales/fr.json` — are the only place a
 displayed string may be written. English is the `defaultLocale`, so it is the
 language of unprefixed URLs and the language a new key is authored in; French is
-reached at `/fr/...`. `CONTEXT.md` says which French word each glossary term is
+reached at `/fr/...`. `GLOSSARY.md` says which French word each glossary term is
 shown as, and that word binds: see
 `docs/adr/0014-the-glossary-is-the-codes-language.md`.
 
@@ -93,9 +120,9 @@ every word that carries meaning take a capital, and the articles, prepositions
 and determiners between them stay lowercase — *Add a Shot*, *Close this Panel*,
 *Take Out*, *Duplicate Exit to {scene}*. The article is not dropped to save a
 word: it is *Add a Shot* beside *Add a Flag*, never *Add Shot*. A glossary term
-keeps the capital `CONTEXT.md` gives it wherever it falls, and the capital title
+keeps the capital `GLOSSARY.md` gives it wherever it falls, and the capital title
 case puts on an ordinary word — the *Panel* in *Close this Panel* — claims
-nothing about that word: only `CONTEXT.md` makes a term.
+nothing about that word: only `GLOSSARY.md` makes a term.
 
 The rule reaches the words on a button and the accessible name of one, and stops
 there. The label over a field is not an act — *Name of this Scene*, *Title of a
@@ -106,7 +133,7 @@ with the `_Affiché_` word carrying its own capital: *Ajouter un Plan*, *Fermer 
 panneau*.
 
 What makes it worth settling is the bar of Commands —
-`docs/adr/0035-every-act-of-the-bench-is-reachable-by-naming-it.md`. Matching
+`docs/adr/0035-every-act-marked-on-the-bench-is-reachable-by-naming-it.md`. Matching
 there ignores case, so nothing breaks; but the bar is the one surface that reads
 every label in the product side by side, and a list where half the acts are
 titled and half are not is the mixed convention on show.
@@ -137,35 +164,47 @@ outright: the migration snapshots are the generator's to write.
 
 `pnpm test` runs the Vitest suite over the modules that are pure functions: the
 Reading engine, down to how an Image moves while its Shot is on screen, what a
-Shot's image is read to be and which Images a Reading brings in before it needs
-them, the Conditions and the Effects
+Shot's image is read to be and which Images and Sounds a Reading brings in before
+it needs them, and how a Sound brought in is held as bytes, asked for once and
+asked for again where it failed, the Conditions and the Effects
 a request is allowed to write, the shape a Shot's formatted text is held to at
-the request boundary and the markup-free renderer that draws it, the flicker a
+the request boundary and the markup-free renderer that draws it, the Shots a
+text pasted under a Scene is cut into, the flicker a
 Reading draws held to three flashes
 in any second — its pattern read out of the Reading's stylesheet as source — the
-swipe a finger crossing the frame is read as, the sequence of Places a request renumbers a Scene by and the Place a frame let go of on the Contact Sheet lands at, the Scenes a
+swipe a finger crossing the frame is read as, the sequence of Places a request renumbers a Scene by and the Place a frame let go of on the Contact Sheet lands at, the Scenes an
 Exit may land on, the columns a Story falls into and the order it is written in,
 the two message
 files held against each other, the language a refusal is phrased in, where the driver sends a query, the Steps the
 bench asks a Story for — whose targets are held against the editor's template
-read as source — the Remarks the bench reads back out of a Story, what differs between a
-published Story's Edition and the Story as it is written, and the two
+read as source — the Remarks the bench reads back out of a Story, how a Story read
+back is laid over the one the bench holds so that what did not change keeps its
+object, and which of two reads that cross lands, what differs between a
+published Story's Edition and the Story as it is written, how many Readings left
+off in each of its Scenes, the places a word is
+found at in a Story and what replacing them writes, and the two
 Samples, that each holds together as a work and that the two of them are one
 shape in two languages — and that the script that writes the works starts on
 Node as it stands, run with no Author so it stops before reaching for a
 database. None of them needs a database, because none of them has one in reach. `pnpm test:e2e` runs
-Playwright against a built app and the database `DATABASE_URL` names. Run it
-against the suite's own: `pnpm test:db` starts a Postgres and a proxy that speaks
-Neon's protocol (`compose.yaml`, Docker) and migrates them, then
-`DATABASE_URL=postgres://postgres:postgres@db.localtest.me:4445/main pnpm test:e2e`.
-CI does the same and never touches Neon, whose free quota is production's — see
+Playwright against a built app and the suite's own database: `pnpm test:db`
+starts a Postgres and a proxy that speaks Neon's protocol (`compose.yaml`,
+Docker) and migrates them, and the suite reaches them at
+`postgres://postgres:postgres@db.localtest.me:4445/main` unless the environment
+sets another `DATABASE_URL`. It never takes the one in `.env`, which is
+`pnpm dev`'s. CI does the same and never touches Neon, whose free quota is production's — see
 `docs/adr/0075-the-suite-brings-its-own-database.md`.
 
 ## Running the app
 
-`pnpm dev` after copying `.env.example` to `.env` and filling it in. The Neon
-schema is applied with `pnpm db:migrate`; never edit the database by hand.
-Migrations are generated from `server/db/schema.ts` with `pnpm db:generate`.
+`pnpm dev` after copying `.env.example` to `.env` and filling it in, with Docker
+running. It first starts the database it runs on, the suite's two containers
+started again as a stack of their own (`compose.dev.yaml`, port 4446) whose data
+is kept in a volume, and applies the migrations to it. Then Nuxt starts. See
+`docs/adr/0082-development-brings-its-own-database.md`. Never edit the database
+by hand. Migrations are generated from `server/db/schema.ts` with
+`pnpm db:generate` and applied with `pnpm db:migrate` to the database
+`DATABASE_URL` names: `.env`'s on a development machine, Neon in the deploy.
 
 ## The demonstration work
 

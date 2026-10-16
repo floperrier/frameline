@@ -11,6 +11,13 @@ import type { Phrase } from './phrases'
 export const SCENE_NAME_MAX_LENGTH = 200
 export const SHOT_TEXT_MAX_LENGTH = 2000
 
+/**
+ * The most Shots one request makes from a text pasted under a Scene — issue #438.
+ * A bound on a request and not a rule about Scenes: a Scene of more is written in
+ * two pastes.
+ */
+export const SHOTS_ADDED_MAX = 200
+
 /** What a bar hides, said to a Reader who cannot see it, as a phrase like an Exit's line. */
 export const REDACTION_HIDES_MAX_LENGTH = 120
 
@@ -357,6 +364,15 @@ export const FLAGS_PER_SCENE = 20
 export const QUESTION_MAX_LENGTH = 250
 
 /**
+ * A Question as it is held: the sentence without the blanks round it. Its own
+ * write and a replacement both hold it so, and a Question left with nothing but
+ * blanks is a Scene that asks nothing.
+ */
+export function heldQuestion(written: string): string {
+  return written.trim()
+}
+
+/**
  * How many values one Flag may be given to draw from. Two at the least — a line
  * with no separator is a plain value and stays one — and six at the most: a draw
  * is a beat coming back differently, not a table an Author rolls on. Past half a
@@ -674,7 +690,7 @@ export function flagsSet(rows: FlagRow[]): Sets {
  * panel both ask it: one answer, so the number in the node and the number on the
  * bench cannot say two different things.
  */
-export function exitsFrom(exits: Exit[], sceneId: string) {
+export function exitsFrom<Leaving extends Pick<Exit, 'fromSceneId'>>(exits: Leaving[], sceneId: string) {
   return exits.filter(exit => exit.fromSceneId === sceneId)
 }
 
@@ -798,7 +814,7 @@ export function countedWords(many: number, say: Phrase) {
  * far the rule reaches, is
  * `docs/adr/0044-the-bench-numbers-a-name-two-scenes-answer-to.md`.
  */
-export function namesOnTheBench(story: StoryInEditor, say: Phrase) {
+export function namesOnTheBench(story: Pick<StoryInEditor, 'scenes' | 'exits' | 'openingSceneId'>, say: Phrase) {
   const alike = new Map<string, number>()
   for (const scene of story.scenes) alike.set(scene.name, (alike.get(scene.name) ?? 0) + 1)
 
@@ -899,7 +915,7 @@ export type ExitOnTheBench = {
 
 /**
  * Every Exit of the Story, in the order the Story is written in and each Scene's
- * in its Places. An Exit has no name of its own — see `CONTEXT.md` — so the bench
+ * in its Places. An Exit has no name of its own — see `GLOSSARY.md` — so the bench
  * names it by its Place out of the Scene it leaves: the Places the writing shows
  * and the Remarks count, because all of them read `exitsFrom`. The names of the
  * Scenes at both ends are the bench's own, so a Scene called twice is told apart
@@ -965,7 +981,7 @@ export function exitNamed(exit: Exit, sceneName: (id: string) => string, say: Ph
  * and the server refuses a way on with it, rather than the boundary holding a
  * second copy of it in SQL.
  */
-export function reaches(exits: Exit[], from: string, to: string) {
+export function reaches(exits: Pick<Exit, 'fromSceneId' | 'toSceneId'>[], from: string, to: string) {
   const walked = new Set([from])
   const edge = [from]
 
@@ -999,7 +1015,9 @@ export function reaches(exits: Exit[], from: string, to: string) {
  * are for: what the hand cannot do by accident is still written on purpose, from
  * the Exit's own row — see `docs/adr/0015-a-cut-is-drawn-by-hand.md`.
  */
-export function scenesAExitMayLandOn(scenes: Scene[], exits: Exit[], fromSceneId: string) {
+export function scenesAExitMayLandOn(
+  scenes: Pick<Scene, 'id'>[], exits: Pick<Exit, 'fromSceneId' | 'toSceneId'>[], fromSceneId: string,
+) {
   const reached = new Set(
     exits.filter(exit => exit.fromSceneId === fromSceneId).map(exit => exit.toSceneId))
 
@@ -1055,9 +1073,16 @@ export type StoryInEditor = {
   /**
    * How many Readings began, and how many ended in any Scene, counted for the
    * Author alone — and, by id, how often each Exit the Story holds was taken and
-   * how many Readings ended in each Scene it holds, where any were.
+   * how many Readings ended in each Scene it holds, where any were, and how many
+   * left off in each Scene it holds, where that is above nought.
    */
-  readings: { begun: number, ended: number, taken: Record<string, number>, endedIn: Record<string, number> }
+  readings: {
+    begun: number
+    ended: number
+    taken: Record<string, number>
+    endedIn: Record<string, number>
+    leftOff: Record<string, number>
+  }
   /** Whether the Author has put the published Story in the Catalogue. */
   listed: boolean
   /** What an Exit of this Story answers when it has not answered for itself. */

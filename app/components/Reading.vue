@@ -138,6 +138,15 @@ function kept(): Path | undefined {
 const resumed = ref(false)
 
 /**
+ * Whether the Path this Reading stands on is laid: the kept one read back, or
+ * the opening it was set up at where none was kept. Nothing is brought in before
+ * it is, because the opening drawn during setup is not where a Reading picked up
+ * stands, and its Images and Sounds — a bed is up to 2 MB — would be asked for
+ * and never shown or heard.
+ */
+const laid = ref(false)
+
+/**
  * What the Story's Author is told of this Reading: that it began at the opening,
  * each Exit it took, and that it ended and in which Scene — a number each, and
  * nothing of the Path. Only a Reading kept for a Story tells, which a Preview
@@ -244,6 +253,7 @@ onMounted(() => {
     toldTaken = new Set(before.taken)
   }
   else tell('begun')
+  laid.value = true
   // The strike below is watched on the Path's position, and a Reading that is not
   // picked up stands on the `0-0` it was set up at, so that watch will not see a
   // change and will not fire for it. Struck here instead: the opening beat is a
@@ -255,6 +265,7 @@ onMounted(() => {
   // guard in `holdBed` makes the next crossing into the same carrier a no-op,
   // so nothing started here is restarted.
   holdBed(heard.value)
+  opensOutput()
   // Drawn here in the browser instead, the frame this mount leaves is counted as
   // it is painted, and only if it is still the frame then: a Preview is routed to
   // the Scene being written in the same flush it mounts in, so the beat it mounted
@@ -346,15 +357,21 @@ const onItsWay = ref(false)
 
 /**
  * What is brought in ahead, whenever the Path moves or the Story under it does:
- * every Image `needed` names, and the one on screen, kept so that a step back onto
- * it asks for nothing. In the browser alone, which is the one place an Image is
- * shown, and let go of as the Reading ends. See `app/utils/brought.ts`.
+ * every Image `needed` names and every Sound `soundsNeeded` does, and what the
+ * beat on screen holds and plays, kept so that a step back onto it asks for
+ * nothing. Sounds are brought in whether or not sound is on, because the Reader
+ * may turn it on at the next beat; they are only waited on while it is. In the
+ * browser alone, which is the one place either is shown or heard, from the
+ * moment the Path is `laid` and not before, and let go of as the Reading ends.
+ * See `app/utils/brought.ts`.
  */
 if (import.meta.client) {
   watchEffect(() => {
+    if (!laid.value) return
     for (const image of [imageHeld(story, at.value), ...needed(story, at.value)]) {
       if (image) bringIn(image)
     }
+    for (const sound of [...soundsHeld(story, at.value), ...soundsNeeded(story, at.value)]) bringSoundIn(sound)
   })
 }
 
@@ -370,8 +387,14 @@ async function moveTo(to: Path, byClock = false, passage?: { over: number, throu
   // was held — the bench drawing again — is the one that stands, and a move of the
   // clock's is not made into a Reading stopped while it was held: the clock is
   // armed again as it starts.
+  //
+  // Its Sounds are waited on with its Image, while sound is on and never
+  // otherwise, but for the one the bed already plays: a bed held across the move
+  // has nothing to wait for, and one that started from its address would hold
+  // every later beat of its Scene.
   const from = at.value
-  const ready = untilShown(imageHeld(story, to), onItsWay)
+  const sounds = sounding.value ? soundsHeld(story, to).filter(sound => sound !== bedHolds) : []
+  const ready = untilShown(imageHeld(story, to), onItsWay, sounds)
   if (ready) {
     holding = true
     await ready
@@ -396,12 +419,13 @@ async function moveTo(to: Path, byClock = false, passage?: { over: number, throu
   at.value = to
   resumed.value = false
   await nextTick()
-  // And theirs only for as long as what holds it is in the document. Every
-  // control here is drawn under a condition of its own — a Shot left to ask for,
-  // a beat behind, a Transcript to show, a way on still offered — so any of them
-  // can go out with the move, and one that has gone has taken the focus with it.
-  // Whatever the clock takes away, the beat arriving is where the focus lands.
-  if (theirs && was.isConnected) return
+  // And theirs only for as long as what holds it is on screen. Every control
+  // here is drawn under a condition of its own — a Shot left to ask for, a beat
+  // behind, a Transcript to show, a way on still offered, the list of Exits taken
+  // left open — so any of them can go out with the move, and one that has gone,
+  // from the document or only from sight, has taken the focus with it. Whatever
+  // the clock takes away, the beat arriving is where the focus lands.
+  if (theirs && was.getClientRects().length) return
   land()
   // The Reading's own head to the head of whatever scrolls it, which a Reading
   // laid out full fits under from there: the beat, its words and the press under
@@ -599,6 +623,44 @@ function stepBack() {
 }
 
 /**
+ * The Exits this Reading took where it could have taken another, oldest first,
+ * each with the Path standing where it was taken and the words its button showed
+ * there: said with the Flags held on that Path, or the Scene it leads to where
+ * its Author left it without words. The engine says which, and where a door
+ * closed backwards cuts the list — see
+ * `docs/adr/0080-a-reader-goes-back-to-the-exit-they-name.md`.
+ */
+const forked = computed(() => forks(story, at.value).map(({ exit, index }) => {
+  const to = backTo(story, at.value, index)
+  return { exit, to, words: offered(exit, reading(story, to).state.flags) }
+}))
+
+/**
+ * Whether the list of them is open. A move that changes the Exits taken closes
+ * it, since it lists the ones that were, and a press on one of its entries took
+ * that entry away with it. A beat the clock cuts to inside the Scene leaves it
+ * open: it lists what it listed, and a Reader who opened it in a run playing
+ * itself is still reading it. Esc closes it too, and puts the Reader back on the
+ * control that opened it.
+ *
+ * Going back to one is a hard cut, as a step back is, and does not stop the
+ * clock: the Reader has said where they want to stand, and a stand with a time
+ * counts it again from the ways on being offered.
+ */
+const othersOpen = ref(false)
+const othersId = useId()
+const another = useTemplateRef<HTMLElement>('another')
+
+watch(() => at.value.taken.join(' '), () => {
+  othersOpen.value = false
+})
+
+function closeOthers() {
+  othersOpen.value = false
+  another.value?.focus()
+}
+
+/**
  * The Reader answers the Question on screen with what they typed, which is a move
  * like any other and lands them where the Exits are now offered — judged with the
  * answer, and said with it.
@@ -703,10 +765,15 @@ const travelStyle = computed(() => {
 /**
  * An Exit is offered by what its text says once said, so one whose text says
  * nothing — a name this Reading holds no value for — is offered, like one nobody
- * has phrased yet, by where it arrives.
+ * has phrased yet, by where it arrives. Said against the State on screen, or
+ * against the Flags of the Path an Exit taken earlier was offered on.
  */
-function offered(exit: Exit) {
-  return exitNamed({ ...exit, text: says(exit.text) }, id => sceneNamed(sceneNames.value, id, t), t)
+function offered(exit: Exit, flags = shown.value.state.flags) {
+  return exitNamed(
+    { ...exit, text: said(exit.text, flags, declared.value) },
+    id => sceneNamed(sceneNames.value, id, t),
+    t,
+  )
 }
 
 /**
@@ -765,7 +832,14 @@ watch(transcribed, now => keepFlag(TRANSCRIPT_SHOWN, now))
  * A function rather than only a watch callback, for the reason `strikeShot` is
  * one: a Preview is mounted afresh over a Path the bench was already holding, so
  * the Scene is not crossed into and nothing watched here changes.
+ *
+ * Played from the bytes brought in where they are, and from the address where
+ * not — see `app/utils/brought.ts` — so what the bed holds is the address it
+ * was given, kept here, and never the element's `src`: a carrier whose Sound
+ * was changed under the Preview is started again, and one held across is not.
  */
+let bedHolds: string | undefined
+
 function holdBed(now: Heard | undefined, before?: Heard) {
   const element = bed.value
   if (!element) return
@@ -773,6 +847,7 @@ function holdBed(now: Heard | undefined, before?: Heard) {
   if (!now) {
     element.pause()
     element.removeAttribute('src')
+    bedHolds = undefined
     return
   }
 
@@ -781,9 +856,10 @@ function holdBed(now: Heard | undefined, before?: Heard) {
   const playedOut = element.ended
   element.loop = now.loops && !shown.value.ended
   const replayed = element.loop && playedOut
-  if (heldAcross(before, now) && element.getAttribute('src') === now.sound && !replayed) return
+  if (heldAcross(before, now) && bedHolds === now.sound && !replayed) return
 
-  element.src = now.sound
+  bedHolds = now.sound
+  element.src = playable(now.sound)
   element.currentTime = 0
   // Said here rather than left to the watch above, which fires on the press
   // after a Reader turned the sound off and never on the play that starts a
@@ -813,6 +889,9 @@ watch([heard, () => shown.value.ended], ([now], [before]) => holdBed(now, before
  * beat, and the frame still holds the Shot there — behind the ways on or at the
  * ending alike — so its Sound goes on to its end rather than being cut short by
  * the press the Reader made to move on.
+ *
+ * Played from the bytes brought in where they are, so it starts in the task the
+ * frame lands in, and from its address where they are not.
  */
 function strikeShot() {
   const element = strike.value
@@ -824,13 +903,42 @@ function strikeShot() {
     return
   }
 
-  element.src = sound
+  element.src = playable(sound)
   element.currentTime = 0
   element.muted = !sounding.value
   element.play().catch(() => {})
 }
 
 watch(() => `${at.value.taken.length}-${at.value.shot}`, strikeShot, { flush: 'post' })
+
+/**
+ * A hundredth of a second of silence, as a WAV small enough to be its own address,
+ * so playing it asks the network for nothing.
+ */
+const SILENCE = 'data:audio/wav;base64,UklGRnQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVAAAACAgICAgI'
+  + 'CAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI'
+  + 'CAgICAgICAgA=='
+
+/**
+ * The audio output opened as the Reading is mounted, which a Reader's page does
+ * inside the press on *Begin*: the strike plays that silence where the beat it
+ * opens on plays nothing on either element. The browser opens its output on the
+ * first play a page makes, and that costs the first strike its frame — twice the
+ * time of every later one, past 150 ms on a busy machine — however long its bytes
+ * have been in. Opened here, the first beat that strikes plays as the others do.
+ * Inside the press too, so a browser that plays only inside one has already had
+ * this one played. Only while sound is on, and only in a Story heard at all. See
+ * `docs/adr/0073-a-beat-lands-when-its-image-can-be-shown.md`.
+ */
+function opensOutput() {
+  const element = strike.value
+  if (!element || !heardAtAll.value || !sounding.value) return
+  if (shown.value.shot?.sound || heard.value) return
+
+  element.src = SILENCE
+  element.muted = false
+  element.play().catch(() => {})
+}
 
 /**
  * The clock this Reading is carried by, and the pause the Reader stops it with.
@@ -1716,6 +1824,23 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
       <button v-if="behind" type="button" class="trail" @click="stepBack">
         {{ $t('reading.back') }}
       </button>
+      <!-- Between the two, since it goes back further than a beat and less far
+           than the start. Drawn wherever an Exit taken can be gone back to — at an
+           ending, at the ways on, and in the middle of a run, because a Reader
+           who sees where an Exit led them often knows at once they wanted the
+           other. -->
+      <button
+        v-if="forked.length"
+        ref="another"
+        type="button"
+        class="trail"
+        :aria-expanded="othersOpen"
+        :aria-controls="othersId"
+        @click="othersOpen = !othersOpen"
+        @keydown.esc="othersOpen && closeOthers()"
+      >
+        {{ $t('reading.another') }}
+      </button>
       <button
         ref="again"
         type="button"
@@ -1725,6 +1850,30 @@ const lastingOverlay = computed(() => (overlaid(held.value?.imageLasts) ? drawnA
         {{ $t('reading.again') }}
       </button>
     </p>
+
+    <!-- What *Take Another Exit* opens, in place under the controls: each Exit by
+         the words its button showed, which are the Story's own and in its
+         Language, and nothing else of the Story — no Scene, no Place, no count.
+         In the document while the control is, so the control names an element
+         that is there. -->
+    <ol
+      v-if="forked.length"
+      v-show="othersOpen"
+      :id="othersId"
+      class="others"
+      :aria-label="$t('reading.taken')"
+      @keydown.esc="closeOthers"
+    >
+      <li v-for="way in forked" :key="way.exit.id">
+        <button
+          type="button"
+          :aria-label="$t('reading.backTo', { words: way.words })"
+          @click="passBy(0, 'image', way.to)"
+        >
+          <span :lang="story.language">{{ way.words }}</span>
+        </button>
+      </li>
+    </ol>
   </div>
 </template>
 
@@ -2865,15 +3014,33 @@ figcaption :deep([data-effect="tremor"]) {
 }
 
 .given button,
-.back .trail {
+.back .trail,
+.others button {
   border-color: transparent;
   background: none;
 }
 
 .given button:hover,
-.back .trail:hover {
+.back .trail:hover,
+.others button:hover {
   border-color: transparent;
   background: none;
   color: var(--paper);
+}
+
+/* The Exits that can be gone back to, one to a line in the order they were
+   taken, so the list reads as the Reading did. Quiet as the trail above them, and
+   in the face the ways on are offered in rather than the trail's capitals, since
+   what each says is the Author's. */
+.others {
+  display: grid;
+  justify-items: start;
+  gap: var(--s1);
+}
+
+.others button {
+  color: var(--muted);
+  font-size: 0.875rem;
+  text-align: start;
 }
 </style>

@@ -100,7 +100,7 @@ to read as a Story.
 
 ## Since
 
-A Position is now a Path, shown as _Parcours_ — see the glossary in `CONTEXT.md`.
+A Position is now a Path, shown as _Parcours_ — see the glossary in `GLOSSARY.md`.
 What was decided here is untouched by the renaming: read Position as Path
 throughout, including in the title and in the file name, which stay as they were
 written.

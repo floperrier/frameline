@@ -119,6 +119,7 @@ test('an Author goes to a Scene by naming it, accents or none', async ({ page, r
   for (const named of [
     'Go to Le café',
     'Go to The alley',
+    'Find and Replace',
     'Publish this Story',
     'Close the Remarks',
   ]) {
@@ -384,7 +385,12 @@ test('the bar names every act marked on a Scene being written, and no other', as
   // between the Shots and the Exits where it plays, so it falls between the last
   // act on a Shot and the first on an Exit. Once the Question is open it gives
   // way to *Remove the Question*, which is then the act on offer instead.
+  //
+  // *Find and Replace* is first since #447: it stands in the bench's own tools on
+  // the Story's edge, before the two readings, and the bar reads them in that
+  // order.
   await expect(offered(page)).toHaveText([
+    'Find and Replace',
     'See the Contact Sheet',
     'Read the Story',
     'Publish this Story',
@@ -397,6 +403,7 @@ test('the bar names every act marked on a Scene being written, and no other', as
     'Add a Condition to Shot 2 of The street',
     'Add a Shot',
     'Add Shots from Images',
+    'Add Shots from Text',
     'Ask the Reader a Question',
     'Add a Condition to the Exit 1 to The bar, out of The street',
     'Add an Exit',

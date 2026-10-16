@@ -1,0 +1,16 @@
+# Version du kit flow-backlog copiée dans ce dépôt : <blob git> <asset>. Écrit par scripts/upgrade.sh du skill.
+bfd7d44028e7d5a187c5f6722c2dc8cb3aa7ce88 githooks/commit-msg
+20aa57e61f594b491b980cf7109cf033be9c1d8d routines/architecture.md
+70b8adfded13ecabfba601d79237ca91d8771f7f routines/atelier.md
+3f9f351b762d944a8316ba3634b01170874a01c7 routines/entretien.md
+b1ac47fc0d9bf674557c067cc178228375265913 routines/triage.md
+7c02fa107cc4321d5d8ca542571071b6ad2cfff5 routines/validation.md
+e9ee90c7f4c73f3e9e96cf8f8f15091ec87330c2 scripts/skills-model-invocable.sh
+c5838a4216024b08ed2d0297735da8f2aa416cf1 scripts/trace
+b02dcd7de6a6da0cec148c0072657edd51e36f73 scripts/trace.test.sh
+136f3a2d4147bbd183316119ff300ffdc0b94a22 workflows/agent-guard.yml
+f4791dbb6357ce6b517cecc54d410b9a7ff4bd77 workflows/agent-merge.yml
+70997c7475e66901d0280cc2a7cf99078bc3d867 workflows/deps-intake.yml
+ad3ac65d790dedbb76f4ac8db1d215fcc03332bd workflows/dev-health.yml
+020a7757b456e6a992782bc2727b784ea7772366 workflows/promotion.yml
+cd186aae98c0dfd2c3206a8b2b305fb8846bfb0e workflows/retro-report.yml

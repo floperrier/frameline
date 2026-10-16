@@ -28,6 +28,7 @@ import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { neon } from '@neondatabase/serverless'
 import { sealSession, type H3Event } from 'h3'
+import { routeToLocalProxy } from '../server/db/endpoint.ts'
 import { imageTypeOf } from '../shared/utils/scenes.ts'
 import type { Condition } from '../shared/utils/scenes.ts'
 import { soundTypeOf } from '../shared/utils/sound.ts'
@@ -268,6 +269,7 @@ type Author = { id: string, email: string, name: string | null }
 
 /** The Author this work belongs to, who has to have signed in here already. */
 async function authorNamed(email: string) {
+  routeToLocalProxy()
   const sql = neon(process.env.DATABASE_URL!)
   const [author] = await sql`
     select id, email, name from authors where email = ${email}` as Author[]

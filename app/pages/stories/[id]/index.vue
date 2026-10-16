@@ -11,13 +11,43 @@ const headers = useRequestHeaders(['cookie'])
 // `deep`, because the page edits the fetched Story in place — a Condition
 // chosen, a name typed — and Nuxt hands back a shallow ref by default, which
 // would leave those changes on the object and off the screen.
-const { data: story, refresh } = await useAsyncData(
+const { data: story } = await useAsyncData(
   `story-${id}`,
   () => send(`/api/stories/${id}`, { headers }) as Promise<StoryInEditor>,
   { deep: true },
 )
 const { t } = useI18n()
-const { problem, keptAt, change, write, settled } = useEditing(refresh)
+
+/**
+ * The Story read back after an act, laid over the one the bench holds by `sharing`
+ * rather than put in its place: a Scene, Shot or Exit the act did not change keeps
+ * its object, so the row drawn from it is not drawn again — issue #449 and
+ * `docs/adr/0032-the-bench-reads-the-story-back.md`. After a refusal it is put in
+ * place whole instead, so that every control is drawn again from what the database
+ * holds: a choice sent without being written into the Story first leaves the Story
+ * the bench holds equal to the read, and laid over, nothing would put the control
+ * back. See `docs/adr/0008-refetch-is-for-a-refusal.md`.
+ *
+ * Reads that cross on the way back are answered by `readsBack`, newest first and
+ * each to the act that asked it: whoever awaits an act — the cut that says the
+ * Scene it made and puts the caret in it, the Shot added and typed into — resumes
+ * once a read asked as late as theirs has landed, on a Story that holds the act,
+ * and where none of those came back their promise fails and `useEditing` says so.
+ * An older read that came back stays on the bench. The bench goes on showing the
+ * Story as it was before, where a refetch that failed used to empty it.
+ */
+const readBack = readsBack(
+  () => send(`/api/stories/${id}`) as Promise<StoryInEditor>,
+  (read, whole) => {
+    story.value = story.value && !whole ? sharing(toRaw(story.value), read) : read
+    changesAsked++
+  },
+)
+
+const { problem, keptAt, change, write, settled } = useEditing(
+  () => readBack(),
+  () => readBack(true),
+)
 
 /**
  * What differs from Readers' Edition, asked again each time a typed write is
@@ -27,8 +57,9 @@ const { problem, keptAt, change, write, settled } = useEditing(refresh)
  * answer is taken from the read, so nothing being typed is replaced, and only the
  * one asked last, so two answers crossing on the way back cannot leave the older
  * standing. A read that fails leaves the marks as they were until the next. And
- * only onto the Story it was asked about: a click's read-back replaces the Story
- * whole, so an answer landing after it is older than what it brought, and dropped.
+ * none asked before a read-back lands, which brings the answer too and is the
+ * newer of the two: a read that lands counts itself as asked, and one that fails
+ * drops nothing.
  */
 let changesAsked = 0
 watch(keptAt, async () => {
@@ -197,6 +228,25 @@ type Reading = 'writing' | 'sheet' | 'preview'
  * other two costs a byte until it is asked for.
  */
 const reading = ref<Reading>('writing')
+
+/**
+ * Whether the bar Find and Replace is done in is up, at the head of the middle of
+ * the bench — issue #447, and `app/components/Finding.vue`. It works over the
+ * writing, so it turns the middle to the writing as it opens, and every way off
+ * the writing closes it: the places it lights are fields only the writing draws.
+ */
+const finding = ref(false)
+
+watch(reading, (now) => {
+  if (now !== 'writing') finding.value = false
+})
+
+/** Opens the bar, or puts the caret back in its first field where it is up already. */
+function openFinding() {
+  reading.value = 'writing'
+  if (finding.value) return document.getElementById('finding-what')?.focus()
+  finding.value = true
+}
 
 /**
  * Puts the caret in one Scene, leaving the middle of the bench on the reading it
@@ -443,14 +493,16 @@ async function makeScene(name = t('editor.provisionalSceneName')) {
   let writtenId: string | undefined
 
   await changeStory(async () => {
-    const written = await send(`/api/stories/${id}/scenes`, {
+    const made = await send(`/api/stories/${id}/scenes`, {
       method: 'POST',
       body: { name },
     }) as Scene
 
-    writtenId = written.id
+    writtenId = made.id
   })
-  if (!writtenId) return
+  // Kept but not read back, the Scene is not on the bench to be named or written
+  // in: `useEditing` has said so, and the Author reloads to find it.
+  if (!writtenId || !story.value?.scenes.some(scene => scene.id === writtenId)) return
 
   // After the read the change asks for: the sentence names the Scene as the bench
   // does, and `names` cannot number a Scene the Story does not hold yet; and the
@@ -468,14 +520,31 @@ async function makeScene(name = t('editor.provisionalSceneName')) {
  * `docs/adr/0043-a-story-is-written-as-one-document.md`.
  */
 const counted = computed(() => {
-  const shots = story.value?.scenes.flatMap(scene => scene.shots) ?? []
+  const shots = written.value?.scenes.flatMap(scene => scene.shots) ?? []
 
   return {
-    scenes: countedScenes(story.value?.scenes.length ?? 0, t),
+    scenes: countedScenes(written.value?.scenes.length ?? 0, t),
     shots: countedShots(shots.length, t),
     words: countedWords(wordsOf(shots), t),
-    exits: countedExits(story.value?.exits.length ?? 0, t),
+    exits: countedExits(written.value?.exits.length ?? 0, t),
   }
+})
+
+/**
+ * The Story as it was last written, which is what the readings of the whole of it
+ * beside the document are taken from: the counts above and the Remarks. A copy,
+ * taken when a typed write lands and whenever a read-back changes the Story, and
+ * never as a key is struck — a reading of three hundred Shots redone on every
+ * character is what made a keystroke cost what the Story holds, and nobody reads a
+ * Remark mid-word. See `docs/adr/0032-the-bench-reads-the-story-back.md`. Copied
+ * off the Story's raw object, so the copy follows no field it was read from; a
+ * Scene's own count of its words is the one figure that still follows the key, in
+ * `app/components/Words.vue`.
+ */
+const written = computed(() => {
+  void keptAt.value
+
+  return story.value ? JSON.parse(JSON.stringify(toRaw(story.value))) as StoryInEditor : undefined
 })
 
 /**
@@ -605,10 +674,10 @@ async function readFrom(sceneId: string, shotId: string) {
       :announce="announce"
     >
       <!-- The bench's own acts, on the Story's own edge: the way into every act
-           by naming it, and the two readings the middle of the bench is not
-           showing. Three controls, because the document under them is what the
-           screen is for — the Remarks left this row for a region of their own
-           beside the document, see
+           by naming it, the bar a word is found and replaced in, and the two
+           readings the middle of the bench is not showing. Four controls, because
+           the document under them is what the screen is for — the Remarks left
+           this row for a region of their own beside the document, see
            `docs/adr/0043-a-story-is-written-as-one-document.md`. -->
       <div class="tools">
         <!-- The key does the same thing as the control, drawn on the control where
@@ -617,6 +686,15 @@ async function readFrom(sceneId: string, shotId: string) {
         <button type="button" class="commanding" @click="commanding = true">
           {{ $t('editor.commands') }}
           <span class="combination"><kbd>{{ modifier }}</kbd><kbd>K</kbd></span>
+        </button>
+
+        <button
+          v-if="sceneWritten"
+          type="button"
+          :data-command="$t('find.findAndReplace')"
+          @click="openFinding"
+        >
+          {{ $t('find.findAndReplace') }}
         </button>
 
         <!-- The two readings the middle is not showing, each named for what
@@ -711,6 +789,20 @@ async function readFrom(sceneId: string, shotId: string) {
            it, and under that the reading. The name is the page's own word for this
            region — `.drawing` is the Graph's, for the plate it draws a Story on. -->
       <div class="middle">
+        <!-- Find and Replace, over the reading rather than in it, like the
+             sentence under it: the document scrolls under the bar and never
+             behind it. Not a dialog, because the writing stays live. -->
+        <Finding
+          v-if="finding"
+          :story="story"
+          :write="writeStory"
+          :change="changeStory"
+          :settled="settled"
+          :ask="ask"
+          :announce="announce"
+          @close="finding = false"
+        />
+
         <!-- Why the last change in one Scene of the document was refused. Said
              above the reading rather than inside it, and naming the Scene it is
              about rather than standing on it — `.refused` says why that is not a
@@ -803,7 +895,7 @@ async function readFrom(sceneId: string, shotId: string) {
              reading the Author is on stays up. See
              `docs/adr/0032-the-bench-reads-the-story-back.md`. -->
         <Remarks
-          :story="story"
+          :story="written"
           :scene-written="sceneWritten?.id"
           :previewed="reading === 'preview'"
           @open="goToScene"

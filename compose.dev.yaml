@@ -1,0 +1,24 @@
+# The database `pnpm dev` runs on: the suite's two containers from `compose.yaml`,
+# started as a stack of their own — see
+# `docs/adr/0082-development-brings-its-own-database.md`. `pnpm dev` starts it
+# and applies the migrations before Nuxt starts; the app reaches it through
+# DATABASE_URL=postgres://postgres:postgres@db.localtest.me:4446/main.
+#
+# Unlike the suite's, its data is kept in a volume, so what an Author wrote is
+# still there tomorrow; `docker compose -f compose.yaml -f compose.dev.yaml down
+# -v` throws it away. Its own name and port let it run beside the suite's stack
+# without either touching the other.
+name: frameline-dev
+
+services:
+  postgres:
+    tmpfs: !reset []
+    volumes:
+      - data:/var/lib/postgresql
+
+  neon-proxy:
+    ports: !override
+      - '4446:4444'
+
+volumes:
+  data:

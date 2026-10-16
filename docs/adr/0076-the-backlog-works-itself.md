@@ -8,6 +8,21 @@ Decided on 2026-10-06. Amends `docs/adr/0039-autonomous-work-waits-on-dev.md`
 on who merges into `dev`, and `docs/git-flow.md` on how a commit is titled and
 how the two branches are protected.
 
+Amended in issue #494, by
+`docs/adr/0083-the-backlog-runs-on-one-set-of-skills.md`: the routines run on
+`mattpocock/skills` alone, a spec arrives cut by the developer, an issue refused
+twice goes to the developer, and the flow's own GitHub App merges into `dev` so
+that `dev`'s CI runs after each merge.
+
+Amended in issue #522, by `docs/adr/0094-no-path-is-held-back.md`:
+`.github/agent-sensitive-paths` is gone, and `agent-merge.yml` merges whatever
+the Validation passes, whichever paths it touches.
+
+Amended in issue #531, by
+`docs/adr/0096-a-change-is-proved-by-a-test-that-fails-on-dev.md`: Triage
+locates a bug in `dev`'s code instead of reproducing it with `verify`, which is
+gone.
+
 Until now the autonomous work was one loop on the developer's laptop. It chose
 the next issue, built it, opened the pull request and armed its auto-merge, all
 in the one run that wrote the change. Nothing it merged had been looked at by
@@ -67,6 +82,16 @@ promotion's reader which commits change what an Author or a Reader sees.
 trailers, the settings turn the attribution off, and `agent-guard` fails a pull
 request whose body or commits carry one. The commits already on `dev` from the
 laptop loop predate the guard, so a promotion is exempt from the commit check.
+A cloud session commits as `Claude <noreply@anthropic.com>`, and a squash
+carries every author of a branch into `dev` as `Co-authored-by`.
+`.claude/cloud-setup.sh` gives the session the developer's name instead, and
+`agent-guard` fails a pull request with a commit under the tool's name. The
+squash is then the developer's alone, and GitHub signs it. A branch's own
+commits go unverified, since the cloud signs with a key GitHub only accepts for
+its own address, and they are deleted with the branch. The cloud's GitHub proxy
+also ends everything a session posts with a line naming the tool, whatever posts
+it. The line is kept in comments and issues, and `agent-merge.yml` leaves it out
+of the squash, which would otherwise carry a description's into `dev`.
 
 **The skills are copied into the repository.** A cloud session loads none of the
 developer's plugins. `.claude/skills/` therefore holds the triage, spec and

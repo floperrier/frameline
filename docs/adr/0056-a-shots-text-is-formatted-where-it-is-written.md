@@ -16,7 +16,7 @@ text is set in.
 **It is written in an editor, not in markup.** Markdown or a tag syntax typed into
 a box would be a second language the Author learns and a string the Reader's page
 must never trust. The Author selects words on the Shot they are writing and sees
-them as the Reader will. No new term enters `CONTEXT.md`: a style is how a Shot's
+them as the Reader will. No new term enters `GLOSSARY.md`: a style is how a Shot's
 words are set, not a thing a Story holds, refers to or tests.
 
 **The shape is closed at the request boundary, and the plain words are derived.**

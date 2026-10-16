@@ -287,6 +287,50 @@ export async function seedChain(story: Story, names: string[]) {
 }
 
 /**
+ * About thirty words, which is what a Shot of a written work holds: a line read
+ * in the time an Image is looked at.
+ */
+const A_SHOTS_WORDS = 'The light comes in low across the platform, and she counts the carriages '
+  + 'as they pass, one by one, until the last of them is gone and the rails are quiet again.'
+
+/**
+ * A Story the length of a real work, for the specs that hold the bench to what a
+ * change costs at length — issue #449. *Reel Change* is five Scenes; a work an
+ * evening long is tens of them. So: `seedChain`'s forty Scenes, seven more Shots
+ * in each after the one it writes, every one of them about thirty words, and every
+ * Shot carrying one of the Images of the Story named — a Sample planted for the
+ * same Author — copied across by SQL in the order its frames stand in, round and
+ * round, because a bench of three hundred and twenty empty frames is not the bench
+ * an Author writes at.
+ */
+export async function seedLong(story: Story, framedBy: Pick<Story, 'id'>, scenes = 40, shots = 8) {
+  const chain = await seedChain(story, Array.from({ length: scenes }, (_, at) => `Scene ${at + 1}`))
+
+  await sql`
+    insert into shots (scene_id, text, position)
+    select scene_id, ${A_SHOTS_WORDS}, position
+    from unnest(${chain.map(scene => scene.id)}::uuid[]) as seeded (scene_id),
+      generate_series(1, ${shots - 1}::int) as position`
+
+  await sql`
+    with framed as (
+      select shots.image, row_number() over (order by scenes.created_at, scenes.id, shots.position) - 1 as at,
+        count(*) over () as frames
+      from shots join scenes on scenes.id = shots.scene_id
+      where scenes.story_id = ${framedBy.id} and shots.image is not null
+    ), seeded as (
+      select shots.id, row_number() over (order by shots.scene_id, shots.position) - 1 as at
+      from shots join scenes on scenes.id = shots.scene_id
+      where scenes.story_id = ${story.id}
+    )
+    update shots set image = framed.image
+    from seeded, framed
+    where shots.id = seeded.id and framed.at = seeded.at % framed.frames`
+
+  return chain
+}
+
+/**
  * Puts the caret in a Scene, the way an Author would: by pressing its mark on the
  * rail. Every Scene of the Story is written where it stands since #252, so the
  * writing surface is up for all of them at once and waiting for it says nothing
@@ -331,7 +375,7 @@ export async function writeScene(page: Page, name: string) {
  * Scoped to the rail all the same, because a way on's own row in the Scene being
  * written carries a control named *Go to* the Scene it lands on.
  *
- * Still `sceneNode` rather than `sceneMark`. *Node* is `CONTEXT.md`'s word for a
+ * Still `sceneNode` rather than `sceneMark`. *Node* is `GLOSSARY.md`'s word for a
  * Scene as the Graph draws it, and the rail is the Graph read small rather than a
  * second surface; *mark* is the class the rail gives it, and it is a word two
  * other things on the bench already carry — the controls that renumber a row, and
@@ -369,8 +413,13 @@ export async function readTheStory(page: Page) {
  * because a line break in the editor is `Shift+Enter` and `Enter` opens the next
  * Shot. It writes nothing until the caret leaves, as a field did, so a caller that
  * wants it written blurs it.
+ *
+ * `inserted` lands each line as one input instead of a key at a time, which is
+ * what a spec wants when the words are the claim and not the typing: a Shot of the
+ * Sample is three hundred characters, and typed it took twelve seconds of a
+ * thirty-second test on a CI runner (#462).
  */
-export async function writeShot(box: Locator, text: string) {
+export async function writeShot(box: Locator, text: string, how: 'typed' | 'inserted' = 'typed') {
   const page = box.page()
   const id = await box.getAttribute('id')
   await box.click()
@@ -380,8 +429,20 @@ export async function writeShot(box: Locator, text: string) {
   if (!text) return page.keyboard.press('Delete')
   for (const [at, line] of text.split('\n').entries()) {
     if (at) await page.keyboard.press('Shift+Enter')
-    if (line) await page.keyboard.type(line)
+    if (line) await (how === 'typed' ? page.keyboard.type(line) : page.keyboard.insertText(line))
   }
+}
+
+/**
+ * The fold of what a Shot or a Scene plays as, found by the name its line
+ * carries: `Shot 2 of The street` or `The street`. Shut, it holds its line and
+ * nothing under it, since #480 — so what a spec says a shut fold hides is said of
+ * the fold, not of a control that is not drawn yet.
+ */
+export function foldNamed(page: Page, named: string) {
+  return page.locator('details.plays', {
+    has: page.locator('summary > .visually-hidden').getByText(named, { exact: true }),
+  })
 }
 
 /**
@@ -395,9 +456,7 @@ export async function writeShot(box: Locator, text: string) {
  */
 export async function unfold(page: Page, named: string) {
   await live(page)
-  const fold = page.locator('details.plays', {
-    has: page.locator('summary > .visually-hidden').getByText(named, { exact: true }),
-  })
+  const fold = foldNamed(page, named)
   if (!await fold.evaluate(details => (details as HTMLDetailsElement).open)) {
     await fold.locator('summary').click()
   }

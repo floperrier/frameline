@@ -1,9 +1,16 @@
 name: CI
 
 on:
+  # A push to dev is a squash landing: dev-health reads its result and pulls the
+  # brake when it fails.
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
+
+# A pull request runs code nobody has read yet, its dependencies' install scripts
+# among them: it gets a token that can only read, and no secret.
+permissions:
+  contents: read
 
 # A force-push can leave two runs racing over the same commit, each building
 # and testing it. Only the newest is worth finishing.
@@ -16,6 +23,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      # agent-guard, agent-merge and the commit-msg hook read the tool's traces
+      # through it.
+      - run: scripts/trace.test.sh
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
@@ -56,6 +68,8 @@ jobs:
       DATABASE_URL: postgres://postgres:postgres@db.localtest.me:4445/main
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
@@ -64,10 +78,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       # Every migration, in order, on a database that has seen nothing else: what
-      # the deploy will run against production, proven before the pull request
-      # can go green. drizzle's own migrator over the app's driver, because
-      # `drizzle-kit migrate` reaches Neon alone — `server/db/migrate.ts` says
-      # why that is the same thing.
+      # the deploy will run against production, proven by the same
+      # `drizzle-kit migrate` before the pull request can go green.
       - name: Make this run's database and apply the migrations to it
         run: pnpm test:db
 

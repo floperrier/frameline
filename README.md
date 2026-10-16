@@ -19,7 +19,7 @@ Both Shots and Exits can carry **Conditions**, flat tests against the Reader's
 ever becoming non-linear.
 
 The full vocabulary — every term, and the words deliberately avoided — is in
-[`CONTEXT.md`](CONTEXT.md). It is worth reading before the code: the domain
+[`GLOSSARY.md`](GLOSSARY.md). It is worth reading before the code: the domain
 language is the design.
 
 ## Stack
@@ -29,15 +29,15 @@ Nuxt 4 · Vue 3 · TypeScript · Drizzle ORM · Neon Postgres · `nuxt-auth-util
 
 ## Running it locally
 
-You need a Neon project and OAuth applications for both providers.
-[`docs/deploy.md`](docs/deploy.md) walks through creating them once.
+You need Docker and OAuth applications for both providers.
+[`docs/deploy.md`](docs/deploy.md) walks through creating them once. The database
+runs on your machine, in a container `pnpm dev` starts — see
+[`docs/adr/0082-development-brings-its-own-database.md`](docs/adr/0082-development-brings-its-own-database.md).
 
 ```sh
 pnpm install
 cp .env.example .env      # fill in the session secret and both OAuth pairs
-neon checkout development # writes DATABASE_URL into .env
-pnpm db:migrate
-pnpm dev                  # serves on http://localhost:3100
+pnpm dev                  # starts and migrates the database, serves on http://localhost:3100
 ```
 
 ## Checks
@@ -45,18 +45,18 @@ pnpm dev                  # serves on http://localhost:3100
 ```sh
 pnpm typecheck
 pnpm test        # Vitest
+pnpm test:db     # starts and migrates the suite's own database
 pnpm test:e2e    # Playwright
 ```
 
-Each CI run forks a disposable Neon branch from `development` for the
-end-to-end suite and deletes it afterwards, so no run touches a branch anyone
-else is using.
+The end-to-end suite runs against a Postgres of its own, in CI and on your
+machine alike, and never against Neon or the database `pnpm dev` uses.
 
 ## Documentation
 
 | Where | What |
 | --- | --- |
-| [`CONTEXT.md`](CONTEXT.md) | The domain vocabulary — the canonical reference |
+| [`GLOSSARY.md`](GLOSSARY.md) | The domain vocabulary — the canonical reference |
 | [`docs/adr/`](docs/adr) | Architecture decisions and why they were made |
 | [`docs/deploy.md`](docs/deploy.md) | First-time Neon, OAuth and Vercel setup |
 | [`docs/git-flow.md`](docs/git-flow.md) | Branch and database separation |
