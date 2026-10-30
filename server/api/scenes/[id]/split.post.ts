@@ -60,7 +60,7 @@ export default defineEventHandler(async (event) => {
   const { rows } = await useDb().execute<Scene>(sql`
     with parted as (
       select shots.position, scenes.id as scene_id, scenes.story_id,
-        scenes.sound_of_scene_id, scenes.sound is not null as has_sound,
+        scenes.sound_of_scene_id, scenes.sound_digest is not null as has_sound,
         scenes.cut_after, scenes.cut_over, scenes.cut_through, scenes.exits_after,
         coalesce(leaving.cut_over, scenes.cut_over) as passage_over,
         coalesce(leaving.cut_through, scenes.cut_through) as passage_through,

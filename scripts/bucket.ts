@@ -1,5 +1,5 @@
-// Makes the bucket the bytes of every Image live in, and sets the CORS rule a
-// Reading needs to bring them in — see
+// Makes the bucket the bytes of every Image and every Sound live in, and sets
+// the CORS rule a Reading needs to bring them in — see
 // `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`. Run once the
 // migrations are applied, by `pnpm test:db` and `pnpm db:dev` against their own
 // Versity Gateway, and by hand against R2 once, which takes the same call:

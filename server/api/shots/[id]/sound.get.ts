@@ -3,7 +3,7 @@ import { scenes, shots, stories } from '../../../db/schema'
 import { useDb } from '../../../db'
 
 /**
- * The bytes of the Sound one Shot strikes with, under the access rule of the
+ * The Sound one Shot strikes with, under the access rule of the
  * Story it belongs to — the Shot's image's own rule, read for the other matter a
  * beat carries.
  */
@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
 
   const [carried] = await useDb()
     .select({
-      sound: shots.sound,
+      digest: shots.soundDigest,
       authorId: stories.authorId,
       publishedAt: stories.publishedAt,
     })

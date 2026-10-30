@@ -20,23 +20,22 @@ const LIVE = {
 
 /**
  * Every Image and Sound of the Story a statement names `story`: the row each
- * lives in, which of the three it is, the digest its row keeps, and the bytes,
- * which nothing reads unless a statement asks for them. An Image has none here:
- * its bytes are the bucket's, under the `media` row its digest names — see
+ * lives in, which of the three it is, and the digest its row keeps. The bytes
+ * are the bucket's, under the `media` row the digest names — see
  * `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`.
  */
 const CARRIED = sql`
-  select shots.id, 'image' as kind, shots.image_digest as digest, null::bytea as bytes
+  select shots.id, 'image' as kind, shots.image_digest as digest
   from shots join scenes on scenes.id = shots.scene_id join story on story.id = scenes.story_id
   where shots.image_digest is not null
   union all
-  select shots.id, 'shot sound', shots.sound_digest, shots.sound
+  select shots.id, 'shot sound', shots.sound_digest
   from shots join scenes on scenes.id = shots.scene_id join story on story.id = scenes.story_id
-  where shots.sound is not null
+  where shots.sound_digest is not null
   union all
-  select scenes.id, 'scene sound', scenes.sound_digest, scenes.sound
+  select scenes.id, 'scene sound', scenes.sound_digest
   from scenes join story on story.id = scenes.story_id
-  where scenes.sound is not null
+  where scenes.sound_digest is not null
 `
 
 /** Each live address a Story's media are served at, by the digest of its bytes. */
@@ -96,10 +95,9 @@ function forTheReading({ scenes, exits }: Graph, media: (live: string | null) =>
 }
 
 /**
- * Takes an edition of a Story: holds the bytes it plays under the digest each
- * row keeps of them, recording an Image's digest alone and copying only the
- * Sounds not held already, reads the work as the
- * Reader's door narrows it, and writes it as what Readers read from now on. `may`
+ * Takes an edition of a Story: records the digest of each medium it plays that
+ * it does not name yet, copying no byte, reads the work as the Reader's door
+ * narrows it, and writes it as what Readers read from now on. `may`
  * is the condition on the `stories` row under which this caller may take it —
  * the Author's own and readable, for a Publish; published and still without one,
  * for a first read. Nothing is held or written where it does not hold.
@@ -115,9 +113,8 @@ function forTheReading({ scenes, exits }: Graph, media: (live: string | null) =>
  */
 export async function takeEdition(storyId: string, may: SQL) {
   // Every Image and Sound the Story carries, by the digest its row keeps, and
-  // held, in one statement: nothing is hashed, no bytes leave Postgres, and only
-  // the bytes of a Sound not yet held are read, to be copied. An Image's are in
-  // the bucket, and its digest is all the edition needs to hold.
+  // recorded, in one statement: nothing is hashed and no byte is read. The bytes
+  // are in the bucket, and a digest is all the edition needs to hold.
   const { rows: held } = await useDb().execute<{
     id: string
     kind: keyof typeof LIVE
@@ -126,8 +123,8 @@ export async function takeEdition(storyId: string, may: SQL) {
     with story as (select id from stories where id = ${storyId}::uuid and ${may}),
     carried as (${CARRIED}),
     held as (
-      insert into edition_media (story_id, digest, bytes)
-      select distinct on (digest) ${storyId}::uuid, digest, bytes from carried
+      insert into edition_media (story_id, digest)
+      select distinct ${storyId}::uuid, digest from carried
       where not exists (
         select 1 from edition_media
         where edition_media.story_id = ${storyId}::uuid and edition_media.digest = carried.digest)
@@ -163,7 +160,7 @@ export async function takeEdition(storyId: string, may: SQL) {
 
   // The edition and the Story's row in one statement: the four answers the work is
   // read by come off the row it is written to, the first Publish is the one the
-  // Catalogue keeps its order by, and the bytes no edition names any more are let go.
+  // Catalogue keeps its order by, and the media no edition names any more are let go.
   const { rows: [taken] } = await useDb().execute<{
     id: string
     publishedAt: string

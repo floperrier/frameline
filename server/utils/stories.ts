@@ -232,7 +232,7 @@ export async function readStoryGraph(storyId: string) {
       soundLoops: scenes.soundLoops,
       // Whether the Scene carries a Sound, never the Sound: the bytes are served
       // one request apiece, so a Story is the same size however many it holds.
-      hasSound: sql<boolean>`${scenes.sound} is not null`,
+      hasSound: sql<boolean>`${scenes.soundDigest} is not null`,
       cutAfter: scenes.cutAfter,
       cutOver: scenes.cutOver,
       cutThrough: scenes.cutThrough,
@@ -258,7 +258,7 @@ export async function readStoryGraph(storyId: string) {
       // one request apiece, so a Story is the same size however many images it has.
       hasImage: sql<boolean>`${shots.imageDigest} is not null`,
       shotTranscript: shots.transcript,
-      hasShotSound: sql<boolean>`${shots.sound} is not null`,
+      hasShotSound: sql<boolean>`${shots.soundDigest} is not null`,
       shotCutAfter: shots.cutAfter,
       shotCutOver: shots.cutOver,
       shotCutThrough: shots.cutThrough,

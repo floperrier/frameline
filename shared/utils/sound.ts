@@ -9,10 +9,12 @@
  */
 
 /**
- * The most one Sound may weigh, and the same cap an Image carries for the same
- * reason — `docs/adr/0005-a-shots-image-lives-in-its-row.md`: past two megabytes
- * Postgres TOASTs the value out of the row, and no query that does not select it
- * ever touches it. A one-minute bed is ~720 KB in AAC at 96 kbps.
+ * The most one Sound may weigh, and the same cap an Image carries. It was set
+ * while the bytes lived in their row — `docs/adr/0005-a-shots-image-lives-in-its-row.md`
+ * — and kept as it was when they moved to the bucket, where it is what one
+ * Reading brings in at most per medium —
+ * `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`. A one-minute
+ * bed is ~720 KB in AAC at 96 kbps.
  */
 export const SOUND_MAX_BYTES = 2 * 1024 * 1024
 

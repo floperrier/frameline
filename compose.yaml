@@ -73,8 +73,8 @@ services:
       postgres:
         condition: service_healthy
 
-  # The bucket the bytes of every Image live in, standing in for Cloudflare R2 so
-  # a run never reaches it — see
+  # The bucket the bytes of every Image and every Sound live in, standing in for
+  # Cloudflare R2 so a run never reaches it — see
   # `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`. Versity Gateway,
   # because of the emulators measured it is the one that refuses a signed address
   # the way R2 does; Garage is the one to switch to, in this file and

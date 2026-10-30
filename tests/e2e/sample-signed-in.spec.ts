@@ -95,17 +95,20 @@ test('a new account arrives with a Sample in it', async ({ page, request, author
   await expect(page.getByText(SAMPLES.en.scenes[0]!.shots[0]!.text)).toBeVisible()
 })
 
-test('a Sample planted for two Authors holds each of its images once', async ({ request, author, otherAuthor }) => {
+test('a Sample planted for two Authors holds each of its images and Sounds once', async ({ request, author, otherAuthor }) => {
   await plant(author, 'en')
   const theirsId = await plant(otherAuthor, 'en')
 
   // Both are published as they are planted, so the other Author's is read at its
   // link — and the two doors send the browser to one object.
   const [mine] = await (await request.get('/api/stories')).json()
-  const ours = (await (await request.get(`/api/stories/${mine.id}`)).json()).scenes[0].shots[0]
-  const theirs = (await (await request.get(`/api/read/${theirsId}`)).json()).scenes[0].shots[0]
+  const ours = (await (await request.get(`/api/stories/${mine.id}`)).json()).scenes[0]
+  const theirs = (await (await request.get(`/api/read/${theirsId}`)).json()).scenes[0]
 
-  expect(await objectBehind(request, theirs.image)).toBe(await objectBehind(request, ours.image))
+  expect(await objectBehind(request, theirs.shots[0].image))
+    .toBe(await objectBehind(request, ours.shots[0].image))
+  // The opening Scene's bed is the library's own file, held once as well.
+  expect(await objectBehind(request, theirs.sound)).toBe(await objectBehind(request, ours.sound))
 })
 
 test('the Sample planted is the one written in the Locale', async ({ request, author }) => {

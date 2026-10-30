@@ -3,9 +3,10 @@
  * the CDN, and this, which is what the picker reads. Picking one fetches it and
  * deposits it through the same PUT any upload goes through — the same validation,
  * the same sniffing, the same cap, and no server path of its own. The bytes are
- * copied into the row at the moment of the pick, so a published Story depends on
- * no file the product might later withdraw; that is what
- * `docs/adr/0005-a-shots-image-lives-in-its-row.md` protects.
+ * held in the bucket at the moment of the pick, so a published Story depends on
+ * no file the product might later withdraw, and held once under their digest
+ * however many Scenes pick them — see
+ * `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`.
  *
  * **CC0 only.** Not CC-BY: an attribution redistributed inside every published
  * Story of every Author is an obligation the product cannot keep on their behalf.

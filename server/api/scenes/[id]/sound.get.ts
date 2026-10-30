@@ -3,7 +3,7 @@ import { scenes, stories } from '../../../db/schema'
 import { useDb } from '../../../db'
 
 /**
- * The bytes of the Sound one Scene is heard under. As reachable as the Story it
+ * The Sound one Scene is heard under. As reachable as the Story it
  * belongs to and no more: its Author always, anyone once the Story is published,
  * nobody otherwise — the same one condition on the row that was read as a Shot's
  * image, so a Preview and a Reading are heard through the door the Story came
@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
 
   const [carried] = await useDb()
     .select({
-      sound: scenes.sound,
+      digest: scenes.soundDigest,
       authorId: stories.authorId,
       publishedAt: stories.publishedAt,
     })

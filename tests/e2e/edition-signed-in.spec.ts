@@ -133,6 +133,40 @@ test('an edition\'s Image is served from the edition, and survives the Shot', as
   await reader.dispose()
 })
 
+test('an edition plays the Sounds it was taken with after its Author replaces them', async ({ request, playwright, baseURL }) => {
+  const story = await writeStory(request)
+  const [street] = (await onTheBench(request, story.id)).scenes
+  const shot = street!.shots[0]!
+  expect((await request.put(`/api/scenes/${street!.id}/sound`, { data: A_SOUND })).ok()).toBe(true)
+  expect((await request.put(`/api/shots/${shot.id}/sound`, { data: A_SOUND })).ok()).toBe(true)
+  await publish(request, story.id)
+
+  const reader = await stranger(playwright, baseURL)
+  const read = (await atItsLink(reader, story.id)).scenes[0]!
+  const addresses = [read.sound!, read.shots[0]!.sound!]
+  for (const address of addresses) expect(address).toMatch(DIGEST_ADDRESS(story.id))
+
+  // Replaced on the bench and taken off, the Sounds are still the edition's.
+  const replaced = Buffer.concat([A_SOUND, Buffer.from('TAG'.padEnd(128, '\0'))])
+  expect((await request.put(`/api/scenes/${street!.id}/sound`, { data: replaced })).ok()).toBe(true)
+  expect((await request.delete(`/api/shots/${shot.id}/sound`)).ok()).toBe(true)
+
+  for (const address of addresses) {
+    // Sent on to the bucket, as the live doors send the bench, and never kept.
+    const sent = await reader.get(address, { maxRedirects: 0 })
+    expect(sent.status(), address).toBe(302)
+    expect(sent.headers()['cache-control'], address).toBe('no-store')
+    expect(new URL(sent.headers()['location']!).host).toBe(new URL(process.env.NUXT_MEDIA_ENDPOINT!).host)
+
+    const heard = await reader.get(address)
+    expect(heard.status(), address).toBe(200)
+    expect(heard.headers()['content-type'], address).toBe('audio/mpeg')
+    expect(Buffer.compare(await heard.body(), A_SOUND), address).toBe(0)
+  }
+
+  await reader.dispose()
+})
+
 test('an Edition names each medium by the SHA-256 of its bytes', async ({ request, playwright, baseURL }) => {
   const { story, shot } = await writeIllustrated(request)
   await publish(request, story.id)

@@ -67,7 +67,9 @@ export async function plantSample(
         name: scene.name,
         sets: scene.sets ?? {},
         createdAt: new Date(Date.now() + order),
-        sound: scene.sound ? await sound(scene.sound) : null,
+        // Held through the store as an image is, so a library Sound the Sample
+        // plays is one object however many Authors it is planted for.
+        soundDigest: scene.sound ? await media.hold(await sound(scene.sound)) : null,
         transcript: scene.transcript ?? '',
         // A field the Sample does not name is `undefined`, which the driver
         // writes as the column's own default, so a Sample carrying no Cut is
@@ -122,7 +124,7 @@ export async function plantSample(
         // Each is held in the bucket under its digest, so planting the same
         // Sample for every Author writes each image as one object.
         imageDigest: typeof shot.image === 'string' ? await media.hold(await image(shot.image)) : null,
-        sound: shot.sound ? await sound(shot.sound) : null,
+        soundDigest: shot.sound ? await media.hold(await sound(shot.sound)) : null,
         transcript: shot.transcript ?? '',
         layout: shot.layout ?? null,
         cropX: shot.cropX ?? 50,
@@ -184,7 +186,7 @@ export async function plantSample(
 
 /**
  * What planting needs of the world around it: the database, the media store the
- * images are held through, and the bytes of an image or a Sound. All four are had
+ * images and Sounds are held through, and the bytes of an image or a Sound. All four are had
  * from nitro in production and all four are handed in by the end-to-end spec,
  * which runs outside nitro and so has none of the auto-imports.
  */

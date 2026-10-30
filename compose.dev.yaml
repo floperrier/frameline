@@ -21,8 +21,8 @@ services:
       - '4446:4444'
 
   # The bucket, its objects kept in a volume beside the rows that name them, so
-  # an Image put on a Shot today is still there tomorrow. The app reaches it at
-  # http://localhost:4448.
+  # an Image or a Sound put on a Shot today is still there tomorrow. The app
+  # reaches it at http://localhost:4448.
   bucket:
     tmpfs: !reset []
     volumes:

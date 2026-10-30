@@ -1,7 +1,6 @@
 import { sql } from 'drizzle-orm'
 import {
   boolean,
-  customType,
   integer,
   jsonb,
   pgTable,
@@ -117,14 +116,9 @@ export const stories = pgTable('stories', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-// The bytes of an image, which drizzle has no column for; the neon-http
-// driver hands a `bytea` back as a Buffer and takes one as a parameter, so
-// nothing is encoded on the way past.
-const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () => 'bytea' })
-
-// One object of the bucket the bytes of every Image live in, named by the hex of
+// One object of the bucket the bytes of every Image and every Sound live in, named by the hex of
 // the SHA-256 of its bytes and by nothing else, so the same bytes are held once
-// whichever Shots, Stories and Authors carry them — see
+// whichever Shots, Scenes, Stories and Authors carry them — see
 // `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`. `size` is how
 // many bytes it weighs, and `used_at` the last time bytes were held under it,
 // which the daily sweep reads to let go of an object nothing names any more.
@@ -138,13 +132,12 @@ export const media = pgTable('media', {
 
 // What an edition plays, each distinct set of bytes named once per Story under
 // the hex of its SHA-256, so an edition does not change when the Author replaces
-// an Image or deletes a Shot. An Image's bytes are in the bucket, under the
-// `media` row its digest names, so its row here holds no `bytes`; a Sound's are
-// still copied here, until they follow the Images there.
+// an Image or a Sound or deletes a Shot. The bytes are in the bucket, under the
+// `media` row the digest names, so taking an edition copies none: the row here
+// is what keeps that object named while the edition plays it.
 export const editionMedia = pgTable('edition_media', {
   storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
-  digest: text('digest').notNull(),
-  bytes: bytea('bytes'),
+  digest: text('digest').notNull().references(() => media.digest),
 }, table => [primaryKey({ columns: [table.storyId, table.digest] })])
 
 // `x` and `y` were where the Author put the Scene's node in the Story's graph.
@@ -163,17 +156,17 @@ export const editionMedia = pgTable('edition_media', {
 // join and nothing else. What keeps the shape honest is the validation at the
 // request boundary, since Postgres will take any jsonb at all.
 //
-// `sound` is the Sound the Scene is heard under, held under its run and crossing
-// the cut between its Shots. The bytes live here rather than in object storage
-// for the reason an Image's do — see
-// `docs/adr/0005-a-shots-image-lives-in-its-row.md` — and null is a Scene that
-// carries none of its own.
+// `sound_digest` names the Sound the Scene is heard under, held under its run
+// and crossing the cut between its Shots, by the `media` row its bytes are held
+// under in the bucket, as a Shot's `image_digest` names its Image — see
+// `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md` — and null is a
+// Scene that carries none of its own.
 //
 // `sound_of_scene_id` is the Scene this one takes its Sound from, which is how an
 // Author avoids depositing one bed twelve times. It is the Cover's own column for
 // the Cover's own reason: `on delete set null`, so a Scene whose carrier is
 // deleted falls silent rather than breaking. One hop and no further — a Scene
-// named here carries bytes of its own, which the request boundary is what holds.
+// named here carries a Sound of its own, which the request boundary is what holds.
 //
 // `transcript` is what the Sound makes heard, for a Reader who cannot hear it,
 // and `sound_loops` whether it is held in a loop until the Scene is left or the
@@ -238,9 +231,7 @@ export const scenes = pgTable('scenes', {
   x: integer('x').notNull().default(0),
   y: integer('y').notNull().default(0),
   sets: jsonb('sets').$type<Sets>().notNull().default({}),
-  sound: bytea('sound'),
-  // `sound`'s SHA-256 in hex, kept by migration 0033's trigger and never written here (ADR 0070).
-  soundDigest: text('sound_digest'),
+  soundDigest: text('sound_digest').references(() => media.digest),
   soundOfSceneId: uuid('sound_of_scene_id')
     .references((): AnyPgColumn => scenes.id, { onDelete: 'set null' }),
   transcript: text('transcript').notNull().default(''),
@@ -282,17 +273,18 @@ export const scenes = pgTable('scenes', {
 // `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`.
 //
 // `description` is what that image shows, for a Reader who cannot see it. It
-// sits beside the bytes rather than in a table of its own because it is the one
+// sits beside the Image rather than in a table of its own because it is the one
 // thing said about the one image, and empty is an Image nobody has described —
 // which is what a Shot of text alone carries too.
 //
-// `sound` is the Sound the Shot strikes with: it plays as the beat plays, does
+// `sound_digest` names the Sound the Shot strikes with, by its `media` row as
+// `image_digest` names the Image: it plays as the beat plays, does
 // not loop, and is gone. Null for a Shot that strikes with nothing. There is no
 // `sound_of_shot_id` beside it, deliberately: naming exists because depositing a
 // 400 KB bed twelve times is work, and a struck sound weighs 20 KB and is
 // re-picked from the library in one press.
 //
-// `transcript` is what it makes heard, beside the bytes the way a Description
+// `transcript` is what it makes heard, beside the Sound the way a Description
 // sits beside an Image — one of each on a Shot carrying both.
 //
 // `cut_after`, `cut_over` and `cut_through` are this Shot's own answer about how
@@ -352,9 +344,7 @@ export const shots = pgTable('shots', {
   position: integer('position').notNull(),
   imageDigest: text('image_digest').references(() => media.digest),
   description: text('description').notNull().default(''),
-  sound: bytea('sound'),
-  // `sound`'s SHA-256 in hex, kept by migration 0033's trigger and never written here (ADR 0070).
-  soundDigest: text('sound_digest'),
+  soundDigest: text('sound_digest').references(() => media.digest),
   transcript: text('transcript').notNull().default(''),
   cutAfter: integer('cut_after'),
   cutOver: integer('cut_over'),

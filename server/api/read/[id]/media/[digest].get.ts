@@ -9,9 +9,9 @@ import { useDb } from '../../../../db'
  * Story's digest, a malformed one and an unpublished Story are all the Story's
  * not-found, so nothing can be told apart from absent.
  *
- * An Image is in the bucket, and the door sends the browser on to it as a Shot's
- * own does — see `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`.
- * A Sound's bytes are still held here, and served from here, until they follow.
+ * The bytes are in the bucket, and the door sends the browser on to them as a
+ * Shot's and a Scene's own doors do — see
+ * `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`.
  */
 export default defineEventHandler(async (event) => {
   const id = readId(event, 'Story')
@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
   if (!/^[0-9a-f]{64}$/.test(digest)) throw notFound(event, 'Story')
 
   const [held] = await useDb()
-    .select({ bytes: editionMedia.bytes })
+    .select({ digest: editionMedia.digest })
     .from(editionMedia)
     .innerJoin(stories, eq(editionMedia.storyId, stories.id))
     .where(and(
@@ -29,15 +29,6 @@ export default defineEventHandler(async (event) => {
     ))
 
   if (!held) throw notFound(event, 'Story')
-  if (!held.bytes) return await sendToBucket(event, digest)
 
-  setResponseHeaders(event, {
-    // Sniffed from the bytes, as the live doors do: they were sniffed on the way in.
-    'content-type': soundTypeOf(held.bytes) ?? 'application/octet-stream',
-    'x-content-type-options': 'nosniff',
-    // A public link can be taken away, so nothing it served may outlive the Publish.
-    'cache-control': 'no-store',
-  })
-
-  return held.bytes
+  return await sendToBucket(event, held.digest)
 })

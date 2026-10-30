@@ -6,10 +6,9 @@ import { useDb } from '../../../db'
  * Image and the point it is cropped around, its Description, its words and
  * their formatting, its Sound and Transcript, its Cut, Layout, Movement, text
  * arrival and Effects, its Conditions — so the same frame takes the next line.
- * It is the Shot's own *Duplicate Scene*. Its Image is the original's digest,
- * naming the same object in the bucket, so no byte is copied —
- * `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`; its Sound's
- * bytes are still its row's, and are copied with it.
+ * It is the Shot's own *Duplicate Scene*. Its Image and its Sound are the
+ * original's digests, naming the same objects in the bucket, so no byte is
+ * copied — `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`.
  *
  * The copy is never the Story's Cover: the Story names the original by id, and
  * nothing here names the copy anywhere.

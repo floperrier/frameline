@@ -231,7 +231,7 @@ export async function readNamedSound(event: H3Event, sceneId: string) {
     .where(and(
       eq(scenes.id, named),
       eq(scenes.storyId, naming.storyId),
-      isNotNull(scenes.sound),
+      isNotNull(scenes.soundDigest),
     ))
   if (!carrier) throw refused()
 
@@ -298,7 +298,7 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
     transcript?: string
     soundLoops?: boolean
     soundOfSceneId?: string | null
-    sound?: null
+    soundDigest?: null
     cutAfter?: number | null
     cutOver?: number
     cutThrough?: CutThrough
@@ -323,7 +323,7 @@ export async function readSceneChanges(event: H3Event, sceneId: string) {
     changes.soundOfSceneId = await readNamedSound(event, sceneId)
     // A Scene carries its own Sound or names one, never both: naming lets go of
     // whatever was deposited here, so nothing can disagree about what is heard.
-    if (changes.soundOfSceneId) changes.sound = null
+    if (changes.soundOfSceneId) changes.soundDigest = null
   }
   // A Scene's run waits for the press in null and in nothing else. Nought is a
   // Shot's word for the same thing — a beat that stands for no time is a beat

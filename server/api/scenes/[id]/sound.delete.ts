@@ -3,7 +3,7 @@ import { scenes } from '../../../db/schema'
 import { useDb } from '../../../db'
 
 /**
- * Takes the Scene's Sound away: the bytes, the Scene it was named after, and the
+ * Takes the Scene's Sound away: its digest, the Scene it was named after, and the
  * Transcript, which was of that Sound and of nothing else. Whether it loops goes
  * back to what a deposited Sound answers, so the next one starts where every
  * first one does.
@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
 
   const [scene] = await useDb()
     .update(scenes)
-    .set({ sound: null, soundOfSceneId: null, transcript: '', soundLoops: true })
+    .set({ soundDigest: null, soundOfSceneId: null, transcript: '', soundLoops: true })
     .where(and(eq(scenes.id, id), inArray(scenes.storyId, storiesOf(author.id))))
     .returning({ id: scenes.id })
 

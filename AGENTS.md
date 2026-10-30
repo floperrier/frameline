@@ -189,7 +189,7 @@ Node as it stands, run with no Author so it stops before reaching for a
 database. None of them needs a database, because none of them has one in reach. `pnpm test:e2e` runs
 Playwright against a built app and the suite's own database and bucket:
 `pnpm test:db` starts a Postgres, a proxy that speaks Neon's protocol and a
-Versity Gateway standing in for the R2 bucket the Images live in
+Versity Gateway standing in for the R2 bucket the Images and Sounds live in
 (`compose.yaml`, Docker), migrates the database, then makes the bucket and sets
 its CORS rule (`scripts/bucket.ts`). The suite reaches the database at
 `postgres://postgres:postgres@db.localtest.me:4445/main` unless the environment
