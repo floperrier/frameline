@@ -5,7 +5,7 @@ import { SAMPLES, imagePath } from '../../demonstration/samples'
 import { soundPath } from '../../demonstration/sounds'
 import * as schema from '../../server/db/schema'
 import { plantSample } from '../../server/utils/samples'
-import { test, type Author } from './author'
+import { objectBehind, suiteMedia, test, type Author } from './author'
 
 /**
  * What an Author finds in an account that was just created. Planting is called
@@ -20,8 +20,9 @@ import { test, type Author } from './author'
  * test is not something we can do. An accepted gap, stated rather than hidden.
  */
 async function plant(author: Author, language: string) {
-  await plantSample(author.id, language, {
+  return await plantSample(author.id, language, {
     db: drizzle(process.env.DATABASE_URL!, { schema }),
+    media: suiteMedia(),
     image: name => readFile(imagePath(name)),
     sound: file => readFile(soundPath(file)),
   })
@@ -92,6 +93,22 @@ test('a new account arrives with a Sample in it', async ({ page, request, author
   // pressed Pause is the beat that was there when they pressed it.
   await page.getByRole('button', { name: 'Pause the Reading' }).click()
   await expect(page.getByText(SAMPLES.en.scenes[0]!.shots[0]!.text)).toBeVisible()
+})
+
+test('a Sample planted for two Authors holds each of its images and Sounds once', async ({ request, author, otherAuthor }) => {
+  await plant(author, 'en')
+  const theirsId = await plant(otherAuthor, 'en')
+
+  // Both are published as they are planted, so the other Author's is read at its
+  // link — and the two doors send the browser to one object.
+  const [mine] = await (await request.get('/api/stories')).json()
+  const ours = (await (await request.get(`/api/stories/${mine.id}`)).json()).scenes[0]
+  const theirs = (await (await request.get(`/api/read/${theirsId}`)).json()).scenes[0]
+
+  expect(await objectBehind(request, theirs.shots[0].image))
+    .toBe(await objectBehind(request, ours.shots[0].image))
+  // The opening Scene's bed is the library's own file, held once as well.
+  expect(await objectBehind(request, theirs.sound)).toBe(await objectBehind(request, ours.sound))
 })
 
 test('the Sample planted is the one written in the Locale', async ({ request, author }) => {

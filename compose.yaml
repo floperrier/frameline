@@ -1,13 +1,13 @@
-# The end-to-end suite's database, in CI and on a development machine alike, so
-# a run never touches Neon — see
+# The end-to-end suite's database and bucket, in CI and on a development machine
+# alike, so a run never touches Neon or Cloudflare — see
 # `docs/adr/0075-the-suite-brings-its-own-database.md`. `pnpm test:db` starts
-# it and applies the migrations; the suite then reaches it through
+# them and applies the migrations; the suite then reaches the database through
 # DATABASE_URL=postgres://postgres:postgres@db.localtest.me:4445/main.
 #
 # The data lives in memory: a database that has only ever seen the migrations is
 # the point, and `docker compose down` gives the next run another one.
-# `compose.dev.yaml` starts these two again, with their data kept, as the
-# database `pnpm dev` runs on.
+# `compose.dev.yaml` starts these again, with their data kept, as the database
+# and the bucket `pnpm dev` runs on.
 services:
   postgres:
     image: postgres:18
@@ -72,3 +72,29 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  # The bucket the bytes of every Image and every Sound live in, standing in for
+  # Cloudflare R2 so a run never reaches it — see
+  # `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`. Versity Gateway,
+  # because of the emulators measured it is the one that refuses a signed address
+  # the way R2 does; Garage is the one to switch to, in this file and
+  # `compose.dev.yaml` alone. `--region auto` is R2's region, and the gateway
+  # refuses a request signed for another. `pnpm test:db` creates the bucket and
+  # sets its CORS rule once the migrations are applied (`scripts/bucket.ts`),
+  # and the app reaches it at http://localhost:4447. Its objects live in memory,
+  # as the database's rows do.
+  bucket:
+    image: versity/versitygw:v1.8.0
+    command: ['--port', ':7070', '--region', 'auto', 'posix', '/data']
+    environment:
+      ROOT_ACCESS_KEY: frameline
+      ROOT_SECRET_KEY: frameline-secret
+    tmpfs:
+      - /data
+    ports:
+      - '4447:7070'
+    healthcheck:
+      test: ['CMD', 'nc', '-z', '127.0.0.1', '7070']
+      interval: 1s
+      timeout: 2s
+      retries: 30

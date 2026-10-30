@@ -1,6 +1,7 @@
 # Deploying Frameline
 
-One Nuxt application on Vercel, one Neon Postgres database. Both steps need
+One Nuxt application on Vercel, one Neon Postgres database, one Cloudflare R2
+bucket for the bytes of every Image and every Sound. Every step needs
 credentials, so they are run by a human once.
 
 ## 1. Database
@@ -54,6 +55,8 @@ there:
 | `DATABASE_URL` (Production only) | direct connection string of the same branch, read by `pnpm db:migrate` during the build |
 | `NUXT_OAUTH_GITHUB_CLIENT_ID` / `_SECRET` | from the GitHub OAuth app |
 | `NUXT_OAUTH_GOOGLE_CLIENT_ID` / `_SECRET` | from the Google OAuth client |
+| `NUXT_MEDIA_ENDPOINT`, `NUXT_MEDIA_BUCKET`, `NUXT_MEDIA_ACCESS_KEY_ID`, `NUXT_MEDIA_SECRET_ACCESS_KEY` (Production only) | the R2 bucket and its token, written by `scripts/bucket-wizard.sh` — see section 4 |
+| `CRON_SECRET` (Production only) | the bearer Vercel's cron calls the daily sweep with, drawn and written by the same script |
 | `NUXT_PUBLIC_LANDING_STORY` | id of the published Story the landing page links a visitor to read — a Sample published from your own account. Unset, no such link is shown |
 
 Both connection strings point at the same Neon branch and differ only in the
@@ -63,3 +66,26 @@ deploy, or the build fails on its own migration step.
 
 Then `vercel --prod`. Afterwards a push to `main` deploys from the repository;
 no other branch does.
+
+## 4. Bucket
+
+The bytes of every Image and every Sound live in one private R2 bucket, in its
+`eu` jurisdiction — see
+`docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`. Neither `pnpm dev`
+nor the suite reaches it: each starts a bucket of its own beside its database.
+Production's is made once, by a guided script run from the repository's root,
+in a terminal:
+
+```sh
+scripts/bucket-wizard.sh
+```
+
+It walks through the Cloudflare account and its payment method, which R2 asks
+for even within its free tier; the bucket, in the `eu` jurisdiction; an API
+token scoped to that bucket, which it tries against it; the bucket's CORS rule,
+`GET` and `HEAD` from any origin; a budget alert at the lowest amount Cloudflare
+takes; and the four storage settings and a fresh `CRON_SECRET`, written into
+Vercel's Production environment with the `vercel` CLI. Nothing it is given is
+written to `.env`, which is `pnpm dev`'s. The values reach the instance with the
+next production deploy, and until then production has no bucket.
+

@@ -114,17 +114,55 @@ test('an edition\'s Image is served from the edition, and survives the Shot', as
   const image = (await atItsLink(reader, story.id)).scenes[0]!.shots[0]!.image!
   expect(image).toMatch(DIGEST_ADDRESS(story.id))
 
+  // Sent on to the bucket, as the Shot's own door sends the bench, and never kept.
+  const sent = await reader.get(image, { maxRedirects: 0 })
+  expect(sent.status()).toBe(302)
+  expect(sent.headers()['cache-control']).toBe('no-store')
+  expect(new URL(sent.headers()['location']!).host).toBe(new URL(process.env.NUXT_MEDIA_ENDPOINT!).host)
+
   const served = await reader.get(image)
   expect(served.status()).toBe(200)
   expect(served.headers()['content-type']).toBe('image/png')
-  expect(served.headers()['x-content-type-options']).toBe('nosniff')
-  expect(served.headers()['cache-control']).toBe('no-store')
   expect(Buffer.compare(await served.body(), ONE_PIXEL)).toBe(0)
 
   // Deleted on the bench, the Shot is still in the edition, and so are its bytes.
   expect((await request.delete(`/api/shots/${shot.id}`)).ok()).toBe(true)
   expect((await reader.get(image)).status()).toBe(200)
   expect((await atItsLink(reader, story.id)).scenes[0]!.shots.map(candidate => candidate.id)).toContain(shot.id)
+
+  await reader.dispose()
+})
+
+test('an edition plays the Sounds it was taken with after its Author replaces them', async ({ request, playwright, baseURL }) => {
+  const story = await writeStory(request)
+  const [street] = (await onTheBench(request, story.id)).scenes
+  const shot = street!.shots[0]!
+  expect((await request.put(`/api/scenes/${street!.id}/sound`, { data: A_SOUND })).ok()).toBe(true)
+  expect((await request.put(`/api/shots/${shot.id}/sound`, { data: A_SOUND })).ok()).toBe(true)
+  await publish(request, story.id)
+
+  const reader = await stranger(playwright, baseURL)
+  const read = (await atItsLink(reader, story.id)).scenes[0]!
+  const addresses = [read.sound!, read.shots[0]!.sound!]
+  for (const address of addresses) expect(address).toMatch(DIGEST_ADDRESS(story.id))
+
+  // Replaced on the bench and taken off, the Sounds are still the edition's.
+  const replaced = Buffer.concat([A_SOUND, Buffer.from('TAG'.padEnd(128, '\0'))])
+  expect((await request.put(`/api/scenes/${street!.id}/sound`, { data: replaced })).ok()).toBe(true)
+  expect((await request.delete(`/api/shots/${shot.id}/sound`)).ok()).toBe(true)
+
+  for (const address of addresses) {
+    // Sent on to the bucket, as the live doors send the bench, and never kept.
+    const sent = await reader.get(address, { maxRedirects: 0 })
+    expect(sent.status(), address).toBe(302)
+    expect(sent.headers()['cache-control'], address).toBe('no-store')
+    expect(new URL(sent.headers()['location']!).host).toBe(new URL(process.env.NUXT_MEDIA_ENDPOINT!).host)
+
+    const heard = await reader.get(address)
+    expect(heard.status(), address).toBe(200)
+    expect(heard.headers()['content-type'], address).toBe('audio/mpeg')
+    expect(Buffer.compare(await heard.body(), A_SOUND), address).toBe(0)
+  }
 
   await reader.dispose()
 })

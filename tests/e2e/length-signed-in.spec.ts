@@ -6,7 +6,7 @@ import { soundPath } from '../../demonstration/sounds'
 import * as schema from '../../server/db/schema'
 import { plantSample } from '../../server/utils/samples'
 import type { StoryInEditor } from '../../shared/utils/scenes'
-import { live, seedLong, seedStory, test } from './author'
+import { live, seedLong, seedStory, suiteMedia, test } from './author'
 
 /**
  * A change on the bench costs what it changes, not what the Story holds — issue
@@ -46,6 +46,7 @@ test('a keystroke, opening a Shot and adding one cost the same at forty Scenes a
 
     await plantSample(author.id, 'en', {
       db: drizzle(process.env.DATABASE_URL!, { schema }),
+      media: suiteMedia(),
       image: name => readFile(imagePath(name)),
       sound: file => readFile(soundPath(file)),
     })

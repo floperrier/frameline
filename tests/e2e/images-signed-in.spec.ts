@@ -1,6 +1,7 @@
+import { createHash } from 'node:crypto'
 import { expect } from '@playwright/test'
 import {
-  ONE_PIXEL, begin, readTheStory, seedScene, seedStory, test, toast, writeScene, writeStory,
+  ONE_PIXEL, begin, objectBehind, readTheStory, seedScene, seedStory, test, toast, writeScene, writeStory,
 } from './author'
 import { SHOT_DESCRIPTION_MAX_LENGTH, SHOT_IMAGE_MAX_BYTES } from '../../shared/utils/scenes'
 import type { APIRequestContext, Page } from '@playwright/test'
@@ -59,10 +60,47 @@ test('an Author attaches an image to a Shot, and it is served where the Shot say
 
   const served = await request.get(after[0]!.image!)
   expect(served.status()).toBe(200)
-  // Served under the type its own first bytes say it is, and never sniffed past it.
+  // Served under the type its own first bytes say it is, which is the type the
+  // object was written with.
   expect(served.headers()['content-type']).toBe('image/png')
-  expect(served.headers()['x-content-type-options']).toBe('nosniff')
   expect(Buffer.compare(await served.body(), ONE_PIXEL)).toBe(0)
+})
+
+test('an image is sent from the bucket, at an address signed for it alone', async ({ request }) => {
+  const { shots } = await openShots(request)
+  await request.put(`/api/shots/${shots[0]!.id}/image`, { data: ONE_PIXEL })
+
+  // The door keeps its address and sends the browser on, rather than the bytes:
+  // to the bucket, never through a function — see
+  // `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`. The redirect
+  // itself is never kept, since the address it names stops answering.
+  const sent = await request.get(`/api/shots/${shots[0]!.id}/image`, { maxRedirects: 0 })
+  expect(sent.status()).toBe(302)
+  expect(sent.headers()['cache-control']).toBe('no-store')
+  const signed = new URL(sent.headers()['location']!)
+  expect(signed.host).toBe(new URL(process.env.NUXT_MEDIA_ENDPOINT!).host)
+
+  const served = await request.get(signed.href)
+  expect(served.status()).toBe(200)
+  expect(served.headers()['content-type']).toBe('image/png')
+  expect(Buffer.compare(await served.body(), ONE_PIXEL)).toBe(0)
+
+  // The signature is the whole permission: the same address with it altered is
+  // refused by the bucket itself.
+  const signature = signed.searchParams.get('X-Amz-Signature')!
+  signed.searchParams.set('X-Amz-Signature', `${signature.slice(0, -1)}${signature.endsWith('0') ? '1' : '0'}`)
+  expect((await request.get(signed.href)).status()).toBe(403)
+})
+
+test('the same bytes on two Shots are one object in the bucket', async ({ request }) => {
+  const { shots } = await openShots(request)
+  for (const shot of shots) await request.put(`/api/shots/${shot.id}/image`, { data: ONE_PIXEL })
+
+  // One object, named by the digest of the bytes rather than by either Shot.
+  const [first, second] = await Promise.all(
+    shots.map(shot => objectBehind(request, `/api/shots/${shot.id}/image`)))
+  expect(first).toBe(second)
+  expect(first).toMatch(new RegExp(`/${createHash('sha256').update(ONE_PIXEL).digest('hex')}$`))
 })
 
 test('a Shot keeps the image attached last, and shows it', async ({ page, request }) => {
@@ -167,9 +205,20 @@ test('an image is as reachable as the Story it belongs to', async ({ baseURL, pl
   await request.post(`/api/stories/${story.id}/publish`)
   expect((await stranger.get(url)).status()).toBe(200)
 
-  // And nobody again once the Publish is taken away.
+  // And nobody again once the Publish is taken away: the door signs no address
+  // to send them on to, so none is minted after it.
   await request.delete(`/api/stories/${story.id}/publish`)
-  expect((await stranger.get(url)).status()).toBe(404)
+  const refused = await stranger.get(url, { maxRedirects: 0 })
+  expect(refused.status()).toBe(404)
+  expect(refused.headers()['location']).toBeUndefined()
+
+  // Its Author still has it on the bench, until the Story is deleted, after
+  // which nobody is sent anywhere either.
+  expect((await request.get(url, { maxRedirects: 0 })).status()).toBe(302)
+  await request.delete(`/api/stories/${story.id}`)
+  const gone = await request.get(url, { maxRedirects: 0 })
+  expect(gone.status()).toBe(404)
+  expect(gone.headers()['location']).toBeUndefined()
 
   await stranger.dispose()
 })

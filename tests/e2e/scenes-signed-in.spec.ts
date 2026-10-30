@@ -4,7 +4,7 @@ import { CONDITIONS_MAX, SCENE_NAME_MAX_LENGTH } from '../../shared/utils/scenes
 import type { StoryInEditor } from '../../shared/utils/scenes'
 import {
   A_SOUND, ONE_PIXEL, writeScene, readExits, readSceneName, readShotConditions, readShots,
-  seedFlags, seedExit, seedScene, seedStory, shotText, test, toast, unfold, writeShot,
+  objectBehind, seedFlags, seedExit, seedScene, seedStory, shotText, test, toast, unfold, writeShot,
 } from './author'
 
 const noId = '00000000-0000-4000-8000-000000000000'
@@ -1700,10 +1700,13 @@ test('the bench refuses a way on that comes back, and an Author writes the Scene
     await expect.poll(() => readExits(copy.id)).toEqual([])
 
     // The Image is the copy's own Shot again rather than a reference to the Shot it
-    // was made from: its own address, serving the same bytes.
+    // was made from: its own address, serving the same bytes, which are the same
+    // object in the bucket rather than a copy of it.
     expect(copy.shots[0]!.image).toBe(`/api/shots/${copy.shots[0]!.id}/image`)
     const served = await request.get(copy.shots[0]!.image!)
     expect(Buffer.from(await served.body())).toEqual(ONE_PIXEL)
+    expect(await objectBehind(request, copy.shots[0]!.image!))
+      .toBe(await objectBehind(request, `/api/shots/${first!.id}/image`))
 
     // Ordinary from the moment it exists: renamed like any other Scene, and then
     // the way on the bench refused is written to it instead.

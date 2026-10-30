@@ -121,17 +121,21 @@ used to take Neon branches in the project production lives in, until on
 2026-10-02 they spent that project's free quota and Neon suspended every compute
 in it, production's with them — see
 `docs/adr/0075-the-suite-brings-its-own-database.md`. On your machine,
-`pnpm test:db` starts the same two containers CI does (`compose.yaml`) and
-migrates them, and `pnpm test:e2e` reaches them at
-`postgres://postgres:postgres@db.localtest.me:4445/main` unless the environment
-names another database.
+`pnpm test:db` starts the same containers CI does (`compose.yaml`), migrates the
+database and makes the bucket the Images live in, and `pnpm test:e2e` reaches them
+at `postgres://postgres:postgres@db.localtest.me:4445/main` and
+`http://localhost:4447` unless the environment names others — see
+`docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`.
 
 `pnpm dev` stopped reaching Neon too, once the same suspension left it with no
 database at all — see `docs/adr/0082-development-brings-its-own-database.md`. It
-runs `pnpm db:dev` first, which starts those two containers again as a stack of
-their own (`compose.dev.yaml`, named `frameline-dev`, on 4446) and migrates them.
-That stack keeps its data in a volume, and `.env` names it. Neither stack ever
-touches the other's database.
+runs `pnpm db:dev` first, which starts those containers again as a stack of
+their own (`compose.dev.yaml`, named `frameline-dev`, on 4446 and 4448), migrates
+the database and makes the bucket. That stack keeps its rows and its objects in
+volumes, and `.env` names it. Neither stack ever
+touches the other's database. Neither reaches production's bucket either, which
+is R2's and made once by hand with `scripts/bucket-wizard.sh` — see
+`docs/deploy.md`.
 
 So a migration on your machine reaches the database `pnpm dev` starts, never
 production. A

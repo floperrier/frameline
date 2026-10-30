@@ -1,4 +1,4 @@
-# The database `pnpm dev` runs on: the suite's two containers from `compose.yaml`,
+# The database `pnpm dev` runs on: the suite's containers from `compose.yaml`,
 # started as a stack of their own — see
 # `docs/adr/0082-development-brings-its-own-database.md`. `pnpm dev` starts it
 # and applies the migrations before Nuxt starts; the app reaches it through
@@ -20,5 +20,16 @@ services:
     ports: !override
       - '4446:4444'
 
+  # The bucket, its objects kept in a volume beside the rows that name them, so
+  # an Image or a Sound put on a Shot today is still there tomorrow. The app
+  # reaches it at http://localhost:4448.
+  bucket:
+    tmpfs: !reset []
+    volumes:
+      - media:/data
+    ports: !override
+      - '4448:7070'
+
 volumes:
   data:
+  media:

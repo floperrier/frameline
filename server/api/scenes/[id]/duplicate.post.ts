@@ -5,8 +5,8 @@ import { useDb } from '../../../db'
  * Writes a Scene again. The copy carries the Shots of the one it was made from —
  * their text, their Image, its Description, the Sound each strikes with and its
  * Transcript, their Conditions and their order — the Sound the Scene itself is
- * heard under, whether that is bytes of its own or the Scene it takes them from,
- * with the Transcript and the loop that belong to those bytes — how its beats are
+ * heard under, whether that is a Sound of its own or the Scene it takes one from,
+ * with the Transcript and the loop that belong to that Sound — how its beats are
  * cut, how its Images move and how its texts arrive, the Scene's own and each
  * Shot's — and the Flags
  * that Scene sets on entry, under the same name and with none of its ways on. From
@@ -18,7 +18,12 @@ import { useDb } from '../../../db'
  *
  * Copying `sound_of_scene_id` verbatim keeps the one hop of
  * `docs/adr/0049-a-sound-is-carried-by-what-plays-it.md`: the copy names whatever
- * the original named, and what the original named carries bytes by construction.
+ * the original named, and what the original named carries a Sound by
+ * construction.
+ *
+ * Every Image and Sound is copied as the digest that names it, so the copy names
+ * the same objects in the bucket and no byte is copied —
+ * `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`.
  *
  * It is what an Author writes where they wanted the Reader to meet a Scene a
  * second time, now that a Reading stands in a Scene at most once and the way on
@@ -54,12 +59,12 @@ export default defineEventHandler(async (event) => {
   const { rows } = await useDb().execute<Scene>(sql`
     with made as (
       insert into scenes (
-        story_id, name, sets, sound, sound_of_scene_id, transcript, sound_loops,
+        story_id, name, sets, sound_digest, sound_of_scene_id, transcript, sound_loops,
         cut_after, cut_over, cut_through, exits_after,
         layout, movement_by, movement_direction, movement_over,
         text_after, text_by, text_pace, text_over, text_stays, question, question_flag
       )
-      select story_id, name, sets, sound, sound_of_scene_id, transcript, sound_loops,
+      select story_id, name, sets, sound_digest, sound_of_scene_id, transcript, sound_loops,
         cut_after, cut_over, cut_through, exits_after,
         layout, movement_by, movement_direction, movement_over,
         text_after, text_by, text_pace, text_over, text_stays, question, question_flag
@@ -69,15 +74,15 @@ export default defineEventHandler(async (event) => {
     ),
     copied as (
       insert into shots (
-        scene_id, text, position, image, description, sound, transcript, conditions,
+        scene_id, text, position, image_digest, description, sound_digest, transcript, conditions,
         image_arrives, image_lasts, text_arrives, text_lasts,
         cut_after, cut_over, cut_through,
         layout, crop_x, crop_y, formatted,
         movement_by, movement_direction, movement_over,
         text_after, text_by, text_pace, text_over, text_stays
       )
-      select made.id, shots.text, shots.position, shots.image, shots.description,
-             shots.sound, shots.transcript, shots.conditions,
+      select made.id, shots.text, shots.position, shots.image_digest, shots.description,
+             shots.sound_digest, shots.transcript, shots.conditions,
              shots.image_arrives, shots.image_lasts, shots.text_arrives, shots.text_lasts,
              shots.cut_after, shots.cut_over, shots.cut_through,
              shots.layout, shots.crop_x, shots.crop_y, shots.formatted,

@@ -70,7 +70,11 @@ export async function readStoryCover(event: H3Event, storyId: string) {
     .select({ id: shots.id })
     .from(shots)
     .innerJoin(scenes, eq(shots.sceneId, scenes.id))
-    .where(and(eq(shots.id, coverShotId), eq(scenes.storyId, storyId), isNotNull(shots.image)))
+    .where(and(
+      eq(shots.id, coverShotId),
+      eq(scenes.storyId, storyId),
+      isNotNull(shots.imageDigest),
+    ))
   if (!shot) throw refused()
 
   return shot.id
@@ -162,9 +166,9 @@ async function readStoryText<T extends string>(
  */
 export const coverShotOf = sql<string | null>`coalesce(
   (select ${shots.id} from ${shots}
-    where ${shots.id} = ${stories.coverShotId} and ${shots.image} is not null),
+    where ${shots.id} = ${stories.coverShotId} and ${shots.imageDigest} is not null),
   (select ${shots.id} from ${shots}
-    where ${shots.sceneId} = ${stories.openingSceneId} and ${shots.image} is not null
+    where ${shots.sceneId} = ${stories.openingSceneId} and ${shots.imageDigest} is not null
     order by ${shots.position} limit 1)
 )`
 
@@ -232,7 +236,7 @@ export async function readStoryGraph(storyId: string) {
       soundLoops: scenes.soundLoops,
       // Whether the Scene carries a Sound, never the Sound: the bytes are served
       // one request apiece, so a Story is the same size however many it holds.
-      hasSound: sql<boolean>`${scenes.sound} is not null`,
+      hasSound: sql<boolean>`${scenes.soundDigest} is not null`,
       cutAfter: scenes.cutAfter,
       cutOver: scenes.cutOver,
       cutThrough: scenes.cutThrough,
@@ -256,9 +260,9 @@ export async function readStoryGraph(storyId: string) {
       conditions: shots.conditions,
       // Whether the Shot carries an image, never the image: the bytes are served
       // one request apiece, so a Story is the same size however many images it has.
-      hasImage: sql<boolean>`${shots.image} is not null`,
+      hasImage: sql<boolean>`${shots.imageDigest} is not null`,
       shotTranscript: shots.transcript,
-      hasShotSound: sql<boolean>`${shots.sound} is not null`,
+      hasShotSound: sql<boolean>`${shots.soundDigest} is not null`,
       shotCutAfter: shots.cutAfter,
       shotCutOver: shots.cutOver,
       shotCutThrough: shots.cutThrough,

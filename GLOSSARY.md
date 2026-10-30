@@ -59,7 +59,7 @@ looking at the Image, and an Image nobody pressed is cropped around its centre.
 It is also the point a Movement comes closer to and draws away from. However the
 frame cuts the Image, and however the Image moves in it, the point stays in view.
 _Affiché_: Image
-_Avoid_: picture, photo, frame, visual, asset, media, photogramme, still
+_Avoid_: picture, photo, frame, visual, asset, medium, photogramme, still
 
 **Description**:
 What an Image shows, written by the Author for a Reader who cannot see it. An Image
@@ -80,6 +80,13 @@ among the Images the Shots already carry.
 _Affiché_: Son
 _Avoid_: audio, track, clip, soundtrack, sfx, cue, ambience, bande-son, piste,
 ambiance, musique, bruitage
+
+**Medium**:
+An Image or a Sound, either one, where what is said holds for both alike; media
+is its plural. It is the code's word and never the screen's: what the interface
+says names the Image or the Sound, so a Medium is never an Image alone.
+_Affiché_: never shown; Image or Son in its place
+_Avoid_: asset, file, upload, attachment, média
 
 **Cut**:
 What takes one Shot off the screen and puts the next one there: when it is made

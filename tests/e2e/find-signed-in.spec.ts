@@ -8,7 +8,7 @@ import * as schema from '../../server/db/schema'
 import { plantSample } from '../../server/utils/samples'
 import { placesIn, textRuns, type Place } from '../../shared/utils/found'
 import type { StoryInEditor } from '../../shared/utils/scenes'
-import { live, seedStory, test, toast, writeStory, type Author } from './author'
+import { live, seedStory, suiteMedia, test, toast, writeStory, type Author } from './author'
 
 /**
  * Find and Replace on the bench — issue #447,
@@ -21,6 +21,7 @@ import { live, seedStory, test, toast, writeStory, type Author } from './author'
 async function plant(author: Author) {
   await plantSample(author.id, 'en', {
     db: drizzle(process.env.DATABASE_URL!, { schema }),
+    media: suiteMedia(),
     image: name => readFile(imagePath(name)),
     sound: file => readFile(soundPath(file)),
   })

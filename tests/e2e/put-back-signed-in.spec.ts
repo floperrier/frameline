@@ -2,7 +2,7 @@ import { neon } from '@neondatabase/serverless'
 import { expect } from '@playwright/test'
 import type { APIRequestContext, Page } from '@playwright/test'
 import {
-  A_SOUND, ONE_PIXEL, live, readShots, seedScene, seedStory, test, toast, writeStory,
+  A_SOUND, ONE_PIXEL, live, objectBehind, readShots, seedScene, seedStory, test, toast, writeStory,
 } from './author'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
@@ -78,6 +78,7 @@ test('a Shot put back is the Shot deleted, byte for byte, under its own id and a
   const before = await readTheStory(request, story.id)
   const held = before.scenes[0]!.shots[1]!
   const bytes = await bytesOf(request, steps!.id)
+  const object = await objectBehind(request, `/api/shots/${steps!.id}/image`)
   expect(held.formatted).not.toBeNull()
   expect(before.coverShotId).toBe(steps!.id)
 
@@ -96,6 +97,8 @@ test('a Shot put back is the Shot deleted, byte for byte, under its own id and a
   expect(after.scenes[0]!.shots[1]).toEqual(held)
   expect(after.coverShotId).toBe(steps!.id)
   expect(await bytesOf(request, steps!.id)).toEqual(bytes)
+  // Under the same object in the bucket: putting a Shot back holds nothing new.
+  expect(await objectBehind(request, `/api/shots/${steps!.id}/image`)).toBe(object)
 
   // Put back once: nothing is held under it any more.
   const again = await request.post(`/api/shots/${steps!.id}/back`, { data: { after: door!.id } })

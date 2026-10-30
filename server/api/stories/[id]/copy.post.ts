@@ -5,11 +5,13 @@ import { useDb } from '../../../db'
 /**
  * Writes a Story again, whole, under the title and in the Language its Author
  * names — see `docs/adr/0067-a-story-is-copied-whole.md`. The copy carries every
- * Scene, Shot and Exit with every column it has, the bytes of each Image and
- * Sound among them, and the Story's own Synopsis, `steps_back` and text. It is
+ * Scene, Shot and Exit with every column it has, the digest of each Image and
+ * Sound among them, and the Story's own Synopsis, `steps_back` and text. Each
+ * digest names the same object in the bucket, so a copy costs the instance no
+ * byte — `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`. It is
  * unpublished and unlisted, because being read is a second act —
  * `docs/adr/0023-being-published-and-being-found-are-two-acts.md` — so it has no
- * edition and holds none of the bytes one played. It carries no Comment and
+ * edition and names none of the media one played. It carries no Comment and
  * belongs to no List, which live in tables of their own that nothing here
  * touches.
  *

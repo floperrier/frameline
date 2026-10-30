@@ -107,9 +107,30 @@ export default defineNuxtConfig({
       baseName: 'sounds',
       dir: fileURLToPath(new URL('public/sounds', import.meta.url)),
     }],
+    // The daily sweep, which erases from the bucket the media nothing names any
+    // more (`server/api/sweep.get.ts`). The Vercel preset writes it into the
+    // Build Output's `config.json`, where Vercel reads a deployment's crons, so
+    // it runs in production alone. Hobby runs a cron once a day at most, within
+    // the hour, and calls it with `CRON_SECRET` as its bearer — see
+    // `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`.
+    vercel: { config: { crons: [{ path: '/api/sweep', schedule: '0 4 * * *' }] } },
   },
   runtimeConfig: {
     databaseUrl: process.env.DATABASE_URL ?? '',
+    // The bucket the bytes of every Image and every Sound live in, and the keys
+    // it is written with: `NUXT_MEDIA_ENDPOINT`, `NUXT_MEDIA_BUCKET`,
+    // `NUXT_MEDIA_ACCESS_KEY_ID` and `NUXT_MEDIA_SECRET_ACCESS_KEY`. R2 in
+    // production, set in Vercel's environment alone; the bucket `pnpm dev` and
+    // the suite start beside their database everywhere else — see
+    // `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`.
+    media: { endpoint: '', bucket: '', accessKeyId: '', secretAccessKey: '' },
+    // The bearer the daily sweep is called with. Vercel's cron sends the value of
+    // `CRON_SECRET`, a name of its own choosing, so that is the variable set in
+    // Vercel's environment; it is there when the deploy builds, as `DATABASE_URL`
+    // is, and is read in here then. `NUXT_CRON_SECRET` still overrides it when
+    // the server starts, which is how the suite hands it to an app built without
+    // it. Empty, every call to the sweep is refused.
+    cronSecret: process.env.CRON_SECRET ?? '',
     // The published Story the landing page sends a visitor to read, named by
     // `NUXT_PUBLIC_LANDING_STORY` rather than written into the page: which
     // Sample is published is a fact about the deployment, not about the code.

@@ -1,6 +1,8 @@
 import { expect } from '@playwright/test'
-import { A_SOUND, seedPublication, seedScene, seedStory, test, unfold, writeStory } from './author'
+import { createHash } from 'node:crypto'
+import { A_SOUND, objectBehind, seedPublication, seedScene, seedStory, test, unfold, writeStory } from './author'
 import { SOUND_MAX_BYTES, SOUND_TRANSCRIPT_MAX_LENGTH } from '../../shared/utils/sound'
+import { SOUND_LIBRARY, libraryUrl } from '../../shared/utils/library'
 import type { APIRequestContext, Page } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
@@ -45,11 +47,95 @@ test('an Author deposits a Sound on a Scene, and it is served where the Scene sa
 
   const served = await request.get(`/api/scenes/${scene.id}/sound`)
   expect(served.status()).toBe(200)
-  // Served under the type its own first bytes say it is, and never sniffed past it.
+  // Served under the type its own first bytes say it is, which is the type the
+  // object was written with.
   expect(served.headers()['content-type']).toBe('audio/mpeg')
-  expect(served.headers()['x-content-type-options']).toBe('nosniff')
-  expect(served.headers()['cache-control']).toContain('no-store')
   expect(Buffer.compare(await served.body(), A_SOUND)).toBe(0)
+})
+
+test('a Sound is sent from the bucket, by a Scene\'s door and by a Shot\'s', async ({ request }) => {
+  const { scene, shots } = await openScene(request)
+  await request.put(`/api/scenes/${scene.id}/sound`, { data: A_SOUND })
+  await request.put(`/api/shots/${shots[0]!.id}/sound`, { data: A_SOUND })
+
+  // Each door keeps its address and sends the browser on to the bucket, never
+  // the bytes — see `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`
+  // — and the redirect is never kept, since the address it names stops answering.
+  for (const door of [`/api/scenes/${scene.id}/sound`, `/api/shots/${shots[0]!.id}/sound`]) {
+    const sent = await request.get(door, { maxRedirects: 0 })
+    expect(sent.status(), door).toBe(302)
+    expect(sent.headers()['cache-control'], door).toBe('no-store')
+    const signed = new URL(sent.headers()['location']!)
+    expect(signed.host, door).toBe(new URL(process.env.NUXT_MEDIA_ENDPOINT!).host)
+    expect(signed.pathname, door).toMatch(new RegExp(`/${createHash('sha256').update(A_SOUND).digest('hex')}$`))
+
+    const served = await request.get(signed.href)
+    expect(served.status(), door).toBe(200)
+    expect(Buffer.compare(await served.body(), A_SOUND), door).toBe(0)
+  }
+})
+
+test('a Sound\'s signed address is refused by the bucket once its signature is altered',
+  async ({ request }) => {
+    const { scene, shots } = await openScene(request)
+    await request.put(`/api/scenes/${scene.id}/sound`, { data: A_SOUND })
+    await request.put(`/api/shots/${shots[0]!.id}/sound`, { data: A_SOUND })
+
+    // The signature is the whole permission, as it is for an Image: the address
+    // a door signs, with one character of it changed, is refused by the bucket
+    // itself, and with no CORS headers a Reading's `fetch` could read past.
+    for (const door of [`/api/scenes/${scene.id}/sound`, `/api/shots/${shots[0]!.id}/sound`]) {
+      const sent = await request.get(door, { maxRedirects: 0 })
+      const signed = new URL(sent.headers()['location']!)
+      expect((await request.get(signed.href)).status(), door).toBe(200)
+
+      const signature = signed.searchParams.get('X-Amz-Signature')!
+      const altered = `${signature.slice(0, -1)}${signature.endsWith('0') ? '1' : '0'}`
+      signed.searchParams.set('X-Amz-Signature', altered)
+      const refused = await request.get(signed.href, {
+        headers: { origin: 'https://elsewhere.example' },
+      })
+      expect(refused.status(), door).toBe(403)
+      expect(refused.headers()['access-control-allow-origin'], door).toBeUndefined()
+    }
+  })
+
+test('removing a Sound silences its row alone, and the same bytes play on elsewhere', async ({ request }) => {
+  const { scene, shots } = await openScene(request)
+  const doors = [`/api/scenes/${scene.id}/sound`, `/api/shots/${shots[0]!.id}/sound`, `/api/shots/${shots[1]!.id}/sound`]
+  for (const door of doors) await request.put(door, { data: A_SOUND })
+
+  expect((await request.delete(`/api/shots/${shots[0]!.id}/sound`)).ok()).toBe(true)
+  expect((await request.delete(`/api/scenes/${scene.id}/sound`)).ok()).toBe(true)
+
+  // Neither door sends anybody anywhere any more.
+  for (const door of doors.slice(0, 2)) {
+    const refused = await request.get(door, { maxRedirects: 0 })
+    expect(refused.status(), door).toBe(404)
+    expect(refused.headers()['location'], door).toBeUndefined()
+  }
+  // And the Shot that carries the same bytes still plays them.
+  const kept = await request.get(doors[2]!)
+  expect(kept.status()).toBe(200)
+  expect(Buffer.compare(await kept.body(), A_SOUND)).toBe(0)
+})
+
+test('one library Sound picked for three Scenes is one object in the bucket', async ({ request }) => {
+  const story = await writeStory(request)
+  await seedScene(story, 'The alley')
+  const { scenes } = await reread(request, story.id)
+  expect(scenes).toHaveLength(3)
+
+  // What picking does in the browser: fetch the file off the library and hand it
+  // to the Scene's own door — `app/composables/send.ts`.
+  const rain = await (await request.get(libraryUrl(SOUND_LIBRARY[0]!.file))).body()
+  for (const one of scenes) {
+    expect((await request.put(`/api/scenes/${one.id}/sound`, { data: rain })).ok()).toBe(true)
+  }
+
+  const objects = await Promise.all(scenes.map(one => objectBehind(request, `/api/scenes/${one.id}/sound`)))
+  expect(new Set(objects).size).toBe(1)
+  expect(objects[0]).toMatch(new RegExp(`/${createHash('sha256').update(rain).digest('hex')}$`))
 })
 
 test('an Author deposits a Sound on a Shot, and takes it off again', async ({ request }) => {
