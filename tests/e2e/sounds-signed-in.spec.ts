@@ -75,6 +75,31 @@ test('a Sound is sent from the bucket, by a Scene\'s door and by a Shot\'s', asy
   }
 })
 
+test('a Sound\'s signed address is refused by the bucket once its signature is altered',
+  async ({ request }) => {
+    const { scene, shots } = await openScene(request)
+    await request.put(`/api/scenes/${scene.id}/sound`, { data: A_SOUND })
+    await request.put(`/api/shots/${shots[0]!.id}/sound`, { data: A_SOUND })
+
+    // The signature is the whole permission, as it is for an Image: the address
+    // a door signs, with one character of it changed, is refused by the bucket
+    // itself, and with no CORS headers a Reading's `fetch` could read past.
+    for (const door of [`/api/scenes/${scene.id}/sound`, `/api/shots/${shots[0]!.id}/sound`]) {
+      const sent = await request.get(door, { maxRedirects: 0 })
+      const signed = new URL(sent.headers()['location']!)
+      expect((await request.get(signed.href)).status(), door).toBe(200)
+
+      const signature = signed.searchParams.get('X-Amz-Signature')!
+      const altered = `${signature.slice(0, -1)}${signature.endsWith('0') ? '1' : '0'}`
+      signed.searchParams.set('X-Amz-Signature', altered)
+      const refused = await request.get(signed.href, {
+        headers: { origin: 'https://elsewhere.example' },
+      })
+      expect(refused.status(), door).toBe(403)
+      expect(refused.headers()['access-control-allow-origin'], door).toBeUndefined()
+    }
+  })
+
 test('removing a Sound silences its row alone, and the same bytes play on elsewhere', async ({ request }) => {
   const { scene, shots } = await openScene(request)
   const doors = [`/api/scenes/${scene.id}/sound`, `/api/shots/${shots[0]!.id}/sound`, `/api/shots/${shots[1]!.id}/sound`]
