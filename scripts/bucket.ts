@@ -2,9 +2,14 @@
 // the CORS rule a Reading needs to bring them in — see
 // `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`. Run once the
 // migrations are applied, by `pnpm test:db` and `pnpm db:dev` against their own
-// Versity Gateway, and by hand against R2 once, which takes the same call:
+// Versity Gateway:
 //
 //   node scripts/bucket.ts http://localhost:4447
+//
+// Never against R2: production's bucket is made, and given the same rule, from
+// Cloudflare's dashboard by `scripts/bucket-wizard.sh`, because the token the app
+// holds is scoped to the bucket's objects and may neither make a bucket nor set
+// its rule — see `docs/deploy.md`.
 //
 // The endpoint is the one argument. The bucket's name and the keys come from
 // `NUXT_MEDIA_BUCKET`, `NUXT_MEDIA_ACCESS_KEY_ID` and

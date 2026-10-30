@@ -133,7 +133,9 @@ runs `pnpm db:dev` first, which starts those containers again as a stack of
 their own (`compose.dev.yaml`, named `frameline-dev`, on 4446 and 4448), migrates
 the database and makes the bucket. That stack keeps its rows and its objects in
 volumes, and `.env` names it. Neither stack ever
-touches the other's database.
+touches the other's database. Neither reaches production's bucket either, which
+is R2's and made once by hand with `scripts/bucket-wizard.sh` — see
+`docs/deploy.md`.
 
 So a migration on your machine reaches the database `pnpm dev` starts, never
 production. A

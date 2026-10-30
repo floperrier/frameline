@@ -213,6 +213,8 @@ volumes, applies the migrations and makes the bucket. Then Nuxt starts. See
 database by hand. Migrations are generated from `server/db/schema.ts` with
 `pnpm db:generate` and applied with `pnpm db:migrate` to the database
 `DATABASE_URL` names: `.env`'s on a development machine, Neon in the deploy.
+Production's bucket is R2, made once by hand with `scripts/bucket-wizard.sh` —
+see `docs/deploy.md`.
 
 ## The demonstration work
 
