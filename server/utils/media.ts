@@ -66,14 +66,18 @@ export type MediaSettings = {
  * Written with `aws4fetch`, which signs S3 requests in a few kilobytes, in the
  * region `auto`, which is R2's and the one the local gateway is started under.
  */
-export function mediaStore(settings: MediaSettings, db: Pick<ReturnType<typeof useDb>, 'insert' | 'select'>) {
+export function mediaStore(
+  settings: MediaSettings,
+  db: Pick<ReturnType<typeof useDb>, 'insert' | 'select'>,
+) {
   const client = new AwsClient({
     accessKeyId: settings.accessKeyId,
     secretAccessKey: settings.secretAccessKey,
     service: 's3',
     region: 'auto',
   })
-  const objectAt = (digest: string) => `${settings.endpoint.replace(/\/$/, '')}/${settings.bucket}/${digest}`
+  const bucketAt = `${settings.endpoint.replace(/\/$/, '')}/${settings.bucket}`
+  const objectAt = (digest: string) => `${bucketAt}/${digest}`
 
   return {
     async hold(bytes: Uint8Array) {
@@ -99,7 +103,9 @@ export function mediaStore(settings: MediaSettings, db: Pick<ReturnType<typeof u
         // Read out of the bytes for the reason the doors refused anything else:
         // whatever serves the object later serves it under this type. The doors
         // let nothing else in, so the fallback is never written.
-        headers: { 'content-type': imageTypeOf(bytes) ?? soundTypeOf(bytes) ?? 'application/octet-stream' },
+        headers: {
+          'content-type': imageTypeOf(bytes) ?? soundTypeOf(bytes) ?? 'application/octet-stream',
+        },
       })
       if (!written.ok) {
         throw new Error(`Holding ${digest} answered ${written.status}: ${await written.text()}`)
@@ -166,7 +172,9 @@ let store: MediaStore | undefined
 export function useMedia() {
   if (!store) {
     const settings = useRuntimeConfig().media as MediaSettings
-    if (!settings.endpoint) throw new Error('NUXT_MEDIA_ENDPOINT is not set — copy .env.example to .env')
+    if (!settings.endpoint) {
+      throw new Error('NUXT_MEDIA_ENDPOINT is not set — copy .env.example to .env')
+    }
     store = mediaStore(settings, useDb())
   }
   return store

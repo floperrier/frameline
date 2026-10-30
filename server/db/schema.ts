@@ -116,13 +116,13 @@ export const stories = pgTable('stories', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-// One object of the bucket the bytes of every Image and every Sound live in, named by the hex of
-// the SHA-256 of its bytes and by nothing else, so the same bytes are held once
-// whichever Shots, Scenes, Stories and Authors carry them — see
-// `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`. `size` is how
-// many bytes it weighs, and `used_at` the last time bytes were held under it,
-// which the daily sweep reads to let go of an object nothing names any more.
-// Every digest column names one of these rows, so the row cannot go while
+// One object of the bucket the bytes of every Image and every Sound live in,
+// named by the hex of the SHA-256 of its bytes and by nothing else, so the same
+// bytes are held once whichever Shots, Scenes, Stories and Authors carry them —
+// see `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`. `size` is
+// how many bytes it weighs, and `used_at` the last time bytes were held under
+// it, which the daily sweep reads to let go of an object nothing names any
+// more. Every digest column names one of these rows, so the row cannot go while
 // anything still names it.
 export const media = pgTable('media', {
   digest: text('digest').primaryKey(),
@@ -166,7 +166,8 @@ export const editionMedia = pgTable('edition_media', {
 // Author avoids depositing one bed twelve times. It is the Cover's own column for
 // the Cover's own reason: `on delete set null`, so a Scene whose carrier is
 // deleted falls silent rather than breaking. One hop and no further — a Scene
-// named here carries a Sound of its own, which the request boundary is what holds.
+// named here carries a Sound of its own, which the request boundary is what
+// holds.
 //
 // `transcript` is what the Sound makes heard, for a Reader who cannot hear it,
 // and `sound_loops` whether it is held in a loop until the Scene is left or the
@@ -278,8 +279,8 @@ export const scenes = pgTable('scenes', {
 // which is what a Shot of text alone carries too.
 //
 // `sound_digest` names the Sound the Shot strikes with, by its `media` row as
-// `image_digest` names the Image: it plays as the beat plays, does
-// not loop, and is gone. Null for a Shot that strikes with nothing. There is no
+// `image_digest` names the Image: it plays as the beat plays, does not loop,
+// and is gone. Null for a Shot that strikes with nothing. There is no
 // `sound_of_shot_id` beside it, deliberately: naming exists because depositing a
 // 400 KB bed twelve times is work, and a struck sound weighs 20 KB and is
 // re-picked from the library in one press.

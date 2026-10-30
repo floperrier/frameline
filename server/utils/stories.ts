@@ -70,7 +70,11 @@ export async function readStoryCover(event: H3Event, storyId: string) {
     .select({ id: shots.id })
     .from(shots)
     .innerJoin(scenes, eq(shots.sceneId, scenes.id))
-    .where(and(eq(shots.id, coverShotId), eq(scenes.storyId, storyId), isNotNull(shots.imageDigest)))
+    .where(and(
+      eq(shots.id, coverShotId),
+      eq(scenes.storyId, storyId),
+      isNotNull(shots.imageDigest),
+    ))
   if (!shot) throw refused()
 
   return shot.id

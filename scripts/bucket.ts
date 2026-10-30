@@ -41,7 +41,8 @@ if (!made.ok && made.status !== 409) {
 // suite and development whatever origin each runs on. A Sound is brought in by
 // `fetch`, which needs it; an Image is brought in by `new Image()`, which does not.
 const rule = '<CORSConfiguration><CORSRule>'
-  + '<AllowedOrigin>*</AllowedOrigin><AllowedMethod>GET</AllowedMethod><AllowedMethod>HEAD</AllowedMethod>'
+  + '<AllowedOrigin>*</AllowedOrigin>'
+  + '<AllowedMethod>GET</AllowedMethod><AllowedMethod>HEAD</AllowedMethod>'
   + '<MaxAgeSeconds>3600</MaxAgeSeconds>'
   + '</CORSRule></CORSConfiguration>'
 const ruled = await client.fetch(`${at}?cors`, {
@@ -51,7 +52,8 @@ const ruled = await client.fetch(`${at}?cors`, {
   headers: { 'content-md5': createHash('md5').update(rule).digest('base64') },
 })
 if (!ruled.ok) {
-  throw new Error(`Setting the CORS rule of ${bucket} answered ${ruled.status}: ${await ruled.text()}`)
+  throw new Error(
+    `Setting the CORS rule of ${bucket} answered ${ruled.status}: ${await ruled.text()}`)
 }
 
 console.log(`The bucket ${bucket} at ${endpoint} is ready.`)

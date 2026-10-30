@@ -7,9 +7,8 @@ import type { H3Event } from 'h3'
  *
  * A trust boundary, and the only one these bytes cross: what gets past here is
  * held in the bucket and later served back under the type its own first bytes
- * claim, so all
- * three refusals name their reason rather than leaving the Author with a Scene
- * that plays nothing.
+ * claim, so all three refusals name their reason rather than leaving the Author
+ * with a Scene that plays nothing.
  *
  * ponytail: the body is buffered to be weighed, the way a Shot's image is. At two
  * megabytes that costs nothing; stream it the day a Scene may carry a reel.

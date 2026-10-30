@@ -184,10 +184,10 @@ published Story's Edition and the Story as it is written, how many Readings left
 off in each of its Scenes, the places a word is
 found at in a Story and what replacing them writes, which call to the daily
 sweep of the bucket is the cron's own and that the cron is declared once a day,
-and the two Samples, that each holds together as a work and that the two of them are one
-shape in two languages — and that the script that writes the works starts on
-Node as it stands, run with no Author so it stops before reaching for a
-database. None of them needs a database, because none of them has one in reach. `pnpm test:e2e` runs
+and the two Samples, that each holds together as a work and that the two of
+them are one shape in two languages — and that the script that writes the
+works starts on Node as it stands, run with no Author so it stops before
+reaching for a database. None of them needs a database, because none of them has one in reach. `pnpm test:e2e` runs
 Playwright against a built app and the suite's own database and bucket:
 `pnpm test:db` starts a Postgres, a proxy that speaks Neon's protocol and a
 Versity Gateway standing in for the R2 bucket the Images and Sounds live in
@@ -209,8 +209,8 @@ containers started again as a stack of their own (`compose.dev.yaml`, the
 database on 4446 and the bucket on 4448) whose rows and objects are kept in
 volumes, applies the migrations and makes the bucket. Then Nuxt starts. See
 `docs/adr/0082-development-brings-its-own-database.md` and
-`docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`. Never edit the database
-by hand. Migrations are generated from `server/db/schema.ts` with
+`docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`. Never edit the
+database by hand. Migrations are generated from `server/db/schema.ts` with
 `pnpm db:generate` and applied with `pnpm db:migrate` to the database
 `DATABASE_URL` names: `.env`'s on a development machine, Neon in the deploy.
 

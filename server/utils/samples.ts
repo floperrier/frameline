@@ -123,7 +123,9 @@ export async function plantSample(
         // developed here: the runtime this deploys to has no ImageMagick on it.
         // Each is held in the bucket under its digest, so planting the same
         // Sample for every Author writes each image as one object.
-        imageDigest: typeof shot.image === 'string' ? await media.hold(await image(shot.image)) : null,
+        imageDigest: typeof shot.image === 'string'
+          ? await media.hold(await image(shot.image))
+          : null,
         soundDigest: shot.sound ? await media.hold(await sound(shot.sound)) : null,
         transcript: shot.transcript ?? '',
         layout: shot.layout ?? null,
@@ -186,9 +188,9 @@ export async function plantSample(
 
 /**
  * What planting needs of the world around it: the database, the media store the
- * images and Sounds are held through, and the bytes of an image or a Sound. All four are had
- * from nitro in production and all four are handed in by the end-to-end spec,
- * which runs outside nitro and so has none of the auto-imports.
+ * images and Sounds are held through, and the bytes of an image or a Sound. All
+ * four are had from nitro in production and all four are handed in by the
+ * end-to-end spec, which runs outside nitro and so has none of the auto-imports.
  */
 type Bench = {
   db: ReturnType<typeof useDb>
