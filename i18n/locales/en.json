@@ -736,6 +736,7 @@
     "soundMissing": "A Sound is a file to upload.",
     "soundHeavy": "A Sound cannot weigh more than {mb} MB.",
     "soundType": "A Sound is an AAC or an MP3 file, and nothing else: those are the two every browser plays.",
+    "noRoom": "There is no room left here for a new Image or a new Sound. Your words are still saved, and an Image or a Sound already held here is still taken.",
     "transcript": "A Transcript says what a Sound makes heard, in at most {max} characters.",
     "soundLoops": "A Scene’s Sound is held in a loop, or it is played once.",
     "namedSound": "A Scene takes its Sound from a Scene of this Story that carries one of its own.",

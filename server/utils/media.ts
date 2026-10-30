@@ -16,6 +16,25 @@ import { soundTypeOf } from '../../shared/utils/sound'
 export const SIGNED_FOR = 300
 
 /**
+ * The most the objects of the bucket may weigh together, in bytes: nine
+ * gigabytes, a tenth short of the ten R2 keeps free, so storage never leaves its
+ * free tier and the bucket never sends a bill — see
+ * `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`.
+ */
+export const MEDIA_CEILING = 9_000_000_000
+
+/**
+ * What `hold` throws when new bytes would take the instance past
+ * `MEDIA_CEILING`. A door turns it into a refusal in the Author's Locale
+ * (`holdUpload`); anywhere else it is a failure like any other.
+ */
+export class NoRoomForMedia extends Error {
+  constructor(digest: string) {
+    super(`No room left to hold ${digest}`)
+  }
+}
+
+/**
  * Where the bucket is and the keys it is written with: R2 in production, the
  * suite's and development's own Versity Gateway everywhere else, named by the
  * runtime configuration in both.
@@ -32,9 +51,12 @@ export type MediaSettings = {
  * and the sweep reach the bytes of a medium through these three operations and
  * through nothing else:
  *
- * - `hold` writes the bytes as the object their SHA-256 names, with the type
- *   their own first bytes say, records it in `media` and answers the digest the
- *   row names it by. The object is written every time, even under a digest
+ * - `hold` refuses bytes the instance does not hold yet once they would take
+ *   the sum of the `media` sizes past `MEDIA_CEILING`, before anything is
+ *   written; bytes whose digest is already held cost nothing and are always
+ *   taken. Then it writes the bytes as the object their SHA-256 names, with the
+ *   type their own first bytes say, records it in `media` and answers the digest
+ *   the row names it by. The object is written every time, even under a digest
  *   already held, and the row's `used_at` refreshed after it, so bytes held
  *   again are never left with a row and no object.
  * - `sign` answers an address the bucket serves that object at for
@@ -44,7 +66,7 @@ export type MediaSettings = {
  * Written with `aws4fetch`, which signs S3 requests in a few kilobytes, in the
  * region `auto`, which is R2's and the one the local gateway is started under.
  */
-export function mediaStore(settings: MediaSettings, db: Pick<ReturnType<typeof useDb>, 'insert'>) {
+export function mediaStore(settings: MediaSettings, db: Pick<ReturnType<typeof useDb>, 'insert' | 'select'>) {
   const client = new AwsClient({
     accessKeyId: settings.accessKeyId,
     secretAccessKey: settings.secretAccessKey,
@@ -56,6 +78,19 @@ export function mediaStore(settings: MediaSettings, db: Pick<ReturnType<typeof u
   return {
     async hold(bytes: Uint8Array) {
       const digest = createHash('sha256').update(bytes).digest('hex')
+
+      // Read in one statement, so the digest and the total are one moment's.
+      // Two uploads at once may both fit and together pass the ceiling by a few
+      // megabytes, which the tenth of R2's free tier left above it absorbs.
+      const [counted] = await db
+        .select({
+          held: sql<boolean | null>`bool_or(${media.digest} = ${digest})`,
+          total: sql<string>`coalesce(sum(${media.size}), 0)::text`,
+        })
+        .from(media)
+      if (!counted?.held && Number(counted?.total ?? 0) + bytes.length > MEDIA_CEILING) {
+        throw new NoRoomForMedia(digest)
+      }
 
       const written = await client.fetch(objectAt(digest), {
         method: 'PUT',
@@ -105,6 +140,24 @@ export type MediaStore = ReturnType<typeof mediaStore>
 export async function sendToBucket(event: H3Event, digest: string) {
   setResponseHeader(event, 'cache-control', 'no-store')
   return sendRedirect(event, await useMedia().sign(digest), 302)
+}
+
+/**
+ * Holds the bytes an upload door has read, through the one store every door
+ * goes through, and answers their digest. Past the ceiling it refuses with a
+ * phrase in the Author's Locale, carried in the body as every refusal is — see
+ * `docs/adr/0009-a-refusal-travels-in-the-body.md` — under 507, the status that
+ * says the server has no room to store what it was sent. Nothing is written
+ * then, and nothing named: the Author's words are untouched by it.
+ */
+export async function holdUpload(event: H3Event, bytes: Uint8Array) {
+  try {
+    return await useMedia().hold(bytes)
+  }
+  catch (failure) {
+    if (!(failure instanceof NoRoomForMedia)) throw failure
+    throw createError({ statusCode: 507, message: saying(event)('refusals.noRoom') })
+  }
 }
 
 let store: MediaStore | undefined

@@ -49,6 +49,16 @@ export default defineConfig({
   // three times is still red. A development machine keeps none: there a run is
   // watched, and a flake should be seen failing.
   retries: process.env.CI ? 2 : 0,
+  // Every spec but one runs side by side, because nothing they hold is shared.
+  // The one is the ceiling's: it fills the whole instance to one byte short of
+  // nine gigabytes, a state in which every other spec's upload would be refused,
+  // so it runs alone once they have all finished — see
+  // `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`. Named alone, it
+  // still waits on the whole of `everything`; `--no-deps` runs it by itself.
+  projects: [
+    { name: 'everything', testIgnore: /ceiling-signed-in\.spec\.ts$/ },
+    { name: 'ceiling', testMatch: /ceiling-signed-in\.spec\.ts$/, dependencies: ['everything'] },
+  ],
   use: {
     baseURL: 'http://localhost:3101',
     // The suite addresses elements by their accessible name and their visible

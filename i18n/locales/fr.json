@@ -736,6 +736,7 @@
     "soundMissing": "Un Son est un fichier à envoyer.",
     "soundHeavy": "Un Son ne peut pas peser plus de {mb} Mo.",
     "soundType": "Un Son est un fichier AAC ou MP3, et rien d’autre : ce sont les deux que tous les navigateurs lisent.",
+    "noRoom": "Il n’y a plus de place ici pour une nouvelle Image ou un nouveau Son. Vos mots sont bien enregistrés, et une Image ou un Son déjà conservé ici est toujours accepté.",
     "transcript": "Une Transcription dit ce qu’un Son fait entendre, en {max} caractères au plus.",
     "soundLoops": "Le Son d’une Scène tourne en boucle, ou il est joué une fois.",
     "namedSound": "Une Scène prend son Son à une Scène de ce Récit qui en porte un.",

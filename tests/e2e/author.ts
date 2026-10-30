@@ -49,6 +49,35 @@ export function suiteMedia() {
 }
 
 /**
+ * Brings the bytes the instance holds to one byte short of its ceiling of nine
+ * gigabytes, which no request can do: `media` rows that name no object, as many
+ * as an `integer` size takes, and nothing else. Whatever new bytes arrive after
+ * this are past it; bytes already held cost nothing. It answers the way back,
+ * which deletes those rows and nothing else.
+ *
+ * The state is the whole instance's, not one Author's, so only a spec run once
+ * every other has finished may reach it — the `ceiling` project of
+ * `playwright.config.ts`.
+ */
+export async function fillTheInstance() {
+  const [held] = await sql`select coalesce(sum(size), 0)::text as total from media` as { total: string }[]
+  let missing = 9_000_000_000 - Number(held!.total) - 1
+  const filler: string[] = []
+
+  while (missing > 0) {
+    const size = Math.min(missing, 2_000_000_000)
+    const digest = `filler-${randomUUID()}`
+    await sql`insert into media (digest, size) values (${digest}, ${size})`
+    filler.push(digest)
+    missing -= size
+  }
+
+  return async () => {
+    await sql`delete from media where digest = any(${filler})`
+  }
+}
+
+/**
  * The object of the bucket a door sends the browser to, read off the address it
  * signs: the same object is the same bytes held once, whichever Shot or Story
  * named it, and the address's signature is the part that changes each time.

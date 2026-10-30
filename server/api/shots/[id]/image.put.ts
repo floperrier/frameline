@@ -13,7 +13,7 @@ import { useDb } from '../../../db'
 export default defineEventHandler(async (event) => {
   const author = await requireAuthor(event)
   const id = readId(event, 'Shot')
-  const imageDigest = await useMedia().hold(await readShotImage(event))
+  const imageDigest = await holdUpload(event, await readShotImage(event))
 
   const [shot] = await useDb()
     .update(shots)
