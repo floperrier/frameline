@@ -114,11 +114,15 @@ test('an edition\'s Image is served from the edition, and survives the Shot', as
   const image = (await atItsLink(reader, story.id)).scenes[0]!.shots[0]!.image!
   expect(image).toMatch(DIGEST_ADDRESS(story.id))
 
+  // Sent on to the bucket, as the Shot's own door sends the bench, and never kept.
+  const sent = await reader.get(image, { maxRedirects: 0 })
+  expect(sent.status()).toBe(302)
+  expect(sent.headers()['cache-control']).toBe('no-store')
+  expect(new URL(sent.headers()['location']!).host).toBe(new URL(process.env.NUXT_MEDIA_ENDPOINT!).host)
+
   const served = await reader.get(image)
   expect(served.status()).toBe(200)
   expect(served.headers()['content-type']).toBe('image/png')
-  expect(served.headers()['x-content-type-options']).toBe('nosniff')
-  expect(served.headers()['cache-control']).toBe('no-store')
   expect(Buffer.compare(await served.body(), ONE_PIXEL)).toBe(0)
 
   // Deleted on the bench, the Shot is still in the edition, and so are its bytes.

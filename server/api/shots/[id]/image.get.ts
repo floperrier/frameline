@@ -3,10 +3,15 @@ import { scenes, shots, stories } from '../../../db/schema'
 import { useDb } from '../../../db'
 
 /**
- * The bytes of one Shot's image. As reachable as the Story it belongs to and no
- * more: its Author always, anyone once the Story is published, nobody otherwise.
- * The whole rule is one condition on the row that was read, so a Preview and a
- * Reading get their images through the same door the Story came through.
+ * One Shot's image. As reachable as the Story it belongs to and no more: its
+ * Author always, anyone once the Story is published, nobody otherwise. The whole
+ * rule is one condition on the row that was read, so a Preview and a Reading get
+ * their images through the same door the Story came through.
+ *
+ * The bytes are not sent from here: the door sends the browser on to the bucket —
+ * see `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md` — so they
+ * never cross Neon or a function on their way, and once the Story is taken down
+ * nothing signs an address to them again.
  */
 export default defineEventHandler(async (event) => {
   const id = readId(event, 'Shot')
@@ -14,7 +19,7 @@ export default defineEventHandler(async (event) => {
 
   const [carried] = await useDb()
     .select({
-      image: shots.image,
+      digest: shots.imageDigest,
       authorId: stories.authorId,
       publishedAt: stories.publishedAt,
     })
@@ -26,22 +31,9 @@ export default defineEventHandler(async (event) => {
   // A Shot with no image, one of an unpublished Story and one nobody ever wrote
   // all answer the same way: whatever this request cannot reach, it cannot tell
   // apart from absent.
-  if (!carried?.image || !(carried.authorId === author?.id || carried.publishedAt)) {
+  if (!carried?.digest || !(carried.authorId === author?.id || carried.publishedAt)) {
     throw notFound(event, 'Shot')
   }
 
-  setResponseHeaders(event, {
-    // Sniffed from the bytes for the same reason they were sniffed on the way in:
-    // the stored type is the one the bytes themselves say. Anything the three
-    // formats do not own was never stored, so the fallback is unreachable — and
-    // it downloads rather than renders if it ever is.
-    'content-type': imageTypeOf(carried.image) ?? 'application/octet-stream',
-    // Never sniffed by the browser into something it could run.
-    'x-content-type-options': 'nosniff',
-    // A public link can be taken away, so the image may not sit in a cache that
-    // outlives the Publish — the same reason `/read/**` is `no-store`.
-    'cache-control': 'no-store',
-  })
-
-  return carried.image
+  return await sendToBucket(event, carried.digest)
 })

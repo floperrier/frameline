@@ -5,7 +5,7 @@ import { SAMPLES, imagePath } from '../../demonstration/samples'
 import { soundPath } from '../../demonstration/sounds'
 import * as schema from '../../server/db/schema'
 import { plantSample } from '../../server/utils/samples'
-import { A_SOUND, live, seedStory, test, unfold, writeStory } from './author'
+import { A_SOUND, live, seedStory, suiteMedia, test, unfold, writeStory } from './author'
 import type { APIRequestContext, Page } from '@playwright/test'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
@@ -157,6 +157,7 @@ test('the Sample\'s first Shot says what it plays as, and what it carries stands
   async ({ page, request, author }) => {
     await plantSample(author.id, 'en', {
       db: drizzle(process.env.DATABASE_URL!, { schema }),
+      media: suiteMedia(),
       image: named => readFile(imagePath(named)),
       sound: file => readFile(soundPath(file)),
     })

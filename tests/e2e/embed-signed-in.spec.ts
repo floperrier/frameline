@@ -8,7 +8,7 @@ import { SAMPLES, imagePath } from '../../demonstration/samples'
 import { soundPath } from '../../demonstration/sounds'
 import * as schema from '../../server/db/schema'
 import { plantSample } from '../../server/utils/samples'
-import { live, test, toast, writeStory, type Author } from './author'
+import { live, suiteMedia, test, toast, writeStory, type Author } from './author'
 import type { APIRequestContext } from '@playwright/test'
 
 /**
@@ -28,6 +28,7 @@ import type { APIRequestContext } from '@playwright/test'
 async function planted(author: Author, request: APIRequestContext) {
   await plantSample(author.id, 'en', {
     db: drizzle(process.env.DATABASE_URL!, { schema }),
+    media: suiteMedia(),
     image: name => readFile(imagePath(name)),
     sound: file => readFile(soundPath(file)),
   })

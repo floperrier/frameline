@@ -7,12 +7,13 @@ import { soundPath } from '../../demonstration/sounds'
 import * as schema from '../../server/db/schema'
 import { plantSample } from '../../server/utils/samples'
 import type { Condition, StoryInEditor } from '../../shared/utils/scenes'
-import { seedStory, test, type Author } from './author'
+import { objectBehind, seedStory, suiteMedia, test, type Author } from './author'
 
 /** The Sample, planted the way `sample-signed-in.spec.ts` plants it. */
 async function plant(author: Author) {
   await plantSample(author.id, 'en', {
     db: drizzle(process.env.DATABASE_URL!, { schema }),
+    media: suiteMedia(),
     image: name => readFile(imagePath(name)),
     sound: file => readFile(soundPath(file)),
   })
@@ -145,6 +146,9 @@ test('a Story is copied whole from the shelf, into another Language, and the cop
   const image = async (story: StoryInEditor) =>
     (await request.get(story.scenes[0]!.shots[0]!.image!)).body()
   expect((await image(copy)).equals(await image(original))).toBe(true)
+  // Under the same object in the bucket, so the copy costs the instance no room.
+  expect(await objectBehind(request, copy.scenes[0]!.shots[0]!.image!))
+    .toBe(await objectBehind(request, original.scenes[0]!.shots[0]!.image!))
 
   // The original is untouched, and the shelf holds the two of them.
   expect(await read(request, id)).toEqual(original)

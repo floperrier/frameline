@@ -8,7 +8,7 @@ import * as schema from '../../server/db/schema'
 import { plantSample } from '../../server/utils/samples'
 import type { Changes } from '../../shared/utils/changes'
 import type { StoryInEditor } from '../../shared/utils/scenes'
-import { live, test, toast, writeShot, writeStory, type Author } from './author'
+import { live, suiteMedia, test, toast, writeShot, writeStory, type Author } from './author'
 
 /**
  * The bench of a published Story says what differs between the Story as it is
@@ -71,6 +71,7 @@ test('the bench\'s read says what differs from Readers\' Edition', async ({ requ
 async function plant(author: Author) {
   await plantSample(author.id, 'en', {
     db: drizzle(process.env.DATABASE_URL!, { schema }),
+    media: suiteMedia(),
     image: name => readFile(imagePath(name)),
     sound: file => readFile(soundPath(file)),
   })

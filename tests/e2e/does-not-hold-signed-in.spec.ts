@@ -6,7 +6,7 @@ import { soundPath } from '../../demonstration/sounds'
 import { wordsOf } from '../../demonstration/work'
 import * as schema from '../../server/db/schema'
 import { plantSample } from '../../server/utils/samples'
-import { begin, live, test, writeStory } from './author'
+import { begin, live, suiteMedia, test, writeStory } from './author'
 import type { StoryInEditor } from '../../shared/utils/scenes'
 
 /**
@@ -20,6 +20,7 @@ test('the Sample answers a wrong answer to its Question as well as the right one
   async ({ browser, baseURL, request, author }) => {
     await plantSample(author.id, 'en', {
       db: drizzle(process.env.DATABASE_URL!, { schema }),
+      media: suiteMedia(),
       image: name => readFile(imagePath(name)),
       sound: file => readFile(soundPath(file)),
     })

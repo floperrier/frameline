@@ -3,12 +3,13 @@ import { useDb } from '../../../db'
 
 /**
  * Writes a Shot again right under itself, carrying everything it carries — the
- * bytes of its Image and the point it is cropped around, its Description, its
- * words and their formatting, its Sound and Transcript, its Cut, Layout,
- * Movement, text arrival and Effects, its Conditions — so the same frame takes
- * the next line. It is the Shot's own *Duplicate Scene*, and like that copy it
- * holds bytes of its own, because an Image's bytes are kept in its Shot's row —
- * `docs/adr/0005-a-shots-image-lives-in-its-row.md`.
+ * Image and the point it is cropped around, its Description, its words and
+ * their formatting, its Sound and Transcript, its Cut, Layout, Movement, text
+ * arrival and Effects, its Conditions — so the same frame takes the next line.
+ * It is the Shot's own *Duplicate Scene*. Its Image is the original's digest,
+ * naming the same object in the bucket, so no byte is copied —
+ * `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`; its Sound's
+ * bytes are still its row's, and are copied with it.
  *
  * The copy is never the Story's Cover: the Story names the original by id, and
  * nothing here names the copy anywhere.

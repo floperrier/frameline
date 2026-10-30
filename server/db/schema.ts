@@ -35,10 +35,10 @@ import type { Edition } from '../../shared/utils/reading'
 // else.
 //
 // `avatar` is the picture the provider hands back, held as the URL it hands back
-// and nothing else: no bytes, no resizing, no column of images. A Shot's Image
-// lives in its row because the Image belongs to the Shot — see
-// `docs/adr/0005-a-shots-image-lives-in-its-row.md` — and an avatar belongs to
-// the provider, which goes on serving it: see
+// and nothing else: no bytes, no resizing, no object in the bucket. A Shot's
+// Image is held by Frameline because the Image belongs to the Shot — see
+// `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md` — and an avatar
+// belongs to the provider, which goes on serving it: see
 // `docs/adr/0026-an-avatar-is-a-url-not-bytes.md`. Null where the provider hands
 // none, or for an Author who last signed in before the column existed.
 export const authors = pgTable('authors', {
@@ -122,14 +122,29 @@ export const stories = pgTable('stories', {
 // nothing is encoded on the way past.
 const bytea = customType<{ data: Buffer, driverData: Buffer }>({ dataType: () => 'bytea' })
 
-// The bytes an edition plays, each distinct set held once per Story under the
-// hex of its SHA-256 — Postgres's own `sha256(bytea)` — so an edition does not
-// change when the Author replaces an Image or deletes a Shot, and bytes left
-// alone between two Publishes are not copied again.
+// One object of the bucket the bytes of every Image live in, named by the hex of
+// the SHA-256 of its bytes and by nothing else, so the same bytes are held once
+// whichever Shots, Stories and Authors carry them — see
+// `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`. `size` is how
+// many bytes it weighs, and `used_at` the last time bytes were held under it,
+// which the daily sweep reads to let go of an object nothing names any more.
+// Every digest column names one of these rows, so the row cannot go while
+// anything still names it.
+export const media = pgTable('media', {
+  digest: text('digest').primaryKey(),
+  size: integer('size').notNull(),
+  usedAt: timestamp('used_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// What an edition plays, each distinct set of bytes named once per Story under
+// the hex of its SHA-256, so an edition does not change when the Author replaces
+// an Image or deletes a Shot. An Image's bytes are in the bucket, under the
+// `media` row its digest names, so its row here holds no `bytes`; a Sound's are
+// still copied here, until they follow the Images there.
 export const editionMedia = pgTable('edition_media', {
   storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
   digest: text('digest').notNull(),
-  bytes: bytea('bytes').notNull(),
+  bytes: bytea('bytes'),
 }, table => [primaryKey({ columns: [table.storyId, table.digest] })])
 
 // `x` and `y` were where the Author put the Scene's node in the Story's graph.
@@ -260,10 +275,11 @@ export const scenes = pgTable('scenes', {
 // at once could still collide — add the deferrable constraint by hand the day a
 // Story has more than its one Author.
 //
-// `image` is the image the Shot shows, held in the Shot's own row and null for a
-// Shot that is text alone. The bytes live here rather than in object storage
-// because an image is only as reachable as the Story it belongs to — see
-// `docs/adr/0005-a-shots-image-lives-in-its-row.md`.
+// `image_digest` names the image the Shot shows, by the `media` row its bytes are
+// held under in the bucket, and is null for a Shot that is text alone. Written by
+// the server as the bytes come in, never by the Author, and carried as it stands
+// by a copy, a duplicate and a Shot put back, which copy no bytes — see
+// `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`.
 //
 // `description` is what that image shows, for a Reader who cannot see it. It
 // sits beside the bytes rather than in a table of its own because it is the one
@@ -334,9 +350,7 @@ export const shots = pgTable('shots', {
   sceneId: uuid('scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
   text: text('text').notNull().default(''),
   position: integer('position').notNull(),
-  image: bytea('image'),
-  // `image`'s SHA-256 in hex, kept by migration 0033's trigger and never written here (ADR 0070).
-  imageDigest: text('image_digest'),
+  imageDigest: text('image_digest').references(() => media.digest),
   description: text('description').notNull().default(''),
   sound: bytea('sound'),
   // `sound`'s SHA-256 in hex, kept by migration 0033's trigger and never written here (ADR 0070).

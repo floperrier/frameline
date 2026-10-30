@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { neon } from '@neondatabase/serverless'
+import { drizzle } from 'drizzle-orm/neon-http'
 import {
   expect, test as base, type APIRequestContext, type BrowserContext, type Locator, type Page,
 } from '@playwright/test'
@@ -8,6 +9,7 @@ import { DISMISSED } from '../../app/utils/steps'
 import type { Condition, Exit, Scene, Sets, Shot, StoryInEditor } from '../../shared/utils/scenes'
 import { sealSession, type H3Event } from 'h3'
 import { routeToLocalProxy } from '../../server/db/endpoint'
+import { mediaStore } from '../../server/utils/media'
 
 // The suite's own database sits behind a local proxy, not on Neon, and every
 // spec that writes to it directly comes through here.
@@ -31,6 +33,32 @@ export const ONE_PIXEL = Buffer.from(
  * decoder and a browser that cannot decode what it is handed proves nothing.
  */
 export const A_SOUND = readFileSync(new URL('silence.mp3', import.meta.url))
+
+/**
+ * The suite's own bucket, for the specs that plant a Sample outside nitro and so
+ * hold its images themselves, the way planting does inside it. The settings are
+ * the ones `playwright.config.ts` hands the built app.
+ */
+export function suiteMedia() {
+  return mediaStore({
+    endpoint: process.env.NUXT_MEDIA_ENDPOINT!,
+    bucket: process.env.NUXT_MEDIA_BUCKET!,
+    accessKeyId: process.env.NUXT_MEDIA_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.NUXT_MEDIA_SECRET_ACCESS_KEY!,
+  }, drizzle(process.env.DATABASE_URL!))
+}
+
+/**
+ * The object of the bucket a door sends the browser to, read off the address it
+ * signs: the same object is the same bytes held once, whichever Shot or Story
+ * named it, and the address's signature is the part that changes each time.
+ */
+export async function objectBehind(request: APIRequestContext, door: string) {
+  const sent = await request.get(door, { maxRedirects: 0 })
+  expect(sent.status()).toBe(302)
+
+  return new URL(sent.headers()['location']!).pathname
+}
 
 export type Author = { id: string, email: string, name: string | null }
 type Story = { id: string, title: string }
@@ -314,16 +342,16 @@ export async function seedLong(story: Story, framedBy: Pick<Story, 'id'>, scenes
 
   await sql`
     with framed as (
-      select shots.image, row_number() over (order by scenes.created_at, scenes.id, shots.position) - 1 as at,
+      select shots.image_digest, row_number() over (order by scenes.created_at, scenes.id, shots.position) - 1 as at,
         count(*) over () as frames
       from shots join scenes on scenes.id = shots.scene_id
-      where scenes.story_id = ${framedBy.id} and shots.image is not null
+      where scenes.story_id = ${framedBy.id} and shots.image_digest is not null
     ), seeded as (
       select shots.id, row_number() over (order by shots.scene_id, shots.position) - 1 as at
       from shots join scenes on scenes.id = shots.scene_id
       where scenes.story_id = ${story.id}
     )
-    update shots set image = framed.image
+    update shots set image_digest = framed.image_digest
     from seeded, framed
     where shots.id = seeded.id and framed.at = seeded.at % framed.frames`
 

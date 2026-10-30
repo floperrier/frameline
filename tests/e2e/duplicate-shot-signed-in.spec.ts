@@ -8,7 +8,8 @@ import * as schema from '../../server/db/schema'
 import { plantSample } from '../../server/utils/samples'
 import type { Shot, StoryInEditor } from '../../shared/utils/scenes'
 import {
-  ONE_PIXEL, live, readShots, seedScene, seedStory, test, toast, writeStory, type Author,
+  ONE_PIXEL, live, objectBehind, readShots, seedScene, seedStory, suiteMedia, test, toast, writeStory,
+  type Author,
 } from './author'
 
 /**
@@ -21,6 +22,7 @@ import {
 async function plant(author: Author) {
   await plantSample(author.id, 'en', {
     db: drizzle(process.env.DATABASE_URL!, { schema }),
+    media: suiteMedia(),
     image: name => readFile(imagePath(name)),
     sound: file => readFile(soundPath(file)),
   })
@@ -77,6 +79,9 @@ test('the Sample’s first Shot written again under itself is the same frame, an
     const [mine, its] = await Promise.all([original!, copy!].map(
       async shot => (await request.get(`/api/shots/${shot.id}/image`)).body()))
     expect(its.equals(mine)).toBe(true)
+    // And one object in the bucket: duplicating a Shot holds nothing new.
+    expect(await objectBehind(request, `/api/shots/${copy!.id}/image`))
+      .toBe(await objectBehind(request, `/api/shots/${original!.id}/image`))
 
     // The caret is in the copy's words, all of them selected, so typing replaces
     // them and leaves the original's alone.

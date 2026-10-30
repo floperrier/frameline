@@ -4,6 +4,7 @@ import { SAMPLES, type SampleLanguage } from '../../demonstration/samples'
 import type { WorkCondition } from '../../demonstration/work'
 import { exits, scenes, shots, stories } from '../db/schema'
 import { useDb } from '../db'
+import { useMedia, type MediaStore } from './media'
 import { textOf } from '../../shared/utils/formatted'
 import type { Condition } from '../../shared/utils/scenes'
 
@@ -31,12 +32,12 @@ import type { Condition } from '../../shared/utils/scenes'
 export async function plantSample(
   authorId: string,
   language: string,
-  bench: Bench = { db: useDb(), image: sampleImage, sound: sampleSound },
+  bench: Bench = { db: useDb(), media: useMedia(), image: sampleImage, sound: sampleSound },
 ) {
   const sample = SAMPLES[language as SampleLanguage]
   if (!sample) return undefined
 
-  const { db, image, sound } = bench
+  const { db, media, image, sound } = bench
   let planted: string | undefined
 
   // Each Scene's ways on, by their Place there, given their ids before anything
@@ -118,7 +119,9 @@ export async function plantSample(
         conditions: (shot.when ?? []).map(identified),
         // A Sample's images are the WebP files committed beside the work, never
         // developed here: the runtime this deploys to has no ImageMagick on it.
-        image: typeof shot.image === 'string' ? await image(shot.image) : null,
+        // Each is held in the bucket under its digest, so planting the same
+        // Sample for every Author writes each image as one object.
+        imageDigest: typeof shot.image === 'string' ? await media.hold(await image(shot.image)) : null,
         sound: shot.sound ? await sound(shot.sound) : null,
         transcript: shot.transcript ?? '',
         layout: shot.layout ?? null,
@@ -180,13 +183,14 @@ export async function plantSample(
 }
 
 /**
- * What planting needs of the world around it: the database, and the bytes of an
- * image or a Sound. All three are had from nitro in production and all three are
- * handed in by the end-to-end spec, which runs outside nitro and so has none of
- * the auto-imports.
+ * What planting needs of the world around it: the database, the media store the
+ * images are held through, and the bytes of an image or a Sound. All four are had
+ * from nitro in production and all four are handed in by the end-to-end spec,
+ * which runs outside nitro and so has none of the auto-imports.
  */
 type Bench = {
   db: ReturnType<typeof useDb>
+  media: Pick<MediaStore, 'hold'>
   image: (name: string) => Promise<Buffer>
   sound: (file: string) => Promise<Buffer>
 }

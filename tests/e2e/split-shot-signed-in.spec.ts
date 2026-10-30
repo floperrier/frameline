@@ -7,7 +7,7 @@ import { soundPath } from '../../demonstration/sounds'
 import * as schema from '../../server/db/schema'
 import { plantSample } from '../../server/utils/samples'
 import type { Scene, StoryInEditor } from '../../shared/utils/scenes'
-import { live, readShots, seedScene, seedStory, test, toast, type Author } from './author'
+import { live, readShots, seedScene, seedStory, suiteMedia, test, toast, type Author } from './author'
 
 /**
  * A Shot's words cut in two where the caret stands, and joined back to the Shot
@@ -19,6 +19,7 @@ import { live, readShots, seedScene, seedStory, test, toast, type Author } from 
 async function plant(author: Author) {
   await plantSample(author.id, 'en', {
     db: drizzle(process.env.DATABASE_URL!, { schema }),
+    media: suiteMedia(),
     image: name => readFile(imagePath(name)),
     sound: file => readFile(soundPath(file)),
   })

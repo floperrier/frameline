@@ -110,6 +110,13 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     databaseUrl: process.env.DATABASE_URL ?? '',
+    // The bucket the bytes of every Image live in, and the keys it is written
+    // with: `NUXT_MEDIA_ENDPOINT`, `NUXT_MEDIA_BUCKET`,
+    // `NUXT_MEDIA_ACCESS_KEY_ID` and `NUXT_MEDIA_SECRET_ACCESS_KEY`. R2 in
+    // production, set in Vercel's environment alone; the bucket `pnpm dev` and
+    // the suite start beside their database everywhere else — see
+    // `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`.
+    media: { endpoint: '', bucket: '', accessKeyId: '', secretAccessKey: '' },
     // The published Story the landing page sends a visitor to read, named by
     // `NUXT_PUBLIC_LANDING_STORY` rather than written into the page: which
     // Sample is published is a fact about the deployment, not about the code.

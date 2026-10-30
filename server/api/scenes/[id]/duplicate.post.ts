@@ -69,14 +69,14 @@ export default defineEventHandler(async (event) => {
     ),
     copied as (
       insert into shots (
-        scene_id, text, position, image, description, sound, transcript, conditions,
+        scene_id, text, position, image_digest, description, sound, transcript, conditions,
         image_arrives, image_lasts, text_arrives, text_lasts,
         cut_after, cut_over, cut_through,
         layout, crop_x, crop_y, formatted,
         movement_by, movement_direction, movement_over,
         text_after, text_by, text_pace, text_over, text_stays
       )
-      select made.id, shots.text, shots.position, shots.image, shots.description,
+      select made.id, shots.text, shots.position, shots.image_digest, shots.description,
              shots.sound, shots.transcript, shots.conditions,
              shots.image_arrives, shots.image_lasts, shots.text_arrives, shots.text_lasts,
              shots.cut_after, shots.cut_over, shots.cut_through,

@@ -187,21 +187,28 @@ Samples, that each holds together as a work and that the two of them are one
 shape in two languages — and that the script that writes the works starts on
 Node as it stands, run with no Author so it stops before reaching for a
 database. None of them needs a database, because none of them has one in reach. `pnpm test:e2e` runs
-Playwright against a built app and the suite's own database: `pnpm test:db`
-starts a Postgres and a proxy that speaks Neon's protocol (`compose.yaml`,
-Docker) and migrates them, and the suite reaches them at
+Playwright against a built app and the suite's own database and bucket:
+`pnpm test:db` starts a Postgres, a proxy that speaks Neon's protocol and a
+Versity Gateway standing in for the R2 bucket the Images live in
+(`compose.yaml`, Docker), migrates the database, then makes the bucket and sets
+its CORS rule (`scripts/bucket.ts`). The suite reaches the database at
 `postgres://postgres:postgres@db.localtest.me:4445/main` unless the environment
-sets another `DATABASE_URL`. It never takes the one in `.env`, which is
-`pnpm dev`'s. CI does the same and never touches Neon, whose free quota is production's — see
-`docs/adr/0075-the-suite-brings-its-own-database.md`.
+sets another `DATABASE_URL`, and the bucket at `http://localhost:4447` unless it
+sets another `NUXT_MEDIA_ENDPOINT`. It never takes the ones in `.env`, which are
+`pnpm dev`'s. CI does the same and never touches Neon, whose free quota is
+production's, nor Cloudflare — see
+`docs/adr/0075-the-suite-brings-its-own-database.md` and
+`docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`.
 
 ## Running the app
 
 `pnpm dev` after copying `.env.example` to `.env` and filling it in, with Docker
-running. It first starts the database it runs on, the suite's two containers
-started again as a stack of their own (`compose.dev.yaml`, port 4446) whose data
-is kept in a volume, and applies the migrations to it. Then Nuxt starts. See
-`docs/adr/0082-development-brings-its-own-database.md`. Never edit the database
+running. It first starts the database and the bucket it runs on, the suite's
+containers started again as a stack of their own (`compose.dev.yaml`, the
+database on 4446 and the bucket on 4448) whose rows and objects are kept in
+volumes, applies the migrations and makes the bucket. Then Nuxt starts. See
+`docs/adr/0082-development-brings-its-own-database.md` and
+`docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`. Never edit the database
 by hand. Migrations are generated from `server/db/schema.ts` with
 `pnpm db:generate` and applied with `pnpm db:migrate` to the database
 `DATABASE_URL` names: `.env`'s on a development machine, Neon in the deploy.

@@ -6,7 +6,7 @@ import { soundPath } from '../../demonstration/sounds'
 import * as schema from '../../server/db/schema'
 import { plantSample } from '../../server/utils/samples'
 import type { StoryInEditor } from '../../shared/utils/scenes'
-import { live, seedLong, seedStory, test, writeScene } from './author'
+import { live, seedLong, seedStory, suiteMedia, test, writeScene } from './author'
 
 /**
  * The bench of a long Story brings in only the Images the Author is looking at —
@@ -31,6 +31,7 @@ test('the bench of a long Story asks for the Images in the window, and for the r
 
     await plantSample(author.id, 'en', {
       db: drizzle(process.env.DATABASE_URL!, { schema }),
+      media: suiteMedia(),
       image: name => readFile(imagePath(name)),
       sound: file => readFile(soundPath(file)),
     })
@@ -44,9 +45,15 @@ test('the bench of a long Story asks for the Images in the window, and for the r
     const bodies: Promise<number>[] = []
     let weighing = true
     page.on('request', (sent) => {
-      const { pathname } = new URL(sent.url())
+      // The door sends the browser on to the bucket, so an Image is asked for
+      // where the door is and weighed where its bytes come from.
+      const door = sent.redirectedFrom()
+      const { pathname } = new URL((door ?? sent).url())
       if (!AN_IMAGE.test(pathname)) return
-      asked.push(pathname)
+      if (!door) {
+        asked.push(pathname)
+        return
+      }
       // Only the opening is weighed: a body still on its way when the test ends
       // would reject with nobody waiting on it.
       if (weighing) bodies.push(sent.response().then(answered => answered!.body()).then(body => body.length))

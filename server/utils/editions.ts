@@ -21,12 +21,14 @@ const LIVE = {
 /**
  * Every Image and Sound of the Story a statement names `story`: the row each
  * lives in, which of the three it is, the digest its row keeps, and the bytes,
- * which nothing reads unless a statement asks for them.
+ * which nothing reads unless a statement asks for them. An Image has none here:
+ * its bytes are the bucket's, under the `media` row its digest names — see
+ * `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`.
  */
 const CARRIED = sql`
-  select shots.id, 'image' as kind, shots.image_digest as digest, shots.image as bytes
+  select shots.id, 'image' as kind, shots.image_digest as digest, null::bytea as bytes
   from shots join scenes on scenes.id = shots.scene_id join story on story.id = scenes.story_id
-  where shots.image is not null
+  where shots.image_digest is not null
   union all
   select shots.id, 'shot sound', shots.sound_digest, shots.sound
   from shots join scenes on scenes.id = shots.scene_id join story on story.id = scenes.story_id
@@ -95,7 +97,8 @@ function forTheReading({ scenes, exits }: Graph, media: (live: string | null) =>
 
 /**
  * Takes an edition of a Story: holds the bytes it plays under the digest each
- * row keeps of them, copying only those not held already, reads the work as the
+ * row keeps of them, recording an Image's digest alone and copying only the
+ * Sounds not held already, reads the work as the
  * Reader's door narrows it, and writes it as what Readers read from now on. `may`
  * is the condition on the `stories` row under which this caller may take it —
  * the Author's own and readable, for a Publish; published and still without one,
@@ -113,7 +116,8 @@ function forTheReading({ scenes, exits }: Graph, media: (live: string | null) =>
 export async function takeEdition(storyId: string, may: SQL) {
   // Every Image and Sound the Story carries, by the digest its row keeps, and
   // held, in one statement: nothing is hashed, no bytes leave Postgres, and only
-  // the bytes of a digest not yet held are read, to be copied.
+  // the bytes of a Sound not yet held are read, to be copied. An Image's are in
+  // the bucket, and its digest is all the edition needs to hold.
   const { rows: held } = await useDb().execute<{
     id: string
     kind: keyof typeof LIVE

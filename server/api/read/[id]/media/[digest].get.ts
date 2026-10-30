@@ -3,11 +3,15 @@ import { editionMedia, stories } from '../../../../db/schema'
 import { useDb } from '../../../../db'
 
 /**
- * The bytes of one Image or Sound an edition plays, by its digest — see
+ * One Image or Sound an edition plays, by its digest — see
  * `docs/adr/0069-a-published-story-is-read-as-it-was-published.md`. Reachable
  * while the Story is published and only under the Story that holds them: another
  * Story's digest, a malformed one and an unpublished Story are all the Story's
  * not-found, so nothing can be told apart from absent.
+ *
+ * An Image is in the bucket, and the door sends the browser on to it as a Shot's
+ * own does — see `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`.
+ * A Sound's bytes are still held here, and served from here, until they follow.
  */
 export default defineEventHandler(async (event) => {
   const id = readId(event, 'Story')
@@ -25,11 +29,11 @@ export default defineEventHandler(async (event) => {
     ))
 
   if (!held) throw notFound(event, 'Story')
+  if (!held.bytes) return await sendToBucket(event, digest)
 
   setResponseHeaders(event, {
     // Sniffed from the bytes, as the live doors do: they were sniffed on the way in.
-    'content-type':
-      imageTypeOf(held.bytes) ?? soundTypeOf(held.bytes) ?? 'application/octet-stream',
+    'content-type': soundTypeOf(held.bytes) ?? 'application/octet-stream',
     'x-content-type-options': 'nosniff',
     // A public link can be taken away, so nothing it served may outlive the Publish.
     'cache-control': 'no-store',

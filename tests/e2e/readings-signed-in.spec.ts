@@ -6,7 +6,7 @@ import { soundPath } from '../../demonstration/sounds'
 import * as schema from '../../server/db/schema'
 import { plantSample } from '../../server/utils/samples'
 import type { StoryInEditor } from '../../shared/utils/scenes'
-import { begin, live, readTheStory, test } from './author'
+import { begin, live, readTheStory, suiteMedia, test } from './author'
 
 /**
  * The Author of a published Story is told how many Readings it has had and how
@@ -23,6 +23,7 @@ test('the Author is told how many Readings of their Story began and ended, and o
   async ({ browser, baseURL, page, request, author }) => {
     await plantSample(author.id, 'en', {
       db: drizzle(process.env.DATABASE_URL!, { schema }),
+      media: suiteMedia(),
       image: name => readFile(imagePath(name)),
       sound: file => readFile(soundPath(file)),
     })

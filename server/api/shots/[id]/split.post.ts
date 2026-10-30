@@ -11,7 +11,7 @@ import { useDb } from '../../../db'
  * Effects and the Conditions the Shot plays under, so words that played only for
  * some Readers still play only for them. Every other column takes its default:
  * no Image and no Sound, and a Cut, a Layout and a Movement played as the Scene
- * says. `image` is never written, so its digest is its trigger's alone (ADR 0070).
+ * says.
  *
  * One statement, because the neon-http driver has no transactions: the Shot is
  * written, the run opened after it and the new Shot inserted at the Place after
