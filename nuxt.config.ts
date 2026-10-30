@@ -107,6 +107,13 @@ export default defineNuxtConfig({
       baseName: 'sounds',
       dir: fileURLToPath(new URL('public/sounds', import.meta.url)),
     }],
+    // The daily sweep, which erases from the bucket the media nothing names any
+    // more (`server/api/sweep.get.ts`). The Vercel preset writes it into the
+    // Build Output's `config.json`, where Vercel reads a deployment's crons, so
+    // it runs in production alone. Hobby runs a cron once a day at most, within
+    // the hour, and calls it with `CRON_SECRET` as its bearer — see
+    // `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md`.
+    vercel: { config: { crons: [{ path: '/api/sweep', schedule: '0 4 * * *' }] } },
   },
   runtimeConfig: {
     databaseUrl: process.env.DATABASE_URL ?? '',

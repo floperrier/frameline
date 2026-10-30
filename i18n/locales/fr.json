@@ -755,6 +755,7 @@
     "favouritesDelete": "Les Favoris sont la Liste que chaque compte possède : ils ne peuvent pas être supprimés.",
     "split": "Une Scène se scinde avant l’un de ses propres Plans, jamais avant le premier.",
     "putBack": "Ce Plan ne peut plus être remis.",
+    "notTheCron": "Le balayage est lancé par la tâche quotidienne de l’instance elle-même, donc rien n’a été effacé.",
     "moveShot": "Un Plan se déplace vers une autre Scène que celle où il se trouve.",
     "movePlace": "Un Plan se déplace à un Rang donné en nombre entier, compté à partir de zéro.",
     "wayBack": "Une Lecture ne se tient qu’une fois dans une Scène : une Sortie ne peut donc pas ramener à une Scène que le Lecteur a pu déjà traverser. Dupliquez cette Scène, puis faites-y mener la Sortie.",

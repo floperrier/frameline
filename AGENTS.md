@@ -182,8 +182,9 @@ back is laid over the one the bench holds so that what did not change keeps its
 object, and which of two reads that cross lands, what differs between a
 published Story's Edition and the Story as it is written, how many Readings left
 off in each of its Scenes, the places a word is
-found at in a Story and what replacing them writes, and the two
-Samples, that each holds together as a work and that the two of them are one
+found at in a Story and what replacing them writes, which call to the daily
+sweep of the bucket is the cron's own and that the cron is declared once a day,
+and the two Samples, that each holds together as a work and that the two of them are one
 shape in two languages — and that the script that writes the works starts on
 Node as it stands, run with no Author so it stops before reaching for a
 database. None of them needs a database, because none of them has one in reach. `pnpm test:e2e` runs

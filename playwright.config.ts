@@ -11,12 +11,14 @@ import { defineConfig } from '@playwright/test'
 // `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md` — and a spec
 // reads its endpoint to know the host a signed address points at. The password
 // comes from `.env` — Nuxt loads it for us everywhere else — and CI supplies it
-// directly instead.
+// directly instead. The cron secret is the suite's own, so the spec of the daily
+// sweep can make the call the cron makes.
 process.env.DATABASE_URL ??= 'postgres://postgres:postgres@db.localtest.me:4445/main'
 process.env.NUXT_MEDIA_ENDPOINT ??= 'http://localhost:4447'
 process.env.NUXT_MEDIA_BUCKET ??= 'media'
 process.env.NUXT_MEDIA_ACCESS_KEY_ID ??= 'frameline'
 process.env.NUXT_MEDIA_SECRET_ACCESS_KEY ??= 'frameline-secret'
+process.env.CRON_SECRET ??= 'frameline-cron'
 if (existsSync('.env')) process.loadEnvFile('.env')
 
 if (!process.env.NUXT_SESSION_PASSWORD) {
@@ -77,6 +79,7 @@ export default defineConfig({
       NUXT_MEDIA_BUCKET: process.env.NUXT_MEDIA_BUCKET,
       NUXT_MEDIA_ACCESS_KEY_ID: process.env.NUXT_MEDIA_ACCESS_KEY_ID,
       NUXT_MEDIA_SECRET_ACCESS_KEY: process.env.NUXT_MEDIA_SECRET_ACCESS_KEY,
+      CRON_SECRET: process.env.CRON_SECRET,
     },
   },
 })
