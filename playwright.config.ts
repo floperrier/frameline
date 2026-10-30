@@ -6,9 +6,17 @@ import { defineConfig } from '@playwright/test'
 // database is the suite's own, which `pnpm test:db` starts, rather than the one
 // `.env` names for `pnpm dev` — see
 // `docs/adr/0082-development-brings-its-own-database.md`; a `DATABASE_URL` in
-// the environment still wins. The password comes from `.env` — Nuxt loads it for
-// us everywhere else — and CI supplies both directly instead.
+// the environment still wins. The bucket is the suite's own for the same reason,
+// started beside the database — see
+// `docs/adr/0092-images-and-sounds-live-in-a-private-bucket.md` — and a spec
+// reads its endpoint to know the host a signed address points at. The password
+// comes from `.env` — Nuxt loads it for us everywhere else — and CI supplies it
+// directly instead.
 process.env.DATABASE_URL ??= 'postgres://postgres:postgres@db.localtest.me:4445/main'
+process.env.NUXT_MEDIA_ENDPOINT ??= 'http://localhost:4447'
+process.env.NUXT_MEDIA_BUCKET ??= 'media'
+process.env.NUXT_MEDIA_ACCESS_KEY_ID ??= 'frameline'
+process.env.NUXT_MEDIA_SECRET_ACCESS_KEY ??= 'frameline-secret'
 if (existsSync('.env')) process.loadEnvFile('.env')
 
 if (!process.env.NUXT_SESSION_PASSWORD) {
@@ -65,6 +73,10 @@ export default defineConfig({
       PORT: '3101',
       NUXT_SESSION_PASSWORD: process.env.NUXT_SESSION_PASSWORD!,
       DATABASE_URL: process.env.DATABASE_URL!,
+      NUXT_MEDIA_ENDPOINT: process.env.NUXT_MEDIA_ENDPOINT,
+      NUXT_MEDIA_BUCKET: process.env.NUXT_MEDIA_BUCKET,
+      NUXT_MEDIA_ACCESS_KEY_ID: process.env.NUXT_MEDIA_ACCESS_KEY_ID,
+      NUXT_MEDIA_SECRET_ACCESS_KEY: process.env.NUXT_MEDIA_SECRET_ACCESS_KEY,
     },
   },
 })
