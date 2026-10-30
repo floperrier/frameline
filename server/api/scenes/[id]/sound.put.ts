@@ -18,7 +18,7 @@ import { useDb } from '../../../db'
 export default defineEventHandler(async (event) => {
   const author = await requireAuthor(event)
   const id = readId(event, 'Scene')
-  const soundDigest = await useMedia().hold(await readSound(event))
+  const soundDigest = await holdUpload(event, await readSound(event))
 
   const [scene] = await useDb()
     .update(scenes)
