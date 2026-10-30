@@ -89,7 +89,9 @@ export default defineConfig({
       NUXT_MEDIA_BUCKET: process.env.NUXT_MEDIA_BUCKET,
       NUXT_MEDIA_ACCESS_KEY_ID: process.env.NUXT_MEDIA_ACCESS_KEY_ID,
       NUXT_MEDIA_SECRET_ACCESS_KEY: process.env.NUXT_MEDIA_SECRET_ACCESS_KEY,
-      CRON_SECRET: process.env.CRON_SECRET,
+      // At run time Nuxt reads the runtime configuration from `NUXT_`, and CI
+      // builds the app in a step of its own, before this secret is set.
+      NUXT_CRON_SECRET: process.env.CRON_SECRET,
     },
   },
 })

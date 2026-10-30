@@ -36,7 +36,8 @@ import { useDb } from '../db'
  * in the bucket and never a medium anybody reads.
  */
 export default defineEventHandler(async (event) => {
-  if (!fromTheCron(getRequestHeader(event, 'authorization'), process.env.CRON_SECRET)) {
+  const { cronSecret } = useRuntimeConfig(event)
+  if (!fromTheCron(getRequestHeader(event, 'authorization'), cronSecret)) {
     throw createError({ statusCode: 401, message: saying(event)('refusals.notTheCron') })
   }
 
