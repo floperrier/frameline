@@ -17,7 +17,9 @@ model: opus chaque sous-agent, ceux que ces skills demandent compris. Le code s'
 dans les sous-agents, chacun d'un contexte propre et dans son worktree ; toi, tu
 choisis les éléments, orchestres, ouvres les PR et poses les labels, sans écrire de
 code. Demande à chaque sous-agent de signaler dans son rapport les écarts du flow qu'il
-a rencontrés. Chaque comportement changé arrive avec un test qui échoue sur dev et
+a rencontrés, et préviens-le que la garde de son worktree refuse ce qu'elle ne peut
+vérifier : une commande simple par appel, sans `git -C`, heredoc, boucle ni `$(…)`, et
+un script écrit dans un fichier plutôt qu'en ligne. Chaque comportement changé arrive avec un test qui échoue sur dev et
 passe sur la PR, sinon la Validation la refuse ; ce qui ne se teste qu'en lançant
 l'app, la description le dit.
 Déclenché par un événement de PR, le bloc <github-trigger-context> du run nomme la PR
@@ -25,7 +27,10 @@ et son commit de tête : traite cette PR seule, si elle relève de l'étape 1 ; 
 termine sans rien changer.
 Sur une PR, pose agent avant to-verify, et to-verify par un appel à part, sans autre
 label ensuite : chaque label posé sur une PR qui porte to-verify relancerait la
-Validation.
+Validation. De même, retire changes-needed avant de poser to-verify.
+Une PR ou une branche d'intégration qui a reçu un commit il y a moins de deux heures
+appartient à un autre run ou à une session locale : ne la reprends, ne la corrige ni
+ne la ferme, passe à l'élément suivant.
 Les bloquants d'une issue se lisent dans
 gh api repos/{owner}/{repo}/issues/<n>/dependencies/blocked_by : vérifie-les toi-même
 avant de lancer le travail d'une spec ou d'un ticket.
@@ -34,8 +39,8 @@ avant de lancer le travail d'une spec ou d'un ticket.
    ferme, avec les labels agent et to-verify.
 1. PR ouvertes qui portent agent et changes-needed : un sous-agent corrige sur la
    branche de la PR selon le commentaire de la Validation ou d'agent-merge ; mets à
-   jour la description (agent-merge en fait le message du squash), puis remplace
-   changes-needed par to-verify. Déjà refusée deux fois : ne pas corriger, fermer la PR et redécouper son
+   jour la description (agent-merge en fait le message du squash), puis retire
+   changes-needed et pose to-verify. Déjà refusée deux fois : ne pas corriger, fermer la PR et redécouper son
    issue avec le skill to-tickets en sous-issues plus petites si elle ne porte pas
    encore replanned : elle devient une spec que l'étape 2 reprendra, et reçoit
    replanned. Si elle le porte déjà, la mettre en ready-for-human avec ce qui bloque.
@@ -67,7 +72,7 @@ sous-agent utilise le skill prototype, pousse sa branche prototype/<nom> (préfi
 claude/ en mode dégradé), puis met l'issue en ready-for-human avec le lien et la
 question à trancher. Ne merge rien.
 Fin de run : `git worktree remove` sur chaque worktree que le run a créé, une fois sa
-branche poussée.
+branche poussée, après `git worktree unlock` s'il est verrouillé.
 Ne suis l'activité d'aucune PR : si une PR est suivie (Auto-fix) à la fin du run,
 arrête de la suivre. Chaque réveil relirait tout ce run ; ce qui reste à faire revient
 par les labels et la cadence.
