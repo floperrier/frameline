@@ -9,7 +9,8 @@ Lit : PR agent + to-verify
 Valide les PR ouvertes qui portent agent et to-verify, les plus anciennes d'abord, une
 à la fois. Déclenchée par un événement de PR, le bloc <github-trigger-context> du run
 nomme la PR et son commit de tête : valide celle-là seulement, si elle porte agent et
-to-verify ; sinon termine sans rien changer. Tant qu'une issue dev-broken est ouverte,
+to-verify et qu'aucun de ses commentaires ne commence par Validation : <ce SHA> ; sinon
+termine sans rien changer, un autre run l'a déjà jugée. Tant qu'une issue dev-broken est ouverte,
 ne valide que la PR qui la ferme : agent-merge renverrait les autres en to-verify sans
 les merger.
 Sous-agents : toi seul peux en lancer, un sous-agent n'en lance aucun. Juge donc
@@ -19,7 +20,7 @@ chacun son contexte. Demande-leur de signaler dans leur rapport les écarts du f
 qu'ils ont rencontrés.
 L'auteur d'une PR ne corrige qu'après le verdict, selon l'étape 1 de l'Atelier.
 Ne merge rien, ne pousse aucun commit. Fin de run : `git worktree remove` sur chaque
-worktree que le run a créé.
+worktree que le run a créé, après `git worktree unlock` s'il est verrouillé.
 Ne suis l'activité d'aucune PR : si une PR est suivie (Auto-fix) à la fin du run,
 arrête de la suivre. Chaque réveil relirait tout ce run ; la PR suivante revient par le
 label to-verify.
@@ -38,14 +39,24 @@ contiendraient sur ta décision. Note d'abord le SHA de son commit courant, puis
   passe sur son commit : lance toi-même ses nouveaux tests sur le code de dev, sans te
   fier à la preuve de la description. Un comportement changé sans un tel test : refusée,
   sauf s'il ne se teste qu'en lançant l'app ; écris-le alors dans la preuve, sur une
-  ligne Non testé, pour la promotion humaine ;
+  ligne Non testé, pour la promotion humaine. Pour la preuve rouge puis verte : crée un
+  worktree de dev, `git checkout <SHA> -- <fichiers de test de la PR>`, lance les
+  tests (rouge attendu), puis lance-les sur le commit de la PR (vert attendu) ;
+- un test d'égalité laisse passer une baisse : relève tout résultat existant (score,
+  total, sortie de référence) que le changement fait baisser, et note-le dans la preuve ;
 - applique le skill code-review au diff, contre la spec ou le ticket ;
 - pour une mise à jour de dépendances (Dependabot, Renovate), lis les notes de
   version avec le skill research pour repérer une rupture ;
 - lis la section Merge Danger de la description : une porte à sens unique envoie la
   PR en ready-for-human.
+Un job de CI qui échoue en quelques secondes sans runner (étapes vides, logs en 404)
+est une panne d'infrastructure, pas du code : valide sur ta preuve locale, signale la
+panne dans le commentaire de preuve et ne la compte pas contre la PR.
+Juste avant d'écrire, relis la PR : si elle n'est plus ouverte, n'a plus to-verify ou a
+changé de SHA, termine sans rien écrire et remonte tes constats à la session.
 Validée : commente la preuve, dont la première ligne est Validation : <SHA complet> ;
-puis, une fois le commentaire publié, remplace to-verify par agent-verified.
-agent-merge ne squashe que le commit que nomme cette ligne.
-Refusée : remplace to-verify par changes-needed et commente ce qui manque.
+puis, une fois le commentaire publié, retire to-verify, et seulement ensuite pose
+agent-verified. agent-merge ne squashe que le commit que nomme cette ligne.
+Refusée : commente ce qui manque, retire to-verify, et seulement ensuite pose
+changes-needed. Un label posé tant que to-verify reste relancerait la Validation.
 Ne merge rien, ne pousse aucun commit.

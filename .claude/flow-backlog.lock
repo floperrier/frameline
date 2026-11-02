@@ -1,10 +1,10 @@
 # Version du kit flow-backlog copiée dans ce dépôt : <blob git> <asset>. Écrit par scripts/upgrade.sh du skill.
 bfd7d44028e7d5a187c5f6722c2dc8cb3aa7ce88 githooks/commit-msg
-20aa57e61f594b491b980cf7109cf033be9c1d8d routines/architecture.md
-70b8adfded13ecabfba601d79237ca91d8771f7f routines/atelier.md
+fce69c4a32a9ad436f8327fcffb78ed39072bf61 routines/architecture.md
+8fb23e401001a7b2f3a2dfacc7fd798ce92729f4 routines/atelier.md
 3f9f351b762d944a8316ba3634b01170874a01c7 routines/entretien.md
 b1ac47fc0d9bf674557c067cc178228375265913 routines/triage.md
-7c02fa107cc4321d5d8ca542571071b6ad2cfff5 routines/validation.md
+44dc5f90bde120b319c725b7fbbd5d1ce0c27d61 routines/validation.md
 e9ee90c7f4c73f3e9e96cf8f8f15091ec87330c2 scripts/skills-model-invocable.sh
 c5838a4216024b08ed2d0297735da8f2aa416cf1 scripts/trace
 b02dcd7de6a6da0cec148c0072657edd51e36f73 scripts/trace.test.sh
