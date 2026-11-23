@@ -7,16 +7,8 @@ Read `GLOSSARY.md` before touching anything — the glossary is binding.
 
 The Neon skills come from the plugin `neon-postgres@neon`, which
 `.claude/settings.json` enables and whose marketplace it declares, so a clone can
-install it. The skills the backlog flow runs on are copied into `.claude/skills/`
-instead, because a cloud session loads no plugin: those of `mattpocock/skills`
-v1.3.1 the routines call, the ones those call in turn, and the ones the developer
-runs by hand (`grill-with-docs`, `to-spec`, `to-tickets`, `wayfinder`,
-`to-questionnaire`, `retro`). `skills-lock.json` records where each copy came
-from. After `npx skills update`, run
-`scripts/skills-model-invocable.sh`: it lets the model invoke the five skills a
-routine names that upstream keeps for the user, and takes out of `triage` the line
-it would start every comment with to say who wrote it. `agent-guard` fails a pull
-request on which either has come back.
+install it. The skills of `mattpocock/skills` are not copied into this
+repository: they are installed globally on the developer's machine.
 
 ### Issue tracker
 
